@@ -27,7 +27,12 @@ const (
 	SleepTravelMaxWait = 18 * SleepTick // 3min hard cap for in-system travel
 	SleepJumpMaxWait   = 30 * SleepTick // 5min hard cap for cross-system jump
 
-	SleepReconnect = 30 * time.Second // Reconnection recovery wait
+	// Espionage blocks the player for ~90s (9 ticks) server-side before it
+	// resolves, far longer than an ordinary mutation. 18 ticks doubles that
+	// for headroom against a slow-running server.
+	SleepEspionageMaxWait = 18 * SleepTick // 3min hard cap for espionage
+
+	SleepReconnect         = 30 * time.Second // Reconnection recovery wait
 	SleepRetry             = 1 * time.Second  // Retry delay for failed operations
 	SleepScanInterval      = 5 * time.Minute  // Delay between scan_for_distress cycles
 	SleepChatPoll          = 1 * time.Hour    // Chat channel polling interval (background reconcile/ingest)

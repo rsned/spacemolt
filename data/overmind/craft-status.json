@@ -1,10 +1,10 @@
 {
-  "captured_at": "2026-07-13T02:24:52Z",
+  "captured_at": "2026-07-14T03:08:47Z",
   "workers": [
     {
       "agent_id": "craftsman-10",
       "role": "craftsman",
-      "system": "Deep Range",
+      "system": "Frontier",
       "poi": "mobile_capital",
       "docked": true,
       "credits": 211095,
@@ -21,7 +21,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T02:24:48Z"
+      "last_seen": "2026-07-14T03:08:38Z"
     },
     {
       "agent_id": "craftsman-2",
@@ -43,7 +43,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T02:24:48Z"
+      "last_seen": "2026-07-14T03:08:38Z"
     },
     {
       "agent_id": "craftsman-3",
@@ -65,7 +65,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T02:24:43Z"
+      "last_seen": "2026-07-14T03:08:43Z"
     },
     {
       "agent_id": "craftsman-4",
@@ -85,7 +85,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T02:24:48Z"
+      "last_seen": "2026-07-14T03:08:38Z"
     },
     {
       "agent_id": "craftsman-5",
@@ -105,7 +105,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T02:24:43Z"
+      "last_seen": "2026-07-14T03:08:43Z"
     },
     {
       "agent_id": "craftsman-6",
@@ -125,7 +125,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T02:24:48Z"
+      "last_seen": "2026-07-14T03:08:38Z"
     },
     {
       "agent_id": "craftsman-7",
@@ -147,7 +147,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T02:24:43Z"
+      "last_seen": "2026-07-14T03:08:43Z"
     },
     {
       "agent_id": "craftsman-8",
@@ -169,12 +169,12 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T02:24:48Z"
+      "last_seen": "2026-07-14T03:08:38Z"
     },
     {
       "agent_id": "craftsman-9",
       "role": "craftsman",
-      "system": "Deep Range",
+      "system": "Frontier",
       "poi": "mobile_capital",
       "docked": true,
       "credits": 18390,
@@ -191,7 +191,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-13T02:24:43Z"
+      "last_seen": "2026-07-14T03:08:43Z"
     }
   ]
 }

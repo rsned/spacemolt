@@ -240,7 +240,6 @@ func (kb *SQLiteKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef
 	}
 
 	for _, sc := range classes {
-		reqSkills, _ := json.Marshal(sc.RequiredSkills)
 		defMods, _ := json.Marshal(sc.DefaultModules)
 		flavTags, _ := json.Marshal(sc.FlavorTags)
 		passRecipes, _ := json.Marshal(sc.PassiveRecipes)
@@ -248,20 +247,24 @@ func (kb *SQLiteKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef
 
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO ships (id, name, class, category, description, lore, faction,
-				tier, scale, price, base_hull, base_shield, base_shield_recharge, base_armor,
+				tier, scale, base_hull, base_shield, base_shield_recharge, base_armor,
 				base_speed, base_fuel, cargo_capacity, cpu_capacity, power_capacity,
 				weapon_slots, defense_slots, utility_slots, build_time, shipyard_tier,
 				starter_ship, tow_speed_bonus, based_on, npc_role, special, required_reputation,
-				piloting_required, inherent_capabilities, required_skills, default_modules, flavor_tags,
-				passive_recipes, last_updated_tick)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				piloting_required, inherent_capabilities, default_modules, flavor_tags,
+				passive_recipes, required_achievement, required_faction_achievement,
+				required_faction_leader, prestige_lock, default_loadout_version,
+				last_updated_tick)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, sc.ID, sc.Name, sc.Class, sc.Category, sc.Description, sc.Lore, sc.Faction,
-			sc.Tier, sc.Scale, sc.Price, sc.BaseHull, sc.BaseShield, sc.BaseShieldRecharge, sc.BaseArmor,
+			sc.Tier, sc.Scale, sc.BaseHull, sc.BaseShield, sc.BaseShieldRecharge, sc.BaseArmor,
 			sc.BaseSpeed, sc.BaseFuel, sc.CargoCapacity, sc.CPUCapacity, sc.PowerCapacity,
 			sc.WeaponSlots, sc.DefenseSlots, sc.UtilitySlots, sc.BuildTime, sc.ShipyardTier,
 			sc.StarterShip, sc.TowSpeedBonus, nilIfEmpty(sc.BasedOn), nilIfEmpty(sc.NPCRole), nilIfEmpty(sc.Special), sc.RequiredReputation,
-			sc.PilotingRequired, string(capJSON), string(reqSkills), string(defMods), string(flavTags),
-			string(passRecipes), sc.LastUpdatedTick)
+			sc.PilotingRequired, string(capJSON), string(defMods), string(flavTags),
+			string(passRecipes), sc.RequiredAchievement, sc.RequiredFactionAchievement,
+			sc.RequiredFactionLeader, sc.PrestigeLock, sc.DefaultLoadoutVersion,
+			sc.LastUpdatedTick)
 		if err != nil {
 			return fmt.Errorf("failed to insert ship class %s: %w", sc.ID, err)
 		}
@@ -280,17 +283,30 @@ func (kb *SQLiteKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef
 	return tx.Commit()
 }
 
+// shipClassColumns is the canonical ship-class projection. It is shared by
+// every ship-class SELECT so the column order can never drift out of step with
+// scanShipClass/scanShipClassRow, which scan positionally.
+//
+// Note the absence of `price` and `required_skills`: the server stopped
+// emitting both for ship classes in v0.495.1, so the columns survive in the
+// table (defaulted) but are no longer read or written.
+const shipClassColumns = `
+	id, name, COALESCE(class, ''), COALESCE(category, ''), COALESCE(description, ''),
+	COALESCE(lore, ''), COALESCE(faction, ''), tier, scale,
+	base_hull, base_shield, base_shield_recharge, base_armor, base_speed, base_fuel,
+	cargo_capacity, cpu_capacity, power_capacity, weapon_slots, defense_slots, utility_slots,
+	build_time, shipyard_tier, starter_ship, tow_speed_bonus,
+	COALESCE(based_on, ''), COALESCE(npc_role, ''), COALESCE(special, ''), required_reputation, piloting_required,
+	COALESCE(inherent_capabilities, ''),
+	default_modules, flavor_tags, passive_recipes,
+	COALESCE(required_achievement, ''), COALESCE(required_faction_achievement, ''),
+	required_faction_leader, COALESCE(prestige_lock, ''), default_loadout_version,
+	last_updated_tick`
+
 // GetShipClass retrieves a single ship class by ID.
 func (kb *SQLiteKB) GetShipClass(ctx context.Context, classID string) (*ShipClassDef, error) {
 	sc, err := kb.scanShipClass(kb.db.QueryRowContext(ctx, `
-		SELECT id, name, COALESCE(class, ''), COALESCE(category, ''), COALESCE(description, ''),
-			COALESCE(lore, ''), COALESCE(faction, ''), tier, scale, price,
-			base_hull, base_shield, base_shield_recharge, base_armor, base_speed, base_fuel,
-			cargo_capacity, cpu_capacity, power_capacity, weapon_slots, defense_slots, utility_slots,
-			build_time, shipyard_tier, starter_ship, tow_speed_bonus,
-			COALESCE(based_on, ''), COALESCE(npc_role, ''), COALESCE(special, ''), required_reputation, piloting_required,
-			COALESCE(inherent_capabilities, ''),
-			required_skills, default_modules, flavor_tags, passive_recipes, last_updated_tick
+		SELECT `+shipClassColumns+`
 		FROM ships WHERE id = ?
 	`, classID))
 	if err != nil {
@@ -312,14 +328,7 @@ func (kb *SQLiteKB) GetShipClass(ctx context.Context, classID string) (*ShipClas
 // GetShipClasses retrieves all ship classes.
 func (kb *SQLiteKB) GetShipClasses(ctx context.Context) ([]ShipClassDef, error) {
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, name, COALESCE(class, ''), COALESCE(category, ''), COALESCE(description, ''),
-			COALESCE(lore, ''), COALESCE(faction, ''), tier, scale, price,
-			base_hull, base_shield, base_shield_recharge, base_armor, base_speed, base_fuel,
-			cargo_capacity, cpu_capacity, power_capacity, weapon_slots, defense_slots, utility_slots,
-			build_time, shipyard_tier, starter_ship, tow_speed_bonus,
-			COALESCE(based_on, ''), COALESCE(npc_role, ''), COALESCE(special, ''), required_reputation, piloting_required,
-			COALESCE(inherent_capabilities, ''),
-			required_skills, default_modules, flavor_tags, passive_recipes, last_updated_tick
+		SELECT `+shipClassColumns+`
 		FROM ships ORDER BY name
 	`)
 	if err != nil {
@@ -370,16 +379,14 @@ func (kb *SQLiteKB) GetShipClasses(ctx context.Context) ([]ShipClassDef, error) 
 
 // GetShipClassesByCategory retrieves ship classes filtered by class (e.g., "Mining", "Fighter").
 func (kb *SQLiteKB) GetShipClassesByCategory(ctx context.Context, category string) ([]ShipClassDef, error) {
+	// Ordered by tier (then name), not price: the server dropped ship-class
+	// price in v0.495.1, so the old ORDER BY price ASC silently degenerated to
+	// an arbitrary order once every row imported as 0. Tier preserves the
+	// original "simplest/cheapest first" intent now that hulls are built
+	// rather than bought.
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, name, COALESCE(class, ''), COALESCE(category, ''), COALESCE(description, ''),
-			COALESCE(lore, ''), COALESCE(faction, ''), tier, scale, price,
-			base_hull, base_shield, base_shield_recharge, base_armor, base_speed, base_fuel,
-			cargo_capacity, cpu_capacity, power_capacity, weapon_slots, defense_slots, utility_slots,
-			build_time, shipyard_tier, starter_ship, tow_speed_bonus,
-			COALESCE(based_on, ''), COALESCE(npc_role, ''), COALESCE(special, ''), required_reputation, piloting_required,
-			COALESCE(inherent_capabilities, ''),
-			required_skills, default_modules, flavor_tags, passive_recipes, last_updated_tick
-		FROM ships WHERE class = ? ORDER BY price ASC
+		SELECT `+shipClassColumns+`
+		FROM ships WHERE class = ? ORDER BY tier ASC, name ASC
 	`, category)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query ship classes by category: %w", err)
@@ -403,47 +410,51 @@ func (kb *SQLiteKB) GetShipClassesByCategory(ctx context.Context, category strin
 
 func (kb *SQLiteKB) scanShipClass(row *sql.Row) (*ShipClassDef, error) {
 	var sc ShipClassDef
-	var reqSkillsJSON, defModsJSON, flavTagsJSON, passRecipesJSON, capJSON string
-	err := row.Scan(&sc.ID, &sc.Name, &sc.Class, &sc.Category, &sc.Description,
-		&sc.Lore, &sc.Faction, &sc.Tier, &sc.Scale, &sc.Price,
-		&sc.BaseHull, &sc.BaseShield, &sc.BaseShieldRecharge, &sc.BaseArmor, &sc.BaseSpeed, &sc.BaseFuel,
-		&sc.CargoCapacity, &sc.CPUCapacity, &sc.PowerCapacity, &sc.WeaponSlots, &sc.DefenseSlots, &sc.UtilitySlots,
-		&sc.BuildTime, &sc.ShipyardTier, &sc.StarterShip, &sc.TowSpeedBonus,
-		&sc.BasedOn, &sc.NPCRole, &sc.Special, &sc.RequiredReputation, &sc.PilotingRequired, &capJSON,
-		&reqSkillsJSON, &defModsJSON, &flavTagsJSON, &passRecipesJSON, &sc.LastUpdatedTick)
+	var defModsJSON, flavTagsJSON, passRecipesJSON, capJSON string
+	err := row.Scan(shipClassScanTargets(&sc, &capJSON, &defModsJSON, &flavTagsJSON, &passRecipesJSON)...)
 	if err != nil {
 		return nil, err
 	}
-	_ = json.Unmarshal([]byte(reqSkillsJSON), &sc.RequiredSkills)
+	decodeShipClassJSON(&sc, capJSON, defModsJSON, flavTagsJSON, passRecipesJSON)
+	return &sc, nil
+}
+
+// shipClassScanTargets returns scan destinations in the exact order of
+// shipClassColumns. Both scanners share it so a column change only has to be
+// made in two places that sit next to each other.
+func shipClassScanTargets(sc *ShipClassDef, capJSON, defModsJSON, flavTagsJSON, passRecipesJSON *string) []any {
+	return []any{
+		&sc.ID, &sc.Name, &sc.Class, &sc.Category, &sc.Description,
+		&sc.Lore, &sc.Faction, &sc.Tier, &sc.Scale,
+		&sc.BaseHull, &sc.BaseShield, &sc.BaseShieldRecharge, &sc.BaseArmor, &sc.BaseSpeed, &sc.BaseFuel,
+		&sc.CargoCapacity, &sc.CPUCapacity, &sc.PowerCapacity, &sc.WeaponSlots, &sc.DefenseSlots, &sc.UtilitySlots,
+		&sc.BuildTime, &sc.ShipyardTier, &sc.StarterShip, &sc.TowSpeedBonus,
+		&sc.BasedOn, &sc.NPCRole, &sc.Special, &sc.RequiredReputation, &sc.PilotingRequired,
+		capJSON,
+		defModsJSON, flavTagsJSON, passRecipesJSON,
+		&sc.RequiredAchievement, &sc.RequiredFactionAchievement,
+		&sc.RequiredFactionLeader, &sc.PrestigeLock, &sc.DefaultLoadoutVersion,
+		&sc.LastUpdatedTick,
+	}
+}
+
+func decodeShipClassJSON(sc *ShipClassDef, capJSON, defModsJSON, flavTagsJSON, passRecipesJSON string) {
 	_ = json.Unmarshal([]byte(defModsJSON), &sc.DefaultModules)
 	_ = json.Unmarshal([]byte(flavTagsJSON), &sc.FlavorTags)
 	_ = json.Unmarshal([]byte(passRecipesJSON), &sc.PassiveRecipes)
 	if capJSON != "" {
 		_ = json.Unmarshal([]byte(capJSON), &sc.InherentCapabilities)
 	}
-	return &sc, nil
 }
 
 func (kb *SQLiteKB) scanShipClassRow(rows *sql.Rows) (*ShipClassDef, error) {
 	var sc ShipClassDef
-	var reqSkillsJSON, defModsJSON, flavTagsJSON, passRecipesJSON, capJSON string
-	err := rows.Scan(&sc.ID, &sc.Name, &sc.Class, &sc.Category, &sc.Description,
-		&sc.Lore, &sc.Faction, &sc.Tier, &sc.Scale, &sc.Price,
-		&sc.BaseHull, &sc.BaseShield, &sc.BaseShieldRecharge, &sc.BaseArmor, &sc.BaseSpeed, &sc.BaseFuel,
-		&sc.CargoCapacity, &sc.CPUCapacity, &sc.PowerCapacity, &sc.WeaponSlots, &sc.DefenseSlots, &sc.UtilitySlots,
-		&sc.BuildTime, &sc.ShipyardTier, &sc.StarterShip, &sc.TowSpeedBonus,
-		&sc.BasedOn, &sc.NPCRole, &sc.Special, &sc.RequiredReputation, &sc.PilotingRequired, &capJSON,
-		&reqSkillsJSON, &defModsJSON, &flavTagsJSON, &passRecipesJSON, &sc.LastUpdatedTick)
+	var defModsJSON, flavTagsJSON, passRecipesJSON, capJSON string
+	err := rows.Scan(shipClassScanTargets(&sc, &capJSON, &defModsJSON, &flavTagsJSON, &passRecipesJSON)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan ship class: %w", err)
 	}
-	_ = json.Unmarshal([]byte(reqSkillsJSON), &sc.RequiredSkills)
-	_ = json.Unmarshal([]byte(defModsJSON), &sc.DefaultModules)
-	_ = json.Unmarshal([]byte(flavTagsJSON), &sc.FlavorTags)
-	_ = json.Unmarshal([]byte(passRecipesJSON), &sc.PassiveRecipes)
-	if capJSON != "" {
-		_ = json.Unmarshal([]byte(capJSON), &sc.InherentCapabilities)
-	}
+	decodeShipClassJSON(&sc, capJSON, defModsJSON, flavTagsJSON, passRecipesJSON)
 	return &sc, nil
 }
 

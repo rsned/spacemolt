@@ -1,16 +1,16 @@
 {
-  "captured_at": "2026-07-13T02:24:48Z",
+  "captured_at": "2026-07-14T03:08:43Z",
   "workers": [
     {
       "agent_id": "johnny_cab",
       "role": "shuttle",
-      "system": "Synchrony",
-      "poi": "synchrony_hub",
+      "system": "Copernicus",
+      "poi": "copernicus_star",
       "docked": false,
-      "credits": 5931551,
+      "credits": 6193267,
       "hull": 80,
       "max_hull": 80,
-      "fuel": 103,
+      "fuel": 38,
       "max_fuel": 120,
       "cargo_used": 10,
       "cargo_capacity": 75,
@@ -18,10 +18,10 @@
       "active_task_id": "",
       "faction_id": "5b565d6303a0bea2eaf559129c1686f5",
       "faction_tag": "DB",
-      "healthy": true,
-      "restarts": 0,
+      "healthy": false,
+      "restarts": 100,
       "seen": true,
-      "last_seen": "2026-07-13T02:24:44Z"
+      "last_seen": "2026-07-14T00:31:24Z"
     }
   ]
 }

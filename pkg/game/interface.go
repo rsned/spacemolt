@@ -161,6 +161,7 @@ type GameClient interface {
 	FactionEditRole(ctx context.Context, roleID string, payload map[string]any) error
 	FactionDeleteRole(ctx context.Context, roleID string) error
 	FactionSubmitIntel(ctx context.Context, systems []map[string]any) error
+	Espionage(ctx context.Context) error
 	FactionQueryIntel(ctx context.Context, payload map[string]any) error
 	FactionQueryTradeIntel(ctx context.Context, payload map[string]any) error
 	FactionIntelStatus(ctx context.Context) error

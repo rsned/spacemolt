@@ -70,62 +70,63 @@ func (s *Skill) UnmarshalJSON(data []byte) error {
 
 // PlayerStats tracks player statistics and lifetime achievements.
 type PlayerStats struct {
-	BasesDestroyed         int   `json:"bases_destroyed"`
-	BattlesFled            int   `json:"battles_fled,omitempty"`
-	BattlesStarted         int   `json:"battles_started,omitempty"`
-	CaptainsLogEntries     int   `json:"captains_log_entries,omitempty"`
-	ChatMessagesSent       int   `json:"chat_messages_sent,omitempty"`
-	CloakActivations       int   `json:"cloak_activations,omitempty"`
-	ConsumablesUsed        int   `json:"consumables_used,omitempty"`
-	ContrabandSold         int   `json:"contraband_sold,omitempty"`
-	CreditsEarned          int64 `json:"credits_earned"`
-	CreditsGifted          int64 `json:"credits_gifted,omitempty"`
-	CreditsSpent           int64 `json:"credits_spent"`
-	CustomsEvaded          int   `json:"customs_evaded,omitempty"`
-	DamageDealt            int64 `json:"damage_dealt,omitempty"`
-	DamageTaken            int64 `json:"damage_taken,omitempty"`
-	DeathsByPirate         int   `json:"deaths_by_pirate,omitempty"`
-	DeathsByPlayer         int   `json:"deaths_by_player,omitempty"`
-	DeathsBySelfDestruct   int   `json:"deaths_by_self_destruct,omitempty"`
-	DeepCorePOIsDiscovered int   `json:"deep_core_pois_discovered,omitempty"`
-	DistanceTraveled       int64 `json:"distance_traveled"`
-	ExchangeCreditsEarned  int64 `json:"exchange_credits_earned,omitempty"`
-	ExchangeItemsBought    int   `json:"exchange_items_bought,omitempty"`
-	ExchangeItemsSold      int   `json:"exchange_items_sold,omitempty"`
-	FacilitiesBuilt        int   `json:"facilities_built,omitempty"`
-	FacilityItemsProduced  int   `json:"facility_items_produced,omitempty"`
-	ForumPostsCreated      int   `json:"forum_posts_created,omitempty"`
-	GiftsReceived          int   `json:"gifts_received,omitempty"`
-	GiftsSent              int   `json:"gifts_sent,omitempty"`
-	InsuranceClaimsMade    int   `json:"insurance_claims_made,omitempty"`
-	InsurancePayoutsRecvd  int64 `json:"insurance_payouts_received,omitempty"`
-	InsurancePoliciesBought int  `json:"insurance_policies_bought,omitempty"`
-	ItemsCrafted           int   `json:"items_crafted"`
-	ItemsJettisoned        int   `json:"items_jettisoned,omitempty"`
-	JumpsCompleted         int   `json:"jumps_completed,omitempty"`
-	MissionsAbandoned      int   `json:"missions_abandoned,omitempty"`
-	MissionsAccepted       int   `json:"missions_accepted,omitempty"`
-	MissionsCompleted      int   `json:"missions_completed"`
-	ModulesInstalled       int   `json:"modules_installed,omitempty"`
-	NPCsDestroyed          int   `json:"npcs_destroyed,omitempty"`
-	OreMined               int64 `json:"ore_mined"`
-	PiratesDestroyed       int   `json:"pirates_destroyed"`
-	RefuelsGiven           int   `json:"refuels_given,omitempty"`
-	RepairsGiven           int   `json:"repairs_given,omitempty"`
-	ScansPerformed         int   `json:"scans_performed,omitempty"`
-	SelfDestructs          int   `json:"self_destructs,omitempty"`
-	ShipsCommissioned      int   `json:"ships_commissioned,omitempty"`
-	ShipsDestroyed         int   `json:"ships_destroyed"`
-	ShipsLost              int   `json:"ships_lost"`
-	ShipsPurchased         int   `json:"ships_purchased,omitempty"`
-	SystemsExplored        int   `json:"systems_explored,omitempty"`
-	TimePlayed             int64 `json:"time_played"`
-	TimesDocked            int   `json:"times_docked,omitempty"`
-	TradesCompleted        int   `json:"trades_completed"`
-	WormholesTraversed     int   `json:"wormholes_traversed,omitempty"`
-	WreckItemsLooted       int   `json:"wreck_items_looted,omitempty"`
-	WrecksScrapped         int   `json:"wrecks_scrapped,omitempty"`
-	WrecksSold             int   `json:"wrecks_sold,omitempty"`
+	BasesDestroyed          int   `json:"bases_destroyed"`
+	BattlesFled             int   `json:"battles_fled,omitempty"`
+	BattlesStarted          int   `json:"battles_started,omitempty"`
+	CaptainsLogEntries      int   `json:"captains_log_entries,omitempty"`
+	ChatMessagesSent        int   `json:"chat_messages_sent,omitempty"`
+	CloakActivations        int   `json:"cloak_activations,omitempty"`
+	ConsumablesUsed         int   `json:"consumables_used,omitempty"`
+	ContrabandSold          int   `json:"contraband_sold,omitempty"`
+	CreditsEarned           int64 `json:"credits_earned"`
+	CreditsGifted           int64 `json:"credits_gifted,omitempty"`
+	CreditsSpent            int64 `json:"credits_spent"`
+	CustomsEvaded           int   `json:"customs_evaded,omitempty"`
+	DamageDealt             int64 `json:"damage_dealt,omitempty"`
+	DamageTaken             int64 `json:"damage_taken,omitempty"`
+	DeathsByPirate          int   `json:"deaths_by_pirate,omitempty"`
+	DeathsByPlayer          int   `json:"deaths_by_player,omitempty"`
+	DeathsBySelfDestruct    int   `json:"deaths_by_self_destruct,omitempty"`
+	DeathsByWildlife        int   `json:"deaths_by_wildlife,omitempty"`
+	DeepCorePOIsDiscovered  int   `json:"deep_core_pois_discovered,omitempty"`
+	DistanceTraveled        int64 `json:"distance_traveled"`
+	ExchangeCreditsEarned   int64 `json:"exchange_credits_earned,omitempty"`
+	ExchangeItemsBought     int   `json:"exchange_items_bought,omitempty"`
+	ExchangeItemsSold       int   `json:"exchange_items_sold,omitempty"`
+	FacilitiesBuilt         int   `json:"facilities_built,omitempty"`
+	FacilityItemsProduced   int   `json:"facility_items_produced,omitempty"`
+	ForumPostsCreated       int   `json:"forum_posts_created,omitempty"`
+	GiftsReceived           int   `json:"gifts_received,omitempty"`
+	GiftsSent               int   `json:"gifts_sent,omitempty"`
+	InsuranceClaimsMade     int   `json:"insurance_claims_made,omitempty"`
+	InsurancePayoutsRecvd   int64 `json:"insurance_payouts_received,omitempty"`
+	InsurancePoliciesBought int   `json:"insurance_policies_bought,omitempty"`
+	ItemsCrafted            int   `json:"items_crafted"`
+	ItemsJettisoned         int   `json:"items_jettisoned,omitempty"`
+	JumpsCompleted          int   `json:"jumps_completed,omitempty"`
+	MissionsAbandoned       int   `json:"missions_abandoned,omitempty"`
+	MissionsAccepted        int   `json:"missions_accepted,omitempty"`
+	MissionsCompleted       int   `json:"missions_completed"`
+	ModulesInstalled        int   `json:"modules_installed,omitempty"`
+	NPCsDestroyed           int   `json:"npcs_destroyed,omitempty"`
+	OreMined                int64 `json:"ore_mined"`
+	PiratesDestroyed        int   `json:"pirates_destroyed"`
+	RefuelsGiven            int   `json:"refuels_given,omitempty"`
+	RepairsGiven            int   `json:"repairs_given,omitempty"`
+	ScansPerformed          int   `json:"scans_performed,omitempty"`
+	SelfDestructs           int   `json:"self_destructs,omitempty"`
+	ShipsCommissioned       int   `json:"ships_commissioned,omitempty"`
+	ShipsDestroyed          int   `json:"ships_destroyed"`
+	ShipsLost               int   `json:"ships_lost"`
+	ShipsPurchased          int   `json:"ships_purchased,omitempty"`
+	SystemsExplored         int   `json:"systems_explored,omitempty"`
+	TimePlayed              int64 `json:"time_played"`
+	TimesDocked             int   `json:"times_docked,omitempty"`
+	TradesCompleted         int   `json:"trades_completed"`
+	WormholesTraversed      int   `json:"wormholes_traversed,omitempty"`
+	WreckItemsLooted        int   `json:"wreck_items_looted,omitempty"`
+	WrecksScrapped          int   `json:"wrecks_scrapped,omitempty"`
+	WrecksSold              int   `json:"wrecks_sold,omitempty"`
 }
 
 // ModuleDefinition represents a module's definition including stats and requirements.
@@ -139,88 +140,88 @@ type ModuleDefinition struct {
 
 // Player represents a player in the game as returned by the server.
 type Player struct {
-	ID                string                 `json:"id"`
-	Username          string                 `json:"username"`
-	Empire            string                 `json:"empire"`
-	Credits           float64                `json:"credits"`
-	CurrentSystem     string                 `json:"current_system"`
-	CurrentPOI        string                 `json:"current_poi"`
-	CurrentShipID     string                 `json:"current_ship_id"`
-	HomeBase          string                 `json:"home_base"`
-	DockedAtBase      string                 `json:"docked_at_base"`
-	FactionID         string                 `json:"faction_id,omitempty"`
-	FactionRank       string                 `json:"faction_rank,omitempty"`
-	StatusMessage     string                 `json:"status_message,omitempty"`
-	ClanTag           string                 `json:"clan_tag,omitempty"`
-	PrimaryColor      string                 `json:"primary_color,omitempty"`
-	SecondaryColor    string                 `json:"secondary_color,omitempty"`
-	Anonymous         bool                   `json:"anonymous"`
-	IsCloaked         bool                   `json:"is_cloaked"`
-	Skills            map[string]Skill       `json:"skills"`
-	SkillXP           map[string]float64     `json:"skill_xp,omitempty"`
-	Stats             PlayerStats            `json:"stats"`
+	ID                string                      `json:"id"`
+	Username          string                      `json:"username"`
+	Empire            string                      `json:"empire"`
+	Credits           float64                     `json:"credits"`
+	CurrentSystem     string                      `json:"current_system"`
+	CurrentPOI        string                      `json:"current_poi"`
+	CurrentShipID     string                      `json:"current_ship_id"`
+	HomeBase          string                      `json:"home_base"`
+	DockedAtBase      string                      `json:"docked_at_base"`
+	FactionID         string                      `json:"faction_id,omitempty"`
+	FactionRank       string                      `json:"faction_rank,omitempty"`
+	StatusMessage     string                      `json:"status_message,omitempty"`
+	ClanTag           string                      `json:"clan_tag,omitempty"`
+	PrimaryColor      string                      `json:"primary_color,omitempty"`
+	SecondaryColor    string                      `json:"secondary_color,omitempty"`
+	Anonymous         bool                        `json:"anonymous"`
+	IsCloaked         bool                        `json:"is_cloaked"`
+	Skills            map[string]Skill            `json:"skills"`
+	SkillXP           map[string]float64          `json:"skill_xp,omitempty"`
+	Stats             PlayerStats                 `json:"stats"`
 	Modules           map[string]ModuleDefinition `json:"modules,omitempty"`
-	TowingWreckID     string                 `json:"towing_wreck_id,omitempty"`
-	Experience        int64                  `json:"experience,omitempty"`
-	DiscoveredSystems map[string]any         `json:"discovered_systems,omitempty"`
-	LastActiveAt      string                 `json:"last_active_at,omitempty"`
-	LastLoginAt       string                 `json:"last_login_at,omitempty"`
-	CreatedAt         string                 `json:"created_at,omitempty"`
+	TowingWreckID     string                      `json:"towing_wreck_id,omitempty"`
+	Experience        int64                       `json:"experience,omitempty"`
+	DiscoveredSystems map[string]any              `json:"discovered_systems,omitempty"`
+	LastActiveAt      string                      `json:"last_active_at,omitempty"`
+	LastLoginAt       string                      `json:"last_login_at,omitempty"`
+	CreatedAt         string                      `json:"created_at,omitempty"`
 }
 
 // Ship represents the player's ship with all stats, modules, and cargo.
 type Ship struct {
-	ID                       string           `json:"id"`
-	OwnerID                  string           `json:"owner_id"`
-	ClassID                  string           `json:"class_id"`
-	Name                     string           `json:"name"`
-	Hull                     float64          `json:"hull"`
-	MaxHull                  float64          `json:"max_hull"`
-	Shield                   float64          `json:"shield"`
-	MaxShield                float64          `json:"max_shield"`
-	ShieldRecharge           float64          `json:"shield_recharge"`
-	Armor                    float64          `json:"armor"`
-	Speed                    float64          `json:"speed"`
-	Fuel                     float64          `json:"fuel"`
-	MaxFuel                  float64          `json:"max_fuel"`
-	CargoUsed                float64          `json:"cargo_used"`
-	CargoCapacity            float64          `json:"cargo_capacity"`
-	CPUUsed                  float64          `json:"cpu_used"`
-	CPUCapacity              float64          `json:"cpu_capacity"`
-	PowerUsed                float64          `json:"power_used"`
-	PowerCapacity            float64          `json:"power_capacity"`
-	WeaponSlots              int              `json:"weapon_slots"`
-	DefenseSlots             int              `json:"defense_slots"`
-	UtilitySlots             int              `json:"utility_slots"`
-	Modules                  []string         `json:"modules"`
-	Cargo                    []CargoItem      `json:"cargo"`
-	ActiveBuffs              []ActiveBuff     `json:"active_buffs,omitempty"`
-	DamagePenalty            float64          `json:"damage_penalty,omitempty"`
-	SpeedPenalty             float64          `json:"speed_penalty,omitempty"`
-	GasCargoEfficiency       int              `json:"gas_cargo_efficiency,omitempty"`
-	IceCargoEfficiency       int              `json:"ice_cargo_efficiency,omitempty"`
-	OreCargoEfficiency       int              `json:"ore_cargo_efficiency,omitempty"`
-	CustomName               string           `json:"custom_name,omitempty"`
-	LoadedOnCarrierID        string           `json:"loaded_on_carrier_id,omitempty"`
-	DisruptionTicksRemaining int              `json:"disruption_ticks_remaining,omitempty"`
-	DockedAtBase             string           `json:"docked_at_base,omitempty"`
-	LastProcessTick          int64            `json:"last_process_tick,omitempty"`
-	CreatedAt                string           `json:"created_at,omitempty"`
+	ID                       string       `json:"id"`
+	OwnerID                  string       `json:"owner_id"`
+	ClassID                  string       `json:"class_id"`
+	Name                     string       `json:"name"`
+	Hull                     float64      `json:"hull"`
+	MaxHull                  float64      `json:"max_hull"`
+	Shield                   float64      `json:"shield"`
+	MaxShield                float64      `json:"max_shield"`
+	ShieldRecharge           float64      `json:"shield_recharge"`
+	Armor                    float64      `json:"armor"`
+	Speed                    float64      `json:"speed"`
+	Fuel                     float64      `json:"fuel"`
+	MaxFuel                  float64      `json:"max_fuel"`
+	CargoUsed                float64      `json:"cargo_used"`
+	CargoCapacity            float64      `json:"cargo_capacity"`
+	CPUUsed                  float64      `json:"cpu_used"`
+	CPUCapacity              float64      `json:"cpu_capacity"`
+	PowerUsed                float64      `json:"power_used"`
+	PowerCapacity            float64      `json:"power_capacity"`
+	WeaponSlots              int          `json:"weapon_slots"`
+	DefenseSlots             int          `json:"defense_slots"`
+	UtilitySlots             int          `json:"utility_slots"`
+	Modules                  []string     `json:"modules"`
+	Cargo                    []CargoItem  `json:"cargo"`
+	ActiveBuffs              []ActiveBuff `json:"active_buffs,omitempty"`
+	DamagePenalty            float64      `json:"damage_penalty,omitempty"`
+	SpeedPenalty             float64      `json:"speed_penalty,omitempty"`
+	GasCargoEfficiency       int          `json:"gas_cargo_efficiency,omitempty"`
+	IceCargoEfficiency       int          `json:"ice_cargo_efficiency,omitempty"`
+	OreCargoEfficiency       int          `json:"ore_cargo_efficiency,omitempty"`
+	CustomName               string       `json:"custom_name,omitempty"`
+	LoadedOnCarrierID        string       `json:"loaded_on_carrier_id,omitempty"`
+	DisruptionTicksRemaining int          `json:"disruption_ticks_remaining,omitempty"`
+	DockedAtBase             string       `json:"docked_at_base,omitempty"`
+	LastProcessTick          int64        `json:"last_process_tick,omitempty"`
+	CreatedAt                string       `json:"created_at,omitempty"`
 }
 
 // POI represents a Point of Interest in a system.
 type POI struct {
-	ID          string        `json:"id"`
-	SystemID    string        `json:"system_id"`
-	Type        string        `json:"type"`
-	Class       string        `json:"class,omitempty"` // MK classification (e.g., "G2 V") or planet class
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Position    Position      `json:"position"`
-	Resources   []POIResource `json:"resources"`
-	BaseID      string        `json:"base_id,omitempty"`
-	HasBase     bool          `json:"has_base,omitempty"`
-	BaseName    string        `json:"base_name,omitempty"`
+	ID               string        `json:"id"`
+	SystemID         string        `json:"system_id"`
+	Type             string        `json:"type"`
+	Class            string        `json:"class,omitempty"` // MK classification (e.g., "G2 V") or planet class
+	Name             string        `json:"name"`
+	Description      string        `json:"description"`
+	Position         Position      `json:"position"`
+	Resources        []POIResource `json:"resources"`
+	BaseID           string        `json:"base_id,omitempty"`
+	HasBase          bool          `json:"has_base,omitempty"`
+	BaseName         string        `json:"base_name,omitempty"`
 	Online           int           `json:"online,omitempty"`
 	Hidden           bool          `json:"hidden,omitempty"`
 	RevealDifficulty int           `json:"reveal_difficulty,omitempty"`
@@ -257,6 +258,9 @@ type NearbyPlayer struct {
 	FactionTag     string `json:"faction_tag,omitempty"`
 	StatusMessage  string `json:"status_message,omitempty"`
 	ClanTag        string `json:"clan_tag,omitempty"`
+	// Docked players are listed but cannot be attacked, scanned, or traded
+	// with until they undock.
+	Docked bool `json:"docked,omitempty"`
 }
 
 // CurrentPOI represents the current POI with minimal info (from get_system response).
@@ -326,24 +330,27 @@ type MarketOrder struct {
 
 // Base represents a player-owned or NPC base.
 type Base struct {
-	ID           string          `json:"id"`
-	Name         string          `json:"name"`
-	Description  string          `json:"description,omitempty"`
-	Type         string          `json:"type"`
-	OwnerID      string          `json:"owner_id"`
-	OwnerName    string          `json:"owner_name,omitempty"`
-	FactionID    string          `json:"faction_id,omitempty"`
-	Empire       string          `json:"empire,omitempty"`
-	POIID        string          `json:"poi_id"`
-	SystemID     string          `json:"system_id"`
-	Services     map[string]bool `json:"services"`
-	PublicAccess bool            `json:"public_access"`
-	DefenseLevel int             `json:"defense_level"`
-	HasDrones          bool            `json:"has_drones,omitempty"`
-	Health             int             `json:"health,omitempty"`
-	MaxHealth          int             `json:"max_health,omitempty"`
-	Facilities         []string        `json:"facilities,omitempty"`
-	PirateRepRequired  int             `json:"pirate_rep_required,omitempty"`
+	ID                string          `json:"id"`
+	Name              string          `json:"name"`
+	Description       string          `json:"description,omitempty"`
+	Type              string          `json:"type"`
+	OwnerID           string          `json:"owner_id"`
+	OwnerName         string          `json:"owner_name,omitempty"`
+	FactionID         string          `json:"faction_id,omitempty"`
+	Empire            string          `json:"empire,omitempty"`
+	POIID             string          `json:"poi_id"`
+	SystemID          string          `json:"system_id"`
+	Services          map[string]bool `json:"services"`
+	PublicAccess      bool            `json:"public_access"`
+	DefenseLevel      int             `json:"defense_level"`
+	HasDrones         bool            `json:"has_drones,omitempty"`
+	Health            int             `json:"health,omitempty"`
+	MaxHealth         int             `json:"max_health,omitempty"`
+	Facilities        []string        `json:"facilities,omitempty"`
+	PirateRepRequired int             `json:"pirate_rep_required,omitempty"`
+	// AutoBuyFuel reports whether a player station automatically buys fuel
+	// from docked pilots at live scarcity-based prices. Off by default.
+	AutoBuyFuel bool `json:"auto_buy_fuel,omitempty"`
 }
 
 // ResourceDisplay represents a resource with display information.
@@ -392,46 +399,68 @@ type PlayerSkill struct {
 	NextLevelXP float64 `json:"next_level_xp"`
 }
 
-// ShipClass represents a ship class definition with stats, price, and requirements.
+// ShipClass represents a ship class definition with stats and requirements.
+//
+// Ship classes are built (commissioned), not bought at a fixed sticker price:
+// the server dropped the `price` field in v0.495.1, and BuildMaterials +
+// ShipyardTier are the sourcing story now. It also dropped `required_skills`
+// for ships, superseded by the scalar PilotingRequired. Neither field is
+// present in live catalog_ships data — do not reintroduce them.
 type ShipClass struct {
-	ID                 string         `json:"id"`
-	Name               string         `json:"name"`
-	Class              string         `json:"class,omitempty"`
-	Category           string         `json:"category,omitempty"`
-	Description        string         `json:"description,omitempty"`
-	Lore               string         `json:"lore,omitempty"`
-	Faction            string         `json:"faction,omitempty"`
-	Tier               int            `json:"tier,omitempty"`
-	Scale              int            `json:"scale,omitempty"`
-	Price              int            `json:"price"`
-	BaseHull           int            `json:"base_hull"`
-	BaseShield         int            `json:"base_shield,omitempty"`
-	BaseShieldRecharge int            `json:"base_shield_recharge,omitempty"`
-	BaseArmor          int            `json:"base_armor,omitempty"`
-	BaseSpeed          int            `json:"base_speed"`
-	BaseFuel           int            `json:"base_fuel"`
-	CargoCapacity      int            `json:"cargo_capacity"`
-	CPUCapacity        int            `json:"cpu_capacity"`
-	PowerCapacity      int            `json:"power_capacity"`
-	WeaponSlots        int            `json:"weapon_slots"`
-	DefenseSlots       int            `json:"defense_slots"`
-	UtilitySlots       int            `json:"utility_slots"`
-	BuildTime          int            `json:"build_time,omitempty"`
-	ShipyardTier       int            `json:"shipyard_tier,omitempty"`
-	StarterShip        bool           `json:"starter_ship,omitempty"`
-	RequiredSkills     map[string]int `json:"required_skills,omitempty"`
-	DefaultModules     []string       `json:"default_modules,omitempty"`
-	BuildMaterials     []RecipeItem   `json:"build_materials,omitempty"`
-	FlavorTags             []string       `json:"flavor_tags,omitempty"`
-	TowSpeedBonus          int            `json:"tow_speed_bonus,omitempty"`
-	Hidden                 bool           `json:"hidden,omitempty"`
-	BasedOn                string         `json:"based_on,omitempty"`
-	InherentCapabilities   []map[string]any `json:"inherent_capabilities,omitempty"`
-	Legacy                 bool           `json:"legacy,omitempty"`
-	PassiveRecipes         []string       `json:"passive_recipes,omitempty"`
-	PilotingRequired       int            `json:"piloting_required,omitempty"`
-	RequiredItems          []map[string]any `json:"required_items,omitempty"`
-	Special                string         `json:"special,omitempty"`
+	ID                 string   `json:"id"`
+	Name               string   `json:"name"`
+	Class              string   `json:"class,omitempty"`
+	Category           string   `json:"category,omitempty"`
+	Description        string   `json:"description,omitempty"`
+	Lore               string   `json:"lore,omitempty"`
+	Faction            string   `json:"faction,omitempty"`
+	Tier               int      `json:"tier,omitempty"`
+	Scale              int      `json:"scale,omitempty"`
+	BaseHull           int      `json:"base_hull"`
+	BaseShield         int      `json:"base_shield,omitempty"`
+	BaseShieldRecharge int      `json:"base_shield_recharge,omitempty"`
+	BaseArmor          int      `json:"base_armor,omitempty"`
+	BaseSpeed          int      `json:"base_speed"`
+	BaseFuel           int      `json:"base_fuel"`
+	CargoCapacity      int      `json:"cargo_capacity"`
+	CPUCapacity        int      `json:"cpu_capacity"`
+	PowerCapacity      int      `json:"power_capacity"`
+	WeaponSlots        int      `json:"weapon_slots"`
+	DefenseSlots       int      `json:"defense_slots"`
+	UtilitySlots       int      `json:"utility_slots"`
+	BuildTime          int      `json:"build_time,omitempty"`
+	ShipyardTier       int      `json:"shipyard_tier,omitempty"`
+	StarterShip        bool     `json:"starter_ship,omitempty"`
+	DefaultModules     []string `json:"default_modules,omitempty"`
+	// BuildMaterials is an array of {item_id, quantity} in live catalog_ships
+	// data. openapi.json documents it as an object keyed by item ID; the live
+	// shape wins.
+	BuildMaterials       []RecipeItem     `json:"build_materials,omitempty"`
+	FlavorTags           []string         `json:"flavor_tags,omitempty"`
+	TowSpeedBonus        int              `json:"tow_speed_bonus,omitempty"`
+	Hidden               bool             `json:"hidden,omitempty"`
+	BasedOn              string           `json:"based_on,omitempty"`
+	NPCRole              string           `json:"npc_role,omitempty"`
+	InherentCapabilities []map[string]any `json:"inherent_capabilities,omitempty"`
+	Legacy               bool             `json:"legacy,omitempty"`
+	PassiveRecipes       []string         `json:"passive_recipes,omitempty"`
+	PilotingRequired     int              `json:"piloting_required,omitempty"`
+	RequiredItems        []map[string]any `json:"required_items,omitempty"`
+	Special              string           `json:"special,omitempty"`
+
+	// Prestige / unlock gating (v0.495.1). A hull may require a player
+	// achievement, a faction achievement (optionally leader-only), or a
+	// minimum empire reputation before it can be commissioned or bought.
+	RequiredReputation         int    `json:"required_reputation,omitempty"`
+	RequiredAchievement        string `json:"required_achievement,omitempty"`
+	RequiredFactionAchievement string `json:"required_faction_achievement,omitempty"`
+	RequiredFactionLeader      bool   `json:"required_faction_leader,omitempty"`
+	// PrestigeLock is catalog-only and present only for hulls the viewer has
+	// NOT unlocked; it names the achievement needed to unlock them.
+	PrestigeLock string `json:"prestige_lock,omitempty"`
+	// DefaultLoadoutVersion bumps whenever the canonical default loadout
+	// changes; ships below this version are offered refit_ship.
+	DefaultLoadoutVersion int `json:"default_loadout_version,omitempty"`
 }
 
 // Recipe represents a crafting recipe.
@@ -506,12 +535,12 @@ type Note struct {
 
 // Storage represents items and credits stored at a station.
 type Storage struct {
-	BaseID   string           `json:"base_id"`
-	BaseName string           `json:"base_name"`
-	Items    []CargoItem      `json:"items"`
-	Credits  int              `json:"credits"`
-	Ships    []StorageShip    `json:"ships,omitempty"`
-	Gifts    []StorageGift    `json:"gifts,omitempty"`
+	BaseID   string        `json:"base_id"`
+	BaseName string        `json:"base_name"`
+	Items    []CargoItem   `json:"items"`
+	Credits  int           `json:"credits"`
+	Ships    []StorageShip `json:"ships,omitempty"`
+	Gifts    []StorageGift `json:"gifts,omitempty"`
 }
 
 // Faction represents faction information.
@@ -675,11 +704,11 @@ type TravelProgress struct {
 
 // ActiveBuff represents a temporary buff effect on a ship.
 type ActiveBuff struct {
-	ItemID   string `json:"item_id,omitempty"`
-	Stat     string `json:"stat,omitempty"`
-	Amount   int    `json:"amount,omitempty"`
-	TicksLeft int   `json:"ticks_left,omitempty"`
-	ExpiresAt int   `json:"expires_at,omitempty"`
+	ItemID    string `json:"item_id,omitempty"`
+	Stat      string `json:"stat,omitempty"`
+	Amount    int    `json:"amount,omitempty"`
+	TicksLeft int    `json:"ticks_left,omitempty"`
+	ExpiresAt int    `json:"expires_at,omitempty"`
 }
 
 // BattleParticipant represents a player or NPC in a battle.
@@ -765,12 +794,12 @@ type TradeItem struct {
 
 // InsuranceQuote represents an insurance quote for a ship.
 type InsuranceQuote struct {
-	Coverage    int              `json:"coverage"`
-	Premium     int              `json:"premium"`
-	FittedValue int             `json:"fitted_value,omitempty"`
-	RiskScore   float64          `json:"risk_score,omitempty"`
-	Refused     bool             `json:"refused,omitempty"`
-	ExpiresIn   string           `json:"expires_in,omitempty"` // human string e.g. "7 days", not a tick count
+	Coverage    int               `json:"coverage"`
+	Premium     int               `json:"premium"`
+	FittedValue int               `json:"fitted_value,omitempty"`
+	RiskScore   float64           `json:"risk_score,omitempty"`
+	Refused     bool              `json:"refused,omitempty"`
+	ExpiresIn   string            `json:"expires_in,omitempty"` // human string e.g. "7 days", not a tick count
 	Factors     []InsuranceFactor `json:"factors,omitempty"`
 }
 
@@ -783,36 +812,36 @@ type InsuranceFactor struct {
 
 // InsurancePolicy represents an active insurance policy.
 type InsurancePolicy struct {
-	PolicyID            string            `json:"policy_id"`
-	ShipClass           string            `json:"ship_class,omitempty"`
-	BaseID              string            `json:"base_id,omitempty"`
-	Coverage            int               `json:"coverage"`
-	Premium             int               `json:"premium"`
-	RiskScore           float64           `json:"risk_score,omitempty"`
-	ExpiresAt           string            `json:"expires_at,omitempty"`
-	SelfDestructExcluded bool            `json:"self_destruct_excluded,omitempty"`
-	RiskFactors         []InsuranceFactor `json:"risk_factors,omitempty"`
+	PolicyID             string            `json:"policy_id"`
+	ShipClass            string            `json:"ship_class,omitempty"`
+	BaseID               string            `json:"base_id,omitempty"`
+	Coverage             int               `json:"coverage"`
+	Premium              int               `json:"premium"`
+	RiskScore            float64           `json:"risk_score,omitempty"`
+	ExpiresAt            string            `json:"expires_at,omitempty"`
+	SelfDestructExcluded bool              `json:"self_destruct_excluded,omitempty"`
+	RiskFactors          []InsuranceFactor `json:"risk_factors,omitempty"`
 }
 
 // CommissionDetail represents an active ship commission.
 type CommissionDetail struct {
-	CommissionID        string         `json:"commission_id"`
-	ShipClassID         string         `json:"ship_class_id"`
-	ShipName            string         `json:"ship_name,omitempty"`
-	Status              string         `json:"status"`
-	BaseID              string         `json:"base_id,omitempty"`
-	BaseName            string         `json:"base_name,omitempty"`
-	CreditsPaid         int            `json:"credits_paid"`
-	EarmarkedCredits    int            `json:"earmarked_credits,omitempty"`
-	MaterialCostEstimate int           `json:"material_cost_estimate,omitempty"`
-	MaterialsProvided   bool           `json:"materials_provided,omitempty"`
-	RequiredMaterials   map[string]int `json:"required_materials,omitempty"`
-	MaterialsGathered   map[string]int `json:"materials_gathered,omitempty"`
-	BuildStartTick      int64          `json:"build_start_tick,omitempty"`
-	BuildCompleteTick   int64          `json:"build_complete_tick,omitempty"`
-	TicksRemaining      int            `json:"ticks_remaining,omitempty"`
-	BuiltShipID         string         `json:"built_ship_id,omitempty"`
-	CreatedAt           string         `json:"created_at,omitempty"`
+	CommissionID         string         `json:"commission_id"`
+	ShipClassID          string         `json:"ship_class_id"`
+	ShipName             string         `json:"ship_name,omitempty"`
+	Status               string         `json:"status"`
+	BaseID               string         `json:"base_id,omitempty"`
+	BaseName             string         `json:"base_name,omitempty"`
+	CreditsPaid          int            `json:"credits_paid"`
+	EarmarkedCredits     int            `json:"earmarked_credits,omitempty"`
+	MaterialCostEstimate int            `json:"material_cost_estimate,omitempty"`
+	MaterialsProvided    bool           `json:"materials_provided,omitempty"`
+	RequiredMaterials    map[string]int `json:"required_materials,omitempty"`
+	MaterialsGathered    map[string]int `json:"materials_gathered,omitempty"`
+	BuildStartTick       int64          `json:"build_start_tick,omitempty"`
+	BuildCompleteTick    int64          `json:"build_complete_tick,omitempty"`
+	TicksRemaining       int            `json:"ticks_remaining,omitempty"`
+	BuiltShipID          string         `json:"built_ship_id,omitempty"`
+	CreatedAt            string         `json:"created_at,omitempty"`
 }
 
 // OwnedShip represents a player-owned ship in the list_ships response.
@@ -855,11 +884,11 @@ type ShipListingDetail struct {
 
 // RevealedPOI represents a POI revealed by a system survey.
 type RevealedPOI struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Type        string            `json:"type"`
-	Description string            `json:"description,omitempty"`
-	Resources   []SurveyResource  `json:"resources,omitempty"`
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Type        string           `json:"type"`
+	Description string           `json:"description,omitempty"`
+	Resources   []SurveyResource `json:"resources,omitempty"`
 }
 
 // SurveyResource represents a resource found during a survey.
@@ -891,13 +920,13 @@ type StorageShip struct {
 
 // StorageGift represents a gift in station storage.
 type StorageGift struct {
-	SenderID  string        `json:"sender_id"`
-	Sender    string        `json:"sender"`
-	Message   string        `json:"message,omitempty"`
-	Credits   int           `json:"credits,omitempty"`
+	SenderID  string            `json:"sender_id"`
+	Sender    string            `json:"sender"`
+	Message   string            `json:"message,omitempty"`
+	Credits   int               `json:"credits,omitempty"`
 	Items     []StorageGiftItem `json:"items,omitempty"`
 	Ships     []StorageGiftShip `json:"ships,omitempty"`
-	Timestamp string        `json:"timestamp,omitempty"`
+	Timestamp string            `json:"timestamp,omitempty"`
 }
 
 // StorageGiftItem represents an item within a gift.
@@ -916,13 +945,13 @@ type StorageGiftShip struct {
 
 // GameCommand represents a command in the help/commands listing.
 type GameCommand struct {
-	Name        string `json:"name"`
-	Category    string `json:"category,omitempty"`
-	Description string `json:"description,omitempty"`
-	Format      string `json:"format,omitempty"`
-	IsMutation  bool   `json:"is_mutation,omitempty"`
-	RequiresAuth bool  `json:"requires_auth,omitempty"`
-	Notes       string `json:"notes,omitempty"`
+	Name         string `json:"name"`
+	Category     string `json:"category,omitempty"`
+	Description  string `json:"description,omitempty"`
+	Format       string `json:"format,omitempty"`
+	IsMutation   bool   `json:"is_mutation,omitempty"`
+	RequiresAuth bool   `json:"requires_auth,omitempty"`
+	Notes        string `json:"notes,omitempty"`
 }
 
 // ChangelogVersion represents a version entry in the changelog.
@@ -934,35 +963,35 @@ type ChangelogVersion struct {
 
 // ForumThreadSummary represents a thread in the forum listing.
 type ForumThreadSummary struct {
-	ID              string `json:"id"`
-	Title           string `json:"title"`
-	Author          string `json:"author"`
-	AuthorID        string `json:"author_id,omitempty"`
-	AuthorEmpire    string `json:"author_empire,omitempty"`
+	ID               string `json:"id"`
+	Title            string `json:"title"`
+	Author           string `json:"author"`
+	AuthorID         string `json:"author_id,omitempty"`
+	AuthorEmpire     string `json:"author_empire,omitempty"`
 	AuthorFactionTag string `json:"author_faction_tag,omitempty"`
-	IsDevTeam       bool   `json:"is_dev_team,omitempty"`
-	Category        string `json:"category,omitempty"`
-	Content         string `json:"content,omitempty"`
-	ReplyCount      int    `json:"reply_count,omitempty"`
-	Upvotes         int    `json:"upvotes,omitempty"`
-	Pinned          bool   `json:"pinned,omitempty"`
-	Locked          bool   `json:"locked,omitempty"`
-	CreatedAt       string `json:"created_at,omitempty"`
-	UpdatedAt       string `json:"updated_at,omitempty"`
+	IsDevTeam        bool   `json:"is_dev_team,omitempty"`
+	Category         string `json:"category,omitempty"`
+	Content          string `json:"content,omitempty"`
+	ReplyCount       int    `json:"reply_count,omitempty"`
+	Upvotes          int    `json:"upvotes,omitempty"`
+	Pinned           bool   `json:"pinned,omitempty"`
+	Locked           bool   `json:"locked,omitempty"`
+	CreatedAt        string `json:"created_at,omitempty"`
+	UpdatedAt        string `json:"updated_at,omitempty"`
 }
 
 // ForumReplyDetail represents a reply in a forum thread.
 type ForumReplyDetail struct {
-	ID              string `json:"id"`
-	ThreadID        string `json:"thread_id,omitempty"`
-	Author          string `json:"author"`
-	AuthorID        string `json:"author_id,omitempty"`
-	AuthorEmpire    string `json:"author_empire,omitempty"`
+	ID               string `json:"id"`
+	ThreadID         string `json:"thread_id,omitempty"`
+	Author           string `json:"author"`
+	AuthorID         string `json:"author_id,omitempty"`
+	AuthorEmpire     string `json:"author_empire,omitempty"`
 	AuthorFactionTag string `json:"author_faction_tag,omitempty"`
-	IsDevTeam       bool   `json:"is_dev_team,omitempty"`
-	Content         string `json:"content"`
-	Upvotes         int    `json:"upvotes,omitempty"`
-	CreatedAt       string `json:"created_at,omitempty"`
+	IsDevTeam        bool   `json:"is_dev_team,omitempty"`
+	Content          string `json:"content"`
+	Upvotes          int    `json:"upvotes,omitempty"`
+	CreatedAt        string `json:"created_at,omitempty"`
 }
 
 // PendingTradeInfo represents a summary of a pending trade in the login response.
@@ -996,24 +1025,24 @@ type TradeFill struct {
 
 // NearbyPirate represents a pirate NPC at the current POI.
 type NearbyPirate struct {
-	PirateID string `json:"pirate_id"`
-	Name     string `json:"name"`
-	Tier     string `json:"tier,omitempty"`
-	IsBoss   bool   `json:"is_boss,omitempty"`
-	Hull     int    `json:"hull"`
-	MaxHull  int    `json:"max_hull"`
-	Shield   int    `json:"shield,omitempty"`
-	MaxShield int   `json:"max_shield,omitempty"`
-	Status   string `json:"status,omitempty"`
+	PirateID  string `json:"pirate_id"`
+	Name      string `json:"name"`
+	Tier      string `json:"tier,omitempty"`
+	IsBoss    bool   `json:"is_boss,omitempty"`
+	Hull      int    `json:"hull"`
+	MaxHull   int    `json:"max_hull"`
+	Shield    int    `json:"shield,omitempty"`
+	MaxShield int    `json:"max_shield,omitempty"`
+	Status    string `json:"status,omitempty"`
 }
 
 // StationHealth represents the condition of a station.
 type StationHealth struct {
-	Condition          string `json:"condition"`
-	ConditionText      string `json:"condition_text"`
-	SatisfactionPct    int    `json:"satisfaction_pct"`
-	SatisfiedCount     int    `json:"satisfied_count"`
-	TotalServiceInfra  int    `json:"total_service_infra"`
+	Condition         string `json:"condition"`
+	ConditionText     string `json:"condition_text"`
+	SatisfactionPct   int    `json:"satisfaction_pct"`
+	SatisfiedCount    int    `json:"satisfied_count"`
+	TotalServiceInfra int    `json:"total_service_infra"`
 }
 
 // MissionGiver represents the NPC giving a mission.
@@ -1062,33 +1091,33 @@ type MissionBoardEntry struct {
 
 // MissionRequirements represents requirements to complete a mission.
 type MissionRequirements struct {
-	DeliverItemID      string `json:"deliver_item_id,omitempty"`
-	DeliverItemName    string `json:"deliver_item_name,omitempty"`
-	DeliverQuantity    int    `json:"deliver_quantity,omitempty"`
-	DeliverToBaseID    string `json:"deliver_to_base_id,omitempty"`
-	DeliverToBaseName  string `json:"deliver_to_base_name,omitempty"`
-	MineItemID         string `json:"mine_item_id,omitempty"`
-	MineItemName       string `json:"mine_item_name,omitempty"`
-	MineQuantity       int    `json:"mine_quantity,omitempty"`
-	KillCount          int    `json:"kill_count,omitempty"`
-	TargetPlayerID     string `json:"target_player_id,omitempty"`
-	VisitSystemCount   int    `json:"visit_system_count,omitempty"`
+	DeliverItemID     string `json:"deliver_item_id,omitempty"`
+	DeliverItemName   string `json:"deliver_item_name,omitempty"`
+	DeliverQuantity   int    `json:"deliver_quantity,omitempty"`
+	DeliverToBaseID   string `json:"deliver_to_base_id,omitempty"`
+	DeliverToBaseName string `json:"deliver_to_base_name,omitempty"`
+	MineItemID        string `json:"mine_item_id,omitempty"`
+	MineItemName      string `json:"mine_item_name,omitempty"`
+	MineQuantity      int    `json:"mine_quantity,omitempty"`
+	KillCount         int    `json:"kill_count,omitempty"`
+	TargetPlayerID    string `json:"target_player_id,omitempty"`
+	VisitSystemCount  int    `json:"visit_system_count,omitempty"`
 }
 
 // ActiveMission represents a mission the player has accepted.
 type ActiveMission struct {
-	MissionID      string              `json:"mission_id"`
-	TemplateID     string              `json:"template_id,omitempty"`
-	Type           string              `json:"type"`
-	Title          string              `json:"title"`
-	Description    string              `json:"description,omitempty"`
-	Difficulty     int                 `json:"difficulty,omitempty"`
-	Giver          MissionGiver        `json:"giver,omitempty"`
-	IssuingBase    string              `json:"issuing_base,omitempty"`
-	AcceptedAt     string              `json:"accepted_at,omitempty"`
-	ExpiresInTicks int                 `json:"expires_in_ticks,omitempty"`
-	Requirements   *MissionRequirements `json:"requirements,omitempty"`
-	Rewards        *MissionRewards     `json:"rewards,omitempty"`
+	MissionID      string                   `json:"mission_id"`
+	TemplateID     string                   `json:"template_id,omitempty"`
+	Type           string                   `json:"type"`
+	Title          string                   `json:"title"`
+	Description    string                   `json:"description,omitempty"`
+	Difficulty     int                      `json:"difficulty,omitempty"`
+	Giver          MissionGiver             `json:"giver,omitempty"`
+	IssuingBase    string                   `json:"issuing_base,omitempty"`
+	AcceptedAt     string                   `json:"accepted_at,omitempty"`
+	ExpiresInTicks int                      `json:"expires_in_ticks,omitempty"`
+	Requirements   *MissionRequirements     `json:"requirements,omitempty"`
+	Rewards        *MissionRewards          `json:"rewards,omitempty"`
 	Objectives     []ActiveMissionObjective `json:"objectives,omitempty"`
 	Progress       *ActiveMissionProgress   `json:"progress,omitempty"`
 }
@@ -1157,58 +1186,58 @@ type FactionWarDetail struct {
 
 // ShipModule represents an installed module on a ship.
 type ShipModule struct {
-	ID                 string             `json:"id"`
-	TypeID             string             `json:"type_id,omitempty"`
-	Name               string             `json:"name"`
-	Type               string             `json:"type"`
-	Slot               string             `json:"slot,omitempty"`
-	Size               int                `json:"size,omitempty"`
-	Quality            float64            `json:"quality,omitempty"`
-	QualityGrade       string             `json:"quality_grade,omitempty"`
-	Wear               float64            `json:"wear,omitempty"`
-	WearStatus         string             `json:"wear_status,omitempty"`
-	CPUUsage           int                `json:"cpu_usage,omitempty"`
-	PowerUsage         int                `json:"power_usage,omitempty"`
-	Damage             int                `json:"damage,omitempty"`
-	DamageType         string             `json:"damage_type,omitempty"`
-	Range              int                `json:"range,omitempty"`
-	Reach              int                `json:"reach,omitempty"`
-	Cooldown           int                `json:"cooldown,omitempty"`
-	MagazineSize       int                `json:"magazine_size,omitempty"`
-	CurrentAmmo        int                `json:"current_ammo,omitempty"`
-	AmmoType           string             `json:"ammo_type,omitempty"`
-	LoadedAmmoID       string             `json:"loaded_ammo_id,omitempty"`
-	LoadedAmmoName     string             `json:"loaded_ammo_name,omitempty"`
-	AccuracyBonus      int                `json:"accuracy_bonus,omitempty"`
-	ArmorBonus         int                `json:"armor_bonus,omitempty"`
-	ArmorBypassBonus   float64            `json:"armor_bypass_bonus,omitempty"`
-	ArmorRepairRate    int                `json:"armor_repair_rate,omitempty"`
-	ShieldBonus        int                `json:"shield_bonus,omitempty"`
-	ShieldBypassBonus  float64            `json:"shield_bypass_bonus,omitempty"`
-	ShieldRechargeBonus int               `json:"shield_recharge_bonus,omitempty"`
-	HullBonus          int                `json:"hull_bonus,omitempty"`
-	HullPenalty        int                `json:"hull_penalty,omitempty"`
-	SpeedBonus         int                `json:"speed_bonus,omitempty"`
-	SpeedPenalty       int                `json:"speed_penalty,omitempty"`
-	CargoBonus         int                `json:"cargo_bonus,omitempty"`
-	CPUBonus           int                `json:"cpu_bonus,omitempty"`
-	PowerBonus         int                `json:"power_bonus,omitempty"`
-	MaxFuelBonus       int                `json:"max_fuel_bonus,omitempty"`
-	DamageReduction    int                `json:"damage_reduction,omitempty"`
-	MiningPower        int                `json:"mining_power,omitempty"`
-	SalvageBonus       int                `json:"salvage_bonus,omitempty"`
-	ScannerPower       int                `json:"scanner_power,omitempty"`
-	SurveyPower        int                `json:"survey_power,omitempty"`
-	SurveyRange        int                `json:"survey_range,omitempty"`
-	SignatureBonus     int                `json:"signature_bonus,omitempty"`
-	TrackingBonus      int                `json:"tracking_bonus,omitempty"`
-	TowSpeedPenalty    int                `json:"tow_speed_penalty,omitempty"`
-	CloakStrength      int                `json:"cloak_strength,omitempty"`
-	FuelEfficiency     int                `json:"fuel_efficiency,omitempty"`
-	DroneBandwidth     int                `json:"drone_bandwidth,omitempty"`
-	DroneCapacity      int                `json:"drone_capacity,omitempty"`
-	ResistanceBonus    map[string]int     `json:"resistance_bonus,omitempty"`
-	Special            string             `json:"special,omitempty"`
+	ID                  string         `json:"id"`
+	TypeID              string         `json:"type_id,omitempty"`
+	Name                string         `json:"name"`
+	Type                string         `json:"type"`
+	Slot                string         `json:"slot,omitempty"`
+	Size                int            `json:"size,omitempty"`
+	Quality             float64        `json:"quality,omitempty"`
+	QualityGrade        string         `json:"quality_grade,omitempty"`
+	Wear                float64        `json:"wear,omitempty"`
+	WearStatus          string         `json:"wear_status,omitempty"`
+	CPUUsage            int            `json:"cpu_usage,omitempty"`
+	PowerUsage          int            `json:"power_usage,omitempty"`
+	Damage              int            `json:"damage,omitempty"`
+	DamageType          string         `json:"damage_type,omitempty"`
+	Range               int            `json:"range,omitempty"`
+	Reach               int            `json:"reach,omitempty"`
+	Cooldown            int            `json:"cooldown,omitempty"`
+	MagazineSize        int            `json:"magazine_size,omitempty"`
+	CurrentAmmo         int            `json:"current_ammo,omitempty"`
+	AmmoType            string         `json:"ammo_type,omitempty"`
+	LoadedAmmoID        string         `json:"loaded_ammo_id,omitempty"`
+	LoadedAmmoName      string         `json:"loaded_ammo_name,omitempty"`
+	AccuracyBonus       int            `json:"accuracy_bonus,omitempty"`
+	ArmorBonus          int            `json:"armor_bonus,omitempty"`
+	ArmorBypassBonus    float64        `json:"armor_bypass_bonus,omitempty"`
+	ArmorRepairRate     int            `json:"armor_repair_rate,omitempty"`
+	ShieldBonus         int            `json:"shield_bonus,omitempty"`
+	ShieldBypassBonus   float64        `json:"shield_bypass_bonus,omitempty"`
+	ShieldRechargeBonus int            `json:"shield_recharge_bonus,omitempty"`
+	HullBonus           int            `json:"hull_bonus,omitempty"`
+	HullPenalty         int            `json:"hull_penalty,omitempty"`
+	SpeedBonus          int            `json:"speed_bonus,omitempty"`
+	SpeedPenalty        int            `json:"speed_penalty,omitempty"`
+	CargoBonus          int            `json:"cargo_bonus,omitempty"`
+	CPUBonus            int            `json:"cpu_bonus,omitempty"`
+	PowerBonus          int            `json:"power_bonus,omitempty"`
+	MaxFuelBonus        int            `json:"max_fuel_bonus,omitempty"`
+	DamageReduction     int            `json:"damage_reduction,omitempty"`
+	MiningPower         int            `json:"mining_power,omitempty"`
+	SalvageBonus        int            `json:"salvage_bonus,omitempty"`
+	ScannerPower        int            `json:"scanner_power,omitempty"`
+	SurveyPower         int            `json:"survey_power,omitempty"`
+	SurveyRange         int            `json:"survey_range,omitempty"`
+	SignatureBonus      int            `json:"signature_bonus,omitempty"`
+	TrackingBonus       int            `json:"tracking_bonus,omitempty"`
+	TowSpeedPenalty     int            `json:"tow_speed_penalty,omitempty"`
+	CloakStrength       int            `json:"cloak_strength,omitempty"`
+	FuelEfficiency      int            `json:"fuel_efficiency,omitempty"`
+	DroneBandwidth      int            `json:"drone_bandwidth,omitempty"`
+	DroneCapacity       int            `json:"drone_capacity,omitempty"`
+	ResistanceBonus     map[string]int `json:"resistance_bonus,omitempty"`
+	Special             string         `json:"special,omitempty"`
 }
 
 // AutoListedOrder represents an automatically created sell order from a buy.

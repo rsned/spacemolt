@@ -786,6 +786,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatFactionIntelStatus(raw)
 	case "faction_query_intel":
 		return formatFactionQueryIntel(raw)
+	case "espionage":
+		return formatEspionage(raw)
 	case "deposit", "deposit_items":
 		return formatDeposit(raw)
 	case "skills", "get_skills":
@@ -2128,7 +2130,7 @@ func factionOwnerDisplay(factionID string, cache map[string]string) string {
 func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility, indent, heading string) {
 	type prodRow struct {
 		name, typ, feehr, outrun, cycle, runcost, queued, backlog, public string
-		facID, rent, owner                                                 string
+		facID, rent, owner                                                string
 	}
 	rows := make([]prodRow, 0, len(facs))
 	showID, showRent, showOwner := false, false, false
@@ -2474,17 +2476,17 @@ func formatFacilityList(raw []byte) string {
 	// stationFacility describes a facility the station itself owns/operates.
 	// Only rendered when --show_station_facilities is set.
 	type stationFacility struct {
-		Active               bool   `json:"active"`
-		Category             string `json:"category"`
-		Description          string `json:"description"`
-		FacilityID           string `json:"facility_id"`
-		Level                int    `json:"level"`
-		MaintenanceSatisfied bool   `json:"maintenance_satisfied"`
-		Name                 string `json:"name"`
-		Service              string `json:"service"`
-		RecipeID             string `json:"recipe_id"`
-		IdleReason           string `json:"idle_reason"`
-		Type                 string `json:"type"`
+		Active               bool                `json:"active"`
+		Category             string              `json:"category"`
+		Description          string              `json:"description"`
+		FacilityID           string              `json:"facility_id"`
+		Level                int                 `json:"level"`
+		MaintenanceSatisfied bool                `json:"maintenance_satisfied"`
+		Name                 string              `json:"name"`
+		Service              string              `json:"service"`
+		RecipeID             string              `json:"recipe_id"`
+		IdleReason           string              `json:"idle_reason"`
+		Type                 string              `json:"type"`
 		Production           *facilityProduction `json:"production"`
 	}
 	var resp struct {
@@ -5118,8 +5120,8 @@ func formatDock(raw []byte) string {
 		// were auto-delivered (and their fares collected) on docking.
 		PassengerArrivals struct {
 			Delivered []struct {
-				Name       string `json:"name"`
-				Class      string `json:"class"`
+				Name  string `json:"name"`
+				Class string `json:"class"`
 				// base_fare (renamed from "fare"): the passenger's base fare,
 				// shown per-passenger; speed_bonus is added on top and the two
 				// sum into fare_collected.
@@ -7935,6 +7937,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.FactionQueryTradeIntel(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
+
+	case "espionage":
+		// Blocks ~90s server-side; the long await lives inside client.Espionage
+		// (SleepEspionageMaxWait), so this only needs the usual settle pause.
+		return simpleCommand(client, client.Espionage, ctx, game.SleepQuick, cmd, format)
 
 	case "faction_intel_status":
 		return simpleCommand(client, client.FactionIntelStatus, ctx, 2*time.Second, cmd, format)

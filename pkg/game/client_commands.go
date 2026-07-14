@@ -1884,6 +1884,26 @@ func (c *Client) FactionSubmitIntel(ctx context.Context, systems []map[string]an
 	return err
 }
 
+// Espionage sends a spy to gather intelligence on the station the player is
+// currently docked at, using the faction's Espionage HQ facility. Requires
+// faction membership, an active Espionage HQ built anywhere by the faction,
+// and being docked at the target station.
+//
+// The operation blocks the player for ~90s server-side and no other action can
+// be taken until it resolves, so it awaits on SleepEspionageMaxWait rather than
+// the ordinary mutation timeout.
+func (c *Client) Espionage(ctx context.Context) error {
+	msg := protocol.Message{
+		Type:      "espionage",
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepEspionageMaxWait))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return err
+}
+
 // FactionQueryIntel queries your faction's intel database.
 func (c *Client) FactionQueryIntel(ctx context.Context, payload map[string]any) error {
 	msg := protocol.Message{

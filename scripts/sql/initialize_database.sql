@@ -12,7 +12,7 @@
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
 -- Migrations applied: 20
--- Last Regenerated: 2026-07-09
+-- Last Regenerated: 2026-07-14
 
 -- ============================================================================
 -- TABLES
@@ -862,7 +862,7 @@ CREATE TABLE "ships" (
     default_modules TEXT DEFAULT '[]',
     flavor_tags TEXT DEFAULT '[]',
     last_updated_tick INTEGER DEFAULT 0
-, passive_recipes TEXT DEFAULT '[]', based_on TEXT, npc_role TEXT, special TEXT, required_reputation INTEGER NOT NULL DEFAULT 0, piloting_required INTEGER NOT NULL DEFAULT 0, inherent_capabilities TEXT);
+, passive_recipes TEXT DEFAULT '[]', based_on TEXT, npc_role TEXT, special TEXT, required_reputation INTEGER NOT NULL DEFAULT 0, piloting_required INTEGER NOT NULL DEFAULT 0, inherent_capabilities TEXT, required_achievement TEXT DEFAULT '', required_faction_achievement TEXT DEFAULT '', required_faction_leader INTEGER NOT NULL DEFAULT 0, prestige_lock TEXT DEFAULT '', default_loadout_version INTEGER NOT NULL DEFAULT 0);
 
 
 CREATE TABLE skills (

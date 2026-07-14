@@ -84,6 +84,9 @@ const (
 
 	// Achievement events
 	TypeAchievementUnlocked = "achievement_unlocked"
+
+	// Server lifecycle events
+	TypeServerRestartWarning = "server_restart_warning"
 )
 
 // Message represents a message sent to the server

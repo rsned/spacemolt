@@ -1638,6 +1638,11 @@ func (m *MCPGameClient) FactionSubmitIntel(ctx context.Context, systems []map[st
 	return err
 }
 
+func (m *MCPGameClient) Espionage(ctx context.Context) error {
+	_, err := m.callTool(ctx, "espionage", nil)
+	return err
+}
+
 func (m *MCPGameClient) FactionQueryIntel(ctx context.Context, payload map[string]any) error {
 	result, err := m.callTool(ctx, "faction_query_intel", payload)
 	if err != nil {

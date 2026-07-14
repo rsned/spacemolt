@@ -267,6 +267,9 @@ func CommandAnnotations() map[string]Annotation {
 		"faction_submit_trade_intel": {
 			Preconditions: []Precondition{RequiresDocked, RequiresFaction},
 		},
+		"espionage": {
+			Preconditions: []Precondition{RequiresDocked, RequiresFaction},
+		},
 		"faction_post_mission": {
 			Preconditions: []Precondition{RequiresDocked, RequiresFaction, RequiresCredits},
 		},

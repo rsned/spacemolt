@@ -2584,6 +2584,29 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.debugLogger.Printf("🏚️  FACILITY RENT WARNING: %v", resp.Payload)
 		}
 
+	case protocol.TypeServerRestartWarning:
+		// The server announces an imminent restart (a version deploy), e.g.
+		//   {"message":"Server restarting in 60s ...",
+		//    "seconds_until_restart":60,"target_version":"0.485.0"}
+		// The disconnect is brief (~10-20s) and workers reconnect on their own,
+		// so this is informational — but it is the server telling us a restart
+		// is coming, and it is the hook a future graceful pre-restart drain
+		// would hang off rather than letting workers eat an EOF.
+		//
+		// The event has no schema in openapi.json or ws.md, so every field is
+		// read defensively with a whole-payload fallback.
+		msg, _ := resp.Payload["message"].(string)
+		target, _ := resp.Payload["target_version"].(string)
+		secs, hasSecs := resp.Payload["seconds_until_restart"].(float64)
+		switch {
+		case msg != "":
+			c.debugLogger.Printf("🔄 SERVER RESTART WARNING: %s", msg)
+		case hasSecs:
+			c.debugLogger.Printf("🔄 SERVER RESTART WARNING: restarting in %ds (target %s)", int(secs), target)
+		default:
+			c.debugLogger.Printf("🔄 SERVER RESTART WARNING: %v", resp.Payload)
+		}
+
 	case protocol.TypeScanDetected:
 		// Always surface scans on stderr (regardless of debug settings) with a
 		// high-contrast banner; loudest in lawless space, where a scan often
@@ -4161,6 +4184,7 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeFacilityRentWarning:     {},
 	protocol.TypeAchievementUnlocked:     {},
 	protocol.TypeCraftingUpdate:          {},
+	protocol.TypeServerRestartWarning:    {},
 }
 
 // storeRawJSON stores raw JSON payloads for key response types

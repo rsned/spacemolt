@@ -410,6 +410,11 @@ var AllActions = []Action{
 		Preconditions: []Precondition{RequiresDocked, RequiresFaction},
 	},
 	{
+		Name: "espionage", Summary: "Send a spy to gather intel on the docked station via the faction's Espionage HQ",
+		Category: "faction", IsMutation: true,
+		Preconditions: []Precondition{RequiresDocked, RequiresFaction},
+	},
+	{
 		Name: "faction_post_mission", Summary: "Post a mission on faction's mission board",
 		Category: "faction", IsMutation: true,
 		Preconditions: []Precondition{RequiresDocked, RequiresFaction, RequiresCredits},

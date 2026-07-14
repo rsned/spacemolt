@@ -41,6 +41,7 @@ var Mutations = map[string]bool{
 	"faction_submit_trade_intel": true,
 	"faction_withdraw_credits":   true,
 	"faction_withdraw_items":     true,
+	"espionage":                  true,
 	"fleet":                      true,
 	"install_mod":                true,
 	"jettison":                   true,

@@ -52,13 +52,13 @@ type ItemModule struct {
 
 // ItemWeapon holds weapon-specific module attributes.
 type ItemWeapon struct {
-	Damage       int
-	DamageType   string // "kinetic", "energy", "em", "explosive", "void", "thermal"
-	Range        *int   // nullable
-	Reach        *int   // nullable
-	Cooldown     int
-	AmmoType     string // empty for energy weapons
-	MagazineSize *int   // nil when AmmoType is empty
+	Damage            int
+	DamageType        string // "kinetic", "energy", "em", "explosive", "void", "thermal"
+	Range             *int   // nullable
+	Reach             *int   // nullable
+	Cooldown          int
+	AmmoType          string   // empty for energy weapons
+	MagazineSize      *int     // nil when AmmoType is empty
 	ArmorBypassBonus  *float64 // fraction of armor ignored
 	ShieldBypassBonus *float64 // fraction of shield ignored
 }
@@ -129,44 +129,50 @@ type ItemAmmo struct {
 
 // ShipClassDef represents a ship class definition stored in the knowledge base.
 type ShipClassDef struct {
-	ID                 string
-	Name               string
-	Class              string
-	Category           string
-	Description        string
-	Lore               string
-	Faction            string
-	Tier               int
-	Scale              int
-	Price              int
-	BaseHull           int
-	BaseShield         int
-	BaseShieldRecharge int
-	BaseArmor          int
-	BaseSpeed          int
-	BaseFuel           int
-	CargoCapacity      int
-	CPUCapacity        int
-	PowerCapacity      int
-	WeaponSlots        int
-	DefenseSlots       int
-	UtilitySlots       int
-	BuildTime          int
-	ShipyardTier       int
-	StarterShip        bool
-	TowSpeedBonus      int
-	BasedOn            string
-	NPCRole            string
-	Special            string
-	RequiredReputation int
-	PilotingRequired   int
+	ID                   string
+	Name                 string
+	Class                string
+	Category             string
+	Description          string
+	Lore                 string
+	Faction              string
+	Tier                 int
+	Scale                int
+	BaseHull             int
+	BaseShield           int
+	BaseShieldRecharge   int
+	BaseArmor            int
+	BaseSpeed            int
+	BaseFuel             int
+	CargoCapacity        int
+	CPUCapacity          int
+	PowerCapacity        int
+	WeaponSlots          int
+	DefenseSlots         int
+	UtilitySlots         int
+	BuildTime            int
+	ShipyardTier         int
+	StarterShip          bool
+	TowSpeedBonus        int
+	BasedOn              string
+	NPCRole              string
+	Special              string
+	RequiredReputation   int
+	PilotingRequired     int
 	InherentCapabilities []ShipCapability
-	RequiredSkills     map[string]int
-	DefaultModules     []string
-	FlavorTags         []string
-	BuildMaterials     []BuildMaterial
-	PassiveRecipes     []string
-	LastUpdatedTick    int64
+	DefaultModules       []string
+	FlavorTags           []string
+	BuildMaterials       []BuildMaterial
+	PassiveRecipes       []string
+
+	// Prestige / unlock gating (server v0.495.1).
+	RequiredAchievement        string
+	RequiredFactionAchievement string
+	RequiredFactionLeader      bool
+	PrestigeLock               string
+	DefaultLoadoutVersion      int
+
+	LastUpdatedTick int64
 }
 
 // BuildMaterial represents a material required to build a ship class.

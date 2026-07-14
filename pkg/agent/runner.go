@@ -751,6 +751,12 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 		r.logger.Printf("[%s] -> FactionPromote('%s')", r.agent.ID(), decision.Target)
 		return r.gameClient.FactionPromote(actionCtx, decision.Target, "")
 
+	case "espionage":
+		// Takes no target: the spy is sent against whatever station the agent
+		// is currently docked at.
+		r.logger.Printf("[%s] -> Espionage()", r.agent.ID())
+		return r.gameClient.Espionage(actionCtx)
+
 	// ---- Communication ----
 	case "chat":
 		r.logger.Printf("[%s] -> Chat('local', '%s')", r.agent.ID(), decision.Target)

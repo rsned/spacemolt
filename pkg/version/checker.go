@@ -21,7 +21,13 @@ import (
 // partial — fields the client reads are verified for every response with a live
 // sample in data/game-api/latest/, but structs lacking a live sample (openapi is
 // an incomplete superset) remain unverified and are itemized in the findings doc.
-const BuiltForAPIVersion = "v0.473.0"
+//
+// The v0.473.0 -> v0.495.1 bump (2026-07-13) was driven by a full path- and
+// field-level diff of the openapi snapshots rather than a struct re-audit: it
+// added the espionage command, dropped the removed ShipClass price/
+// required_skills fields, and picked up the new additive fields. The
+// pre-v0.473.0 drift called out in the findings doc remains unaudited.
+const BuiltForAPIVersion = "v0.495.1"
 
 // SemVer represents a semantic version (Major.Minor.Patch)
 type SemVer struct {

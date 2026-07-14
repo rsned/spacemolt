@@ -596,6 +596,12 @@ func migrations() []Migration {
 				CREATE INDEX IF NOT EXISTS idx_public_facilities_recipe ON public_facilities(recipe_id);
 			`,
 		},
+		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
+		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
+		// pre-collapse DBs, where `ships` does not exist until
+		// ensureCollapseMissingTables runs *after* this loop. They are applied by
+		// ensureShipClassPrestigeCols instead, which runs once the table is
+		// guaranteed to exist.
 	}
 }
 
@@ -765,6 +771,59 @@ func runMigrations(db *sql.DB) error {
 	if err := ensurePublicFacilitiesRentalCol(db); err != nil {
 		return fmt.Errorf("ensure public_facilities rental_fee_per_run column: %w", err)
 	}
+	if err := ensureShipClassPrestigeCols(db); err != nil {
+		return fmt.Errorf("ensure ships prestige/unlock columns: %w", err)
+	}
+
+	return nil
+}
+
+// ensureShipClassPrestigeCols adds the ship-class prestige/unlock columns
+// introduced by server v0.495.1 (required_achievement, required_faction_
+// achievement, required_faction_leader, prestige_lock, default_loadout_version).
+//
+// This is a self-healing ensure rather than a numbered migration on purpose: a
+// migration's `ALTER TABLE ships` runs inside the migration loop, which is
+// BEFORE ensureCollapseMissingTables creates `ships` on pre-collapse DBs, so it
+// would die with "no such table: ships". Running here — after the table is
+// guaranteed to exist — covers every cohort: fresh DBs (ships from
+// initial_schema), current DBs, and pre-collapse DBs alike.
+func ensureShipClassPrestigeCols(db *sql.DB) error {
+	var tableCount int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ships'`,
+	).Scan(&tableCount); err != nil {
+		return fmt.Errorf("check ships table: %w", err)
+	}
+	if tableCount == 0 {
+		return nil // table not created yet; nothing to reconcile
+	}
+
+	cols := []struct {
+		name string
+		ddl  string
+	}{
+		{"required_achievement", `ALTER TABLE ships ADD COLUMN required_achievement TEXT DEFAULT ''`},
+		{"required_faction_achievement", `ALTER TABLE ships ADD COLUMN required_faction_achievement TEXT DEFAULT ''`},
+		{"required_faction_leader", `ALTER TABLE ships ADD COLUMN required_faction_leader INTEGER NOT NULL DEFAULT 0`},
+		{"prestige_lock", `ALTER TABLE ships ADD COLUMN prestige_lock TEXT DEFAULT ''`},
+		{"default_loadout_version", `ALTER TABLE ships ADD COLUMN default_loadout_version INTEGER NOT NULL DEFAULT 0`},
+	}
+
+	for _, c := range cols {
+		var present int
+		if err := db.QueryRow(
+			`SELECT COUNT(*) FROM pragma_table_info('ships') WHERE name=?`, c.name,
+		).Scan(&present); err != nil {
+			return fmt.Errorf("check ships.%s column: %w", c.name, err)
+		}
+		if present > 0 {
+			continue
+		}
+		if _, err := db.Exec(c.ddl); err != nil {
+			return fmt.Errorf("add ships.%s column: %w", c.name, err)
+		}
+	}
 
 	return nil
 }
@@ -925,7 +984,12 @@ CREATE TABLE IF NOT EXISTS "ships" (
     default_modules TEXT DEFAULT '[]',
     flavor_tags TEXT DEFAULT '[]',
     last_updated_tick INTEGER DEFAULT 0,
-    passive_recipes TEXT DEFAULT '[]'
+    passive_recipes TEXT DEFAULT '[]',
+    required_achievement TEXT DEFAULT '',
+    required_faction_achievement TEXT DEFAULT '',
+    required_faction_leader INTEGER NOT NULL DEFAULT 0,
+    prestige_lock TEXT DEFAULT '',
+    default_loadout_version INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_ships_class ON ships(class);

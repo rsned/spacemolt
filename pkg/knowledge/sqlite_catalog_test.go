@@ -181,19 +181,18 @@ func TestSQLiteKB_StoreShipClasses(t *testing.T) {
 
 	classes := []ShipClassDef{
 		{
-			ID:             "shuttle",
-			Name:           "Shuttle",
-			Class:          "Civilian",
-			Category:       "starter",
-			Description:    "A basic shuttle",
-			Tier:           1,
-			Price:          1000,
-			BaseHull:       100,
-			CargoCapacity:  20,
-			WeaponSlots:    0,
-			RequiredSkills: map[string]int{"small_ships": 1},
-			DefaultModules: []string{"basic_engine"},
-			FlavorTags:     []string{"starter", "civilian"},
+			ID:               "shuttle",
+			Name:             "Shuttle",
+			Class:            "Civilian",
+			Category:         "starter",
+			Description:      "A basic shuttle",
+			Tier:             1,
+			BaseHull:         100,
+			CargoCapacity:    20,
+			WeaponSlots:      0,
+			PilotingRequired: 1,
+			DefaultModules:   []string{"basic_engine"},
+			FlavorTags:       []string{"starter", "civilian"},
 			BuildMaterials: []BuildMaterial{
 				{ItemID: "iron_plates", Quantity: 5},
 				{ItemID: "circuits", Quantity: 2},
@@ -206,7 +205,6 @@ func TestSQLiteKB_StoreShipClasses(t *testing.T) {
 			Category:    "military",
 			Description: "A combat fighter",
 			Tier:        2,
-			Price:       5000,
 			BaseHull:    200,
 			WeaponSlots: 2,
 		},
@@ -226,16 +224,24 @@ func TestSQLiteKB_GetShipClass(t *testing.T) {
 
 	classes := []ShipClassDef{
 		{
-			ID:             "shuttle",
-			Name:           "Shuttle",
-			Class:          "Civilian",
-			Price:          1000,
-			RequiredSkills: map[string]int{"small_ships": 1},
-			DefaultModules: []string{"basic_engine"},
-			FlavorTags:     []string{"starter"},
+			ID:               "shuttle",
+			Name:             "Shuttle",
+			Class:            "Civilian",
+			PilotingRequired: 1,
+			DefaultModules:   []string{"basic_engine"},
+			FlavorTags:       []string{"starter"},
 			BuildMaterials: []BuildMaterial{
 				{ItemID: "iron_plates", Quantity: 5},
 			},
+			// Prestige/unlock cluster added in v0.495.1. Round-tripping these
+			// is what proves migration 49's columns, the shipClassColumns
+			// order, and the positional scanners all agree.
+			RequiredReputation:         250,
+			RequiredAchievement:        "first_blood",
+			RequiredFactionAchievement: "war_chest",
+			RequiredFactionLeader:      true,
+			PrestigeLock:               "earn first_blood to unlock",
+			DefaultLoadoutVersion:      3,
 		},
 	}
 	if err := kb.StoreShipClasses(ctx, classes); err != nil {
@@ -252,14 +258,32 @@ func TestSQLiteKB_GetShipClass(t *testing.T) {
 	if sc.Name != "Shuttle" {
 		t.Errorf("Expected name 'Shuttle', got '%s'", sc.Name)
 	}
-	if sc.RequiredSkills["small_ships"] != 1 {
-		t.Errorf("Expected required skill small_ships=1, got %d", sc.RequiredSkills["small_ships"])
+	if sc.PilotingRequired != 1 {
+		t.Errorf("Expected PilotingRequired=1, got %d", sc.PilotingRequired)
 	}
 	if len(sc.BuildMaterials) != 1 {
 		t.Errorf("Expected 1 build material, got %d", len(sc.BuildMaterials))
 	}
 	if len(sc.BuildMaterials) > 0 && sc.BuildMaterials[0].ItemID != "iron_plates" {
 		t.Errorf("Expected build material iron_plates, got %s", sc.BuildMaterials[0].ItemID)
+	}
+	if sc.RequiredReputation != 250 {
+		t.Errorf("Expected RequiredReputation=250, got %d", sc.RequiredReputation)
+	}
+	if sc.RequiredAchievement != "first_blood" {
+		t.Errorf("Expected RequiredAchievement='first_blood', got %q", sc.RequiredAchievement)
+	}
+	if sc.RequiredFactionAchievement != "war_chest" {
+		t.Errorf("Expected RequiredFactionAchievement='war_chest', got %q", sc.RequiredFactionAchievement)
+	}
+	if !sc.RequiredFactionLeader {
+		t.Error("Expected RequiredFactionLeader=true, got false")
+	}
+	if sc.PrestigeLock != "earn first_blood to unlock" {
+		t.Errorf("Expected PrestigeLock round-trip, got %q", sc.PrestigeLock)
+	}
+	if sc.DefaultLoadoutVersion != 3 {
+		t.Errorf("Expected DefaultLoadoutVersion=3, got %d", sc.DefaultLoadoutVersion)
 	}
 }
 
@@ -287,8 +311,8 @@ func TestSQLiteKB_GetShipClasses(t *testing.T) {
 	ctx := context.Background()
 
 	classes := []ShipClassDef{
-		{ID: "shuttle", Name: "Shuttle", Class: "Civilian", Price: 1000, BuildMaterials: []BuildMaterial{{ItemID: "iron", Quantity: 5}}},
-		{ID: "fighter", Name: "Fighter", Class: "Combat", Price: 5000},
+		{ID: "shuttle", Name: "Shuttle", Class: "Civilian", BuildMaterials: []BuildMaterial{{ItemID: "iron", Quantity: 5}}},
+		{ID: "fighter", Name: "Fighter", Class: "Combat"},
 	}
 	if err := kb.StoreShipClasses(ctx, classes); err != nil {
 		t.Fatalf("StoreShipClasses failed: %v", err)
@@ -317,10 +341,13 @@ func TestSQLiteKB_GetShipClassesByCategory(t *testing.T) {
 
 	ctx := context.Background()
 
+	// Transport is inserted first but is the higher tier, so a correct
+	// tier-ascending sort has to reorder it behind Shuttle. (This used to sort
+	// by price, which the server no longer sends.)
 	classes := []ShipClassDef{
-		{ID: "shuttle", Name: "Shuttle", Class: "Civilian"},
-		{ID: "transport", Name: "Transport", Class: "Civilian"},
-		{ID: "fighter", Name: "Fighter", Class: "Combat"},
+		{ID: "transport", Name: "Transport", Class: "Civilian", Tier: 3},
+		{ID: "shuttle", Name: "Shuttle", Class: "Civilian", Tier: 1},
+		{ID: "fighter", Name: "Fighter", Class: "Combat", Tier: 2},
 	}
 	if err := kb.StoreShipClasses(ctx, classes); err != nil {
 		t.Fatalf("StoreShipClasses failed: %v", err)
@@ -332,6 +359,9 @@ func TestSQLiteKB_GetShipClassesByCategory(t *testing.T) {
 	}
 	if len(civilian) != 2 {
 		t.Errorf("Expected 2 civilian classes, got %d", len(civilian))
+	}
+	if len(civilian) == 2 && civilian[0].ID != "shuttle" {
+		t.Errorf("Expected tier-ascending order (shuttle before transport), got %s first", civilian[0].ID)
 	}
 
 	combat, err := kb.GetShipClassesByCategory(ctx, "Combat")
@@ -352,16 +382,16 @@ func TestSQLiteKB_StoreRecipes(t *testing.T) {
 
 	recipes := []RecipeDef{
 		{
-			ID:             "iron_plate",
-			Name:           "Iron Plate",
-			Description:    "Smelt iron ore into plates",
-			Category:       "smelting",
-			CraftingTime:   10,
-			BaseQuality:    50,
+			ID:              "iron_plate",
+			Name:            "Iron Plate",
+			Description:     "Smelt iron ore into plates",
+			Category:        "smelting",
+			CraftingTime:    10,
+			BaseQuality:     50,
 			SkillQualityMod: 5,
-			RequiredSkills: map[string]int{"mining": 1},
-			Inputs:         []RecipeIngredient{{ItemID: "iron_ore", Quantity: 3}},
-			Outputs:        []RecipeProduct{{ItemID: "iron_plate", Quantity: 1, QualityMod: true}},
+			RequiredSkills:  map[string]int{"mining": 1},
+			Inputs:          []RecipeIngredient{{ItemID: "iron_ore", Quantity: 3}},
+			Outputs:         []RecipeProduct{{ItemID: "iron_plate", Quantity: 1, QualityMod: true}},
 		},
 	}
 

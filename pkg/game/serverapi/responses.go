@@ -73,6 +73,31 @@ type GetBaseResponse struct {
 	FactionFuelCapacity int   `json:"faction_fuel_capacity,omitempty"`
 	FactionFuelReserve  int   `json:"faction_fuel_reserve,omitempty"`
 	FuelPrice           int64 `json:"fuel_price,omitempty"`
+
+	LifeSupport *LifeSupport `json:"life_support,omitempty"`
+}
+
+// LifeSupport describes a station's life-support standing (server v0.495.1):
+// how much supply it produces against the demand of its population, and the
+// per-cycle consumables that keep it running. Starved lists the maintenance
+// items it is currently short of; Remediation is the server's advice on fixing
+// the shortfall.
+type LifeSupport struct {
+	Supply               int                      `json:"supply"`
+	Demand               int                      `json:"demand"`
+	Plants               int                      `json:"plants"`
+	MaintenanceCycleTick int                      `json:"maintenance_cycle_ticks"`
+	Maintenance          []LifeSupportMaintenance `json:"maintenance,omitempty"`
+	Starved              []LifeSupportMaintenance `json:"starved,omitempty"`
+	Remediation          string                   `json:"remediation,omitempty"`
+}
+
+// LifeSupportMaintenance is one consumable a station's life support burns per
+// maintenance cycle.
+type LifeSupportMaintenance struct {
+	ItemID           string `json:"item_id"`
+	Name             string `json:"name,omitempty"`
+	QuantityPerCycle int    `json:"quantity_per_cycle"`
 }
 
 // GetSkillsResponse wraps the response from get_skills command.
@@ -438,6 +463,38 @@ type CatalogResponse struct {
 	Analysis             json.RawMessage `json:"analysis,omitempty"`
 	PassiveRecipeDetails json.RawMessage `json:"passive_recipe_details,omitempty"`
 	Recipes              json.RawMessage `json:"recipes,omitempty"`
+
+	// Achievement catalog (server v0.495.1). The Hidden*Count fields report how
+	// many achievements exist but are withheld from the listing — the catalog
+	// deliberately does not enumerate them.
+	Achievements                  []AchievementDefinition `json:"achievements,omitempty"`
+	FactionAchievements           []AchievementDefinition `json:"faction_achievements,omitempty"`
+	HiddenAchievementCount        int                     `json:"hidden_achievement_count,omitempty"`
+	HiddenFactionAchievementCount int                     `json:"hidden_faction_achievement_count,omitempty"`
+}
+
+// AchievementDefinition is one entry in the achievement *catalog*. It is a
+// different shape from Achievement, which is the per-player progress view
+// returned by get_achievements (earned/progress/share_url): a definition instead
+// carries the reward and the unlock chain, and has no player-specific state.
+//
+// The same shape covers player and faction achievements; Faction reports which
+// it is. After names the achievement that must be earned first in a Series.
+// Achievements gate prestige hulls — see ShipClass.RequiredAchievement.
+type AchievementDefinition struct {
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Category    string         `json:"category"`
+	Points      int            `json:"points"`
+	Criteria    string         `json:"criteria"`
+	Title       string         `json:"title,omitempty"`
+	Emblem      string         `json:"emblem,omitempty"`
+	Series      string         `json:"series,omitempty"`
+	After       string         `json:"after,omitempty"`
+	Credits     int            `json:"credits,omitempty"`
+	SkillXP     map[string]int `json:"skill_xp,omitempty"`
+	Faction     bool           `json:"faction,omitempty"`
 }
 
 // GetInsuranceQuoteResponse wraps the response from get_insurance_quote command.
@@ -1217,6 +1274,17 @@ type FactionSubmitIntelResponse struct {
 	Message string `json:"message"`
 }
 
+// EspionageResponse wraps the response from espionage. The server returns a
+// short narrative account of the operation rather than structured data: the
+// spy may turn up real intel, turn up nothing, or be spotted and escape
+// empty-handed. IntelType is only set when the run actually produced intel.
+type EspionageResponse struct {
+	Action    string `json:"action"`
+	Outcome   string `json:"outcome"`
+	Story     string `json:"story"`
+	IntelType string `json:"intel_type,omitempty"`
+}
+
 // ViewFactionStorageResponse wraps the response from view_faction_storage.
 type ViewFactionStorageResponse struct {
 	FactionID      string           `json:"faction_id"`
@@ -1417,6 +1485,36 @@ type ListStationPassengersResponse struct {
 	Station string             `json:"station"`
 	Count   int                `json:"count"`
 	Waiting []StationPassenger `json:"waiting"`
+
+	TransitLounge *TransitLounge `json:"transit_lounge,omitempty"`
+}
+
+// TransitLounge is a station's connecting-passenger lounge (server v0.495.1):
+// passengers who have been dropped mid-route and are waiting for an onward leg.
+// Occupancy counts those currently waiting against Capacity.
+type TransitLounge struct {
+	Lounge     string                   `json:"lounge"`
+	Capacity   int                      `json:"capacity"`
+	Occupancy  int                      `json:"occupancy"`
+	Passengers []TransitLoungePassenger `json:"passengers"`
+}
+
+// TransitLoungePassenger is one fare waiting in a transit lounge. It is a
+// distinct shape from StationPassenger: the fare is already agreed (BaseFare,
+// not an estimate) and it carries the live delivery countdown and berth class.
+type TransitLoungePassenger struct {
+	CitizenID         string `json:"citizen_id"`
+	Name              string `json:"name"`
+	Bio               string `json:"bio"`
+	Class             string `json:"class"`
+	BerthClass        string `json:"berth_class,omitempty"`
+	Destination       string `json:"destination"`
+	DestinationName   string `json:"destination_name"`
+	DestinationSystem string `json:"destination_system,omitempty"`
+	BaseFare          int    `json:"base_fare"`
+	SpeedBonus        int    `json:"speed_bonus,omitempty"`
+	TicksRemaining    int    `json:"ticks_remaining"`
+	Connecting        bool   `json:"connecting,omitempty"`
 }
 
 // AboardPassenger is one passenger currently aboard the ship, as returned in the
@@ -1448,6 +1546,9 @@ type ListPassengersResponse struct {
 	BusinessBerths string            `json:"business_berths"`
 	FirstBerths    string            `json:"first_berths"`
 	Passengers     []AboardPassenger `json:"passengers"`
+	// OnboardService summarizes the in-flight service level the ship's fitted
+	// dining/leisure modules provide to passengers.
+	OnboardService string `json:"onboard_service,omitempty"`
 }
 
 // LoadedPassenger is a single passenger actually boarded by load_passenger.

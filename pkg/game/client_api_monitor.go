@@ -189,6 +189,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	"faction_deposit_credits":  reflect.TypeOf(serverapi.FactionDepositCreditsResponse{}),
 	"faction_withdraw_credits": reflect.TypeOf(serverapi.FactionWithdrawCreditsResponse{}),
 	"faction_submit_intel":     reflect.TypeOf(serverapi.FactionSubmitIntelResponse{}),
+	"espionage":                reflect.TypeOf(serverapi.EspionageResponse{}),
 	"view_faction_storage":     reflect.TypeOf(serverapi.ViewFactionStorageResponse{}),
 	"faction_accept_invite":    reflect.TypeOf(serverapi.FactionAcceptInviteResponse{}),
 	"faction_withdraw_invite":  reflect.TypeOf(serverapi.FactionWithdrawInviteResponse{}),
