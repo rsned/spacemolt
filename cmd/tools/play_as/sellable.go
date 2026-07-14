@@ -243,6 +243,10 @@ func renderSellableStyled(plan sellablePlan, detail bool) string {
 		}
 		proceedsW = max(proceedsW, len(formatCredits(r.TotalProceeds)))
 	}
+	// The grand total is a sum, so it can be wider than any single row's
+	// proceeds. Size the column for it too, or the Total line overhangs the
+	// table's right edge.
+	proceedsW = max(proceedsW, len(formatCredits(plan.TotalProceeds)))
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "Sellable @ %s — %d items, est. proceeds %s cr\n\n",
@@ -268,9 +272,16 @@ func renderSellableStyled(plan sellablePlan, detail bool) string {
 			avgW, avg,
 			proceedsW, formatCredits(r.TotalProceeds))
 	}
-	fmt.Fprintf(&b, "  %s   Total: %s cr\n",
-		strings.Repeat(" ", idW+nameW+cargoW+storageW+sellW+avgW+18),
-		formatCredits(plan.TotalProceeds))
+	// Right-align the total under the Proceeds column. leadW spans every column
+	// before Proceeds plus the five " | " separators between them, so "Total:"
+	// ends flush against the last separator and the amount lines up with the
+	// figures above it. (The old version padded a hardcoded width and then
+	// printed the label *after* it, running the line past the table's edge.)
+	leadW := idW + nameW + cargoW + storageW + sellW + avgW + 15
+	fmt.Fprintf(&b, "  %s-+-%s\n",
+		strings.Repeat("-", leadW), strings.Repeat("-", proceedsW))
+	fmt.Fprintf(&b, "  %*s | %*s\n",
+		leadW, "Total:", proceedsW, formatCredits(plan.TotalProceeds))
 
 	if detail {
 		for _, r := range plan.Items {

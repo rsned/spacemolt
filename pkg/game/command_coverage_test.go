@@ -40,7 +40,6 @@ var ignoredCommands = map[string]string{
 	"faction_prepay_tax":        "not implemented",
 	"faction_scan_poi":          "not implemented",
 	"get_faction_achievements":  "not implemented",
-	"get_faction_tax_estimate":  "not implemented",
 	"get_notification_settings": "not implemented",
 	"mute_notifications":        "not implemented",
 	"unmute_notifications":      "not implemented",

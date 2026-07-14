@@ -201,9 +201,10 @@ var actionResponseTypes = map[string]reflect.Type{
 	"petition":        reflect.TypeOf(serverapi.PetitionResponse{}),
 
 	// Economy & ship management
-	"get_tax_estimate": reflect.TypeOf(serverapi.GetTaxEstimateResponse{}),
-	"view_insurance":   reflect.TypeOf(serverapi.ViewInsuranceResponse{}),
-	"scrap_ship":       reflect.TypeOf(serverapi.ScrapShipResponse{}),
+	"get_tax_estimate":         reflect.TypeOf(serverapi.GetTaxEstimateResponse{}),
+	"get_faction_tax_estimate": reflect.TypeOf(serverapi.FactionTaxEstimateResponse{}),
+	"view_insurance":           reflect.TypeOf(serverapi.ViewInsuranceResponse{}),
+	"scrap_ship":               reflect.TypeOf(serverapi.ScrapShipResponse{}),
 
 	// Missions, notes & log
 	"completed_missions":  reflect.TypeOf(serverapi.CompletedMissionsResponse{}),

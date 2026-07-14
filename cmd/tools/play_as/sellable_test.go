@@ -207,6 +207,56 @@ func TestRenderSellableStyledHeaderAndRows(t *testing.T) {
 	}
 }
 
+// The Total line used to be padded by a hardcoded width and then have its label
+// printed *after* that padding, so it ran off the right-hand edge of the table.
+// It also has to fit a sum, which is routinely wider than any single row's
+// proceeds. No line may exceed the header rule.
+func TestRenderSellableStyledTotalFitsTableWidth(t *testing.T) {
+	// Row proceeds are all narrow; the total is far wider. Sizing the Proceeds
+	// column from the rows alone leaves the total overhanging.
+	plan := sellablePlan{
+		StationID:     "grand_exchange",
+		ItemCount:     3,
+		TotalProceeds: 6927328,
+		Items: []sellableRow{
+			{ItemID: "weapon_core", Name: "Weapon Core", Storage: 296, SellableQty: 75, AvgPrice: 480.93, TotalProceeds: 1},
+			{ItemID: "wiring_harness", Name: "Wiring Harness", Storage: 6598, SellableQty: 0, TotalProceeds: 0},
+			{ItemID: "xenon_gas", Name: "Xenon Gas", Storage: 297, SellableQty: 1, AvgPrice: 1, TotalProceeds: 1},
+		},
+	}
+
+	got := renderSellableStyled(plan, false)
+
+	var ruleW int
+	for _, line := range strings.Split(got, "\n") {
+		// The header rule is the first line made only of the table's box chars.
+		if strings.HasPrefix(line, "  -") && strings.Contains(line, "-+-") {
+			ruleW = runeLen(line)
+			break
+		}
+	}
+	if ruleW == 0 {
+		t.Fatalf("no header rule found in output:\n%s", got)
+	}
+
+	for _, line := range strings.Split(got, "\n") {
+		if w := runeLen(line); w > ruleW {
+			t.Errorf("line is %d wide, past the %d-wide table edge:\n%q\n--- output ---\n%s",
+				w, ruleW, line, got)
+		}
+	}
+
+	if !strings.Contains(got, "6,927,328") {
+		t.Errorf("grand total missing from output:\n%s", got)
+	}
+}
+
+// runeLen measures display width in runes, not bytes: the "—" placeholder in the
+// Avg Price column is 3 bytes, so len() would report false overruns.
+func runeLen(s string) int {
+	return len([]rune(s))
+}
+
 func TestRenderSellableStyledDetail(t *testing.T) {
 	plan := sellablePlan{
 		StationID: "s", ItemCount: 1, TotalProceeds: 80420,

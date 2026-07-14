@@ -1,5 +1,5 @@
 {
-  "captured_at": "2026-07-14T03:08:43Z",
+  "captured_at": "2026-07-14T10:03:53Z",
   "workers": [
     {
       "agent_id": "assist-frontier",
@@ -19,7 +19,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T03:08:34Z"
+      "last_seen": "2026-07-14T10:03:44Z"
     },
     {
       "agent_id": "assist-haven",
@@ -39,7 +39,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T03:08:39Z"
+      "last_seen": "2026-07-14T10:03:49Z"
     },
     {
       "agent_id": "assist-krynn",
@@ -59,7 +59,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T03:08:39Z"
+      "last_seen": "2026-07-14T10:03:49Z"
     },
     {
       "agent_id": "assist-nexus",
@@ -81,7 +81,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T03:08:39Z"
+      "last_seen": "2026-07-14T10:03:49Z"
     },
     {
       "agent_id": "assist-sol",
@@ -101,7 +101,7 @@
       "healthy": true,
       "restarts": 0,
       "seen": true,
-      "last_seen": "2026-07-14T03:08:34Z"
+      "last_seen": "2026-07-14T10:03:44Z"
     }
   ]
 }

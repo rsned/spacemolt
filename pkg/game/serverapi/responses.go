@@ -2401,6 +2401,49 @@ type GetTaxEstimateResponse struct {
 	TaxCollectionActive         bool            `json:"tax_collection_active"`
 	TaxableIncomeBySource       json.RawMessage `json:"taxable_income_by_source,omitempty"`
 	TaxableIncomeToDate         int64           `json:"taxable_income_to_date"`
+
+	// Market trading is taxed on profit, not turnover: TaxableMarketIncome is
+	// MarketSalesToDate less MarketCostOfGoodsDeducted, with prior losses
+	// carried forward. TaxPrepaid offsets the next assessment.
+	MarketSalesToDate         int64 `json:"market_sales_to_date"`
+	MarketCostOfGoodsDeducted int64 `json:"market_cost_of_goods_deducted"`
+	MarketLossCarryforward    int64 `json:"market_loss_carryforward,omitempty"`
+	TaxableMarketIncome       int64 `json:"taxable_market_income"`
+	TaxPrepaid                int64 `json:"tax_prepaid"`
+}
+
+// FactionTaxEstimateResponse is returned by get_faction_tax_estimate: the
+// corporate income-tax assessment the faction would face if the weekly cycle
+// ran this instant.
+//
+// Jurisdiction is hybrid — a faction has no citizenship, so the Domicile empire
+// (the founder's birth empire) taxes worldwide earnings, while every empire the
+// faction owns a facility in taxes what was earned there. Hence IncomeTax is a
+// per-empire breakdown rather than a single figure. Unlike the personal
+// get_tax_estimate there is no property tax: factions are assessed on profit
+// only, with losses carried forward (LossCarryforwardApplied) and unpaid
+// assessments accruing as CarriedDebt.
+//
+// Nested arrays are left raw to mirror GetTaxEstimateResponse.
+//   - get_faction_tax_estimate
+type FactionTaxEstimateResponse struct {
+	Action                      string          `json:"action"`
+	FactionID                   string          `json:"faction_id"`
+	FactionName                 string          `json:"faction_name"`
+	Domicile                    string          `json:"domicile"`
+	TaxableIncomeToDate         int64           `json:"taxable_income_to_date"`
+	DeductibleExpensesToDate    int64           `json:"deductible_expenses_to_date"`
+	NetTaxableProfit            int64           `json:"net_taxable_profit"`
+	LossCarryforwardApplied     int64           `json:"loss_carryforward_applied,omitempty"`
+	IncomeTax                   json.RawMessage `json:"income_tax,omitempty"`
+	IncomeTaxTotal              int64           `json:"income_tax_total"`
+	CarriedDebt                 json.RawMessage `json:"carried_debt,omitempty"`
+	CarriedDebtTotal            int64           `json:"carried_debt_total,omitempty"`
+	TaxPrepaid                  int64           `json:"tax_prepaid"`
+	LastAssessedAt              int64           `json:"last_assessed_at,omitempty"`
+	NextAssessmentApproxSeconds int64           `json:"next_assessment_approx_seconds"`
+	TaxCollectionActive         bool            `json:"tax_collection_active"`
+	Note                        string          `json:"note,omitempty"`
 }
 
 // ViewInsuranceResponse is returned by view_insurance.
