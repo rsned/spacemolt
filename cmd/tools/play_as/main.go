@@ -8053,15 +8053,16 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "send_gift":
-		// Usage: send_gift <recipient> <item_id> <quantity> [--message "text"]
+		// Usage: send_gift <recipient> <item_id> <quantity> [--message "text"] [--source=cargo|storage]
 		//        send_gift <recipient> credits <amount> [--message "text"]
 		//        send_gift <recipient> ship <ship_id> [--message "text"]
 		if len(parts) < 4 {
-			return fmt.Errorf("usage: send_gift <recipient> <item_id> <quantity> [--message \"text\"]\n" +
+			return fmt.Errorf("usage: send_gift <recipient> <item_id> <quantity> [--message \"text\"] [--source=cargo|storage]\n" +
 				"       send_gift <recipient> credits <amount>\n" +
 				"       send_gift <recipient> ship <ship_id>")
 		}
 		payload := map[string]any{"recipient": parts[1]}
+		isItemGift := false
 		switch parts[2] {
 		case "credits":
 			amount, err := parseQuantity(parts[3])
@@ -8078,14 +8079,27 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			}
 			payload["item_id"] = strings.ToLower(parts[2])
 			payload["quantity"] = qty
+			isItemGift = true
 		}
-		// Parse optional --message flag
-		msgArgs, err := parseFlagArgs(parts[4:], "message")
+		// Parse optional --message and --source flags. --source (cargo|storage,
+		// default cargo) selects where item gifts are pulled from; "storage"
+		// gifts straight from personal station storage, skipping withdraw-to-cargo.
+		giftFlags, err := parseFlagArgs(parts[4:], "message", "source")
 		if err != nil {
 			return err
 		}
-		if msg, ok := msgArgs["message"]; ok {
+		if msg, ok := giftFlags["message"]; ok {
 			payload["message"] = msg
+		}
+		if src, ok := giftFlags["source"]; ok {
+			srcStr := strings.ToLower(strings.TrimSpace(fmt.Sprintf("%v", src)))
+			if srcStr != "cargo" && srcStr != "storage" {
+				return fmt.Errorf("invalid --source %q: must be 'cargo' or 'storage'", src)
+			}
+			if !isItemGift {
+				return fmt.Errorf("--source applies to item gifts only, not credits or ship transfers")
+			}
+			payload["source"] = srcStr
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.SendGift(ctx, payload)
@@ -9507,7 +9521,7 @@ func printHelp() {
 	fmt.Println("  chat_history <channel>                  - Get chat history")
 	fmt.Println("  chat_history private                    - Get whole DM inbox (newest-first)")
 	fmt.Println("  chat_history private --target_id <name> - Get one DM conversation")
-	fmt.Println("  send_gift <recipient> <item_id> <qty>  - Send items")
+	fmt.Println("  send_gift <recipient> <item_id> <qty> [--source=cargo|storage]  - Send items (default cargo)")
 	fmt.Println("  send_gift <recipient> credits <amount> - Send credits")
 	fmt.Println("  send_gift <recipient> ship <ship_id>   - Send ship")
 
