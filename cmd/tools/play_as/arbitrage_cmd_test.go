@@ -45,7 +45,7 @@ func TestRankDetourFiltersByBudget(t *testing.T) {
 		opp(2, "sys1", "sys9", 1500), // legs 1+2+2=5, detour 2
 		opp(3, "sys9", "sys10", 900), // legs 3+1+3=7, detour 4 -> dropped at budget 3
 	}
-	rows, skipped := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, 0, nil, 0)
+	rows, skipped := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, -1, 0, nil, 0)
 	if skipped != 0 {
 		t.Fatalf("skipped=%d, want 0", skipped)
 	}
@@ -75,7 +75,7 @@ func TestRankDetourNetOfFuelSortAndDegradation(t *testing.T) {
 		opp(2, "sys1", "sys9", 1500), // detour 2 -> fuel 2*2*100=400 -> net 1100
 	}
 	price := func(string) float64 { return 100 }
-	rows, _ := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, 2, price, 0)
+	rows, _ := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, -1, 2, price, 0)
 	if len(rows) != 2 {
 		t.Fatalf("kept %d, want 2", len(rows))
 	}
@@ -86,7 +86,7 @@ func TestRankDetourNetOfFuelSortAndDegradation(t *testing.T) {
 		t.Fatalf("nets = [%.0f,%.0f], want [1100,1000]", rows[0].Net, rows[1].Net)
 	}
 	// Degradation: fuelPerJump=0 -> net == gross -> opp2 (1500) leads by gross.
-	rows0, _ := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, 0, price, 0)
+	rows0, _ := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, -1, 0, price, 0)
 	if rows0[0].Opp.ID != 2 || rows0[0].Net != 1500 {
 		t.Fatalf("degraded: leader id=%d net=%.0f, want id=2 net=1500", rows0[0].Opp.ID, rows0[0].Net)
 	}
@@ -100,7 +100,7 @@ func TestRankDetourSkipsUnresolvedAndUnreachable(t *testing.T) {
 		opp(2, "sys1", "nowhere", 5000),  // unresolved sell name -> skipped
 		opp(3, "sys1", "isolated", 5000), // unreachable leg (iso) -> skipped
 	}
-	rows, skipped := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, 0, nil, 0)
+	rows, skipped := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, -1, 0, nil, 0)
 	if len(rows) != 1 || rows[0].Opp.ID != 1 {
 		t.Fatalf("kept %d rows, want only opp1", len(rows))
 	}
@@ -116,7 +116,7 @@ func TestRankDetourLimit(t *testing.T) {
 		opp(1, "sys1", "sys2", 1000),
 		opp(2, "sys1", "sys9", 1500),
 	}
-	rows, _ := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, 0, nil, 1)
+	rows, _ := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, -1, 0, nil, 1)
 	if len(rows) != 1 || rows[0].Opp.ID != 2 {
 		t.Fatalf("limit 1 returned %d rows (leader id %d), want 1 (id 2)", len(rows), func() int {
 			if len(rows) > 0 {
@@ -132,9 +132,74 @@ func TestRankDetourUnreachableDest(t *testing.T) {
 	n2i := testArbNameToID()
 	opps := []market.ArbitrageOpportunity{opp(1, "sys1", "sys2", 1000)}
 	// "iso" is an isolated node: baseline (cur->iso) is unreachable -> nil, 0.
-	rows, skipped := rankDetourArbitrage(opps, "cur", "iso", g, n2i, 3, 0, nil, 0)
+	rows, skipped := rankDetourArbitrage(opps, "cur", "iso", g, n2i, 3, -1, 0, nil, 0)
 	if rows != nil || skipped != 0 {
 		t.Fatalf("unreachable dest: got rows=%v skipped=%d, want nil,0", rows, skipped)
+	}
+}
+
+// nearLineGraph is a straight line cur-m1-m2-m3-m4-dest (baseline 5) with a
+// dead-end pocket `pk` hanging off the midpoint m2. It isolates the
+// near-endpoint gate from the detour gate: a haul buried at m2/pocket has an
+// acceptable detour yet sits far from both endpoints.
+func nearLineGraph() navigation.JumpGraph {
+	return navigation.JumpGraph{
+		"cur":  {"m1"},
+		"m1":   {"cur", "m2"},
+		"m2":   {"m1", "m3", "pk"},
+		"m3":   {"m2", "m4"},
+		"m4":   {"m3", "dest"},
+		"dest": {"m4"},
+		"pk":   {"m2"},
+	}
+}
+
+func nearLineNameToID() map[string]string {
+	return map[string]string{
+		"cur system": "cur", "mid1": "m1", "mid2": "m2", "mid3": "m3",
+		"mid4": "m4", "dest system": "dest", "pocket": "pk",
+	}
+}
+
+func TestRankDetourNearEndpointGate(t *testing.T) {
+	g := nearLineGraph()
+	n2i := nearLineNameToID()
+	// baseline cur->dest = 5.
+	opps := []market.ArbitrageOpportunity{
+		// A: buy m1 (1 out), sell m4 (1 to dest) — near both, detour 0. keep.
+		opp(1, "mid1", "mid4", 1000),
+		// B: buy m2 (2 out), sell pocket pk (pk->dest = pk,m2,m3,m4,dest = 4).
+		//    detour = 2 + (m2->pk=1) + 4 - 5 = 2 <= budget, but 2>near and 4>near
+		//    -> dropped by the near gate, NOT the detour gate.
+		opp(2, "mid2", "pocket", 9000),
+		// C: buy m1 (1 out), sell m3 (m3->dest = 2). near via buy-side OR. keep.
+		opp(3, "mid1", "mid3", 500),
+	}
+	rows, skipped := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, 1, 0, nil, 0)
+	if skipped != 0 {
+		t.Fatalf("skipped=%d, want 0", skipped)
+	}
+	ids := map[int]arbRow{}
+	for _, r := range rows {
+		ids[r.Opp.ID] = r
+	}
+	if _, ok := ids[2]; ok {
+		t.Fatalf("opp2 (buy 2 out, sell 4 to dest) should be dropped by near gate; rows=%+v", rows)
+	}
+	if len(rows) != 2 || ids[1].Opp.ID == 0 || ids[3].Opp.ID == 0 {
+		t.Fatalf("kept %d rows, want opp1 and opp3", len(rows))
+	}
+	// Distance columns are populated for display.
+	if ids[1].BuyOut != 1 || ids[1].SellToDest != 1 {
+		t.Fatalf("opp1 dist = buy %d / sell %d, want 1/1", ids[1].BuyOut, ids[1].SellToDest)
+	}
+	if ids[3].BuyOut != 1 || ids[3].SellToDest != 2 {
+		t.Fatalf("opp3 dist = buy %d / sell %d, want 1/2", ids[3].BuyOut, ids[3].SellToDest)
+	}
+	// near = -1 disables the gate: opp2 comes back (detour 2 <= budget 3).
+	all, _ := rankDetourArbitrage(opps, "cur", "dest", g, n2i, 3, -1, 0, nil, 0)
+	if len(all) != 3 {
+		t.Fatalf("near disabled: kept %d rows, want 3 (gate off)", len(all))
 	}
 }
 

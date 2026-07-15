@@ -9400,8 +9400,9 @@ func printHelp() {
 	fmt.Println("  explore                   - Visit all POIs in current system (nearest-first)")
 	fmt.Println("  auto_explore [--max-hops N]")
 	fmt.Println("                            - Tour multiple systems: explore + jump outward, refuel at stations")
-	fmt.Println("  find_arbitrage <dest> [--detour N] [--limit N]")
-	fmt.Println("                            - Arbitrage opportunities on the way to <dest> (detour<=N jumps, default 3)")
+	fmt.Println("  find_arbitrage <dest> [--detour N] [--near N] [--limit N]")
+	fmt.Println("                            - Arbitrage on the way to <dest>: buy near current OR sell near dest")
+	fmt.Println("                              (--near jumps default 3, -1 disables; --detour cap default 3)")
 	fmt.Println("  claim_arbitrage <id>      - Claim an opportunity so the hauler fleet skips it")
 	fmt.Println("  release_arbitrage <id>    - Release an opportunity you claimed")
 

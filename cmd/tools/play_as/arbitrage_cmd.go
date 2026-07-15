@@ -16,17 +16,32 @@ import (
 
 // arbRow is one ranked on-the-way arbitrage opportunity.
 type arbRow struct {
-	Opp    market.ArbitrageOpportunity
-	Detour int     // extra jumps the side-trip adds over the direct cur->dest route (>=0)
-	Net    float64 // GrossProfit minus the marginal detour fuel cost
+	Opp        market.ArbitrageOpportunity
+	Detour     int     // extra jumps the side-trip adds over the direct cur->dest route (>=0)
+	BuyOut     int     // jumps from current system to the buy system (how far until you can pick up)
+	SellToDest int     // jumps from the sell system to the destination
+	Net        float64 // GrossProfit minus the marginal detour fuel cost
 }
 
-// rankDetourArbitrage keeps opportunities whose detour over the direct
-// cur->dest route is <= budget, orders them by marginal net-of-fuel profit
-// descending, and returns the first `limit` (limit<=0 = all).
+// rankDetourArbitrage keeps opportunities that are anchored near an endpoint of
+// the operator's trip — the buy system within `near` jumps of the current
+// system OR the sell system within `near` jumps of the destination — and whose
+// detour over the direct cur->dest route is <= budget. It orders the survivors
+// by marginal net-of-fuel profit descending and returns the first `limit`
+// (limit<=0 = all).
 //
 //	detour = (cur->buy) + (buy->sell) + (sell->dest) - (cur->dest), clamped at 0
+//	keep   = detour <= budget  AND  (near < 0  OR  cur->buy <= near  OR  sell->dest <= near)
 //	net    = GrossProfit - detour*fuelPerJump*priceOf(buy station)
+//
+// The near-endpoint gate exists because detour-total alone is a poor proxy for
+// "actionable": a haul buried in a pocket that happens to sit near the straight
+// line between cur and dest (e.g. a low-degree cul-de-sac forming a tight
+// triangle) scores a tiny detour yet has its pickup many jumps out and its
+// dropoff many jumps from dest. Requiring proximity to an endpoint surfaces
+// hauls the operator can actually start soon or finish at their destination.
+// near < 0 disables the gate (detour-budget only). A future "scenic route" mode
+// could instead accept mid-route hauls within +/-N of the traveled path.
 //
 // fuelPerJump<=0 or a nil priceOf disables the fuel term (net == gross), the
 // graceful-degradation path. nameToID maps a lowercased system NAME to its
@@ -39,6 +54,7 @@ func rankDetourArbitrage(
 	graph navigation.JumpGraph,
 	nameToID map[string]string,
 	budget int,
+	near int,
 	fuelPerJump int,
 	priceOf func(stationID string) float64,
 	limit int,
@@ -65,11 +81,15 @@ func rankDetourArbitrage(
 		if detour > budget {
 			continue
 		}
+		// Near-endpoint gate: buy soon after departure OR sell close to dest.
+		if near >= 0 && a > near && c > near {
+			continue
+		}
 		fuelCost := 0.0
 		if fuelPerJump > 0 && priceOf != nil {
 			fuelCost = float64(detour*fuelPerJump) * priceOf(o.FromStationID)
 		}
-		rows = append(rows, arbRow{Opp: o, Detour: detour, Net: o.GrossProfit - fuelCost})
+		rows = append(rows, arbRow{Opp: o, Detour: detour, BuyOut: a, SellToDest: c, Net: o.GrossProfit - fuelCost})
 	}
 	sort.SliceStable(rows, func(i, j int) bool {
 		if rows[i].Net != rows[j].Net {
@@ -169,6 +189,14 @@ func runFindArbitrage(client game.GameClient, ctx context.Context, parts []strin
 			limit = n
 		}
 	}
+	// near-endpoint gate: keep only opps whose buy is within `near` jumps of
+	// current OR whose sell is within `near` of dest. --near -1 disables it.
+	near := 3
+	if v, ok := flags["near"]; ok {
+		if n, err := strconv.Atoi(v); err == nil {
+			near = n
+		}
+	}
 
 	state := client.GetState()
 	if state == nil || state.System.ID == "" {
@@ -215,35 +243,39 @@ func runFindArbitrage(client game.GameClient, ctx context.Context, parts []strin
 	fuelPerJump, _ := currentJumpFuel(client, ctx, destID)
 	priceOf := buildArbPriceOf(ctx, globalMarketCollector)
 
-	rows, skipped := rankDetourArbitrage(opps, curID, destID, graph, byName, budget, fuelPerJump, priceOf, limit)
+	rows, skipped := rankDetourArbitrage(opps, curID, destID, graph, byName, budget, near, fuelPerJump, priceOf, limit)
 
-	renderArbitrage(rows, skipped, baseline, budget, curID, destID, nameOf, format)
+	renderArbitrage(rows, skipped, baseline, budget, near, curID, destID, nameOf, format)
 	return nil
 }
 
 // renderArbitrage prints the ranked opportunities as a styled table (or JSON).
-func renderArbitrage(rows []arbRow, skipped, baseline, budget int, curID, destID string, nameOf map[string]string, format outputFormat) {
+func renderArbitrage(rows []arbRow, skipped, baseline, budget, near int, curID, destID string, nameOf map[string]string, format outputFormat) {
 	if format != formatStyled {
 		type outRow struct {
-			ID       int     `json:"id"`
-			Item     string  `json:"item"`
-			Quantity float64 `json:"quantity"`
-			BuyAt    string  `json:"buy_at"`
-			SellAt   string  `json:"sell_at"`
-			Detour   int     `json:"detour_jumps"`
-			Gross    float64 `json:"gross_profit"`
-			Net      float64 `json:"net_of_fuel"`
+			ID             int     `json:"id"`
+			Item           string  `json:"item"`
+			Quantity       float64 `json:"quantity"`
+			BuyAt          string  `json:"buy_at"`
+			SellAt         string  `json:"sell_at"`
+			BuyJumpsOut    int     `json:"buy_jumps_out"`
+			SellJumpsToDst int     `json:"sell_jumps_to_dest"`
+			Detour         int     `json:"detour_jumps"`
+			Gross          float64 `json:"gross_profit"`
+			Net            float64 `json:"net_of_fuel"`
 		}
 		out := struct {
 			BaselineJumps int      `json:"baseline_jumps"`
 			DetourBudget  int      `json:"detour_budget"`
+			NearEndpoint  int      `json:"near_endpoint"`
 			Skipped       int      `json:"skipped"`
 			Rows          []outRow `json:"rows"`
-		}{BaselineJumps: baseline, DetourBudget: budget, Skipped: skipped}
+		}{BaselineJumps: baseline, DetourBudget: budget, NearEndpoint: near, Skipped: skipped}
 		for _, r := range rows {
 			out.Rows = append(out.Rows, outRow{
 				ID: r.Opp.ID, Item: r.Opp.ItemName, Quantity: r.Opp.Quantity,
 				BuyAt: r.Opp.FromStationName, SellAt: r.Opp.ToStationName,
+				BuyJumpsOut: r.BuyOut, SellJumpsToDst: r.SellToDest,
 				Detour: r.Detour, Gross: r.Opp.GrossProfit, Net: r.Net,
 			})
 		}
@@ -256,19 +288,23 @@ func renderArbitrage(rows []arbRow, skipped, baseline, budget int, curID, destID
 		return
 	}
 
-	fmt.Printf("\nArbitrage on the way: %s → %s (%d jump%s direct, detour ≤ %d)\n",
-		displayName(curID, nameOf), displayName(destID, nameOf), baseline, plural(baseline), budget)
+	nearNote := fmt.Sprintf(", buy≤%dj out or sell≤%dj to dest", near, near)
+	if near < 0 {
+		nearNote = ""
+	}
+	fmt.Printf("\nArbitrage on the way: %s → %s (%d jump%s direct, detour ≤ %d%s)\n",
+		displayName(curID, nameOf), displayName(destID, nameOf), baseline, plural(baseline), budget, nearNote)
 	if len(rows) == 0 {
-		fmt.Printf("  No on-the-way opportunities within a %d-jump detour.\n", budget)
+		fmt.Printf("  No opportunities near either endpoint within a %d-jump detour.\n", budget)
 	}
 	for _, r := range rows {
 		item := r.Opp.ItemName
 		if item == "" {
 			item = r.Opp.ItemID
 		}
-		fmt.Printf("  #%d  %s x%.0f  buy@%s → sell@%s  +%d jump%s  gross %.0f  net %.0f\n",
-			r.Opp.ID, item, r.Opp.Quantity, r.Opp.FromStationName, r.Opp.ToStationName,
-			r.Detour, plural(r.Detour), r.Opp.GrossProfit, r.Net)
+		fmt.Printf("  #%d  %s x%.0f  buy@%s (%dj out) → sell@%s (%dj to dest)  +%d detour  gross %.0f  net %.0f\n",
+			r.Opp.ID, item, r.Opp.Quantity, r.Opp.FromStationName, r.BuyOut,
+			r.Opp.ToStationName, r.SellToDest, r.Detour, r.Opp.GrossProfit, r.Net)
 	}
 	if skipped > 0 {
 		fmt.Printf("  (%d opportunit%s skipped: unresolved or unreachable systems)\n",

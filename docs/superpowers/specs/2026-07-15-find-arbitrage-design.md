@@ -202,8 +202,35 @@ an integer (matching `ArbitrageOpportunity.ID int`).
 - **Detour is BFS-based**, consistent with `plan_route` and the hauler; no
   fuel-optimal or risk-weighted routing here.
 
+## Amendment 2026-07-15 — near-endpoint gate (post-merge fix)
+
+Live testing (Haven → Nexus Prime, 21 jumps) exposed a flaw in the original
+detour-total metric: a haul buried in a low-degree pocket that happens to sit
+near the straight line between current and destination (e.g. the Sol/Alpha
+Centauri cul-de-sac, ~4 jumps perpendicular but forming a tight
+Haven→Sol→Nexus triangle) scores a tiny detour (+3) yet has its pickup 13
+jumps out and its dropoff 10 from the destination. "On the geodesic" is not the
+same as "actionable soon," so the top of the list filled with far-flung hauls
+the operator could not reach.
+
+Fix: add a **near-endpoint gate** — keep an opportunity only if
+`cur→buy <= near` **OR** `sell→dest <= near` (operator's choice: "close to
+begin or end"), on top of the existing detour cap. `--near N` (default 3, `-1`
+disables). Every row now shows the real distances: `buy@Station (Xj out) →
+sell@Station (Yj to dest)`, so the pickup distance is never hidden. The pure
+`rankDetourArbitrage` gains a `near int` parameter and populates
+`arbRow.BuyOut` / `arbRow.SellToDest`.
+
+Future "scenic route" mode (deferred, noted per operator): accept mid-route
+hauls within ±N of the *traveled path* (not just the endpoints) — the
+high-value on-the-geodesic hauls the near gate currently drops are still worth
+taking when you don't mind a side-trip. This is a different, path-relative
+metric than the endpoint gate and is left for a later iteration.
+
 ## Future work (not this spec)
 
+- **Scenic-route mode** — accept mid-route hauls within ±N jumps of the
+  traveled path (see amendment above).
 - `--scan` / staleness-triggered fresh scan.
 - A `my_arbitrage` view listing the operator's own current claims.
 - Cargo-aware sizing / affordability against the operator's ship and credits.
