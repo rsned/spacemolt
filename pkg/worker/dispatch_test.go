@@ -7,6 +7,7 @@ import (
 	"io"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -334,5 +335,117 @@ func TestHaulNilMarketIsSafeNoop(t *testing.T) {
 	d := NewWorkerDispatch(nil, nil, nil, nil)
 	if err := d.Run(context.Background(), []string{"haul"}); err != nil {
 		t.Fatalf("haul with nil market should no-op, got %v", err)
+	}
+}
+
+func TestEnsureHomeNoStation(t *testing.T) {
+	c := &fakeClient{state: &game.State{}}
+	d := NewWorkerDispatch(c, nil, nil, io.Discard)
+	d.Station = "" // no home configured
+	navigated := false
+	d.ensureHomeNav = func(ctx context.Context, system, poi string) error { navigated = true; return nil }
+	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
+		t.Fatalf("ensure_home: %v", err)
+	}
+	if navigated {
+		t.Error("navigated despite no home configured")
+	}
+	for _, call := range c.calls {
+		if strings.HasPrefix(call, "find_route") {
+			t.Errorf("called %q with no home", call)
+		}
+	}
+}
+
+func TestEnsureHomeAlreadyDocked(t *testing.T) {
+	c := &fakeClient{state: &game.State{CurrentPOI: "grand_exchange", Doc: true}}
+	d := NewWorkerDispatch(c, nil, nil, io.Discard)
+	d.Station = "grand_exchange"
+	navigated := false
+	d.ensureHomeNav = func(ctx context.Context, system, poi string) error { navigated = true; return nil }
+	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
+		t.Fatalf("ensure_home: %v", err)
+	}
+	if navigated {
+		t.Error("navigated while already docked at home")
+	}
+	for _, call := range c.calls {
+		if strings.HasPrefix(call, "find_route") || call == "dock" {
+			t.Errorf("unexpected call %q when already home", call)
+		}
+	}
+}
+
+func TestEnsureHomeDisplacedTravelsAndDocks(t *testing.T) {
+	c := &fakeClient{
+		state: &game.State{CurrentPOI: "unknown_edge_waystation", Doc: true},
+		route: []game.RouteStep{{SystemID: "market_prime"}},
+	}
+	d := NewWorkerDispatch(c, nil, nil, io.Discard)
+	d.Station = "market_prime_exchange"
+	var gotSystem, gotPOI string
+	d.ensureHomeNav = func(ctx context.Context, system, poi string) error {
+		gotSystem, gotPOI = system, poi
+		return nil
+	}
+	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
+		t.Fatalf("ensure_home: %v", err)
+	}
+	if gotSystem != "market_prime" || gotPOI != "market_prime_exchange" {
+		t.Errorf("navigated to %s/%s, want market_prime/market_prime_exchange", gotSystem, gotPOI)
+	}
+	if !slices.Contains(c.calls, "find_route:market_prime_exchange") {
+		t.Errorf("find_route not called; calls=%v", c.calls)
+	}
+	if !slices.Contains(c.calls, "dock") {
+		t.Errorf("dock not called; calls=%v", c.calls)
+	}
+}
+
+func TestEnsureHomeEmptyRouteUsesCurrentSystem(t *testing.T) {
+	// In the home system already (route empty) but parked at a belt, not the station.
+	c := &fakeClient{
+		state: &game.State{CurrentPOI: "market_prime_belt", Doc: false, System: game.SystemData{ID: "market_prime"}},
+		route: nil,
+	}
+	d := NewWorkerDispatch(c, nil, nil, io.Discard)
+	d.Station = "market_prime_exchange"
+	var gotSystem string
+	d.ensureHomeNav = func(ctx context.Context, system, poi string) error { gotSystem = system; return nil }
+	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
+		t.Fatalf("ensure_home: %v", err)
+	}
+	if gotSystem != "market_prime" {
+		t.Errorf("system=%q, want market_prime from current state", gotSystem)
+	}
+}
+
+func TestEnsureHomeFindRouteErrorIsBestEffort(t *testing.T) {
+	c := &fakeClient{
+		state:    &game.State{CurrentPOI: "somewhere", Doc: false},
+		routeErr: errors.New("You are not in a system"),
+	}
+	d := NewWorkerDispatch(c, nil, nil, io.Discard)
+	d.Station = "market_prime_exchange"
+	navigated := false
+	d.ensureHomeNav = func(ctx context.Context, system, poi string) error { navigated = true; return nil }
+	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
+		t.Fatalf("ensure_home must be best-effort nil, got %v", err)
+	}
+	if navigated {
+		t.Error("navigated despite find_route error")
+	}
+}
+
+func TestEnsureHomeToleratesAlreadyDockedError(t *testing.T) {
+	c := &fakeClient{
+		state:   &game.State{CurrentPOI: "market_prime_belt", Doc: false, System: game.SystemData{ID: "market_prime"}},
+		dockErr: errors.New("Already docked at this station"),
+	}
+	d := NewWorkerDispatch(c, nil, nil, io.Discard)
+	d.Station = "market_prime_exchange"
+	d.ensureHomeNav = func(ctx context.Context, system, poi string) error { return nil }
+	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
+		t.Fatalf("ensure_home must swallow 'Already docked', got %v", err)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -55,6 +56,11 @@ type WorkerDispatch struct {
 	// already reachable by racing a second *handoff.Queue handle against the
 	// same file) at an exact call, mirroring the craftPollSleep override pattern.
 	handoffPersist handoffTransition
+
+	// ensureHomeNav navigates the ship to (system, poi) for the ensure_home
+	// command. Defaults to a real Autopilot round-trip; tests override it to
+	// avoid driving the routing loop against a stub client.
+	ensureHomeNav func(ctx context.Context, system, poi string) error
 }
 
 // NewWorkerDispatch builds a dispatch over the given client, KB, and optional
@@ -64,7 +70,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 	if out == nil {
 		out = io.Discard
 	}
-	return &WorkerDispatch{
+	d := &WorkerDispatch{
 		Client: client, KB: kb, Market: mc, Out: out,
 		treasury:       &treasuryRescue{},
 		shuttle:        &shuttleState{},
@@ -72,13 +78,17 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 		minePollSleep:  craftPollSleepFunc,
 		handoffPersist: defaultHandoffPersist,
 	}
+	d.ensureHomeNav = func(ctx context.Context, system, poi string) error {
+		return Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out}, system, poi)
+	}
+	return d
 }
 
 // supported is the curated command set. Keep in sync with data/scripts and
 // data/overmind/roles.yaml; roles_test.go enforces that every command named
 // there is present here.
 var supported = map[string]bool{
-	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true,
+	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true, "ensure_home": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true,
 	"mine": true, "mine_qty": true, "deliver": true, "buy_directed": true, "craft_node": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
@@ -104,6 +114,8 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return d.Client.Undock(ctx)
 	case "dock":
 		return d.Client.Dock(ctx)
+	case "ensure_home":
+		return d.ensureHome(ctx)
 	case "mine":
 		return d.Client.Mine(ctx)
 	case "refuel":
@@ -260,4 +272,49 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 	default:
 		return fmt.Errorf("worker dispatch: unsupported command %q", cmd)
 	}
+}
+
+// ensureHome parks a resident worker docked at its configured home station
+// (d.Station). It no-ops when no home is configured or the ship is already
+// docked there. The home *system* is resolved live via FindRoute — the last
+// hop's system, or the current system when the route is empty — mirroring the
+// mobile-home resolution in assist. Best-effort: every failure logs and returns
+// nil so the standing loop simply retries on the next idle pass.
+func (d *WorkerDispatch) ensureHome(ctx context.Context) error {
+	home := d.Station
+	if home == "" {
+		return nil
+	}
+	st := d.Client.GetState()
+	if st != nil && st.CurrentPOI == home && st.Doc {
+		return nil // already parked and docked at home
+	}
+	route, err := d.Client.FindRoute(ctx, home)
+	if err != nil {
+		fmt.Fprintf(d.Out, "ensure_home: find_route %s: %v\n", home, err) //nolint:errcheck
+		return nil
+	}
+	system := ""
+	if len(route) > 0 {
+		system = route[len(route)-1].SystemID
+	} else if st != nil {
+		system = st.System.ID
+	}
+	if system == "" {
+		fmt.Fprintf(d.Out, "ensure_home: cannot resolve home system for %s\n", home) //nolint:errcheck
+		return nil
+	}
+	// Travel only when we are not already sitting at the home POI. Re-traveling
+	// to a POI we already occupy auto-undocks us every pass (the assist thrash),
+	// so the dock never sticks.
+	if st == nil || st.CurrentPOI != home {
+		if nerr := d.ensureHomeNav(ctx, system, home); nerr != nil {
+			fmt.Fprintf(d.Out, "ensure_home: navigate to %s/%s: %v\n", system, home, nerr) //nolint:errcheck
+			return nil
+		}
+	}
+	if derr := d.Client.Dock(ctx); derr != nil && !strings.Contains(derr.Error(), "Already docked") {
+		fmt.Fprintf(d.Out, "ensure_home: dock %s: %v\n", home, derr) //nolint:errcheck
+	}
+	return nil
 }
