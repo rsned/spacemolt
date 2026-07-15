@@ -215,6 +215,36 @@ func (c *Collector) GetStationFuelPrice(ctx context.Context, stationID string) (
 	return allIn, t, true, nil
 }
 
+// MedianStationFuelAllIn returns the median captured all-in fuel price across all
+// stations. ok is false (no error) when no prices have been captured yet.
+func (c *Collector) MedianStationFuelAllIn(ctx context.Context) (median int, ok bool, err error) {
+	rows, err := c.db.QueryContext(ctx,
+		`SELECT fuel_price_all_in FROM station_fuel_prices ORDER BY fuel_price_all_in`)
+	if err != nil {
+		return 0, false, err
+	}
+	defer rows.Close() //nolint:errcheck
+	var vals []int
+	for rows.Next() {
+		var v int
+		if scanErr := rows.Scan(&v); scanErr != nil {
+			return 0, false, scanErr
+		}
+		vals = append(vals, v)
+	}
+	if rowsErr := rows.Err(); rowsErr != nil {
+		return 0, false, rowsErr
+	}
+	if len(vals) == 0 {
+		return 0, false, nil
+	}
+	n := len(vals)
+	if n%2 == 1 {
+		return vals[n/2], true, nil
+	}
+	return (vals[n/2-1] + vals[n/2]) / 2, true, nil
+}
+
 // upsertItem adds or updates an item record.
 func (c *Collector) upsertItem(tx *sql.Tx, item Item) error {
 	_, err := tx.Exec(`
