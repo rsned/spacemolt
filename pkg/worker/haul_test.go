@@ -54,7 +54,7 @@ func TestHaulGate(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			qty, _, _, ok, reason := haulGate(tc.opp, tc.prices, tc.cargoFree, tc.cargoCap, tc.credit)
+			qty, _, _, ok, reason := haulGate(tc.opp, tc.prices, tc.cargoFree, tc.cargoCap, tc.credit, 0)
 			if ok != tc.wantOK {
 				t.Fatalf("ok=%v (reason %q), want %v", ok, reason, tc.wantOK)
 			}
@@ -65,6 +65,28 @@ func TestHaulGate(t *testing.T) {
 				t.Errorf("reason=%q, want contains %q", reason, tc.wantReason)
 			}
 		})
+	}
+}
+
+// TestHaulGateRejectsOnFuel covers the net-of-fuel gate term: a spread that clears
+// the net-profit floor at fuelCost 0 is rejected once the haul-leg fuel cost eats
+// into the margin.
+func TestHaulGateRejectsOnFuel(t *testing.T) {
+	// qty=100, ask=100, bid=110 -> spread net = (110-100)*100 = 1000 (== floor, passes at fuelCost 0).
+	opp := market.ArbitrageOpportunity{FromStationID: "buyst", ToStationID: "sellst", ItemID: "x", Quantity: 100}
+	prices := []market.ItemStationPrice{
+		{StationID: "buyst", HasSell: true, BestAsk: 100},
+		{StationID: "sellst", HasBuy: true, BestBid: 110},
+	}
+	// fuelCost 0 -> passes.
+	if _, _, _, ok, _ := haulGate(opp, prices, 100, 100, 1_000_000, 0); !ok {
+		t.Fatal("fuelCost=0: expected pass")
+	}
+	// fuelCost 200 -> net 800 < floor 1000 -> reject.
+	if _, _, _, ok, reason := haulGate(opp, prices, 100, 100, 1_000_000, 200); ok {
+		t.Fatalf("fuelCost=200: expected reject, got pass")
+	} else if reason == "" {
+		t.Fatal("expected a rejection reason")
 	}
 }
 
@@ -788,7 +810,7 @@ func TestRunClaimedHaulResumesWithGoodsAboard(t *testing.T) {
 	}
 	f := &fakeStore{}
 	_, n2id := graphFor([]string{"a", "b"}, [2]string{"a", "b"})
-	if err := runClaimedHaul(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, n2id, nil); err != nil {
+	if err := runClaimedHaul(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, n2id, nil, haulFuel{}); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.completed) != 1 || f.completed[0] != 7 {

@@ -34,10 +34,9 @@ type FuelPriceSource interface {
 // station->price resolver, and the jump graph for leg distances. Built once per
 // haul pass. A zero perJump (no probe) makes every cost 0 (gross-only fallback).
 type haulFuel struct {
-	perJump  int
-	priceOf  func(stationID string) float64
-	graph    navigation.JumpGraph
-	nameToID map[string]string //nolint:unused // wired by a later ranking/gating task
+	perJump int
+	priceOf func(stationID string) float64
+	graph   navigation.JumpGraph
 }
 
 // legCost is the fuel credit cost of traveling `jumps` jumps, refueling at

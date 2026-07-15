@@ -86,10 +86,12 @@ func netProfitFloor(cargoCap float64) float64 {
 
 // haulGate decides whether to execute a claimed haul given freshly-read station
 // prices. It takes the live ask at the buy station and the latest bid at the sell
-// station, sizes the buy on the live ask, and requires the live spread to clear BOTH
-// haulMinMargin and haulMinNetProfit. ok is false (with a human-readable reason) when
-// a price is missing, the buy is unaffordable, or the spread is too thin.
-func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice, cargoFree, cargoCap, credits float64) (qty, liveAsk, sellBid float64, ok bool, reason string) {
+// station, sizes the buy on the live ask, and requires the live spread — net of the
+// haul-leg fuel cost (fuelCost; the approach leg is a sunk cost, the hauler is
+// already docked at the buy station) — to clear BOTH haulMinMargin and
+// haulMinNetProfit. ok is false (with a human-readable reason) when a price is
+// missing, the buy is unaffordable, or the spread is too thin.
+func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice, cargoFree, cargoCap, credits, fuelCost float64) (qty, liveAsk, sellBid float64, ok bool, reason string) {
 	var haveAsk, haveBid bool
 	for _, p := range prices {
 		if p.StationID == opp.FromStationID && p.HasSell {
@@ -110,10 +112,10 @@ func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice,
 		return qty, liveAsk, sellBid, false, fmt.Sprintf("unaffordable/no cargo (qty=%.0f)", qty)
 	}
 	margin := (sellBid - liveAsk) / liveAsk
-	net := (sellBid - liveAsk) * qty
+	net := (sellBid-liveAsk)*qty - fuelCost
 	floor := netProfitFloor(cargoCap)
 	if margin < haulMinMargin || net < floor {
-		return qty, liveAsk, sellBid, false, fmt.Sprintf("spread too thin (margin=%.1f%%, net=%.0f, floor=%.0f)", margin*100, net, floor)
+		return qty, liveAsk, sellBid, false, fmt.Sprintf("spread too thin (margin=%.1f%%, net=%.0f after fuel=%.0f, floor=%.0f)", margin*100, net, fuelCost, floor)
 	}
 	return qty, liveAsk, sellBid, true, ""
 }
@@ -541,6 +543,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	}
 	fuelPerJump := haulFuelPerJump(ctx, deps.Client, probeTarget)
 	priceOf := buildPriceOf(ctx, deps.FuelPrices)
+	fuel := haulFuel{perJump: fuelPerJump, priceOf: priceOf, graph: graph}
 
 	// Resume before claiming anything new: if this agent already holds a claim (its
 	// process restarted mid-haul, leaving the in-memory active opp behind but the claim
@@ -560,7 +563,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 			return abandonClaim(ctx, deps, out, held[0], "stronghold destination")
 		}
 		fmt.Fprintf(out, "haul: resuming claimed opp %d (%s)\n", held[0].ID, held[0].ItemID) //nolint:errcheck
-		return runClaimedHaul(ctx, deps, out, held[0], nameToID, nil)
+		return runClaimedHaul(ctx, deps, out, held[0], nameToID, nil, fuel)
 	}
 
 	// Recovery: a claimless hauler stranded in a system with no accessible station of
@@ -651,7 +654,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 			m.jumps = toBuy[buySys] + toSell[sellSys]
 		}
 	}
-	return runClaimedHaul(ctx, deps, out, opp, nameToID, m)
+	return runClaimedHaul(ctx, deps, out, opp, nameToID, m, fuel)
 }
 
 // haulRecoverIfStranded routes the worker to the nearest stronghold-free station when
@@ -745,7 +748,7 @@ func abandonClaim(ctx context.Context, deps HaulDeps, out io.Writer, opp market.
 // fresh data and applies haulGate (skipping unless the live spread clears both the
 // margin and net-profit thresholds), buys, then sells. PRE-buy abandons release the
 // claim back to the pool; POST-buy abandons keep it claimed for resumption.
-func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, nameToID map[string]string, m *haulMetrics) error {
+func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, nameToID map[string]string, m *haulMetrics, fuel haulFuel) error {
 	buySys := nameToID[opp.FromSystemName]
 	sellSys := nameToID[opp.ToSystemName]
 	if buySys == "" {
@@ -795,7 +798,15 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	if perr != nil {
 		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("price check failed: %v", perr))
 	}
-	qty, liveAsk, sellBid, pass, reason := haulGate(opp, prices, cargoFree, state.Ship.CargoCapacity, state.GetCredits())
+	haulLegCost := 0.0
+	if buySys := nameToID[opp.FromSystemName]; buySys != "" {
+		if sellSys := nameToID[opp.ToSystemName]; sellSys != "" {
+			if hj, ok := fuel.haulJumpsBetween(buySys, sellSys); ok {
+				haulLegCost = fuel.legCost(hj, opp.FromStationID)
+			}
+		}
+	}
+	qty, liveAsk, sellBid, pass, reason := haulGate(opp, prices, cargoFree, state.Ship.CargoCapacity, state.GetCredits(), haulLegCost)
 	if !pass {
 		return abandonClaim(ctx, deps, out, opp, reason)
 	}
