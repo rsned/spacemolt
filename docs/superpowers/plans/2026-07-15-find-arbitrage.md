@@ -22,7 +22,7 @@
 
 ## File Structure
 
-- `cmd/tools/play_as/arbitrage_cmd.go` (NEW) — the free-pump set, `arbRow`, the pure `rankDetourArbitrage` + `arbJumps` helper, `arbFuelPriceSource` + `buildArbPriceOf` (Task 1); the three handlers + rendering (Task 2).
+- `cmd/tools/play_as/arbitrage_cmd.go` (NEW) — `arbRow`, the pure `rankDetourArbitrage` + `arbJumps` helper (Task 1); the free-pump set, `arbFuelPriceSource` + `buildArbPriceOf`, the three handlers + rendering (Task 2).
 - `cmd/tools/play_as/arbitrage_cmd_test.go` (NEW) — unit tests for the pure ranker (Task 1).
 - `cmd/tools/play_as/main.go` (MODIFY) — REPL dispatch cases + help text (Task 2).
 
@@ -39,9 +39,9 @@
 - Produces (used by Task 2):
   - `type arbRow struct { Opp market.ArbitrageOpportunity; Detour int; Net float64 }`
   - `func rankDetourArbitrage(opps []market.ArbitrageOpportunity, curSys, destSys string, graph navigation.JumpGraph, nameToID map[string]string, budget int, fuelPerJump int, priceOf func(stationID string) float64, limit int) (rows []arbRow, skipped int)`
-  - `type arbFuelPriceSource interface { GetStationFuelPrice(ctx context.Context, stationID string) (allIn int, capturedAt time.Time, ok bool, err error); MedianStationFuelAllIn(ctx context.Context) (median int, ok bool, err error) }`
-  - `func buildArbPriceOf(ctx context.Context, src arbFuelPriceSource) func(string) float64`
-  - `var arbFreeFuelStations map[string]bool`
+  - `func arbJumps(graph navigation.JumpGraph, from, to string) int`
+
+**IMPORTANT — everything Task 1 adds must be referenced within Task 1** (the ranker and `arbJumps` are exercised by the tests; the repo's pre-commit hook hard-fails on any `golangci-lint` finding, including unused symbols). The fuel-price resolver (`buildArbPriceOf`, `arbFuelPriceSource`, `arbFreeFuelStations`) is NOT in this task — it needs the client/collector and is only used by Task 2's handler, so it is added there. Do not add it here or the commit's pre-commit hook will reject it as unused.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -184,21 +184,12 @@ Create `cmd/tools/play_as/arbitrage_cmd.go`:
 package main
 
 import (
-	"context"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/navigation"
 )
-
-// arbFreeFuelStations are stations that refuel for free (the databot faction's
-// ally pump); fuel priced at one of these costs 0. Mirrors
-// worker.haulFreeFuelStations. A future refinement can data-drive this.
-var arbFreeFuelStations = map[string]bool{
-	"grand_exchange_station": true,
-}
 
 // arbRow is one ranked on-the-way arbitrage opportunity.
 type arbRow struct {
@@ -247,10 +238,7 @@ func rankDetourArbitrage(
 			skipped++
 			continue
 		}
-		detour := a + b + c - baseline
-		if detour < 0 {
-			detour = 0
-		}
+		detour := max(a+b+c-baseline, 0)
 		if detour > budget {
 			continue
 		}
@@ -291,6 +279,51 @@ func arbJumps(graph navigation.JumpGraph, from, to string) int {
 	}
 	return j
 }
+```
+
+The fuel-price resolver (`buildArbPriceOf` + `arbFuelPriceSource` + `arbFreeFuelStations`) is deliberately NOT in this file — it is added in Task 2, where it is used. Everything in this task is referenced by the tests (`rankDetourArbitrage`, and `arbJumps` transitively), so the pre-commit hook's no-unused check passes.
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `go test ./cmd/tools/play_as/ -run TestRankDetour -v` (timeout 300000)
+Expected: PASS (all four tests).
+
+- [ ] **Step 5: Build + lint**
+
+Run: `go build ./cmd/tools/play_as/ && golangci-lint run ./cmd/tools/play_as/...` (timeout 300000)
+Expected: build ok; no lint findings (every symbol this task adds is used by the tests). If lint reports anything, fix it before committing — the repo's pre-commit hook hard-fails the commit on any golangci-lint finding.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add cmd/tools/play_as/arbitrage_cmd.go cmd/tools/play_as/arbitrage_cmd_test.go
+git commit -m "feat(play_as): pure detour arbitrage ranker + fuel-price resolver"
+```
+
+---
+
+## Task 2: Command handlers, rendering, and REPL wiring
+
+**Files:**
+- Modify: `cmd/tools/play_as/arbitrage_cmd.go` (append handlers + rendering)
+- Modify: `cmd/tools/play_as/main.go` (dispatch cases + help text)
+
+**Interfaces:**
+- Consumes: `rankDetourArbitrage`, `arbRow`, `arbJumps` (Task 1); `currentJumpFuel`, `resolveSystemToken`, `displayName`, `plural`, `partitionFlags`, `globalKB`, `globalMarketCollector`, `globalAgentID`, `outputFormat`/`formatStyled` (existing).
+- Produces (this task): `buildArbPriceOf`, `arbFuelPriceSource`, `arbFreeFuelStations`, and the three handlers below.
+- Produces: `runFindArbitrage(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error`; `runClaimArbitrage(ctx context.Context, parts []string) error`; `runReleaseArbitrage(ctx context.Context, parts []string) error`.
+
+- [ ] **Step 1: Append the handlers to `arbitrage_cmd.go`**
+
+Add these imports to the file's import block (joining the existing `"sort"`, `"strings"`, `market`, `navigation`): `"context"`, `"encoding/json"`, `"fmt"`, `"strconv"`, `"time"`, and `"github.com/rsned/spacemolt/pkg/game"`. Then append the fuel-price resolver (moved here from Task 1 so it is used) followed by the handlers:
+
+```go
+// arbFreeFuelStations are stations that refuel for free (the databot faction's
+// ally pump); fuel priced at one of these costs 0. Mirrors
+// worker.haulFreeFuelStations. A future refinement can data-drive this.
+var arbFreeFuelStations = map[string]bool{
+	"grand_exchange_station": true,
+}
 
 // arbFuelPriceSource is the market subset used to price fuel (satisfied by
 // *market.Collector).
@@ -323,38 +356,7 @@ func buildArbPriceOf(ctx context.Context, src arbFuelPriceSource) func(string) f
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
-
-Run: `go test ./cmd/tools/play_as/ -run TestRankDetour -v` (timeout 300000)
-Expected: PASS (all four tests).
-
-- [ ] **Step 5: Build + lint**
-
-Run: `go build ./cmd/tools/play_as/ && golangci-lint run ./cmd/tools/play_as/...` (timeout 300000)
-Expected: build ok; no new lint findings. (`buildArbPriceOf`/`arbFuelPriceSource` are unused until Task 2 — if the `unused` linter flags them, that is expected and resolved by Task 2; note it in your report rather than adding a nolint.)
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add cmd/tools/play_as/arbitrage_cmd.go cmd/tools/play_as/arbitrage_cmd_test.go
-git commit -m "feat(play_as): pure detour arbitrage ranker + fuel-price resolver"
-```
-
----
-
-## Task 2: Command handlers, rendering, and REPL wiring
-
-**Files:**
-- Modify: `cmd/tools/play_as/arbitrage_cmd.go` (append handlers + rendering)
-- Modify: `cmd/tools/play_as/main.go` (dispatch cases + help text)
-
-**Interfaces:**
-- Consumes: `rankDetourArbitrage`, `buildArbPriceOf`, `arbRow` (Task 1); `currentJumpFuel`, `resolveSystemToken`, `displayName`, `plural`, `partitionFlags`, `globalKB`, `globalMarketCollector`, `globalAgentID`, `outputFormat`/`formatStyled` (existing).
-- Produces: `runFindArbitrage(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error`; `runClaimArbitrage(ctx context.Context, parts []string) error`; `runReleaseArbitrage(ctx context.Context, parts []string) error`.
-
-- [ ] **Step 1: Append the handlers to `arbitrage_cmd.go`**
-
-Add these imports to the file's import block: `"encoding/json"`, `"fmt"`, `"strconv"`, and `"github.com/rsned/spacemolt/pkg/game"`. Then append:
+Then the handlers:
 
 ```go
 // runFindArbitrage lists available arbitrage opportunities that are a minimal
