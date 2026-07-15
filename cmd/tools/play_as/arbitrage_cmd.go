@@ -1,9 +1,15 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/navigation"
 )
@@ -95,4 +101,228 @@ func arbJumps(graph navigation.JumpGraph, from, to string) int {
 		return -1
 	}
 	return j
+}
+
+// arbFreeFuelStations are stations that refuel for free (the databot faction's
+// ally pump); fuel priced at one of these costs 0. Mirrors
+// worker.haulFreeFuelStations. A future refinement can data-drive this.
+var arbFreeFuelStations = map[string]bool{
+	"grand_exchange_station": true,
+}
+
+// arbFuelPriceSource is the market subset used to price fuel (satisfied by
+// *market.Collector).
+type arbFuelPriceSource interface {
+	GetStationFuelPrice(ctx context.Context, stationID string) (allIn int, capturedAt time.Time, ok bool, err error)
+	MedianStationFuelAllIn(ctx context.Context) (median int, ok bool, err error)
+}
+
+// buildArbPriceOf returns a station->creditsPerUnit fuel resolver: 0 for
+// free-pump stations, the captured all-in when present, else the galaxy median
+// (probed once here), else 0. A nil source yields a constant-0 resolver.
+// Mirrors worker.buildPriceOf.
+func buildArbPriceOf(ctx context.Context, src arbFuelPriceSource) func(string) float64 {
+	if src == nil {
+		return func(string) float64 { return 0 }
+	}
+	median, medianOK, _ := src.MedianStationFuelAllIn(ctx)
+	return func(stationID string) float64 {
+		if arbFreeFuelStations[stationID] {
+			return 0
+		}
+		if allIn, _, ok, err := src.GetStationFuelPrice(ctx, stationID); err == nil && ok {
+			return float64(allIn)
+		}
+		if medianOK {
+			return float64(median)
+		}
+		return 0
+	}
+}
+
+// runFindArbitrage lists available arbitrage opportunities that are a minimal
+// detour from the operator's current system toward <dest>.
+//
+// Usage: find_arbitrage <dest> [--detour N] [--limit N]
+func runFindArbitrage(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
+	if globalMarketCollector == nil {
+		return fmt.Errorf("find_arbitrage requires the market database, which is not available")
+	}
+	if globalKB == nil {
+		return fmt.Errorf("find_arbitrage requires the knowledge base, which is not available")
+	}
+
+	positional, flags := partitionFlags(parts[1:])
+	if len(positional) == 0 {
+		return fmt.Errorf("usage: find_arbitrage <dest> [--detour N] [--limit N]")
+	}
+	destToken := strings.Join(positional, " ")
+	budget := 3
+	if v, ok := flags["detour"]; ok {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			budget = n
+		}
+	}
+	limit := 10
+	if v, ok := flags["limit"]; ok {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+
+	state := client.GetState()
+	if state == nil || state.System.ID == "" {
+		return fmt.Errorf("cannot determine current system; try get_status first")
+	}
+	curID := state.System.ID
+
+	systems, err := globalKB.GetSystems(ctx)
+	if err != nil {
+		return fmt.Errorf("load systems: %w", err)
+	}
+	byID := make(map[string]string, len(systems))
+	byName := make(map[string]string, len(systems))
+	nameOf := make(map[string]string, len(systems))
+	for _, s := range systems {
+		byID[strings.ToLower(s.ID)] = s.ID
+		if s.Name != "" {
+			byName[strings.ToLower(s.Name)] = s.ID
+		}
+		nameOf[s.ID] = s.Name
+	}
+	destID, ok := resolveSystemToken(destToken, byID, byName)
+	if !ok {
+		return fmt.Errorf("unknown destination system: %q", destToken)
+	}
+
+	conns, err := globalKB.GetConnections(ctx)
+	if err != nil {
+		return fmt.Errorf("load connections: %w", err)
+	}
+	graph := navigation.JumpGraphFromConnections(conns)
+
+	baseline := arbJumps(graph, curID, destID)
+	if baseline < 0 {
+		return fmt.Errorf("no known jump route from %s to %s",
+			displayName(curID, nameOf), displayName(destID, nameOf))
+	}
+
+	opps, err := globalMarketCollector.GetOpportunities(ctx, "available", 300)
+	if err != nil {
+		return fmt.Errorf("load opportunities: %w", err)
+	}
+
+	fuelPerJump, _ := currentJumpFuel(client, ctx, destID)
+	priceOf := buildArbPriceOf(ctx, globalMarketCollector)
+
+	rows, skipped := rankDetourArbitrage(opps, curID, destID, graph, byName, budget, fuelPerJump, priceOf, limit)
+
+	renderArbitrage(rows, skipped, baseline, budget, curID, destID, nameOf, format)
+	return nil
+}
+
+// renderArbitrage prints the ranked opportunities as a styled table (or JSON).
+func renderArbitrage(rows []arbRow, skipped, baseline, budget int, curID, destID string, nameOf map[string]string, format outputFormat) {
+	if format != formatStyled {
+		type outRow struct {
+			ID       int     `json:"id"`
+			Item     string  `json:"item"`
+			Quantity float64 `json:"quantity"`
+			BuyAt    string  `json:"buy_at"`
+			SellAt   string  `json:"sell_at"`
+			Detour   int     `json:"detour_jumps"`
+			Gross    float64 `json:"gross_profit"`
+			Net      float64 `json:"net_of_fuel"`
+		}
+		out := struct {
+			BaselineJumps int      `json:"baseline_jumps"`
+			DetourBudget  int      `json:"detour_budget"`
+			Skipped       int      `json:"skipped"`
+			Rows          []outRow `json:"rows"`
+		}{BaselineJumps: baseline, DetourBudget: budget, Skipped: skipped}
+		for _, r := range rows {
+			out.Rows = append(out.Rows, outRow{
+				ID: r.Opp.ID, Item: r.Opp.ItemName, Quantity: r.Opp.Quantity,
+				BuyAt: r.Opp.FromStationName, SellAt: r.Opp.ToStationName,
+				Detour: r.Detour, Gross: r.Opp.GrossProfit, Net: r.Net,
+			})
+		}
+		b, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			fmt.Printf("{\"error\":%q}\n", err.Error())
+			return
+		}
+		fmt.Println(string(b))
+		return
+	}
+
+	fmt.Printf("\nArbitrage on the way: %s → %s (%d jump%s direct, detour ≤ %d)\n",
+		displayName(curID, nameOf), displayName(destID, nameOf), baseline, plural(baseline), budget)
+	if len(rows) == 0 {
+		fmt.Printf("  No on-the-way opportunities within a %d-jump detour.\n", budget)
+	}
+	for _, r := range rows {
+		item := r.Opp.ItemName
+		if item == "" {
+			item = r.Opp.ItemID
+		}
+		fmt.Printf("  #%d  %s x%.0f  buy@%s → sell@%s  +%d jump%s  gross %.0f  net %.0f\n",
+			r.Opp.ID, item, r.Opp.Quantity, r.Opp.FromStationName, r.Opp.ToStationName,
+			r.Detour, plural(r.Detour), r.Opp.GrossProfit, r.Net)
+	}
+	if skipped > 0 {
+		fmt.Printf("  (%d opportunit%s skipped: unresolved or unreachable systems)\n",
+			skipped, map[bool]string{true: "y", false: "ies"}[skipped == 1])
+	}
+	fmt.Println("  Claim one with: claim_arbitrage <id>")
+}
+
+// runClaimArbitrage claims an opportunity for this operator so the hauler fleet
+// skips it. Usage: claim_arbitrage <id>
+func runClaimArbitrage(ctx context.Context, parts []string) error {
+	if globalMarketCollector == nil {
+		return fmt.Errorf("claim_arbitrage requires the market database, which is not available")
+	}
+	if len(parts) < 2 {
+		return fmt.Errorf("usage: claim_arbitrage <id>")
+	}
+	id, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return fmt.Errorf("invalid opportunity id %q (must be an integer)", parts[1])
+	}
+	ok, err := globalMarketCollector.ClaimOpportunity(ctx, id, globalAgentID)
+	if err != nil {
+		return fmt.Errorf("claim opportunity %d: %w", id, err)
+	}
+	if !ok {
+		fmt.Printf("Could not claim #%d — already claimed, completed, or gone.\n", id)
+		return nil
+	}
+	fmt.Printf("Claimed #%d — the hauler fleet will now skip it. Release with: release_arbitrage %d\n", id, id)
+	return nil
+}
+
+// runReleaseArbitrage releases an opportunity this operator previously claimed.
+// Usage: release_arbitrage <id>
+func runReleaseArbitrage(ctx context.Context, parts []string) error {
+	if globalMarketCollector == nil {
+		return fmt.Errorf("release_arbitrage requires the market database, which is not available")
+	}
+	if len(parts) < 2 {
+		return fmt.Errorf("usage: release_arbitrage <id>")
+	}
+	id, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return fmt.Errorf("invalid opportunity id %q (must be an integer)", parts[1])
+	}
+	ok, err := globalMarketCollector.ReleaseOpportunity(ctx, id, globalAgentID)
+	if err != nil {
+		return fmt.Errorf("release opportunity %d: %w", id, err)
+	}
+	if !ok {
+		fmt.Printf("Nothing to release for #%d — not held by this agent.\n", id)
+		return nil
+	}
+	fmt.Printf("Released #%d — it is available to the fleet again.\n", id)
+	return nil
 }
