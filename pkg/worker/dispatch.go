@@ -94,7 +94,7 @@ var supported = map[string]bool{
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true,
-	"get_status":    true, "get_system": true, "get_cargo": true,
+	"get_status": true, "get_system": true, "get_cargo": true,
 }
 
 // Supports reports whether cmd is in the curated worker vocabulary.
@@ -168,7 +168,8 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		}
 		return Haul(ctx, HaulDeps{
 			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
-			Treasury: d.treasury,
+			Treasury:   d.treasury,
+			FuelPrices: d.Market,
 			RecaptureBuyMarket: func(ctx context.Context) error {
 				if err := d.Client.ViewMarket(ctx, map[string]any{}); err != nil {
 					return err

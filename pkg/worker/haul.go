@@ -417,6 +417,9 @@ type HaulDeps struct {
 	// Treasury rate-limits faction-treasury rescue withdrawals across haul passes
 	// (held per worker process). nil disables the rescue path.
 	Treasury *treasuryRescue
+	// FuelPrices supplies captured station fuel prices for net-of-fuel ranking and
+	// gating. nil disables fuel accounting (ranking/gating fall back to gross-only).
+	FuelPrices FuelPriceSource
 }
 
 // haulMetrics accumulates per-leg stamps (wall + game tick) and pricing across one fresh
