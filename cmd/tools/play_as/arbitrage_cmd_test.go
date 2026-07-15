@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/navigation"
@@ -122,5 +124,61 @@ func TestRankDetourLimit(t *testing.T) {
 			}
 			return -1
 		}())
+	}
+}
+
+func TestRankDetourUnreachableDest(t *testing.T) {
+	g := testArbGraph()
+	n2i := testArbNameToID()
+	opps := []market.ArbitrageOpportunity{opp(1, "sys1", "sys2", 1000)}
+	// "iso" is an isolated node: baseline (cur->iso) is unreachable -> nil, 0.
+	rows, skipped := rankDetourArbitrage(opps, "cur", "iso", g, n2i, 3, 0, nil, 0)
+	if rows != nil || skipped != 0 {
+		t.Fatalf("unreachable dest: got rows=%v skipped=%d, want nil,0", rows, skipped)
+	}
+}
+
+// fakeArbFuel is a stub arbFuelPriceSource for buildArbPriceOf tests.
+type fakeArbFuel struct {
+	prices   map[string]int
+	median   int
+	medianOK bool
+}
+
+func (f fakeArbFuel) GetStationFuelPrice(_ context.Context, stationID string) (int, time.Time, bool, error) {
+	if p, ok := f.prices[stationID]; ok {
+		return p, time.Time{}, true, nil
+	}
+	return 0, time.Time{}, false, nil
+}
+
+func (f fakeArbFuel) MedianStationFuelAllIn(_ context.Context) (int, bool, error) {
+	return f.median, f.medianOK, nil
+}
+
+func TestBuildArbPriceOf(t *testing.T) {
+	ctx := context.Background()
+
+	// nil source -> constant 0.
+	if got := buildArbPriceOf(ctx, nil)("anything"); got != 0 {
+		t.Fatalf("nil src: got %v, want 0", got)
+	}
+
+	src := fakeArbFuel{prices: map[string]int{"stationA": 150}, median: 90, medianOK: true}
+	p := buildArbPriceOf(ctx, src)
+	if got := p("grand_exchange_station"); got != 0 {
+		t.Fatalf("free pump: got %v, want 0", got)
+	}
+	if got := p("stationA"); got != 150 {
+		t.Fatalf("captured all-in: got %v, want 150", got)
+	}
+	if got := p("uncaptured"); got != 90 {
+		t.Fatalf("median fallback: got %v, want 90", got)
+	}
+
+	// No median available -> 0 for uncaptured stations.
+	p2 := buildArbPriceOf(ctx, fakeArbFuel{prices: map[string]int{}, medianOK: false})
+	if got := p2("uncaptured"); got != 0 {
+		t.Fatalf("no median: got %v, want 0", got)
 	}
 }
