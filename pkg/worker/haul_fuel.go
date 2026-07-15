@@ -12,8 +12,10 @@ import (
 
 // HaulMaxHaulJumps is the hard backstop on the haul leg (buy->sell) jump count.
 // Fuel cost already penalizes long hauls economically; this caps the tail for when
-// price/graph data is thin (median ~ 0). The approach leg keeps DefaultHaulMaxJumps.
-const HaulMaxHaulJumps = 20
+// price/graph data is thin (median ~ 0). Set at 40 so legitimate long-haul routes
+// (e.g. empire capital-to-capital runs, several of which exceed 20 jumps) are not
+// dropped; it only trims the far tail. The approach leg keeps DefaultHaulMaxJumps.
+const HaulMaxHaulJumps = 40
 
 // haulFreeFuelStations are stations where the databot faction refuels for free (its
 // ally pump); fuel priced at one of these costs 0. A future refinement can data-drive
