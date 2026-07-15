@@ -93,7 +93,7 @@ var supported = map[string]bool{
 	"mine": true, "mine_qty": true, "deliver": true, "buy_directed": true, "craft_node": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
-	"update_market": true,
+	"update_market": true, "capture_fuel": true,
 	"get_status":    true, "get_system": true, "get_cargo": true,
 }
 
@@ -269,6 +269,14 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			return err
 		}
 		return market.CaptureFromClient(ctx, d.Client, d.Market)
+	case "capture_fuel":
+		if d.Market == nil {
+			return fmt.Errorf("capture_fuel: market collector not configured (use --market-db-path)")
+		}
+		if err := d.Client.GetBase(ctx); err != nil {
+			return err
+		}
+		return market.CaptureFuelFromClient(ctx, d.Client, d.Market, d.AgentID)
 	default:
 		return fmt.Errorf("worker dispatch: unsupported command %q", cmd)
 	}

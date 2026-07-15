@@ -449,3 +449,29 @@ func TestEnsureHomeToleratesAlreadyDockedError(t *testing.T) {
 		t.Fatalf("ensure_home must swallow 'Already docked', got %v", err)
 	}
 }
+
+func TestCaptureFuelWritesRow(t *testing.T) {
+	c, err := market.Open(market.Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("open collector: %v", err)
+	}
+	defer c.Close() //nolint:errcheck
+
+	fc := &fakeClient{
+		state: &game.State{CurrentPOI: "sol_central"},
+		raw:   map[string][]byte{"base": []byte(`{"action":"get_base","fuel_price":2,"fuel_tax_per_unit":5,"fuel_price_all_in":7}`)},
+	}
+	d := NewWorkerDispatch(fc, nil, c, io.Discard)
+	d.AgentID = "marketbot_sol"
+
+	if err := d.Run(context.Background(), []string{"capture_fuel"}); err != nil {
+		t.Fatalf("capture_fuel: %v", err)
+	}
+	allIn, _, ok, err := c.GetStationFuelPrice(context.Background(), "sol_central")
+	if err != nil || !ok || allIn != 7 {
+		t.Fatalf("row not written: allIn=%d ok=%v err=%v", allIn, ok, err)
+	}
+	if !slices.Contains(fc.calls, "get_base") {
+		t.Errorf("get_base not issued; calls=%v", fc.calls)
+	}
+}
