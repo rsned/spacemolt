@@ -96,6 +96,51 @@ func CaptureFromClient(ctx context.Context, client game.GameClient, collector *C
 	return collector.WriteSnapshot(ctx, snapshotFromState(state, orders, now))
 }
 
+// parseGetBaseFuel extracts a station's fuel price from a raw get_base JSON
+// response. ok is false when the payload is empty or carries no usable fuel
+// price (all-in <= 0), so a station without a fuel pump is skipped.
+func parseGetBaseFuel(raw []byte, stationID, capturedBy string, capturedAt time.Time) (StationFuel, bool, error) {
+	if len(raw) == 0 {
+		return StationFuel{}, false, nil
+	}
+	var resp serverapi.GetBaseResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return StationFuel{}, false, err
+	}
+	if resp.FuelPriceAllIn <= 0 {
+		return StationFuel{}, false, nil
+	}
+	return StationFuel{
+		StationID:      stationID,
+		FuelPrice:      int(resp.FuelPrice),
+		FuelTaxPerUnit: int(resp.FuelTaxPerUnit),
+		FuelPriceAllIn: int(resp.FuelPriceAllIn),
+		CapturedAt:     capturedAt.UTC().Format(time.RFC3339),
+		CapturedBy:     capturedBy,
+	}, true, nil
+}
+
+// CaptureFuelFromClient reads the get_base response the client last cached and
+// upserts the docked station's fuel price. No-op (nil) when the collector is
+// nil, the ship is not at a station, or the payload has no fuel price.
+func CaptureFuelFromClient(ctx context.Context, client game.GameClient, collector *Collector, capturedBy string) error {
+	if collector == nil {
+		return nil
+	}
+	state := client.GetState()
+	if state == nil || state.CurrentPOI == "" {
+		return nil
+	}
+	sf, ok, err := parseGetBaseFuel(client.GetRawJSON("base"), state.CurrentPOI, capturedBy, time.Now())
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	return collector.UpsertStationFuel(ctx, sf)
+}
+
 // snapshotFromState builds a MarketSnapshot's identity fields from the
 // reliable parts of game state. state.CurrentSystem cannot be trusted as a
 // system id: get_system/logged_in merges overwrite it with the display name

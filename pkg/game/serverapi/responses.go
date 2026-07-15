@@ -73,6 +73,8 @@ type GetBaseResponse struct {
 	FactionFuelCapacity int   `json:"faction_fuel_capacity,omitempty"`
 	FactionFuelReserve  int   `json:"faction_fuel_reserve,omitempty"`
 	FuelPrice           int64 `json:"fuel_price,omitempty"`
+	FuelPriceAllIn      int64 `json:"fuel_price_all_in,omitempty"`
+	FuelTaxPerUnit      int64 `json:"fuel_tax_per_unit,omitempty"`
 
 	LifeSupport *LifeSupport `json:"life_support,omitempty"`
 }

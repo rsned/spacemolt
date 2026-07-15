@@ -167,3 +167,31 @@ func TestSnapshotFromState_POINameWithoutBaseName(t *testing.T) {
 		t.Errorf("SystemID = %q, want %q", snap.SystemID, "krynn")
 	}
 }
+
+func TestParseGetBaseFuel(t *testing.T) {
+	at := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+
+	raw := []byte(`{"action":"get_base","fuel_price":2,"fuel_tax_per_unit":5,"fuel_price_all_in":7}`)
+	sf, ok, err := parseGetBaseFuel(raw, "sol_central", "marketbot_sol", at)
+	if err != nil || !ok {
+		t.Fatalf("valid payload: ok=%v err=%v", ok, err)
+	}
+	if sf.FuelPrice != 2 || sf.FuelTaxPerUnit != 5 || sf.FuelPriceAllIn != 7 {
+		t.Fatalf("wrong fuel values: %+v", sf)
+	}
+	if sf.StationID != "sol_central" || sf.CapturedBy != "marketbot_sol" {
+		t.Fatalf("wrong identity: %+v", sf)
+	}
+	if sf.CapturedAt != "2026-07-15T00:00:00Z" {
+		t.Fatalf("capturedAt=%q", sf.CapturedAt)
+	}
+
+	// No fuel price in payload -> ok=false (station without a pump).
+	if _, ok, _ := parseGetBaseFuel([]byte(`{"action":"get_base"}`), "x", "y", at); ok {
+		t.Fatal("no fuel price: expected ok=false")
+	}
+	// Empty payload -> ok=false.
+	if _, ok, _ := parseGetBaseFuel(nil, "x", "y", at); ok {
+		t.Fatal("empty payload: expected ok=false")
+	}
+}
