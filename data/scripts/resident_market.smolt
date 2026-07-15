@@ -1,0 +1,10 @@
+# Resident market idle: return-home guard + free market capture. NO mining, so
+# NO fuel/credit need. ensure_home nudges a drifted resident back to its
+# configured home station (data/overmind/*-fleet.yaml `station:`); it no-ops
+# once docked at home. Then the same park-and-capture as idle_market: dock
+# re-docks a bot left undocked at a station POI (free); refuel tops the tank if
+# the bot has credits (no-op when broke). The scheduled kb_update/view_market/
+# update_market do the actual market capture.
+ensure_home
+dock
+refuel
