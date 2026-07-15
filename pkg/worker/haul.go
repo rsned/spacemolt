@@ -60,12 +60,6 @@ func stabilityBoost(cyclesSeen int) float64 {
 	return 1 + float64(n)*haulStabilityPerCycle
 }
 
-// effectiveGross is the gross profit used for ranking: raw gross lifted by the route's
-// stability streak. Selection-time only — it never changes the credits actually earned.
-func effectiveGross(o market.ArbitrageOpportunity) float64 {
-	return o.GrossProfit * stabilityBoost(o.CyclesSeen)
-}
-
 // Pre-buy profit gate (see docs/superpowers/specs/2026-06-25-hauler-prebuy-profit-gate.md).
 // At buy time the live spread must clear BOTH thresholds or the buy is skipped and the
 // row is left claimed. Guards against acting on a stale/collapsed spread (the trader-3
@@ -199,19 +193,25 @@ type rankedOpp struct {
 	opp       market.ArbitrageOpportunity
 	buySysID  string
 	sellSysID string // "" if unresolved
-	jumps     int    // current -> buySys
+	jumps     int    // current -> buySys (approach leg)
+	haulJumps int    // buySys -> sellSys (-1 = unmeasured/unresolved)
 	chain     bool   // sellSys at/adjacent to another opp's buySys
 }
 
 // RankHaulOpportunities orders available opportunities best-first for a hauler at
-// currentSystemID. Primary order is gross_profit descending; opportunities within
-// haulNearTieFraction of the top gross are instead ordered by reposition cost
-// (jumps current->buy), then a chaining bonus (sell at/adjacent to another opp's
-// buy), then id. Opportunities whose buy-system name does not resolve to a known
-// system id, or whose buy-system is unreachable, are dropped. When maxJumps > 0, any
-// opportunity whose buy-system is more than maxJumps from currentSystemID is also
-// dropped (maxJumps <= 0 disables the cap).
-func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID string, nameToID map[string]string, graph navigation.JumpGraph, maxJumps int) []market.ArbitrageOpportunity {
+// currentSystemID. Primary order is net-of-fuel profit descending — gross profit minus
+// the fuel cost of the approach leg (current->buy) and the haul leg (buy->sell), priced
+// at fuelPerJump*priceOf(buy station) — lifted by the route's stability boost.
+// fuelPerJump<=0 or a nil priceOf disables the fuel model (net == effective gross), the
+// graceful-degradation path for callers with no fuel data. Opportunities within
+// haulNearTieFraction of the top net are instead ordered by reposition cost (jumps
+// current->buy), then a chaining bonus (sell at/adjacent to another opp's buy), then
+// id. Opportunities whose buy-system name does not resolve to a known system id, or
+// whose buy-system is unreachable, are dropped. When maxJumps > 0, any opportunity
+// whose buy-system is more than maxJumps from currentSystemID is also dropped (maxJumps
+// <= 0 disables the cap). Independently, any opportunity whose haul leg (buy->sell)
+// exceeds HaulMaxHaulJumps is dropped as a hard backstop, regardless of maxJumps.
+func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID string, nameToID map[string]string, graph navigation.JumpGraph, maxJumps int, fuelPerJump int, priceOf func(stationID string) float64) []market.ArbitrageOpportunity {
 	resolved := make([]rankedOpp, 0, len(opps))
 	buyTargets := make([]string, 0, len(opps))
 	for _, o := range opps {
@@ -238,6 +238,19 @@ func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID s
 			continue // too far to reposition for
 		}
 		r.jumps = d
+		// Haul leg (buy->sell): measure when the sell system resolves and is reachable.
+		// Drop candidates whose haul leg exceeds the hard backstop. Leave haulJumps=-1
+		// (unmeasured) when the sell system is unknown/unreachable — never dropped, no fuel.
+		r.haulJumps = -1
+		if r.sellSysID != "" {
+			hd := navigation.BFSJumps(graph, r.buySysID, []string{r.sellSysID})
+			if hj, hok := hd[r.sellSysID]; hok && hj < navigation.RouteInf {
+				if hj > HaulMaxHaulJumps {
+					continue
+				}
+				r.haulJumps = hj
+			}
+		}
 		reach = append(reach, r)
 	}
 	if len(reach) == 0 {
@@ -248,18 +261,32 @@ func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID s
 		reach[i].chain = sellChains(reach[i], reach, graph)
 	}
 
-	maxGross := 0.0
+	// effNet is the ranking value: gross minus total (approach+haul) fuel, lifted by
+	// the stability streak. fuelPerJump<=0 (no rate) makes fuel 0 -> gross-only.
+	effNet := func(r rankedOpp) float64 {
+		fuelCost := 0.0
+		if fuelPerJump > 0 && priceOf != nil {
+			jumps := r.jumps
+			if r.haulJumps > 0 {
+				jumps += r.haulJumps
+			}
+			fuelCost = float64(jumps*fuelPerJump) * priceOf(r.opp.FromStationID)
+		}
+		return (r.opp.GrossProfit - fuelCost) * stabilityBoost(r.opp.CyclesSeen)
+	}
+
+	maxNet := 0.0
 	for _, r := range reach {
-		if g := effectiveGross(r.opp); g > maxGross {
-			maxGross = g
+		if v := effNet(r); v > maxNet {
+			maxNet = v
 		}
 	}
-	threshold := maxGross * (1 - haulNearTieFraction)
+	threshold := maxNet * (1 - haulNearTieFraction)
 
 	band := make([]rankedOpp, 0, len(reach))
 	rest := make([]rankedOpp, 0, len(reach))
 	for _, r := range reach {
-		if effectiveGross(r.opp) >= threshold {
+		if effNet(r) >= threshold {
 			band = append(band, r)
 		} else {
 			rest = append(rest, r)
@@ -279,8 +306,8 @@ func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID s
 		return band[i].opp.ID < band[j].opp.ID
 	})
 	sort.SliceStable(rest, func(i, j int) bool {
-		if gi, gj := effectiveGross(rest[i].opp), effectiveGross(rest[j].opp); gi != gj {
-			return gi > gj
+		if ni, nj := effNet(rest[i]), effNet(rest[j]); ni != nj {
+			return ni > nj
 		}
 		if rest[i].jumps != rest[j].jumps {
 			return rest[i].jumps < rest[j].jumps
@@ -505,6 +532,16 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		galGraph = nil
 	}
 
+	// Per-pass fuel model for net-of-fuel ranking/gating. Probe fuel_per_jump once
+	// (ship-constant, tick-free) via any reachable neighbor of current.
+	probeTarget := ""
+	for _, nb := range graph[current] {
+		probeTarget = nb
+		break
+	}
+	fuelPerJump := haulFuelPerJump(ctx, deps.Client, probeTarget)
+	priceOf := buildPriceOf(ctx, deps.FuelPrices)
+
 	// Resume before claiming anything new: if this agent already holds a claim (its
 	// process restarted mid-haul, leaving the in-memory active opp behind but the claim
 	// row intact), finish that haul first. runClaimedHaul skips the buy leg when the
@@ -573,7 +610,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		return nil
 	}
 
-	ranked := RankHaulOpportunities(opps, current, nameToID, graph, maxJumps)
+	ranked := RankHaulOpportunities(opps, current, nameToID, graph, maxJumps, fuelPerJump, priceOf)
 	if len(ranked) == 0 {
 		fmt.Fprintf(out, "haul: no opportunities within %d jumps; idling\n", maxJumps) //nolint:errcheck
 		return nil

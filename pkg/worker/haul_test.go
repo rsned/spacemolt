@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -167,7 +168,7 @@ func TestRankProfitDominant(t *testing.T) {
 	got := RankHaulOpportunities([]market.ArbitrageOpportunity{
 		opp(1, "b", "c", 100),
 		opp(2, "b", "c", 200),
-	}, "a", n2id, g, 0)
+	}, "a", n2id, g, 0, 0, nil)
 	if len(got) != 2 || got[0].ID != 2 || got[1].ID != 1 {
 		t.Fatalf("want [2 1] by gross, got %v", ids(got))
 	}
@@ -184,7 +185,7 @@ func TestRankStabilityBoostPrefersDurable(t *testing.T) {
 	fresh.CyclesSeen = 1
 	durable := opp(2, "c", "d", 96)
 	durable.CyclesSeen = 6
-	got := RankHaulOpportunities([]market.ArbitrageOpportunity{fresh, durable}, "a", n2id, g, 0)
+	got := RankHaulOpportunities([]market.ArbitrageOpportunity{fresh, durable}, "a", n2id, g, 0, 0, nil)
 	if got[0].ID != 2 {
 		t.Fatalf("want durable opp 2 first (stability boost), got %v", ids(got))
 	}
@@ -212,7 +213,7 @@ func TestRankNearTieProximityTiebreak(t *testing.T) {
 	got := RankHaulOpportunities([]market.ArbitrageOpportunity{
 		opp(2, "c", "d", 200),
 		opp(1, "b", "d", 195),
-	}, "a", n2id, g, 0)
+	}, "a", n2id, g, 0, 0, nil)
 	if got[0].ID != 1 {
 		t.Fatalf("want closer buy (id 1) first, got %v", ids(got))
 	}
@@ -227,7 +228,7 @@ func TestRankChainingTiebreak(t *testing.T) {
 		opp(2, "b", "z", 200),
 		opp(1, "b", "c", 198),
 		opp(3, "c", "z", 50), // the chain target (buys at c)
-	}, "a", n2id, g, 0)
+	}, "a", n2id, g, 0, 0, nil)
 	// opp 1 and 2 are in the band (>=180); opp 3 (50) is not. opp 1 chains -> first.
 	if got[0].ID != 1 {
 		t.Fatalf("want chaining opp (id 1) first, got %v", ids(got))
@@ -243,7 +244,7 @@ func TestRankSkipsUnresolvedAndUnreachable(t *testing.T) {
 		opp(1, "ghost", "b", 999),
 		opp(2, "island", "b", 999),
 		opp(3, "b", "a", 100),
-	}, "a", n2id, g, 0)
+	}, "a", n2id, g, 0, 0, nil)
 	if len(got) != 1 || got[0].ID != 3 {
 		t.Fatalf("want only reachable+resolved id 3, got %v", ids(got))
 	}
@@ -255,7 +256,7 @@ func TestRankDeterministicByID(t *testing.T) {
 	got := RankHaulOpportunities([]market.ArbitrageOpportunity{
 		opp(5, "b", "z", 100),
 		opp(2, "b", "z", 100),
-	}, "a", n2id, g, 0)
+	}, "a", n2id, g, 0, 0, nil)
 	if got[0].ID != 2 {
 		t.Fatalf("want lower id 2 first, got %v", ids(got))
 	}
@@ -272,13 +273,66 @@ func TestRankDistanceCapDropsFarOpps(t *testing.T) {
 		opp(1, "b", "c", 100),
 		opp(2, "e", "d", 999999),
 	}
-	capped := RankHaulOpportunities(opps, "a", n2id, g, 2)
+	capped := RankHaulOpportunities(opps, "a", n2id, g, 2, 0, nil)
 	if len(capped) != 1 || capped[0].ID != 1 {
 		t.Fatalf("maxJumps=2 should keep only the nearby opp 1, got %v", ids(capped))
 	}
-	uncapped := RankHaulOpportunities(opps, "a", n2id, g, 0)
+	uncapped := RankHaulOpportunities(opps, "a", n2id, g, 0, 0, nil)
 	if len(uncapped) != 2 || uncapped[0].ID != 2 {
 		t.Fatalf("no cap should keep both with high-gross id 2 first, got %v", ids(uncapped))
+	}
+}
+
+// mkRankOpp builds an opp whose buy/sell SYSTEM ids equal buySys/sellSys and whose
+// FromStationID is derived from buySys (priceOf sees a concrete station).
+func mkRankOpp(id int, buySys, sellSys string, gross float64) market.ArbitrageOpportunity {
+	return market.ArbitrageOpportunity{
+		ID: id, GrossProfit: gross, CyclesSeen: 1,
+		FromSystemName: buySys, ToSystemName: sellSys,
+		FromStationID: buySys + "_st", ToStationID: sellSys + "_st",
+	}
+}
+
+func TestRankNetOfFuelFlipsOrder(t *testing.T) {
+	// current=a. near: buy b (a->b=1), sell c (b->c=1), gross 4000.
+	//            far:  buy d (a->d=1), sell g (d->e->f->g=3), gross 5200.
+	g, n2id := graphFor(
+		[]string{"a", "b", "c", "d", "e", "f", "g"},
+		[2]string{"a", "b"}, [2]string{"b", "c"},
+		[2]string{"a", "d"}, [2]string{"d", "e"}, [2]string{"e", "f"}, [2]string{"f", "g"},
+	)
+	near := mkRankOpp(1, "b", "c", 4000)
+	far := mkRankOpp(2, "d", "g", 5200)
+	opps := []market.ArbitrageOpportunity{near, far}
+
+	// Gross-only (fuelPerJump=0): far (5200) leads, near (4000) is in the lower band.
+	gross := RankHaulOpportunities(opps, "a", n2id, g, 0, 0, nil)
+	if gross[0].ID != 2 {
+		t.Fatalf("gross order: want far(2) first, got %d", gross[0].ID)
+	}
+	// Net-of-fuel (rate 10, price 100): net_near=2000 > net_far=1200 -> near leads.
+	net := RankHaulOpportunities(opps, "a", n2id, g, 0, 10, func(string) float64 { return 100 })
+	if net[0].ID != 1 {
+		t.Fatalf("net order: want near(1) first after fuel, got %d", net[0].ID)
+	}
+}
+
+func TestRankDropsOverlongHaulLeg(t *testing.T) {
+	// Chain buy -> h0 -> h1 -> ... so the haul leg exceeds HaulMaxHaulJumps.
+	systems := []string{"a", "buy"}
+	pairs := [][2]string{{"a", "buy"}}
+	prev := "buy"
+	for i := 0; i <= HaulMaxHaulJumps; i++ { // HaulMaxHaulJumps+1 hops buy->sell
+		n := fmt.Sprintf("h%d", i)
+		systems = append(systems, n)
+		pairs = append(pairs, [2]string{prev, n})
+		prev = n
+	}
+	g, n2id := graphFor(systems, pairs...)
+	overlong := mkRankOpp(1, "buy", prev, 9999)
+	got := RankHaulOpportunities([]market.ArbitrageOpportunity{overlong}, "a", n2id, g, 0, 10, func(string) float64 { return 1 })
+	if len(got) != 0 {
+		t.Fatalf("want overlong haul dropped, got %d opp(s)", len(got))
 	}
 }
 
