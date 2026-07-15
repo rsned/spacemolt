@@ -8508,6 +8508,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return explore(client, ctx, format)
 	case "auto_explore", "auto-explore":
 		return autoExplore(client, ctx, parts, format)
+	case "find_arbitrage", "find-arbitrage":
+		return runFindArbitrage(client, ctx, parts, format)
+	case "claim_arbitrage", "claim-arbitrage":
+		return runClaimArbitrage(ctx, parts)
+	case "release_arbitrage", "release-arbitrage":
+		return runReleaseArbitrage(ctx, parts)
 
 	// === KNOWLEDGE BASE UPDATE COMMANDS ===
 	case "update_system":
@@ -9394,6 +9400,10 @@ func printHelp() {
 	fmt.Println("  explore                   - Visit all POIs in current system (nearest-first)")
 	fmt.Println("  auto_explore [--max-hops N]")
 	fmt.Println("                            - Tour multiple systems: explore + jump outward, refuel at stations")
+	fmt.Println("  find_arbitrage <dest> [--detour N] [--limit N]")
+	fmt.Println("                            - Arbitrage opportunities on the way to <dest> (detour<=N jumps, default 3)")
+	fmt.Println("  claim_arbitrage <id>      - Claim an opportunity so the hauler fleet skips it")
+	fmt.Println("  release_arbitrage <id>    - Release an opportunity you claimed")
 
 	fmt.Println("\n=== MINING & COMBAT ===")
 	fmt.Println("  mine, scan, survey        - Mining and scanning operations")
