@@ -155,3 +155,15 @@ CREATE TABLE IF NOT EXISTS fleet_timeseries (
 );
 
 CREATE INDEX IF NOT EXISTS idx_fleet_timeseries_agent_time ON fleet_timeseries(agent_id, ts);
+
+-- One row per station, upserted in place (replace-on-capture — never grows).
+-- fuel_price_all_in is the per-unit cost a hauler pays; captured_at is a
+-- freshness stamp on the single row (not history).
+CREATE TABLE IF NOT EXISTS station_fuel_prices (
+    station_id        TEXT PRIMARY KEY,
+    fuel_price        INTEGER NOT NULL,
+    fuel_tax_per_unit INTEGER NOT NULL,
+    fuel_price_all_in INTEGER NOT NULL,
+    captured_at       TEXT NOT NULL,
+    captured_by       TEXT
+);

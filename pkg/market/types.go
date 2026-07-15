@@ -21,6 +21,18 @@ type Station struct {
 	LastUpdatedUTC string `json:"last_updated_utc"`
 }
 
+// StationFuel is the latest captured fuel price at a station. One row per
+// station (upserted, never grows). FuelPriceAllIn is the per-unit cost a hauler
+// actually pays; Sub-project B consumes it. CapturedAt is RFC3339.
+type StationFuel struct {
+	StationID      string
+	FuelPrice      int
+	FuelTaxPerUnit int
+	FuelPriceAllIn int
+	CapturedAt     string
+	CapturedBy     string
+}
+
 // Order represents a single buy or sell order from the market.
 type Order struct {
 	StationID  string    `json:"station_id"`

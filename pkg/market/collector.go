@@ -3,6 +3,7 @@ package market
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -173,6 +174,45 @@ func (c *Collector) upsertStation(tx *sql.Tx, s Station) error {
 			last_updated_utc = excluded.last_updated_utc
 	`, s.StationID, s.StationName, s.SystemID, s.SystemName, s.FirstSeenUTC, s.LastUpdatedUTC)
 	return err
+}
+
+// UpsertStationFuel writes the latest fuel price for a station, replacing any
+// existing row (one row per station — no time growth).
+func (c *Collector) UpsertStationFuel(ctx context.Context, s StationFuel) error {
+	return c.writeRetry(ctx, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO station_fuel_prices
+			  (station_id, fuel_price, fuel_tax_per_unit, fuel_price_all_in, captured_at, captured_by)
+			VALUES (?, ?, ?, ?, ?, ?)
+			ON CONFLICT(station_id) DO UPDATE SET
+				fuel_price = excluded.fuel_price,
+				fuel_tax_per_unit = excluded.fuel_tax_per_unit,
+				fuel_price_all_in = excluded.fuel_price_all_in,
+				captured_at = excluded.captured_at,
+				captured_by = excluded.captured_by
+		`, s.StationID, s.FuelPrice, s.FuelTaxPerUnit, s.FuelPriceAllIn, s.CapturedAt, s.CapturedBy)
+		return err
+	})
+}
+
+// GetStationFuelPrice returns the latest captured all-in fuel price for a
+// station. ok is false (no error) when no price has been captured yet.
+func (c *Collector) GetStationFuelPrice(ctx context.Context, stationID string) (allIn int, capturedAt time.Time, ok bool, err error) {
+	var at string
+	scanErr := c.db.QueryRowContext(ctx,
+		`SELECT fuel_price_all_in, captured_at FROM station_fuel_prices WHERE station_id = ?`,
+		stationID).Scan(&allIn, &at)
+	if errors.Is(scanErr, sql.ErrNoRows) {
+		return 0, time.Time{}, false, nil
+	}
+	if scanErr != nil {
+		return 0, time.Time{}, false, scanErr
+	}
+	t, perr := time.Parse(time.RFC3339, at)
+	if perr != nil {
+		return allIn, time.Time{}, true, nil //nolint:nilerr // price is valid even if the stamp won't parse
+	}
+	return allIn, t, true, nil
 }
 
 // upsertItem adds or updates an item record.
