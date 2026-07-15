@@ -27,6 +27,53 @@ type Source struct {
 	Path string
 }
 
+// HaulStats bundles the haul-fleet efficiency data rendered onto the page: an
+// optional fleet panel and a per-agent lifetime line map. A nil *HaulStats (or
+// nil fields) renders the page exactly as before.
+type HaulStats struct {
+	Panel    *EffPanel                // nil -> no panel
+	Lifetime map[string]AgentLifetime // agent_id -> per-worker line; absent -> no line
+}
+
+// EffPanel is the fleet efficiency headline: windowed gross/fuel/net cr/jump and
+// a per-agent net/jump ranking.
+type EffPanel struct {
+	WindowLabel  string
+	Hauls        int
+	GrossPerJump float64
+	FuelPerJump  float64
+	NetPerJump   float64
+	Agents       []PanelAgent // ranked NetPerJump desc (caller sorts)
+}
+
+// PanelAgent is one agent's windowed net cr/jump for the panel ranking.
+type PanelAgent struct {
+	AgentID    string
+	Hauls      int
+	NetPerJump float64
+}
+
+// AgentLifetime is one worker's lifetime stats line (gross avg, no fuel term).
+type AgentLifetime struct {
+	Hauls      int
+	Jumps      int64
+	AvgPerJump float64
+}
+
+// PerJumpMetrics returns gross, fuel, and net credits-per-jump for a haul
+// aggregate. fuelPerJump is fuel units burned per jump; fuelCrPerUnit is the
+// credit price per fuel unit; their product is the (constant) fuel cr/jump.
+// When sumJumps <= 0 all three are 0 (no hauls, no divide).
+func PerJumpMetrics(sumProfit float64, sumJumps int64, fuelPerJump, fuelCrPerUnit float64) (gross, fuelCr, net float64) {
+	if sumJumps <= 0 {
+		return 0, 0, 0
+	}
+	gross = sumProfit / float64(sumJumps)
+	fuelCr = fuelPerJump * fuelCrPerUnit
+	net = gross - fuelCr
+	return gross, fuelCr, net
+}
+
 // staleAfter is how long since a worker's last heartbeat before it is flagged
 // stale on the page. Heartbeats land roughly every 30s, so a couple of minutes
 // of silence is a real signal something is wrong.
@@ -47,7 +94,7 @@ type section struct {
 // auto-refresh interval in seconds (a meta-refresh); now is the reference time
 // used for relative "last seen" text and staleness. Sources that fail to load
 // are rendered with an inline error rather than failing the whole page.
-func Render(sources []Source, refresh int, now time.Time) string {
+func Render(sources []Source, hs *HaulStats, refresh int, now time.Time) string {
 	sections := make([]section, 0, len(sources))
 	for i, src := range sources {
 		sec := section{Name: src.Name, Anchor: anchorID(src.Name, i)}
@@ -70,10 +117,10 @@ func Render(sources []Source, refresh int, now time.Time) string {
 		}
 		sections = append(sections, sec)
 	}
-	return renderDoc(sections, refresh, now)
+	return renderDoc(sections, hs, refresh, now)
 }
 
-func renderDoc(sections []section, refresh int, now time.Time) string {
+func renderDoc(sections []section, hs *HaulStats, refresh int, now time.Time) string {
 	var b strings.Builder
 	b.WriteString("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n")
 	b.WriteString("<meta charset=\"utf-8\">\n")
@@ -102,15 +149,19 @@ func renderDoc(sections []section, refresh int, now time.Time) string {
 	}
 	b.WriteString("</nav>\n")
 
+	if hs != nil && hs.Panel != nil {
+		renderEffPanel(&b, hs.Panel)
+	}
+
 	for _, sec := range sections {
-		renderSection(&b, sec, now)
+		renderSection(&b, sec, hs, now)
 	}
 
 	b.WriteString("</body>\n</html>\n")
 	return b.String()
 }
 
-func renderSection(b *strings.Builder, sec section, now time.Time) {
+func renderSection(b *strings.Builder, sec section, hs *HaulStats, now time.Time) {
 	fmt.Fprintf(b, "<section id=\"%s\">\n", sec.Anchor)
 	fmt.Fprintf(b, "<h2>%s", html.EscapeString(sec.Name))
 	if sec.HasFile {
@@ -145,12 +196,12 @@ func renderSection(b *strings.Builder, sec section, now time.Time) {
 		"<th>Task / Status</th><th>Position</th><th>Last seen</th>" +
 		"</tr></thead>\n<tbody>\n")
 	for _, w := range sec.Workers {
-		renderRow(b, w, now)
+		renderRow(b, w, hs, now)
 	}
 	b.WriteString("</tbody>\n</table>\n</section>\n")
 }
 
-func renderRow(b *strings.Builder, w balances.LiveRecord, now time.Time) {
+func renderRow(b *strings.Builder, w balances.LiveRecord, hs *HaulStats, now time.Time) {
 	stale := isStale(w.LastSeen, now)
 	cls := ""
 	if !w.Healthy || stale {
@@ -164,6 +215,43 @@ func renderRow(b *strings.Builder, w balances.LiveRecord, now time.Time) {
 	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(positionText(w)))
 	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(lastSeenText(w.LastSeen, now)))
 	b.WriteString("</tr>\n")
+	if hs != nil {
+		if lt, ok := hs.Lifetime[w.AgentID]; ok {
+			renderLifetimeLine(b, lt)
+		}
+	}
+}
+
+// renderEffPanel renders the fleet efficiency headline above the per-overmind
+// sections.
+func renderEffPanel(b *strings.Builder, p *EffPanel) {
+	b.WriteString("<section class=\"effpanel\">\n")
+	fmt.Fprintf(b, "<h2>Haul fleet efficiency <span class=\"subtle\">(%s)</span></h2>\n", html.EscapeString(p.WindowLabel))
+	if p.Hauls == 0 {
+		fmt.Fprintf(b, "<p class=\"subtle\">No hauls in the last %s.</p>\n</section>\n", html.EscapeString(p.WindowLabel))
+		return
+	}
+	fmt.Fprintf(b, "<p class=\"effhead\">gross %s − fuel %s = <strong>NET %s cr/jump</strong> · %s hauls</p>\n",
+		formatCredits(p.GrossPerJump), formatCredits(p.FuelPerJump), formatCredits(p.NetPerJump), formatCredits(float64(p.Hauls)))
+	if len(p.Agents) > 0 {
+		b.WriteString("<p class=\"subtle\">")
+		for i, a := range p.Agents {
+			if i > 0 {
+				b.WriteString(" · ")
+			}
+			fmt.Fprintf(b, "%s %dh %s", html.EscapeString(a.AgentID), a.Hauls, formatCredits(a.NetPerJump))
+		}
+		b.WriteString("</p>\n")
+	}
+	b.WriteString("</section>\n")
+}
+
+// renderLifetimeLine emits a sub-row spanning all six columns with a worker's
+// lifetime throughput. Ship losses show as an em dash until a death counter
+// exists (SP-loss).
+func renderLifetimeLine(b *strings.Builder, lt AgentLifetime) {
+	fmt.Fprintf(b, "<tr class=\"eff-line\"><td colspan=\"6\" class=\"subtle\">%s hauls · %s jumps · — losses · avg %s cr/jump</td></tr>\n",
+		formatCredits(float64(lt.Hauls)), formatCredits(float64(lt.Jumps)), formatCredits(lt.AvgPerJump))
 }
 
 // nameText is the worker's agent id, suffixed with its faction tag as
@@ -343,6 +431,9 @@ h2 { margin: 1.5rem 0 0.25rem; font-size: 1.15rem; }
 .toc a { text-decoration: none; }
 .toc .count { opacity: 0.6; font-size: 0.85rem; }
 .subtle { opacity: 0.65; font-size: 0.85rem; margin: 0.15rem 0; }
+.effpanel { margin: 0.5rem 0 1rem; padding: 0.5rem 0.75rem; border: 1px solid rgba(127,127,127,0.3); border-radius: 6px; }
+.effhead { font-size: 1rem; margin: 0.2rem 0; }
+tr.eff-line td { padding-top: 0; border-top: 0; }
 .err { color: #c0392b; font-weight: 600; }
 table { border-collapse: collapse; width: 100%; margin: 0.4rem 0 1rem; font-size: 0.9rem; }
 th, td { text-align: left; padding: 0.3rem 0.6rem; border-bottom: 1px solid rgba(128,128,128,0.25); }

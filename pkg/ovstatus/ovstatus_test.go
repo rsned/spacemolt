@@ -49,7 +49,7 @@ func TestRenderTOCAndAlphabeticalRows(t *testing.T) {
 		},
 	})
 
-	out := Render([]Source{{Name: "Haul", Path: haul}, {Name: "Marketbots", Path: mb}}, 300, now)
+	out := Render([]Source{{Name: "Haul", Path: haul}, {Name: "Marketbots", Path: mb}}, nil, 300, now)
 
 	// Table of contents has both overminds with counts.
 	if !strings.Contains(out, ">Haul</a> <span class=\"count\">(2)</span>") {
@@ -91,7 +91,7 @@ func TestRenderMissingFileAndStale(t *testing.T) {
 	out := Render([]Source{
 		{Name: "Shuttle", Path: stale},
 		{Name: "Missing", Path: filepath.Join(dir, "nope.json")},
-	}, 0, now)
+	}, nil, 0, now)
 
 	if !strings.Contains(out, "⚠ unhealthy") || !strings.Contains(out, "⚠ stale") {
 		t.Errorf("expected unhealthy+stale flags:\n%s", out)

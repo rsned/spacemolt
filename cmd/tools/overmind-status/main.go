@@ -90,7 +90,7 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Header().Set("Cache-Control", "no-store")
-		if _, err := w.Write([]byte(ovstatus.Render(sources, rf, time.Now()))); err != nil {
+		if _, err := w.Write([]byte(ovstatus.Render(sources, nil, rf, time.Now()))); err != nil {
 			logger.Printf("write response: %v", err)
 		}
 	})
