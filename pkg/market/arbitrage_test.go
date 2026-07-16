@@ -104,14 +104,22 @@ func TestGetItemStationPricesLatestCaptureWins(t *testing.T) {
 // lifecycle tests. status may be any allowed value.
 func insertRawOpp(t *testing.T, c *Collector, status string) {
 	t.Helper()
+	insertRawOppExpiring(t, c, status, "2030-01-01T00:00:00Z", 1)
+}
+
+// insertRawOppExpiring is insertRawOpp with an explicit expires_at (stored in the
+// scanner's RFC3339 "…Z" form) and gross_profit, for tests that cover time-based
+// expiry and pool ordering.
+func insertRawOppExpiring(t *testing.T, c *Collector, status, expiresAt string, grossProfit float64) {
+	t.Helper()
 	_, err := c.db.Exec(`INSERT INTO arbitrage_opportunities
 		(from_station_id, to_station_id, item_id, action_type, buy_price, sell_price,
 		 quantity, gross_profit, fuel_cost, travel_ticks, cargo_required, status,
 		 expires_at, discovered_at, discovered_by)
-		VALUES ('stnA','stnB','iron_ore','buy_then_sell',1,2,1,1,0,0,1,?,
-		 '2030-01-01T00:00:00Z','2026-06-24T00:00:00Z','test')`, status)
+		VALUES ('stnA','stnB','iron_ore','buy_then_sell',1,2,1,?,0,0,1,?,
+		 ?,'2026-06-24T00:00:00Z','test')`, grossProfit, status, expiresAt)
 	if err != nil {
-		t.Fatalf("insertRawOpp: %v", err)
+		t.Fatalf("insertRawOppExpiring: %v", err)
 	}
 }
 
@@ -494,5 +502,81 @@ func TestGetOpportunities(t *testing.T) {
 	all, _ := c.GetOpportunities(ctx, "", 50)
 	if len(all) != 1 {
 		t.Errorf("all = %d, want 1", len(all))
+	}
+}
+
+// todayMidnightZ returns today's 00:00:00Z in the scanner's stored format. It is
+// always in the past (or equal to now, which still counts as expired) AND always
+// shares today's date, so it is the exact shape that a naive string comparison
+// against SQLite's datetime('now') ("2026-07-16 14:52:01", space-separated) gets
+// wrong: 'T' (0x54) sorts above ' ' (0x20), so the stale row reads as live.
+func todayMidnightZ() string {
+	return time.Now().UTC().Format("2006-01-02") + "T00:00:00Z"
+}
+
+// TestGetOpportunitiesExcludesTimeExpired pins the pool read to wall-clock expiry.
+// The scanner is the only thing that flips available -> expired, so when it dies the
+// pool freezes as 'available' forever and haulers chase gaps that closed hours ago.
+// The read must not serve a row past its expires_at even while its status says
+// 'available'.
+func TestGetOpportunitiesExcludesTimeExpired(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	insertRawOppExpiring(t, c, "available", todayMidnightZ(), 999999) // stale but status=available
+	insertRawOppExpiring(t, c, "available", "2030-01-01T00:00:00Z", 1)
+
+	opps, err := c.GetOpportunities(ctx, "available", 50)
+	if err != nil {
+		t.Fatalf("GetOpportunities: %v", err)
+	}
+	if len(opps) != 1 {
+		t.Fatalf("opps = %d, want 1 (the time-expired row must not be served)", len(opps))
+	}
+	if opps[0].GrossProfit != 1 {
+		t.Errorf("served the stale high-profit row (gross=%v); want the fresh one (gross=1)", opps[0].GrossProfit)
+	}
+}
+
+// TestClaimOpportunityRejectsTimeExpired makes ClaimOpportunity's doc contract
+// ("false if it was already claimed/expired/gone") true for time-expired rows, not
+// just status='expired' ones.
+func TestClaimOpportunityRejectsTimeExpired(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	insertRawOppExpiring(t, c, "available", todayMidnightZ(), 1)
+
+	ok, err := c.ClaimOpportunity(ctx, 1, "agent1")
+	if err != nil {
+		t.Fatalf("ClaimOpportunity: %v", err)
+	}
+	if ok {
+		t.Errorf("claimed a time-expired opportunity; want refusal")
+	}
+}
+
+// TestReleasedExpiredOppIsNotReServed covers the zombie loop seen in production on
+// 2026-07-16: the scanner's sweep only expires rows that are 'available', so a row
+// held as 'claimed' survives it; ReleaseOpportunity then returns that long-expired
+// row to the pool as 'available', where a profit-ordered read hands it straight back
+// out. A hauler abandons, releases, re-claims, and never completes a haul.
+func TestReleasedExpiredOppIsNotReServed(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	insertRawOppExpiring(t, c, "claimed", todayMidnightZ(), 999999)
+	if _, err := c.db.Exec(`UPDATE arbitrage_opportunities SET claimed_by='agent1' WHERE id=1`); err != nil {
+		t.Fatalf("seed claim: %v", err)
+	}
+
+	released, err := c.ReleaseOpportunity(ctx, 1, "agent1")
+	if err != nil || !released {
+		t.Fatalf("ReleaseOpportunity: released=%v err=%v", released, err)
+	}
+
+	opps, err := c.GetOpportunities(ctx, "available", 50)
+	if err != nil {
+		t.Fatalf("GetOpportunities: %v", err)
+	}
+	if len(opps) != 0 {
+		t.Errorf("released expired opp re-entered the pool (%d rows); it must not be served again", len(opps))
 	}
 }

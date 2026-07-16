@@ -261,13 +261,15 @@ func (c *Collector) scanItemSet(ctx context.Context, allow []string) ([]string, 
 }
 
 // ClaimOpportunity atomically claims an available opportunity for agentID.
-// Returns true if claimed, false if it was already claimed/expired/gone.
+// Returns true if claimed, false if it was already claimed/expired/gone — including
+// a row still flagged 'available' whose expires_at has passed, which is what a
+// released-but-stale row looks like once the scanner's sweep has missed it.
 func (c *Collector) ClaimOpportunity(ctx context.Context, id int, agentID string) (bool, error) {
 	claimed := false
 	err := c.writeRetry(ctx, func(tx *sql.Tx) error {
 		res, err := tx.ExecContext(ctx,
 			`UPDATE arbitrage_opportunities SET status='claimed', claimed_by=?, claimed_at=?
-			 WHERE id=? AND status='available'`,
+			 WHERE id=? AND status='available' AND `+notExpiredSQL,
 			agentID, time.Now().UTC().Format(time.RFC3339), id)
 		if err != nil {
 			return fmt.Errorf("claim opportunity: %w", err)
@@ -303,6 +305,13 @@ func (c *Collector) CompleteOpportunity(ctx context.Context, id int, agentID str
 // GetOpportunities returns opportunities ordered by gross_profit DESC, optionally
 // filtered to a status ("" = all). Station/system/item names are joined for
 // display. Returns an empty slice when none match.
+//
+// Rows that are still 'available' but past their expires_at are never served: the
+// scanner's sweep is the only thing that flips available -> expired, so a dead
+// scanner would otherwise freeze the pool and keep handing out gaps that closed
+// hours ago — and because stale rows keep their inflated gross_profit, they would
+// outrank genuinely fresh ones in this very ORDER BY. Other statuses are returned
+// untouched so completed/expired history stays readable for reporting.
 func (c *Collector) GetOpportunities(ctx context.Context, status string, limit int) ([]ArbitrageOpportunity, error) {
 	if limit < 1 {
 		limit = 50
@@ -310,6 +319,7 @@ func (c *Collector) GetOpportunities(ctx context.Context, status string, limit i
 	rows, err := c.db.QueryContext(ctx,
 		arbitrageSelectJoin+`
 		WHERE (? = '' OR ao.status = ?)
+		  AND (ao.status <> 'available' OR `+notExpiredSQL+`)
 		ORDER BY ao.gross_profit DESC
 		LIMIT ?`, status, status, limit)
 	if err != nil {
@@ -318,6 +328,19 @@ func (c *Collector) GetOpportunities(ctx context.Context, status string, limit i
 	defer func() { _ = rows.Close() }()
 	return scanOpportunityRows(rows)
 }
+
+// notExpiredSQL is the wall-clock freshness predicate for an opportunity row.
+//
+// It must compare via julianday, NOT as strings: expires_at is stored RFC3339
+// ("2026-07-16T07:48:03Z") while SQLite's datetime('now') yields a space-separated
+// form ("2026-07-16 14:40:11"). Comparing those as text puts 'T' (0x54) above
+// ' ' (0x20), so every same-day expired row falsely reads as live — the failure that
+// kept the haul fleet chasing dead gaps for 10 hours on 2026-07-16.
+//
+// expires_at is left unqualified so this reads correctly both in the aliased
+// SELECT join and in ClaimOpportunity's bare UPDATE; neither joined table
+// (stations, items) carries the column, so it stays unambiguous.
+const notExpiredSQL = `julianday(expires_at) > julianday('now')`
 
 // arbitrageSelectJoin is the SELECT column list + station/item joins shared by every
 // multi-row opportunity read, so the column order stays in lockstep with
