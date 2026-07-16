@@ -299,6 +299,34 @@ type HaulResult struct {
 	CreatedAt      string  `json:"created_at"`
 }
 
+// MissionResult is one finished (completed or abandoned) mission's real outcome,
+// the mission-fleet analogue of HaulResult. CreditsEarned is the observed wallet
+// delta around complete_mission (0 for abandons); ExpectedReward is what the
+// board advertised, so the dashboard can compare promised vs realized.
+type MissionResult struct {
+	ID             int64   `json:"id"`
+	AgentID        string  `json:"agent_id"`
+	MissionID      string  `json:"mission_id"`
+	TemplateID     string  `json:"template_id"`
+	MissionType    string  `json:"mission_type"`
+	Title          string  `json:"title"`
+	FromBaseID     string  `json:"from_base_id"`
+	ToBaseID       string  `json:"to_base_id"`
+	ItemID         string  `json:"item_id"`
+	Qty            float64 `json:"qty"`
+	ExpectedReward float64 `json:"expected_reward"`
+	CreditsEarned  float64 `json:"credits_earned"`
+	ItemCost       float64 `json:"item_cost"`
+	FuelCost       float64 `json:"fuel_cost"`
+	Jumps          int     `json:"jumps"`
+	Outcome        string  `json:"outcome"` // completed | abandoned
+	AcceptedAt     string  `json:"accepted_at"`
+	FinishedAt     string  `json:"finished_at"`
+	AcceptedTick   int64   `json:"accepted_tick"`
+	FinishedTick   int64   `json:"finished_tick"`
+	CreatedAt      string  `json:"created_at"`
+}
+
 // FleetSnapshot is one hauler's balance/fuel/cargo at a point in time (quarter-hourly).
 type FleetSnapshot struct {
 	ID            int64   `json:"id"`

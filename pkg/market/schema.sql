@@ -156,6 +156,33 @@ CREATE TABLE IF NOT EXISTS fleet_timeseries (
 
 CREATE INDEX IF NOT EXISTS idx_fleet_timeseries_agent_time ON fleet_timeseries(agent_id, ts);
 
+-- Per-mission real outcomes for the mission-runner fleet (spec 2026-07-16).
+CREATE TABLE IF NOT EXISTS mission_results (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_id        TEXT NOT NULL,
+    mission_id      TEXT NOT NULL,
+    template_id     TEXT,
+    mission_type    TEXT,
+    title           TEXT,
+    from_base_id    TEXT,
+    to_base_id      TEXT,
+    item_id         TEXT,
+    qty             REAL,
+    expected_reward REAL NOT NULL,
+    credits_earned  REAL NOT NULL,
+    item_cost       REAL NOT NULL,
+    fuel_cost       REAL NOT NULL,
+    jumps           INTEGER NOT NULL,
+    outcome         TEXT NOT NULL,
+    accepted_at     TEXT NOT NULL,
+    finished_at     TEXT NOT NULL,
+    accepted_tick   INTEGER,
+    finished_tick   INTEGER,
+    created_at      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_mission_results_agent_time ON mission_results(agent_id, finished_at);
+
 -- One row per station, upserted in place (replace-on-capture — never grows).
 -- fuel_price_all_in is the per-unit cost a hauler pays; captured_at is a
 -- freshness stamp on the single row (not history).
