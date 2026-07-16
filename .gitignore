@@ -138,6 +138,7 @@ data/scripts/*.smolt
 !data/scripts/assist.smolt
 !data/scripts/shuttle.smolt
 !data/scripts/resident_market.smolt
+!data/scripts/missions.smolt
 /wiki/
 *.backup
 # DB snapshots / gzipped knowledge-base backups — never commit

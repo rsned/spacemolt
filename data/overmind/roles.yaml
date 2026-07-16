@@ -53,3 +53,9 @@ roles:
       - { every: hourly, command: "facilities" }
       - { every: daily, command: "kb_update" }
     idle: idle_market
+  missionrunner:
+    schedule:
+      - { every: hourly, command: "update_market" }
+      - { every: hourly, command: "capture_fuel" }
+      - { every: daily, command: "kb_update" }
+    idle: missions

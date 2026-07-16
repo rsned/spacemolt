@@ -479,3 +479,16 @@ func TestCaptureFuelWritesRow(t *testing.T) {
 		t.Errorf("get_base not issued; calls=%v", fc.calls)
 	}
 }
+
+func TestDispatchMissionsCommand(t *testing.T) {
+	fc := &fakeClient{state: missionState(true, 5000, 0), raw: map[string][]byte{}}
+	d := NewWorkerDispatch(fc, nil, nil, io.Discard)
+	if !d.Supports("missions") {
+		t.Fatal("missions must be a supported worker command")
+	}
+	// No market collector configured -> logs and returns nil (degraded no-op),
+	// matching the haul command's contract.
+	if err := d.Run(context.Background(), []string{"missions"}); err != nil {
+		t.Fatalf("missions without market collector must no-op, got %v", err)
+	}
+}
