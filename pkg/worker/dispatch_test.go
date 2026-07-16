@@ -29,6 +29,10 @@ type fakeClient struct {
 
 	refuelShipCalls []refuelShipCall // records of RefuelShip(target, quantity) calls
 	refuelShipErr   error            // when set, RefuelShip returns it instead of recording success
+
+	acceptErr      error   // when set, AcceptMission returns it instead of recording success
+	buyErr         error   // when set, Buy returns it instead of recording success
+	completeReward float64 // credited to state.Credits on CompleteMission (mission tests)
 }
 
 // refuelShipCall records one RefuelShip(ctx, target, quantity) invocation.
@@ -48,7 +52,7 @@ func (f *fakeClient) Dock(ctx context.Context) error {
 func (f *fakeClient) Mine(ctx context.Context) error { f.calls = append(f.calls, "mine"); return nil }
 func (f *fakeClient) Buy(ctx context.Context, itemID string, qty float64) error {
 	f.calls = append(f.calls, "buy:"+itemID)
-	return nil
+	return f.buyErr
 }
 func (f *fakeClient) Sell(ctx context.Context, itemID string, qty float64) error {
 	f.calls = append(f.calls, "sell:"+itemID)
