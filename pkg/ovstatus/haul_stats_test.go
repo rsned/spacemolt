@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/overmind/balances"
 )
 
 func TestPerJumpMetrics(t *testing.T) {
@@ -55,7 +57,35 @@ func TestRenderNilHaulStatsUnchanged(t *testing.T) {
 	if strings.Contains(got, "Haul fleet efficiency") {
 		t.Fatal("nil HaulStats must not render the efficiency panel")
 	}
-	if strings.Contains(got, "effline") {
+	if strings.Contains(got, `colspan="6"`) {
 		t.Fatal("nil HaulStats must not render per-worker lines")
+	}
+}
+
+func TestRenderRowLifetimeGuard(t *testing.T) {
+	now := time.Now()
+	w := balances.LiveRecord{AgentID: "trader-1", Healthy: true, LastSeen: now.UTC().Format(time.RFC3339)}
+
+	// nil hs -> only the worker's own row, no per-worker line.
+	var b1 strings.Builder
+	renderRow(&b1, w, nil, now)
+	if strings.Contains(b1.String(), `colspan="6"`) {
+		t.Errorf("nil hs must not emit a per-worker line; got %s", b1.String())
+	}
+
+	// hs containing this agent -> the per-worker line appears.
+	var b2 strings.Builder
+	hs := &HaulStats{Lifetime: map[string]AgentLifetime{"trader-1": {Hauls: 281, Jumps: 1405, AvgPerJump: 2391}}}
+	renderRow(&b2, w, hs, now)
+	if !strings.Contains(b2.String(), `colspan="6"`) || !strings.Contains(b2.String(), "281 hauls") {
+		t.Errorf("hs with this agent must emit the per-worker line; got %s", b2.String())
+	}
+
+	// hs present but this agent absent from Lifetime -> no per-worker line.
+	var b3 strings.Builder
+	hsOther := &HaulStats{Lifetime: map[string]AgentLifetime{"someone-else": {Hauls: 1, Jumps: 1, AvgPerJump: 1}}}
+	renderRow(&b3, w, hsOther, now)
+	if strings.Contains(b3.String(), `colspan="6"`) {
+		t.Errorf("agent absent from Lifetime must not emit a per-worker line; got %s", b3.String())
 	}
 }
