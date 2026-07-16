@@ -1,0 +1,10 @@
+# Mission-runner canary (4): engineer-1/2 + fighter-1/2, all role=missionrunner.
+# All four are band 1-2 accounts (same empire) per the agent empire-band
+# numbering; verify each agent's actual empire via get_status during
+# provisioning before first launch. Spec:
+# docs/superpowers/specs/2026-07-16-mission-runner-fleet-design.md
+workers:
+  - { agent_id: engineer-1, role: missionrunner, station: "" }
+  - { agent_id: engineer-2, role: missionrunner, station: "" }
+  - { agent_id: fighter-1, role: missionrunner, station: "" }
+  - { agent_id: fighter-2, role: missionrunner, station: "" }
