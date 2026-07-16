@@ -37,8 +37,11 @@ supply/delivery missions, expanding to exploration circuits in phase 2.
 - `MissionObjective` carries `item_id`, `quantity`, `target_base_id`,
   `system_id` — enough to compute cargo needs and route compatibility
   (`pkg/game/serverapi/types.go:663`).
-- `CompleteMissionResponse.CreditsEarned` gives realized income at top level
-  (`pkg/game/serverapi/responses.go:443`).
+- `CompleteMissionResponse.CreditsEarned` exists
+  (`pkg/game/serverapi/responses.go:443`), but the client's raw-JSON router
+  has no store key for complete_mission responses, so v1 measures realized
+  income as the credits delta around `CompleteMission` and records the
+  board's expected reward alongside it.
 - The hourly `kb_update` capture (`KBUpdateMissions`,
   `pkg/worker/capture.go`) stores only hand-authored templates and **skips
   procedural missions** (empty `template_id`). The repeatable supply/delivery
@@ -81,8 +84,9 @@ Loop, modeled on `haul.go`:
   fuel estimate` must be positive. Item cost estimated with
   `GetReferenceAsk` best-ask from market.db; fuel from the same net-of-fuel
   machinery the haulers use.
-- **Stacking:** prefer sets of missions whose destinations lie along one
-  route direction; rank sets by net credits per jump.
+- **Stacking:** v1 stacks missions sharing the top-ranked candidate's
+  destination system (rank by net credits, greedy fill under budget/cargo
+  caps). Route-direction banding across systems is deferred to phase 2.
 
 ### Telemetry: `mission_results` (`pkg/market`)
 
@@ -101,8 +105,10 @@ to read it as a follow-up task (SP-style, not blocking rollout).
   day it goes live).
 - Supervised by the existing overmind watchdog — no new unsupervised
   singleton process.
-- **Canary agents:** 3–5 idle trader accounts in one empire band (trailing-N
-  empire numbering).
+- **Canary agents:** engineer-1, engineer-2, fighter-1, fighter-2 — all
+  band 1–2 (same empire). Plan-time correction: trader-1..10 and
+  salvager-1..10 are already employed as the haul fleet, so the canary draws
+  from the genuinely idle engineer/fighter pools.
 - **Provisioning:** treasury-funded bootstrap per agent — a T2 freighter
   (guide: "a T2 freighter with a weapon mount covers 90% of boards"; the
   weapon is skipped in v1 since delivery-only work has no combat). Insurance
