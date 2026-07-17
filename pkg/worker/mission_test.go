@@ -626,6 +626,45 @@ func TestMissionsRecoversFromNonStationPOI(t *testing.T) {
 	}
 }
 
+// TestMissionsEscapesStationlessSystem: a worker stranded undocked in a system
+// with no known station (live 2026-07-17: engineer-2 frozen 15 min at
+// wealth_lane_ice_belt after a reposition jump timed out mid-route) must
+// escape to the nearest station in another system via the reposition
+// machinery, not idle until the stall watchdog kills it.
+func TestMissionsEscapesStationlessSystem(t *testing.T) {
+	fc := &fakeClient{
+		state:   missionState(false, 5000, 0),
+		dockErr: errors.New("No station at this location"),
+		raw: map[string][]byte{
+			"missions":        boardJSON(t),
+			"active_missions": activeJSON(t),
+		},
+	}
+	fc.state.System = game.SystemData{ID: "wealth_lane", Name: "Wealth Lane"}
+	fc.state.CurrentPOI = "wealth_lane_ice_belt" // no station in this system
+	kb := missionKB() // knows haven/sol only — wealth_lane has no station POI
+	var navTo string
+	deps := missionDeps(fc, &fakeMissionStore{}, kb)
+	// No local station in wealth_lane, so recovery must consult nearbyStations
+	// (injected here) and fly to the nearest one elsewhere.
+	deps.nearbyStations = func(ctx context.Context, limit int) ([]stationHop, error) {
+		return []stationHop{{SystemID: "haven", POIID: "haven_station"}}, nil
+	}
+	deps.nav = func(ctx context.Context, system, poi string) error {
+		navTo = system + "/" + poi
+		fc.state.System = game.SystemData{ID: system}
+		fc.state.CurrentPOI = poi
+		fc.state.Doc = true
+		return nil
+	}
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if navTo != "haven/haven_station" {
+		t.Fatalf("stranded worker must escape to haven/haven_station, got %q", navTo)
+	}
+}
+
 func TestMissionsResumeCargoShortAbandons(t *testing.T) {
 	// Held mission needs 10 steel aboard to deliver; the ship only has 4 (lost
 	// to a wreck, sold off, whatever) -> v1 abandons rather than trying to

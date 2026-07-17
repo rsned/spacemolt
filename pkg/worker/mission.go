@@ -197,68 +197,12 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		fmt.Fprintln(out, "missions: current system unknown; skipping") //nolint:errcheck
 		return nil
 	}
-	// A board only exists at a station. Undocked anywhere else — open space
-	// (empty POI after an interrupted jump) or a non-dockable POI (parked at
-	// an ice field) — recovers to a known public station in the current
-	// system: the missionrunner role has no ensure_home behavior, so idling
-	// here would strand the worker permanently (both live-observed 2026-07-16).
-	needRecovery := state.CurrentPOI == ""
-	if !needRecovery && !state.Doc {
-		if err := deps.Client.Dock(ctx); err != nil {
-			fmt.Fprintf(out, "missions: dock failed: %v; recovering to a station\n", err) //nolint:errcheck
-			needRecovery = true
-		}
-	}
-	if needRecovery {
-		poi, perr := missionStationPOI(ctx, deps.KB, state.System.ID)
-		if perr != nil || poi == "" {
-			fmt.Fprintf(out, "missions: not at a station POI and no station known in %s (err=%v); idling\n", state.System.ID, perr) //nolint:errcheck
-			return nil
-		}
-		fmt.Fprintf(out, "missions: not at a station POI; recovering to %s/%s\n", state.System.ID, poi) //nolint:errcheck
-		if nerr := deps.nav(ctx, state.System.ID, poi); nerr != nil {
-			fmt.Fprintf(out, "missions: recovery transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
-			return nil
-		}
-		if st := deps.Client.GetState(); st != nil {
-			state = st // refresh the pre-recovery snapshot (POI/docked changed)
-		}
-		if !state.Doc {
-			if derr := deps.Client.Dock(ctx); derr != nil {
-				fmt.Fprintf(out, "missions: dock after recovery failed: %v; retry next pass\n", derr) //nolint:errcheck
-				return nil
-			}
-		}
-	}
-
-	// Routing substrate (same shape as Haul).
-	conns, err := deps.KB.GetConnections(ctx)
-	if err != nil {
-		return fmt.Errorf("missions: get connections: %w", err)
-	}
-	graph := navigation.JumpGraphFromConnections(conns)
 	current := state.System.ID
-
-	// Pirate-stronghold guard (the Dross Citadel incident: a live mission targeted a
-	// stronghold and destroyed the worker flying there). Mirrors Haul's protections.
-	systems, err := deps.KB.GetSystems(ctx)
-	if err != nil {
-		return fmt.Errorf("missions: get systems: %w", err)
-	}
-	strongholds := buildStrongholdRefs(systems)
-
-	// Danger-aware galaxy graph for the route-through check below (mirrors Haul).
-	// Best-effort: on a build failure, only the endpoint guard (strongholds[dest])
-	// remains in force this pass.
-	galGraph := &galaxy.GalaxyGraph{}
-	if gerr := galGraph.BuildFromDB(ctx, deps.KB); gerr != nil {
-		fmt.Fprintf(out, "missions: galaxy graph build failed: %v; route-safety disabled this pass\n", gerr) //nolint:errcheck
-		galGraph = nil
-	}
 
 	// Default reposition source: nearest accessible stations by the galaxy
 	// graph (the same query haul's stranded-recovery uses; it excludes
-	// strongholds and non-public stations).
+	// strongholds and non-public stations). Initialized before recovery so the
+	// recovery escape can reuse it to leave a station-less system.
 	if deps.nearbyStations == nil {
 		deps.nearbyStations = func(ctx context.Context, limit int) ([]stationHop, error) {
 			gal := &galaxy.GalaxyGraph{}
@@ -290,6 +234,48 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			}
 			return hops, nil
 		}
+	}
+
+	// A board only exists at a station. Undocked anywhere else — open space
+	// (empty POI after an interrupted jump) or a non-dockable POI (parked at
+	// an ice field) — recovers to a known public station: the missionrunner
+	// role has no ensure_home behavior, so idling here would strand the worker
+	// permanently (all live-observed 2026-07-16/07-17).
+	needRecovery := state.CurrentPOI == ""
+	if !needRecovery && !state.Doc {
+		if err := deps.Client.Dock(ctx); err != nil {
+			fmt.Fprintf(out, "missions: dock failed: %v; recovering to a station\n", err) //nolint:errcheck
+			needRecovery = true
+		}
+	}
+	if needRecovery {
+		if done := missionRecoverToStation(ctx, deps, out, &state, current); done {
+			return nil
+		}
+	}
+
+	// Routing substrate (same shape as Haul).
+	conns, err := deps.KB.GetConnections(ctx)
+	if err != nil {
+		return fmt.Errorf("missions: get connections: %w", err)
+	}
+	graph := navigation.JumpGraphFromConnections(conns)
+
+	// Pirate-stronghold guard (the Dross Citadel incident: a live mission targeted a
+	// stronghold and destroyed the worker flying there). Mirrors Haul's protections.
+	systems, err := deps.KB.GetSystems(ctx)
+	if err != nil {
+		return fmt.Errorf("missions: get systems: %w", err)
+	}
+	strongholds := buildStrongholdRefs(systems)
+
+	// Danger-aware galaxy graph for the route-through check below (mirrors Haul).
+	// Best-effort: on a build failure, only the endpoint guard (strongholds[dest])
+	// remains in force this pass.
+	galGraph := &galaxy.GalaxyGraph{}
+	if gerr := galGraph.BuildFromDB(ctx, deps.KB); gerr != nil {
+		fmt.Fprintf(out, "missions: galaxy graph build failed: %v; route-safety disabled this pass\n", gerr) //nolint:errcheck
+		galGraph = nil
 	}
 
 	// Resume held missions before accepting new ones: complete what's aboard,
@@ -556,6 +542,54 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		missionComplete(ctx, deps, out, c, baseID, acceptedAt, acceptedTick)
 	}
 	return nil
+}
+
+// missionRecoverToStation gets an undocked worker to a dockable station so a
+// board can be read. It first tries a public station in the current system;
+// if none is known (a station-less "lawless" system — live 2026-07-17:
+// engineer-2 stranded 15 min at wealth_lane_ice_belt after a reposition jump
+// timed out mid-route), it escapes to the nearest accessible station in
+// another system via the reposition machinery rather than idling until the
+// stall watchdog kills it. Returns true when the pass should end (recovery
+// navigated, or an escape/transit failed and will retry next pass); false
+// only when the worker is already at a usable local station and the pass may
+// continue. *state is refreshed after a successful in-system recovery.
+func missionRecoverToStation(ctx context.Context, deps MissionDeps, out io.Writer, state **game.State, current string) bool {
+	poi, perr := missionStationPOI(ctx, deps.KB, current)
+	if perr == nil && poi != "" {
+		fmt.Fprintf(out, "missions: not at a station POI; recovering to %s/%s\n", current, poi) //nolint:errcheck
+		if nerr := deps.nav(ctx, current, poi); nerr != nil {
+			fmt.Fprintf(out, "missions: recovery transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
+			return true
+		}
+		if st := deps.Client.GetState(); st != nil {
+			*state = st // refresh the pre-recovery snapshot (POI/docked changed)
+		}
+		if !(*state).Doc {
+			if derr := deps.Client.Dock(ctx); derr != nil {
+				fmt.Fprintf(out, "missions: dock after recovery failed: %v; retry next pass\n", derr) //nolint:errcheck
+				return true
+			}
+		}
+		return false // docked at the local station; continue the pass
+	}
+	// No station in this system: escape to the nearest one elsewhere instead of
+	// idling (the reposition query already excludes strongholds/non-public).
+	hops, herr := deps.nearbyStations(ctx, missionRepositionPool)
+	if herr != nil || len(hops) == 0 {
+		fmt.Fprintf(out, "missions: stranded in %s with no reachable station (err=%v, %d targets); retry next pass\n", current, herr, len(hops)) //nolint:errcheck
+		return true
+	}
+	hop := hops[0]
+	fmt.Fprintf(out, "missions: no station in %s; escaping to %s/%s\n", current, hop.SystemID, hop.POIID) //nolint:errcheck
+	if nerr := deps.nav(ctx, hop.SystemID, hop.POIID); nerr != nil {
+		fmt.Fprintf(out, "missions: escape transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
+		return true
+	}
+	if derr := deps.Client.Dock(ctx); derr != nil {
+		fmt.Fprintf(out, "missions: escape dock failed: %v; retry next pass\n", derr) //nolint:errcheck
+	}
+	return true // re-read the board fresh at the new station next pass
 }
 
 // missionDryPass counts a no-work pass; on the missionDryPassLimit-th
