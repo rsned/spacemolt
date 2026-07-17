@@ -12,6 +12,11 @@ type WorkerSpec struct {
 	AgentID string `yaml:"agent_id"`
 	Role    string `yaml:"role"`
 	Station string `yaml:"station"`
+	// MissionCategories, when set, is forwarded to the worker as
+	// --mission-categories (comma-joined) so a mission-runner fleet can run
+	// beyond the delivery default — e.g. the learning pool's
+	// [delivery, exploration]. Empty leaves the worker's delivery-only default.
+	MissionCategories []string `yaml:"mission_categories,omitempty"`
 }
 
 type fleetFile struct {

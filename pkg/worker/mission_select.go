@@ -51,6 +51,9 @@ type missionCandidate struct {
 	// abandon_mission calls must use ActiveID — the board id 404s with
 	// mission_not_found once the server has created the active instance.
 	ActiveID string
+	// Legs is the tour-ordered navigation plan for exploration candidates
+	// (nil for deliveries). DestSystem/DestBaseID mirror the final leg.
+	Legs []missionLeg
 }
 
 // resolveActiveMissionIDs matches each freshly accepted candidate to its

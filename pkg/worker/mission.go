@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
@@ -114,6 +115,12 @@ type MissionDeps struct {
 	AgentID string
 	// MaxJumps caps mission-destination distance (0 -> DefaultMissionMaxJumps).
 	MaxJumps int
+	// Categories is the board-category allowlist (nil/empty -> delivery only).
+	// The learning pool runs {"delivery", "exploration"}.
+	Categories []string
+	// capture fires a full market capture at the current dock (nil disables).
+	// Exploration tours call it at every dock leg — paid coverage sweeps.
+	capture func(ctx context.Context) error
 	// Treasury rate-limits faction-treasury rescue withdrawals (nil disables).
 	Treasury *treasuryRescue
 	// FuelPrices supplies captured station fuel prices for the fuel-cost model.
@@ -134,6 +141,15 @@ type MissionDeps struct {
 	// ctx-aware real sleep). Tests inject a zero-delay stand-in so the suite
 	// doesn't accumulate real SleepQuick waits — the craftPollSleep pattern.
 	sleep func(ctx context.Context, d time.Duration) error
+}
+
+// missionCategoryEnabled reports whether the board category is allowlisted.
+// A nil/empty Categories keeps v1 behavior: delivery only.
+func missionCategoryEnabled(deps MissionDeps, category string) bool {
+	if len(deps.Categories) == 0 {
+		return category == missionTypeDelivery
+	}
+	return slices.Contains(deps.Categories, category)
 }
 
 func missionNow(deps MissionDeps) time.Time {
@@ -326,6 +342,20 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 
 	// Gate + stack.
 	var cands []missionCandidate
+	var exploreCands []missionCandidate
+	exploreEnabled := missionCategoryEnabled(deps, missionTypeExploration)
+	deliveryEnabled := missionCategoryEnabled(deps, missionTypeDelivery)
+	// One pairwise distance table covers every exploration entry on the board.
+	var explorePair func(a, b string) int
+	if exploreEnabled {
+		var allLegs []missionLeg
+		for _, e := range board {
+			if legs, ok := exploreShape(e); ok {
+				allLegs = append(allLegs, legs...)
+			}
+		}
+		explorePair = missionPairDist(ctx, deps, current, allLegs)
+	}
 	for _, e := range board {
 		if deps.State.wasAttempted(e.MissionID) {
 			if deps.State.shouldLogSkip(e.MissionID, "already attempted") {
@@ -333,7 +363,16 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			}
 			continue
 		}
-		c, reason := buildMissionCandidate(e, dist, refAsk, fuelCostFor)
+		var c missionCandidate
+		var reason string
+		switch {
+		case e.Type == missionTypeExploration && exploreEnabled:
+			c, reason = buildExploreCandidate(e, current, explorePair, fuelCostFor)
+		case deliveryEnabled:
+			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor)
+		default:
+			continue // category not allowlisted for this worker
+		}
 		if reason != "" {
 			if deps.State.shouldLogSkip(e.MissionID, reason) {
 				fmt.Fprintf(out, "missions: skip %s (%s): %s\n", e.MissionID, e.Title, reason) //nolint:errcheck
@@ -342,26 +381,27 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		}
 		// Stronghold endpoint: a KB-derived skip, not a fault of the mission entry
 		// itself, so it does not consume the mission's one-shot attempted slot.
-		if strongholds[c.DestSystem] {
-			if deps.State.shouldLogSkip(e.MissionID, "stronghold destination") {
-				fmt.Fprintf(out, "missions: skip %s: destination %s is a pirate stronghold\n", e.MissionID, c.DestSystem) //nolint:errcheck
+		// Exploration candidates check every leg, deliveries their destination.
+		if hold, ok := missionStrongholdHop(strongholds, galGraph, current, c); !ok {
+			if deps.State.shouldLogSkip(e.MissionID, "stronghold "+hold) {
+				fmt.Fprintf(out, "missions: skip %s: %s is (or routes through) a pirate stronghold\n", e.MissionID, hold) //nolint:errcheck
 			}
 			continue
 		}
-		// Stronghold waypoint: the route itself may cross a stronghold even when
-		// the destination is safe (the deep-Lawless detour that has destroyed
-		// haulers). Skipped entirely when the galaxy graph failed to build.
-		if galGraph != nil && !missionRouteClear(galGraph.FindPath, strongholds, current, c.DestSystem) {
-			if deps.State.shouldLogSkip(e.MissionID, "stronghold route") {
-				fmt.Fprintf(out, "missions: skip %s: route to %s crosses a pirate stronghold\n", e.MissionID, c.DestSystem) //nolint:errcheck
-			}
-			continue
+		if c.Legs != nil {
+			exploreCands = append(exploreCands, c)
+		} else {
+			cands = append(cands, c)
 		}
-		cands = append(cands, c)
 	}
 	st := deps.Client.GetState()
 	cargoFree := st.Ship.CargoCapacity - st.Ship.CargoUsed
 	set := SelectMissionSet(cands, st.GetCredits(), cargoFree, deps.MaxJumps)
+	// Exploration runs solo (no cargo, its own tour): it takes the pass only
+	// when its best net beats the whole stacked delivery trip.
+	if best := bestExploreCandidate(exploreCands); best != nil && best.Net > tripNet(set) {
+		return missionAcceptAndExplore(ctx, deps, out, *best, current, state.CurrentPOI, baseID, strongholds)
+	}
 	if len(set) == 0 {
 		fmt.Fprintln(out, "missions: no acceptable missions on this board") //nolint:errcheck
 		return missionDryPass(ctx, deps, out)
@@ -653,6 +693,12 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 	}
 	acted := false
 	for _, m := range actives {
+		if m.Type == missionTypeExploration && missionCategoryEnabled(deps, missionTypeExploration) {
+			if missionResumeExplore(ctx, deps, out, m, current, strongholds) {
+				acted = true
+			}
+			continue
+		}
 		if m.Type != missionTypeDelivery || len(m.Objectives) != 1 {
 			continue // non-single-leg-delivery active mission: leave it alone (manual/other origin)
 		}

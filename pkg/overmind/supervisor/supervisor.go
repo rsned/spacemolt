@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -31,6 +32,9 @@ func DefaultSpawn(workerBin, handoffQueuePath string) SpawnFunc {
 		}
 		if handoffQueuePath != "" {
 			args = append(args, "--handoff-queue", handoffQueuePath)
+		}
+		if len(spec.MissionCategories) > 0 {
+			args = append(args, "--mission-categories", strings.Join(spec.MissionCategories, ","))
 		}
 		cmd := exec.CommandContext(ctx, workerBin, args...)
 		cmd.Stdout = log.Writer()

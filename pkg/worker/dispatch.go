@@ -31,6 +31,10 @@ type WorkerDispatch struct {
 	// credentials.json), used by Deliver to resolve a gift recipient's agent
 	// id to its in-game username. Empty -> DefaultAgentsDir ("data/agents").
 	AgentsDir string
+	// MissionCategories is the mission-board category allowlist for the
+	// missions role (nil/empty -> delivery only; the learning pool adds
+	// "exploration").
+	MissionCategories []string
 
 	// treasury rate-limits faction-treasury rescue withdrawals across idle passes.
 	// Held here (not per Run call) so the cooldown survives between command passes.
@@ -189,6 +193,17 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return Missions(ctx, MissionDeps{
 			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
 			Treasury: d.treasury, FuelPrices: d.Market, State: d.mission,
+			Categories: d.MissionCategories,
+			// Exploration dock legs double as market-coverage sweeps: full
+			// view_market capture into market.db (haul's recapture pattern)
+			// plus the knowledge-side demand ledger.
+			capture: func(ctx context.Context) error {
+				if err := d.Client.ViewMarket(ctx, map[string]any{}); err != nil {
+					return err
+				}
+				CaptureMarket(ctx, d.Client, d.KB)
+				return market.CaptureFromClient(ctx, d.Client, d.Market)
+			},
 		})
 	case "shuttle":
 		return Shuttle(ctx, ShuttleDeps{
