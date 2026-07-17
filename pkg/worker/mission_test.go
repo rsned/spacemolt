@@ -392,6 +392,79 @@ func TestMissionsResumesActiveDeliverable(t *testing.T) {
 	}
 }
 
+// TestMissionsResumeClaimsCompletedObjective covers the storage-satisfied
+// case found live 2026-07-16: the server counts storage AT the target base
+// toward a deliver objective ("in_storage" on the actives wire), so an
+// objective can be completed=true with zero cargo aboard. Resume must claim
+// the reward (complete_mission at the target base), never skip it as
+// "nothing to do" and never abandon it.
+func TestMissionsResumeClaimsCompletedObjective(t *testing.T) {
+	active := serverapi.ActiveMission{
+		MissionID: "held", Type: "delivery", Title: "Supply Run: Iron Ore",
+		Objectives: []serverapi.ActiveMissionObjective{
+			{Type: "deliver_item", ItemID: "iron_ore", Required: 50, Current: 50, Completed: true, SystemID: "sol", TargetBase: "sol_station"},
+		},
+	}
+	fc := &fakeClient{
+		state:          missionState(true, 5000, 0), // hold empty: goods live in base storage
+		completeReward: 2000,
+		raw: map[string][]byte{
+			"missions":        boardJSON(t),
+			"active_missions": activeJSON(t, active),
+		},
+	}
+	store := &fakeMissionStore{}
+	if err := Missions(context.Background(), missionDeps(fc, store, missionKB())); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	joined := strings.Join(fc.calls, " ")
+	if !strings.Contains(joined, "complete:held") {
+		t.Fatalf("completed-objective active mission must be claimed: %v", fc.calls)
+	}
+	if strings.Contains(joined, "abandon:held") {
+		t.Fatalf("completed-objective active mission must not be abandoned: %v", fc.calls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "completed" || store.results[0].CreditsEarned != 2000 {
+		t.Fatalf("want 1 completed row with 2000 cr, got %+v", store.results)
+	}
+}
+
+// TestMissionsRecoversWhenNotAtStation: a worker undocked in open space (empty
+// CurrentPOI, e.g. after an interrupted jump) must fly back to a known public
+// station in its system rather than idling forever (live-observed strand
+// 2026-07-16 — the missionrunner role has no ensure_home behavior).
+func TestMissionsRecoversWhenNotAtStation(t *testing.T) {
+	fc := &fakeClient{
+		state: missionState(false, 5000, 0),
+		raw: map[string][]byte{
+			"missions":        boardJSON(t),
+			"active_missions": activeJSON(t),
+		},
+	}
+	fc.state.CurrentPOI = "" // adrift in haven
+	kb := missionKB()
+	kb.pois = map[string][]knowledge.POI{
+		"haven": {{ID: "haven_station", Type: "station", SystemID: "haven"}},
+	}
+	kb.bases = map[string]*knowledge.SpaceBase{
+		"haven_station": {ID: "haven_base", POIID: "haven_station", PublicAccess: true},
+	}
+	var navTo string
+	deps := missionDeps(fc, &fakeMissionStore{}, kb)
+	deps.nav = func(ctx context.Context, system, poi string) error {
+		navTo = system + "/" + poi
+		fc.state.CurrentPOI = poi // autopilot arrival updates client state
+		fc.state.Doc = true
+		return nil
+	}
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if navTo != "haven/haven_station" {
+		t.Fatalf("adrift worker must recover to haven/haven_station, got %q", navTo)
+	}
+}
+
 func TestMissionsResumeCargoShortAbandons(t *testing.T) {
 	// Held mission needs 10 steel aboard to deliver; the ship only has 4 (lost
 	// to a wreck, sold off, whatever) -> v1 abandons rather than trying to

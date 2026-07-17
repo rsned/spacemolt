@@ -170,11 +170,24 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		fmt.Fprintln(out, "missions: current system unknown; skipping") //nolint:errcheck
 		return nil
 	}
-	// A board only exists at a station. Not at one -> dock if possible, else
-	// idle this pass (the role's ensure_home/reposition machinery moves us).
+	// A board only exists at a station. Undocked in open space (e.g. an
+	// interrupted jump) recovers to a station in the current system — the
+	// missionrunner role has no ensure_home behavior, so idling here would
+	// strand the worker permanently (live-observed 2026-07-16).
 	if state.CurrentPOI == "" {
-		fmt.Fprintln(out, "missions: not at a station POI; idling") //nolint:errcheck
-		return nil
+		poi, perr := missionStationPOI(ctx, deps.KB, state.System.ID)
+		if perr != nil || poi == "" {
+			fmt.Fprintf(out, "missions: not at a station POI and no station known in %s (err=%v); idling\n", state.System.ID, perr) //nolint:errcheck
+			return nil
+		}
+		fmt.Fprintf(out, "missions: not at a station POI; recovering to %s/%s\n", state.System.ID, poi) //nolint:errcheck
+		if nerr := deps.nav(ctx, state.System.ID, poi); nerr != nil {
+			fmt.Fprintf(out, "missions: recovery transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
+			return nil
+		}
+		if st := deps.Client.GetState(); st != nil {
+			state = st // refresh the pre-recovery snapshot (POI/docked changed)
+		}
 	}
 	if !state.Doc {
 		if err := deps.Client.Dock(ctx); err != nil {
@@ -568,13 +581,10 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 			continue // non-single-leg-delivery active mission: leave it alone (manual/other origin)
 		}
 		o := m.Objectives[0]
-		if o.Type != missionObjectiveDeliver || o.Completed {
-			continue // not a deliver objective, or already satisfied server-side: nothing to do
+		if o.Type != missionObjectiveDeliver {
+			continue // not a deliver objective: leave it alone (manual/other origin)
 		}
 		remaining := o.Required - o.Current
-		if remaining <= 0 {
-			continue // nothing left to deliver
-		}
 		aboard := cargoQty(deps.Client.GetState(), o.ItemID)
 		held := missionCandidate{
 			Entry: serverapi.MissionBoardEntry{
@@ -584,9 +594,13 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 			// (this list comes straight from get_active_missions), so no
 			// resolution step is needed here — unlike a freshly accepted trip.
 			ActiveID: m.MissionID,
-			ItemID:   o.ItemID, Qty: remaining, DestBaseID: o.TargetBase,
+			ItemID:   o.ItemID, Qty: max(remaining, 0), DestBaseID: o.TargetBase,
 		}
-		if aboard >= float64(remaining) {
+		// An objective can be satisfied with no cargo aboard: storage at the
+		// target base counts toward delivery (the actives wire reports it as
+		// "in_storage"). A completed/covered objective still needs an explicit
+		// complete_mission at the target base to claim the reward.
+		if o.Completed || remaining <= 0 || aboard >= float64(remaining) {
 			// Deliverable: the objective already carries the destination system;
 			// fall back to FindRoute only when it's missing (defensive — the
 			// live wire always populates it for deliver_item).
