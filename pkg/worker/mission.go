@@ -22,6 +22,12 @@ const (
 	// missionRepositionPool: how many nearby stations the reposition cursor
 	// rotates through.
 	missionRepositionPool = 5
+	// missionParkWindow: once a full circuit of the reposition pool comes up
+	// dry, boards are globally thin (overnight soak 2026-07-17: 248 fuel-burning
+	// hops for zero accepts, ~2.7k cr/h lost). Park at the current station for
+	// this long — passes keep re-reading the local board for free, so the
+	// worker resumes the instant missions respawn — before hopping again.
+	missionParkWindow = 30 * time.Minute
 )
 
 // MissionStore is the subset of *market.Collector the mission runner needs
@@ -38,9 +44,14 @@ var _ MissionStore = (*market.Collector)(nil)
 // WorkerDispatch so it survives between command passes — the shuttleState
 // pattern.
 type missionRunState struct {
-	dry       int
-	cursor    int
-	attempted map[string]bool
+	dry    int
+	cursor int
+	// hopsDry counts repositions since the last executed work; reaching the
+	// pool size means a full circuit found nothing and triggers parking.
+	hopsDry int
+	// parkedUntil suppresses repositioning (not board reads) until it passes.
+	parkedUntil time.Time
+	attempted   map[string]bool
 	// loggedSkips remembers "<mission id>:<reason>" pairs already printed
 	// this session, so a dry board's skip lines print once instead of every
 	// pass. A changed reason (e.g. the expiry countdown crossing the floor)
@@ -483,7 +494,10 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		return missionDryPass(ctx, deps, out)
 	}
 	if deps.State != nil {
-		deps.State.dry = 0 // executed real work: reset the dry streak
+		// Executed real work: reset the dry streak and the circuit/park state.
+		deps.State.dry = 0
+		deps.State.hopsDry = 0
+		deps.State.parkedUntil = time.Time{}
 	}
 
 	// One shared destination system (SelectMissionSet guarantees it). Transit,
@@ -512,6 +526,9 @@ func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error 
 	if deps.State == nil {
 		return nil
 	}
+	if !deps.State.parkedUntil.IsZero() && missionNow(deps).Before(deps.State.parkedUntil) {
+		return nil // parked: camp the local board instead of burning fuel
+	}
 	deps.State.dry++
 	if deps.State.dry < missionDryPassLimit {
 		return nil
@@ -521,8 +538,18 @@ func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error 
 		fmt.Fprintf(out, "missions: reposition lookup failed (%v, %d targets); idling\n", err, len(hops)) //nolint:errcheck
 		return nil
 	}
+	if deps.State.hopsDry >= len(hops) {
+		// A full circuit of the pool found no work: every reachable board is
+		// dry. Park here — passes keep polling the local board for free.
+		deps.State.hopsDry = 0
+		deps.State.dry = 0
+		deps.State.parkedUntil = missionNow(deps).Add(missionParkWindow)
+		fmt.Fprintf(out, "missions: full reposition circuit dry; parking at current station for %s\n", missionParkWindow) //nolint:errcheck
+		return nil
+	}
 	hop := hops[deps.State.cursor%len(hops)]
 	deps.State.cursor++
+	deps.State.hopsDry++
 	deps.State.dry = 0
 	fmt.Fprintf(out, "missions: %d dry passes; repositioning to %s/%s\n", missionDryPassLimit, hop.SystemID, hop.POIID) //nolint:errcheck
 	if nerr := deps.nav(ctx, hop.SystemID, hop.POIID); nerr != nil {

@@ -379,6 +379,64 @@ func TestMissionsDryPassesReposition(t *testing.T) {
 	}
 }
 
+// TestMissionsParksAfterFullDryCircuit drives a permanently dry board through
+// a full reposition circuit (2-station pool): after both hops come up dry the
+// worker must PARK — no further nav — instead of burning fuel forever
+// (overnight soak 2026-07-17: 248 hops, zero accepts, -25.9k cr).
+func TestMissionsParksAfterFullDryCircuit(t *testing.T) {
+	fc := &fakeClient{state: missionState(true, 5000, 0), raw: map[string][]byte{
+		"missions":        boardJSON(t),
+		"active_missions": activeJSON(t),
+	}}
+	store := &fakeMissionStore{}
+	now := time.Date(2026, 7, 17, 10, 0, 0, 0, time.UTC)
+	deps := missionDeps(fc, store, missionKB())
+	deps.State = &missionRunState{}
+	deps.Now = func() time.Time { return now }
+	deps.nearbyStations = func(ctx context.Context, limit int) ([]stationHop, error) {
+		return []stationHop{{SystemID: "sol", POIID: "sol_station"}, {SystemID: "haven", POIID: "grand_exchange"}}, nil
+	}
+	var navTo []string
+	deps.nav = func(ctx context.Context, system, poi string) error {
+		navTo = append(navTo, system+"/"+poi)
+		return nil
+	}
+
+	// 3 dry passes -> hop 1, 3 more -> hop 2, 3 more -> circuit complete: park.
+	for range 9 {
+		if err := Missions(context.Background(), deps); err != nil {
+			t.Fatalf("Missions: %v", err)
+		}
+	}
+	if len(navTo) != 2 {
+		t.Fatalf("full circuit = exactly 2 hops before parking, got %v", navTo)
+	}
+	if deps.State.parkedUntil.IsZero() {
+		t.Fatalf("circuit-dry pass must set parkedUntil")
+	}
+
+	// Parked: further dry passes must not hop, no matter how many.
+	for range 12 {
+		if err := Missions(context.Background(), deps); err != nil {
+			t.Fatalf("Missions (parked): %v", err)
+		}
+	}
+	if len(navTo) != 2 {
+		t.Fatalf("parked worker must not reposition, got %v", navTo)
+	}
+
+	// Window expires: hopping resumes from the rotating cursor.
+	now = now.Add(missionParkWindow + time.Minute)
+	for range 3 {
+		if err := Missions(context.Background(), deps); err != nil {
+			t.Fatalf("Missions (expired park): %v", err)
+		}
+	}
+	if len(navTo) != 3 {
+		t.Fatalf("expired park must resume repositioning, got %v", navTo)
+	}
+}
+
 func TestMissionsResumesActiveDeliverable(t *testing.T) {
 	active := serverapi.ActiveMission{
 		MissionID: "held", Type: "delivery", Title: "Held delivery",
