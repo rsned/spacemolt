@@ -194,3 +194,60 @@ func TestSelectMissionSet(t *testing.T) {
 		}
 	})
 }
+
+func TestResolveActiveMissionIDs(t *testing.T) {
+	t.Run("primary match by TemplateID", func(t *testing.T) {
+		accepted := []missionCandidate{{Entry: serverapi.MissionBoardEntry{MissionID: "m1", Title: "Deliver steel"}}}
+		actives := []serverapi.ActiveMission{{MissionID: "hex-1", TemplateID: "m1"}}
+		got := resolveActiveMissionIDs(accepted, actives)
+		if len(got) != 1 || got[0].ActiveID != "hex-1" {
+			t.Fatalf("want ActiveID hex-1, got %+v", got)
+		}
+	})
+
+	t.Run("fallback match by title + objective when TemplateID missing", func(t *testing.T) {
+		accepted := []missionCandidate{{
+			Entry:  serverapi.MissionBoardEntry{MissionID: "m1", Title: "Deliver steel"},
+			ItemID: "steel", Qty: 20, DestBaseID: "sol_station",
+		}}
+		actives := []serverapi.ActiveMission{{
+			MissionID: "hex-1", Title: "Deliver steel",
+			Objectives: []serverapi.ActiveMissionObjective{{ItemID: "steel", Required: 20, TargetBase: "sol_station"}},
+		}}
+		got := resolveActiveMissionIDs(accepted, actives)
+		if len(got) != 1 || got[0].ActiveID != "hex-1" {
+			t.Fatalf("want ActiveID hex-1 via fallback match, got %+v", got)
+		}
+	})
+
+	t.Run("unresolved candidate gets empty ActiveID", func(t *testing.T) {
+		accepted := []missionCandidate{{Entry: serverapi.MissionBoardEntry{MissionID: "m1", Title: "Deliver steel"}}}
+		got := resolveActiveMissionIDs(accepted, nil)
+		if len(got) != 1 || got[0].ActiveID != "" {
+			t.Fatalf("want empty ActiveID when nothing matches, got %+v", got)
+		}
+	})
+
+	t.Run("each active consumed by at most one candidate", func(t *testing.T) {
+		// Two board entries share the same template id (shouldn't happen live,
+		// but the resolver must not double-assign the one matching active).
+		accepted := []missionCandidate{
+			{Entry: serverapi.MissionBoardEntry{MissionID: "m1", Title: "Deliver steel"}},
+			{Entry: serverapi.MissionBoardEntry{MissionID: "m1", Title: "Deliver steel"}},
+		}
+		actives := []serverapi.ActiveMission{{MissionID: "hex-1", TemplateID: "m1"}}
+		got := resolveActiveMissionIDs(accepted, actives)
+		if len(got) != 2 {
+			t.Fatalf("want 2 candidates, got %d", len(got))
+		}
+		resolvedCount := 0
+		for _, c := range got {
+			if c.ActiveID != "" {
+				resolvedCount++
+			}
+		}
+		if resolvedCount != 1 {
+			t.Fatalf("only one candidate should claim the single matching active, got %d resolved: %+v", resolvedCount, got)
+		}
+	})
+}

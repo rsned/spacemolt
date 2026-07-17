@@ -80,6 +80,39 @@ func activeJSON(t *testing.T, missions ...serverapi.ActiveMission) []byte {
 	return b
 }
 
+// storageJSON builds a view_storage payload from an item-id -> quantity map.
+func storageJSON(t *testing.T, items map[string]float64) []byte {
+	t.Helper()
+	entries := make([]serverapi.CargoItem, 0, len(items))
+	for id, qty := range items {
+		entries = append(entries, serverapi.CargoItem{ItemID: id, Quantity: qty})
+	}
+	b, err := json.Marshal(serverapi.ViewStorageResponse{Items: entries})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// completeMissionResultJSON builds the action_result payload complete_mission
+// lands under the "complete_mission" raw-JSON key (wire-verified shape:
+// {"command":"complete_mission","result":{"credits_earned":N,"mission_id":"..."},"tick":N}).
+func completeMissionResultJSON(t *testing.T, missionID string, creditsEarned int64) []byte {
+	t.Helper()
+	b, err := json.Marshal(map[string]any{
+		"command": "complete_mission",
+		"tick":    1000,
+		"result": serverapi.CompleteMissionResponse{
+			MissionID:     missionID,
+			CreditsEarned: creditsEarned,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
 func missionState(docked bool, credits, cargoUsed float64) *game.State {
 	return &game.State{
 		System:     game.SystemData{ID: "haven", Name: "Haven"},
@@ -100,12 +133,17 @@ func missionDeps(fc *fakeClient, store *fakeMissionStore, kb *fakeKB) MissionDep
 
 func TestMissionsHappyPath(t *testing.T) {
 	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	// The board id ("m1") is template-ish; the server creates a fresh hex
+	// active-mission instance on accept. activeMissionsSeq simulates that:
+	// missionResume's pre-accept read sees nothing held, and the post-accept
+	// id-resolution read sees the new instance (TemplateID == board id).
+	active := serverapi.ActiveMission{MissionID: "hex-m1", TemplateID: "m1", Type: "delivery", Title: "Deliver steel"}
 	fc := &fakeClient{
-		state:          missionState(true, 5000, 0),
-		completeReward: 3000,
+		state:             missionState(true, 5000, 0),
+		completeReward:    3000,
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t, active)},
 		raw: map[string][]byte{
-			"missions":        boardJSON(t, entry),
-			"active_missions": activeJSON(t),
+			"missions": boardJSON(t, entry),
 		},
 	}
 	store := &fakeMissionStore{asks: map[string]float64{"steel": 20}}
@@ -113,10 +151,13 @@ func TestMissionsHappyPath(t *testing.T) {
 		t.Fatalf("Missions: %v", err)
 	}
 	joined := strings.Join(fc.calls, " ")
-	for _, want := range []string{"get_active_missions", "get_missions", "accept:m1", "buy:steel", "complete:m1"} {
+	for _, want := range []string{"get_active_missions", "get_missions", "accept:m1", "buy:steel", "complete:hex-m1"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("calls missing %q: %v", want, fc.calls)
 		}
+	}
+	if strings.Contains(joined, "complete:m1 ") || strings.HasSuffix(joined, "complete:m1") {
+		t.Fatalf("must complete using the resolved active id, not the board id: %v", fc.calls)
 	}
 	if len(store.results) != 1 {
 		t.Fatalf("want 1 result row, got %d", len(store.results))
@@ -214,12 +255,13 @@ func TestMissionsNotDockedSkips(t *testing.T) {
 
 func TestMissionsBuyFailureAbandons(t *testing.T) {
 	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	active := serverapi.ActiveMission{MissionID: "hex-m1", TemplateID: "m1", Type: "delivery", Title: "Deliver steel"}
 	fc := &fakeClient{
-		state:  missionState(true, 5000, 0),
-		buyErr: context.DeadlineExceeded, // any error: the station ran dry
+		state:             missionState(true, 5000, 0),
+		buyErr:            context.DeadlineExceeded, // any error: the station ran dry
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t, active)},
 		raw: map[string][]byte{
-			"missions":        boardJSON(t, entry),
-			"active_missions": activeJSON(t),
+			"missions": boardJSON(t, entry),
 		},
 	}
 	store := &fakeMissionStore{asks: map[string]float64{"steel": 20}}
@@ -227,11 +269,14 @@ func TestMissionsBuyFailureAbandons(t *testing.T) {
 		t.Fatalf("Missions: %v", err)
 	}
 	joined := strings.Join(fc.calls, " ")
-	if !strings.Contains(joined, "abandon:m1") {
-		t.Fatalf("buy failure must abandon the accepted mission: %v", fc.calls)
+	if !strings.Contains(joined, "abandon:hex-m1") {
+		t.Fatalf("buy failure must abandon the resolved active mission id, not the board id: %v", fc.calls)
 	}
 	if len(store.results) != 1 || store.results[0].Outcome != "abandoned" {
 		t.Fatalf("want 1 abandoned row, got %+v", store.results)
+	}
+	if store.results[0].MissionID != "m1" {
+		t.Fatalf("recorded row must keep the board id for telemetry, got %+v", store.results[0])
 	}
 	if store.results[0].ItemCost != 0 {
 		t.Fatalf("failed buy spent nothing; row must record ItemCost 0, got %+v", store.results[0])
@@ -243,12 +288,19 @@ func TestMissionsDoesNotReacceptAttemptedMission(t *testing.T) {
 	// re-selected on a later pass in the same session, and an all-abandoned
 	// pass must still count as dry so reposition eventually fires.
 	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	active := serverapi.ActiveMission{MissionID: "hex-m1", TemplateID: "m1", Type: "delivery", Title: "Deliver steel"}
 	fc := &fakeClient{
 		state:  missionState(true, 5000, 0),
 		buyErr: context.DeadlineExceeded,
+		// pass 1: resume sees nothing held, accept resolves m1 -> hex-m1.
+		// pass 2: m1 is already attempted, so it's filtered before any accept
+		// call — only the resume read fires, and it sees nothing held (fake
+		// doesn't simulate the abandon actually clearing the mission, but
+		// nothing reads past index 1 again since the sequence is exhausted
+		// onto its last entry).
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t, active), activeJSON(t)},
 		raw: map[string][]byte{
-			"missions":        boardJSON(t, entry),
-			"active_missions": activeJSON(t),
+			"missions": boardJSON(t, entry),
 		},
 	}
 	store := &fakeMissionStore{asks: map[string]float64{"steel": 20}}
@@ -367,5 +419,283 @@ func TestMissionsResumeCargoShortAbandons(t *testing.T) {
 	}
 	if len(store.results) != 1 || store.results[0].Outcome != "abandoned" || store.results[0].MissionID != "held" {
 		t.Fatalf("want 1 abandoned row for held, got %+v", store.results)
+	}
+}
+
+// TestMissionsUnresolvedActiveIDDropsWithoutAbandon covers the case where
+// AcceptMission succeeds but get_active_missions never shows a matching
+// instance (server hiccup / naming drift): the candidate must be dropped
+// silently — no buy, no abandon (there's no valid id to abandon with), no
+// recorded row — and the pass still counts as dry.
+func TestMissionsUnresolvedActiveIDDropsWithoutAbandon(t *testing.T) {
+	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	fc := &fakeClient{
+		state:             missionState(true, 5000, 0),
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t)}, // never resolves
+		raw: map[string][]byte{
+			"missions": boardJSON(t, entry),
+		},
+	}
+	store := &fakeMissionStore{asks: map[string]float64{"steel": 20}}
+	deps := missionDeps(fc, store, missionKB())
+	deps.State = &missionRunState{}
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	joined := strings.Join(fc.calls, " ")
+	if strings.Contains(joined, "abandon:") {
+		t.Fatalf("unresolved active id must not trigger an abandon call: %v", fc.calls)
+	}
+	if strings.Contains(joined, "buy:") {
+		t.Fatalf("unresolved active id must not proceed to buy: %v", fc.calls)
+	}
+	if len(store.results) != 0 {
+		t.Fatalf("unresolved candidate must not be recorded: %+v", store.results)
+	}
+	if deps.State.dry != 1 {
+		t.Fatalf("an all-unresolved pass must count as dry, got dry=%d", deps.State.dry)
+	}
+}
+
+// TestMissionsStorageFirstPartialStock covers Bug 2: a station pre-stocked
+// with part of the required quantity (the engineer-1 smoke: 50 iron_ore
+// sitting in storage while acquisition bought blind and failed
+// item_not_available) must be withdrawn before buying the shortfall, and the
+// recorded ItemCost must reflect only the bought units.
+func TestMissionsStorageFirstPartialStock(t *testing.T) {
+	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	active := serverapi.ActiveMission{MissionID: "hex-m1", TemplateID: "m1", Type: "delivery", Title: "Deliver steel"}
+	fc := &fakeClient{
+		state:             missionState(true, 5000, 0),
+		completeReward:    3000,
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t, active)},
+		raw: map[string][]byte{
+			"missions": boardJSON(t, entry),
+			"storage":  storageJSON(t, map[string]float64{"steel": 12}),
+		},
+	}
+	store := &fakeMissionStore{asks: map[string]float64{"steel": 20}}
+	if err := Missions(context.Background(), missionDeps(fc, store, missionKB())); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	joined := strings.Join(fc.calls, " ")
+	if !strings.Contains(joined, "withdraw:steel:12") {
+		t.Fatalf("must withdraw the available stock first: %v", fc.calls)
+	}
+	if !strings.Contains(joined, "buy:steel") {
+		t.Fatalf("must buy the shortfall after withdrawing: %v", fc.calls)
+	}
+	if len(store.results) != 1 {
+		t.Fatalf("want 1 result row, got %d", len(store.results))
+	}
+	if got := store.results[0].ItemCost; got != 160 {
+		t.Fatalf("ItemCost must be prorated to the 8 bought units (8x20=160), got %v", got)
+	}
+}
+
+// TestMissionsStorageFirstFullStockSkipsBuy covers the fully-covered case:
+// no Buy call at all, ItemCost 0.
+func TestMissionsStorageFirstFullStockSkipsBuy(t *testing.T) {
+	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	active := serverapi.ActiveMission{MissionID: "hex-m1", TemplateID: "m1", Type: "delivery", Title: "Deliver steel"}
+	fc := &fakeClient{
+		state:             missionState(true, 5000, 0),
+		completeReward:    3000,
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t, active)},
+		raw: map[string][]byte{
+			"missions": boardJSON(t, entry),
+			"storage":  storageJSON(t, map[string]float64{"steel": 25}),
+		},
+	}
+	store := &fakeMissionStore{asks: map[string]float64{"steel": 20}}
+	if err := Missions(context.Background(), missionDeps(fc, store, missionKB())); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	joined := strings.Join(fc.calls, " ")
+	if !strings.Contains(joined, "withdraw:steel:20") {
+		t.Fatalf("must withdraw exactly BuyQty when storage fully covers it: %v", fc.calls)
+	}
+	if strings.Contains(joined, "buy:steel") {
+		t.Fatalf("must not buy when storage fully covers the requirement: %v", fc.calls)
+	}
+	if len(store.results) != 1 {
+		t.Fatalf("want 1 result row, got %d", len(store.results))
+	}
+	if got := store.results[0].ItemCost; got != 0 {
+		t.Fatalf("ItemCost must be 0 when fully covered by storage, got %v", got)
+	}
+}
+
+// TestMissionsCreditsFromActionResultOverridesDelta covers Bug 3: the
+// complete_mission action_result's credits_earned must win over the wallet
+// delta. completeReward (3000) simulates what the (broken) old delta
+// measurement would have seen; the action_result reports a different amount
+// (5000) so the two sources are unambiguous.
+func TestMissionsCreditsFromActionResultOverridesDelta(t *testing.T) {
+	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	active := serverapi.ActiveMission{MissionID: "hex-m1", TemplateID: "m1", Type: "delivery", Title: "Deliver steel"}
+	fc := &fakeClient{
+		state:             missionState(true, 5000, 0),
+		completeReward:    3000,
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t, active)},
+		raw: map[string][]byte{
+			"missions":         boardJSON(t, entry),
+			"complete_mission": completeMissionResultJSON(t, "hex-m1", 5000),
+		},
+	}
+	store := &fakeMissionStore{asks: map[string]float64{"steel": 20}}
+	if err := Missions(context.Background(), missionDeps(fc, store, missionKB())); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if len(store.results) != 1 {
+		t.Fatalf("want 1 result row, got %d", len(store.results))
+	}
+	if got := store.results[0].CreditsEarned; got != 5000 {
+		t.Fatalf("CreditsEarned must come from the action_result (5000), not the wallet delta (3000); got %v", got)
+	}
+}
+
+// TestMissionsCreditsFallsBackToDeltaWhenActionResultAbsent pins the
+// fallback path explicitly (TestMissionsHappyPath also exercises it
+// incidentally, since it sets no "complete_mission" raw key).
+func TestMissionsCreditsFallsBackToDeltaWhenActionResultAbsent(t *testing.T) {
+	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	active := serverapi.ActiveMission{MissionID: "hex-m1", TemplateID: "m1", Type: "delivery", Title: "Deliver steel"}
+	fc := &fakeClient{
+		state:             missionState(true, 5000, 0),
+		completeReward:    3000,
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t, active)},
+		raw: map[string][]byte{
+			"missions": boardJSON(t, entry),
+		},
+	}
+	store := &fakeMissionStore{asks: map[string]float64{"steel": 20}}
+	if err := Missions(context.Background(), missionDeps(fc, store, missionKB())); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if len(store.results) != 1 {
+		t.Fatalf("want 1 result row, got %d", len(store.results))
+	}
+	if got := store.results[0].CreditsEarned; got != 3000 {
+		t.Fatalf("must fall back to wallet delta when no action_result payload is present, got %v", got)
+	}
+}
+
+// TestMissionsCreditsFallsBackOnStaleActionResult covers the staleness
+// guard: a "complete_mission" raw entry left over from a different mission
+// id must not be mistaken for this completion's reward.
+func TestMissionsCreditsFallsBackOnStaleActionResult(t *testing.T) {
+	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	active := serverapi.ActiveMission{MissionID: "hex-m1", TemplateID: "m1", Type: "delivery", Title: "Deliver steel"}
+	fc := &fakeClient{
+		state:             missionState(true, 5000, 0),
+		completeReward:    3000,
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t, active)},
+		raw: map[string][]byte{
+			"missions":         boardJSON(t, entry),
+			"complete_mission": completeMissionResultJSON(t, "hex-other", 9999),
+		},
+	}
+	store := &fakeMissionStore{asks: map[string]float64{"steel": 20}}
+	if err := Missions(context.Background(), missionDeps(fc, store, missionKB())); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if len(store.results) != 1 {
+		t.Fatalf("want 1 result row, got %d", len(store.results))
+	}
+	if got := store.results[0].CreditsEarned; got != 3000 {
+		t.Fatalf("a stale action_result (different mission id) must not be used; want delta 3000, got %v", got)
+	}
+}
+
+// TestMissionStationPOI covers Bug 4's root cause directly:
+// galaxy.NearestResult.POIs is only populated for resource lookups, never for
+// POI-type ("station") lookups, so the reposition closure must resolve the
+// station POI id itself from the KB instead of trusting that field.
+func TestMissionStationPOI(t *testing.T) {
+	kb := &fakeKB{
+		pois: map[string][]knowledge.POI{
+			"market_prime": {
+				{ID: "mp_asteroid", Type: "asteroid", SystemID: "market_prime"},
+				{ID: "mp_station", Type: "station", SystemID: "market_prime"},
+			},
+			"traders_rest": {
+				{ID: "tr_station_private", Type: "station", SystemID: "traders_rest"},
+			},
+			"empty_system": {},
+		},
+		bases: map[string]*knowledge.SpaceBase{
+			"mp_station":         {ID: "mp_base", POIID: "mp_station", PublicAccess: true},
+			"tr_station_private": {ID: "tr_base", POIID: "tr_station_private", PublicAccess: false},
+		},
+	}
+
+	t.Run("finds the public station POI", func(t *testing.T) {
+		id, err := missionStationPOI(context.Background(), kb, "market_prime")
+		if err != nil || id != "mp_station" {
+			t.Fatalf("want mp_station, got %q err=%v", id, err)
+		}
+	})
+
+	t.Run("skips a non-public station", func(t *testing.T) {
+		id, err := missionStationPOI(context.Background(), kb, "traders_rest")
+		if err != nil || id != "" {
+			t.Fatalf("want empty (no public station), got %q err=%v", id, err)
+		}
+	})
+
+	t.Run("no POIs at all", func(t *testing.T) {
+		id, err := missionStationPOI(context.Background(), kb, "empty_system")
+		if err != nil || id != "" {
+			t.Fatalf("want empty, got %q err=%v", id, err)
+		}
+	})
+}
+
+// TestMissionsDefaultRepositionFindsRealStationPOI is the end-to-end
+// regression for Bug 4 ("reposition lookup failed (<nil>, 0 targets); idling"
+// on every dry pass): it exercises the PRODUCTION nearbyStations closure
+// (deps.nearbyStations left nil) against a KB with real station POIs/bases,
+// proving the fix actually wires the closure to a working hop, not just that
+// missionStationPOI works in isolation.
+func TestMissionsDefaultRepositionFindsRealStationPOI(t *testing.T) {
+	kb := &fakeKB{
+		systems: []knowledge.System{{ID: "haven", Name: "Haven"}, {ID: "sol", Name: "Sol"}},
+		conns: []knowledge.Connection{
+			{FromSystem: "haven", ToSystem: "sol"},
+			{FromSystem: "sol", ToSystem: "haven"},
+		},
+		pois: map[string][]knowledge.POI{
+			"haven": {{ID: "haven_station", Type: "station", SystemID: "haven"}},
+			"sol":   {{ID: "sol_station", Type: "station", SystemID: "sol"}},
+		},
+		bases: map[string]*knowledge.SpaceBase{
+			"haven_station": {ID: "haven_base", POIID: "haven_station", PublicAccess: true},
+			"sol_station":   {ID: "sol_base", POIID: "sol_station", PublicAccess: true},
+		},
+	}
+	fc := &fakeClient{
+		state: missionState(true, 5000, 0),
+		raw: map[string][]byte{
+			"missions":        boardJSON(t),
+			"active_missions": activeJSON(t),
+		},
+	}
+	store := &fakeMissionStore{}
+	deps := missionDeps(fc, store, kb)
+	deps.State = &missionRunState{}
+	var navTo []string
+	deps.nav = func(ctx context.Context, system, poi string) error {
+		navTo = append(navTo, system+"/"+poi)
+		return nil
+	}
+	// deps.nearbyStations is intentionally left nil to exercise the real closure.
+	for range 3 {
+		if err := Missions(context.Background(), deps); err != nil {
+			t.Fatalf("Missions: %v", err)
+		}
+	}
+	if len(navTo) != 1 || navTo[0] != "sol/sol_station" {
+		t.Fatalf("3rd dry pass must reposition to the real station POI, got %v", navTo)
 	}
 }

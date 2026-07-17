@@ -33,6 +33,19 @@ type fakeClient struct {
 	acceptErr      error   // when set, AcceptMission returns it instead of recording success
 	buyErr         error   // when set, Buy returns it instead of recording success
 	completeReward float64 // credited to state.Credits on CompleteMission (mission tests)
+
+	viewStorageErr error // when set, ViewStorage returns it instead of recording success
+	withdrawErr    error // when set, WithdrawItems returns it instead of recording success
+
+	// activeMissionsSeq, when non-nil, supplies successive
+	// GetRawJSON("active_missions") results in call order — one entry per
+	// GetActiveMissions call in the pass (e.g. empty before accept, then
+	// populated with the newly created active instance after). Once
+	// exhausted, later calls return the last entry (steady state). Falls
+	// back to raw["active_missions"] when nil, for tests that only need a
+	// single static snapshot.
+	activeMissionsSeq  [][]byte
+	activeMissionsCall int
 }
 
 // refuelShipCall records one RefuelShip(ctx, target, quantity) invocation.
@@ -123,10 +136,28 @@ func (f *fakeClient) Jump(ctx context.Context, sys string) (*game.JumpResult, er
 	return &game.JumpResult{Canceled: f.jumpCanceled}, nil
 }
 func (f *fakeClient) GetRawJSON(key string) []byte {
+	if key == "active_missions" && f.activeMissionsSeq != nil {
+		idx := f.activeMissionsCall
+		f.activeMissionsCall++
+		if idx < len(f.activeMissionsSeq) {
+			return f.activeMissionsSeq[idx]
+		}
+		if n := len(f.activeMissionsSeq); n > 0 {
+			return f.activeMissionsSeq[n-1] // exhausted: steady-state on the last entry
+		}
+	}
 	if f.raw != nil {
 		return f.raw[key]
 	}
 	return nil
+}
+func (f *fakeClient) ViewStorage(ctx context.Context) error {
+	f.calls = append(f.calls, "view_storage")
+	return f.viewStorageErr
+}
+func (f *fakeClient) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
+	f.calls = append(f.calls, fmt.Sprintf("withdraw:%s:%.0f", itemID, quantity))
+	return f.withdrawErr
 }
 func (f *fakeClient) RawCommand(ctx context.Context, command string, args map[string]any) error {
 	f.calls = append(f.calls, "raw:"+command)

@@ -13,6 +13,11 @@ type fakeKB struct {
 	knowledge.Base
 	systems []knowledge.System
 	conns   []knowledge.Connection
+	// pois and bases back GetPOIs/GetBaseByPOI, keyed by system id and POI id
+	// respectively — for tests exercising station-POI resolution (mission
+	// reposition).
+	pois  map[string][]knowledge.POI
+	bases map[string]*knowledge.SpaceBase
 }
 
 func (f *fakeKB) GetSystems(context.Context) ([]knowledge.System, error) {
@@ -20,6 +25,12 @@ func (f *fakeKB) GetSystems(context.Context) ([]knowledge.System, error) {
 }
 func (f *fakeKB) GetConnections(context.Context) ([]knowledge.Connection, error) {
 	return f.conns, nil
+}
+func (f *fakeKB) GetPOIs(_ context.Context, systemID string) ([]knowledge.POI, error) {
+	return f.pois[systemID], nil
+}
+func (f *fakeKB) GetBaseByPOI(_ context.Context, poiID string) (*knowledge.SpaceBase, error) {
+	return f.bases[poiID], nil
 }
 
 // No-op write stubs so the autopilot OnWaypoint capture path (KBUpdateSystem /

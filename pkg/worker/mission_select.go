@@ -23,8 +23,8 @@ const (
 	// Expiry gate (the arbitrage-expiry lesson: never accept work that can time
 	// out mid-route). A finite expiry must cover a base margin plus a per-jump
 	// travel allowance. Ticks are ~10s wall.
-	missionMinExpiryTicks  = 180 // 30 min base margin
-	missionTicksPerJump    = 12  // ~2 min/jump allowance (jump + transit + dock)
+	missionMinExpiryTicks = 180 // 30 min base margin
+	missionTicksPerJump   = 12  // ~2 min/jump allowance (jump + transit + dock)
 	// missionBuyBudgetFraction of current credits may be spent acquiring
 	// mission cargo across the whole stacked set — never bet the full wallet.
 	missionBuyBudgetFraction = 0.8
@@ -35,8 +35,8 @@ const (
 type missionCandidate struct {
 	Entry      serverapi.MissionBoardEntry
 	ItemID     string
-	Qty        int     // units to deliver
-	BuyQty     int     // units we must acquire (Qty minus provided)
+	Qty        int // units to deliver
+	BuyQty     int // units we must acquire (Qty minus provided)
 	DestBaseID string
 	DestSystem string
 	Reward     float64
@@ -44,6 +44,58 @@ type missionCandidate struct {
 	FuelCost   float64
 	Net        float64 // Reward - ItemCost - FuelCost
 	Jumps      int     // current system -> DestSystem
+	// ActiveID is the server's real (hex) active-mission id, resolved after
+	// accept via resolveActiveMissionIDs (or copied straight from
+	// get_active_missions for resumed candidates). Entry.MissionID stays the
+	// board/template-ish id used for telemetry; complete_mission and
+	// abandon_mission calls must use ActiveID — the board id 404s with
+	// mission_not_found once the server has created the active instance.
+	ActiveID string
+}
+
+// resolveActiveMissionIDs matches each freshly accepted candidate to its
+// active-mission instance so complete/abandon calls use the server's real
+// id instead of the board's template-ish MissionID (mission_not_found:
+// "Use the mission_id from get_active_missions, not template_id").
+//
+// Primary match: active.TemplateID == candidate's board MissionID — the
+// server stamps the template id it was accepted from onto the new instance.
+// Fallback (TemplateID missing/mismatched): Title plus the single objective's
+// item/quantity/target-base tuple, mirroring missionResume's shape check.
+// Each active is consumed by at most one candidate (first match wins) so two
+// identically-titled board entries never resolve to the same instance.
+// Unresolved candidates get ActiveID == "" — callers must drop them without
+// calling abandon (there is no valid id to abandon).
+func resolveActiveMissionIDs(accepted []missionCandidate, actives []serverapi.ActiveMission) []missionCandidate {
+	used := make([]bool, len(actives))
+	resolved := make([]missionCandidate, len(accepted))
+	for i, c := range accepted {
+		idx := -1
+		for j, a := range actives {
+			if !used[j] && a.TemplateID != "" && a.TemplateID == c.Entry.MissionID {
+				idx = j
+				break
+			}
+		}
+		if idx < 0 {
+			for j, a := range actives {
+				if used[j] || a.Title != c.Entry.Title || len(a.Objectives) != 1 {
+					continue
+				}
+				o := a.Objectives[0]
+				if o.ItemID == c.ItemID && o.Required == c.Qty && o.TargetBase == c.DestBaseID {
+					idx = j
+					break
+				}
+			}
+		}
+		if idx >= 0 {
+			c.ActiveID = actives[idx].MissionID
+			used[idx] = true
+		}
+		resolved[i] = c
+	}
+	return resolved
 }
 
 // missionTypeDelivery is the only board category v1 runs. Smuggling missions

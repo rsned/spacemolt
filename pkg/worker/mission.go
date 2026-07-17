@@ -41,6 +41,11 @@ type missionRunState struct {
 	dry       int
 	cursor    int
 	attempted map[string]bool
+	// loggedSkips remembers "<mission id>:<reason>" pairs already printed
+	// this session, so a dry board's skip lines print once instead of every
+	// pass. A changed reason (e.g. the expiry countdown crossing the floor)
+	// is a new key, so it logs again.
+	loggedSkips map[string]bool
 }
 
 // markAttempted records that mission id has been accepted (and recorded,
@@ -63,6 +68,24 @@ func (s *missionRunState) wasAttempted(id string) bool {
 		return false
 	}
 	return s.attempted[id]
+}
+
+// shouldLogSkip reports whether the (id, reason) pair hasn't been logged yet
+// this session and records it so it won't fire again. Always true on a nil
+// receiver (no cross-pass memory to dedupe against).
+func (s *missionRunState) shouldLogSkip(id, reason string) bool {
+	if s == nil {
+		return true
+	}
+	key := id + ": " + reason
+	if s.loggedSkips[key] {
+		return false
+	}
+	if s.loggedSkips == nil {
+		s.loggedSkips = make(map[string]bool)
+	}
+	s.loggedSkips[key] = true
+	return true
 }
 
 // stationHop is one reposition target from the nearest-stations query.
@@ -194,16 +217,28 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			if gerr := gal.BuildFromDB(ctx, deps.KB); gerr != nil {
 				return nil, gerr
 			}
-			near, nerr := galaxy.FindNearestByPOIType(ctx, deps.KB, gal, current, "station", limit)
+			// +1: the query's own accessible-station set always includes
+			// `current` (Hops 0, filtered out below), so asking for exactly
+			// `limit` would waste one slot on the system we're leaving.
+			near, nerr := galaxy.FindNearestByPOIType(ctx, deps.KB, gal, current, "station", limit+1)
 			if nerr != nil {
 				return nil, nerr
 			}
 			hops := make([]stationHop, 0, len(near))
 			for _, n := range near {
-				if n.SystemID == current || len(n.POIs) == 0 {
+				if n.SystemID == current {
 					continue // skip the station we're camping; we want elsewhere
 				}
-				hops = append(hops, stationHop{SystemID: n.SystemID, POIID: n.POIs[0].ID})
+				// NearestResult.POIs is only populated for resource lookups
+				// (pkg/galaxy/types.go), never for POI-type lookups like
+				// "station" — every result would otherwise be filtered out
+				// here (the bug: "0 targets" on every dry pass). Resolve the
+				// actual station POI id from the KB instead.
+				poiID, perr := missionStationPOI(ctx, deps.KB, n.SystemID)
+				if perr != nil || poiID == "" {
+					continue // KB gap or no accessible station POI in this system
+				}
+				hops = append(hops, stationHop{SystemID: n.SystemID, POIID: poiID})
 			}
 			return hops, nil
 		}
@@ -261,25 +296,33 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	var cands []missionCandidate
 	for _, e := range board {
 		if deps.State.wasAttempted(e.MissionID) {
-			fmt.Fprintf(out, "missions: skip %s: already attempted this session\n", e.MissionID) //nolint:errcheck
+			if deps.State.shouldLogSkip(e.MissionID, "already attempted") {
+				fmt.Fprintf(out, "missions: skip %s: already attempted this session\n", e.MissionID) //nolint:errcheck
+			}
 			continue
 		}
 		c, reason := buildMissionCandidate(e, dist, refAsk, fuelCostFor)
 		if reason != "" {
-			fmt.Fprintf(out, "missions: skip %s (%s): %s\n", e.MissionID, e.Title, reason) //nolint:errcheck
+			if deps.State.shouldLogSkip(e.MissionID, reason) {
+				fmt.Fprintf(out, "missions: skip %s (%s): %s\n", e.MissionID, e.Title, reason) //nolint:errcheck
+			}
 			continue
 		}
 		// Stronghold endpoint: a KB-derived skip, not a fault of the mission entry
 		// itself, so it does not consume the mission's one-shot attempted slot.
 		if strongholds[c.DestSystem] {
-			fmt.Fprintf(out, "missions: skip %s: destination %s is a pirate stronghold\n", e.MissionID, c.DestSystem) //nolint:errcheck
+			if deps.State.shouldLogSkip(e.MissionID, "stronghold destination") {
+				fmt.Fprintf(out, "missions: skip %s: destination %s is a pirate stronghold\n", e.MissionID, c.DestSystem) //nolint:errcheck
+			}
 			continue
 		}
 		// Stronghold waypoint: the route itself may cross a stronghold even when
 		// the destination is safe (the deep-Lawless detour that has destroyed
 		// haulers). Skipped entirely when the galaxy graph failed to build.
 		if galGraph != nil && !missionRouteClear(galGraph.FindPath, strongholds, current, c.DestSystem) {
-			fmt.Fprintf(out, "missions: skip %s: route to %s crosses a pirate stronghold\n", e.MissionID, c.DestSystem) //nolint:errcheck
+			if deps.State.shouldLogSkip(e.MissionID, "stronghold route") {
+				fmt.Fprintf(out, "missions: skip %s: route to %s crosses a pirate stronghold\n", e.MissionID, c.DestSystem) //nolint:errcheck
+			}
 			continue
 		}
 		cands = append(cands, c)
@@ -292,21 +335,81 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		return missionDryPass(ctx, deps, out)
 	}
 
-	// Accept + provision. A failed accept just drops that mission from the trip;
-	// a failed buy abandons the accepted mission (recorded) and drops it.
+	// Accept. A failed accept just drops that mission from the trip.
 	acceptedAt, acceptedTick := rfc(missionNow(deps)), missionTick(deps)
-	trip := make([]missionCandidate, 0, len(set))
+	accepted := make([]missionCandidate, 0, len(set))
 	for _, c := range set {
 		if aerr := deps.Client.AcceptMission(ctx, c.Entry.MissionID); aerr != nil {
 			fmt.Fprintf(out, "missions: accept %s failed: %v\n", c.Entry.MissionID, aerr) //nolint:errcheck
 			continue
 		}
+		accepted = append(accepted, c)
+	}
+	if len(accepted) == 0 {
+		return missionDryPass(ctx, deps, out)
+	}
+
+	// Resolve each acceptance's real (hex) active-mission id before touching
+	// cargo: board ids are template-ish, and complete_mission/abandon_mission
+	// with a template id 404 with mission_not_found once the server has
+	// created the active instance. AcceptMission's own Submit already blocks
+	// for that instance's action_result, but the server has been observed
+	// needing one more tick before get_active_missions reflects it — settle
+	// before querying.
+	_ = deps.sleep(ctx, game.SleepTick)
+	actives, aerr := missionFetchActiveMissions(ctx, deps)
+	if aerr != nil {
+		fmt.Fprintf(out, "missions: resolve active ids: get_active_missions: %v; %d accepted mission(s) held for next pass\n", aerr, len(accepted)) //nolint:errcheck
+		return nil                                                                                                                                  // ids unresolved; nothing safe to buy/complete/abandon this pass — missionResume picks these up next pass
+	}
+	accepted = resolveActiveMissionIDs(accepted, actives)
+	resolvable := make([]missionCandidate, 0, len(accepted))
+	for _, c := range accepted {
+		if c.ActiveID == "" {
+			fmt.Fprintf(out, "missions: accept %s (%s): could not resolve active mission id; dropping (no abandon issued — id unknown)\n", c.Entry.MissionID, c.Entry.Title) //nolint:errcheck
+			continue
+		}
+		resolvable = append(resolvable, c)
+	}
+	if len(resolvable) == 0 {
+		return missionDryPass(ctx, deps, out)
+	}
+
+	// Provision: withdraw pre-stocked station storage before buying anything
+	// (the engineer-1 smoke: 50 iron_ore was sitting in storage while
+	// acquisition bought blind and failed item_not_available). One
+	// view_storage for the whole batch.
+	storage, serr := missionFetchStorage(ctx, deps)
+	if serr != nil {
+		fmt.Fprintf(out, "missions: view_storage: %v; buying full quantities\n", serr) //nolint:errcheck
+	}
+	trip := make([]missionCandidate, 0, len(resolvable))
+	for _, c := range resolvable {
 		if c.BuyQty > 0 {
-			if berr := deps.Client.Buy(ctx, c.ItemID, float64(c.BuyQty)); berr != nil {
-				fmt.Fprintf(out, "missions: buy %dx %s for %s failed: %v; abandoning\n", c.BuyQty, c.ItemID, c.Entry.MissionID, berr) //nolint:errcheck
-				c.ItemCost = 0 // buy failed, nothing spent
-				missionAbandon(ctx, deps, out, c, baseID, acceptedAt, acceptedTick)
-				continue
+			unitCost := c.ItemCost / float64(c.BuyQty) // guarded: this branch only runs when BuyQty > 0
+			withdrawn := 0.0
+			if avail := storage[c.ItemID]; avail > 0 {
+				take := min(avail, float64(c.BuyQty))
+				if werr := deps.Client.WithdrawItems(ctx, c.ItemID, take); werr != nil {
+					fmt.Fprintf(out, "missions: withdraw %.0fx %s for %s failed: %v; buying full remainder\n", take, c.ItemID, c.Entry.Title, werr) //nolint:errcheck
+				} else {
+					_ = deps.sleep(ctx, game.SleepQuick)
+					withdrawn = take
+					storage[c.ItemID] -= take
+				}
+			}
+			remaining := c.BuyQty - int(withdrawn)
+			c.ItemCost = float64(remaining) * unitCost // withdrawn units cost 0; only bought units count
+			if remaining > 0 {
+				if berr := deps.Client.Buy(ctx, c.ItemID, float64(remaining)); berr != nil {
+					fmt.Fprintf(out, "missions: buy %dx %s for %s failed: %v; abandoning\n", remaining, c.ItemID, c.Entry.Title, berr) //nolint:errcheck
+					if withdrawn > 0 {
+						fmt.Fprintf(out, "missions: %.0f already-withdrawn %s unit(s) remain in cargo after abandon\n", withdrawn, c.ItemID) //nolint:errcheck
+					}
+					c.ItemCost = 0 // buy failed, nothing spent
+					missionAbandon(ctx, deps, out, c, baseID, acceptedAt, acceptedTick)
+					continue
+				}
 			}
 		}
 		trip = append(trip, c)
@@ -328,7 +431,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	for i, c := range trip {
 		if nerr := deps.nav(ctx, dest, c.DestBaseID); nerr != nil {
 			fmt.Fprintf(out, "missions: transit to %s failed: %v; %d mission(s) left held for next pass\n", c.DestBaseID, nerr, len(trip)-i) //nolint:errcheck
-			return nil // held missions resume on the next pass
+			return nil                                                                                                                       // held missions resume on the next pass
 		}
 		if derr := deps.Client.Dock(ctx); derr != nil {
 			fmt.Fprintf(out, "missions: dock at %s failed: %v; held for next pass\n", c.DestBaseID, derr) //nolint:errcheck
@@ -368,6 +471,29 @@ func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error 
 		fmt.Fprintf(out, "missions: reposition dock failed: %v\n", derr) //nolint:errcheck
 	}
 	return nil
+}
+
+// missionStationPOI returns the id of an accessible (public, non-stronghold)
+// station POI in systemID, or "" if none is known to the KB. Mirrors the
+// selection galaxy.FindNearestByPOIType's internal queryAccessibleStations
+// already applied to pick systemID in the first place — see the
+// nearbyStations default closure above for why NearestResult.POIs can't be
+// used directly.
+func missionStationPOI(ctx context.Context, kb knowledge.Base, systemID string) (string, error) {
+	pois, err := kb.GetPOIs(ctx, systemID)
+	if err != nil {
+		return "", err
+	}
+	for _, p := range pois {
+		if p.Type != "station" {
+			continue
+		}
+		base, berr := kb.GetBaseByPOI(ctx, p.ID)
+		if berr == nil && base != nil && base.PublicAccess {
+			return p.ID, nil
+		}
+	}
+	return "", nil
 }
 
 // tripNet sums the estimated net of a selected trip (for the log line).
@@ -428,25 +554,16 @@ func missionRouteClear(pathOf func(from, to string, weighted bool) (galaxy.Route
 // destination system is a pirate stronghold (abandoned instead of flown to).
 // Returns true when it acted (the pass ends; the board is read fresh next pass).
 func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current string, strongholds map[string]bool) bool {
-	if err := deps.Client.GetActiveMissions(ctx); err != nil {
+	actives, err := missionFetchActiveMissions(ctx, deps)
+	if err != nil {
 		fmt.Fprintf(out, "missions: get_active_missions: %v\n", err) //nolint:errcheck
 		return false
 	}
-	_ = deps.sleep(ctx, game.SleepQuick)
-	raw := deps.Client.GetRawJSON("active_missions")
-	if len(raw) == 0 {
-		return false
-	}
-	var resp serverapi.GetActiveMissionsResponse
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		fmt.Fprintf(out, "missions: parse active missions: %v\n", err) //nolint:errcheck
-		return false
-	}
-	if len(resp.Missions) == 0 {
+	if len(actives) == 0 {
 		return false
 	}
 	acted := false
-	for _, m := range resp.Missions {
+	for _, m := range actives {
 		if m.Type != missionTypeDelivery || len(m.Objectives) != 1 {
 			continue // non-single-leg-delivery active mission: leave it alone (manual/other origin)
 		}
@@ -463,7 +580,11 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 			Entry: serverapi.MissionBoardEntry{
 				MissionID: m.MissionID, TemplateID: m.TemplateID, Type: m.Type, Title: m.Title,
 			},
-			ItemID: o.ItemID, Qty: remaining, DestBaseID: o.TargetBase,
+			// m.MissionID is already the server's real active-mission id
+			// (this list comes straight from get_active_missions), so no
+			// resolution step is needed here — unlike a freshly accepted trip.
+			ActiveID: m.MissionID,
+			ItemID:   o.ItemID, Qty: remaining, DestBaseID: o.TargetBase,
 		}
 		if aboard >= float64(remaining) {
 			// Deliverable: the objective already carries the destination system;
@@ -502,29 +623,104 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 	return acted
 }
 
-// missionComplete completes c, measuring realized income as the wallet delta
-// (the raw router has no complete_mission store key), and records the row.
+// missionComplete completes c (using its resolved ActiveID — the board id
+// 404s once the active instance exists) and records the row. Realized income
+// prefers the complete_mission action_result's credits_earned (the actual
+// server figure) over the wallet delta: parseActionResult has no "action"
+// case for complete_mission, so State.Credits is never updated by this
+// response and the delta this measured against `before` is frequently a
+// stale/zero read racing whatever else touches the wallet meanwhile.
 func missionComplete(ctx context.Context, deps MissionDeps, out io.Writer, c missionCandidate, fromBase, acceptedAt string, acceptedTick int64) {
 	before := deps.Client.GetState().GetCredits()
-	if err := deps.Client.CompleteMission(ctx, c.Entry.MissionID); err != nil {
-		fmt.Fprintf(out, "missions: complete %s failed: %v; held for next pass\n", c.Entry.MissionID, err) //nolint:errcheck
+	if err := deps.Client.CompleteMission(ctx, c.ActiveID); err != nil {
+		fmt.Fprintf(out, "missions: complete %s failed: %v; held for next pass\n", c.ActiveID, err) //nolint:errcheck
 		return
 	}
-	_ = deps.sleep(ctx, game.SleepQuick) // let the ok response update credits in State
-	earned := deps.Client.GetState().GetCredits() - before
-	fmt.Fprintf(out, "missions: completed %s (%s): +%.0f cr (expected %.0f)\n", c.Entry.MissionID, c.Entry.Title, earned, c.Reward) //nolint:errcheck
+	_ = deps.sleep(ctx, game.SleepTick) // settle: let the complete_mission action_result land in the raw JSON store
+	earned, source := missionCreditsEarned(deps, c, before)
+	fmt.Fprintf(out, "missions: completed %s (%s): +%.0f cr (expected %.0f) [source: %s]\n", c.Entry.MissionID, c.Entry.Title, earned, c.Reward, source) //nolint:errcheck
 	missionRecord(ctx, deps, out, c, fromBase, acceptedAt, acceptedTick, earned, "completed")
 }
 
-// missionAbandon abandons c and records the loss row. c.ItemCost must reflect
-// what was actually spent — callers zero it when the buy never happened (a
-// failed-buy abandon); it is only nonzero when cargo was actually purchased
-// and then stranded (e.g. a resume abandon with cargo already sunk).
+// missionCreditsEarned returns the realized reward for a just-completed
+// mission plus which source it came from ("action_result" or "delta"), for
+// the log line. It prefers the complete_mission action_result's
+// credits_earned field (wire-verified shape: {"command":"complete_mission",
+// "result":{"credits_earned":N,"mission_id":"...",...}}, cached by the raw
+// JSON store under the "complete_mission" key — see unwrapActionResult in
+// craft_node.go for the same wrapper shape on a different command). Falls
+// back to the wallet delta when the payload is missing, unparsable, or
+// reports a different mission id (a stale frame from an earlier complete
+// call still sitting in the store).
+func missionCreditsEarned(deps MissionDeps, c missionCandidate, before float64) (earned float64, source string) {
+	delta := deps.Client.GetState().GetCredits() - before
+	raw := deps.Client.GetRawJSON("complete_mission")
+	if len(raw) == 0 {
+		return delta, "delta"
+	}
+	var res serverapi.CompleteMissionResponse
+	if err := json.Unmarshal(unwrapActionResult(raw), &res); err != nil {
+		return delta, "delta"
+	}
+	if res.MissionID != c.ActiveID {
+		return delta, "delta" // stale frame from a previous complete_mission call
+	}
+	return float64(res.CreditsEarned), "action_result"
+}
+
+// missionAbandon abandons c (using its resolved ActiveID) and records the
+// loss row. c.ItemCost must reflect what was actually spent — callers zero
+// it when the buy never happened (a failed-buy abandon); it is only nonzero
+// when cargo was actually purchased and then stranded (e.g. a resume abandon
+// with cargo already sunk).
 func missionAbandon(ctx context.Context, deps MissionDeps, out io.Writer, c missionCandidate, fromBase, acceptedAt string, acceptedTick int64) {
-	if err := deps.Client.AbandonMission(ctx, c.Entry.MissionID); err != nil {
-		fmt.Fprintf(out, "missions: abandon %s failed: %v\n", c.Entry.MissionID, err) //nolint:errcheck
+	if err := deps.Client.AbandonMission(ctx, c.ActiveID); err != nil {
+		fmt.Fprintf(out, "missions: abandon %s failed: %v\n", c.ActiveID, err) //nolint:errcheck
 	}
 	missionRecord(ctx, deps, out, c, fromBase, acceptedAt, acceptedTick, 0, "abandoned")
+}
+
+// missionFetchActiveMissions fetches and parses get_active_missions. A nil
+// error with a nil/empty slice means "no active missions" (or no data yet);
+// callers that need to distinguish a fetch failure check the error.
+func missionFetchActiveMissions(ctx context.Context, deps MissionDeps) ([]serverapi.ActiveMission, error) {
+	if err := deps.Client.GetActiveMissions(ctx); err != nil {
+		return nil, err
+	}
+	_ = deps.sleep(ctx, game.SleepQuick)
+	raw := deps.Client.GetRawJSON("active_missions")
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var resp serverapi.GetActiveMissionsResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, fmt.Errorf("parse active missions: %w", err)
+	}
+	return resp.Missions, nil
+}
+
+// missionFetchStorage fetches and parses view_storage into an item-id ->
+// quantity map for the current station, one call for a whole accept batch.
+// A nil map with a nil error means "no data" (empty storage, or the raw
+// store hadn't settled) — not a fetch failure.
+func missionFetchStorage(ctx context.Context, deps MissionDeps) (map[string]float64, error) {
+	if err := deps.Client.ViewStorage(ctx); err != nil {
+		return nil, err
+	}
+	_ = deps.sleep(ctx, game.SleepQuick)
+	raw := deps.Client.GetRawJSON("storage")
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var resp serverapi.ViewStorageResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, fmt.Errorf("parse storage: %w", err)
+	}
+	items := make(map[string]float64, len(resp.Items))
+	for _, it := range resp.Items {
+		items[it.ItemID] = it.Quantity
+	}
+	return items, nil
 }
 
 func missionRecord(ctx context.Context, deps MissionDeps, out io.Writer, c missionCandidate, fromBase, acceptedAt string, acceptedTick int64, earned float64, outcome string) {
