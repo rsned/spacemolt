@@ -178,6 +178,7 @@ CREATE TABLE IF NOT EXISTS mission_results (
     fuel_cost       REAL NOT NULL,
     jumps           INTEGER NOT NULL,
     outcome         TEXT NOT NULL,
+    reason          TEXT DEFAULT '',
     accepted_at     TEXT NOT NULL,
     finished_at     TEXT NOT NULL,
     accepted_tick   INTEGER,

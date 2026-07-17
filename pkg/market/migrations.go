@@ -26,6 +26,11 @@ func runMigrations(db *sql.DB) error {
 	if err := ensureColumn(db, "arbitrage_opportunities", "cycles_seen", "INTEGER DEFAULT 1"); err != nil {
 		return err
 	}
+	// reason: machine-readable cause slug for abandoned/failed mission outcomes
+	// (empty for completed) — the abandon-reason catalog's queryable substrate.
+	if err := ensureColumn(db, "mission_results", "reason", "TEXT DEFAULT ''"); err != nil {
+		return err
+	}
 	return nil
 }
 

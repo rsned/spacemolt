@@ -320,6 +320,7 @@ type MissionResult struct {
 	FuelCost       float64 `json:"fuel_cost"`
 	Jumps          int     `json:"jumps"`
 	Outcome        string  `json:"outcome"` // completed | abandoned
+	Reason         string  `json:"reason"`  // cause slug for non-completed outcomes ("" for completed)
 	AcceptedAt     string  `json:"accepted_at"`
 	FinishedAt     string  `json:"finished_at"`
 	AcceptedTick   int64   `json:"accepted_tick"`

@@ -331,6 +331,9 @@ func TestMissionsDoesNotReacceptAttemptedMission(t *testing.T) {
 	if deps.State.dry != 1 {
 		t.Fatalf("all-abandoned pass must count as dry: got dry=%d", deps.State.dry)
 	}
+	if len(store.results) != 1 || store.results[0].Outcome != "abandoned" || store.results[0].Reason != "buy_failed" {
+		t.Fatalf("abandon must record reason slug buy_failed, got %+v", store.results)
+	}
 	if err := Missions(context.Background(), deps); err != nil {
 		t.Fatalf("Missions (pass 2): %v", err)
 	}

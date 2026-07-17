@@ -480,7 +480,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 						fmt.Fprintf(out, "missions: %.0f already-withdrawn %s unit(s) remain in cargo after abandon\n", withdrawn, c.ItemID) //nolint:errcheck
 					}
 					c.ItemCost = 0 // buy failed, nothing spent
-					missionAbandon(ctx, deps, out, c, baseID, acceptedAt, acceptedTick)
+					missionAbandon(ctx, deps, out, c, baseID, acceptedAt, acceptedTick, "buy_failed")
 					continue
 				}
 			}
@@ -690,7 +690,7 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 			}
 			if strongholds[destSys] {
 				fmt.Fprintf(out, "missions: abandoning held %s (%s): destination %s is a pirate stronghold\n", m.MissionID, m.Title, destSys) //nolint:errcheck
-				missionAbandon(ctx, deps, out, held, "", rfc(missionNow(deps)), missionTick(deps))
+				missionAbandon(ctx, deps, out, held, "", rfc(missionNow(deps)), missionTick(deps), "stronghold_destination")
 				acted = true
 				continue
 			}
@@ -706,7 +706,7 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 			missionComplete(ctx, deps, out, held, "", rfc(missionNow(deps)), missionTick(deps))
 		} else {
 			fmt.Fprintf(out, "missions: abandoning held %s (%s): cargo %s %.0f/%d\n", m.MissionID, m.Title, o.ItemID, aboard, remaining) //nolint:errcheck
-			missionAbandon(ctx, deps, out, held, "", rfc(missionNow(deps)), missionTick(deps))
+			missionAbandon(ctx, deps, out, held, "", rfc(missionNow(deps)), missionTick(deps), "cargo_lost")
 		}
 		acted = true
 	}
@@ -729,7 +729,7 @@ func missionComplete(ctx context.Context, deps MissionDeps, out io.Writer, c mis
 	_ = deps.sleep(ctx, game.SleepTick) // settle: let the complete_mission action_result land in the raw JSON store
 	earned, source := missionCreditsEarned(deps, c, before)
 	fmt.Fprintf(out, "missions: completed %s (%s): +%.0f cr (expected %.0f) [source: %s]\n", c.Entry.MissionID, c.Entry.Title, earned, c.Reward, source) //nolint:errcheck
-	missionRecord(ctx, deps, out, c, fromBase, acceptedAt, acceptedTick, earned, "completed")
+	missionRecord(ctx, deps, out, c, fromBase, acceptedAt, acceptedTick, earned, "completed", "")
 }
 
 // missionCreditsEarned returns the realized reward for a just-completed
@@ -763,11 +763,15 @@ func missionCreditsEarned(deps MissionDeps, c missionCandidate, before float64) 
 // it when the buy never happened (a failed-buy abandon); it is only nonzero
 // when cargo was actually purchased and then stranded (e.g. a resume abandon
 // with cargo already sunk).
-func missionAbandon(ctx context.Context, deps MissionDeps, out io.Writer, c missionCandidate, fromBase, acceptedAt string, acceptedTick int64) {
+// missionAbandon abandons c and records the outcome. reason is a stable,
+// machine-readable cause slug (see docs/superpowers/specs/
+// 2026-07-17-mission-abandon-catalog.md) so abandons are queryable from
+// mission_results instead of log archaeology.
+func missionAbandon(ctx context.Context, deps MissionDeps, out io.Writer, c missionCandidate, fromBase, acceptedAt string, acceptedTick int64, reason string) {
 	if err := deps.Client.AbandonMission(ctx, c.ActiveID); err != nil {
 		fmt.Fprintf(out, "missions: abandon %s failed: %v\n", c.ActiveID, err) //nolint:errcheck
 	}
-	missionRecord(ctx, deps, out, c, fromBase, acceptedAt, acceptedTick, 0, "abandoned")
+	missionRecord(ctx, deps, out, c, fromBase, acceptedAt, acceptedTick, 0, "abandoned", reason)
 }
 
 // missionFetchActiveMissions fetches and parses get_active_missions. A nil
@@ -844,7 +848,7 @@ func missionFetchMarketSupply(ctx context.Context, deps MissionDeps) (map[string
 	return supply, nil
 }
 
-func missionRecord(ctx context.Context, deps MissionDeps, out io.Writer, c missionCandidate, fromBase, acceptedAt string, acceptedTick int64, earned float64, outcome string) {
+func missionRecord(ctx context.Context, deps MissionDeps, out io.Writer, c missionCandidate, fromBase, acceptedAt string, acceptedTick int64, earned float64, outcome, reason string) {
 	deps.State.markAttempted(c.Entry.MissionID) // never re-select this mission this session
 	now := missionNow(deps)
 	r := market.MissionResult{
@@ -863,6 +867,7 @@ func missionRecord(ctx context.Context, deps MissionDeps, out io.Writer, c missi
 		FuelCost:       c.FuelCost,
 		Jumps:          c.Jumps,
 		Outcome:        outcome,
+		Reason:         reason,
 		AcceptedAt:     acceptedAt,
 		FinishedAt:     rfc(now),
 		AcceptedTick:   acceptedTick,

@@ -14,11 +14,11 @@ func (c *Collector) RecordMissionResult(ctx context.Context, r MissionResult) er
 INSERT INTO mission_results
  (agent_id, mission_id, template_id, mission_type, title, from_base_id, to_base_id,
   item_id, qty, expected_reward, credits_earned, item_cost, fuel_cost, jumps, outcome,
-  accepted_at, finished_at, accepted_tick, finished_tick, created_at)
- VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+  reason, accepted_at, finished_at, accepted_tick, finished_tick, created_at)
+ VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 			r.AgentID, r.MissionID, r.TemplateID, r.MissionType, r.Title, r.FromBaseID,
 			r.ToBaseID, r.ItemID, r.Qty, r.ExpectedReward, r.CreditsEarned, r.ItemCost,
-			r.FuelCost, r.Jumps, r.Outcome, r.AcceptedAt, r.FinishedAt, r.AcceptedTick,
+			r.FuelCost, r.Jumps, r.Outcome, r.Reason, r.AcceptedAt, r.FinishedAt, r.AcceptedTick,
 			r.FinishedTick, r.CreatedAt)
 		return err
 	})
@@ -32,7 +32,7 @@ func (c *Collector) GetMissionResults(ctx context.Context, agentID string, limit
 	}
 	q := `SELECT id, agent_id, mission_id, template_id, mission_type, title, from_base_id,
  to_base_id, item_id, qty, expected_reward, credits_earned, item_cost, fuel_cost, jumps,
- outcome, accepted_at, finished_at, accepted_tick, finished_tick, created_at
+ outcome, COALESCE(reason, ''), accepted_at, finished_at, accepted_tick, finished_tick, created_at
  FROM mission_results`
 	args := []any{}
 	if agentID != "" {
@@ -51,7 +51,7 @@ func (c *Collector) GetMissionResults(ctx context.Context, agentID string, limit
 		var r MissionResult
 		if err := rows.Scan(&r.ID, &r.AgentID, &r.MissionID, &r.TemplateID, &r.MissionType,
 			&r.Title, &r.FromBaseID, &r.ToBaseID, &r.ItemID, &r.Qty, &r.ExpectedReward,
-			&r.CreditsEarned, &r.ItemCost, &r.FuelCost, &r.Jumps, &r.Outcome,
+			&r.CreditsEarned, &r.ItemCost, &r.FuelCost, &r.Jumps, &r.Outcome, &r.Reason,
 			&r.AcceptedAt, &r.FinishedAt, &r.AcceptedTick, &r.FinishedTick, &r.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan mission result: %w", err)
 		}
