@@ -497,6 +497,38 @@ func deps2(fc *fakeClient, f *fakeStore, kb *fakeKB) HaulDeps {
 	return HaulDeps{Client: fc, Market: f, KB: kb, AgentID: "t"}
 }
 
+// TestHaulResolveSellSystemChasesMovingCapital covers the mobile_capital stall fix: a
+// moving station's sell system is resolved live from the server's router (where the
+// capital is now), not from the opportunity's discovery-time ToSystemName — so a hauler
+// no longer strands at the system the capital jumped away from.
+func TestHaulResolveSellSystemChasesMovingCapital(t *testing.T) {
+	nameToID := map[string]string{"The Telescope": "the_telescope", "Frontier": "frontier"}
+	// Opportunity discovered while the capital was in The Telescope; it has since jumped.
+	moving := market.ArbitrageOpportunity{ToStationID: "mobile_capital", ToSystemName: "The Telescope"}
+
+	// Router now routes to Frontier — the capital's current system — via one hop.
+	fc := &fakeClient{route: []game.RouteStep{{SystemID: "hop"}, {SystemID: "frontier"}}}
+	if got := haulResolveSellSystem(context.Background(), HaulDeps{Client: fc}, moving, nameToID); got != "frontier" {
+		t.Fatalf("moving capital: want live system frontier, got %q", got)
+	}
+
+	// A fixed station never consults the router: static name->id lookup only.
+	fixed := market.ArbitrageOpportunity{ToStationID: "grand_exchange", ToSystemName: "The Telescope"}
+	fc2 := &fakeClient{route: []game.RouteStep{{SystemID: "frontier"}}}
+	if got := haulResolveSellSystem(context.Background(), HaulDeps{Client: fc2}, fixed, nameToID); got != "the_telescope" {
+		t.Fatalf("fixed station: want the_telescope, got %q", got)
+	}
+	if len(fc2.calls) != 0 {
+		t.Fatalf("fixed station must not call FindRoute, got %v", fc2.calls)
+	}
+
+	// Router error on a moving station falls back to the static (stale) id, never empty.
+	fc3 := &fakeClient{routeErr: errors.New("router down")}
+	if got := haulResolveSellSystem(context.Background(), HaulDeps{Client: fc3}, moving, nameToID); got != "the_telescope" {
+		t.Fatalf("router error: want static fallback the_telescope, got %q", got)
+	}
+}
+
 // TestHaulSellLegReroutesOnThinDemandMidRoute covers the Step-2 reaction: while transiting
 // to the claimed sell station, the per-jump watchdog sees the destination demand has gone
 // thin, autopilot stops early, and the leg re-routes once to a better live market — so the

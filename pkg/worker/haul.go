@@ -741,6 +741,41 @@ func abandonClaim(ctx context.Context, deps HaulDeps, out io.Writer, opp market.
 	return nil
 }
 
+// haulMovingStations are sell/buy stations whose home system changes over time:
+// Outerrim's mobile_capital hyperspace-jumps to another of its systems (~once a
+// day). An opportunity records the system the station occupied when it was
+// discovered, so after a jump that ToSystemName is stale — routing a hauler there
+// strands it (it retries the now-empty system every pass until the stall watchdog
+// kills it, leaking the claim for hours). Their sell system is resolved live from
+// the server's router instead. See assist.go, which boards the same capital.
+var haulMovingStations = map[string]bool{"mobile_capital": true}
+
+// haulResolveSellSystem returns the system id to route to for opp's sell station.
+// For a fixed station this is the static system-name -> id lookup. For a moving
+// station (haulMovingStations) it asks the server's router where the station is
+// right now — the last hop of the route to it — so the hauler chases the capital to
+// its current system rather than stranding where the opportunity was discovered.
+// It re-resolves on every pass, so even a jump mid-transit self-heals: the next
+// pass routes to the new location. Falls back to the static id when the live lookup
+// fails, so a transient router error never routes worse than the pre-fix behaviour.
+func haulResolveSellSystem(ctx context.Context, deps HaulDeps, opp market.ArbitrageOpportunity, nameToID map[string]string) string {
+	static := nameToID[opp.ToSystemName]
+	if !haulMovingStations[opp.ToStationID] {
+		return static
+	}
+	if route, err := deps.Client.FindRoute(ctx, opp.ToStationID); err == nil && len(route) > 0 {
+		if sys := route[len(route)-1].SystemID; sys != "" {
+			return sys
+		}
+	}
+	// Live lookup failed. If we are already docked at the moving station, our current
+	// system is its current system; otherwise fall back to the (possibly stale) static id.
+	if st := deps.Client.GetState(); st != nil && st.CurrentPOI == opp.ToStationID && st.System.ID != "" {
+		return st.System.ID
+	}
+	return static
+}
+
 // runClaimedHaul executes a claimed opportunity. Any error is logged and swallowed
 // (returns nil) so the worker stays alive. If the goods are already aboard (a haul
 // resumed after its process restarted post-buy), it skips the buy leg and goes straight
@@ -750,7 +785,7 @@ func abandonClaim(ctx context.Context, deps HaulDeps, out io.Writer, opp market.
 // claim back to the pool; POST-buy abandons keep it claimed for resumption.
 func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, nameToID map[string]string, m *haulMetrics, fuel haulFuel) error {
 	buySys := nameToID[opp.FromSystemName]
-	sellSys := nameToID[opp.ToSystemName]
+	sellSys := haulResolveSellSystem(ctx, deps, opp, nameToID)
 	if buySys == "" {
 		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("buy system %q unresolved", opp.FromSystemName))
 	}
@@ -799,11 +834,9 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("price check failed: %v", perr))
 	}
 	haulLegCost := 0.0
-	if buySys := nameToID[opp.FromSystemName]; buySys != "" {
-		if sellSys := nameToID[opp.ToSystemName]; sellSys != "" {
-			if hj, ok := fuel.haulJumpsBetween(buySys, sellSys); ok {
-				haulLegCost = fuel.legCost(hj, opp.FromStationID)
-			}
+	if buySys != "" && sellSys != "" { // sellSys is live-resolved for moving stations
+		if hj, ok := fuel.haulJumpsBetween(buySys, sellSys); ok {
+			haulLegCost = fuel.legCost(hj, opp.FromStationID)
 		}
 	}
 	qty, liveAsk, sellBid, pass, reason := haulGate(opp, prices, cargoFree, state.Ship.CargoCapacity, state.GetCredits(), haulLegCost)
