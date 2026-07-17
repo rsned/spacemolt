@@ -113,6 +113,24 @@ func completeMissionResultJSON(t *testing.T, missionID string, creditsEarned int
 	return b
 }
 
+// marketJSON builds a full view_market payload from item-id -> total sell
+// quantity (one synthetic sell order each, price 10).
+func marketJSON(t *testing.T, sellQty map[string]float64) []byte {
+	t.Helper()
+	items := make([]serverapi.ViewMarketItem, 0, len(sellQty))
+	for id, qty := range sellQty {
+		items = append(items, serverapi.ViewMarketItem{
+			ItemID:     id,
+			SellOrders: []serverapi.MarketOrder{{PriceEach: 10, Quantity: qty}},
+		})
+	}
+	b, err := json.Marshal(map[string]any{"items": items})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
 func missionState(docked bool, credits, cargoUsed float64) *game.State {
 	return &game.State{
 		System:     game.SystemData{ID: "haven", Name: "Haven"},
@@ -389,6 +407,52 @@ func TestMissionsResumesActiveDeliverable(t *testing.T) {
 	// straight there and never fall back to FindRoute.
 	if strings.Contains(joined, "find_route") {
 		t.Fatalf("resume must not use the FindRoute fallback when SystemID is populated: %v", fc.calls)
+	}
+}
+
+// TestMissionsAvailabilityGateSkipsUnacquirable covers the pre-accept gate:
+// a mission whose cargo is neither in station storage nor on the local
+// market must be skipped BEFORE accept_mission (accept-then-abandon churn
+// pollutes telemetry and pays any abandon penalty), while an acquirable
+// candidate on the same board proceeds normally.
+func TestMissionsAvailabilityGateSkipsUnacquirable(t *testing.T) {
+	rare := boardEntry("m_rare", "phase_matrix", 8, "haven_station2", "haven", 5500, 0)
+	common := boardEntry("m_common", "steel", 20, "haven_station2", "haven", 3000, 0)
+	active := serverapi.ActiveMission{
+		MissionID: "hex_common", TemplateID: "m_common", Type: "delivery", Title: common.Title,
+		Objectives: []serverapi.ActiveMissionObjective{
+			{Type: "deliver_item", ItemID: "steel", Required: 20, SystemID: "haven", TargetBase: "haven_station2"},
+		},
+	}
+	fc := &fakeClient{
+		state: missionState(true, 5000, 0),
+		raw: map[string][]byte{
+			"missions": boardJSON(t, rare, common),
+			"storage":  storageJSON(t, map[string]float64{}),
+			"market":   marketJSON(t, map[string]float64{"steel": 100}), // no phase_matrix sold here
+		},
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t, active)},
+	}
+	store := &fakeMissionStore{asks: map[string]float64{"phase_matrix": 10, "steel": 10}}
+	deps := missionDeps(fc, store, missionKB())
+	deps.State = &missionRunState{}
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	joined := strings.Join(fc.calls, " ")
+	if strings.Contains(joined, "accept:m_rare") {
+		t.Fatalf("unacquirable mission must be skipped before accept: %v", fc.calls)
+	}
+	if !strings.Contains(joined, "accept:m_common") {
+		t.Fatalf("acquirable mission must still be accepted: %v", fc.calls)
+	}
+	if !deps.State.wasAttempted("m_rare") {
+		t.Fatal("unacquirable mission must be marked attempted for the session")
+	}
+	for _, r := range store.results {
+		if r.MissionID == "m_rare" {
+			t.Fatalf("gate-skipped mission must not produce a telemetry row: %+v", r)
+		}
 	}
 }
 

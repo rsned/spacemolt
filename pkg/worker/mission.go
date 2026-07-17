@@ -356,6 +356,50 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		return missionDryPass(ctx, deps, out)
 	}
 
+	// Availability gate: never accept a mission whose cargo can't actually be
+	// acquired at this station — accept-then-abandon churn pollutes telemetry
+	// and pays any abandon penalty for nothing (live-observed: PHASE 5's
+	// optical_fiber_bundle re-attempted on every worker restart). One
+	// view_storage + view_market pair covers the whole batch; the storage map
+	// is reused by the withdraw step below.
+	storage := map[string]float64{}
+	needBuy := false
+	for _, c := range set {
+		if c.BuyQty > 0 {
+			needBuy = true
+			break
+		}
+	}
+	if needBuy {
+		fetched, serr := missionFetchStorage(ctx, deps)
+		if serr != nil {
+			fmt.Fprintf(out, "missions: view_storage: %v; assuming empty storage\n", serr) //nolint:errcheck
+		} else if fetched != nil {
+			storage = fetched
+		}
+		supply, merr := missionFetchMarketSupply(ctx, deps)
+		if merr != nil || supply == nil {
+			// nil supply = raw store not settled: no data is not "no stock";
+			// gating on it would wrongly mark acquirable missions attempted.
+			fmt.Fprintf(out, "missions: view_market unavailable (%v); availability gate skipped this pass\n", merr) //nolint:errcheck
+		} else {
+			acquirable := make([]missionCandidate, 0, len(set))
+			for _, c := range set {
+				if c.BuyQty > 0 && float64(c.BuyQty) > storage[c.ItemID]+supply[c.ItemID] {
+					fmt.Fprintf(out, "missions: skip %s (%s): need %d %s, only %.0f in storage + %.0f on market here\n", c.Entry.MissionID, c.Entry.Title, c.BuyQty, c.ItemID, storage[c.ItemID], supply[c.ItemID]) //nolint:errcheck
+					deps.State.markAttempted(c.Entry.MissionID) // don't re-price it every pass this session
+					continue
+				}
+				acquirable = append(acquirable, c)
+			}
+			set = acquirable
+			if len(set) == 0 {
+				fmt.Fprintln(out, "missions: no acquirable missions on this board") //nolint:errcheck
+				return missionDryPass(ctx, deps, out)
+			}
+		}
+	}
+
 	// Accept. A failed accept just drops that mission from the trip.
 	acceptedAt, acceptedTick := rfc(missionNow(deps)), missionTick(deps)
 	accepted := make([]missionCandidate, 0, len(set))
@@ -398,12 +442,9 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 
 	// Provision: withdraw pre-stocked station storage before buying anything
 	// (the engineer-1 smoke: 50 iron_ore was sitting in storage while
-	// acquisition bought blind and failed item_not_available). One
-	// view_storage for the whole batch.
-	storage, serr := missionFetchStorage(ctx, deps)
-	if serr != nil {
-		fmt.Fprintf(out, "missions: view_storage: %v; buying full quantities\n", serr) //nolint:errcheck
-	}
+	// acquisition bought blind and failed item_not_available). The storage
+	// map comes from the availability gate above (one view_storage per batch;
+	// a tick stale by now, but withdraw failures degrade to buying anyway).
 	trip := make([]missionCandidate, 0, len(resolvable))
 	for _, c := range resolvable {
 		if c.BuyQty > 0 {
@@ -743,6 +784,37 @@ func missionFetchStorage(ctx context.Context, deps MissionDeps) (map[string]floa
 		items[it.ItemID] = it.Quantity
 	}
 	return items, nil
+}
+
+// missionFetchMarketSupply fetches and parses a full view_market into an
+// item-id -> total-sell-quantity map for the current station, one call for a
+// whole accept batch. Only positive-price, positive-quantity sell orders
+// count. A nil map with a nil error means "no data" (raw store not settled).
+func missionFetchMarketSupply(ctx context.Context, deps MissionDeps) (map[string]float64, error) {
+	if err := deps.Client.ViewMarket(ctx, map[string]any{}); err != nil {
+		return nil, err
+	}
+	_ = deps.sleep(ctx, game.SleepQuick)
+	raw := deps.Client.GetRawJSON("market")
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var resp struct {
+		Items []serverapi.ViewMarketItem `json:"items"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, fmt.Errorf("parse market: %w", err)
+	}
+	supply := make(map[string]float64, len(resp.Items))
+	for _, it := range resp.Items {
+		for _, o := range it.SellOrders {
+			if o.PriceEach <= 0 || o.Quantity <= 0 {
+				continue
+			}
+			supply[it.ItemID] += o.Quantity
+		}
+	}
+	return supply, nil
 }
 
 func missionRecord(ctx context.Context, deps MissionDeps, out io.Writer, c missionCandidate, fromBase, acceptedAt string, acceptedTick int64, earned float64, outcome string) {
