@@ -465,6 +465,42 @@ func TestMissionsRecoversWhenNotAtStation(t *testing.T) {
 	}
 }
 
+// TestMissionsRecoversFromNonStationPOI: a worker parked at a non-dockable
+// POI (live-observed at an ice field after an interrupted transit) must fly
+// to a known public station when dock is refused, not idle forever.
+func TestMissionsRecoversFromNonStationPOI(t *testing.T) {
+	fc := &fakeClient{
+		state:   missionState(false, 5000, 0),
+		dockErr: errors.New("No station at this location"),
+		raw: map[string][]byte{
+			"missions":        boardJSON(t),
+			"active_missions": activeJSON(t),
+		},
+	}
+	fc.state.CurrentPOI = "frostmarket_flats" // ice field in haven
+	kb := missionKB()
+	kb.pois = map[string][]knowledge.POI{
+		"haven": {{ID: "haven_station", Type: "station", SystemID: "haven"}},
+	}
+	kb.bases = map[string]*knowledge.SpaceBase{
+		"haven_station": {ID: "haven_base", POIID: "haven_station", PublicAccess: true},
+	}
+	var navTo string
+	deps := missionDeps(fc, &fakeMissionStore{}, kb)
+	deps.nav = func(ctx context.Context, system, poi string) error {
+		navTo = system + "/" + poi
+		fc.state.CurrentPOI = poi
+		fc.state.Doc = true // autopilot arrival docks
+		return nil
+	}
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if navTo != "haven/haven_station" {
+		t.Fatalf("dock-refused worker must recover to haven/haven_station, got %q", navTo)
+	}
+}
+
 func TestMissionsResumeCargoShortAbandons(t *testing.T) {
 	// Held mission needs 10 steel aboard to deliver; the ship only has 4 (lost
 	// to a wreck, sold off, whatever) -> v1 abandons rather than trying to

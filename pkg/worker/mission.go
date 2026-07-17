@@ -170,11 +170,19 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		fmt.Fprintln(out, "missions: current system unknown; skipping") //nolint:errcheck
 		return nil
 	}
-	// A board only exists at a station. Undocked in open space (e.g. an
-	// interrupted jump) recovers to a station in the current system — the
-	// missionrunner role has no ensure_home behavior, so idling here would
-	// strand the worker permanently (live-observed 2026-07-16).
-	if state.CurrentPOI == "" {
+	// A board only exists at a station. Undocked anywhere else — open space
+	// (empty POI after an interrupted jump) or a non-dockable POI (parked at
+	// an ice field) — recovers to a known public station in the current
+	// system: the missionrunner role has no ensure_home behavior, so idling
+	// here would strand the worker permanently (both live-observed 2026-07-16).
+	needRecovery := state.CurrentPOI == ""
+	if !needRecovery && !state.Doc {
+		if err := deps.Client.Dock(ctx); err != nil {
+			fmt.Fprintf(out, "missions: dock failed: %v; recovering to a station\n", err) //nolint:errcheck
+			needRecovery = true
+		}
+	}
+	if needRecovery {
 		poi, perr := missionStationPOI(ctx, deps.KB, state.System.ID)
 		if perr != nil || poi == "" {
 			fmt.Fprintf(out, "missions: not at a station POI and no station known in %s (err=%v); idling\n", state.System.ID, perr) //nolint:errcheck
@@ -188,11 +196,11 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		if st := deps.Client.GetState(); st != nil {
 			state = st // refresh the pre-recovery snapshot (POI/docked changed)
 		}
-	}
-	if !state.Doc {
-		if err := deps.Client.Dock(ctx); err != nil {
-			fmt.Fprintf(out, "missions: dock failed: %v; idling\n", err) //nolint:errcheck
-			return nil
+		if !state.Doc {
+			if derr := deps.Client.Dock(ctx); derr != nil {
+				fmt.Fprintf(out, "missions: dock after recovery failed: %v; retry next pass\n", derr) //nolint:errcheck
+				return nil
+			}
 		}
 	}
 
