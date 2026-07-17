@@ -15,7 +15,7 @@ import (
 // watchConfig holds parsed watch flags: the scan parameters plus the cadence.
 type watchConfig struct {
 	scan     scanConfig
-	interval time.Duration // boundary spacing (default 30m, matches marketbot half_hourly capture)
+	interval time.Duration // boundary spacing (default 30m; live cadence is 10m, matching marketbot ten_minutely capture — pass --interval 10m)
 	offset   time.Duration // delay past each boundary so the capture has settled
 }
 

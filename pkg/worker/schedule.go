@@ -17,22 +17,24 @@ import (
 // through executeLogicalCommand at the task's frequency.
 type ScheduledTask struct {
 	ID        int       `json:"id"`
-	Frequency string    `json:"frequency"` // half_hourly | hourly | daily | weekly
+	Frequency string    `json:"frequency"` // ten_minutely | quarter_hourly | half_hourly | hourly | daily | weekly
 	Command   string    `json:"command"`
 	CreatedAt time.Time `json:"created_at"`
 	LastRun   time.Time `json:"last_run,omitzero"` // UTC; zero = never run
 }
 
 // ValidFrequencies is the closed set of supported frequencies.
-var ValidFrequencies = map[string]bool{"quarter_hourly": true, "half_hourly": true, "hourly": true, "daily": true, "weekly": true}
+var ValidFrequencies = map[string]bool{"ten_minutely": true, "quarter_hourly": true, "half_hourly": true, "hourly": true, "daily": true, "weekly": true}
 
 // CurrentBoundary returns the most recent wall-clock boundary (UTC) for freq at
-// or before now: the most recent half hour (:00 or :30), the top of the hour,
-// midnight, or the most recent Sunday midnight. Returns the zero time for an
-// unknown frequency.
+// or before now: the most recent ten-minute mark (:00, :10, …), quarter hour,
+// half hour (:00 or :30), the top of the hour, midnight, or the most recent
+// Sunday midnight. Returns the zero time for an unknown frequency.
 func CurrentBoundary(freq string, now time.Time) time.Time {
 	now = now.UTC()
 	switch freq {
+	case "ten_minutely":
+		return time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), (now.Minute()/10)*10, 0, 0, time.UTC)
 	case "quarter_hourly":
 		return time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), (now.Minute()/15)*15, 0, 0, time.UTC)
 	case "half_hourly":
@@ -54,6 +56,8 @@ func CurrentBoundary(freq string, now time.Time) time.Time {
 func NextBoundary(freq string, now time.Time) time.Time {
 	cur := CurrentBoundary(freq, now)
 	switch freq {
+	case "ten_minutely":
+		return cur.Add(10 * time.Minute)
 	case "quarter_hourly":
 		return cur.Add(15 * time.Minute)
 	case "half_hourly":
@@ -102,7 +106,7 @@ func (s *Scheduler) Add(freq, command string, now time.Time) (ScheduledTask, err
 	freq = strings.ToLower(strings.TrimSpace(freq))
 	command = strings.TrimSpace(command)
 	if !ValidFrequencies[freq] {
-		return ScheduledTask{}, fmt.Errorf("unknown frequency %q (want quarter_hourly, half_hourly, hourly, daily, or weekly)", freq)
+		return ScheduledTask{}, fmt.Errorf("unknown frequency %q (want ten_minutely, quarter_hourly, half_hourly, hourly, daily, or weekly)", freq)
 	}
 	if command == "" {
 		return ScheduledTask{}, fmt.Errorf("empty command")

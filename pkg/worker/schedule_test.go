@@ -14,6 +14,7 @@ func TestCurrentBoundary(t *testing.T) {
 		freq string
 		want time.Time
 	}{
+		{"ten_minutely", time.Date(2026, 5, 28, 14, 30, 0, 0, time.UTC)},   // 14:37 → 14:30
 		{"quarter_hourly", time.Date(2026, 5, 28, 14, 30, 0, 0, time.UTC)}, // 14:37 → 14:30
 		{"half_hourly", time.Date(2026, 5, 28, 14, 30, 0, 0, time.UTC)},    // 14:37 → 14:30
 		{"hourly", time.Date(2026, 5, 28, 14, 0, 0, 0, time.UTC)},
@@ -43,6 +44,25 @@ func TestHalfHourlyBoundaries(t *testing.T) {
 	}
 	if got := NextBoundary("half_hourly", late); !got.Equal(time.Date(2026, 5, 28, 15, 0, 0, 0, time.UTC)) {
 		t.Errorf("14:45 next = %v, want 15:00", got)
+	}
+}
+
+func TestTenMinutelyBoundaries(t *testing.T) {
+	// 14:37 → floor to :30, next is :40.
+	a := time.Date(2026, 5, 28, 14, 37, 0, 0, time.UTC)
+	if got := CurrentBoundary("ten_minutely", a); !got.Equal(time.Date(2026, 5, 28, 14, 30, 0, 0, time.UTC)) {
+		t.Errorf("14:37 current = %v, want 14:30", got)
+	}
+	if got := NextBoundary("ten_minutely", a); !got.Equal(time.Date(2026, 5, 28, 14, 40, 0, 0, time.UTC)) {
+		t.Errorf("14:37 next = %v, want 14:40", got)
+	}
+	// 14:52 → floor to :50, next rolls across the hour to 15:00.
+	b := time.Date(2026, 5, 28, 14, 52, 0, 0, time.UTC)
+	if got := CurrentBoundary("ten_minutely", b); !got.Equal(time.Date(2026, 5, 28, 14, 50, 0, 0, time.UTC)) {
+		t.Errorf("14:52 current = %v, want 14:50", got)
+	}
+	if got := NextBoundary("ten_minutely", b); !got.Equal(time.Date(2026, 5, 28, 15, 0, 0, 0, time.UTC)) {
+		t.Errorf("14:52 next = %v, want 15:00", got)
 	}
 }
 
