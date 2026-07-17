@@ -165,20 +165,28 @@ func liveCanCraft(client game.GameClient, ctx context.Context) map[string]int {
 	return out
 }
 
-// runDemand loads the ledger, scores it against live inventory/craftability,
-// and renders the report. Works offline from the ledger; inventory/craft
-// signals degrade gracefully to empty when not connected/docked.
+// runDemand loads current buy orders from market.db (fed continuously by the
+// capture fleet — minutes fresh, unlike the knowledge-DB ledger it replaced,
+// which only updated when a worker did a full docked view_market), scores them
+// against live inventory/craftability, and renders the report. Works offline
+// from the DB; inventory/craft signals degrade gracefully to empty when not
+// connected/docked.
 func runDemand(client game.GameClient, ctx context.Context, opts demandOptions, format outputFormat) error {
-	if globalKB == nil {
-		return fmt.Errorf("demand: no knowledge DB configured (start play_as with --db)")
+	if globalMarketCollector == nil {
+		return fmt.Errorf("demand: no market DB configured (start play_as with --market-db-path)")
 	}
-	sqlite, ok := globalKB.(*knowledge.SQLiteKB)
-	if !ok {
-		return fmt.Errorf("demand: knowledge DB is not SQLite-backed")
-	}
-	deep, err := sqlite.LoadMarketBuyOrders(ctx)
+	cur, err := globalMarketCollector.LoadCurrentBuyOrders(ctx)
 	if err != nil {
-		return fmt.Errorf("demand: load ledger: %w", err)
+		return fmt.Errorf("demand: load market orders: %w", err)
+	}
+	deep := make([]knowledge.MarketBuyOrderRow, len(cur))
+	for i, o := range cur {
+		deep[i] = knowledge.MarketBuyOrderRow{
+			StationID: o.StationID, SystemID: o.SystemID,
+			ItemID: o.ItemID, ItemName: o.ItemName,
+			PriceEach: o.PriceEach, Quantity: o.Quantity, MyQuantity: o.MyQuantity,
+			Source: o.Source, CapturedAt: o.CapturedAt,
+		}
 	}
 
 	onHand := liveOnHand(client, ctx)
