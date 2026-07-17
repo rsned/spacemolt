@@ -1,0 +1,22 @@
+# Mission LEARNING pool — delivery + exploration categories.
+#
+# The learning pool teaches the mission runner categories beyond the basic
+# delivery pool. It runs the same missionrunner role but with
+# mission_categories set, so these workers accept exploration missions
+# (pure-navigation visit_system/dock_at_base tours) in addition to deliveries.
+# Every dock leg fires a full market capture — paid coverage sweeps.
+#
+# Spec: docs/superpowers/specs/2026-07-17-exploration-missions-design.md
+# Exploration executor: pkg/worker/mission_explore.go (live-validated
+# 2026-07-17: engineer-2 flew federation_market_analysis, +6000 cr).
+#
+# Start with engineer-2 (the validated canary). Expand to idle explorer/
+# engineer accounts by empire area — agents pair 1-2 / 3-4 / 5-6 / 7-8, so
+# each pair shares a board region; spread members across areas so they don't
+# contend for the same missions. Verify each agent's empire via get_status
+# before adding.
+workers:
+  - agent_id: engineer-2
+    role: missionrunner
+    station: ""
+    mission_categories: [delivery, exploration]
