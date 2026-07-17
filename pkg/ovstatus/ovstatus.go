@@ -213,7 +213,7 @@ func renderRow(b *strings.Builder, w balances.LiveRecord, hs *HaulStats, now tim
 	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(roleText(w)))
 	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(statusText(w, stale)))
 	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(positionText(w)))
-	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(lastSeenText(w.LastSeen, now)))
+	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(lastSeenText(w, now)))
 	b.WriteString("</tr>\n")
 	if hs != nil {
 		if lt, ok := hs.Lifetime[w.AgentID]; ok {
@@ -322,13 +322,20 @@ func positionText(w balances.LiveRecord) string {
 	}
 }
 
-func lastSeenText(ts string, now time.Time) string {
-	if ts == "" {
+func lastSeenText(w balances.LiveRecord, now time.Time) string {
+	// A worker that has never sent a heartbeat has no meaningful "last seen".
+	// Its LastSeen is the zero time ("0001-01-01T00:00:00Z"), and now.Sub(zero)
+	// overflows time.Duration's int64 to ~292 years ("106751d ago"), so guard on
+	// the authoritative Seen flag (and IsZero) rather than the relative duration.
+	if !w.Seen || w.LastSeen == "" {
 		return "never"
 	}
-	t, err := time.Parse(time.RFC3339, ts)
+	t, err := time.Parse(time.RFC3339, w.LastSeen)
 	if err != nil {
-		return ts
+		return w.LastSeen
+	}
+	if t.IsZero() {
+		return "never"
 	}
 	return relTime(t, now)
 }

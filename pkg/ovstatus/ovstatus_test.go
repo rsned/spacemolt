@@ -11,6 +11,28 @@ import (
 	"github.com/rsned/spacemolt/pkg/overmind/balances"
 )
 
+func TestLastSeenText(t *testing.T) {
+	now := time.Date(2026, 7, 17, 23, 14, 57, 0, time.UTC)
+	cases := []struct {
+		name string
+		w    balances.LiveRecord
+		want string
+	}{
+		// The bug: a not-yet-seen worker's LastSeen is the zero time, and
+		// now.Sub(zero) overflows to ~292 years ("106751d ago"). Must read "never".
+		{"never seen, zero timestamp", balances.LiveRecord{Seen: false, LastSeen: "0001-01-01T00:00:00Z"}, "never"},
+		{"never seen, empty timestamp", balances.LiveRecord{Seen: false, LastSeen: ""}, "never"},
+		{"zero timestamp even if flagged seen", balances.LiveRecord{Seen: true, LastSeen: "0001-01-01T00:00:00Z"}, "never"},
+		{"seen recently", balances.LiveRecord{Seen: true, LastSeen: now.Add(-55 * time.Second).Format(time.RFC3339)}, "55s ago"},
+		{"seen hours ago", balances.LiveRecord{Seen: true, LastSeen: now.Add(-3 * time.Hour).Format(time.RFC3339)}, "3h ago"},
+	}
+	for _, tc := range cases {
+		if got := lastSeenText(tc.w, now); got != tc.want {
+			t.Errorf("%s: lastSeenText = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
 func writeStatus(t *testing.T, dir, name string, sf balances.StatusFile) string {
 	t.Helper()
 	p := filepath.Join(dir, name)
