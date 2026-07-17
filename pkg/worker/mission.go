@@ -168,6 +168,23 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	graph := navigation.JumpGraphFromConnections(conns)
 	current := state.System.ID
 
+	// Pirate-stronghold guard (the Dross Citadel incident: a live mission targeted a
+	// stronghold and destroyed the worker flying there). Mirrors Haul's protections.
+	systems, err := deps.KB.GetSystems(ctx)
+	if err != nil {
+		return fmt.Errorf("missions: get systems: %w", err)
+	}
+	strongholds := buildStrongholdRefs(systems)
+
+	// Danger-aware galaxy graph for the route-through check below (mirrors Haul).
+	// Best-effort: on a build failure, only the endpoint guard (strongholds[dest])
+	// remains in force this pass.
+	galGraph := &galaxy.GalaxyGraph{}
+	if gerr := galGraph.BuildFromDB(ctx, deps.KB); gerr != nil {
+		fmt.Fprintf(out, "missions: galaxy graph build failed: %v; route-safety disabled this pass\n", gerr) //nolint:errcheck
+		galGraph = nil
+	}
+
 	// Default reposition source: nearest accessible stations by the galaxy
 	// graph (the same query haul's stranded-recovery uses; it excludes
 	// strongholds and non-public stations).
@@ -195,7 +212,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// Resume held missions before accepting new ones: complete what's aboard,
 	// abandon what isn't (v1 keeps resume simple; a lost-cargo mission cannot
 	// be completed anyway).
-	if done := missionResume(ctx, deps, out, current); done {
+	if done := missionResume(ctx, deps, out, current, strongholds); done {
 		return nil
 	}
 
@@ -250,6 +267,19 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		c, reason := buildMissionCandidate(e, dist, refAsk, fuelCostFor)
 		if reason != "" {
 			fmt.Fprintf(out, "missions: skip %s (%s): %s\n", e.MissionID, e.Title, reason) //nolint:errcheck
+			continue
+		}
+		// Stronghold endpoint: a KB-derived skip, not a fault of the mission entry
+		// itself, so it does not consume the mission's one-shot attempted slot.
+		if strongholds[c.DestSystem] {
+			fmt.Fprintf(out, "missions: skip %s: destination %s is a pirate stronghold\n", e.MissionID, c.DestSystem) //nolint:errcheck
+			continue
+		}
+		// Stronghold waypoint: the route itself may cross a stronghold even when
+		// the destination is safe (the deep-Lawless detour that has destroyed
+		// haulers). Skipped entirely when the galaxy graph failed to build.
+		if galGraph != nil && !missionRouteClear(galGraph.FindPath, strongholds, current, c.DestSystem) {
+			fmt.Fprintf(out, "missions: skip %s: route to %s crosses a pirate stronghold\n", e.MissionID, c.DestSystem) //nolint:errcheck
 			continue
 		}
 		cands = append(cands, c)
@@ -370,11 +400,34 @@ func missionReadBoard(ctx context.Context, deps MissionDeps, out io.Writer) ([]s
 	return resp.Missions, resp.BaseID, true
 }
 
+// missionRouteClear reports whether the shortest path from -> to avoids every
+// pirate stronghold, modeled on haul.go's filterStrongholdRoutes clear()
+// closure. pathOf is GalaxyGraph.FindPath, injected so this is unit-testable
+// without a populated graph. A lookup error, or either endpoint empty/equal,
+// is treated as clear so a graph gap never blocks a mission run — the
+// endpoint guard (strongholds[dest] in the caller) remains the backstop.
+func missionRouteClear(pathOf func(from, to string, weighted bool) (galaxy.Route, error), strongholds map[string]bool, from, to string) bool {
+	if from == "" || to == "" || from == to {
+		return true
+	}
+	route, err := pathOf(from, to, false)
+	if err != nil {
+		return true // no path / unknown system — do not block on a lookup failure
+	}
+	for _, sys := range route.Path {
+		if strongholds[sys] {
+			return false
+		}
+	}
+	return true
+}
+
 // missionResume handles missions held from a previous pass/process: deliverable
 // ones (goods aboard) are run to completion; the rest are abandoned so their
-// slots free up. Returns true when it acted (the pass ends; the board is read
-// fresh next pass).
-func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current string) bool {
+// slots free up. strongholds gates deliverable resumes whose resolved
+// destination system is a pirate stronghold (abandoned instead of flown to).
+// Returns true when it acted (the pass ends; the board is read fresh next pass).
+func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current string, strongholds map[string]bool) bool {
 	if err := deps.Client.GetActiveMissions(ctx); err != nil {
 		fmt.Fprintf(out, "missions: get_active_missions: %v\n", err) //nolint:errcheck
 		return false
@@ -394,27 +447,44 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 	}
 	acted := false
 	for _, m := range resp.Missions {
-		r := m.Requirements
-		if r == nil || r.DeliverItemID == "" || r.DeliverToBaseID == "" {
-			continue // non-deliver active mission: leave it alone (manual/other origin)
+		if m.Type != missionTypeDelivery || len(m.Objectives) != 1 {
+			continue // non-single-leg-delivery active mission: leave it alone (manual/other origin)
 		}
-		aboard := cargoQty(deps.Client.GetState(), r.DeliverItemID)
+		o := m.Objectives[0]
+		if o.Type != missionObjectiveDeliver || o.Completed {
+			continue // not a deliver objective, or already satisfied server-side: nothing to do
+		}
+		remaining := o.Required - o.Current
+		if remaining <= 0 {
+			continue // nothing left to deliver
+		}
+		aboard := cargoQty(deps.Client.GetState(), o.ItemID)
 		held := missionCandidate{
 			Entry: serverapi.MissionBoardEntry{
 				MissionID: m.MissionID, TemplateID: m.TemplateID, Type: m.Type, Title: m.Title,
 			},
-			ItemID: r.DeliverItemID, Qty: r.DeliverQuantity, DestBaseID: r.DeliverToBaseID,
+			ItemID: o.ItemID, Qty: remaining, DestBaseID: o.TargetBase,
 		}
-		if aboard >= float64(r.DeliverQuantity) {
-			// Deliverable: resolve the destination system via FindRoute (the
-			// active-mission payload has no system id) and run it in.
-			route, rerr := deps.Client.FindRoute(ctx, r.DeliverToBaseID)
-			destSys := current
-			if rerr == nil && len(route) > 0 {
-				destSys = route[len(route)-1].SystemID
+		if aboard >= float64(remaining) {
+			// Deliverable: the objective already carries the destination system;
+			// fall back to FindRoute only when it's missing (defensive — the
+			// live wire always populates it for deliver_item).
+			destSys := o.SystemID
+			if destSys == "" {
+				route, rerr := deps.Client.FindRoute(ctx, o.TargetBase)
+				destSys = current
+				if rerr == nil && len(route) > 0 {
+					destSys = route[len(route)-1].SystemID
+				}
 			}
-			fmt.Fprintf(out, "missions: resuming held %s (%s) -> %s\n", m.MissionID, m.Title, r.DeliverToBaseID) //nolint:errcheck
-			if nerr := deps.nav(ctx, destSys, r.DeliverToBaseID); nerr != nil {
+			if strongholds[destSys] {
+				fmt.Fprintf(out, "missions: abandoning held %s (%s): destination %s is a pirate stronghold\n", m.MissionID, m.Title, destSys) //nolint:errcheck
+				missionAbandon(ctx, deps, out, held, "", rfc(missionNow(deps)), missionTick(deps))
+				acted = true
+				continue
+			}
+			fmt.Fprintf(out, "missions: resuming held %s (%s) -> %s\n", m.MissionID, m.Title, o.TargetBase) //nolint:errcheck
+			if nerr := deps.nav(ctx, destSys, o.TargetBase); nerr != nil {
 				fmt.Fprintf(out, "missions: resume transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
 				return true
 			}
@@ -424,7 +494,7 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 			}
 			missionComplete(ctx, deps, out, held, "", rfc(missionNow(deps)), missionTick(deps))
 		} else {
-			fmt.Fprintf(out, "missions: abandoning held %s (%s): cargo %s %.0f/%d\n", m.MissionID, m.Title, r.DeliverItemID, aboard, r.DeliverQuantity) //nolint:errcheck
+			fmt.Fprintf(out, "missions: abandoning held %s (%s): cargo %s %.0f/%d\n", m.MissionID, m.Title, o.ItemID, aboard, remaining) //nolint:errcheck
 			missionAbandon(ctx, deps, out, held, "", rfc(missionNow(deps)), missionTick(deps))
 		}
 		acted = true

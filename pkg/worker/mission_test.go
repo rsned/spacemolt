@@ -3,11 +3,13 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -125,6 +127,77 @@ func TestMissionsHappyPath(t *testing.T) {
 	}
 }
 
+// TestMissionsRejectsStrongholdDestination covers the Dross Citadel incident: a
+// live board entry targeted a pirate stronghold and a no-standing worker flying
+// there was destroyed. The KB's is_stronghold flag must reject the candidate
+// before accept — no accept call, no recorded row.
+func TestMissionsRejectsStrongholdDestination(t *testing.T) {
+	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	fc := &fakeClient{
+		state: missionState(true, 5000, 0),
+		raw: map[string][]byte{
+			"missions":        boardJSON(t, entry),
+			"active_missions": activeJSON(t),
+		},
+	}
+	store := &fakeMissionStore{asks: map[string]float64{"steel": 20}}
+	kb := &fakeKB{
+		systems: []knowledge.System{
+			{ID: "haven", Name: "Haven"},
+			{ID: "sol", Name: "Sol", IsStronghold: true},
+		},
+		conns: []knowledge.Connection{{FromSystem: "haven", ToSystem: "sol"}},
+	}
+	if err := Missions(context.Background(), missionDeps(fc, store, kb)); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	for _, c := range fc.calls {
+		if strings.HasPrefix(c, "accept:") {
+			t.Fatalf("must not accept a mission whose destination is a pirate stronghold: %v", fc.calls)
+		}
+	}
+	if len(store.results) != 0 {
+		t.Fatalf("stronghold-rejected candidate must not be recorded: %+v", store.results)
+	}
+}
+
+// TestMissionRouteClear covers missionRouteClear's guard cases: a clean path is
+// clear, a stronghold waypoint blocks even a safe endpoint, and both a pathOf
+// lookup failure and a degenerate from==to are treated as clear (never block on
+// a graph gap).
+func TestMissionRouteClear(t *testing.T) {
+	// den is the stronghold waypoint.
+	paths := map[[2]string][]string{
+		{"haven", "sol"}:   {"haven", "sol"},
+		{"haven", "krynn"}: {"haven", "den", "krynn"},
+	}
+	pathOf := func(from, to string, _ bool) (galaxy.Route, error) {
+		if p, ok := paths[[2]string{from, to}]; ok {
+			return galaxy.Route{Path: p, Hops: len(p) - 1}, nil
+		}
+		return galaxy.Route{}, errors.New("no path")
+	}
+	strongholds := map[string]bool{"den": true}
+
+	tests := []struct {
+		name      string
+		from, to  string
+		wantClear bool
+	}{
+		{"clear path", "haven", "sol", true},
+		{"stronghold waypoint on path", "haven", "krynn", false},
+		{"lookup error treated as clear", "haven", "unknown", true},
+		{"same from/to treated as clear", "haven", "haven", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := missionRouteClear(pathOf, strongholds, tt.from, tt.to); got != tt.wantClear {
+				t.Errorf("missionRouteClear(%s->%s) = %v, want %v", tt.from, tt.to, got, tt.wantClear)
+			}
+		})
+	}
+}
+
 func TestMissionsNotDockedSkips(t *testing.T) {
 	fc := &fakeClient{state: missionState(false, 5000, 0), raw: map[string][]byte{}}
 	fc.state.CurrentPOI = "" // adrift in space, not at a station POI
@@ -239,8 +312,8 @@ func TestMissionsDryPassesReposition(t *testing.T) {
 func TestMissionsResumesActiveDeliverable(t *testing.T) {
 	active := serverapi.ActiveMission{
 		MissionID: "held", Type: "delivery", Title: "Held delivery",
-		Requirements: &serverapi.MissionRequirements{
-			DeliverItemID: "steel", DeliverQuantity: 10, DeliverToBaseID: "sol_station",
+		Objectives: []serverapi.ActiveMissionObjective{
+			{Type: "deliver_item", ItemID: "steel", Required: 10, Current: 0, SystemID: "sol", TargetBase: "sol_station"},
 		},
 	}
 	fc := &fakeClient{
@@ -256,8 +329,14 @@ func TestMissionsResumesActiveDeliverable(t *testing.T) {
 	if err := Missions(context.Background(), missionDeps(fc, store, missionKB())); err != nil {
 		t.Fatalf("Missions: %v", err)
 	}
-	if !strings.Contains(strings.Join(fc.calls, " "), "complete:held") {
+	joined := strings.Join(fc.calls, " ")
+	if !strings.Contains(joined, "complete:held") {
 		t.Fatalf("goods-aboard active mission must be completed: %v", fc.calls)
+	}
+	// SystemID is populated on the wire objective now; resume must nav
+	// straight there and never fall back to FindRoute.
+	if strings.Contains(joined, "find_route") {
+		t.Fatalf("resume must not use the FindRoute fallback when SystemID is populated: %v", fc.calls)
 	}
 }
 
@@ -267,8 +346,8 @@ func TestMissionsResumeCargoShortAbandons(t *testing.T) {
 	// complete an undeliverable mission.
 	active := serverapi.ActiveMission{
 		MissionID: "held", Type: "delivery", Title: "Held delivery",
-		Requirements: &serverapi.MissionRequirements{
-			DeliverItemID: "steel", DeliverQuantity: 10, DeliverToBaseID: "sol_station",
+		Objectives: []serverapi.ActiveMissionObjective{
+			{Type: "deliver_item", ItemID: "steel", Required: 10, Current: 0, SystemID: "sol", TargetBase: "sol_station"},
 		},
 	}
 	fc := &fakeClient{

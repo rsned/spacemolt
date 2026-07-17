@@ -6,17 +6,18 @@ import (
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
-// boardEntry builds a deliver-shaped mission: deliver qty of item to destBase
-// (in destSystem), paying reward credits, expiring in expiry ticks (0 = never).
+// boardEntry builds a deliver-shaped mission (real wire shape: no
+// requirements block, single deliver_item objective): deliver qty of item to
+// destBase (in destSystem), paying reward credits, expiring in expiry ticks
+// (0 = never).
 func boardEntry(id, item string, qty int, destBase, destSystem string, reward, expiry int) serverapi.MissionBoardEntry {
 	return serverapi.MissionBoardEntry{
 		MissionID: id, Type: "delivery", Title: "Deliver " + item,
 		ExpiresInTicks: expiry,
-		Requirements: &serverapi.MissionRequirements{
-			DeliverItemID: item, DeliverQuantity: qty, DeliverToBaseID: destBase,
-		},
-		Rewards:    &serverapi.MissionRewards{Credits: reward},
-		Objectives: []serverapi.MissionObjective{{Type: "deliver", TargetBaseID: destBase, SystemID: destSystem}},
+		Rewards:        &serverapi.MissionRewards{Credits: reward},
+		Objectives: []serverapi.MissionObjective{{
+			Type: "deliver_item", ItemID: item, Quantity: qty, TargetBaseID: destBase, SystemID: destSystem,
+		}},
 	}
 }
 
@@ -56,10 +57,35 @@ func TestBuildMissionCandidate(t *testing.T) {
 	})
 
 	t.Run("non-deliver mission rejected", func(t *testing.T) {
-		e := boardEntry("m3", "", 0, "", "", 5000, 0)
-		e.Requirements = &serverapi.MissionRequirements{KillCount: 3}
+		e := serverapi.MissionBoardEntry{
+			MissionID: "m3", Type: "combat", Title: "Hunt",
+			Rewards:    &serverapi.MissionRewards{Credits: 5000},
+			Objectives: []serverapi.MissionObjective{{Type: "kill_creature", Quantity: 3}},
+		}
 		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
 			t.Fatal("kill mission must be rejected")
+		}
+	})
+
+	t.Run("smuggling deliver_item rejected", func(t *testing.T) {
+		e := boardEntry("m3b", "steel", 20, "sol_station", "sol", 3000, 0)
+		e.Type = "smuggling" // no warnings on smuggling missions; the type allowlist must catch this
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
+			t.Fatal("smuggling mission (deliver_item objective, no warnings) must be rejected")
+		}
+	})
+
+	t.Run("multi-leg chain rejected", func(t *testing.T) {
+		e := serverapi.MissionBoardEntry{
+			MissionID: "m3c", Type: "delivery", Title: "First Links",
+			Rewards: &serverapi.MissionRewards{Credits: 3000},
+			Objectives: []serverapi.MissionObjective{
+				{Type: "deliver_item", ItemID: "steel", Quantity: 20, TargetBaseID: "sol_station", SystemID: "sol"},
+				{Type: "deliver_item", ItemID: "steel", Quantity: 10, TargetBaseID: "haven_station", SystemID: "haven"},
+			},
+		}
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
+			t.Fatal("multi-leg (two deliver_item objectives) mission must be rejected")
 		}
 	})
 

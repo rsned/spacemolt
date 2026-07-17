@@ -46,29 +46,29 @@ type missionCandidate struct {
 	Jumps      int     // current system -> DestSystem
 }
 
-// deliverShape extracts the deliver-mission core of e. ok=false when e is not a
-// pure deliver mission v1 can run: kill/mine/visit components, module gates,
-// and entries with no resolvable destination system are all skipped.
+// missionTypeDelivery is the only board category v1 runs. Smuggling missions
+// also carry deliver_item objectives (often with provided contraband and no
+// warnings), so the mission-level type allowlist — not objective shape — is
+// what keeps them out.
+const missionTypeDelivery = "delivery"
+
+// missionObjectiveDeliver is the deliver-cargo objective type on the wire.
+const missionObjectiveDeliver = "deliver_item"
+
+// deliverShape extracts the runnable core of a board entry. The server sends
+// no requirements block (openapi: additionalProperties=false) — deliver
+// details live in objectives. ok=false for anything but a single-leg
+// delivery-type deliver_item mission (multi-leg chains and compound
+// objectives are v1-rejected), or when a module gate is present.
 func deliverShape(e serverapi.MissionBoardEntry) (item string, qty int, destBase, destSystem string, ok bool) {
-	r := e.Requirements
-	if r == nil || r.DeliverItemID == "" || r.DeliverQuantity <= 0 || r.DeliverToBaseID == "" {
+	if e.Type != missionTypeDelivery || len(e.RequiredModules) > 0 || len(e.Objectives) != 1 {
 		return "", 0, "", "", false
 	}
-	// Any non-deliver component makes this a compound mission v1 skips.
-	if r.KillCount > 0 || r.MineQuantity > 0 || r.VisitSystemCount > 0 || r.TargetPlayerID != "" {
+	o := e.Objectives[0]
+	if o.Type != missionObjectiveDeliver || o.ItemID == "" || o.Quantity <= 0 || o.TargetBaseID == "" || o.SystemID == "" {
 		return "", 0, "", "", false
 	}
-	if len(e.RequiredModules) > 0 {
-		return "", 0, "", "", false
-	}
-	// Destination system comes from the matching deliver objective; entries
-	// without one cannot be routed and are skipped.
-	for _, o := range e.Objectives {
-		if o.TargetBaseID == r.DeliverToBaseID && o.SystemID != "" {
-			return r.DeliverItemID, r.DeliverQuantity, r.DeliverToBaseID, o.SystemID, true
-		}
-	}
-	return "", 0, "", "", false
+	return o.ItemID, o.Quantity, o.TargetBaseID, o.SystemID, true
 }
 
 // buildMissionCandidate prices and routes one board entry. dist maps system id
