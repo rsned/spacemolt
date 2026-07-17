@@ -3,8 +3,10 @@ package worker
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
 const (
@@ -79,8 +81,16 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 	if !ok {
 		return missionCandidate{}, "not a plain deliver mission"
 	}
+	// Deliver-shaped smuggling missions carry warnings (e.g. contraband,
+	// insurance voided); uninsured idle accounts must never run these.
+	if len(e.Warnings) > 0 {
+		return missionCandidate{}, fmt.Sprintf("has warnings: %s", strings.Join(e.Warnings, "; "))
+	}
 	jumps, reachable := dist[destSystem]
-	if !reachable {
+	// navigation.BFSJumps pre-seeds every requested target with RouteInf, so
+	// the map-miss (!reachable) branch never fires in production; kept for
+	// tests that build dist maps by hand without the sentinel.
+	if !reachable || jumps >= navigation.RouteInf {
 		return missionCandidate{}, fmt.Sprintf("destination system %s unreachable", destSystem)
 	}
 	if e.ExpiresInTicks > 0 && e.ExpiresInTicks < missionMinExpiryTicks+jumps*missionTicksPerJump {
@@ -91,10 +101,7 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 	if e.Rewards != nil {
 		reward = float64(e.Rewards.Credits)
 	}
-	buyQty := qty - e.ProvidedItems[item]
-	if buyQty < 0 {
-		buyQty = 0
-	}
+	buyQty := max(qty-e.ProvidedItems[item], 0)
 	itemCost := 0.0
 	if buyQty > 0 {
 		ask, priced := refAsk(item)

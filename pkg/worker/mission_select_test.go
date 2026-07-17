@@ -98,6 +98,14 @@ func TestBuildMissionCandidate(t *testing.T) {
 			t.Fatal("negative-net mission must be rejected")
 		}
 	})
+
+	t.Run("mission with warnings rejected", func(t *testing.T) {
+		e := boardEntry("m9", "steel", 20, "sol_station", "sol", 3000, 0)
+		e.Warnings = []string{"contraband: insurance voided"}
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
+			t.Fatal("deliver-shaped mission carrying warnings must be rejected")
+		}
+	})
 }
 
 func TestSelectMissionSet(t *testing.T) {

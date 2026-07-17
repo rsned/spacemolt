@@ -49,7 +49,14 @@ For each agent, `go run ./cmd/tools/play_as <agent-id>` and:
   credits_earned is the success signal.
 - Watch for pathologies: repeated abandon rows (selector gates too loose),
   zero board entries everywhere (parked at boardless stations), buys
-  failing (underfunded).
+  failing (underfunded), cargo_used creeping up across passes (orphaned
+  mission cargo — expired held missions are never liquidated in v1),
+  completed rows with credits_earned=0 (the credits-delta measurement
+  depends on the complete_mission response updating State.Credits within
+  SleepQuick; if rows read 0, fix that before trusting the income column).
+- After the first board read, note the actual mission `type` strings seen
+  and consider tightening the selector to a type allowlist (v1 gates on
+  shape + warnings only, not type).
 
 ## 4. Measure (before any scale-up)
 

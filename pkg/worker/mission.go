@@ -34,11 +34,35 @@ type MissionStore interface {
 var _ MissionStore = (*market.Collector)(nil)
 
 // missionRunState carries cross-pass memory (dry-pass streak + reposition
-// cursor), held by WorkerDispatch so it survives between command passes —
-// the shuttleState pattern.
+// cursor + the set of missions already attempted this session), held by
+// WorkerDispatch so it survives between command passes — the shuttleState
+// pattern.
 type missionRunState struct {
-	dry    int
-	cursor int
+	dry       int
+	cursor    int
+	attempted map[string]bool
+}
+
+// markAttempted records that mission id has been accepted (and recorded,
+// win or lose) this session, so a future pass never re-selects it. No-op on
+// a nil receiver (State is optional; tests that don't care simply omit it).
+func (s *missionRunState) markAttempted(id string) {
+	if s == nil {
+		return
+	}
+	if s.attempted == nil {
+		s.attempted = make(map[string]bool)
+	}
+	s.attempted[id] = true
+}
+
+// wasAttempted reports whether mission id was already recorded this session.
+// Always false on a nil receiver.
+func (s *missionRunState) wasAttempted(id string) bool {
+	if s == nil {
+		return false
+	}
+	return s.attempted[id]
 }
 
 // stationHop is one reposition target from the nearest-stations query.
@@ -193,7 +217,6 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		}
 	}
 	dist := navigation.BFSJumps(graph, current, targets)
-	dist[current] = 0
 
 	// Fuel model (same probe as Haul).
 	probeTarget := ""
@@ -220,6 +243,10 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// Gate + stack.
 	var cands []missionCandidate
 	for _, e := range board {
+		if deps.State.wasAttempted(e.MissionID) {
+			fmt.Fprintf(out, "missions: skip %s: already attempted this session\n", e.MissionID) //nolint:errcheck
+			continue
+		}
 		c, reason := buildMissionCandidate(e, dist, refAsk, fuelCostFor)
 		if reason != "" {
 			fmt.Fprintf(out, "missions: skip %s (%s): %s\n", e.MissionID, e.Title, reason) //nolint:errcheck
@@ -234,9 +261,6 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		fmt.Fprintln(out, "missions: no acceptable missions on this board") //nolint:errcheck
 		return missionDryPass(ctx, deps, out)
 	}
-	if deps.State != nil {
-		deps.State.dry = 0 // found work: reset the dry streak
-	}
 
 	// Accept + provision. A failed accept just drops that mission from the trip;
 	// a failed buy abandons the accepted mission (recorded) and drops it.
@@ -250,6 +274,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		if c.BuyQty > 0 {
 			if berr := deps.Client.Buy(ctx, c.ItemID, float64(c.BuyQty)); berr != nil {
 				fmt.Fprintf(out, "missions: buy %dx %s for %s failed: %v; abandoning\n", c.BuyQty, c.ItemID, c.Entry.MissionID, berr) //nolint:errcheck
+				c.ItemCost = 0 // buy failed, nothing spent
 				missionAbandon(ctx, deps, out, c, baseID, acceptedAt, acceptedTick)
 				continue
 			}
@@ -257,7 +282,13 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		trip = append(trip, c)
 	}
 	if len(trip) == 0 {
-		return nil
+		// Every accepted candidate was abandoned (all buys failed): counts as
+		// a dry pass so reposition still fires, even though selection wasn't
+		// empty.
+		return missionDryPass(ctx, deps, out)
+	}
+	if deps.State != nil {
+		deps.State.dry = 0 // executed real work: reset the dry streak
 	}
 
 	// One shared destination system (SelectMissionSet guarantees it). Transit,
@@ -415,7 +446,10 @@ func missionComplete(ctx context.Context, deps MissionDeps, out io.Writer, c mis
 	missionRecord(ctx, deps, out, c, fromBase, acceptedAt, acceptedTick, earned, "completed")
 }
 
-// missionAbandon abandons c and records the loss row (item cost already sunk).
+// missionAbandon abandons c and records the loss row. c.ItemCost must reflect
+// what was actually spent — callers zero it when the buy never happened (a
+// failed-buy abandon); it is only nonzero when cargo was actually purchased
+// and then stranded (e.g. a resume abandon with cargo already sunk).
 func missionAbandon(ctx context.Context, deps MissionDeps, out io.Writer, c missionCandidate, fromBase, acceptedAt string, acceptedTick int64) {
 	if err := deps.Client.AbandonMission(ctx, c.Entry.MissionID); err != nil {
 		fmt.Fprintf(out, "missions: abandon %s failed: %v\n", c.Entry.MissionID, err) //nolint:errcheck
@@ -424,6 +458,7 @@ func missionAbandon(ctx context.Context, deps MissionDeps, out io.Writer, c miss
 }
 
 func missionRecord(ctx context.Context, deps MissionDeps, out io.Writer, c missionCandidate, fromBase, acceptedAt string, acceptedTick int64, earned float64, outcome string) {
+	deps.State.markAttempted(c.Entry.MissionID) // never re-select this mission this session
 	now := missionNow(deps)
 	r := market.MissionResult{
 		AgentID:        deps.AgentID,

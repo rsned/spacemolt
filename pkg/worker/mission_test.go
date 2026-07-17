@@ -160,6 +160,52 @@ func TestMissionsBuyFailureAbandons(t *testing.T) {
 	if len(store.results) != 1 || store.results[0].Outcome != "abandoned" {
 		t.Fatalf("want 1 abandoned row, got %+v", store.results)
 	}
+	if store.results[0].ItemCost != 0 {
+		t.Fatalf("failed buy spent nothing; row must record ItemCost 0, got %+v", store.results[0])
+	}
+}
+
+func TestMissionsDoesNotReacceptAttemptedMission(t *testing.T) {
+	// A mission whose buy fails is abandoned+recorded; it must never be
+	// re-selected on a later pass in the same session, and an all-abandoned
+	// pass must still count as dry so reposition eventually fires.
+	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	fc := &fakeClient{
+		state:  missionState(true, 5000, 0),
+		buyErr: context.DeadlineExceeded,
+		raw: map[string][]byte{
+			"missions":        boardJSON(t, entry),
+			"active_missions": activeJSON(t),
+		},
+	}
+	store := &fakeMissionStore{asks: map[string]float64{"steel": 20}}
+	deps := missionDeps(fc, store, missionKB())
+	deps.State = &missionRunState{}
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions (pass 1): %v", err)
+	}
+	if deps.State.dry != 1 {
+		t.Fatalf("all-abandoned pass must count as dry: got dry=%d", deps.State.dry)
+	}
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions (pass 2): %v", err)
+	}
+	if deps.State.dry != 2 {
+		t.Fatalf("second dry pass must advance the streak: got dry=%d", deps.State.dry)
+	}
+	acceptCount := 0
+	for _, c := range fc.calls {
+		if c == "accept:m1" {
+			acceptCount++
+		}
+	}
+	if acceptCount != 1 {
+		t.Fatalf("m1 must be accepted exactly once across sessions, got %d: %v", acceptCount, fc.calls)
+	}
+	if len(store.results) != 1 {
+		t.Fatalf("want exactly 1 recorded row (no re-accept, no re-record), got %d", len(store.results))
+	}
 }
 
 func TestMissionsDryPassesReposition(t *testing.T) {
@@ -212,5 +258,35 @@ func TestMissionsResumesActiveDeliverable(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(fc.calls, " "), "complete:held") {
 		t.Fatalf("goods-aboard active mission must be completed: %v", fc.calls)
+	}
+}
+
+func TestMissionsResumeCargoShortAbandons(t *testing.T) {
+	// Held mission needs 10 steel aboard to deliver; the ship only has 4 (lost
+	// to a wreck, sold off, whatever) -> v1 abandons rather than trying to
+	// complete an undeliverable mission.
+	active := serverapi.ActiveMission{
+		MissionID: "held", Type: "delivery", Title: "Held delivery",
+		Requirements: &serverapi.MissionRequirements{
+			DeliverItemID: "steel", DeliverQuantity: 10, DeliverToBaseID: "sol_station",
+		},
+	}
+	fc := &fakeClient{
+		state: missionState(true, 5000, 4),
+		raw: map[string][]byte{
+			"missions":        boardJSON(t),
+			"active_missions": activeJSON(t, active),
+		},
+	}
+	fc.state.Ship.Cargo = []game.CargoItem{{ItemID: "steel", Quantity: 4}}
+	store := &fakeMissionStore{}
+	if err := Missions(context.Background(), missionDeps(fc, store, missionKB())); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if !strings.Contains(strings.Join(fc.calls, " "), "abandon:held") {
+		t.Fatalf("cargo-short resume must abandon the held mission: %v", fc.calls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "abandoned" || store.results[0].MissionID != "held" {
+		t.Fatalf("want 1 abandoned row for held, got %+v", store.results)
 	}
 }
