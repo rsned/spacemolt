@@ -22,13 +22,16 @@ func TestLoadCurrentBuyOrders(t *testing.T) {
 	t1 := time.Date(2026, 7, 17, 10, 0, 0, 0, time.UTC)
 	t2 := t1.Add(30 * time.Minute)
 
-	// Older capture at stn1: should be entirely superseded for iron.
+	// Older capture at stn1: iron is superseded by the t2 capture; nickel is a
+	// buy order that VANISHES from the book by t2 — the liveness gate must drop
+	// it rather than resurrect this 30-min-stale rung.
 	if err := c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stn1", StationName: "Station One",
 		SystemID: "sys1", SystemName: "System One",
 		CapturedAt: t1,
 		Orders: []Order{
 			{StationID: "stn1", ItemID: "iron", ItemName: "Iron Ore", Side: "buy", PriceEach: 90, Quantity: 5, CapturedAt: t1},
+			{StationID: "stn1", ItemID: "nickel", ItemName: "Nickel Ore", Side: "buy", PriceEach: 50, Quantity: 7, CapturedAt: t1},
 		},
 	}); err != nil {
 		t.Fatalf("WriteSnapshot t1 failed: %v", err)
@@ -62,12 +65,27 @@ func TestLoadCurrentBuyOrders(t *testing.T) {
 		t.Fatalf("WriteSnapshot stn2 failed: %v", err)
 	}
 
+	// Want 3: stn1 iron@120, stn1 iron@100, stn2 copper@40. The stn1 nickel rung
+	// is excluded by the liveness gate (last seen at t1, but stn1's latest
+	// capture is t2, 30 min newer — nickel is no longer in the book).
 	got, err := c.LoadCurrentBuyOrders(ctx, "")
 	if err != nil {
 		t.Fatalf("LoadCurrentBuyOrders failed: %v", err)
 	}
 	if len(got) != 3 {
-		t.Fatalf("got %d orders, want 3: %+v", len(got), got)
+		t.Fatalf("got %d orders, want 3 (nickel must be gated out): %+v", len(got), got)
+	}
+	for _, o := range got {
+		if o.ItemID == "nickel" {
+			t.Errorf("liveness gate failed: vanished nickel order resurfaced: %+v", o)
+		}
+	}
+
+	// nickel-only scan: the station-latest CTE is NOT item-filtered, so even a
+	// single-item scan drops the vanished order (0 rows), proving the gate works
+	// in filtered mode.
+	if nickelOnly, err := c.LoadCurrentBuyOrders(ctx, "nickel"); err != nil || len(nickelOnly) != 0 {
+		t.Errorf("nickel filter: got %d orders err=%v, want 0/nil (gated out)", len(nickelOnly), err)
 	}
 
 	// itemID filter: scope the scan to a single item, pushed into the SQL.
