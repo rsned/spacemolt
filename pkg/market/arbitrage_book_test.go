@@ -129,3 +129,92 @@ func TestAdmitBookClaim_ConcurrentNoDeadlockNoDoubleAdmit(t *testing.T) {
 		t.Fatalf("cap 1 book under 8 concurrent admits: want exactly 1 winner, got %d", won)
 	}
 }
+
+func bookClaimPhase(t *testing.T, c *Collector, claimID int64) (string, float64) {
+	t.Helper()
+	var phase string
+	var bought float64
+	if err := c.db.QueryRow(
+		`SELECT phase, bought_units FROM haul_book_claims WHERE claim_id=?`, claimID).Scan(&phase, &bought); err != nil {
+		t.Fatalf("read claim %d: %v", claimID, err)
+	}
+	return phase, bought
+}
+
+func TestBookClaimLifecycle(t *testing.T) {
+	c := newTestCollector(t)
+	ctx := context.Background()
+	book := BookKey{ItemID: "widget", FromStationID: "src"}
+	id := seedAvailableOpp(t, c, "widget", "src", "dst_a", 900)
+	r, err := c.AdmitBookClaim(ctx, book, []BookCandidate{{id, "dst_a"}}, "h1", 5, time.Hour)
+	if err != nil || !r.OK {
+		t.Fatalf("admit: %v ok=%v", err, r.OK)
+	}
+	if err := c.SettleBookClaim(ctx, r.ClaimID, "h1", 480); err != nil {
+		t.Fatalf("settle: %v", err)
+	}
+	if phase, bought := bookClaimPhase(t, c, r.ClaimID); phase != "bought" || bought != 480 {
+		t.Fatalf("after settle: phase=%s bought=%v, want bought/480", phase, bought)
+	}
+	if err := c.CompleteBookClaim(ctx, r.ClaimID, "h1"); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if phase, _ := bookClaimPhase(t, c, r.ClaimID); phase != "done" {
+		t.Fatalf("after complete: phase=%s, want done", phase)
+	}
+}
+
+func TestInvalidateBookExpiresAvailableAndOwnClaimedRows(t *testing.T) {
+	c := newTestCollector(t)
+	ctx := context.Background()
+	// One available row + one row this agent has claimed + one another agent claimed.
+	avail := seedAvailableOpp(t, c, "core", "starfall", "dst_a", 42)
+	mine := seedAvailableOpp(t, c, "core", "starfall", "dst_b", 42)
+	other := seedAvailableOpp(t, c, "core", "starfall", "dst_c", 42)
+	_, _ = c.db.Exec(`UPDATE arbitrage_opportunities SET status='claimed', claimed_by='me' WHERE id=?`, mine)
+	_, _ = c.db.Exec(`UPDATE arbitrage_opportunities SET status='claimed', claimed_by='other' WHERE id=?`, other)
+
+	if err := c.InvalidateBook(ctx, "core", "starfall", "me", "no live ask"); err != nil {
+		t.Fatalf("invalidate: %v", err)
+	}
+	status := func(id int) string {
+		var s string
+		_ = c.db.QueryRow(`SELECT status FROM arbitrage_opportunities WHERE id=?`, id).Scan(&s)
+		return s
+	}
+	if status(avail) != "expired" {
+		t.Fatalf("available row not expired: %s", status(avail))
+	}
+	if status(mine) != "expired" {
+		t.Fatalf("own claimed row not expired: %s", status(mine))
+	}
+	if status(other) != "claimed" {
+		t.Fatalf("other agent's claimed row must NOT be yanked: %s", status(other))
+	}
+	// A fresh available fetch no longer offers this book.
+	opps, _ := c.GetOpportunities(ctx, "available", 50)
+	for _, o := range opps {
+		if o.ItemID == "core" && o.FromStationID == "starfall" {
+			t.Fatalf("collapsed book still offered: opp %d", o.ID)
+		}
+	}
+}
+
+func TestReapExpiredBookClaims(t *testing.T) {
+	c := newTestCollector(t)
+	ctx := context.Background()
+	book := BookKey{ItemID: "widget", FromStationID: "src"}
+	id := seedAvailableOpp(t, c, "widget", "src", "dst_a", 900)
+	// Admit with an already-past TTL so it is immediately reapable.
+	r, _ := c.AdmitBookClaim(ctx, book, []BookCandidate{{id, "dst_a"}}, "h1", 5, -time.Minute)
+	n, err := c.ReapExpiredBookClaims(ctx)
+	if err != nil {
+		t.Fatalf("reap: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("want 1 reaped, got %d", n)
+	}
+	if phase, _ := bookClaimPhase(t, c, r.ClaimID); phase != "released" {
+		t.Fatalf("reaped claim phase=%s, want released", phase)
+	}
+}

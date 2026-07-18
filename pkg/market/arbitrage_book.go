@@ -126,3 +126,90 @@ func (c *Collector) AdmitBookClaim(ctx context.Context, book BookKey, candidates
 	})
 	return res, err
 }
+
+// SettleBookClaim records the actual bought quantity on a claim (settle-only: this is
+// the "subtract actual amount used" write). Idempotent no-op if the claim is not in
+// 'claimed' phase or not owned by agentID.
+func (c *Collector) SettleBookClaim(ctx context.Context, claimID int64, agentID string, boughtUnits float64) error {
+	return c.writeRetry(ctx, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			`UPDATE haul_book_claims SET phase='bought', bought_units=?, updated_at=?
+			 WHERE claim_id=? AND agent_id=? AND phase='claimed'`,
+			boughtUnits, time.Now().UTC().Format(time.RFC3339), claimID, agentID)
+		if err != nil {
+			return fmt.Errorf("settle book claim: %w", err)
+		}
+		return nil
+	})
+}
+
+// CompleteBookClaim marks a claim done after its sell leg completes, freeing its cap
+// slot. Owner-scoped; no-op otherwise.
+func (c *Collector) CompleteBookClaim(ctx context.Context, claimID int64, agentID string) error {
+	return c.writeRetry(ctx, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			`UPDATE haul_book_claims SET phase='done', updated_at=?
+			 WHERE claim_id=? AND agent_id=? AND phase IN ('claimed','bought')`,
+			time.Now().UTC().Format(time.RFC3339), claimID, agentID)
+		if err != nil {
+			return fmt.Errorf("complete book claim: %w", err)
+		}
+		return nil
+	})
+}
+
+// ReleaseBookClaim returns a claim's cap slot on a pre-buy abandon. Owner-scoped.
+func (c *Collector) ReleaseBookClaim(ctx context.Context, claimID int64, agentID string) error {
+	return c.writeRetry(ctx, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx,
+			`UPDATE haul_book_claims SET phase='released', updated_at=?
+			 WHERE claim_id=? AND agent_id=? AND phase IN ('claimed','bought')`,
+			time.Now().UTC().Format(time.RFC3339), claimID, agentID)
+		if err != nil {
+			return fmt.Errorf("release book claim: %w", err)
+		}
+		return nil
+	})
+}
+
+// InvalidateBook clears a collapsed book so no further hauler is drawn in: it expires
+// the book's still-available opportunity rows and the CALLING agent's own claimed row
+// (so its abandon does not republish it), while leaving other agents' claimed rows
+// untouched — they confirm-and-invalidate on their own arrival. Call only when a live
+// recapture confirmed the source is gone.
+func (c *Collector) InvalidateBook(ctx context.Context, itemID, fromStation, agentID, reason string) error {
+	return c.writeRetry(ctx, func(tx *sql.Tx) error {
+		note := fmt.Sprintf("source collapsed: %s (by %s)", reason, agentID)
+		_, err := tx.ExecContext(ctx,
+			`UPDATE arbitrage_opportunities SET status='expired', notes=?
+			 WHERE item_id=? AND from_station_id=?
+			   AND (status='available' OR (status='claimed' AND claimed_by=?))`,
+			note, itemID, fromStation, agentID)
+		if err != nil {
+			return fmt.Errorf("invalidate book opps: %w", err)
+		}
+		return nil
+	})
+}
+
+// ReapExpiredBookClaims releases roster rows whose TTL passed while still active
+// (e.g. a hauler killed between claim and settle). The cap count already ignores
+// expired rows; this is cleanup so the roster does not grow unbounded. Returns the
+// number reaped.
+func (c *Collector) ReapExpiredBookClaims(ctx context.Context) (int, error) {
+	n := 0
+	err := c.writeRetry(ctx, func(tx *sql.Tx) error {
+		res, err := tx.ExecContext(ctx,
+			`UPDATE haul_book_claims SET phase='released', updated_at=?
+			 WHERE phase IN ('claimed','bought') AND julianday(expires_at) <= julianday('now')`,
+			time.Now().UTC().Format(time.RFC3339))
+		if err != nil {
+			return fmt.Errorf("reap book claims: %w", err)
+		}
+		if k, e := res.RowsAffected(); e == nil {
+			n = int(k)
+		}
+		return nil
+	})
+	return n, err
+}
