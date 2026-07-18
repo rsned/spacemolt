@@ -2888,6 +2888,22 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			}
 		}
 
+	case protocol.TypeShipCommissionComplete:
+		// Server-initiated notification that a commissioned ship finished
+		// building and is ready for pickup at the commissioning base. We log
+		// for visibility and leave the fleet roster to the next list_ships /
+		// state sync rather than splicing a partial ship entry in here.
+		shipName, _ := resp.Payload["ship_name"].(string)
+		shipClass, _ := resp.Payload["ship_class"].(string)
+		baseName, _ := resp.Payload["base_name"].(string)
+		commissionID, _ := resp.Payload["commission_id"].(string)
+		label := shipName
+		if label == "" {
+			label = shipClass
+		}
+		c.debugLogger.Printf("[SHIP COMMISSION COMPLETE] %s (%s) ready for pickup at %s [commission %s]",
+			label, shipClass, baseName, commissionID)
+
 	default:
 		logUnhandledResponseType(resp)
 	}

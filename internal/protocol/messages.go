@@ -41,6 +41,9 @@ const (
 	TypePilotlessShip = "pilotless_ship"
 	TypeReconnected   = "reconnected"
 
+	// Ship commissioning events
+	TypeShipCommissionComplete = "ship_commission_complete"
+
 	// Police system events
 	TypePoliceWarning  = "police_warning"
 	TypePoliceSpawn    = "police_spawn"
