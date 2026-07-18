@@ -89,6 +89,11 @@ func sqliteDSN(cfg Config) string {
 	if cfg.WAL {
 		dsn += "&_pragma=journal_mode(WAL)"
 	}
+	// Take the write lock at BEGIN (never upgrade read->write): this is what makes
+	// the book-admission transaction deadlock-free across the ~40 worker processes
+	// that share this database. Every writeRetry transaction is a write, so
+	// IMMEDIATE is correct for all of them.
+	dsn += "&_txlock=immediate"
 	return dsn
 }
 

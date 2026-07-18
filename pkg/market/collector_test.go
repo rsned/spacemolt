@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -325,6 +326,13 @@ func TestWriteSnapshotPersistsItemCategory(t *testing.T) {
 	}
 	if category != "raw" {
 		t.Errorf("items.category = %q, want %q", category, "raw")
+	}
+}
+
+func TestSqliteDSNUsesImmediateTxLock(t *testing.T) {
+	dsn := sqliteDSN(Config{DBPath: "data/market.db", WAL: true, BusyTimeout: 5 * time.Second})
+	if !strings.Contains(dsn, "_txlock=immediate") {
+		t.Fatalf("DSN must request immediate txlock for deadlock-free admission; got %q", dsn)
 	}
 }
 
