@@ -407,6 +407,55 @@ func TestScanArbitrageLimitCap(t *testing.T) {
 	}
 }
 
+// TestScanArbitragePopulatesSourceUnits covers the per-book source depth: a single
+// source station's best-ask quantity (src_station, widget, qty 40) must be carried
+// onto every destination row spawned off that book, not lost behind
+// quantity = min(AskQty, BidQty).
+func TestScanArbitragePopulatesSourceUnits(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "src_station", StationName: "Source", SystemID: "sysA", SystemName: "Sol", CapturedAt: now,
+		Orders: []Order{{StationID: "src_station", ItemID: "widget", Side: "sell", PriceEach: 10, Quantity: 40, CapturedAt: now}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot src_station: %v", err)
+	}
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "dst_a", StationName: "Dest A", SystemID: "sysB", SystemName: "Sirius", CapturedAt: now,
+		Orders: []Order{{StationID: "dst_a", ItemID: "widget", Side: "buy", PriceEach: 100, Quantity: 15, CapturedAt: now}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot dst_a: %v", err)
+	}
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "dst_b", StationName: "Dest B", SystemID: "sysC", SystemName: "Vega", CapturedAt: now,
+		Orders: []Order{{StationID: "dst_b", ItemID: "widget", Side: "buy", PriceEach: 90, Quantity: 30, CapturedAt: now}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot dst_b: %v", err)
+	}
+
+	if _, err := c.ScanArbitrage(ctx, ScanOptions{MinProfit: 1, MinPrice: 1, MinQuantity: 1, ExpiresIn: time.Hour}); err != nil {
+		t.Fatalf("ScanArbitrage: %v", err)
+	}
+	opps, err := c.GetOpportunities(ctx, "available", 50)
+	if err != nil {
+		t.Fatalf("GetOpportunities: %v", err)
+	}
+	fromSrc := 0
+	for _, o := range opps {
+		if o.FromStationID != "src_station" {
+			continue
+		}
+		fromSrc++
+		if o.SourceUnits != 40 {
+			t.Errorf("opp to %s: SourceUnits = %v, want 40 (the source best-ask depth)", o.ToStationID, o.SourceUnits)
+		}
+	}
+	if fromSrc != 2 {
+		t.Fatalf("want 2 opps off src_station's book, got %d", fromSrc)
+	}
+}
+
 func TestClaimOpportunity(t *testing.T) {
 	c := openArbDB(t)
 	ctx := context.Background()

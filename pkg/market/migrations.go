@@ -26,6 +26,12 @@ func runMigrations(db *sql.DB) error {
 	if err := ensureColumn(db, "arbitrage_opportunities", "cycles_seen", "INTEGER DEFAULT 1"); err != nil {
 		return err
 	}
+	// source_units: the book's (item, from_station) source best-ask depth, shared
+	// across that book's destination rows. Drives the hauler's per-book concurrency
+	// cap and status label.
+	if err := ensureColumn(db, "arbitrage_opportunities", "source_units", "REAL NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
 	// reason: machine-readable cause slug for abandoned/failed mission outcomes
 	// (empty for completed) — the abandon-reason catalog's queryable substrate.
 	if err := ensureColumn(db, "mission_results", "reason", "TEXT DEFAULT ''"); err != nil {

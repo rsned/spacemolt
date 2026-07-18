@@ -83,6 +83,7 @@ func (c *Collector) GetItemStationPrices(ctx context.Context, itemID string) ([]
 type arbCandidate struct {
 	fromStation, toStation, itemID  string
 	buyPrice, sellPrice, qty, gross float64
+	sourceUnits                     float64
 }
 
 // ScanArbitrage detects cross-station buy-low/sell-high spreads from the latest
@@ -149,6 +150,7 @@ func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanRe
 					sellPrice:   dst.BestBid,
 					qty:         qty,
 					gross:       gross,
+					sourceUnits: src.AskQty,
 				})
 			}
 		}
@@ -185,11 +187,11 @@ func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanRe
 			_, err := tx.ExecContext(ctx, `
 				INSERT INTO arbitrage_opportunities
 				  (from_station_id, to_station_id, item_id, action_type, buy_price, sell_price,
-				   quantity, gross_profit, fuel_cost, travel_ticks, cargo_required, cycles_seen, status,
+				   quantity, source_units, gross_profit, fuel_cost, travel_ticks, cargo_required, cycles_seen, status,
 				   expires_at, discovered_at, discovered_by, notes)
-				VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+				VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 				cand.fromStation, cand.toStation, cand.itemID, "buy_then_sell",
-				cand.buyPrice, cand.sellPrice, cand.qty, cand.gross,
+				cand.buyPrice, cand.sellPrice, cand.qty, cand.sourceUnits, cand.gross,
 				0.0, 0, cand.qty, cyclesSeen, "available", expiresAt, discoveredAt, "arbitrage_scanner", "logistics:deferred")
 			if err != nil {
 				return fmt.Errorf("insert opportunity: %w", err)
@@ -349,7 +351,7 @@ const arbitrageSelectJoin = `
 		SELECT ao.id, ao.from_station_id, COALESCE(fs.station_name, ''), COALESCE(fs.system_name, ''),
 		       ao.to_station_id, COALESCE(ts.station_name, ''), COALESCE(ts.system_name, ''),
 		       ao.item_id, COALESCE(i.item_name, ''), ao.action_type, ao.status,
-		       ao.buy_price, ao.sell_price, ao.quantity, ao.gross_profit,
+		       ao.buy_price, ao.sell_price, ao.quantity, ao.source_units, ao.gross_profit,
 		       ao.fuel_cost, ao.travel_ticks, ao.cargo_required,
 		       ao.claimed_by, ao.claimed_at, ao.completed_at, ao.cycles_seen, ao.expires_at, ao.discovered_at, ao.notes
 		FROM arbitrage_opportunities ao
@@ -368,7 +370,7 @@ func scanOpportunityRows(rows *sql.Rows) ([]ArbitrageOpportunity, error) {
 		if err := rows.Scan(&o.ID, &o.FromStationID, &o.FromStationName, &o.FromSystemName,
 			&o.ToStationID, &o.ToStationName, &o.ToSystemName,
 			&o.ItemID, &o.ItemName, &o.ActionType, &o.Status,
-			&o.BuyPrice, &o.SellPrice, &o.Quantity, &o.GrossProfit,
+			&o.BuyPrice, &o.SellPrice, &o.Quantity, &o.SourceUnits, &o.GrossProfit,
 			&o.FuelCost, &o.TravelTicks, &o.CargoRequired,
 			&claimedBy, &claimedAt, &completedAt, &cyclesSeen, &o.ExpiresAt, &o.DiscoveredAt, &notes); err != nil {
 			return nil, fmt.Errorf("scan opportunity: %w", err)

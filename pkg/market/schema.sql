@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS arbitrage_opportunities (
     buy_price           REAL NOT NULL,
     sell_price          REAL NOT NULL,
     quantity            REAL NOT NULL,
+    source_units        REAL NOT NULL DEFAULT 0,
     gross_profit        REAL NOT NULL,
     fuel_cost           REAL NOT NULL,
     travel_ticks        INTEGER NOT NULL,

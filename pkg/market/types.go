@@ -73,6 +73,7 @@ type ArbitrageOpportunity struct {
 	BuyPrice        float64 `json:"buy_price"`
 	SellPrice       float64 `json:"sell_price"`
 	Quantity        float64 `json:"quantity"`
+	SourceUnits     float64 `json:"source_units"` // book's source best-ask depth (src.AskQty); shared across a book's dest rows
 	GrossProfit     float64 `json:"gross_profit"`
 	FuelCost        float64 `json:"fuel_cost"`
 	TravelTicks     int     `json:"travel_ticks"`
