@@ -29,12 +29,23 @@ type CurrentBuyOrder struct {
 // capture fleet, so "latest" here is typically minutes old. Relies on the
 // partial index idx_orders_buy_station_item_cap (side='buy') — without it this
 // query walks the full table.
-func (c *Collector) LoadCurrentBuyOrders(ctx context.Context) ([]CurrentBuyOrder, error) {
+//
+// itemID, when non-empty, scopes the scan to that one item_id (pushed into both
+// the latest-capture CTE and the outer filter, so market.db does the narrowing
+// rather than the caller post-filtering the full result set).
+func (c *Collector) LoadCurrentBuyOrders(ctx context.Context, itemID string) ([]CurrentBuyOrder, error) {
+	cteItem, outerItem := "", ""
+	var args []any
+	if itemID != "" {
+		cteItem = " AND item_id = ?"
+		outerItem = " AND o.item_id = ?"
+		args = []any{itemID, itemID}
+	}
 	rows, err := c.db.QueryContext(ctx, `
 		WITH latest AS (
 			SELECT station_id, item_id, MAX(captured_at) AS mx
 			FROM market_orders
-			WHERE side = 'buy'
+			WHERE side = 'buy'`+cteItem+`
 			GROUP BY station_id, item_id
 		)
 		SELECT o.station_id, COALESCE(s.system_id, ''),
@@ -47,8 +58,8 @@ func (c *Collector) LoadCurrentBuyOrders(ctx context.Context) ([]CurrentBuyOrder
 		             AND l.mx = o.captured_at
 		LEFT JOIN stations s ON s.station_id = o.station_id
 		LEFT JOIN items i ON i.item_id = o.item_id
-		WHERE o.side = 'buy' AND o.price_each > 0 AND o.quantity > 0
-		ORDER BY o.station_id, o.item_id, o.price_each DESC`)
+		WHERE o.side = 'buy' AND o.price_each > 0 AND o.quantity > 0`+outerItem+`
+		ORDER BY o.station_id, o.item_id, o.price_each DESC`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query current buy orders: %w", err)
 	}

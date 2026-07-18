@@ -62,12 +62,32 @@ func TestLoadCurrentBuyOrders(t *testing.T) {
 		t.Fatalf("WriteSnapshot stn2 failed: %v", err)
 	}
 
-	got, err := c.LoadCurrentBuyOrders(ctx)
+	got, err := c.LoadCurrentBuyOrders(ctx, "")
 	if err != nil {
 		t.Fatalf("LoadCurrentBuyOrders failed: %v", err)
 	}
 	if len(got) != 3 {
 		t.Fatalf("got %d orders, want 3: %+v", len(got), got)
+	}
+
+	// itemID filter: scope the scan to a single item, pushed into the SQL.
+	ironOnly, err := c.LoadCurrentBuyOrders(ctx, "iron")
+	if err != nil {
+		t.Fatalf("LoadCurrentBuyOrders(iron) failed: %v", err)
+	}
+	if len(ironOnly) != 2 {
+		t.Fatalf("iron filter: got %d orders, want 2 (the two stn1 iron rungs): %+v", len(ironOnly), ironOnly)
+	}
+	for _, o := range ironOnly {
+		if o.ItemID != "iron" {
+			t.Errorf("iron filter leaked %q", o.ItemID)
+		}
+	}
+	if ironOnly[0].PriceEach != 120 || ironOnly[1].PriceEach != 100 {
+		t.Errorf("iron filter order = %v/%v, want 120/100 (best-price-first)", ironOnly[0].PriceEach, ironOnly[1].PriceEach)
+	}
+	if empty, err := c.LoadCurrentBuyOrders(ctx, "nonexistent"); err != nil || len(empty) != 0 {
+		t.Errorf("nonexistent filter: got %d orders err=%v, want 0/nil", len(empty), err)
 	}
 
 	// ORDER BY station, item, price DESC → stn1 iron 120, stn1 iron 100, stn2 copper 40.

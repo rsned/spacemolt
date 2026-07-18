@@ -175,7 +175,7 @@ func runDemand(client game.GameClient, ctx context.Context, opts demandOptions, 
 	if globalMarketCollector == nil {
 		return fmt.Errorf("demand: no market DB configured (start play_as with --market-db-path)")
 	}
-	cur, err := globalMarketCollector.LoadCurrentBuyOrders(ctx)
+	cur, err := globalMarketCollector.LoadCurrentBuyOrders(ctx, opts.item)
 	if err != nil {
 		return fmt.Errorf("demand: load market orders: %w", err)
 	}
