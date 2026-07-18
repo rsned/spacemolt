@@ -13,9 +13,10 @@
 //	  --overmind "Marketbots=data/overmind/mb-status.json" \
 //	  --overmind "Shuttle=data/overmind/shuttle-status.json" \
 //	  --overmind "Assist=data/overmind/assist-status.json" \
-//	  --overmind "Craft=data/overmind/craft-status.json"
+//	  --overmind "Craft=data/overmind/craft-status.json" \
+//	  --overmind "Missions=data/overmind/mission-learn-status.json"
 //
-// With no --overmind flags the five defaults above are used.
+// With no --overmind flags the six defaults above are used.
 package main
 
 import (
@@ -66,6 +67,7 @@ func defaultSources() []ovstatus.Source {
 		{Name: "Shuttle", Path: "data/overmind/shuttle-status.json"},
 		{Name: "Assist", Path: "data/overmind/assist-status.json"},
 		{Name: "Craft", Path: "data/overmind/craft-status.json"},
+		{Name: "Missions", Path: "data/overmind/mission-learn-status.json"},
 	}
 }
 
