@@ -285,6 +285,13 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		return nil
 	}
 
+	// Shed leftover cargo when we happen to be docked at home_base. Most pool
+	// agents were mining bots in a past life and still haul old ore that just
+	// starves the hold for deliver missions (and can strand a spent worker on
+	// top of sellable goods). Passive by design — only acts when a mission or
+	// reposition already parked us home, never diverts there.
+	missionUnloadAtHomeBase(ctx, deps, out)
+
 	// Idle and unencumbered: safe point for a treasury top-up before buying.
 	deps.Treasury.maybe(ctx, deps.Client, out, missionNow(deps))
 
@@ -709,6 +716,48 @@ func missionRouteClear(pathOf func(from, to string, weighted bool) (galaxy.Route
 		}
 	}
 	return true
+}
+
+// missionUnloadAtHomeBase clears leftover, non-mission cargo whenever the worker
+// is docked at its own home_base. Most pool agents were mining bots in a past
+// life and still carry ore that starves the hold for deliver missions and,
+// once a worker spends down, can strand it broke on top of sellable goods.
+// It runs at the idle point after missionResume, where anything still aboard is
+// leftover (not mission cargo), so clearing the whole hold is safe: sell each
+// item into a local buy order for credits, then DepositAllItems to sweep
+// whatever had no buyer into home storage — the hold is always freed. Passive
+// by design: it never diverts the worker home, only acts when a mission or
+// reposition already parked it there. Best-effort; sell/deposit errors are
+// logged and the cargo simply waits for the next home visit.
+func missionUnloadAtHomeBase(ctx context.Context, deps MissionDeps, out io.Writer) {
+	state := deps.Client.GetState()
+	if state == nil || state.Player.HomeBase == "" || state.CurrentPOI != state.Player.HomeBase {
+		return
+	}
+	var items []game.CargoItem
+	for _, c := range state.Ship.Cargo {
+		if c.Quantity > 0 {
+			items = append(items, c)
+		}
+	}
+	if len(items) == 0 {
+		return
+	}
+	sold := 0
+	for _, it := range items {
+		if err := deps.Client.Sell(ctx, it.ItemID, it.Quantity); err != nil {
+			continue // no local buyer (or transient) -> caught by the deposit sweep
+		}
+		sold++
+		fmt.Fprintf(out, "missions: sold %.0f %s at home base %s\n", it.Quantity, it.ItemID, state.CurrentPOI) //nolint:errcheck
+	}
+	// Sweep whatever did not sell into home storage so the hold is always freed
+	// for mission cargo. No-op server-side when the hold is already empty.
+	if err := deps.Client.DepositAllItems(ctx); err != nil {
+		fmt.Fprintf(out, "missions: home-base deposit of leftover cargo failed: %v\n", err) //nolint:errcheck
+		return
+	}
+	fmt.Fprintf(out, "missions: unloaded leftover cargo at home base %s (%d/%d item type(s) sold, rest deposited)\n", state.CurrentPOI, sold, len(items)) //nolint:errcheck
 }
 
 // missionResume handles missions held from a previous pass/process: deliverable

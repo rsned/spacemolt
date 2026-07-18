@@ -32,6 +32,7 @@ type fakeClient struct {
 
 	acceptErr      error   // when set, AcceptMission returns it instead of recording success
 	buyErr         error   // when set, Buy returns it instead of recording success
+	sellErr        error   // when set, Sell returns it (models "no local buyer")
 	completeReward float64 // credited to state.Credits on CompleteMission (mission tests)
 
 	viewStorageErr error // when set, ViewStorage returns it instead of recording success
@@ -69,7 +70,7 @@ func (f *fakeClient) Buy(ctx context.Context, itemID string, qty float64) error 
 }
 func (f *fakeClient) Sell(ctx context.Context, itemID string, qty float64) error {
 	f.calls = append(f.calls, "sell:"+itemID)
-	return nil
+	return f.sellErr
 }
 func (f *fakeClient) CreateSellOrder(ctx context.Context, payload map[string]any) error {
 	f.calls = append(f.calls, fmt.Sprintf("sell_order:%v@%v", payload["item_id"], payload["price_each"]))

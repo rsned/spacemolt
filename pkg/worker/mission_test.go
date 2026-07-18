@@ -972,3 +972,70 @@ func TestMissionsDefaultRepositionFindsRealStationPOI(t *testing.T) {
 		t.Fatalf("3rd dry pass must reposition to the real station POI, got %v", navTo)
 	}
 }
+
+// TestMissionUnloadAtHomeBase covers the leftover-cargo shed: at home_base it
+// sells each item then deposits the rest (hold always freed), the deposit sweep
+// still runs when there is no local buyer, and it is a no-op away from home,
+// with an empty home_base, or with an empty hold.
+func TestMissionUnloadAtHomeBase(t *testing.T) {
+	ctx := context.Background()
+	ore := func() []game.CargoItem {
+		return []game.CargoItem{{ItemID: "iron_ore", Quantity: 40}, {ItemID: "copper_ore", Quantity: 30}}
+	}
+	newFC := func(homeBase, currentPOI string, cargo []game.CargoItem) *fakeClient {
+		return &fakeClient{state: &game.State{
+			CurrentPOI: currentPOI,
+			Player:     game.Player{HomeBase: homeBase},
+			Ship:       game.Ship{Cargo: cargo},
+		}}
+	}
+
+	t.Run("at home base sells each item then deposits the rest", func(t *testing.T) {
+		fc := newFC("alpha_station", "alpha_station", ore())
+		var out strings.Builder
+		missionUnloadAtHomeBase(ctx, MissionDeps{Client: fc}, &out)
+		if got := strings.Join(fc.calls, ","); got != "sell:iron_ore,sell:copper_ore,deposit_all" {
+			t.Fatalf("calls = %q, want sell:iron_ore,sell:copper_ore,deposit_all", got)
+		}
+		if !strings.Contains(out.String(), "2/2 item type(s) sold") {
+			t.Errorf("summary missing sold count: %q", out.String())
+		}
+	})
+
+	t.Run("no local buyer still deposits (hold always freed)", func(t *testing.T) {
+		fc := newFC("alpha_station", "alpha_station", ore())
+		fc.sellErr = errors.New("no buy order for item")
+		var out strings.Builder
+		missionUnloadAtHomeBase(ctx, MissionDeps{Client: fc}, &out)
+		if got := strings.Join(fc.calls, ","); got != "sell:iron_ore,sell:copper_ore,deposit_all" {
+			t.Fatalf("calls = %q, want the sells attempted then a deposit sweep", got)
+		}
+		if !strings.Contains(out.String(), "0/2 item type(s) sold") {
+			t.Errorf("expected 0 sold in summary, got %q", out.String())
+		}
+	})
+
+	t.Run("away from home base is a no-op", func(t *testing.T) {
+		fc := newFC("alpha_station", "beta_station", ore())
+		missionUnloadAtHomeBase(ctx, MissionDeps{Client: fc}, io.Discard)
+		if len(fc.calls) != 0 {
+			t.Fatalf("want no calls away from home, got %v", fc.calls)
+		}
+	})
+
+	t.Run("empty home_base is a no-op", func(t *testing.T) {
+		fc := newFC("", "alpha_station", ore())
+		missionUnloadAtHomeBase(ctx, MissionDeps{Client: fc}, io.Discard)
+		if len(fc.calls) != 0 {
+			t.Fatalf("want no calls with empty home_base, got %v", fc.calls)
+		}
+	})
+
+	t.Run("empty hold is a no-op", func(t *testing.T) {
+		fc := newFC("alpha_station", "alpha_station", nil)
+		missionUnloadAtHomeBase(ctx, MissionDeps{Client: fc}, io.Discard)
+		if len(fc.calls) != 0 {
+			t.Fatalf("want no calls with empty hold, got %v", fc.calls)
+		}
+	})
+}
