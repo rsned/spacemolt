@@ -1,22 +1,60 @@
 # Mission LEARNING pool — delivery + exploration categories.
 #
-# The learning pool teaches the mission runner categories beyond the basic
-# delivery pool. It runs the same missionrunner role but with
-# mission_categories set, so these workers accept exploration missions
-# (pure-navigation visit_system/dock_at_base tours) in addition to deliveries.
-# Every dock leg fires a full market capture — paid coverage sweeps.
+# Expanded 2026-07-18 from the engineer-2 canary to the idle engineer/explorer/
+# fighter/random families. Every worker runs the missionrunner role with
+# mission_categories [delivery, exploration]: it takes delivery missions when its
+# ship can carry the cargo (pre-accept availability gate) and exploration
+# (pure-nav visit_system/dock_at_base) tours otherwise. Each dock leg fires a
+# full market capture — paid coverage sweeps across the whole idle fleet.
+#
+# Combat/explorer ships with little cargo will lean on exploration missions;
+# that is expected and fine. Launch the overmind with --stagger 10s (42 fresh
+# logins pace under the per-IP /login limit). Boards are shared per empire
+# region (agents pair 1-2/3-4/5-6/7-8), so co-located members that find no
+# acceptable mission park via the dry-board backoff instead of burning fuel.
 #
 # Spec: docs/superpowers/specs/2026-07-17-exploration-missions-design.md
-# Exploration executor: pkg/worker/mission_explore.go (live-validated
-# 2026-07-17: engineer-2 flew federation_market_analysis, +6000 cr).
-#
-# Start with engineer-2 (the validated canary). Expand to idle explorer/
-# engineer accounts by empire area — agents pair 1-2 / 3-4 / 5-6 / 7-8, so
-# each pair shares a board region; spread members across areas so they don't
-# contend for the same missions. Verify each agent's empire via get_status
-# before adding.
 workers:
-  - agent_id: engineer-2
-    role: missionrunner
-    station: ""
-    mission_categories: [delivery, exploration]
+  - { agent_id: engineer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: engineer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: engineer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: engineer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: engineer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: engineer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: engineer-7, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: engineer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: engineer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: engineer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-7, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-11, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-12, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-1, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-2, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-4, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-5, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-6, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-7, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-8, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-9, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-10, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: random-1, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: random-2, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: random-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: random-4, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: random-5, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: random-6, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  # random-7 shares random-6's game account ("Agent McAgentFace") — running both caused a
+  # session_replaced reconnect thrash, so it is intentionally omitted from the pool.
+  - { agent_id: random-8, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: random-9, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: random-npc, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
