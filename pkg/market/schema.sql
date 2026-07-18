@@ -92,6 +92,29 @@ CREATE TABLE IF NOT EXISTS arbitrage_opportunities (
 CREATE INDEX IF NOT EXISTS idx_arbitrage_status ON arbitrage_opportunities(status, expires_at);
 CREATE INDEX IF NOT EXISTS idx_arbitrage_item ON arbitrage_opportunities(item_id, status);
 
+-- Haul book coordination: one row per active claim on a book (item + source
+-- station). Concurrency cap and destination fan-out are derived from this roster.
+CREATE TABLE IF NOT EXISTS haul_book_claims (
+    claim_id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id         TEXT NOT NULL,
+    from_station_id TEXT NOT NULL,
+    opp_id          INTEGER NOT NULL,
+    to_station_id   TEXT NOT NULL,
+    agent_id        TEXT NOT NULL,
+    phase           TEXT NOT NULL DEFAULT 'claimed'
+                       CHECK (phase IN ('claimed','bought','released','done')),
+    bought_units    REAL NOT NULL DEFAULT 0,
+    claimed_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL,
+    expires_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_bookclaims_book
+    ON haul_book_claims(item_id, from_station_id, phase, expires_at);
+-- One ACTIVE claim per agent per book (released/done history rows are exempt).
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bookclaims_active_agent
+    ON haul_book_claims(item_id, from_station_id, agent_id)
+    WHERE phase IN ('claimed','bought');
+
 -- LLM market analysis (analyze_market output)
 CREATE TABLE IF NOT EXISTS analyses (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -116,6 +116,23 @@ func tableNames(db *sql.DB) (map[string]struct{}, error) {
 	return out, rows.Err()
 }
 
+func TestHaulBookClaimsTableCreated(t *testing.T) {
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	if err := runMigrations(db); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	var name string
+	err = db.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='table' AND name='haul_book_claims'`).Scan(&name)
+	if err != nil {
+		t.Fatalf("haul_book_claims table not created: %v", err)
+	}
+}
+
 func indexNames(db *sql.DB) (map[string]struct{}, error) {
 	rows, err := db.Query(`SELECT name FROM sqlite_master WHERE type='index'`)
 	if err != nil {
