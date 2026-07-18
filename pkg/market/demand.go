@@ -37,18 +37,22 @@ type CurrentBuyOrder struct {
 // row only when its latest capture is within one capture cycle (5 min < the
 // ~10-min marketbot cadence, > the few-second intra-capture write stagger) of
 // the STATION's latest capture — i.e. the item was present in the station's most
-// recent snapshot. Both sides go through datetime() so the "…Z" ISO strings and
-// SQLite's space-form datetime output compare as normalized instants, not raw
-// text (raw text would rank 'T' above ' ' and defeat the gate). Rarely-captured
-// stations (e.g. pirate bases off the marketbot rotation) still surface their
-// latest-known book — that IS their current snapshot — and the report flags it
-// STALE past demandStaleAfter.
+// recent snapshot. The station's latest capture is read from the already-joined
+// stations.last_updated_utc (upsertStation stamps it with every snapshot, so it
+// equals MAX(captured_at) for the station) — NOT a MAX(captured_at) GROUP BY
+// station over market_orders, which forces a full scan of the whole buy side
+// (~46M rows, 40+s) because captured_at trails item_id in the only buy index.
+// The PK join to stations is effectively free and keeps `demand --item` at ~2s.
+// Both sides go through datetime() so the "…Z" ISO strings and SQLite's
+// space-form datetime output compare as normalized instants, not raw text (raw
+// text would rank 'T' above ' ' and defeat the gate). Rarely-captured stations
+// (e.g. pirate bases off the marketbot rotation) still surface their latest-
+// known book — that IS their current snapshot — and the report flags it STALE
+// past demandStaleAfter. COALESCE falls back to the row's own capture (gate
+// passes) for any order whose station lacks a stations row.
 //
 // itemID, when non-empty, scopes the scan to that one item_id (pushed into the
-// per-item latest CTE and the outer filter). The station-latest CTE is
-// deliberately NOT item-filtered: the gate must compare against the station's
-// newest capture across ALL items, or a single-item scan would compare the item
-// against itself and never drop anything.
+// per-item latest CTE and the outer filter).
 func (c *Collector) LoadCurrentBuyOrders(ctx context.Context, itemID string) ([]CurrentBuyOrder, error) {
 	cteItem, outerItem := "", ""
 	var args []any
@@ -58,13 +62,7 @@ func (c *Collector) LoadCurrentBuyOrders(ctx context.Context, itemID string) ([]
 		args = []any{itemID, itemID}
 	}
 	rows, err := c.db.QueryContext(ctx, `
-		WITH station_latest AS (
-			SELECT station_id, MAX(captured_at) AS smx
-			FROM market_orders
-			WHERE side = 'buy'
-			GROUP BY station_id
-		),
-		latest AS (
+		WITH latest AS (
 			SELECT station_id, item_id, MAX(captured_at) AS mx
 			FROM market_orders
 			WHERE side = 'buy'`+cteItem+`
@@ -78,11 +76,10 @@ func (c *Collector) LoadCurrentBuyOrders(ctx context.Context, itemID string) ([]
 		JOIN latest l ON l.station_id = o.station_id
 		             AND l.item_id = o.item_id
 		             AND l.mx = o.captured_at
-		JOIN station_latest sl ON sl.station_id = o.station_id
 		LEFT JOIN stations s ON s.station_id = o.station_id
 		LEFT JOIN items i ON i.item_id = o.item_id
 		WHERE o.side = 'buy' AND o.price_each > 0 AND o.quantity > 0`+outerItem+`
-		  AND datetime(l.mx) >= datetime(sl.smx, '-5 minutes')
+		  AND datetime(l.mx) >= datetime(COALESCE(s.last_updated_utc, l.mx), '-5 minutes')
 		ORDER BY o.station_id, o.item_id, o.price_each DESC`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query current buy orders: %w", err)

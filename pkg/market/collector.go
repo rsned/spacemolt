@@ -401,6 +401,12 @@ func (c *Collector) upsertOHLCV(tx *sql.Tx, ohlcv OHLCV) error {
 // depth is "at most one per hour" (the hourly schedule is the intended driver).
 func (c *Collector) WriteSnapshot(ctx context.Context, snapshot MarketSnapshot) error {
 	now := time.Now().UTC().Format(time.RFC3339)
+	// last_updated_utc tracks the capture time (snapshot.CapturedAt), not the
+	// write moment: it must equal the station's MAX(market_orders.captured_at)
+	// so the demand liveness gate can read it as the station's latest-capture
+	// instant without a full-table scan (see LoadCurrentBuyOrders). In live
+	// capture these coincide, but backfills/replays would diverge under now().
+	captured := snapshot.CapturedAt.UTC().Format(time.RFC3339)
 	bucketUTC := snapshot.CapturedAt.UTC().Truncate(time.Hour).Format(time.RFC3339)
 
 	return c.writeRetry(ctx, func(tx *sql.Tx) error {
@@ -411,7 +417,7 @@ func (c *Collector) WriteSnapshot(ctx context.Context, snapshot MarketSnapshot) 
 			SystemID:       snapshot.SystemID,
 			SystemName:     snapshot.SystemName,
 			FirstSeenUTC:   now,
-			LastUpdatedUTC: now,
+			LastUpdatedUTC: captured,
 		}); err != nil {
 			return fmt.Errorf("upsert station: %w", err)
 		}
