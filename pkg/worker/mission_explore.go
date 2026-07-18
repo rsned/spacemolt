@@ -400,6 +400,7 @@ func missionAcceptAndExplore(ctx context.Context, deps MissionDeps, out io.Write
 		deps.State.parkedUntil = time.Time{}
 	}
 	fmt.Fprintf(out, "missions: running exploration %s (%s): %d leg(s), %d jumps, est net %.0f\n", c.Entry.MissionID, c.Entry.Title, len(c.Legs), c.Jumps, c.Net) //nolint:errcheck
+	publishActivity(deps.SetActivity, "Mission "+c.Entry.Title)
 	missionRunExplore(ctx, deps, out, c, acceptSystem, acceptPOI, fromBase, acceptedAt, acceptedTick, strongholds)
 	return nil
 }
@@ -438,6 +439,7 @@ func missionResumeExplore(ctx context.Context, deps MissionDeps, out io.Writer, 
 		poi = st.CurrentPOI
 	}
 	fmt.Fprintf(out, "missions: resuming exploration %s (%s): %d leg(s) remaining\n", m.MissionID, m.Title, len(remaining)) //nolint:errcheck
+	publishActivity(deps.SetActivity, "Mission "+m.Title)
 	missionRunExplore(ctx, deps, out, held, current, poi, "", rfc(missionNow(deps)), missionTick(deps), strongholds)
 	return true
 }

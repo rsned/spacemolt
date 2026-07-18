@@ -1,0 +1,49 @@
+package worker
+
+import (
+	"testing"
+
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/market"
+)
+
+func TestHaulActivityLabel(t *testing.T) {
+	got := haulActivityLabel(market.ArbitrageOpportunity{
+		ID: 100042, Quantity: 24, ItemName: "power_cell",
+		FromStationName: "Sol Station", ToStationName: "Gold Run Extraction Hub",
+	})
+	want := "Opportunity #100042 24 power_cell from Sol Station to Gold Run Extraction Hub"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestHaulActivityLabelFallsBackToIDs(t *testing.T) {
+	// Names unjoined -> fall back to ids so the line is never blank mid-fields.
+	got := haulActivityLabel(market.ArbitrageOpportunity{
+		ID: 7, Quantity: 5, ItemID: "iron_ore",
+		FromStationID: "stn_a", ToStationID: "stn_b",
+	})
+	want := "Opportunity #7 5 iron_ore from stn_a to stn_b"
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestMissionActivityLabel(t *testing.T) {
+	if got := missionActivityLabel(nil); got != "" {
+		t.Errorf("empty set: got %q, want \"\"", got)
+	}
+	single := []missionCandidate{{Entry: serverapi.MissionBoardEntry{Title: "Steel Plate Order"}}}
+	if got := missionActivityLabel(single); got != "Mission Steel Plate Order" {
+		t.Errorf("single: got %q", got)
+	}
+	multi := []missionCandidate{
+		{Entry: serverapi.MissionBoardEntry{Title: "Steel Plate Order"}},
+		{Entry: serverapi.MissionBoardEntry{Title: "Copper Requisition"}},
+		{Entry: serverapi.MissionBoardEntry{Title: "Iron Supply Run"}},
+	}
+	if got := missionActivityLabel(multi); got != "Mission Steel Plate Order (+2 more)" {
+		t.Errorf("multi: got %q", got)
+	}
+}

@@ -449,6 +449,29 @@ type HaulDeps struct {
 	// FuelPrices supplies captured station fuel prices for net-of-fuel ranking and
 	// gating. nil disables fuel accounting (ranking/gating fall back to gross-only).
 	FuelPrices FuelPriceSource
+	// SetActivity publishes a short human-readable "current activity" string for
+	// the fleet status page (nil in tests). Best-effort; set when a haul is
+	// claimed, cleared ("") when the pass finds no work.
+	SetActivity func(string)
+}
+
+// haulActivityLabel renders a claimed opportunity as the status-page activity
+// line, e.g. "Opportunity #100042 24 power_cell from Sol Station to Gold Run".
+// Names are joined on read; it falls back to ids when a name is missing.
+func haulActivityLabel(opp market.ArbitrageOpportunity) string {
+	item := opp.ItemName
+	if item == "" {
+		item = opp.ItemID
+	}
+	from := opp.FromStationName
+	if from == "" {
+		from = opp.FromStationID
+	}
+	to := opp.ToStationName
+	if to == "" {
+		to = opp.ToStationID
+	}
+	return fmt.Sprintf("Opportunity #%d %.0f %s from %s to %s", opp.ID, opp.Quantity, item, from, to)
 }
 
 // haulMetrics accumulates per-leg stamps (wall + game tick) and pricing across one fresh
@@ -490,6 +513,9 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	if out == nil {
 		out = io.Discard
 	}
+	// Clear last pass's activity up front so the idle-return paths (no opps, all
+	// claimed, stronghold-only) report blank; the claim site below sets it.
+	publishActivity(deps.SetActivity, "")
 	if deps.Market == nil {
 		fmt.Fprintln(out, "haul: market collector not configured; skipping") //nolint:errcheck
 		return nil
@@ -645,6 +671,8 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		fmt.Fprintln(out, "haul: all candidates already claimed; idling") //nolint:errcheck
 		return nil
 	}
+
+	publishActivity(deps.SetActivity, haulActivityLabel(opp))
 
 	m := &haulMetrics{claimedAt: haulNow(deps), claimedTick: haulTick(deps)}
 	if buySys := nameToID[opp.FromSystemName]; buySys != "" {

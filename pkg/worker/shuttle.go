@@ -91,6 +91,9 @@ type ShuttleDeps struct {
 	// State carries cross-pass shuttle memory (dry-pass streak + reposition
 	// cursor). nil disables repositioning (the shuttle just idles in place).
 	State *shuttleState
+	// SetActivity publishes the status-page "current activity" string (nil in
+	// tests). Set when passengers are boarded, cleared ("") on an idle pass.
+	SetActivity func(string)
 }
 
 func shuttleNow(deps ShuttleDeps) time.Time {
@@ -120,6 +123,8 @@ type shuttleCandidate struct {
 // retries; aboard passengers auto-deliver whenever the ship next docks at their
 // destination, so a partial run is never a hard loss.
 func Shuttle(ctx context.Context, deps ShuttleDeps) error {
+	// Clear last pass's activity; the board site below sets it when we load fares.
+	publishActivity(deps.SetActivity, "")
 	out := deps.Out
 	if out == nil {
 		out = io.Discard
@@ -234,6 +239,7 @@ func Shuttle(ctx context.Context, deps ShuttleDeps) error {
 	}
 	fmt.Fprintf(out, "shuttle: boarded %d for %s (%s, %d jumps) — %d cr booked\n", //nolint:errcheck
 		loadResp.Count, c.sysName, c.station, c.jumpDist, loadResp.TotalFare)
+	publishActivity(deps.SetActivity, fmt.Sprintf("Hauling %d passengers from %s to %s", loadResp.Count, current, c.station))
 	deps.State.boarded()
 	return shuttleDeliver(ctx, deps, out, c, loadResp.TotalFare)
 }

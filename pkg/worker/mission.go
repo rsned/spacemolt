@@ -141,6 +141,24 @@ type MissionDeps struct {
 	// ctx-aware real sleep). Tests inject a zero-delay stand-in so the suite
 	// doesn't accumulate real SleepQuick waits — the craftPollSleep pattern.
 	sleep func(ctx context.Context, d time.Duration) error
+	// SetActivity publishes the status-page "current activity" string (nil in
+	// tests). Set when a mission is accepted or a held one resumed, cleared
+	// ("") on a dry pass.
+	SetActivity func(string)
+}
+
+// missionActivityLabel renders the accepted set as the status-page activity
+// line, e.g. "Mission Steel Plate Order" (or "Mission X (+2 more)" for a
+// stacked trip). Empty input yields "".
+func missionActivityLabel(accepted []missionCandidate) string {
+	if len(accepted) == 0 {
+		return ""
+	}
+	label := "Mission " + accepted[0].Entry.Title
+	if n := len(accepted) - 1; n > 0 {
+		label += fmt.Sprintf(" (+%d more)", n)
+	}
+	return label
 }
 
 // missionCategoryEnabled reports whether the board category is allowlisted.
@@ -176,6 +194,9 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	if out == nil {
 		out = io.Discard
 	}
+	// Clear last pass's activity; the resume and accept sites below set it when
+	// a mission is in hand, so a dry pass reports blank.
+	publishActivity(deps.SetActivity, "")
 	if deps.Market == nil {
 		fmt.Fprintln(out, "missions: market collector not configured; skipping") //nolint:errcheck
 		return nil
@@ -457,6 +478,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	if len(accepted) == 0 {
 		return missionDryPass(ctx, deps, out)
 	}
+	publishActivity(deps.SetActivity, missionActivityLabel(accepted))
 
 	// Resolve each acceptance's real (hex) active-mission id before touching
 	// cargo: board ids are template-ish, and complete_mission/abandon_mission
@@ -824,6 +846,7 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 				continue
 			}
 			fmt.Fprintf(out, "missions: resuming held %s (%s) -> %s\n", m.MissionID, m.Title, o.TargetBase) //nolint:errcheck
+			publishActivity(deps.SetActivity, "Mission "+m.Title)
 			if nerr := deps.nav(ctx, destSys, o.TargetBase); nerr != nil {
 				fmt.Fprintf(out, "missions: resume transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
 				return true

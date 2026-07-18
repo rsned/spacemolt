@@ -215,11 +215,22 @@ func renderRow(b *strings.Builder, w balances.LiveRecord, hs *HaulStats, now tim
 	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(positionText(w)))
 	fmt.Fprintf(b, "<td>%s</td>", html.EscapeString(lastSeenText(w, now)))
 	b.WriteString("</tr>\n")
+	if strings.TrimSpace(w.Activity) != "" {
+		renderActivityLine(b, w.Activity)
+	}
 	if hs != nil {
 		if lt, ok := hs.Lifetime[w.AgentID]; ok {
 			renderLifetimeLine(b, lt)
 		}
 	}
+}
+
+// renderActivityLine emits a greyed sub-row spanning all six columns describing
+// the worker's current unit of work — the mission, arbitrage opportunity,
+// passenger batch, or rescue target the role published on its last heartbeat.
+// Haulers show this line above their lifetime-throughput line.
+func renderActivityLine(b *strings.Builder, activity string) {
+	fmt.Fprintf(b, "<tr class=\"eff-line\"><td colspan=\"6\" class=\"subtle\">%s</td></tr>\n", html.EscapeString(activity))
 }
 
 // renderEffPanel renders the fleet efficiency headline above the per-overmind

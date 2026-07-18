@@ -81,6 +81,9 @@ func main() {
 	standing := "idle"
 	var pendingTask atomic.Pointer[worker.AssignedTask]
 	var activeTaskID atomic.Pointer[string]
+	// activity carries the role goroutine's current human-readable unit of work
+	// (set via WorkerDispatch.setActivity) for the heartbeat goroutine to report.
+	var activity atomic.Pointer[string]
 	if hasIntent {
 		standing = savedIntent.StandingBehavior
 		if savedIntent.ActiveTaskID != "" {
@@ -272,6 +275,7 @@ func main() {
 			dispatch := worker.NewWorkerDispatch(client, kb, mc, os.Stdout)
 			dispatch.AgentID = *agentID
 			dispatch.Station = *station
+			dispatch.SetActivitySink(&activity)
 			dispatch.Rescue = rescue.NewQueue(*rescueQueuePath)
 			if *missionCategories != "" {
 				for c := range strings.SplitSeq(*missionCategories, ",") {
@@ -376,7 +380,11 @@ func main() {
 				if p := activeTaskID.Load(); p != nil {
 					tid = *p
 				}
-				status := buildStatus(nowState, standing, tid, drained.Load(), time.Now())
+				act := ""
+				if p := activity.Load(); p != nil {
+					act = *p
+				}
+				status := buildStatus(nowState, standing, tid, act, drained.Load(), time.Now())
 				if sendErr := sendEnvelope(enc, control.TypeStatus, *agentID, status); sendErr != nil {
 					logger.Printf("warning: send status: %v", sendErr)
 				}
@@ -462,7 +470,7 @@ func nudgeReconnect(c reconnectable) bool {
 }
 
 // buildStatus constructs a control.Status heartbeat snapshot from game state.
-func buildStatus(st *game.State, standing, taskID string, drained bool, now time.Time) control.Status {
+func buildStatus(st *game.State, standing, taskID, activity string, drained bool, now time.Time) control.Status {
 	return control.Status{
 		System: displaySystem(st),
 		POI:    st.CurrentPOI,
@@ -480,6 +488,7 @@ func buildStatus(st *game.State, standing, taskID string, drained bool, now time
 		CargoCapacity:    st.Ship.CargoCapacity,
 		StandingBehavior: standing,
 		ActiveTaskID:     taskID,
+		Activity:         activity,
 		FactionID:        st.Player.FactionID,
 		FactionTag:       st.Player.FactionTag,
 		Drained:          drained,

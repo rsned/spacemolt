@@ -249,8 +249,8 @@ func recordBalances(ctx context.Context, logger *log.Logger, recorder *balances.
 			Docked: st.Docked, Credits: st.Credits, Hull: st.Hull, MaxHull: st.MaxHull,
 			Fuel: st.Fuel, MaxFuel: st.MaxFuel,
 			CargoUsed: st.CargoUsed, CargoCapacity: st.CargoCapacity,
-			StandingBehavior: st.StandingBehavior,
-			ActiveTaskID:     st.ActiveTaskID, FactionID: st.FactionID, FactionTag: st.FactionTag,
+			StandingBehavior: st.StandingBehavior, Activity: st.Activity,
+			ActiveTaskID: st.ActiveTaskID, FactionID: st.FactionID, FactionTag: st.FactionTag,
 			Healthy: w.Healthy, Restarts: w.Restarts,
 			Quarantined: w.Quarantined, QuarantineReason: w.QuarantineReason,
 			// Seen requires a real status heartbeat (Timestamp is always set on

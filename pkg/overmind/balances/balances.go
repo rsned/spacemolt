@@ -39,10 +39,14 @@ type LiveRecord struct {
 	CargoCapacity    float64 `json:"cargo_capacity"`
 	StandingBehavior string  `json:"standing_behavior"`
 	ActiveTaskID     string  `json:"active_task_id"`
-	FactionID        string  `json:"faction_id,omitempty"`
-	FactionTag       string  `json:"faction_tag,omitempty"`
-	Healthy          bool    `json:"healthy"`
-	Restarts         int     `json:"restarts"`
+	// Activity is a short human-readable description of the worker's current
+	// unit of work (e.g. "Opportunity #100042 24 power_cell from A to B"),
+	// surfaced as a sub-line on the status page. Empty when idle.
+	Activity   string `json:"activity,omitempty"`
+	FactionID  string `json:"faction_id,omitempty"`
+	FactionTag string `json:"faction_tag,omitempty"`
+	Healthy    bool   `json:"healthy"`
+	Restarts   int    `json:"restarts"`
 	// Quarantined mirrors the supervisor's pulled-from-fleet state; the reason
 	// says why (e.g. "fuel-dead: ..."). Omitted for healthy workers.
 	Quarantined      bool   `json:"quarantined,omitempty"`

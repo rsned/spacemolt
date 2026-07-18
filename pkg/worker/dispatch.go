@@ -6,6 +6,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -68,6 +69,34 @@ type WorkerDispatch struct {
 	// command. Defaults to a real Autopilot round-trip; tests override it to
 	// avoid driving the routing loop against a stub client.
 	ensureHomeNav func(ctx context.Context, system, poi string) error
+
+	// activitySink, when wired via SetActivitySink, receives a short
+	// human-readable description of the role's current unit of work (e.g.
+	// "Mission Steel Plate Order"). The worker's heartbeat goroutine reads the
+	// same atomic, so roles publish through setActivity rather than touching it
+	// directly. nil (tests, non-heartbeat callers) makes setActivity a no-op.
+	activitySink *atomic.Pointer[string]
+}
+
+// SetActivitySink wires the shared atomic the worker heartbeat reads so role
+// commands can publish a "current activity" string for the fleet status page.
+// The caller (cmd/worker) owns the pointer; the dispatch only writes through it.
+func (d *WorkerDispatch) SetActivitySink(p *atomic.Pointer[string]) { d.activitySink = p }
+
+// setActivity publishes s as the worker's current activity (cleared with ""),
+// no-op when no sink is wired.
+func (d *WorkerDispatch) setActivity(s string) {
+	if d.activitySink != nil {
+		d.activitySink.Store(&s)
+	}
+}
+
+// publishActivity is the nil-safe way a role reports its current activity: the
+// SetActivity hook is nil in tests and any non-dispatch caller.
+func publishActivity(set func(string), s string) {
+	if set != nil {
+		set(s)
+	}
 }
 
 // NewWorkerDispatch builds a dispatch over the given client, KB, and optional
@@ -176,8 +205,9 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		}
 		return Haul(ctx, HaulDeps{
 			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
-			Treasury:   d.treasury,
-			FuelPrices: d.Market,
+			Treasury:    d.treasury,
+			FuelPrices:  d.Market,
+			SetActivity: d.setActivity,
 			RecaptureBuyMarket: func(ctx context.Context) error {
 				if err := d.Client.ViewMarket(ctx, map[string]any{}); err != nil {
 					return err
@@ -193,7 +223,8 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return Missions(ctx, MissionDeps{
 			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
 			Treasury: d.treasury, FuelPrices: d.Market, State: d.mission,
-			Categories: d.MissionCategories,
+			Categories:  d.MissionCategories,
+			SetActivity: d.setActivity,
 			// Exploration dock legs double as market-coverage sweeps: full
 			// view_market capture into market.db (haul's recapture pattern)
 			// plus the knowledge-side demand ledger.
@@ -208,6 +239,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 	case "shuttle":
 		return Shuttle(ctx, ShuttleDeps{
 			Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID, Treasury: d.treasury, State: d.shuttle,
+			SetActivity: d.setActivity,
 		})
 	case "assist":
 		if d.Rescue == nil {
@@ -216,6 +248,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return Assist(ctx, AssistDeps{
 			Client: d.Client, KB: d.KB, Queue: d.Rescue, Out: d.Out,
 			AgentID: d.AgentID, HomeStation: d.Station,
+			SetActivity: d.setActivity,
 		})
 	case "deliver":
 		if len(args) < 5 {

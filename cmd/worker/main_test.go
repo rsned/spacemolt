@@ -17,7 +17,7 @@ func TestBuildStatusAndKnownState(t *testing.T) {
 	st.Player.FactionID = "fac-hash-123"
 	st.Player.FactionTag = "YSMT"
 	now := time.Unix(1000, 0)
-	got := buildStatus(st, "track_station", "t-1", false, now)
+	got := buildStatus(st, "track_station", "t-1", "", false, now)
 	if got.System != "SOL" || got.POI != "ST-9" || got.Credits != 5000 {
 		t.Fatalf("buildStatus wrong: %+v", got)
 	}
@@ -52,12 +52,12 @@ func TestBuildStatusDockedOnlyAtStation(t *testing.T) {
 	now := time.Unix(1000, 0)
 	// Parked at a gas cloud: has a POI, but the server flag is false.
 	parked := &game.State{CurrentSystem: "scheat", CurrentPOI: "scheat_haze", Doc: false}
-	if buildStatus(parked, "shuttle", "", false, now).Docked {
+	if buildStatus(parked, "shuttle", "", "", false, now).Docked {
 		t.Fatal("parked at a non-station POI must report Docked=false")
 	}
 	// In transit: Doc may linger from the last dock, but Traveling is set.
 	transit := &game.State{CurrentSystem: "sol", CurrentPOI: "sol_station", Doc: true, Traveling: true}
-	if buildStatus(transit, "hauler", "", false, now).Docked {
+	if buildStatus(transit, "hauler", "", "", false, now).Docked {
 		t.Fatal("in transit must report Docked=false even with a lingering Doc")
 	}
 	if buildKnownState(transit, 1).Docked {
@@ -71,7 +71,7 @@ func TestBuildStatusPrefersSystemDisplayName(t *testing.T) {
 	// name so the fleet report is consistent rather than half ids / half names.
 	st := &game.State{CurrentSystem: "the_crucible", CurrentPOI: "the_crucible_complex"}
 	st.System = game.SystemData{ID: "the_crucible", Name: "The Crucible"}
-	got := buildStatus(st, "hauler", "", false, time.Unix(1000, 0))
+	got := buildStatus(st, "hauler", "", "", false, time.Unix(1000, 0))
 	if got.System != "The Crucible" {
 		t.Fatalf("System = %q, want display name %q", got.System, "The Crucible")
 	}
@@ -82,7 +82,7 @@ func TestBuildStatusFallsBackWhenSystemDataStale(t *testing.T) {
 	// fall back to CurrentSystem rather than mislabel the worker's location.
 	st := &game.State{CurrentSystem: "krynn"}
 	st.System = game.SystemData{ID: "sol", Name: "Sol"}
-	got := buildStatus(st, "hauler", "", false, time.Unix(1000, 0))
+	got := buildStatus(st, "hauler", "", "", false, time.Unix(1000, 0))
 	if got.System != "krynn" {
 		t.Fatalf("System = %q, want fallback %q", got.System, "krynn")
 	}
@@ -90,10 +90,10 @@ func TestBuildStatusFallsBackWhenSystemDataStale(t *testing.T) {
 
 func TestBuildStatusCarriesDrained(t *testing.T) {
 	st := &game.State{CurrentSystem: "sol"}
-	if got := buildStatus(st, "hauler", "", true, time.Unix(1000, 0)); !got.Drained {
+	if got := buildStatus(st, "hauler", "", "", true, time.Unix(1000, 0)); !got.Drained {
 		t.Fatalf("Drained = false, want true")
 	}
-	if got := buildStatus(st, "hauler", "", false, time.Unix(1000, 0)); got.Drained {
+	if got := buildStatus(st, "hauler", "", "", false, time.Unix(1000, 0)); got.Drained {
 		t.Fatalf("Drained = true, want false")
 	}
 }

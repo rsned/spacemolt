@@ -49,10 +49,15 @@ type Status struct {
 	CargoCapacity    float64 `json:"cargo_capacity"`
 	StandingBehavior string  `json:"standing_behavior"`
 	ActiveTaskID     string  `json:"active_task_id"`
-	FactionID        string  `json:"faction_id,omitempty"`
-	FactionTag       string  `json:"faction_tag,omitempty"`
-	Drained          bool    `json:"drained,omitempty"`
-	Timestamp        string  `json:"timestamp"`
+	// Activity is a short human-readable description of the unit of work the
+	// standing role is currently doing (e.g. "Mission Steel Plate Order",
+	// "Rescuing haul-3"). Empty when idle. Produced by the role goroutine and
+	// read by the heartbeat goroutine via a shared atomic on WorkerDispatch.
+	Activity   string `json:"activity,omitempty"`
+	FactionID  string `json:"faction_id,omitempty"`
+	FactionTag string `json:"faction_tag,omitempty"`
+	Drained    bool   `json:"drained,omitempty"`
+	Timestamp  string `json:"timestamp"`
 }
 
 // Event is a notable worker-side occurrence (action result, danger signal).

@@ -97,6 +97,9 @@ type AssistDeps struct {
 	HomeStation string // station POI id at the home capital (fleet yaml `station`)
 	// Navigate overrides Autopilot in tests; nil uses the real thing.
 	Navigate func(ctx context.Context, system, poi string) error
+	// SetActivity publishes the status-page "current activity" string (nil in
+	// tests). Set while rescuing a target, cleared ("") when idle at home.
+	SetActivity func(string)
 }
 
 func (d AssistDeps) navigate(ctx context.Context, system, poi string) error {
@@ -110,6 +113,8 @@ func (d AssistDeps) navigate(ctx context.Context, system, poi string) error {
 // re-invokes it): resume an owned claim, else claim the nearest pending
 // rescue, else make sure we are docked at home with a full tank.
 func Assist(ctx context.Context, deps AssistDeps) error {
+	// Clear last pass's activity; runRescue sets it when we take a target.
+	publishActivity(deps.SetActivity, "")
 	recs, err := deps.Queue.List()
 	if err != nil {
 		fmt.Fprintf(deps.Out, "assist: queue read: %v\n", err) //nolint:errcheck
@@ -224,6 +229,7 @@ func runRescue(ctx context.Context, deps AssistDeps, rec rescue.Record) error {
 		return assistEnsureHome(ctx, deps)
 	}
 	fmt.Fprintf(deps.Out, "assist: rescuing %s at %s/%s (%d fuel)\n", rec.AgentID, rec.SystemID, rec.POI, rec.RescueFuel) //nolint:errcheck
+	publishActivity(deps.SetActivity, "Rescuing "+rec.AgentID)
 	if err := deps.navigate(ctx, rec.SystemID, rec.POI); err != nil {
 		// Mid-hyperspace-jump the server answers find_route with "You are
 		// not in a system" — a worker restarted in transit hits this on its
