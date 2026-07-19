@@ -104,15 +104,15 @@ type CarrierCapacity struct {
 
 // CarrierTierProgress is progress toward the next carrier tier.
 type CarrierTierProgress struct {
-	CurrentTier                  string `json:"current_tier"`
-	NextTier                     string `json:"next_tier,omitempty"`
-	AtMaximumTier                bool   `json:"at_maximum_tier"`
-	SuccessfulDeliveries         int    `json:"successful_deliveries"`
-	RequiredSuccessfulDeliveries int    `json:"required_successful_deliveries"`
-	RemainingSuccessfulDeliveries int   `json:"remaining_successful_deliveries"`
-	DeliveredValue               int64  `json:"delivered_value"`
-	RequiredDeliveredValue       int64  `json:"required_delivered_value"`
-	RemainingDeliveredValue      int64  `json:"remaining_delivered_value"`
+	CurrentTier                   string `json:"current_tier"`
+	NextTier                      string `json:"next_tier,omitempty"`
+	AtMaximumTier                 bool   `json:"at_maximum_tier"`
+	SuccessfulDeliveries          int    `json:"successful_deliveries"`
+	RequiredSuccessfulDeliveries  int    `json:"required_successful_deliveries"`
+	RemainingSuccessfulDeliveries int    `json:"remaining_successful_deliveries"`
+	DeliveredValue                int64  `json:"delivered_value"`
+	RequiredDeliveredValue        int64  `json:"required_delivered_value"`
+	RemainingDeliveredValue       int64  `json:"remaining_delivered_value"`
 }
 
 // FreightDebt is an outstanding failure-debt owed by a carrier.
@@ -131,18 +131,18 @@ type FreightDebt struct {
 // |ship|player_storage|faction_storage|faction_bucket|wreck|unpack_job_escrow|
 // destroyed|unknown).
 type ShipmentTrackingEvent struct {
-	ID          string         `json:"id"`
-	ShipmentID  string         `json:"shipment_id"`
-	PackageID   string         `json:"package_id"`
-	Class       string         `json:"class"`
-	Custodian   *ShipmentActor `json:"custodian,omitempty"`
-	Fingerprint string         `json:"fingerprint"`
-	ObservedAt  string         `json:"observed_at"`
-	ObservedTick int64         `json:"observed_tick"`
-	BaseID      string         `json:"base_id,omitempty"`
-	POIID       string         `json:"poi_id,omitempty"`
-	ReferenceID string         `json:"reference_id,omitempty"`
-	SystemID    string         `json:"system_id,omitempty"`
+	ID           string         `json:"id"`
+	ShipmentID   string         `json:"shipment_id"`
+	PackageID    string         `json:"package_id"`
+	Class        string         `json:"class"`
+	Custodian    *ShipmentActor `json:"custodian,omitempty"`
+	Fingerprint  string         `json:"fingerprint"`
+	ObservedAt   string         `json:"observed_at"`
+	ObservedTick int64          `json:"observed_tick"`
+	BaseID       string         `json:"base_id,omitempty"`
+	POIID        string         `json:"poi_id,omitempty"`
+	ReferenceID  string         `json:"reference_id,omitempty"`
+	SystemID     string         `json:"system_id,omitempty"`
 }
 
 // ShippingListResponse is action=list (the docked freight board).
@@ -198,6 +198,7 @@ type ShippingDebtPaymentResponse struct {
 	Capacity             CarrierCapacity     `json:"capacity"`
 	Progression          CarrierTierProgress `json:"progression"`
 	DebtBlocksAcceptance bool                `json:"debt_blocks_acceptance"`
+	DebtBlockReason      string              `json:"debt_block_reason,omitempty"`
 	UpdatedDebts         []FreightDebt       `json:"updated_debts"`
 	OutstandingDebts     []FreightDebt       `json:"outstanding_debts"`
 }
