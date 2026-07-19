@@ -1,12 +1,12 @@
 package worker
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"slices"
-	"sort"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
@@ -493,7 +493,15 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 					deps.State.markAttempted(c.Entry.MissionID)
 					continue
 				}
-				c.ItemCost, c.Net = localCost, net // buy step reads ItemCost for unit cost
+				// ItemCost carries avgFill*BuyQty (the market avg price applied to
+				// the FULL buy qty), not localCost (which only covers the
+				// market-bought portion when storage covers part of BuyQty).
+				// Downstream unitCost := ItemCost/BuyQty must equal avgFill so
+				// that only-the-bought-units costing (remaining*unitCost) prices
+				// them at the real market rate rather than an understated blend.
+				// c.Net still uses the true economic cost (localCost — storage
+				// units are free) and is unaffected by this.
+				c.ItemCost, c.Net = avgFill*float64(c.BuyQty), net
 				acquirable = append(acquirable, c)
 			}
 			set = acquirable
@@ -1037,7 +1045,7 @@ func missionFetchMarketLadders(ctx context.Context, deps MissionDeps) (map[strin
 			}
 			lvls = append(lvls, market.AskLevel{PriceEach: o.PriceEach, Quantity: o.Quantity})
 		}
-		sort.Slice(lvls, func(a, b int) bool { return lvls[a].PriceEach < lvls[b].PriceEach })
+		slices.SortFunc(lvls, func(a, b market.AskLevel) int { return cmp.Compare(a.PriceEach, b.PriceEach) })
 		ladders[it.ItemID] = lvls
 	}
 	return ladders, nil

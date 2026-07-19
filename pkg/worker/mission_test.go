@@ -548,8 +548,17 @@ func TestMissionsAvailabilityGateSkipsUnacquirable(t *testing.T) {
 // filter. The local depth-walk gate must re-price against the live ladder,
 // see the volume-weighted fill blow past the surge ceiling, and skip the
 // mission entirely -- no buy, no accept-then-abandon churn.
+//
+// reward is deliberately set well above localCost (≈44030) + missionMinNet so
+// the net-floor branch would NOT skip this mission on its own: the gate
+// checks surge before the net floor, so this was already exercising the
+// surge branch, but with the old low reward the net floor would ALSO have
+// skipped it -- meaning deleting the surge check entirely still left this
+// test green, silently failing to pin the surge ceiling (the feature's
+// headline behavior). With reward=60000 (net ≈ 15970, comfortably above the
+// 500 floor), only the surge ceiling can cause the skip.
 func TestMissionSkipsLocalPriceSurge(t *testing.T) {
-	entry := boardEntry("m1", "iron_ore", 25, "sol_station", "sol", 5000, 0)
+	entry := boardEntry("m1", "iron_ore", 25, "sol_station", "sol", 60000, 0)
 	fc := &fakeClient{
 		state: missionState(true, 50000, 0),
 		raw: map[string][]byte{
@@ -832,6 +841,62 @@ func TestMissionsStorageFirstPartialStock(t *testing.T) {
 	}
 	if got := store.results[0].ItemCost; got != 160 {
 		t.Fatalf("ItemCost must be prorated to the 8 bought units (8x20=160), got %v", got)
+	}
+}
+
+// TestMissionsGatePartialStorageLivePriceItemCost covers the review finding:
+// when the availability gate re-prices against a LIVE market ladder (unlike
+// TestMissionsStorageFirstPartialStock, where no "market" fixture means the
+// gate is skipped and the coarse refAsk-based ItemCost survives untouched),
+// storage covers only part of BuyQty. The gate must price the recorded
+// ItemCost so that the downstream unitCost (ItemCost/BuyQty) equals the
+// market's volume-weighted avgFill for the market-bought portion — not
+// localCost/BuyQty, which understates unitCost by the storage-covered
+// fraction and back-computes a too-low ItemCost for the bought units.
+//
+// Numbers: BuyQty=20, storage=12 -> marketQty=8. Ladder {10x5, 2000x100}:
+// buying 8 units costs 5*10 + 3*2000 = 6050 (localCost), avgFill=6050/8=756.25.
+// Withdraw takes exactly 12, remaining=8 (== marketQty), so the correct final
+// ItemCost is exactly localCost (6050) -- the true cost of the 8 bought
+// units. The old buggy path (c.ItemCost=localCost=6050 at the gate) computes
+// unitCost=6050/20=302.5, then final ItemCost=8*302.5=2420, understating the
+// real 6050 by the 8/20 storage-covered fraction.
+func TestMissionsGatePartialStorageLivePriceItemCost(t *testing.T) {
+	entry := boardEntry("m1", "iron_ore", 20, "sol_station", "sol", 8000, 0)
+	active := serverapi.ActiveMission{MissionID: "hex-m1", TemplateID: "m1", Type: "delivery", Title: "Deliver iron_ore"}
+	fc := &fakeClient{
+		state:             missionState(true, 50000, 0),
+		completeReward:    8000,
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t, active)},
+		raw: map[string][]byte{
+			"missions": boardJSON(t, entry),
+			"storage":  storageJSON(t, map[string]float64{"iron_ore": 12}),
+			"market": marketJSONLadders(t, map[string][]serverapi.MarketOrder{
+				"iron_ore": {{PriceEach: 10, Quantity: 5}, {PriceEach: 2000, Quantity: 100}},
+			}),
+		},
+	}
+	// asks: coarse accept-time reference used only by the pre-gate candidate
+	// filter (cheap, so the candidate survives to reach the live-ladder gate).
+	// No refPrices entry for iron_ore: the surge check (Finding 2's branch)
+	// requires GetReferencePrice to report ok, so leaving it unset means the
+	// surge branch never fires here -- this test isolates Finding 1 only.
+	store := &fakeMissionStore{asks: map[string]float64{"iron_ore": 8}}
+	if err := Missions(context.Background(), missionDeps(fc, store, missionKB())); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	joined := strings.Join(fc.calls, " ")
+	if !strings.Contains(joined, "withdraw:iron_ore:12") {
+		t.Fatalf("must withdraw the available stock first: %v", fc.calls)
+	}
+	if !strings.Contains(joined, "buy:iron_ore") {
+		t.Fatalf("must buy the shortfall after withdrawing: %v", fc.calls)
+	}
+	if len(store.results) != 1 {
+		t.Fatalf("want 1 result row, got %d", len(store.results))
+	}
+	if got, want := store.results[0].ItemCost, 6050.0; got != want {
+		t.Fatalf("ItemCost must price the 8 bought units at the market avg fill (%.0f), got %v (understated = gate bug regression)", want, got)
 	}
 }
 
