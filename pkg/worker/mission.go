@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"sort"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
@@ -29,6 +30,15 @@ const (
 	// this long — passes keep re-reading the local board for free, so the
 	// worker resumes the instant missions respawn — before hopping again.
 	missionParkWindow = 30 * time.Minute
+	// missionSurgeMult caps how far the local depth-walk's volume-weighted
+	// average fill price may run above the authoritative reference price
+	// before the availability gate treats it as a local price surge (the
+	// fighter-4 overpay: iron_ore bought locally at 2000 against a ~7 cr
+	// reference) and skips the mission instead of buying into it.
+	missionSurgeMult = 4.0
+	// missionReferenceLookback is the lookback window passed to
+	// MissionStore.GetReferencePrice for the surge-ceiling basis.
+	missionReferenceLookback = 24 * time.Hour
 )
 
 // MissionStore is the subset of *market.Collector the mission runner needs
@@ -36,6 +46,10 @@ const (
 type MissionStore interface {
 	RecordMissionResult(ctx context.Context, r market.MissionResult) error
 	GetReferenceAsk(ctx context.Context, itemID string) (market.ReferenceAsk, bool, error)
+	// GetReferencePrice returns a robust "cheap" cross-station reference
+	// (20th-percentile over lookback), used as the surge-ceiling basis for
+	// the local depth-walk gate — see missionSurgeMult.
+	GetReferencePrice(ctx context.Context, itemID string, lookback time.Duration) (float64, bool, error)
 }
 
 var _ MissionStore = (*market.Collector)(nil)
@@ -449,19 +463,37 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		} else if fetched != nil {
 			storage = fetched
 		}
-		supply, merr := missionFetchMarketSupply(ctx, deps)
-		if merr != nil || supply == nil {
-			// nil supply = raw store not settled: no data is not "no stock";
+		ladders, merr := missionFetchMarketLadders(ctx, deps)
+		if merr != nil || ladders == nil {
+			// nil ladders = raw store not settled: no data is not "no stock";
 			// gating on it would wrongly mark acquirable missions attempted.
 			fmt.Fprintf(out, "missions: view_market unavailable (%v); availability gate skipped this pass\n", merr) //nolint:errcheck
 		} else {
 			acquirable := make([]missionCandidate, 0, len(set))
 			for _, c := range set {
-				if c.BuyQty > 0 && float64(c.BuyQty) > storage[c.ItemID]+supply[c.ItemID] {
-					fmt.Fprintf(out, "missions: skip %s (%s): need %d %s, only %.0f in storage + %.0f on market here\n", c.Entry.MissionID, c.Entry.Title, c.BuyQty, c.ItemID, storage[c.ItemID], supply[c.ItemID]) //nolint:errcheck
-					deps.State.markAttempted(c.Entry.MissionID) // don't re-price it every pass this session
+				if c.BuyQty <= 0 {
+					acquirable = append(acquirable, c)
 					continue
 				}
+				marketQty := float64(c.BuyQty) - min(storage[c.ItemID], float64(c.BuyQty))
+				localCost, _, avgFill, enough := market.CostToAcquire(ladders[c.ItemID], marketQty)
+				if marketQty > 0 && !enough {
+					fmt.Fprintf(out, "missions: skip %s (%s): market here can't fill %.0f %s\n", c.Entry.MissionID, c.Entry.Title, marketQty, c.ItemID) //nolint:errcheck
+					deps.State.markAttempted(c.Entry.MissionID)                                                                                       // don't re-price it every pass this session
+					continue
+				}
+				if ref, ok, _ := deps.Market.GetReferencePrice(ctx, c.ItemID, missionReferenceLookback); ok && avgFill > missionSurgeMult*ref {
+					fmt.Fprintf(out, "missions: skip %s (%s): %s avg %.0f > %.1fx reference %.0f (surge)\n", c.Entry.MissionID, c.Entry.Title, c.ItemID, avgFill, missionSurgeMult, ref) //nolint:errcheck
+					deps.State.markAttempted(c.Entry.MissionID)
+					continue
+				}
+				net := c.Reward - localCost - c.FuelCost
+				if net < missionMinNet {
+					fmt.Fprintf(out, "missions: skip %s (%s): local net %.0f below floor %.0f (item cost %.0f)\n", c.Entry.MissionID, c.Entry.Title, net, missionMinNet, localCost) //nolint:errcheck
+					deps.State.markAttempted(c.Entry.MissionID)
+					continue
+				}
+				c.ItemCost, c.Net = localCost, net // buy step reads ItemCost for unit cost
 				acquirable = append(acquirable, c)
 			}
 			set = acquirable
@@ -976,11 +1008,12 @@ func missionFetchStorage(ctx context.Context, deps MissionDeps) (map[string]floa
 	return items, nil
 }
 
-// missionFetchMarketSupply fetches and parses a full view_market into an
-// item-id -> total-sell-quantity map for the current station, one call for a
-// whole accept batch. Only positive-price, positive-quantity sell orders
-// count. A nil map with a nil error means "no data" (raw store not settled).
-func missionFetchMarketSupply(ctx context.Context, deps MissionDeps) (map[string]float64, error) {
+// missionFetchMarketLadders fetches and parses a full view_market into
+// per-item ascending-by-price sell ladders for the current station, one call
+// for a whole accept batch. Only positive-price, positive-quantity sell
+// orders count. A nil map with a nil error means "no data" (raw store not
+// settled) — not a fetch failure; callers must not gate on it.
+func missionFetchMarketLadders(ctx context.Context, deps MissionDeps) (map[string][]market.AskLevel, error) {
 	if err := deps.Client.ViewMarket(ctx, map[string]any{}); err != nil {
 		return nil, err
 	}
@@ -995,16 +1028,19 @@ func missionFetchMarketSupply(ctx context.Context, deps MissionDeps) (map[string
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil, fmt.Errorf("parse market: %w", err)
 	}
-	supply := make(map[string]float64, len(resp.Items))
+	ladders := make(map[string][]market.AskLevel, len(resp.Items))
 	for _, it := range resp.Items {
+		var lvls []market.AskLevel
 		for _, o := range it.SellOrders {
 			if o.PriceEach <= 0 || o.Quantity <= 0 {
 				continue
 			}
-			supply[it.ItemID] += o.Quantity
+			lvls = append(lvls, market.AskLevel{PriceEach: o.PriceEach, Quantity: o.Quantity})
 		}
+		sort.Slice(lvls, func(a, b int) bool { return lvls[a].PriceEach < lvls[b].PriceEach })
+		ladders[it.ItemID] = lvls
 	}
-	return supply, nil
+	return ladders, nil
 }
 
 func missionRecord(ctx context.Context, deps MissionDeps, out io.Writer, c missionCandidate, fromBase, acceptedAt string, acceptedTick int64, earned float64, outcome, reason string) {

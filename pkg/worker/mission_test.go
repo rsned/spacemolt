@@ -41,8 +41,9 @@ func (f *fakeClient) AbandonMission(ctx context.Context, id string) error {
 
 // fakeMissionStore records results and serves reference asks.
 type fakeMissionStore struct {
-	asks    map[string]float64
-	results []market.MissionResult
+	asks      map[string]float64
+	refPrices map[string]float64
+	results   []market.MissionResult
 }
 
 func (s *fakeMissionStore) RecordMissionResult(ctx context.Context, r market.MissionResult) error {
@@ -52,6 +53,10 @@ func (s *fakeMissionStore) RecordMissionResult(ctx context.Context, r market.Mis
 func (s *fakeMissionStore) GetReferenceAsk(ctx context.Context, itemID string) (market.ReferenceAsk, bool, error) {
 	ask, ok := s.asks[itemID]
 	return market.ReferenceAsk{ItemID: itemID, BestAsk: ask}, ok, nil
+}
+func (s *fakeMissionStore) GetReferencePrice(ctx context.Context, itemID string, lookback time.Duration) (float64, bool, error) {
+	p, ok := s.refPrices[itemID]
+	return p, ok, nil
 }
 
 // missionKB returns a two-system KB (haven <-> sol) with the worker at haven.
@@ -122,6 +127,25 @@ func marketJSON(t *testing.T, sellQty map[string]float64) []byte {
 		items = append(items, serverapi.ViewMarketItem{
 			ItemID:     id,
 			SellOrders: []serverapi.MarketOrder{{PriceEach: 10, Quantity: qty}},
+		})
+	}
+	b, err := json.Marshal(map[string]any{"items": items})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// marketJSONLadders builds a full view_market payload from item-id -> a
+// multi-level sell-order ladder, for tests that need real depth (a thin cheap
+// level followed by a surge wall), unlike marketJSON's single price-10 order.
+func marketJSONLadders(t *testing.T, ladders map[string][]serverapi.MarketOrder) []byte {
+	t.Helper()
+	items := make([]serverapi.ViewMarketItem, 0, len(ladders))
+	for id, orders := range ladders {
+		items = append(items, serverapi.ViewMarketItem{
+			ItemID:     id,
+			SellOrders: orders,
 		})
 	}
 	b, err := json.Marshal(map[string]any{"items": items})
@@ -514,6 +538,51 @@ func TestMissionsAvailabilityGateSkipsUnacquirable(t *testing.T) {
 		if r.MissionID == "m_rare" {
 			t.Fatalf("gate-skipped mission must not produce a telemetry row: %+v", r)
 		}
+	}
+}
+
+// TestMissionSkipsLocalPriceSurge covers the fighter-4 overpay: the local
+// station's cheap depth is thin (3 units at 10) and the rest of the ladder is
+// a surge wall (100 units at 2000), while the coarse accept-time reference
+// (GetReferenceAsk) stays cheap enough to pass the first-stage candidate
+// filter. The local depth-walk gate must re-price against the live ladder,
+// see the volume-weighted fill blow past the surge ceiling, and skip the
+// mission entirely -- no buy, no accept-then-abandon churn.
+func TestMissionSkipsLocalPriceSurge(t *testing.T) {
+	entry := boardEntry("m1", "iron_ore", 25, "sol_station", "sol", 5000, 0)
+	fc := &fakeClient{
+		state: missionState(true, 50000, 0),
+		raw: map[string][]byte{
+			"missions":        boardJSON(t, entry),
+			"active_missions": activeJSON(t),
+			"storage":         storageJSON(t, map[string]float64{}),
+			"market": marketJSONLadders(t, map[string][]serverapi.MarketOrder{
+				"iron_ore": {{PriceEach: 10, Quantity: 3}, {PriceEach: 2000, Quantity: 100}},
+			}),
+		},
+	}
+	store := &fakeMissionStore{
+		asks:      map[string]float64{"iron_ore": 8}, // coarse accept-time reference stays cheap
+		refPrices: map[string]float64{"iron_ore": 7}, // authoritative surge basis
+	}
+	deps := missionDeps(fc, store, missionKB())
+	deps.State = &missionRunState{}
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	for _, c := range fc.calls {
+		if c == "buy:iron_ore" {
+			t.Fatalf("expected zero Buy calls (surge gate), got calls: %v", fc.calls)
+		}
+		if strings.HasPrefix(c, "accept:") {
+			t.Fatalf("surge-gated mission must not be accepted: %v", fc.calls)
+		}
+	}
+	if !deps.State.wasAttempted("m1") {
+		t.Fatal("surge-gated mission must be marked attempted for the session")
+	}
+	if len(store.results) != 0 {
+		t.Fatalf("gate-skipped mission must not produce a telemetry row: %+v", store.results)
 	}
 }
 
