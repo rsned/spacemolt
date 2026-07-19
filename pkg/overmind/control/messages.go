@@ -57,7 +57,15 @@ type Status struct {
 	FactionID  string `json:"faction_id,omitempty"`
 	FactionTag string `json:"faction_tag,omitempty"`
 	Drained    bool   `json:"drained,omitempty"`
-	Timestamp  string `json:"timestamp"`
+	// Disconnected reports that the worker's game-server connection is currently
+	// down (it is reconnecting via the fleet-wide reconnect gate). It keeps
+	// heartbeating to the overmind over the control socket throughout. The
+	// supervisor uses this to avoid restarting a worker that is already
+	// self-healing: a restart forces a fresh login that cannot succeed during a
+	// per-IP rate-limit block and deepens it. Omitted (false) means connected,
+	// so an older worker binary that never sets it is treated as connected.
+	Disconnected bool   `json:"disconnected,omitempty"`
+	Timestamp    string `json:"timestamp"`
 }
 
 // Event is a notable worker-side occurrence (action result, danger signal).

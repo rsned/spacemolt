@@ -37,6 +37,14 @@ type WorkerInfo struct {
 	// ClearQuarantine.
 	Quarantined      bool
 	QuarantineReason string
+	// DisconnectedSince is when the worker first reported its game-server
+	// connection down (LastStatus.Disconnected) without a reconnect since; zero
+	// when connected. A disconnected worker keeps heartbeating over the control
+	// socket, so the silence watchdog cannot see it — but its progress freezes,
+	// which would trip the stall watchdog. The supervisor leaves it to the
+	// reconnect gate for DisconnectGrace before restarting, because a restart's
+	// fresh login cannot succeed during a per-IP block and deepens it.
+	DisconnectedSince time.Time
 }
 
 // Fleet is the thread-safe in-memory registry of all workers.
@@ -82,6 +90,15 @@ func (f *Fleet) ApplyStatus(agentID string, st control.Status, now time.Time) {
 	}
 	if progressed {
 		w.StallRestarts = 0
+	}
+	// Track the game-connection state so the watchdogs can leave a reconnecting
+	// worker to the reconnect gate rather than restarting it into a login storm.
+	if st.Disconnected {
+		if w.DisconnectedSince.IsZero() {
+			w.DisconnectedSince = now
+		}
+	} else {
+		w.DisconnectedSince = time.Time{}
 	}
 	w.LastStatus, w.LastSeen, w.Healthy = st, now, true
 }

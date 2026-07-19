@@ -197,6 +197,13 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// Clear last pass's activity; the resume and accept sites below set it when
 	// a mission is in hand, so a dry pass reports blank.
 	publishActivity(deps.SetActivity, "")
+	// A disconnected worker cannot accept, deliver, or route missions; running the
+	// pass would only spin failing commands against a dead connection. Skip it and
+	// let the reconnect gate restore the connection (the standing loop paces retries).
+	if !deps.Client.IsConnected() {
+		fmt.Fprintln(out, "missions: game connection down; skipping pass until reconnected") //nolint:errcheck
+		return nil
+	}
 	if deps.Market == nil {
 		fmt.Fprintln(out, "missions: market collector not configured; skipping") //nolint:errcheck
 		return nil

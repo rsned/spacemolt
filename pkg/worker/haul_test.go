@@ -935,6 +935,33 @@ func TestHaulResumesHeldClaimBeforeClaiming(t *testing.T) {
 	}
 }
 
+// TestHaulSkipsPassWhenDisconnected covers the defense against book-claim churn during
+// a game disconnect: with the connection down, every FindRoute/command fails instantly
+// (no network round-trip), so a claim would just churn claim→fail→release thousands of
+// times a minute. Haul must skip the pass entirely — no scan, no claim — and return nil.
+func TestHaulSkipsPassWhenDisconnected(t *testing.T) {
+	f := &fakeStore{
+		available: []market.ArbitrageOpportunity{opp(1, "b", "c", 100)},
+		claims:    map[int]bool{1: true},
+		admitOK:   true,
+	}
+	fc := &fakeClient{
+		disconnected: true,
+		state:        &game.State{System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100},
+	}
+	kb := &fakeKB{
+		systems: []knowledge.System{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+		conns:   undirected([2]string{"a", "b"}, [2]string{"b", "c"}),
+	}
+	if err := Haul(context.Background(), HaulDeps{Client: fc, KB: kb, Market: f, AgentID: "trader-x", Out: io.Discard}); err != nil {
+		t.Fatal(err)
+	}
+	if f.scanned != 0 || len(f.admitCalls) != 0 || len(f.released) != 0 {
+		t.Fatalf("disconnected pass must claim nothing: scanned=%d admitCalls=%d released=%v",
+			f.scanned, len(f.admitCalls), f.released)
+	}
+}
+
 // TestLiquidateCargo covers clearing leftover cargo: sell into a local buy order when one
 // exists, else post a sell order 10% under the best ask; fuel_cells are reserved.
 func TestLiquidateCargo(t *testing.T) {

@@ -381,3 +381,57 @@ func TestStallRestartStillFiresWhenFueled(t *testing.T) {
 		t.Fatalf("stall restart must increment counter, got %d", got)
 	}
 }
+
+// A worker that reports its game connection down is self-healing via the
+// reconnect gate; the stall watchdog must NOT restart it within DisconnectGrace,
+// because a restart's fresh login cannot succeed during a per-IP block and
+// deepens it (the server-deploy → mass-disconnect → login-storm outage).
+func TestDisconnectedWorkerNotStallRestartedWithinGrace(t *testing.T) {
+	var spawned atomic.Int32
+	specs := []WorkerSpec{{AgentID: "netdown"}}
+	fleet := NewFleet()
+	sup := NewSupervisor(nil, fleet, specs, aliveSpawn(&spawned), log.New(io.Discard, "", 0))
+	sup.StallTimeout = time.Nanosecond // would stall instantly if not disconnected
+	sup.DisconnectGrace = time.Hour    // generous grace: gate is still working
+	sup.KillGrace = time.Second
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sup.launch(ctx, specs[0])
+	now := time.Now()
+	fleet.ApplyHello(control.Hello{AgentID: "netdown", Role: "hauler"}, 1, now)
+	// Frozen (undocked, fueled) AND disconnected: the disconnect exemption must win.
+	fleet.ApplyStatus("netdown", control.Status{Fuel: 300, MaxFuel: 420, Disconnected: true}, now)
+
+	sup.reapAndRestart(ctx)
+	if spawned.Load() != 1 {
+		t.Fatalf("disconnected worker within grace must NOT be restarted, got %d spawns", spawned.Load())
+	}
+	if got := fleet.Snapshot()[0].StallRestarts; got != 0 {
+		t.Fatalf("no stall restart expected while disconnected, got %d", got)
+	}
+}
+
+// Past DisconnectGrace the worker is treated as genuinely wedged (its reconnect
+// never recovered) and falls through to the stall watchdog's restart.
+func TestDisconnectedWorkerRestartedAfterGrace(t *testing.T) {
+	var spawned atomic.Int32
+	specs := []WorkerSpec{{AgentID: "wedged"}}
+	fleet := NewFleet()
+	sup := NewSupervisor(nil, fleet, specs, aliveSpawn(&spawned), log.New(io.Discard, "", 0))
+	sup.StallTimeout = time.Nanosecond
+	sup.DisconnectGrace = time.Millisecond // tiny grace so the past timestamp exceeds it
+	sup.KillGrace = time.Second
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sup.launch(ctx, specs[0])
+	past := time.Now().Add(-time.Second) // disconnected a full second ago (>> 1ms grace)
+	fleet.ApplyHello(control.Hello{AgentID: "wedged", Role: "hauler"}, 1, past)
+	fleet.ApplyStatus("wedged", control.Status{Fuel: 300, MaxFuel: 420, Disconnected: true}, past)
+
+	sup.reapAndRestart(ctx)
+	if spawned.Load() != 2 {
+		t.Fatalf("worker disconnected past grace must restart, got %d spawns", spawned.Load())
+	}
+}

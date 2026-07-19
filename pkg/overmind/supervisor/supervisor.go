@@ -82,8 +82,18 @@ type Supervisor struct {
 	// (e.g. a shuttle wedged undocked in a station-less system). A non-positive
 	// value disables the watchdog.
 	StallTimeout time.Duration
-	MaxRestarts  int
-	restarts     map[string]int
+	// DisconnectGrace bounds how long a worker that reports its game connection
+	// down (LastStatus.Disconnected) is left to the fleet-wide reconnect gate
+	// before the stall watchdog falls back to restarting it. A disconnected
+	// worker freezes (no progress) and would otherwise trip the stall watchdog,
+	// whose restart forces a fresh login — the exact login storm that trips and
+	// deepens a per-IP rate-limit block, turning a brief server hiccup into a
+	// multi-hour outage. The gate already reconnects gracefully (paced, honoring
+	// the block); only a worker still disconnected past this grace is treated as
+	// wedged and restarted. A non-positive value disables the exemption.
+	DisconnectGrace time.Duration
+	MaxRestarts     int
+	restarts        map[string]int
 
 	// Stranded-quarantine tuning (see Stranded in fleet.go). OnQuarantine is
 	// invoked (from the reap goroutine) after a worker is quarantined so the
@@ -124,8 +134,9 @@ type Supervisor struct {
 func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn SpawnFunc, logger *log.Logger) *Supervisor {
 	return &Supervisor{
 		server: server, fleet: fleet, specs: specs, spawn: spawn, logger: logger,
-		SilenceTimeout:  9 * game.SleepTick,  // 90s: heartbeat-gap tolerance for established workers
-		StallTimeout:    90 * game.SleepTick, // 15min: undocked-and-frozen tolerance (stall watchdog)
+		SilenceTimeout:  9 * game.SleepTick,   // 90s: heartbeat-gap tolerance for established workers
+		StallTimeout:    90 * game.SleepTick,  // 15min: undocked-and-frozen tolerance (stall watchdog)
+		DisconnectGrace: 180 * game.SleepTick, // 30min: leave a reconnecting worker to the gate before restarting
 		BootTimeout:     30 * game.SleepTick, // 5min: max alive-but-no-Hello before a boot is "wedged"
 		StaggerInterval: game.SleepMedium,    // 5s between initial spawns (per-IP /login pacing)
 		KillGrace:       game.SleepMedium,    // 5s SIGTERM->SIGKILL window
@@ -287,6 +298,14 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 				// budget-gated and retried next tick if deferred.
 				s.kill(proc)
 				s.tryRestart(ctx, spec, true, &budget)
+			case seen && w.LastStatus.Disconnected && s.DisconnectGrace > 0 && now.Sub(w.DisconnectedSince) <= s.DisconnectGrace:
+				// Game-disconnected but still heartbeating over the control socket:
+				// it self-heals via the fleet-wide reconnect gate, which paces logins
+				// and honors any per-IP block. A restart here forces a fresh login
+				// that cannot succeed during a block and deepens it — the storm that
+				// turns a brief server hiccup into a multi-hour outage. Leave it to
+				// the gate until DisconnectGrace elapses; only then does it fall
+				// through (next ticks) to the stall watchdog as genuinely wedged.
 			case seen && Stalled(w, now, s.StallTimeout):
 				if stranded, reason := Stranded(w, now, s.StallTimeout, s.FuelStrandFraction, s.FuelStrandFloor, s.StallRestartLimit); stranded {
 					// Beyond what a restart can fix: pull it from the fleet. The

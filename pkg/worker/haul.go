@@ -588,6 +588,16 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	// Clear last pass's activity up front so the idle-return paths (no opps, all
 	// claimed, stronghold-only) report blank; the claim site below sets it.
 	publishActivity(deps.SetActivity, "")
+	// A disconnected worker cannot buy, sell, or route. Claiming a book now would
+	// only churn it: every FindRoute/command fails instantly with a transport
+	// "not connected" error (no network round-trip), so the claim→fail→release
+	// cycle spins the book-claim table thousands of times a minute during a
+	// reconnect. Skip the pass; the standing loop's idle interval paces the retry
+	// and the reconnect gate restores the connection.
+	if !deps.Client.IsConnected() {
+		fmt.Fprintln(out, "haul: game connection down; skipping pass until reconnected") //nolint:errcheck
+		return nil
+	}
 	if deps.Market == nil {
 		fmt.Fprintln(out, "haul: market collector not configured; skipping") //nolint:errcheck
 		return nil

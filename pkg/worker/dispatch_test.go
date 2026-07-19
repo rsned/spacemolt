@@ -23,6 +23,7 @@ type fakeClient struct {
 	route           []game.RouteStep  // returned by FindRoute
 	routeErr        error             // when set, FindRoute returns it instead of route
 	jumpCanceled    bool              // Jump returns Canceled=true when set
+	disconnected    bool              // when set, IsConnected() returns false (game connection down)
 	dockErr         error             // when set, Dock returns it (ship not at a station)
 	fuelLow         bool              // when set, Travel fails with insufficient fuel until Refuel clears it
 	raw             map[string][]byte // GetRawJSON responses keyed by store key (e.g. "sell", "buy")
@@ -121,6 +122,10 @@ func (f *fakeClient) GetMissions(ctx context.Context) error {
 	return nil
 }
 func (f *fakeClient) GetState() *game.State { return f.state }
+
+// IsConnected reports the game-connection state; connected unless a test sets
+// disconnected. The haul/mission passes skip work when disconnected.
+func (f *fakeClient) IsConnected() bool { return !f.disconnected }
 func (f *fakeClient) ViewMarket(ctx context.Context, params map[string]any) error {
 	f.calls = append(f.calls, "view_market")
 	return nil

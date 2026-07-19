@@ -384,7 +384,7 @@ func main() {
 				if p := activity.Load(); p != nil {
 					act = *p
 				}
-				status := buildStatus(nowState, standing, tid, act, drained.Load(), time.Now())
+				status := buildStatus(nowState, standing, tid, act, drained.Load(), client.IsConnected(), time.Now())
 				if sendErr := sendEnvelope(enc, control.TypeStatus, *agentID, status); sendErr != nil {
 					logger.Printf("warning: send status: %v", sendErr)
 				}
@@ -470,8 +470,12 @@ func nudgeReconnect(c reconnectable) bool {
 }
 
 // buildStatus constructs a control.Status heartbeat snapshot from game state.
-func buildStatus(st *game.State, standing, taskID, activity string, drained bool, now time.Time) control.Status {
+// connected reports whether the game-server connection is currently live; when
+// false the supervisor leaves the worker to the reconnect gate instead of
+// restarting it (a restart's fresh login deepens a per-IP block).
+func buildStatus(st *game.State, standing, taskID, activity string, drained, connected bool, now time.Time) control.Status {
 	return control.Status{
+		Disconnected: !connected,
 		System: displaySystem(st),
 		POI:    st.CurrentPOI,
 		// Docked must reflect a real station/outpost dock, not merely "parked at
