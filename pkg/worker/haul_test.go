@@ -54,7 +54,7 @@ func TestHaulGate(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			qty, _, _, ok, reason := haulGate(tc.opp, tc.prices, tc.cargoFree, tc.cargoCap, tc.credit, 0)
+			qty, _, _, ok, reason := haulGate(tc.opp, tc.prices, tc.cargoFree, tc.cargoCap, tc.credit, 0, nil)
 			if ok != tc.wantOK {
 				t.Fatalf("ok=%v (reason %q), want %v", ok, reason, tc.wantOK)
 			}
@@ -79,14 +79,52 @@ func TestHaulGateRejectsOnFuel(t *testing.T) {
 		{StationID: "sellst", HasBuy: true, BestBid: 110},
 	}
 	// fuelCost 0 -> passes.
-	if _, _, _, ok, _ := haulGate(opp, prices, 100, 100, 1_000_000, 0); !ok {
+	if _, _, _, ok, _ := haulGate(opp, prices, 100, 100, 1_000_000, 0, nil); !ok {
 		t.Fatal("fuelCost=0: expected pass")
 	}
 	// fuelCost 200 -> net 800 < floor 1000 -> reject.
-	if _, _, _, ok, reason := haulGate(opp, prices, 100, 100, 1_000_000, 200); ok {
+	if _, _, _, ok, reason := haulGate(opp, prices, 100, 100, 1_000_000, 200, nil); ok {
 		t.Fatalf("fuelCost=200: expected reject, got pass")
 	} else if reason == "" {
 		t.Fatal("expected a rejection reason")
+	}
+}
+
+// TestHaulGateUsesDepthNotBestAsk covers the depth-aware hardening: best-ask alone
+// (2 units @100) looks like a fat, profitable spread against a 150 sell bid, but the
+// full intended quantity can only be filled by walking into a 1000cr wall further
+// down the book. The gate must re-price on the depth-walked average, not top-of-book,
+// and reject the thin-book fill instead of assuming best-ask holds for the whole qty.
+func TestHaulGateUsesDepthNotBestAsk(t *testing.T) {
+	opp := market.ArbitrageOpportunity{FromStationID: "buyst", ToStationID: "sellst", ItemID: "x", Quantity: 100}
+	prices := []market.ItemStationPrice{
+		{StationID: "buyst", HasSell: true, BestAsk: 100},
+		{StationID: "sellst", HasBuy: true, BestBid: 150},
+	}
+	thinLadder := []market.AskLevel{
+		{PriceEach: 100, Quantity: 2},
+		{PriceEach: 1000, Quantity: 1000},
+	}
+	// Sanity check: best-ask-only math (ignoring depth) would pass this trade — margin
+	// (150-100)/100=50%, net (150-100)*100=5000 — so a failure here is proof depth
+	// walking is what flips the verdict, not an unrelated gate change.
+	if _, _, _, ok, reason := haulGate(opp, prices, 200, 200, 1e9, 0, nil); !ok {
+		t.Fatalf("nil ladder (best-ask fallback): expected pass, got reject (%q)", reason)
+	}
+
+	qty, liveAsk, sellBid, ok, reason := haulGate(opp, prices, 200, 200, 1e9, 0, thinLadder)
+	if ok {
+		t.Fatalf("thin ladder: expected reject on depth-walked price, got pass (qty=%.0f liveAsk=%.2f sellBid=%.2f)", qty, liveAsk, sellBid)
+	}
+	if !strings.Contains(reason, "insufficient ask depth") && !strings.Contains(reason, "spread too thin") {
+		t.Errorf("reason=%q, want contains %q or %q", reason, "insufficient ask depth", "spread too thin")
+	}
+
+	// Companion: a deep ladder at the same best-ask price still passes, pinning that
+	// it's the WALL (not the mere presence of a ladder) that causes the rejection.
+	deepLadder := []market.AskLevel{{PriceEach: 100, Quantity: 1000}}
+	if _, _, _, ok, reason := haulGate(opp, prices, 200, 200, 1e9, 0, deepLadder); !ok {
+		t.Fatalf("deep ladder: expected pass, got reject (%q)", reason)
 	}
 }
 
@@ -397,11 +435,13 @@ type fakeStore struct {
 	completed      []int
 	released       []int
 	prices         []market.ItemStationPrice
-	orders         []market.Order // item-specific buy/sell book (itemID != "")
-	stationOrders  []market.Order // station-wide book (itemID == ""); presence = station captured
+	askLadder      []market.AskLevel // returned by GetAskLadder
+	askLadderErr   error             // returned by GetAskLadder
+	orders         []market.Order    // item-specific buy/sell book (itemID != "")
+	stationOrders  []market.Order    // station-wide book (itemID == ""); presence = station captured
 	bestPrices     []market.BestPrice
 	recorded       []market.HaulResult
-	reaped         int            // count of ReapExpiredBookClaims calls
+	reaped         int // count of ReapExpiredBookClaims calls
 
 	admitOK             bool               // AdmitBookClaim returns this ok
 	admitResult         market.AdmitResult // returned when admitOK (ClaimID/OppID/ToStationID)
@@ -454,6 +494,9 @@ func (f *fakeStore) ScanArbitrage(_ context.Context, _ market.ScanOptions) (mark
 
 func (f *fakeStore) GetItemStationPrices(_ context.Context, _ string) ([]market.ItemStationPrice, error) {
 	return f.prices, nil
+}
+func (f *fakeStore) GetAskLadder(_ context.Context, _, _ string) ([]market.AskLevel, error) {
+	return f.askLadder, f.askLadderErr
 }
 func (f *fakeStore) GetStationOrders(_ context.Context, _, itemID string) ([]market.Order, error) {
 	if itemID == "" {

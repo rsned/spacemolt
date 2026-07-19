@@ -91,7 +91,16 @@ func netProfitFloor(cargoCap float64) float64 {
 // already docked at the buy station) — to clear BOTH haulMinMargin and
 // haulMinNetProfit. ok is false (with a human-readable reason) when a price is
 // missing, the buy is unaffordable, or the spread is too thin.
-func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice, cargoFree, cargoCap, credits, fuelCost float64) (qty, liveAsk, sellBid float64, ok bool, reason string) {
+//
+// asks is the ascending ask ladder for opp.ItemID at opp.FromStationID (from
+// OpportunityStore.GetAskLadder, best-effort — a fetch failure or empty book is
+// passed as nil/empty). When non-empty, the intended qty (sized on best-ask) is
+// depth-walked via market.CostToAcquire and the gate re-prices on the volume-weighted
+// average fill instead of top-of-book, so a thin book past the first level rejects
+// (or would size down) rather than assuming best-ask holds for the whole quantity.
+// A nil/empty ladder falls back to the pre-existing best-ask-only behavior — no
+// worse than before this hardening when the ladder is unavailable.
+func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice, cargoFree, cargoCap, credits, fuelCost float64, asks []market.AskLevel) (qty, liveAsk, sellBid float64, ok bool, reason string) {
 	var haveAsk, haveBid bool
 	for _, p := range prices {
 		if p.StationID == opp.FromStationID && p.HasSell {
@@ -110,6 +119,13 @@ func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice,
 	qty = sizeBuy(opp, cargoFree, credits, liveAsk)
 	if qty < 1 {
 		return qty, liveAsk, sellBid, false, fmt.Sprintf("unaffordable/no cargo (qty=%.0f)", qty)
+	}
+	if len(asks) > 0 {
+		_, filled, avgAsk, enough := market.CostToAcquire(asks, qty)
+		if !enough || filled <= 0 || avgAsk <= 0 {
+			return qty, avgAsk, sellBid, false, "insufficient ask depth at buy station"
+		}
+		liveAsk = avgAsk // gate margin/net on the real fill price, not top-of-book
 	}
 	margin := (sellBid - liveAsk) / liveAsk
 	net := (sellBid-liveAsk)*qty - fuelCost
@@ -388,6 +404,7 @@ type OpportunityStore interface {
 	InvalidateBook(ctx context.Context, itemID, fromStation, agentID, reason string) error
 	ReapExpiredBookClaims(ctx context.Context) (int, error)
 	GetItemStationPrices(ctx context.Context, itemID string) ([]market.ItemStationPrice, error)
+	GetAskLadder(ctx context.Context, itemID, stationID string) ([]market.AskLevel, error)
 	GetStationOrders(ctx context.Context, stationID, itemID string) ([]market.Order, error)
 	FindBestPrices(ctx context.Context, itemID, side string, limit int) ([]market.BestPrice, error)
 	RecordHaulResult(ctx context.Context, r market.HaulResult) error
@@ -983,13 +1000,20 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	if perr != nil {
 		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, fmt.Sprintf("price check failed: %v", perr))
 	}
+	// Best-effort ask ladder for depth-aware pricing: a fetch failure must not abort
+	// the buy, it just falls back to the pre-existing best-ask-only gate behavior.
+	asks, aerr := deps.Market.GetAskLadder(ctx, opp.ItemID, opp.FromStationID)
+	if aerr != nil {
+		fmt.Fprintf(out, "haul: opp %d ask ladder fetch failed: %v; pricing on best ask\n", opp.ID, aerr) //nolint:errcheck
+		asks = nil
+	}
 	haulLegCost := 0.0
 	if buySys != "" && sellSys != "" { // sellSys is live-resolved for moving stations
 		if hj, ok := fuel.haulJumpsBetween(buySys, sellSys); ok {
 			haulLegCost = fuel.legCost(hj, opp.FromStationID)
 		}
 	}
-	qty, liveAsk, sellBid, pass, reason := haulGate(opp, prices, cargoFree, state.Ship.CargoCapacity, state.GetCredits(), haulLegCost)
+	qty, liveAsk, sellBid, pass, reason := haulGate(opp, prices, cargoFree, state.Ship.CargoCapacity, state.GetCredits(), haulLegCost, asks)
 	if !pass {
 		// A missing live ask means the SOURCE book is gone — invalidate it so no other
 		// hauler is drawn in. Every other gate failure (a thin/collapsed spread, which
