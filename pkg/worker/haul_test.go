@@ -401,6 +401,13 @@ type fakeStore struct {
 	stationOrders  []market.Order // station-wide book (itemID == ""); presence = station captured
 	bestPrices     []market.BestPrice
 	recorded       []market.HaulResult
+
+	admitOK             bool               // AdmitBookClaim returns this ok
+	admitResult         market.AdmitResult // returned when admitOK (ClaimID/OppID/ToStationID)
+	settled             []float64          // bought_units passed to SettleBookClaim
+	bookClaimsCompleted []int64            // claimIDs completed
+	bookClaimsReleased  []int64            // claimIDs released
+	invalidated         []string           // "item/from" strings passed to InvalidateBook
 }
 
 func (f *fakeStore) GetOpportunities(_ context.Context, status string, _ int) ([]market.ArbitrageOpportunity, error) {
@@ -445,6 +452,34 @@ func (f *fakeStore) RecordHaulResult(_ context.Context, r market.HaulResult) err
 	f.recorded = append(f.recorded, r)
 	return nil
 }
+func (f *fakeStore) AdmitBookClaim(_ context.Context, _ market.BookKey, cands []market.BookCandidate, _ string, _ int, _ time.Duration) (market.AdmitResult, error) {
+	if !f.admitOK {
+		return market.AdmitResult{}, nil
+	}
+	r := f.admitResult
+	if r.OppID == 0 && len(cands) > 0 { // default: admit the first candidate
+		r = market.AdmitResult{OK: true, ClaimID: 1, OppID: cands[0].OppID, ToStationID: cands[0].ToStationID}
+	}
+	r.OK = true
+	return r, nil
+}
+func (f *fakeStore) SettleBookClaim(_ context.Context, _ int64, _ string, boughtUnits float64) error {
+	f.settled = append(f.settled, boughtUnits)
+	return nil
+}
+func (f *fakeStore) CompleteBookClaim(_ context.Context, claimID int64, _ string) error {
+	f.bookClaimsCompleted = append(f.bookClaimsCompleted, claimID)
+	return nil
+}
+func (f *fakeStore) ReleaseBookClaim(_ context.Context, claimID int64, _ string) error {
+	f.bookClaimsReleased = append(f.bookClaimsReleased, claimID)
+	return nil
+}
+func (f *fakeStore) InvalidateBook(_ context.Context, itemID, fromStation, _, _ string) error {
+	f.invalidated = append(f.invalidated, itemID+"/"+fromStation)
+	return nil
+}
+func (f *fakeStore) ReapExpiredBookClaims(_ context.Context) (int, error) { return 0, nil }
 
 func TestFakeStoreServesStationOrders(t *testing.T) {
 	f := &fakeStore{orders: []market.Order{{Side: "buy", PriceEach: 50, Quantity: 4}}}
@@ -702,6 +737,36 @@ func TestClaimBestAllTaken(t *testing.T) {
 	}
 }
 
+func TestBookCap(t *testing.T) {
+	cases := []struct {
+		src, cargo float64
+		want       int
+	}{
+		{42, 300, 1},
+		{900, 300, 3},
+		{4367, 480, 10},
+		{0, 300, 1},
+		{300, 0, 1},
+	}
+	for _, tc := range cases {
+		if got := bookCap(tc.src, tc.cargo); got != tc.want {
+			t.Errorf("bookCap(%v,%v)=%d want %d", tc.src, tc.cargo, got, tc.want)
+		}
+	}
+}
+
+func TestHaulActivityLabelCapsToShip(t *testing.T) {
+	opp := market.ArbitrageOpportunity{ID: 921069, ItemName: "Steel Plate", SourceUnits: 4367,
+		FromStationName: "Ironhearth Station", ToStationName: "Ramen's Rest"}
+	got := haulActivityLabel(opp, 480)
+	if !strings.Contains(got, "up to 480 of 4367") {
+		t.Fatalf("label must cap to ship slice; got %q", got)
+	}
+	if strings.Contains(got, "4847") {
+		t.Fatalf("label must not show raw impossible quantity: %q", got)
+	}
+}
+
 // TestHaulResumesHeldClaimBeforeClaiming covers the resume path: when the agent already
 // holds a claim, Haul finishes that one and never reaches loadAvailable/claim. The held
 // opp here has an unresolvable buy system, so it is released (proving resume ran it) —
@@ -842,7 +907,7 @@ func TestRunClaimedHaulResumesWithGoodsAboard(t *testing.T) {
 	}
 	f := &fakeStore{}
 	_, n2id := graphFor([]string{"a", "b"}, [2]string{"a", "b"})
-	if err := runClaimedHaul(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, n2id, nil, haulFuel{}); err != nil {
+	if err := runClaimedHaul(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, n2id, nil, haulFuel{}, 0); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.completed) != 1 || f.completed[0] != 7 {

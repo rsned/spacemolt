@@ -9,10 +9,10 @@ import (
 
 func TestHaulActivityLabel(t *testing.T) {
 	got := haulActivityLabel(market.ArbitrageOpportunity{
-		ID: 100042, Quantity: 24, ItemName: "power_cell",
+		ID: 100042, SourceUnits: 24, ItemName: "power_cell",
 		FromStationName: "Sol Station", ToStationName: "Gold Run Extraction Hub",
-	})
-	want := "Opportunity #100042 24 power_cell from Sol Station to Gold Run Extraction Hub"
+	}, 100)
+	want := "Opportunity #100042 · buying up to 24 of 24 power_cell · Sol Station → Gold Run Extraction Hub"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
@@ -21,10 +21,10 @@ func TestHaulActivityLabel(t *testing.T) {
 func TestHaulActivityLabelFallsBackToIDs(t *testing.T) {
 	// Names unjoined -> fall back to ids so the line is never blank mid-fields.
 	got := haulActivityLabel(market.ArbitrageOpportunity{
-		ID: 7, Quantity: 5, ItemID: "iron_ore",
+		ID: 7, SourceUnits: 5, ItemID: "iron_ore",
 		FromStationID: "stn_a", ToStationID: "stn_b",
-	})
-	want := "Opportunity #7 5 iron_ore from stn_a to stn_b"
+	}, 100)
+	want := "Opportunity #7 · buying up to 5 of 5 iron_ore · stn_a → stn_b"
 	if got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}

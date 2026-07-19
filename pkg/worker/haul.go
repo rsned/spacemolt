@@ -380,6 +380,12 @@ type OpportunityStore interface {
 	ReleaseOpportunity(ctx context.Context, id int, agentID string) (bool, error)
 	CompleteOpportunity(ctx context.Context, id int, agentID string) (bool, error)
 	ScanArbitrage(ctx context.Context, opts market.ScanOptions) (market.ScanResult, error)
+	AdmitBookClaim(ctx context.Context, book market.BookKey, candidates []market.BookCandidate, agentID string, capN int, expiresIn time.Duration) (market.AdmitResult, error)
+	SettleBookClaim(ctx context.Context, claimID int64, agentID string, boughtUnits float64) error
+	CompleteBookClaim(ctx context.Context, claimID int64, agentID string) error
+	ReleaseBookClaim(ctx context.Context, claimID int64, agentID string) error
+	InvalidateBook(ctx context.Context, itemID, fromStation, agentID, reason string) error
+	ReapExpiredBookClaims(ctx context.Context) (int, error)
 	GetItemStationPrices(ctx context.Context, itemID string) ([]market.ItemStationPrice, error)
 	GetStationOrders(ctx context.Context, stationID, itemID string) ([]market.Order, error)
 	FindBestPrices(ctx context.Context, itemID, side string, limit int) ([]market.BestPrice, error)
@@ -425,6 +431,60 @@ func claimBest(ctx context.Context, store OpportunityStore, ranked []market.Arbi
 	return market.ArbitrageOpportunity{}, false, nil
 }
 
+// haulBookClaimTTL bounds how long a book claim occupies a cap slot if the hauler
+// never settles/releases it (crash mid-run); the reaper frees it after this.
+const haulBookClaimTTL = 6 * time.Hour
+
+// bookCap is the number of concurrent haulers a book can supply: one ship-load per
+// claimant, ceil(source depth / ship cargo). Always >= 1.
+func bookCap(sourceUnits, cargoCap float64) int {
+	if cargoCap < 1 || sourceUnits <= 0 {
+		return 1
+	}
+	return max(1, int(math.Ceil(sourceUnits/cargoCap)))
+}
+
+// bookKey groups ranked opportunities by their book (item + source station).
+type bookKey struct{ item, from string }
+
+// claimBestBook walks ranked opportunities book-by-book (best-first) and admits the
+// hauler onto the first book with a free cap slot, letting AdmitBookClaim assign a
+// fanned-out destination. Books already attempted this pass are skipped. ok=false means
+// every reachable book was at capacity or fully claimed.
+func claimBestBook(ctx context.Context, store OpportunityStore, ranked []market.ArbitrageOpportunity, agentID string, cargoCap float64) (market.ArbitrageOpportunity, int64, bool, error) {
+	attempted := map[bookKey]bool{}
+	for _, top := range ranked {
+		bk := bookKey{top.ItemID, top.FromStationID}
+		if attempted[bk] {
+			continue
+		}
+		attempted[bk] = true
+
+		var cands []market.BookCandidate
+		var srcUnits float64
+		for _, o := range ranked {
+			if o.ItemID == bk.item && o.FromStationID == bk.from {
+				cands = append(cands, market.BookCandidate{OppID: o.ID, ToStationID: o.ToStationID})
+				srcUnits = o.SourceUnits // identical across a book's rows
+			}
+		}
+		capN := bookCap(srcUnits, cargoCap)
+		res, err := store.AdmitBookClaim(ctx, market.BookKey{ItemID: bk.item, FromStationID: bk.from}, cands, agentID, capN, haulBookClaimTTL)
+		if err != nil {
+			return market.ArbitrageOpportunity{}, 0, false, fmt.Errorf("haul: admit book %s/%s: %w", bk.item, bk.from, err)
+		}
+		if !res.OK {
+			continue // book full or all rows claimed; try the next book
+		}
+		for _, o := range ranked {
+			if o.ID == res.OppID {
+				return o, res.ClaimID, true, nil
+			}
+		}
+	}
+	return market.ArbitrageOpportunity{}, 0, false, nil
+}
+
 // compile-time check that the real collector satisfies the engine's store.
 var _ OpportunityStore = (*market.Collector)(nil)
 
@@ -455,10 +515,11 @@ type HaulDeps struct {
 	SetActivity func(string)
 }
 
-// haulActivityLabel renders a claimed opportunity as the status-page activity
-// line, e.g. "Opportunity #100042 24 power_cell from Sol Station to Gold Run".
-// Names are joined on read; it falls back to ids when a name is missing.
-func haulActivityLabel(opp market.ArbitrageOpportunity) string {
+// haulActivityLabel renders a claimed opportunity as the status-page activity line,
+// capping the shown quantity to what the ship will actually attempt (min of ship cargo
+// and book depth) alongside the book's total source depth, so it never shows a
+// physically impossible order-book quantity.
+func haulActivityLabel(opp market.ArbitrageOpportunity, cargoCap float64) string {
 	item := opp.ItemName
 	if item == "" {
 		item = opp.ItemID
@@ -471,7 +532,12 @@ func haulActivityLabel(opp market.ArbitrageOpportunity) string {
 	if to == "" {
 		to = opp.ToStationID
 	}
-	return fmt.Sprintf("Opportunity #%d %.0f %s from %s to %s", opp.ID, opp.Quantity, item, from, to)
+	slice := opp.SourceUnits
+	if cargoCap > 0 && cargoCap < slice {
+		slice = cargoCap
+	}
+	return fmt.Sprintf("Opportunity #%d · buying up to %.0f of %.0f %s · %s → %s",
+		opp.ID, slice, opp.SourceUnits, item, from, to)
 }
 
 // haulMetrics accumulates per-leg stamps (wall + game tick) and pricing across one fresh
@@ -589,7 +655,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 			return abandonClaim(ctx, deps, out, held[0], "stronghold destination")
 		}
 		fmt.Fprintf(out, "haul: resuming claimed opp %d (%s)\n", held[0].ID, held[0].ItemID) //nolint:errcheck
-		return runClaimedHaul(ctx, deps, out, held[0], nameToID, nil, fuel)
+		return runClaimedHaul(ctx, deps, out, held[0], nameToID, nil, fuel, 0)
 	}
 
 	// Recovery: a claimless hauler stranded in a system with no accessible station of
@@ -663,16 +729,20 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		}
 	}
 
-	opp, ok, err := claimBest(ctx, deps.Market, ranked, deps.AgentID)
+	cargoCap := 0.0
+	if st := deps.Client.GetState(); st != nil {
+		cargoCap = st.Ship.CargoCapacity
+	}
+	opp, bookClaimID, ok, err := claimBestBook(ctx, deps.Market, ranked, deps.AgentID, cargoCap)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		fmt.Fprintln(out, "haul: all candidates already claimed; idling") //nolint:errcheck
+		fmt.Fprintln(out, "haul: all candidate books at capacity; idling") //nolint:errcheck
 		return nil
 	}
 
-	publishActivity(deps.SetActivity, haulActivityLabel(opp))
+	publishActivity(deps.SetActivity, haulActivityLabel(opp, cargoCap))
 
 	m := &haulMetrics{claimedAt: haulNow(deps), claimedTick: haulTick(deps)}
 	if buySys := nameToID[opp.FromSystemName]; buySys != "" {
@@ -682,7 +752,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 			m.jumps = toBuy[buySys] + toSell[sellSys]
 		}
 	}
-	return runClaimedHaul(ctx, deps, out, opp, nameToID, m, fuel)
+	return runClaimedHaul(ctx, deps, out, opp, nameToID, m, fuel, bookClaimID)
 }
 
 // haulRecoverIfStranded routes the worker to the nearest stronghold-free station when
@@ -811,7 +881,7 @@ func haulResolveSellSystem(ctx context.Context, deps HaulDeps, opp market.Arbitr
 // fresh data and applies haulGate (skipping unless the live spread clears both the
 // margin and net-profit thresholds), buys, then sells. PRE-buy abandons release the
 // claim back to the pool; POST-buy abandons keep it claimed for resumption.
-func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, nameToID map[string]string, m *haulMetrics, fuel haulFuel) error {
+func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, nameToID map[string]string, m *haulMetrics, fuel haulFuel, bookClaimID int64) error {
 	buySys := nameToID[opp.FromSystemName]
 	sellSys := haulResolveSellSystem(ctx, deps, opp, nameToID)
 	if buySys == "" {
