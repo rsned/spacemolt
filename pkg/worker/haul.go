@@ -384,6 +384,7 @@ type OpportunityStore interface {
 	SettleBookClaim(ctx context.Context, claimID int64, agentID string, boughtUnits float64) error
 	CompleteBookClaim(ctx context.Context, claimID int64, agentID string) error
 	ReleaseBookClaim(ctx context.Context, claimID int64, agentID string) error
+	GetActiveBookClaim(ctx context.Context, itemID, fromStation, agentID string) (int64, bool, error)
 	InvalidateBook(ctx context.Context, itemID, fromStation, agentID, reason string) error
 	ReapExpiredBookClaims(ctx context.Context) (int, error)
 	GetItemStationPrices(ctx context.Context, itemID string) ([]market.ItemStationPrice, error)
@@ -660,7 +661,13 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 			return abandonClaim(ctx, deps, out, held[0], "stronghold destination")
 		}
 		fmt.Fprintf(out, "haul: resuming claimed opp %d (%s)\n", held[0].ID, held[0].ItemID) //nolint:errcheck
-		return runClaimedHaul(ctx, deps, out, held[0], nameToID, nil, fuel, 0)
+		// Recover the book-claim id so a resumed completion still frees the cap slot
+		// (0 when none is found — safe: the >0 guards degrade to TTL cleanup).
+		resumedClaimID, _, gerr := deps.Market.GetActiveBookClaim(ctx, held[0].ItemID, held[0].FromStationID, deps.AgentID)
+		if gerr != nil {
+			fmt.Fprintf(out, "haul: resume book-claim lookup failed: %v\n", gerr) //nolint:errcheck
+		}
+		return runClaimedHaul(ctx, deps, out, held[0], nameToID, nil, fuel, resumedClaimID)
 	}
 
 	// Recovery: a claimless hauler stranded in a system with no accessible station of
@@ -930,7 +937,7 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	// leg and go straight to delivery, instead of buying a second load.
 	if aboard := cargoQty(deps.Client.GetState(), opp.ItemID); aboard > 0 {
 		fmt.Fprintf(out, "haul: opp %d %s: resuming with %.0f aboard -> sell @%s\n", opp.ID, opp.ItemID, aboard, opp.ToStationName) //nolint:errcheck
-		return haulSellLeg(ctx, deps, out, opp, sellSys, nil, 0)
+		return haulSellLeg(ctx, deps, out, opp, sellSys, nil, bookClaimID)
 	}
 
 	fmt.Fprintf(out, "haul: opp %d %s: buy %.0f @%s -> sell @%s\n", opp.ID, opp.ItemID, opp.Quantity, opp.FromStationName, opp.ToStationName) //nolint:errcheck
@@ -974,10 +981,12 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	}
 	qty, liveAsk, sellBid, pass, reason := haulGate(opp, prices, cargoFree, state.Ship.CargoCapacity, state.GetCredits(), haulLegCost)
 	if !pass {
-		// A missing live ask / vanished spread means the source book is gone — invalidate
-		// it so no other hauler is drawn in. An affordability/cargo reason is this
-		// hauler's problem, so return the row to the pool for others.
-		if strings.HasPrefix(reason, "no live ask") || strings.HasPrefix(reason, "spread too thin") {
+		// A missing live ask means the SOURCE book is gone — invalidate it so no other
+		// hauler is drawn in. Every other gate failure (a thin/collapsed spread, which
+		// may be demand-side at THIS destination; or an affordability/cargo shortfall)
+		// is not proof the source is empty, so just return the row to the pool for
+		// others rather than expiring the whole book's sibling destinations.
+		if strings.HasPrefix(reason, "no live ask") {
 			return abandonCollapsed(ctx, deps, out, opp, bookClaimID, reason)
 		}
 		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, reason)

@@ -3,6 +3,7 @@ package market
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -190,6 +191,26 @@ func (c *Collector) InvalidateBook(ctx context.Context, itemID, fromStation, age
 		}
 		return nil
 	})
+}
+
+// GetActiveBookClaim returns the claim_id of agentID's active (claimed/bought) claim on
+// a book, if any. The partial unique index idx_bookclaims_active_agent guarantees at
+// most one such row. Used to recover the claim id when resuming a haul (e.g. across a
+// process restart) so the resumed completion still frees the cap slot.
+func (c *Collector) GetActiveBookClaim(ctx context.Context, itemID, fromStation, agentID string) (int64, bool, error) {
+	var id int64
+	err := c.db.QueryRowContext(ctx,
+		`SELECT claim_id FROM haul_book_claims
+		 WHERE item_id=? AND from_station_id=? AND agent_id=? AND phase IN ('claimed','bought')
+		 ORDER BY claim_id DESC LIMIT 1`,
+		itemID, fromStation, agentID).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, fmt.Errorf("get active book claim: %w", err)
+	}
+	return id, true, nil
 }
 
 // ReapExpiredBookClaims releases roster rows whose TTL passed while still active

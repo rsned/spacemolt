@@ -200,6 +200,43 @@ func TestInvalidateBookExpiresAvailableAndOwnClaimedRows(t *testing.T) {
 	}
 }
 
+func TestGetActiveBookClaim(t *testing.T) {
+	c := newTestCollector(t)
+	ctx := context.Background()
+	book := BookKey{ItemID: "widget", FromStationID: "src"}
+	id := seedAvailableOpp(t, c, "widget", "src", "dst_a", 900)
+	r, err := c.AdmitBookClaim(ctx, book, []BookCandidate{{id, "dst_a"}}, "h1", 5, time.Hour)
+	if err != nil || !r.OK {
+		t.Fatalf("admit: %v ok=%v", err, r.OK)
+	}
+
+	// The owning agent recovers its active claim id.
+	got, ok, err := c.GetActiveBookClaim(ctx, "widget", "src", "h1")
+	if err != nil {
+		t.Fatalf("get active: %v", err)
+	}
+	if !ok || got != r.ClaimID {
+		t.Fatalf("want (%d,true), got (%d,%v)", r.ClaimID, got, ok)
+	}
+
+	// A different agent has no active claim on this book.
+	if got, ok, err := c.GetActiveBookClaim(ctx, "widget", "src", "h2"); err != nil || ok || got != 0 {
+		t.Fatalf("other agent: want (0,false,nil), got (%d,%v,%v)", got, ok, err)
+	}
+	// A different book has none for h1.
+	if got, ok, err := c.GetActiveBookClaim(ctx, "widget", "elsewhere", "h1"); err != nil || ok || got != 0 {
+		t.Fatalf("other book: want (0,false,nil), got (%d,%v,%v)", got, ok, err)
+	}
+
+	// After completion the claim is 'done' — no longer active.
+	if err := c.CompleteBookClaim(ctx, r.ClaimID, "h1"); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if got, ok, err := c.GetActiveBookClaim(ctx, "widget", "src", "h1"); err != nil || ok || got != 0 {
+		t.Fatalf("after complete: want (0,false,nil), got (%d,%v,%v)", got, ok, err)
+	}
+}
+
 func TestReapExpiredBookClaims(t *testing.T) {
 	c := newTestCollector(t)
 	ctx := context.Background()

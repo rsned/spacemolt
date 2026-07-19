@@ -409,6 +409,8 @@ type fakeStore struct {
 	bookClaimsCompleted []int64            // claimIDs completed
 	bookClaimsReleased  []int64            // claimIDs released
 	invalidated         []string           // "item/from" strings passed to InvalidateBook
+	activeBookClaimID   int64              // returned by GetActiveBookClaim
+	activeBookClaimOK   bool               // returned by GetActiveBookClaim
 
 	// admitByBook scripts a per-book response for AdmitBookClaim: when non-nil, the
 	// response for a given book is looked up here; a missing key falls back to the
@@ -497,6 +499,9 @@ func (f *fakeStore) CompleteBookClaim(_ context.Context, claimID int64, _ string
 func (f *fakeStore) ReleaseBookClaim(_ context.Context, claimID int64, _ string) error {
 	f.bookClaimsReleased = append(f.bookClaimsReleased, claimID)
 	return nil
+}
+func (f *fakeStore) GetActiveBookClaim(_ context.Context, _, _, _ string) (int64, bool, error) {
+	return f.activeBookClaimID, f.activeBookClaimOK, nil
 }
 func (f *fakeStore) InvalidateBook(_ context.Context, itemID, fromStation, _, _ string) error {
 	f.invalidated = append(f.invalidated, itemID+"/"+fromStation)
@@ -1060,6 +1065,31 @@ func TestRunClaimedHaulResumesWithGoodsAboard(t *testing.T) {
 	}
 }
 
+// TestRunClaimedHaulResumeCompletesBookClaim covers the resume path where goods are
+// already aboard (interrupted after a successful buy): with a recovered nonzero
+// bookClaimID threaded through, the completing sell must still free the cap slot via
+// CompleteBookClaim rather than leaking it for the full TTL.
+func TestRunClaimedHaulResumeCompletesBookClaim(t *testing.T) {
+	o := opp(7, "b", "a", 100) // ItemID iron_ore, sell at "a" (== current system)
+	fc := &fakeClient{
+		state: &game.State{
+			System:  game.SystemData{ID: "a", Name: "A"},
+			Fuel:    100,
+			MaxFuel: 100,
+			Ship:    game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}},
+		},
+		route: []game.RouteStep{{SystemID: "a", Name: "A"}}, // current only -> no jumps
+	}
+	f := &fakeStore{}
+	_, n2id := graphFor([]string{"a", "b"}, [2]string{"a", "b"})
+	if err := runClaimedHaul(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, n2id, nil, haulFuel{}, 7); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(f.bookClaimsCompleted, 7) {
+		t.Fatalf("resumed completion must free cap slot via CompleteBookClaim(7), got %v", f.bookClaimsCompleted)
+	}
+}
+
 func buyLegOpp() market.ArbitrageOpportunity {
 	return market.ArbitrageOpportunity{
 		ID: 7, FromSystemName: "a", ToSystemName: "a",
@@ -1129,6 +1159,43 @@ func TestRunClaimedHaulInvalidatesBookOnCollapse(t *testing.T) {
 	}
 	if len(f.bookClaimsReleased) == 0 {
 		t.Fatalf("collapse abandon must still release the book claim slot")
+	}
+}
+
+// TestRunClaimedHaulSpreadTooThinReleasesToPool covers a demand-side collapse: a live
+// ask AND a live bid are both present, but the spread is below haulMinMargin. This is
+// THIS destination's problem, not proof the source is empty, so the hauler must return
+// the row to the pool (release its claim) WITHOUT invalidating the whole book.
+func TestRunClaimedHaulSpreadTooThinReleasesToPool(t *testing.T) {
+	o := buyLegOpp()
+	fc := &fakeClient{
+		state: &game.State{
+			System:  game.SystemData{ID: "a", Name: "A"},
+			Fuel:    100,
+			MaxFuel: 100,
+			Credits: 1_000_000,
+			Ship:    game.Ship{CargoCapacity: 500},
+		},
+		route: []game.RouteStep{{SystemID: "a", Name: "A"}},
+	}
+	// Live ask 100 at buy station, live bid 101 at sell station -> ~1% margin, under
+	// haulMinMargin (3%) -> haulGate returns "spread too thin".
+	f := &fakeStore{
+		admitOK: true,
+		prices: []market.ItemStationPrice{
+			{StationID: "buy-stn", HasSell: true, BestAsk: 100, AskQty: 400},
+			{StationID: "sell-stn", HasBuy: true, BestBid: 101, BidQty: 400},
+		},
+	}
+	_, n2id := graphFor([]string{"a"}, [2]string{"a", "a"})
+	if err := runClaimedHaul(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, n2id, nil, haulFuel{}, 7); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if len(f.invalidated) != 0 {
+		t.Fatalf("spread-too-thin must NOT invalidate the book, got %d invalidations", len(f.invalidated))
+	}
+	if len(f.bookClaimsReleased) == 0 {
+		t.Fatalf("spread-too-thin must release the book claim slot to the pool")
 	}
 }
 
