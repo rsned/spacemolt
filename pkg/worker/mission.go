@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"slices"
 	"time"
 
@@ -469,18 +470,39 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			// gating on it would wrongly mark acquirable missions attempted.
 			fmt.Fprintf(out, "missions: view_market unavailable (%v); availability gate skipped this pass\n", merr) //nolint:errcheck
 		} else {
+			// Working copies so each candidate is priced against what its BUY
+			// step will actually see. SelectMissionSet stacks same-destination
+			// missions with NO item-level dedup, so two "deliver iron_ore to Z"
+			// candidates share the same ladder and storage; pricing both against
+			// the un-decremented top-of-book lets candidate B pass surge/net
+			// checks at a cheap avg that candidate A's buy will consume, then B
+			// walks the wall unchecked at buy time (the fighter-4 overpay). The
+			// gate iterates `set` in the same order the buy step will, so
+			// decrementing these working copies as candidates are admitted
+			// exactly mirrors the sequential buy. The REAL storage/ladders maps
+			// are left untouched — the buy step re-reads/decrements real storage.
+			workStorage := maps.Clone(storage)
+			if workStorage == nil {
+				workStorage = map[string]float64{}
+			}
+			workLadders := make(map[string][]market.AskLevel, len(ladders))
 			acquirable := make([]missionCandidate, 0, len(set))
 			for _, c := range set {
 				if c.BuyQty <= 0 {
 					acquirable = append(acquirable, c)
 					continue
 				}
-				marketQty := float64(c.BuyQty) - min(storage[c.ItemID], float64(c.BuyQty))
-				localCost, _, avgFill, enough := market.CostToAcquire(ladders[c.ItemID], marketQty)
+				lad, seen := workLadders[c.ItemID]
+				if !seen {
+					lad = ladders[c.ItemID] // first same-item candidate reads the real ladder
+				}
+				usedStore := min(workStorage[c.ItemID], float64(c.BuyQty))
+				marketQty := float64(c.BuyQty) - usedStore
+				localCost, _, avgFill, enough := market.CostToAcquire(lad, marketQty)
 				if marketQty > 0 && !enough {
 					fmt.Fprintf(out, "missions: skip %s (%s): market here can't fill %.0f %s\n", c.Entry.MissionID, c.Entry.Title, marketQty, c.ItemID) //nolint:errcheck
 					deps.State.markAttempted(c.Entry.MissionID)                                                                                       // don't re-price it every pass this session
-					continue
+					continue                                                                                                                          // skipped: buys nothing, so consume nothing
 				}
 				if ref, ok, _ := deps.Market.GetReferencePrice(ctx, c.ItemID, missionReferenceLookback); ok && avgFill > missionSurgeMult*ref {
 					fmt.Fprintf(out, "missions: skip %s (%s): %s avg %.0f > %.1fx reference %.0f (surge)\n", c.Entry.MissionID, c.Entry.Title, c.ItemID, avgFill, missionSurgeMult, ref) //nolint:errcheck
@@ -502,6 +524,12 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 				// c.Net still uses the true economic cost (localCost — storage
 				// units are free) and is unaffected by this.
 				c.ItemCost, c.Net = avgFill*float64(c.BuyQty), net
+				// Admitted: consume the depth + storage this candidate will take
+				// so the NEXT same-item candidate prices against the residual.
+				// comma-ok read above means an emptied ladder (nil) is honored,
+				// not re-read from the full real ladder.
+				workLadders[c.ItemID] = market.ConsumeAsks(lad, marketQty)
+				workStorage[c.ItemID] -= usedStore
 				acquirable = append(acquirable, c)
 			}
 			set = acquirable
@@ -1040,7 +1068,11 @@ func missionFetchMarketLadders(ctx context.Context, deps MissionDeps) (map[strin
 	for _, it := range resp.Items {
 		var lvls []market.AskLevel
 		for _, o := range it.SellOrders {
-			if o.PriceEach <= 0 || o.Quantity <= 0 {
+			// Skip empties AND the server's not-for-sale sentinel (999999 and its
+			// 1000000 sibling). GetAskLadder/GetReferencePrice strip it in SQL via
+			// notForSaleSQL; the mission ladder must match or a reached sentinel
+			// corrupts enoughDepth and skip reasons.
+			if o.PriceEach <= 0 || o.Quantity <= 0 || o.PriceEach >= market.NotForSalePrice {
 				continue
 			}
 			lvls = append(lvls, market.AskLevel{PriceEach: o.PriceEach, Quantity: o.Quantity})

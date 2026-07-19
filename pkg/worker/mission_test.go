@@ -595,6 +595,96 @@ func TestMissionSkipsLocalPriceSurge(t *testing.T) {
 	}
 }
 
+// TestMissionFetchMarketLaddersExcludesSentinel covers Finding 3: the server's
+// not-for-sale sentinel (999999) and its 1000000 sibling must be filtered out
+// of the mission ladder, matching GetAskLadder/GetReferencePrice which strip it
+// in SQL. A leaked sentinel corrupts enoughDepth and the surge skip reasons.
+func TestMissionFetchMarketLaddersExcludesSentinel(t *testing.T) {
+	fc := &fakeClient{
+		raw: map[string][]byte{
+			"market": marketJSONLadders(t, map[string][]serverapi.MarketOrder{
+				"iron_ore": {
+					{PriceEach: 10, Quantity: 5},
+					{PriceEach: market.NotForSalePrice, Quantity: 999}, // 999999 sentinel
+					{PriceEach: 1000000, Quantity: 500},                // its sibling
+					{PriceEach: 25, Quantity: 3},
+				},
+			}),
+		},
+	}
+	deps := missionDeps(fc, &fakeMissionStore{}, missionKB())
+	ladders, err := missionFetchMarketLadders(context.Background(), deps)
+	if err != nil {
+		t.Fatalf("missionFetchMarketLadders: %v", err)
+	}
+	got := ladders["iron_ore"]
+	want := []market.AskLevel{{PriceEach: 10, Quantity: 5}, {PriceEach: 25, Quantity: 3}}
+	if len(got) != len(want) {
+		t.Fatalf("ladder = %+v, want %+v (sentinel levels must be dropped)", got, want)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("ladder[%d] = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+// TestMissionSameItemBatchConsumesLadder covers the CRITICAL batched-same-item
+// finding: SelectMissionSet stacks two "deliver iron_ore to sol" missions with
+// NO item-level dedup, so both share the same ladder. The availability gate
+// must decrement a working copy of the ladder as it admits each candidate, so
+// the FIRST mission eats the cheap depth and the SECOND is re-priced against
+// the residual wall (surge fires) instead of the un-decremented cheap top.
+// Before the fix both were priced against the full ladder at the cheap avg and
+// both admitted — reintroducing the exact overpay the branch exists to kill.
+//
+// Numbers: ladder {10x30, 2000x100}, both BuyQty 25, storage empty. Candidate
+// A takes 25 of the 30 cheap units (avg 10). Only 5 cheap units remain, so B's
+// 25 walks the wall: avg = (5*10 + 20*2000)/25 = 1602 > 4x reference (10) ->
+// surge skip.
+func TestMissionSameItemBatchConsumesLadder(t *testing.T) {
+	m1 := boardEntry("m1", "iron_ore", 25, "sol_station", "sol", 60000, 0)
+	m2 := boardEntry("m2", "iron_ore", 25, "sol_station", "sol", 60000, 0)
+	// m1 is the admitted mission; only it gets a resolvable active instance.
+	active := serverapi.ActiveMission{MissionID: "hex-m1", TemplateID: "m1", Type: "delivery", Title: "Deliver iron_ore"}
+	fc := &fakeClient{
+		state:             missionState(true, 50000, 0),
+		completeReward:    60000,
+		activeMissionsSeq: [][]byte{activeJSON(t), activeJSON(t, active)},
+		raw: map[string][]byte{
+			"missions": boardJSON(t, m1, m2),
+			"storage":  storageJSON(t, map[string]float64{}),
+			"market": marketJSONLadders(t, map[string][]serverapi.MarketOrder{
+				"iron_ore": {{PriceEach: 10, Quantity: 30}, {PriceEach: 2000, Quantity: 100}},
+			}),
+		},
+	}
+	store := &fakeMissionStore{
+		asks:      map[string]float64{"iron_ore": 10}, // coarse accept-time reference stays cheap
+		refPrices: map[string]float64{"iron_ore": 10}, // authoritative surge basis
+	}
+	deps := missionDeps(fc, store, missionKB())
+	deps.State = &missionRunState{}
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	joined := strings.Join(fc.calls, " ")
+	// The first same-item candidate is admitted and bought at the cheap avg.
+	if !strings.Contains(joined, "accept:m1") {
+		t.Fatalf("first same-item mission must be accepted: %v", fc.calls)
+	}
+	if !strings.Contains(joined, "buy:iron_ore") {
+		t.Fatalf("first same-item mission must buy its shortfall: %v", fc.calls)
+	}
+	// The second candidate, priced against the residual ladder, surges out.
+	if strings.Contains(joined, "accept:m2") {
+		t.Fatalf("second same-item mission must NOT be accepted at the cheap top-of-book (ladder not decremented): %v", fc.calls)
+	}
+	if !deps.State.wasAttempted("m2") {
+		t.Fatal("surge-gated second same-item mission must be marked attempted")
+	}
+}
+
 // TestMissionsResumeClaimsCompletedObjective covers the storage-satisfied
 // case found live 2026-07-16: the server counts storage AT the target base
 // toward a deliver objective ("in_storage" on the actives wire), so an
