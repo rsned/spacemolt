@@ -602,6 +602,36 @@ func (c *Collector) GetItemPriceHistory(ctx context.Context, itemID string, limi
 	return out, rows.Err()
 }
 
+// GetAskLadder returns the sell-side price levels (ascending by price) for an
+// item at a station's latest capture. Empty when the item has no sell orders
+// there. Callers pass the result straight to CostToAcquire.
+func (c *Collector) GetAskLadder(ctx context.Context, itemID, stationID string) ([]AskLevel, error) {
+	rows, err := c.db.QueryContext(ctx, `
+		SELECT o.price_each, o.quantity
+		FROM market_orders o
+		JOIN (
+			SELECT MAX(captured_at) AS mx
+			FROM market_orders
+			WHERE item_id = ? AND station_id = ?
+		) latest ON o.captured_at = latest.mx
+		WHERE o.item_id = ? AND o.station_id = ? AND o.side = 'sell'
+		  AND o.price_each > 0 AND o.quantity > 0
+		ORDER BY o.price_each ASC`, itemID, stationID, itemID, stationID)
+	if err != nil {
+		return nil, fmt.Errorf("query ask ladder: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []AskLevel
+	for rows.Next() {
+		var p, q float64
+		if err := rows.Scan(&p, &q); err != nil {
+			return nil, fmt.Errorf("scan ask ladder: %w", err)
+		}
+		out = append(out, AskLevel{PriceEach: p, Quantity: q})
+	}
+	return out, rows.Err()
+}
+
 // GetCaptureHealth returns per-station capture history: distinct captured_at
 // timestamps (newest first), count, and earliest/latest. Used to spot cadence
 // gaps in collection.
