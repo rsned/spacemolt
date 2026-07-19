@@ -306,10 +306,13 @@ Expected: FAIL — `undefined: (*Collector).GetReferencePrice`.
 // (0,false,nil) when no recent sell data exists.
 func (c *Collector) GetReferencePrice(ctx context.Context, itemID string, lookback time.Duration) (float64, bool, error) {
 	cutoff := time.Now().UTC().Add(-lookback).Format(time.RFC3339)
+	// Filter the not-for-sale sentinel (999999.0) exactly as GetReferenceAsk /
+	// FindItemSellers do, via the notForSaleSQL constant (pkg/market/prices.go).
 	rows, err := c.db.QueryContext(ctx, `
 		SELECT MIN(price_each) AS best_ask
 		FROM market_orders
-		WHERE item_id = ? AND side = 'sell' AND price_each > 0 AND quantity > 0
+		WHERE item_id = ? AND side = 'sell'
+		  AND price_each > 0 AND price_each < `+notForSaleSQL+` AND quantity > 0
 		  AND captured_at >= ?
 		GROUP BY station_id
 		ORDER BY best_ask ASC`, itemID, cutoff)
