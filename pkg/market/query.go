@@ -293,9 +293,12 @@ FROM cur`
 }
 
 // GetReferencePrice returns a robust "cheap" price for an item: the 20th
-// percentile of per-station latest best-asks captured within lookback. A
-// single gouging station therefore cannot set the reference. Returns
-// (0,false,nil) when no recent sell data exists.
+// percentile across stations of each station's cheapest sell price seen within
+// lookback (per-station MIN over the window, not just the latest capture). A
+// single gouging station therefore cannot set the reference, and the per-station
+// MIN only ever biases the ceiling stricter (never laxer) — the conservative
+// direction for an anti-gouging gate. Returns (0,false,nil) when no recent sell
+// data exists.
 func (c *Collector) GetReferencePrice(ctx context.Context, itemID string, lookback time.Duration) (float64, bool, error) {
 	cutoff := time.Now().UTC().Add(-lookback).Format(time.RFC3339)
 	// Filter the not-for-sale sentinel (999999.0) exactly as GetReferenceAsk /
