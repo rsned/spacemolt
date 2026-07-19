@@ -839,6 +839,36 @@ func abandonClaim(ctx context.Context, deps HaulDeps, out io.Writer, opp market.
 	return nil
 }
 
+// abandonCollapsed handles a pre-buy abandon caused by the source book being gone at
+// arrival (confirmed by the live recapture): it invalidates the book so no further
+// hauler is drawn in (expiring the book's available rows and this hauler's own claimed
+// row), releases this hauler's book-claim cap slot, and logs. Unlike abandonClaim it
+// does NOT return the row to the available pool.
+func abandonCollapsed(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, bookClaimID int64, reason string) error {
+	if err := deps.Market.InvalidateBook(ctx, opp.ItemID, opp.FromStationID, deps.AgentID, reason); err != nil {
+		fmt.Fprintf(out, "haul: opp %d collapse (%s); invalidate failed: %v\n", opp.ID, reason, err) //nolint:errcheck
+	}
+	if bookClaimID > 0 {
+		if err := deps.Market.ReleaseBookClaim(ctx, bookClaimID, deps.AgentID); err != nil {
+			fmt.Fprintf(out, "haul: opp %d release book claim failed: %v\n", opp.ID, err) //nolint:errcheck
+		}
+	}
+	fmt.Fprintf(out, "haul: opp %d source collapsed (%s); book invalidated\n", opp.ID, reason) //nolint:errcheck
+	return nil
+}
+
+// releaseBookAnd releases the hauler's book-claim slot (best-effort) then delegates to
+// abandonClaim for a "my problem" pre-buy abandon (unroutable/dock/credits), which
+// returns the per-row claim to the pool for other haulers.
+func releaseBookAnd(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, bookClaimID int64, reason string) error {
+	if bookClaimID > 0 {
+		if err := deps.Market.ReleaseBookClaim(ctx, bookClaimID, deps.AgentID); err != nil {
+			fmt.Fprintf(out, "haul: opp %d release book claim failed: %v\n", opp.ID, err) //nolint:errcheck
+		}
+	}
+	return abandonClaim(ctx, deps, out, opp, reason)
+}
+
 // haulMovingStations are sell/buy stations whose home system changes over time:
 // Outerrim's mobile_capital hyperspace-jumps to another of its systems (~once a
 // day). An opportunity records the system the station occupied when it was
@@ -885,34 +915,34 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	buySys := nameToID[opp.FromSystemName]
 	sellSys := haulResolveSellSystem(ctx, deps, opp, nameToID)
 	if buySys == "" {
-		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("buy system %q unresolved", opp.FromSystemName))
+		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, fmt.Sprintf("buy system %q unresolved", opp.FromSystemName))
 	}
 	if sellSys == "" {
-		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("sell system %q unresolved", opp.ToSystemName))
+		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, fmt.Sprintf("sell system %q unresolved", opp.ToSystemName))
 	}
 
 	// Resume: goods already aboard (interrupted after a successful buy) -> skip the buy
 	// leg and go straight to delivery, instead of buying a second load.
 	if aboard := cargoQty(deps.Client.GetState(), opp.ItemID); aboard > 0 {
 		fmt.Fprintf(out, "haul: opp %d %s: resuming with %.0f aboard -> sell @%s\n", opp.ID, opp.ItemID, aboard, opp.ToStationName) //nolint:errcheck
-		return haulSellLeg(ctx, deps, out, opp, sellSys, nil)
+		return haulSellLeg(ctx, deps, out, opp, sellSys, nil, 0)
 	}
 
 	fmt.Fprintf(out, "haul: opp %d %s: buy %.0f @%s -> sell @%s\n", opp.ID, opp.ItemID, opp.Quantity, opp.FromStationName, opp.ToStationName) //nolint:errcheck
 
 	if err := haulAutopilot(ctx, deps, out, buySys, opp.FromStationID, nil); err != nil {
-		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("transit to buy failed: %v", err))
+		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, fmt.Sprintf("transit to buy failed: %v", err))
 	}
 	// Autopilot leaves the ship at the station POI but undocked. Dock explicitly so the
 	// live recapture (view_market) can run — unlike buy/sell, view_market does not
 	// auto-dock, so without this the recapture fails and the gate falls back to stale
 	// prices. A station whose POI has no dockable base releases the claim.
 	if err := deps.Client.Dock(ctx); err != nil {
-		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("cannot dock at buy station %s: %v", opp.FromStationName, err))
+		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, fmt.Sprintf("cannot dock at buy station %s: %v", opp.FromStationName, err))
 	}
 	state := deps.Client.GetState()
 	if state == nil {
-		return abandonClaim(ctx, deps, out, opp, "no state at buy station")
+		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, "no state at buy station")
 	}
 	if m != nil {
 		m.arrivedSrcAt, m.arrivedSrcTick = haulNow(deps), haulTick(deps)
@@ -929,7 +959,7 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	}
 	prices, perr := deps.Market.GetItemStationPrices(ctx, opp.ItemID)
 	if perr != nil {
-		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("price check failed: %v", perr))
+		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, fmt.Sprintf("price check failed: %v", perr))
 	}
 	haulLegCost := 0.0
 	if buySys != "" && sellSys != "" { // sellSys is live-resolved for moving stations
@@ -939,10 +969,23 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	}
 	qty, liveAsk, sellBid, pass, reason := haulGate(opp, prices, cargoFree, state.Ship.CargoCapacity, state.GetCredits(), haulLegCost)
 	if !pass {
-		return abandonClaim(ctx, deps, out, opp, reason)
+		// A missing live ask / vanished spread means the source book is gone — invalidate
+		// it so no other hauler is drawn in. An affordability/cargo reason is this
+		// hauler's problem, so return the row to the pool for others.
+		if strings.HasPrefix(reason, "no live ask") || strings.HasPrefix(reason, "spread too thin") {
+			return abandonCollapsed(ctx, deps, out, opp, bookClaimID, reason)
+		}
+		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, reason)
 	}
 	if err := deps.Client.Buy(ctx, opp.ItemID, qty); err != nil {
-		return abandonClaim(ctx, deps, out, opp, fmt.Sprintf("buy failed: %v", err))
+		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, fmt.Sprintf("buy failed: %v", err))
+	}
+	// Settle: record the actual bought quantity so other haulers see the reduced book
+	// remainder (source_units - SUM(bought_units)).
+	if bookClaimID > 0 {
+		if serr := deps.Market.SettleBookClaim(ctx, bookClaimID, deps.AgentID, qty); serr != nil {
+			fmt.Fprintf(out, "haul: opp %d settle book claim failed: %v\n", opp.ID, serr) //nolint:errcheck
+		}
 	}
 	if m != nil {
 		m.boughtAt, m.boughtTick = haulNow(deps), haulTick(deps)
@@ -953,14 +996,14 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 		}
 	}
 
-	return haulSellLeg(ctx, deps, out, opp, sellSys, m)
+	return haulSellLeg(ctx, deps, out, opp, sellSys, m, bookClaimID)
 }
 
 // haulSellLeg transits to the sell station and sells the goods, completing the
 // opportunity. The buy has already happened, so on any failure here the claim is KEPT
 // (logged "leaving claimed") — the goods are aboard and the haul can be resumed to retry
 // the sell leg on a later pass or after a restart.
-func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, sellSys string, m *haulMetrics) error {
+func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, sellSys string, m *haulMetrics, bookClaimID int64) error {
 	// Transit to the sell station. A per-jump watchdog checks the claimed destination's live
 	// demand en route; if it has thinned below break-even, autopilot stops early and we
 	// re-route once to a better live market before riding the rest out (Step 2 reaction).
@@ -1010,7 +1053,7 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 		fmt.Fprintf(out, "haul: opp %d demand check failed (%v); selling normally\n", opp.ID, oerr) //nolint:errcheck
 	} else if haulDestCaptured(ctx, deps, opp.ToStationID, orders) && arrivalDecision(orders, held, unitBuy*held, watchdogConfig{}) == postCostOrder {
 		fmt.Fprintf(out, "haul: opp %d demand too thin at %s; listing %.0f %s @cost %.0f\n", opp.ID, opp.ToStationID, held, opp.ItemID, unitBuy) //nolint:errcheck
-		return haulPostCostOrder(ctx, deps, out, opp, held, unitBuy)
+		return haulPostCostOrder(ctx, deps, out, opp, held, unitBuy, bookClaimID)
 	}
 
 	if err := deps.Client.Sell(ctx, opp.ItemID, held); err != nil {
@@ -1033,6 +1076,11 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 		fmt.Fprintf(out, "haul: opp %d complete failed: %v\n", opp.ID, err) //nolint:errcheck
 		return nil
 	}
+	if bookClaimID > 0 {
+		if err := deps.Market.CompleteBookClaim(ctx, bookClaimID, deps.AgentID); err != nil {
+			fmt.Fprintf(out, "haul: opp %d complete book claim failed: %v\n", opp.ID, err) //nolint:errcheck
+		}
+	}
 	recordHaulResult(ctx, deps, out, opp, held, m)
 	fmt.Fprintf(out, "haul: opp %d complete (sold %.0f %s)\n", opp.ID, held, opp.ItemID) //nolint:errcheck
 	return nil
@@ -1042,7 +1090,7 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 // demand (watchdog Tier 3), then completes the claim so it is not re-hauled. The eventual
 // fill is captured by the server action log; no haul_result is recorded here (no sale yet).
 // A CreateSellOrder failure leaves the claim in place (best-effort, never strands cargo).
-func haulPostCostOrder(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, held, unitBuy float64) error {
+func haulPostCostOrder(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, held, unitBuy float64, bookClaimID int64) error {
 	payload := map[string]any{
 		"item_id":    opp.ItemID,
 		"quantity":   int(held),
@@ -1054,6 +1102,11 @@ func haulPostCostOrder(ctx context.Context, deps HaulDeps, out io.Writer, opp ma
 	}
 	if _, err := deps.Market.CompleteOpportunity(ctx, opp.ID, deps.AgentID); err != nil {
 		fmt.Fprintf(out, "haul: opp %d complete-after-cost-order failed: %v\n", opp.ID, err) //nolint:errcheck
+	}
+	if bookClaimID > 0 {
+		if err := deps.Market.CompleteBookClaim(ctx, bookClaimID, deps.AgentID); err != nil {
+			fmt.Fprintf(out, "haul: opp %d complete book claim (cost-order) failed: %v\n", opp.ID, err) //nolint:errcheck
+		}
 	}
 	fmt.Fprintf(out, "haul: opp %d listed %.0f %s @cost %.0f (thin demand)\n", opp.ID, held, opp.ItemID, unitBuy) //nolint:errcheck
 	return nil

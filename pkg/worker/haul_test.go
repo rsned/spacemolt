@@ -604,7 +604,7 @@ func TestHaulSellLegReroutesOnThinDemandMidRoute(t *testing.T) {
 	}
 	o := opp(7, "src", "x", 100) // original sell station x-stn in system x
 	deps := HaulDeps{Client: fc, Market: f, KB: kb, AgentID: "t"}
-	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "x", &haulMetrics{buyPrice: 100, qty: 10}); err != nil {
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "x", &haulMetrics{buyPrice: 100, qty: 10}, 0); err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Contains(fc.calls, "travel:g-stn") {
@@ -625,7 +625,7 @@ func TestHaulSellLegPostsCostOrderOnThinDemand(t *testing.T) {
 	f := &fakeStore{orders: []market.Order{{Side: "buy", PriceEach: 50, Quantity: 2}}}
 	m := &haulMetrics{buyPrice: 100, qty: 10}
 	deps := HaulDeps{Client: fc, Market: f, AgentID: "t"}
-	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m, 0); err != nil {
 		t.Fatal(err)
 	}
 	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell:iron_ore") }) {
@@ -653,7 +653,7 @@ func TestHaulSellLegPostsCostOrderOnEmptyButCapturedBook(t *testing.T) {
 	}
 	m := &haulMetrics{buyPrice: 100, qty: 10}
 	deps := HaulDeps{Client: fc, Market: f, AgentID: "t"}
-	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m, 0); err != nil {
 		t.Fatal(err)
 	}
 	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell:iron_ore") }) {
@@ -675,7 +675,7 @@ func TestHaulSellLegSellsWhenNoCaptureData(t *testing.T) {
 	f := &fakeStore{orders: nil, stationOrders: nil} // no data at all
 	m := &haulMetrics{buyPrice: 100, qty: 10}
 	deps := HaulDeps{Client: fc, Market: f, AgentID: "t"}
-	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m, 0); err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Contains(fc.calls, "sell:iron_ore") {
@@ -695,7 +695,7 @@ func TestHaulSellLegSellsOnHealthyDemand(t *testing.T) {
 	f := &fakeStore{orders: []market.Order{{Side: "buy", PriceEach: 130, Quantity: 50}}}
 	m := &haulMetrics{buyPrice: 100, qty: 10}
 	deps := HaulDeps{Client: fc, Market: f, AgentID: "t"}
-	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m, 0); err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Contains(fc.calls, "sell:iron_ore") {
@@ -1046,6 +1046,78 @@ func TestRunClaimedHaulResumesWithGoodsAboard(t *testing.T) {
 	}
 }
 
+func buyLegOpp() market.ArbitrageOpportunity {
+	return market.ArbitrageOpportunity{
+		ID: 7, FromSystemName: "a", ToSystemName: "a",
+		FromStationID: "buy-stn", ToStationID: "sell-stn",
+		ItemID: "iron_ore", GrossProfit: 9000, Quantity: 10, SourceUnits: 400, BuyPrice: 5,
+	}
+}
+
+// TestRunClaimedHaulSettlesBoughtQuantity drives the full buy leg: with a live spread
+// that clears the gate, the hauler buys and records the bought quantity via
+// SettleBookClaim so other haulers see the reduced book remainder.
+func TestRunClaimedHaulSettlesBoughtQuantity(t *testing.T) {
+	o := buyLegOpp()
+	fc := &fakeClient{
+		state: &game.State{
+			System:  game.SystemData{ID: "a", Name: "A"},
+			Fuel:    100,
+			MaxFuel: 100,
+			Credits: 1_000_000,
+			Ship:    game.Ship{CargoCapacity: 500}, // empty cargo, room to buy
+		},
+		route: []game.RouteStep{{SystemID: "a", Name: "A"}},
+	}
+	f := &fakeStore{
+		admitOK: true,
+		prices: []market.ItemStationPrice{
+			{StationID: "buy-stn", HasSell: true, BestAsk: 10, AskQty: 400},
+			{StationID: "sell-stn", HasBuy: true, BestBid: 200, BidQty: 400},
+		},
+	}
+	_, n2id := graphFor([]string{"a"}, [2]string{"a", "a"})
+	if err := runClaimedHaul(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, n2id, nil, haulFuel{}, 7); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if len(f.settled) != 1 {
+		t.Fatalf("expected one settle write after buy, got %d", len(f.settled))
+	}
+}
+
+// TestRunClaimedHaulInvalidatesBookOnCollapse drives the full buy leg into a collapse:
+// the source book has no live ask at arrival, so the hauler invalidates the book
+// (drawing no further haulers in) and still releases its own cap slot.
+func TestRunClaimedHaulInvalidatesBookOnCollapse(t *testing.T) {
+	o := buyLegOpp()
+	fc := &fakeClient{
+		state: &game.State{
+			System:  game.SystemData{ID: "a", Name: "A"},
+			Fuel:    100,
+			MaxFuel: 100,
+			Credits: 1_000_000,
+			Ship:    game.Ship{CargoCapacity: 500},
+		},
+		route: []game.RouteStep{{SystemID: "a", Name: "A"}},
+	}
+	// No sell side at the buy station -> haulGate returns "no live ask at buy station"
+	// (collapse-confirmed after the live recapture, which is nil here).
+	f := &fakeStore{
+		admitOK: true,
+		prices:  []market.ItemStationPrice{{StationID: "sell-stn", HasBuy: true, BestBid: 100, BidQty: 400}},
+	}
+	_, n2id := graphFor([]string{"a"}, [2]string{"a", "a"})
+	if err := runClaimedHaul(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, n2id, nil, haulFuel{}, 7); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+	if len(f.invalidated) != 1 {
+		t.Fatalf("collapse must invalidate the book, got %d invalidations", len(f.invalidated))
+	}
+	if len(f.bookClaimsReleased) == 0 {
+		t.Fatalf("collapse abandon must still release the book claim slot")
+	}
+}
+
 // TestHaulSellLegRecordsResult covers the haul_results write on completion: with a
 // populated *haulMetrics, a completed sell records one row carrying the real cargo-capped
 // realized profit (sellPrice-buyPrice)*soldQty, the jump count, and the leg stamps.
@@ -1070,7 +1142,7 @@ func TestHaulSellLegRecordsResult(t *testing.T) {
 		claimedTick:  1000, arrivedSrcTick: 1006, boughtTick: 1007,
 	}
 	deps := HaulDeps{Client: fc, Market: f, AgentID: "trader-z", Now: func() time.Time { return fixed }}
-	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m, 0); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.completed) != 1 || f.completed[0] != 7 {
@@ -1113,7 +1185,7 @@ func TestHaulSellLegRecordsActualSellFill(t *testing.T) {
 	fixed := time.Date(2026, 6, 27, 14, 43, 0, 0, time.UTC)
 	m := &haulMetrics{jumps: 1, buyPrice: 6330, sellPrice: 7878, qty: 31}
 	deps := HaulDeps{Client: fc, Market: f, AgentID: "salvager-6", Now: func() time.Time { return fixed }}
-	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m); err != nil {
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m, 0); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.recorded) != 1 {
@@ -1142,7 +1214,7 @@ func TestHaulSellLegNilMetricsRecordsNothing(t *testing.T) {
 		route: []game.RouteStep{{SystemID: "a", Name: "A"}},
 	}
 	f := &fakeStore{}
-	if err := haulSellLeg(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, "a", nil); err != nil {
+	if err := haulSellLeg(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"}, io.Discard, o, "a", nil, 0); err != nil {
 		t.Fatal(err)
 	}
 	if len(f.completed) != 1 {
