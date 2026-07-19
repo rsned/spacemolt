@@ -408,6 +408,19 @@ type fakeStore struct {
 	bookClaimsCompleted []int64            // claimIDs completed
 	bookClaimsReleased  []int64            // claimIDs released
 	invalidated         []string           // "item/from" strings passed to InvalidateBook
+
+	// admitByBook scripts a per-book response for AdmitBookClaim: when non-nil, the
+	// response for a given book is looked up here; a missing key falls back to the
+	// admitOK/admitResult default behavior below. nil preserves old callers unchanged.
+	admitByBook map[market.BookKey]market.AdmitResult
+	admitCalls  []admitCall // every AdmitBookClaim invocation, in call order
+}
+
+// admitCall records one AdmitBookClaim invocation for assertions.
+type admitCall struct {
+	book  market.BookKey
+	capN  int
+	cands []market.BookCandidate
 }
 
 func (f *fakeStore) GetOpportunities(_ context.Context, status string, _ int) ([]market.ArbitrageOpportunity, error) {
@@ -452,7 +465,16 @@ func (f *fakeStore) RecordHaulResult(_ context.Context, r market.HaulResult) err
 	f.recorded = append(f.recorded, r)
 	return nil
 }
-func (f *fakeStore) AdmitBookClaim(_ context.Context, _ market.BookKey, cands []market.BookCandidate, _ string, _ int, _ time.Duration) (market.AdmitResult, error) {
+func (f *fakeStore) AdmitBookClaim(_ context.Context, book market.BookKey, cands []market.BookCandidate, _ string, capN int, _ time.Duration) (market.AdmitResult, error) {
+	f.admitCalls = append(f.admitCalls, admitCall{book: book, capN: capN, cands: cands})
+
+	if f.admitByBook != nil {
+		if r, ok := f.admitByBook[book]; ok {
+			return r, nil
+		}
+		return market.AdmitResult{}, nil
+	}
+
 	if !f.admitOK {
 		return market.AdmitResult{}, nil
 	}
@@ -752,6 +774,107 @@ func TestBookCap(t *testing.T) {
 		if got := bookCap(tc.src, tc.cargo); got != tc.want {
 			t.Errorf("bookCap(%v,%v)=%d want %d", tc.src, tc.cargo, got, tc.want)
 		}
+	}
+}
+
+// TestClaimBestBookCapComputation verifies bookCap(sourceUnits, cargoCap) is wired
+// into the AdmitBookClaim call: SourceUnits=900 over a 300-cargo ship -> capN=3.
+func TestClaimBestBookCapComputation(t *testing.T) {
+	o := opp(1, "a", "x", 500)
+	o.SourceUnits = 900
+	ranked := []market.ArbitrageOpportunity{o}
+	bk := market.BookKey{ItemID: "iron_ore", FromStationID: "a-stn"}
+	f := &fakeStore{admitByBook: map[market.BookKey]market.AdmitResult{
+		bk: {OK: true, ClaimID: 1, OppID: 1, ToStationID: "x-stn"},
+	}}
+
+	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300)
+	if err != nil || !ok || got.ID != 1 || claimID != 1 {
+		t.Fatalf("want admitted id=1 claimID=1, got id=%d claimID=%d ok=%v err=%v", got.ID, claimID, ok, err)
+	}
+	if len(f.admitCalls) != 1 || f.admitCalls[0].capN != 3 {
+		t.Fatalf("want one call with capN=3, got calls=%+v", f.admitCalls)
+	}
+}
+
+// TestClaimBestBookAdvancesPastFullBook covers book grouping and the attempted-once
+// guard: two dest rows share book A (which is full); claimBestBook must call
+// AdmitBookClaim for book A exactly once (not once per dest row) before advancing to
+// book B, which admits.
+func TestClaimBestBookAdvancesPastFullBook(t *testing.T) {
+	a1 := opp(1, "a", "x", 300)
+	a1.SourceUnits = 900
+	a2 := opp(2, "a", "y", 200)
+	a2.SourceUnits = 900
+	b1 := opp(3, "b", "z", 100)
+	b1.SourceUnits = 900
+	ranked := []market.ArbitrageOpportunity{a1, a2, b1}
+
+	bookA := market.BookKey{ItemID: "iron_ore", FromStationID: "a-stn"}
+	bookB := market.BookKey{ItemID: "iron_ore", FromStationID: "b-stn"}
+	f := &fakeStore{admitByBook: map[market.BookKey]market.AdmitResult{
+		bookA: {OK: false},
+		bookB: {OK: true, ClaimID: 42, OppID: 3, ToStationID: "z-stn"},
+	}}
+
+	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300)
+	if err != nil || !ok || got.ID != 3 || claimID != 42 {
+		t.Fatalf("want admitted id=3 claimID=42, got id=%d claimID=%d ok=%v err=%v", got.ID, claimID, ok, err)
+	}
+	if len(f.admitCalls) != 2 {
+		t.Fatalf("want exactly 2 AdmitBookClaim calls (one per book), got %d: %+v", len(f.admitCalls), f.admitCalls)
+	}
+	if f.admitCalls[0].book != bookA || len(f.admitCalls[0].cands) != 2 {
+		t.Fatalf("want first call on book A with 2 candidates, got %+v", f.admitCalls[0])
+	}
+	if f.admitCalls[1].book != bookB || len(f.admitCalls[1].cands) != 1 {
+		t.Fatalf("want second call on book B with 1 candidate, got %+v", f.admitCalls[1])
+	}
+}
+
+// TestClaimBestBookReturnsAssignedDestination confirms claimBestBook returns the
+// ranked opp matching AdmitResult.OppID (the destination the admission assigned),
+// even when that row is not the top-ranked one in the book.
+func TestClaimBestBookReturnsAssignedDestination(t *testing.T) {
+	top := opp(10, "src", "top", 500)
+	second := opp(11, "src", "second", 400)
+	ranked := []market.ArbitrageOpportunity{top, second}
+
+	bk := market.BookKey{ItemID: "iron_ore", FromStationID: "src-stn"}
+	f := &fakeStore{admitByBook: map[market.BookKey]market.AdmitResult{
+		bk: {OK: true, ClaimID: 77, OppID: 11, ToStationID: "second-stn"},
+	}}
+
+	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300)
+	if err != nil || !ok || claimID != 77 {
+		t.Fatalf("want ok claimID=77, got ok=%v claimID=%d err=%v", ok, claimID, err)
+	}
+	if got.ID != 11 {
+		t.Fatalf("want assigned-destination opp id=11 (not top-ranked id=10), got id=%d", got.ID)
+	}
+}
+
+// TestClaimBestBookAllFull covers the case where every reachable book is at capacity:
+// claimBestBook must report ok=false without error.
+func TestClaimBestBookAllFull(t *testing.T) {
+	a := opp(1, "a", "x", 300)
+	b := opp(2, "b", "y", 200)
+	ranked := []market.ArbitrageOpportunity{a, b}
+
+	f := &fakeStore{admitByBook: map[market.BookKey]market.AdmitResult{
+		{ItemID: "iron_ore", FromStationID: "a-stn"}: {OK: false},
+		{ItemID: "iron_ore", FromStationID: "b-stn"}: {OK: false},
+	}}
+
+	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300)
+	if err != nil || ok {
+		t.Fatalf("want ok=false when all books full, got ok=%v err=%v", ok, err)
+	}
+	if got.ID != 0 || claimID != 0 {
+		t.Fatalf("want zero-value opp/claimID on all-full, got id=%d claimID=%d", got.ID, claimID)
+	}
+	if len(f.admitCalls) != 2 {
+		t.Fatalf("want one call per book (2), got %d", len(f.admitCalls))
 	}
 }
 
