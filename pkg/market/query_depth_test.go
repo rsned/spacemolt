@@ -104,3 +104,29 @@ func TestGetAskLadder_ExcludesSentinelPrice(t *testing.T) {
 		}
 	}
 }
+
+func TestGetReferencePrice(t *testing.T) {
+	c := newTestCollector(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	// Five stations offering iron_ore ~5-10, one gouging @2000.
+	seed := []Order{
+		{StationID: "a", ItemID: "iron_ore", Side: "sell", PriceEach: 6, Quantity: 50, CapturedAt: now},
+		{StationID: "b", ItemID: "iron_ore", Side: "sell", PriceEach: 7, Quantity: 50, CapturedAt: now},
+		{StationID: "c", ItemID: "iron_ore", Side: "sell", PriceEach: 8, Quantity: 50, CapturedAt: now},
+		{StationID: "d", ItemID: "iron_ore", Side: "sell", PriceEach: 9, Quantity: 50, CapturedAt: now},
+		{StationID: "e", ItemID: "iron_ore", Side: "sell", PriceEach: 10, Quantity: 50, CapturedAt: now},
+		{StationID: "z", ItemID: "iron_ore", Side: "sell", PriceEach: 2000, Quantity: 50, CapturedAt: now},
+	}
+	seedOrders(t, c, seed) // reuse the same seed helper as Task 2
+	ref, ok, err := c.GetReferencePrice(ctx, "iron_ore", 24*time.Hour)
+	if err != nil || !ok {
+		t.Fatalf("GetReferencePrice: ok=%v err=%v", ok, err)
+	}
+	if ref > 12 { // 20th pct of {6,7,8,9,10,2000} must sit in the cheap cluster, not near 2000
+		t.Fatalf("reference %v; expected cheap-cluster value, gouging station must be an outlier", ref)
+	}
+	if _, ok, _ := c.GetReferencePrice(ctx, "no_such_item", 24*time.Hour); ok {
+		t.Fatalf("expected ok=false for unknown item")
+	}
+}

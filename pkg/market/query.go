@@ -292,6 +292,45 @@ FROM cur`
 	return ra, true, nil
 }
 
+// GetReferencePrice returns a robust "cheap" price for an item: the 20th
+// percentile of per-station latest best-asks captured within lookback. A
+// single gouging station therefore cannot set the reference. Returns
+// (0,false,nil) when no recent sell data exists.
+func (c *Collector) GetReferencePrice(ctx context.Context, itemID string, lookback time.Duration) (float64, bool, error) {
+	cutoff := time.Now().UTC().Add(-lookback).Format(time.RFC3339)
+	// Filter the not-for-sale sentinel (999999.0) exactly as GetReferenceAsk /
+	// FindItemSellers do, via the notForSaleSQL constant (pkg/market/prices.go).
+	rows, err := c.db.QueryContext(ctx, `
+		SELECT MIN(price_each) AS best_ask
+		FROM market_orders
+		WHERE item_id = ? AND side = 'sell'
+		  AND price_each > 0 AND price_each < `+notForSaleSQL+` AND quantity > 0
+		  AND captured_at >= ?
+		GROUP BY station_id
+		ORDER BY best_ask ASC`, itemID, cutoff)
+	if err != nil {
+		return 0, false, fmt.Errorf("query reference price: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var asks []float64
+	for rows.Next() {
+		var a float64
+		if err := rows.Scan(&a); err != nil {
+			return 0, false, fmt.Errorf("scan reference price: %w", err)
+		}
+		asks = append(asks, a)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, false, err
+	}
+	if len(asks) == 0 {
+		return 0, false, nil
+	}
+	// asks already ascending; 20th percentile by nearest-rank.
+	idx := int(0.20 * float64(len(asks)-1))
+	return asks[idx], true, nil
+}
+
 // StoreAnalysis inserts an LLM market-analysis record.
 func (c *Collector) StoreAnalysis(ctx context.Context, a MarketAnalysis) error {
 	insights, _ := json.Marshal(a.TopInsights)
