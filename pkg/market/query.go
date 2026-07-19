@@ -615,7 +615,7 @@ func (c *Collector) GetAskLadder(ctx context.Context, itemID, stationID string) 
 			WHERE item_id = ? AND station_id = ?
 		) latest ON o.captured_at = latest.mx
 		WHERE o.item_id = ? AND o.station_id = ? AND o.side = 'sell'
-		  AND o.price_each > 0 AND o.quantity > 0
+		  AND o.price_each > 0 AND o.quantity > 0 AND o.price_each < ` + notForSaleSQL + `
 		ORDER BY o.price_each ASC`, itemID, stationID, itemID, stationID)
 	if err != nil {
 		return nil, fmt.Errorf("query ask ladder: %w", err)

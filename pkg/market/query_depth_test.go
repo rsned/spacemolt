@@ -71,3 +71,36 @@ func TestGetAskLadder_NoSellOrders(t *testing.T) {
 		t.Fatalf("ladder = %+v, want empty slice for item with no orders", got)
 	}
 }
+
+func TestGetAskLadder_ExcludesSentinelPrice(t *testing.T) {
+	c := newTestCollector(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	orders := []Order{
+		// Tradeable sell orders at the latest capture.
+		{StationID: "s1", ItemID: "iron_ore", Side: "sell", PriceEach: 50, Quantity: 10, CapturedAt: now,
+			BucketUTC: now.Truncate(time.Hour).Format(time.RFC3339)},
+		{StationID: "s1", ItemID: "iron_ore", Side: "sell", PriceEach: 100, Quantity: 5, CapturedAt: now,
+			BucketUTC: now.Truncate(time.Hour).Format(time.RFC3339)},
+		// Sentinel (not-for-sale) order at the same capture — must be excluded.
+		{StationID: "s1", ItemID: "iron_ore", Side: "sell", PriceEach: NotForSalePrice, Quantity: 999, CapturedAt: now,
+			BucketUTC: now.Truncate(time.Hour).Format(time.RFC3339)},
+	}
+	seedOrders(t, c, orders)
+
+	got, err := c.GetAskLadder(ctx, "iron_ore", "s1")
+	if err != nil {
+		t.Fatalf("GetAskLadder: %v", err)
+	}
+	// Should only include the tradeable orders, not the sentinel.
+	want := []AskLevel{{PriceEach: 50, Quantity: 10}, {PriceEach: 100, Quantity: 5}}
+	if len(got) != len(want) {
+		t.Fatalf("ladder length = %d, want %d; got = %+v, want = %+v", len(got), len(want), got, want)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("ladder[%d] = %+v, want %+v (sentinel price should be excluded)", i, got[i], want[i])
+		}
+	}
+}
