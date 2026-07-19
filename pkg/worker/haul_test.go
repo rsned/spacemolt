@@ -401,6 +401,7 @@ type fakeStore struct {
 	stationOrders  []market.Order // station-wide book (itemID == ""); presence = station captured
 	bestPrices     []market.BestPrice
 	recorded       []market.HaulResult
+	reaped         int            // count of ReapExpiredBookClaims calls
 
 	admitOK             bool               // AdmitBookClaim returns this ok
 	admitResult         market.AdmitResult // returned when admitOK (ClaimID/OppID/ToStationID)
@@ -501,7 +502,10 @@ func (f *fakeStore) InvalidateBook(_ context.Context, itemID, fromStation, _, _ 
 	f.invalidated = append(f.invalidated, itemID+"/"+fromStation)
 	return nil
 }
-func (f *fakeStore) ReapExpiredBookClaims(_ context.Context) (int, error) { return 0, nil }
+func (f *fakeStore) ReapExpiredBookClaims(_ context.Context) (int, error) {
+	f.reaped++
+	return 0, nil
+}
 
 func TestFakeStoreServesStationOrders(t *testing.T) {
 	f := &fakeStore{orders: []market.Order{{Side: "buy", PriceEach: 50, Quantity: 4}}}
@@ -728,6 +732,16 @@ func TestLoadAvailableEmptyTriggersScan(t *testing.T) {
 	}
 	if f.scanned != 1 || len(got) != 1 || got[0].ID != 7 {
 		t.Fatalf("want 1 scan + opp 7, got scanned=%d opps=%v", f.scanned, ids(got))
+	}
+}
+
+func TestLoadAvailableReapsExpiredBookClaims(t *testing.T) {
+	f := &fakeStore{available: []market.ArbitrageOpportunity{{ID: 1, ItemID: "x", FromStationID: "s", ToStationID: "d", SourceUnits: 10}}}
+	if _, err := loadAvailable(context.Background(), f, 50); err != nil {
+		t.Fatalf("loadAvailable: %v", err)
+	}
+	if f.reaped != 1 {
+		t.Fatalf("loadAvailable must reap expired book claims once per pass, got %d", f.reaped)
 	}
 }
 

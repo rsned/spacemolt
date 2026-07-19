@@ -397,6 +397,11 @@ type OpportunityStore interface {
 // uses default options; it is idempotent under the write lock, so a redundant scan
 // from concurrent haulers is harmless.
 func loadAvailable(ctx context.Context, store OpportunityStore, limit int) ([]market.ArbitrageOpportunity, error) {
+	// Free cap slots held by book claims whose hauler died mid-run (best-effort; the
+	// cap count already ignores expired rows, so a reap failure is non-fatal).
+	if _, err := store.ReapExpiredBookClaims(ctx); err != nil {
+		_ = err // non-fatal: stale rows still age out of the cap count via expires_at
+	}
 	opps, err := store.GetOpportunities(ctx, "available", limit)
 	if err != nil {
 		return nil, fmt.Errorf("haul: get opportunities: %w", err)
