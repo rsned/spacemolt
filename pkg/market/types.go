@@ -329,6 +329,33 @@ type MissionResult struct {
 	CreatedAt      string  `json:"created_at"`
 }
 
+// FreightResult is one settled shipping contract's real outcome, the carrier
+// analogue of MissionResult. Outcome is one of: delivered, returned_infeasible
+// (accept-then-verify rejected it), returned_inflight (deadline buffer collapsed
+// mid-trip), accept_failed, breached. A nonzero breached count is the canary's
+// stop signal — the carrier is designed so no path chooses a breach.
+type FreightResult struct {
+	ID            int64   `json:"id"`
+	AgentID       string  `json:"agent_id"`
+	ContractID    string  `json:"contract_id"`
+	PackageID     string  `json:"package_id"`
+	FromBaseID    string  `json:"from_base_id"`
+	ToBaseID      string  `json:"to_base_id"`
+	ServiceLevel  string  `json:"service_level"`
+	RouteHops     int     `json:"route_hops"`
+	BaseReward    float64 `json:"base_reward"`
+	MaxSpeedBonus float64 `json:"max_speed_bonus"`
+	FuelCost      float64 `json:"fuel_cost"`
+	CarrierPayout float64 `json:"carrier_payout"`
+	Outcome       string  `json:"outcome"`
+	Reason        string  `json:"reason"`
+	AcceptedAt    string  `json:"accepted_at"`
+	FinishedAt    string  `json:"finished_at"`
+	AcceptedTick  int64   `json:"accepted_tick"`
+	FinishedTick  int64   `json:"finished_tick"`
+	CreatedAt     string  `json:"created_at"`
+}
+
 // FleetSnapshot is one hauler's balance/fuel/cargo at a point in time (quarter-hourly).
 type FleetSnapshot struct {
 	ID            int64   `json:"id"`
