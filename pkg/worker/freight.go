@@ -171,6 +171,19 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 		return nil, reason
 	}
 
+	// Concurrency guard, from the same profile read. This design carries exactly
+	// ONE contract at a time: the 100-unit footprint and the single-package
+	// liability are both sized for one. freightReconcile gives up — (nil, false)
+	// — when the profile reports actives but the board read shows none, and the
+	// pass then falls straight through to here; without this we would accept a
+	// SECOND contract while the first is still undischarged, and the orphaned
+	// first is exactly the one that breaches. Fail closed on the count.
+	if prof.Profile.ActiveContracts > 0 {
+		reason := fmt.Sprintf("%d active contract(s) already held", prof.Profile.ActiveContracts)
+		fmt.Fprintf(out, "freight: skipping, %s — one contract at a time\n", reason) //nolint:errcheck
+		return nil, reason
+	}
+
 	if err := deps.Client.ShippingList(ctx, ""); err != nil {
 		return nil, fmt.Sprintf("shipping list: %v", err)
 	}

@@ -156,6 +156,20 @@ func shippingProfileJSON(t *testing.T, blocked bool, reason string) []byte {
 	return b
 }
 
+// shippingProfileActiveJSON is a clean (debt-free) profile that already reports
+// n live contracts.
+func shippingProfileActiveJSON(t *testing.T, n int) []byte {
+	t.Helper()
+	b, err := json.Marshal(serverapi.ShippingProfileResponse{
+		Action:  "profile",
+		Profile: serverapi.CarrierProfile{Tier: "probationary", ActiveContracts: n},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
 // freightTestInputs routes every destination at 2 hops with free fuel.
 func freightTestInputs(cargoFree float64) freightInputs {
 	return freightInputs{
@@ -206,6 +220,39 @@ func TestFreightCandidateSkipsWhenDebtBlocked(t *testing.T) {
 		}
 		if c == "pay_debt" {
 			t.Fatal("must never auto-pay debt")
+		}
+	}
+}
+
+// One contract at a time. freightReconcile gives up — (nil, false) — when the
+// profile reports actives but the board read shows none, and the pass then falls
+// straight through to freightCandidate. Without this guard that path accepts a
+// SECOND contract while the first is still undischarged, and the orphaned first
+// is the one that breaches.
+func TestFreightCandidateSkipsWhenContractAlreadyHeld(t *testing.T) {
+	f := &fakeClient{
+		state: &game.State{},
+		raw: map[string][]byte{
+			"shipping_profile": shippingProfileActiveJSON(t, 1),
+			"shipping_list":    shippingListJSON(t, listing("high", true, 9000, 2)),
+		},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4"}
+	var log strings.Builder
+
+	cand, reason := freightCandidate(context.Background(), deps, freightTestInputs(500), &log)
+	if cand != nil {
+		t.Fatalf("must not take a second contract while one is held, got %s", cand.Contract.ID)
+	}
+	if !strings.Contains(reason, "active contract") {
+		t.Fatalf("want a distinct already-held skip reason, got %q", reason)
+	}
+	if !strings.Contains(log.String(), "active contract") {
+		t.Fatalf("the decline must show in the pass log, got %q", log.String())
+	}
+	for _, c := range f.shippingCalls {
+		if c == "accept" {
+			t.Fatal("must never accept a second contract")
 		}
 	}
 }
@@ -706,6 +753,7 @@ func TestMissionsTakesFreightOnEmptyBoard(t *testing.T) {
 	store := &fakeFreightStore{}
 	deps := missionDeps(fc, &store.fakeMissionStore, missionKB())
 	deps.Market, deps.EnableFreight = store, true
+	deps.State = &missionRunState{}
 
 	if err := Missions(context.Background(), deps); err != nil {
 		t.Fatalf("Missions: %v", err)
@@ -739,8 +787,13 @@ func TestMissionsEmptyBoardStaysDryWhenFreightDisabled(t *testing.T) {
 
 // The availability gate emptying `set` is the worse of the two dry paths: the
 // freight candidate has already been computed and was then silently discarded.
+//
+// The reward is deliberately far ABOVE the 9000-credit freight net: the ranking
+// switch compares freight against the PRE-gate mission net, so a cheaper mission
+// would let freight win there instead and this test would never reach the
+// gate-empty fallthrough it exists to cover.
 func TestMissionsTakesFreightWhenAvailabilityGateEmptiesSet(t *testing.T) {
-	rare := boardEntry("m_rare", "phase_matrix", 8, "haven_station2", "haven", 5500, 0)
+	rare := boardEntry("m_rare", "phase_matrix", 8, "haven_station2", "haven", 20000, 0)
 	fc := freightBoardClient(t, boardJSON(t, rare), map[string][]byte{
 		"storage": storageJSON(t, map[string]float64{}),
 		"market":  marketJSON(t, map[string]float64{"steel": 100}), // no phase_matrix here
@@ -834,6 +887,32 @@ func TestMissionsExplorationStillWinsWhenItOutNets(t *testing.T) {
 	}
 	if slices.Contains(fc.shippingCalls, "accept") {
 		t.Fatalf("freight must not be accepted when exploration out-nets it: %v", fc.shippingCalls)
+	}
+}
+
+// The boundary itself: the ranking uses `freightNet >= exploreNet`, so an exact
+// tie must go to freight ("exploration is the fallback"). Only the two
+// away-from-boundary directions were pinned, which leaves `>=` free to weaken to
+// `>` unnoticed.
+func TestMissionsFreightTakesTiesWithExploration(t *testing.T) {
+	// 9000 credits, no fuel on this route: exactly the freight contract's net.
+	tour := exploreEntry("tour1", 9000, visitObj("sol"), dockObj("haven", "haven_station"))
+	fc := freightBoardClient(t, boardJSON(t, tour), nil)
+	fc.activeMissionsSeq = [][]byte{activeJSON(t), activeJSON(t)}
+	store := &fakeFreightStore{}
+	deps := missionDeps(fc, &store.fakeMissionStore, missionKB())
+	deps.Market, deps.EnableFreight = store, true
+	deps.Categories = []string{"delivery", "exploration"}
+	deps.State = &missionRunState{}
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if strings.Contains(strings.Join(fc.calls, " "), "accept:tour1") {
+		t.Fatalf("freight must take an exact tie, exploration was accepted: %v", fc.calls)
+	}
+	if !slices.Contains(fc.shippingCalls, "accept") || !slices.Contains(fc.shippingCalls, "deliver") {
+		t.Fatalf("freight must take an exact tie, calls were %v", fc.shippingCalls)
 	}
 }
 
