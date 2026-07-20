@@ -4930,6 +4930,8 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 						c.rawJSONMu.Lock()
 						c.latestRawJSON["shipping_"+action] = body
 						c.rawJSONMu.Unlock()
+					} else {
+						c.debugLogger.Printf("Failed to marshal raw JSON for shipping_%s: %v", action, err)
 					}
 				}
 			}

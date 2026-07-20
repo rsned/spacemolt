@@ -38,13 +38,16 @@ var ignoredCommands = map[string]string{
 	"inspect":            "inspect read command; deferred to passthrough coverage (stopgap 2026-07-19)",
 
 	// shipping is action-dispatched (list/get/accept/deliver/return/cancel/
-	// profile/track/pay_debt/quote/post): each sub-action has its own
-	// response shape, cached under shipping_<action> by storeRawJSON, not a
-	// single response type this map's one-command-to-one-type shape can
-	// hold. Per-action registration in actionResponseTypes is a separate
-	// follow-up (same shape as the battle/inspect stopgap above); parked
-	// here so it doesn't block the action_result decode fix landing.
-	"shipping": "action-dispatched; each sub-action keyed under shipping_<action>, not a single actionResponseTypes entry (stopgap 2026-07-20)",
+	// profile/track/pay_debt/quote/post), cached under shipping_<action> by
+	// storeRawJSON. That's not structurally impossible for this map's shape:
+	// battle (serverapi.BattleResponse), facility (serverapi.FacilityResponse),
+	// and cloak (serverapi.CloakResponse) are all action-dispatched multi-shape
+	// commands covered by one umbrella struct with omitempty fields spanning
+	// their sub-actions, registered in actionResponseTypes. A ShippingResponse
+	// built the same way is the known path here too; it's just deferred, not
+	// built yet, so it doesn't block the action_result decode fix landing
+	// (stopgap 2026-07-20).
+	"shipping": "action-dispatched; umbrella ShippingResponse (battle/facility-style) deferred, not built (stopgap 2026-07-20)",
 
 	// NOTE: the block that used to sit here listed 16 commands as "not
 	// implemented". That was misleading — every one of them IS implemented
