@@ -435,6 +435,10 @@ var eventExpectedFields = map[string]map[string]bool{
 		"result":        true,
 		"command":       true,
 		"tick":          true,
+		// Both flags since the 2026-07-20 patch: any command needing a
+		// different dock state auto-transitions same-tick and reports which
+		// way it went.
+		"auto_docked":   true,
 		"auto_undocked": true,
 	},
 	protocol.TypeError: {

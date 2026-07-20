@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"time"
 
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/market"
 )
@@ -336,6 +338,10 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out
 		return nil, freightReturn(ctx, deps, out, c, cand, "returned_infeasible", reason)
 	}
 	fmt.Fprintf(out, "freight: accepted %s to %s (deadline tick %d)\n", id, c.DestinationBaseID, c.DeadlineTick) //nolint:errcheck
+	// Remember the held contract in cross-pass memory: the board read never
+	// shows our own in_transit contracts, so this is what reconcile resumes
+	// from if the trip is interrupted mid-session.
+	deps.State.setHeldFreight(&c)
 	return &c, freightStepProceed
 }
 
@@ -396,9 +402,13 @@ func freightReturn(ctx context.Context, deps MissionDeps, out io.Writer, c serve
 		// Outcome must surface that as the alarm state it is, not as a clean
 		// return.
 		freightRecord(ctx, deps, out, c, cand, 0, "return_failed", "return failed: "+err.Error())
+		// The contract is still live and still ours — keep (or establish) the
+		// in-memory hold so the next pass's reconcile finds it.
+		deps.State.setHeldFreight(&c)
 		return freightStepStuck
 	}
 	freightRecord(ctx, deps, out, c, cand, 0, outcome, reason)
+	deps.State.clearHeldFreight()
 	return freightStepReleased
 }
 
@@ -424,13 +434,25 @@ func freightInFlightCheck(ctx context.Context, deps MissionDeps, c *serverapi.Sh
 	return freightStepProceed
 }
 
-// freightReconcile recovers an in-flight contract from server state after a
-// restart or reconnect. The worker's in-memory task does not survive a restart
-// (no captains_log resume yet), and an orphaned package rides to a breach in
-// silence, so this runs before taking any new work.
+// freightReconcile recovers an in-flight contract before taking any new work.
+// An orphaned package rides to a default in silence (proven live 2026-07-20:
+// the canary flew away from its contract and it defaulted for a flat 500
+// debt), so this runs before every pass.
+//
+// The in-memory held contract (missionRunState.heldFreight) is the PRIMARY
+// source: the live canary proved the board read NEVER returns our own
+// in_transit contracts, so the profile+board path below only covers the
+// post-restart case — and usually cannot recover the contract itself, only
+// detect that one exists. When memory holds a contract, its live status is
+// re-read via the synchronous `get`; a contract the server reports as no
+// longer in_transit is recorded terminally here (the defaulted canary
+// contract produced NO freight_results row — this closes that gap).
 func freightReconcile(ctx context.Context, deps MissionDeps, out io.Writer) (*serverapi.ShipmentContract, bool) {
 	if out == nil {
 		out = io.Discard
+	}
+	if held := deps.State.heldFreightContract(); held != nil {
+		return freightReconcileHeld(ctx, deps, held, out)
 	}
 	if err := deps.Client.ShippingProfile(ctx); err != nil {
 		fmt.Fprintf(out, "freight: reconcile profile: %v\n", err) //nolint:errcheck
@@ -447,8 +469,12 @@ func freightReconcile(ctx context.Context, deps MissionDeps, out io.Writer) (*se
 		return nil, false
 	}
 
-	// The profile reports only a count, so the board read supplies the contract
-	// itself — an in_transit contract we are contracted on comes back in list.
+	// The profile reports only a count, and the board read is known NOT to
+	// list our own in_transit contracts (confirmed live 2026-07-20). This
+	// scan survives as a best-effort fallback in case that ever changes; in
+	// practice a restart with an in-flight contract reaches the loud
+	// "none found" line below, which is the operator's cue to rescue via
+	// play_as (shipping track/deliver) before the deadline.
 	if err := deps.Client.ShippingList(ctx, ""); err != nil {
 		fmt.Fprintf(out, "freight: reconcile list: %v\n", err) //nolint:errcheck
 		return nil, false
@@ -467,8 +493,101 @@ func freightReconcile(ctx context.Context, deps MissionDeps, out io.Writer) (*se
 			return &c, true
 		}
 	}
-	fmt.Fprintf(out, "freight: profile reports %d active contract(s) but none found in the board read\n", prof.Profile.ActiveContracts) //nolint:errcheck
+	fmt.Fprintf(out, "freight: profile reports %d active contract(s) but none found in the board read — UNRECOVERABLE without operator rescue (own contracts never list; no captains_log resume yet)\n", prof.Profile.ActiveContracts) //nolint:errcheck
 	return nil, false
+}
+
+// freightReconcileHeld verifies the remembered in-flight contract against the
+// server before resuming its trip. `get` is a synchronous read, so unlike the
+// mutations there is no tick-deferral to reason about.
+//
+// Fail-open on read/decode trouble: a transient get failure must not orphan a
+// healthy contract, so memory wins and the trip resumes; the worst case is one
+// wasted deliver attempt that errors cleanly. Terminal statuses clear memory —
+// and a "defaulted" contract records outcome "breached" here because nothing
+// else will: the client-side deliver error path records no row, so a deadline
+// that expired between passes would otherwise vanish from freight_results
+// (exactly what happened to the live canary's contract).
+func freightReconcileHeld(ctx context.Context, deps MissionDeps, held *serverapi.ShipmentContract, out io.Writer) (*serverapi.ShipmentContract, bool) {
+	if err := deps.Client.ShippingGet(ctx, held.ID); err != nil {
+		fmt.Fprintf(out, "freight: reconcile get %s: %v; resuming from memory\n", held.ID, err) //nolint:errcheck
+		return held, true
+	}
+	var resp serverapi.ShippingContractResponse
+	if raw := deps.Client.GetRawJSON("shipping_get"); len(raw) > 0 {
+		if err := json.Unmarshal(raw, &resp); err != nil {
+			fmt.Fprintf(out, "freight: reconcile decode get %s: %v; resuming from memory\n", held.ID, err) //nolint:errcheck
+			return held, true
+		}
+	}
+	c := resp.Contract
+	if c.ID == "" {
+		fmt.Fprintf(out, "freight: reconcile get %s returned no contract; resuming from memory\n", held.ID) //nolint:errcheck
+		return held, true
+	}
+	switch c.Status {
+	case "in_transit":
+		// Refresh memory with the server's copy (deadline etc. authoritative).
+		deps.State.setHeldFreight(&c)
+		fmt.Fprintf(out, "freight: resuming held contract %s to %s (deadline tick %d)\n", c.ID, c.DestinationBaseID, c.DeadlineTick) //nolint:errcheck
+		return &c, true
+	case "defaulted":
+		fmt.Fprintf(out, "freight: held contract %s DEFAULTED server-side (flat debt; operator settles via pay_debt, package is keepable/unpackable)\n", c.ID) //nolint:errcheck
+		freightRecord(ctx, deps, out, c, nil, 0, "breached", "reconciled: server status defaulted")
+		deps.State.clearHeldFreight()
+		return nil, false
+	case "delivered":
+		// The deliver landed server-side but the client never saw the
+		// settlement (tick-deferred reply lost to a disconnect or error).
+		// Record it so the row exists; payout unknown from here.
+		fmt.Fprintf(out, "freight: held contract %s already delivered server-side; recording without payout\n", c.ID) //nolint:errcheck
+		freightRecord(ctx, deps, out, c, nil, 0, "delivered", "reconciled: settlement reply unseen; payout unrecorded")
+		deps.State.clearHeldFreight()
+		return nil, false
+	default:
+		// returned_* and any future terminal status: our own successful
+		// ShippingReturn already recorded its row at the time, so just release
+		// the memory. Log the status so anything genuinely novel is visible.
+		fmt.Fprintf(out, "freight: held contract %s no longer in transit (status %q); releasing\n", c.ID, c.Status) //nolint:errcheck
+		deps.State.clearHeldFreight()
+		return nil, false
+	}
+}
+
+// freightSettleDock waits until the ship's docked state has actually settled
+// before a /shipping mutation is issued. Docking is tick-deferred, so a dock
+// issued by nav may not be reflected in State yet; poll for up to three
+// ticks, and nudge with one explicit Dock if a full tick passes without the
+// pending dock landing (covers nav variants that stop short of docking).
+// Uses deps.sleep so tests run instantly.
+func freightSettleDock(ctx context.Context, deps MissionDeps, out io.Writer) error {
+	if st := deps.Client.GetState(); st != nil && st.IsDocked() {
+		return nil
+	}
+	sl := deps.sleep
+	if sl == nil {
+		sl = craftPollSleepFunc
+	}
+	const budget = 3 * game.SleepTick
+	dockIssued := false
+	for waited := time.Duration(0); waited < budget; waited += game.SleepQuick {
+		if !dockIssued && waited >= game.SleepTick {
+			// A pending dock had a full tick to land and didn't; ask
+			// explicitly once. An error here is logged, not fatal — the
+			// poll continues in case the original dock resolves anyway.
+			dockIssued = true
+			if err := deps.Client.Dock(ctx); err != nil {
+				fmt.Fprintf(out, "freight: dock: %v\n", err) //nolint:errcheck
+			}
+		}
+		if err := sl(ctx, game.SleepQuick); err != nil {
+			return err
+		}
+		if st := deps.Client.GetState(); st != nil && st.IsDocked() {
+			return nil
+		}
+	}
+	return fmt.Errorf("still undocked after %s", budget)
 }
 
 // freightRunTrip carries an accepted contract to its destination and delivers it.
@@ -510,6 +629,18 @@ func freightRunTrip(ctx context.Context, deps MissionDeps, c *serverapi.Shipment
 		}
 	}
 
+	// /shipping requires a settled dock and does NOT auto-dock — the
+	// 2026-07-20 auto-dock patch covers craft/buy/storage but pay_debt still
+	// returned not_docked while undocked, live. Nav's own dock command is
+	// tick-deferred, so the state may not have flipped yet (the live canary
+	// delivered 14 seconds before its dock resolved and got not_docked).
+	// Failure leaves the contract in flight for the next pass, same as a nav
+	// failure.
+	if err := freightSettleDock(ctx, deps, out); err != nil {
+		fmt.Fprintf(out, "freight: dock settle at %s: %v; leaving contract in flight\n", c.DestinationBaseID, err) //nolint:errcheck
+		return nil
+	}
+
 	if err := deps.Client.ShippingDeliver(ctx, c.ID); err != nil {
 		fmt.Fprintf(out, "freight: deliver %s: %v\n", c.ID, err) //nolint:errcheck
 		return nil
@@ -537,6 +668,7 @@ func freightRunTrip(ctx context.Context, deps MissionDeps, c *serverapi.Shipment
 	}
 	fmt.Fprintf(out, "freight: delivered %s, payout %d\n", c.ID, settle.CarrierPayout) //nolint:errcheck
 	freightRecord(ctx, deps, out, final, cand, float64(settle.CarrierPayout), "delivered", settleReason)
+	deps.State.clearHeldFreight()
 	return nil
 }
 

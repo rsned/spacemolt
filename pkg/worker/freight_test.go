@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -459,7 +460,9 @@ func TestFreightRunTripDeliversAndRecordsPayout(t *testing.T) {
 	delivered := acceptedContract(1200, 1380)
 	delivered.Status = "delivered"
 	f := &fakeClient{
-		state: &game.State{},
+		// Doc: the ship is docked at the destination — freightSettleDock
+		// requires it before deliver is issued (dock is tick-deferred live).
+		state: &game.State{Doc: true},
 		raw:   map[string][]byte{"shipping_deliver": shippingSettlementJSON(t, "deliver", delivered, 6000)},
 	}
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
@@ -664,7 +667,7 @@ func TestFreightRunTripSkipsWithdrawWhenPackageAboard(t *testing.T) {
 	delivered := acceptedContract(1200, 1380)
 	delivered.Status = "delivered"
 	f := &fakeClient{
-		state: &game.State{Ship: game.Ship{
+		state: &game.State{Doc: true, Ship: game.Ship{
 			Cargo: []game.CargoItem{{ItemID: "package:pkg_hash", Quantity: 1}},
 		}},
 		// A withdraw would fail here, exactly as the live server behaves once the
@@ -701,7 +704,7 @@ func TestFreightRunTripSkipsWithdrawWhenPackageAboard(t *testing.T) {
 // contract, so the outcome stays "delivered" but the reason must say why.
 func TestFreightRunTripFlagsUndecodableSettlement(t *testing.T) {
 	store := &fakeFreightStore{}
-	f := &fakeClient{state: &game.State{}} // no shipping_deliver raw reply at all
+	f := &fakeClient{state: &game.State{Doc: true}} // no shipping_deliver raw reply at all
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
 	c := acceptedContract(1200, 1380)
 	nav := func(ctx context.Context, baseID string) error { return nil }
@@ -1042,5 +1045,198 @@ func TestMissionsParksWhenDryPathFreightReturnFails(t *testing.T) {
 	}
 	if len(store.results) != 1 || store.results[0].Outcome != "return_failed" {
 		t.Fatalf("want a return_failed row for the operator, got %+v", store.results)
+	}
+}
+
+// The live canary (2026-07-20) delivered 14 seconds before its tick-deferred
+// dock resolved and got not_docked back — /shipping does not auto-dock. The
+// trip must wait for State to actually report docked before issuing deliver.
+func TestFreightRunTripSettlesDockBeforeDeliver(t *testing.T) {
+	store := &fakeFreightStore{}
+	delivered := acceptedContract(1200, 1380)
+	delivered.Status = "delivered"
+	f := &fakeClient{
+		state: &game.State{}, // undocked: nav's dock is still pending
+		raw:   map[string][]byte{"shipping_deliver": shippingSettlementJSON(t, "deliver", delivered, 6000)},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	// The injected sleep stands in for the pending dock landing on the next
+	// tick: the first poll wait flips the state to docked.
+	deps.sleep = func(ctx context.Context, d time.Duration) error {
+		f.state.Doc = true
+		return nil
+	}
+	c := acceptedContract(1200, 1380)
+	nav := func(ctx context.Context, baseID string) error { return nil }
+
+	if err := freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard); err != nil {
+		t.Fatalf("freightRunTrip: %v", err)
+	}
+	if !slices.Contains(f.shippingCalls, "deliver") {
+		t.Fatalf("deliver must run once the dock settles, calls were %v", f.shippingCalls)
+	}
+	// The pending dock landed within the first tick, so no explicit Dock
+	// nudge may be issued — the nudge is reserved for a dock that never came.
+	if slices.Contains(f.calls, "dock") {
+		t.Fatalf("must not nudge Dock while the pending dock is settling, calls were %v", f.calls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "delivered" {
+		t.Fatalf("want a delivered result, got %+v", store.results)
+	}
+}
+
+// A dock that never settles must leave the contract in flight (next pass
+// re-checks the buffer and retries) — NOT deliver into a not_docked error and
+// NOT record any outcome. One explicit Dock nudge is expected after the
+// pending dock has had a full tick to land.
+func TestFreightRunTripLeavesInFlightWhenDockNeverSettles(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &fakeClient{state: &game.State{}} // undocked forever
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	deps.sleep = func(ctx context.Context, d time.Duration) error { return nil }
+	c := acceptedContract(1200, 1380)
+	nav := func(ctx context.Context, baseID string) error { return nil }
+
+	if err := freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard); err != nil {
+		t.Fatalf("a dock-settle failure must not fail the pass: %v", err)
+	}
+	if slices.Contains(f.shippingCalls, "deliver") {
+		t.Fatalf("must not deliver while undocked, calls were %v", f.shippingCalls)
+	}
+	if slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("a transient dock problem must not return the contract, calls were %v", f.shippingCalls)
+	}
+	if n := 0; true {
+		for _, call := range f.calls {
+			if call == "dock" {
+				n++
+			}
+		}
+		if n != 1 {
+			t.Fatalf("want exactly one explicit Dock nudge, got %d in %v", n, f.calls)
+		}
+	}
+	if len(store.results) != 0 {
+		t.Fatalf("no terminal outcome may be recorded for an in-flight contract, got %+v", store.results)
+	}
+}
+
+// The board read never lists our own in_transit contracts (proven live), so
+// reconcile must resume from the in-memory held contract, verified via the
+// synchronous get — no profile or list read at all.
+func TestFreightReconcileUsesHeldMemoryFirst(t *testing.T) {
+	held := acceptedContract(1200, 1380)
+	f := &fakeClient{
+		state: &game.State{},
+		raw:   map[string][]byte{"shipping_get": shippingContractJSON(t, "get", held)},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}, State: &missionRunState{heldFreight: &held}}
+
+	got, ok := freightReconcile(context.Background(), deps, io.Discard)
+	if !ok || got == nil || got.ID != "high" {
+		t.Fatalf("must resume the held contract from memory, got %+v ok=%v", got, ok)
+	}
+	if !slices.Contains(f.calls, "shipping_get:high") {
+		t.Fatalf("must verify the held contract via get, calls were %v", f.calls)
+	}
+	for _, call := range f.shippingCalls {
+		if call == "profile" || call == "list" {
+			t.Fatalf("memory-first reconcile must not fall back to profile/list, calls were %v", f.shippingCalls)
+		}
+	}
+}
+
+// A deadline that expires between passes surfaces as server status
+// "defaulted" with a flat debt — and nothing else records it (the live
+// canary's defaulted contract produced NO freight_results row). Reconcile
+// must record it as breached, clear the memory, and free the worker for
+// other work (the operator settles the debt).
+func TestFreightReconcileRecordsDefaultedHeldContract(t *testing.T) {
+	held := acceptedContract(1200, 1380)
+	defaulted := held
+	defaulted.Status = "defaulted"
+	store := &fakeFreightStore{}
+	f := &fakeClient{
+		state: &game.State{},
+		raw:   map[string][]byte{"shipping_get": shippingContractJSON(t, "get", defaulted)},
+	}
+	st := &missionRunState{heldFreight: &held}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: st}
+
+	got, ok := freightReconcile(context.Background(), deps, io.Discard)
+	if ok || got != nil {
+		t.Fatalf("a defaulted contract must not be resumed, got %+v", got)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "breached" {
+		t.Fatalf("want a breached row for the stop-query, got %+v", store.results)
+	}
+	if !strings.Contains(store.results[0].Reason, "defaulted") {
+		t.Fatalf("reason must carry the server status, got %q", store.results[0].Reason)
+	}
+	if st.heldFreightContract() != nil {
+		t.Fatal("a terminal status must clear the held-freight memory")
+	}
+}
+
+// A transient get failure must not orphan a healthy contract: memory wins and
+// the trip resumes (worst case is one deliver attempt that errors cleanly).
+func TestFreightReconcileHeldSurvivesGetFailure(t *testing.T) {
+	held := acceptedContract(1200, 1380)
+	f := &fakeClient{
+		state:       &game.State{},
+		shippingErr: map[string]error{"get": errors.New("connection reset")},
+	}
+	st := &missionRunState{heldFreight: &held}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}, State: st}
+
+	got, ok := freightReconcile(context.Background(), deps, io.Discard)
+	if !ok || got == nil || got.ID != "high" {
+		t.Fatalf("memory must win over a transient get failure, got %+v ok=%v", got, ok)
+	}
+	if st.heldFreightContract() == nil {
+		t.Fatal("the held-freight memory must survive a transient get failure")
+	}
+}
+
+// Held-freight memory lifecycle: accept sets it, a delivered trip clears it,
+// and a FAILED return keeps it (the contract is still live and still ours).
+func TestFreightHeldMemoryLifecycle(t *testing.T) {
+	st := &missionRunState{}
+	delivered := acceptedContract(1200, 1380)
+	delivered.Status = "delivered"
+	f := &fakeClient{
+		state: &game.State{CurrentTick: 1200, Doc: true},
+		raw: map[string][]byte{
+			"shipping_accept":  shippingContractJSON(t, "accept", acceptedContract(1200, 1380)),
+			"shipping_deliver": shippingSettlementJSON(t, "deliver", delivered, 6000),
+		},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}, State: st}
+	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
+
+	accepted, step := freightAccept(context.Background(), deps, cand, io.Discard)
+	if step != freightStepProceed {
+		t.Fatalf("accept must proceed, got step %v", step)
+	}
+	if h := st.heldFreightContract(); h == nil || h.ID != "high" {
+		t.Fatalf("accept must set the held-freight memory, got %+v", h)
+	}
+
+	nav := func(ctx context.Context, baseID string) error { return nil }
+	if err := freightRunTrip(context.Background(), deps, accepted, cand, nav, io.Discard); err != nil {
+		t.Fatalf("freightRunTrip: %v", err)
+	}
+	if st.heldFreightContract() != nil {
+		t.Fatal("a delivered trip must clear the held-freight memory")
+	}
+
+	// A failed return keeps (or re-establishes) the hold.
+	f.shippingErr = map[string]error{"return": errors.New("connection reset")}
+	c := acceptedContract(1200, 1380)
+	if step := freightReturn(context.Background(), deps, io.Discard, c, cand, "returned_inflight", "test"); step != freightStepStuck {
+		t.Fatalf("a failed return must report stuck, got %v", step)
+	}
+	if h := st.heldFreightContract(); h == nil || h.ID != "high" {
+		t.Fatal("a failed return must keep the held-freight memory for the next pass")
 	}
 }

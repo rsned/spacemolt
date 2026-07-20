@@ -75,6 +75,40 @@ type missionRunState struct {
 	// pass. A changed reason (e.g. the expiry countdown crossing the floor)
 	// is a new key, so it logs again.
 	loggedSkips map[string]bool
+	// heldFreight is the in-flight shipping contract accepted this session,
+	// if any. The live canary (2026-07-20) proved the board read NEVER
+	// returns our own in_transit contracts, so this in-memory copy is the
+	// PRIMARY reconcile source; the profile+board read in freightReconcile
+	// survives only as the post-restart fallback (and will usually miss
+	// until captains_log-style server-side resume exists).
+	heldFreight *serverapi.ShipmentContract
+}
+
+// setHeldFreight remembers the contract we are currently carrying. No-op on
+// a nil receiver (State is optional; tests that don't care simply omit it).
+func (s *missionRunState) setHeldFreight(c *serverapi.ShipmentContract) {
+	if s == nil {
+		return
+	}
+	s.heldFreight = c
+}
+
+// heldFreightContract returns the in-flight contract remembered this
+// session, or nil. Always nil on a nil receiver.
+func (s *missionRunState) heldFreightContract() *serverapi.ShipmentContract {
+	if s == nil {
+		return nil
+	}
+	return s.heldFreight
+}
+
+// clearHeldFreight forgets the held contract after a terminal outcome.
+// No-op on a nil receiver.
+func (s *missionRunState) clearHeldFreight() {
+	if s == nil {
+		return
+	}
+	s.heldFreight = nil
 }
 
 // markAttempted records that mission id has been accepted (and recorded,
