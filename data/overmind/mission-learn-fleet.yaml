@@ -40,6 +40,8 @@ workers:
   - { agent_id: fighter-1, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: fighter-2, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: fighter-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  # fighter-4 re-added 2026-07-19 after manual operator rescue completed (returned home,
+  # sold off cargo, recovered). Joins fully-supervised on the next fleet restart.
   - { agent_id: fighter-4, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: fighter-5, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: fighter-6, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
