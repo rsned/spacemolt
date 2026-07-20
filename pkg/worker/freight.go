@@ -307,6 +307,29 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out
 	return &c, true
 }
 
+// missionTakeFreight accepts cand and runs its trip. It is the single place the
+// accept -> publish -> run-trip sequence lives, shared by all three call sites in
+// Missions (empty board, fully-gated board, and the co-equal net comparison).
+//
+// taken=false means no trip was started — either there was no candidate, or the
+// contract was released by freightAccept (returned as infeasible, or the accept
+// itself failed) — and the caller continues with whatever it would have done
+// without freight. The returned error is freightRunTrip's, which is nil on every
+// handled outcome: freight must never become a new way for the pass to fail.
+func missionTakeFreight(ctx context.Context, deps MissionDeps, cand *freightCand, out io.Writer) (bool, error) {
+	if cand == nil {
+		return false, nil
+	}
+	accepted, ok := freightAccept(ctx, deps, cand, out)
+	if !ok {
+		return false, nil
+	}
+	publishActivity(deps.SetActivity, "Freight "+accepted.ID+" to "+accepted.DestinationBaseID)
+	return true, freightRunTrip(ctx, deps, accepted, cand, func(ctx context.Context, baseID string) error {
+		return missionNavToBase(ctx, deps, baseID)
+	}, out)
+}
+
 // freightReturn hands a contract back and records the outcome. A failed return
 // is logged loudly: it is the only situation in which a breach becomes possible
 // despite the design, so it must be visible in the canary logs.

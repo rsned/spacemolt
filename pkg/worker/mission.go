@@ -327,6 +327,33 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		galGraph = nil
 	}
 
+	// Fuel model (same probe as Haul), built once per pass and memoized. It is
+	// declared here because freight is evaluated before the board read, but the
+	// probe is a server call, so it must not FIRE before the board read on a
+	// freight-disabled pass: ensureFuelModel defers the work to the first caller.
+	// With EnableFreight false that first caller is still the mission-candidate
+	// loop below, exactly where the probe has always happened.
+	var fuelCostFor func(jumps int) float64
+	ensureFuelModel := func() func(jumps int) float64 {
+		if fuelCostFor != nil {
+			return fuelCostFor
+		}
+		probeTarget := ""
+		for _, nb := range graph[current] {
+			probeTarget = nb
+			break
+		}
+		fuelPerJump := haulFuelPerJump(ctx, deps.Client, probeTarget)
+		priceOf := buildPriceOf(ctx, deps.FuelPrices)
+		fuelCostFor = func(jumps int) float64 {
+			if fuelPerJump <= 0 || priceOf == nil {
+				return 0
+			}
+			return float64(jumps*fuelPerJump) * priceOf(state.CurrentPOI)
+		}
+		return fuelCostFor
+	}
+
 	// Resume held missions before accepting new ones: complete what's aboard,
 	// abandon what isn't (v1 keeps resume simple; a lost-cargo mission cannot
 	// be completed anyway).
@@ -344,47 +371,15 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// Idle and unencumbered: safe point for a treasury top-up before buying.
 	deps.Treasury.maybe(ctx, deps.Client, out, missionNow(deps))
 
-	// Read the live board.
-	board, baseID, ok := missionReadBoard(ctx, deps, out)
-	if !ok || len(board) == 0 {
-		fmt.Fprintln(out, "missions: no board entries here") //nolint:errcheck
-		return missionDryPass(ctx, deps, out)
-	}
-
-	// Distance map to every candidate destination.
-	targets := make([]string, 0, len(board))
-	for _, e := range board {
-		if _, _, _, destSys, shaped := deliverShape(e); shaped {
-			targets = append(targets, destSys)
-		}
-	}
-	dist := navigation.BFSJumps(graph, current, targets)
-
-	// Fuel model (same probe as Haul).
-	probeTarget := ""
-	for _, nb := range graph[current] {
-		probeTarget = nb
-		break
-	}
-	fuelPerJump := haulFuelPerJump(ctx, deps.Client, probeTarget)
-	priceOf := buildPriceOf(ctx, deps.FuelPrices)
-	fuelCostFor := func(jumps int) float64 {
-		if fuelPerJump <= 0 || priceOf == nil {
-			return 0
-		}
-		return float64(jumps*fuelPerJump) * priceOf(state.CurrentPOI)
-	}
-	refAsk := func(itemID string) (float64, bool) {
-		ra, found, aerr := deps.Market.GetReferenceAsk(ctx, itemID)
-		if aerr != nil || !found {
-			return 0, false
-		}
-		return ra.BestAsk, true
-	}
-
 	// Freight is evaluated co-equally with the mission board: whichever nets
 	// more wins, exploration stays the fallback. Any freight failure degrades to
 	// "no freight this pass" — it must never be a new way for the pass to fail.
+	//
+	// Evaluated BEFORE the board read so the two dry paths below (empty board,
+	// availability gate empties the set) can fall through to it. Those are
+	// precisely where freight is worth the most: it converts a dry pass into a
+	// paying one, and the gate-empty path previously discarded an
+	// already-computed candidate outright.
 	var freightBest *freightCand
 	if deps.EnableFreight {
 		// Reconcile first: a restart loses the in-memory task, and an orphaned
@@ -400,7 +395,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		}
 		in := freightInputs{
 			CargoFree:   float64(cargoFreeSpace(state)),
-			FuelCostFor: fuelCostFor,
+			FuelCostFor: ensureFuelModel(),
 			HopsTo: func(destBaseID string) (int, bool) {
 				return missionHopsToBase(ctx, deps, destBaseID)
 			},
@@ -410,6 +405,35 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			fmt.Fprintf(out, "freight: no candidate (%s)\n", skip) //nolint:errcheck
 		}
 		freightBest = cand
+	}
+
+	// Read the live board.
+	board, baseID, ok := missionReadBoard(ctx, deps, out)
+	if !ok || len(board) == 0 {
+		fmt.Fprintln(out, "missions: no board entries here") //nolint:errcheck
+		// An empty board is a prime freight opportunity, not a dry pass.
+		if taken, ferr := missionTakeFreight(ctx, deps, freightBest, out); taken {
+			return ferr
+		}
+		return missionDryPass(ctx, deps, out)
+	}
+
+	// Distance map to every candidate destination.
+	targets := make([]string, 0, len(board))
+	for _, e := range board {
+		if _, _, _, destSys, shaped := deliverShape(e); shaped {
+			targets = append(targets, destSys)
+		}
+	}
+	dist := navigation.BFSJumps(graph, current, targets)
+
+	fuelCostFor = ensureFuelModel()
+	refAsk := func(itemID string) (float64, bool) {
+		ra, found, aerr := deps.Market.GetReferenceAsk(ctx, itemID)
+		if aerr != nil || !found {
+			return 0, false
+		}
+		return ra.BestAsk, true
 	}
 
 	// Gate + stack.
@@ -571,6 +595,12 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			set = acquirable
 			if len(set) == 0 {
 				fmt.Fprintln(out, "missions: no acquirable missions on this board") //nolint:errcheck
+				// A fully-gated board is the other prime freight opportunity —
+				// and the candidate is already computed, so discarding it here
+				// would waste the whole evaluation.
+				if taken, ferr := missionTakeFreight(ctx, deps, freightBest, out); taken {
+					return ferr
+				}
 				return missionDryPass(ctx, deps, out)
 			}
 		}
@@ -581,16 +611,11 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// priced on what would actually happen this pass).
 	if freightBest != nil && freightBest.Net > tripNet(set) {
 		fmt.Fprintf(out, "freight: taking %s (net %.0f) over the mission trip (net %.0f)\n", freightBest.Contract.ID, freightBest.Net, tripNet(set)) //nolint:errcheck
-		accepted, ok := freightAccept(ctx, deps, freightBest, out)
-		if !ok {
-			// Released (returned or accept failed) — fall through to missions.
-			freightBest = nil
-		} else {
-			publishActivity(deps.SetActivity, "Freight "+accepted.ID+" to "+accepted.DestinationBaseID)
-			return freightRunTrip(ctx, deps, accepted, freightBest, func(ctx context.Context, baseID string) error {
-				return missionNavToBase(ctx, deps, baseID)
-			}, out)
+		if taken, ferr := missionTakeFreight(ctx, deps, freightBest, out); taken {
+			return ferr
 		}
+		// Released (returned or accept failed) — fall through to missions.
+		freightBest = nil
 	}
 
 	// Accept. A failed accept just drops that mission from the trip.

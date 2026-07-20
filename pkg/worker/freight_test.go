@@ -656,3 +656,118 @@ func TestFreightRunTripFlagsUndecodableSettlement(t *testing.T) {
 		t.Fatal("an undecodable settlement must be distinguishable from a zero payout")
 	}
 }
+
+// freightBoardClient builds a docked fake whose /shipping board carries one
+// good contract, wired end to end (profile -> list -> accept -> deliver) plus
+// the router replies missionHopsToBase/missionNavToBase need.
+func freightBoardClient(t *testing.T, missionsRaw []byte, extraRaw map[string][]byte) *fakeClient {
+	t.Helper()
+	delivered := acceptedContract(0, 1380)
+	delivered.Status = "delivered"
+	raw := map[string][]byte{
+		"missions":         missionsRaw,
+		"shipping_profile": shippingProfileJSON(t, false, ""),
+		"shipping_list":    shippingListJSON(t, listing("high", true, 9000, 2)),
+		"shipping_accept":  shippingContractJSON(t, "accept", acceptedContract(0, 1380)),
+		"shipping_deliver": shippingSettlementJSON(t, "deliver", delivered, 9000),
+	}
+	for k, v := range extraRaw {
+		raw[k] = v
+	}
+	return &fakeClient{
+		state: missionState(true, 5000, 0),
+		route: []game.RouteStep{{SystemID: "sol", Jumps: 2}},
+		raw:   raw,
+	}
+}
+
+// An empty mission board is exactly where freight has the most to add: it turns
+// a dry pass into a paying one. Before the fix the board-empty early return
+// fired before freight was ever considered.
+func TestMissionsTakesFreightOnEmptyBoard(t *testing.T) {
+	fc := freightBoardClient(t, boardJSON(t), nil)
+	store := &fakeFreightStore{}
+	deps := missionDeps(fc, &store.fakeMissionStore, missionKB())
+	deps.Market, deps.EnableFreight = store, true
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if !slices.Contains(fc.shippingCalls, "accept") || !slices.Contains(fc.shippingCalls, "deliver") {
+		t.Fatalf("an empty board must fall through to freight, calls were %v", fc.shippingCalls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "delivered" {
+		t.Fatalf("want a delivered freight result, got %+v", store.results)
+	}
+}
+
+// Same board, freight disabled: the pass must behave exactly as it does today —
+// no /shipping traffic at all, straight to the dry pass.
+func TestMissionsEmptyBoardStaysDryWhenFreightDisabled(t *testing.T) {
+	fc := freightBoardClient(t, boardJSON(t), nil)
+	deps := missionDeps(fc, &fakeMissionStore{}, missionKB())
+	deps.State = &missionRunState{}
+	// EnableFreight deliberately left false.
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if len(fc.shippingCalls) != 0 {
+		t.Fatalf("freight must stay inert on the dry path when disabled, issued %v", fc.shippingCalls)
+	}
+	if deps.State.dry != 1 {
+		t.Fatalf("an empty board must still count one dry pass, got %d", deps.State.dry)
+	}
+}
+
+// The availability gate emptying `set` is the worse of the two dry paths: the
+// freight candidate has already been computed and was then silently discarded.
+func TestMissionsTakesFreightWhenAvailabilityGateEmptiesSet(t *testing.T) {
+	rare := boardEntry("m_rare", "phase_matrix", 8, "haven_station2", "haven", 5500, 0)
+	fc := freightBoardClient(t, boardJSON(t, rare), map[string][]byte{
+		"storage": storageJSON(t, map[string]float64{}),
+		"market":  marketJSON(t, map[string]float64{"steel": 100}), // no phase_matrix here
+	})
+	fc.activeMissionsSeq = [][]byte{activeJSON(t), activeJSON(t)}
+	store := &fakeFreightStore{}
+	store.asks = map[string]float64{"phase_matrix": 10}
+	deps := missionDeps(fc, &store.fakeMissionStore, missionKB())
+	deps.Market, deps.EnableFreight = store, true
+	deps.State = &missionRunState{}
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if strings.Contains(strings.Join(fc.calls, " "), "accept:m_rare") {
+		t.Fatalf("the unacquirable mission must still be gated out: %v", fc.calls)
+	}
+	if !slices.Contains(fc.shippingCalls, "accept") || !slices.Contains(fc.shippingCalls, "deliver") {
+		t.Fatalf("a fully-gated board must fall through to freight, calls were %v", fc.shippingCalls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "delivered" {
+		t.Fatalf("want a delivered freight result, got %+v", store.results)
+	}
+}
+
+// Same fully-gated board, freight disabled: unchanged dry pass.
+func TestMissionsGatedBoardStaysDryWhenFreightDisabled(t *testing.T) {
+	rare := boardEntry("m_rare", "phase_matrix", 8, "haven_station2", "haven", 5500, 0)
+	fc := freightBoardClient(t, boardJSON(t, rare), map[string][]byte{
+		"storage": storageJSON(t, map[string]float64{}),
+		"market":  marketJSON(t, map[string]float64{"steel": 100}),
+	})
+	fc.activeMissionsSeq = [][]byte{activeJSON(t), activeJSON(t)}
+	store := &fakeMissionStore{asks: map[string]float64{"phase_matrix": 10}}
+	deps := missionDeps(fc, store, missionKB())
+	deps.State = &missionRunState{}
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if len(fc.shippingCalls) != 0 {
+		t.Fatalf("freight must stay inert on the gated path when disabled, issued %v", fc.shippingCalls)
+	}
+	if deps.State.dry != 1 {
+		t.Fatalf("a fully-gated board must still count one dry pass, got %d", deps.State.dry)
+	}
+}
