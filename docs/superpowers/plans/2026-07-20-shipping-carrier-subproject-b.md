@@ -10,6 +10,19 @@
 
 **Spec:** `docs/superpowers/specs/2026-07-20-shipping-carrier-subproject-b-design.md`
 
+> **⚠️ Post-implementation corrections (2026-07-20, after merge `a602afc`).** Task bodies
+> below are the historical record and were NOT retro-edited. Two things changed during
+> implementation:
+> 1. **The outcome enum is SIX slugs, not five** — `return_failed` was added (user-approved):
+>    the `ShippingReturn` call itself errored, so the contract was never handed back and may
+>    still breach. Recording the caller's original outcome would have masked the one alarm
+>    the rollout gate exists to catch.
+> 2. **"Any `breached` row" is a DEAD gate** — nothing in the client ever writes `breached`
+>    (a breach is server-side; this client never observes it), so any task-body comment or
+>    commit message below calling `breached` "the canary's stop signal" is wrong. The
+>    corrected stop conditions, telemetry-liveness check, and known canary artifacts are in
+>    the **Rollout** section at the bottom of this plan, which IS maintained.
+
 ## Global Constraints
 
 - Go 1.24+ idiom: range-over-int, `b.Loop()` in benchmarks (not `for range b.N`).
@@ -277,7 +290,7 @@ Per-contract outcomes, the freight analogue of `MissionResult`. Breach-rate is t
   - `market.FreightResult` struct (fields below).
   - `(*Collector).RecordFreightResult(ctx context.Context, r FreightResult) error`
   - `(*Collector).GetFreightResults(ctx context.Context, agentID string, limit int) ([]FreightResult, error)`
-  - Outcome slugs, used verbatim by Tasks 5-7: `delivered`, `returned_infeasible`, `returned_inflight`, `accept_failed`, `breached`.
+  - Outcome slugs, used verbatim by Tasks 5-7: `delivered`, `returned_infeasible`, `returned_inflight`, `accept_failed`, `breached`, `return_failed` (6th slug added during implementation, user-approved — see the correction note at the top of this plan).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2066,13 +2079,51 @@ Not part of the implementation, but the plan is not done until these happen:
    (`project_kind_discriminator_drift`). Until it lands, every shipping call spams
    `[SERVER API CHANGE]`, which will bury the canary's real signal.
 2. **Canary one mission-runner** with `EnableFreight: true`. Nothing else in the pool changes.
-3. **Read the canary's logs for these three things, in order:**
-   - Any `breached` row in `freight_results` — **stop the rollout**, no path is supposed to choose one.
-   - Any `RETURN FAILED` line — the one situation where breach becomes possible despite the design.
+3. **First, verify telemetry is actually landing.** `RecordFreightResult` errors are logged
+   and swallowed (correct for metrics), so a missing or broken `freight_results` table is
+   INVISIBLE — a clean canary and a dead pipeline look identical. After the canary's first
+   freight attempt, run one query against the live DB before trusting anything else:
+
+   ```
+   sqlite3 data/market.db "SELECT outcome, COUNT(*), MIN(finished_at) FROM freight_results GROUP BY outcome;"
+   ```
+
+   Zero rows after an observed freight attempt = investigate the pipeline, not the economics.
+4. **Stop conditions** (⚠️ corrected 2026-07-20 — the original "any `breached` row" gate is
+   dead: nothing in the client ever writes `breached`; a breach is a server-side event this
+   client never observes, so that gate reads clean by construction):
+
+   ```
+   sqlite3 data/market.db "SELECT * FROM freight_results WHERE outcome IN ('breached','return_failed');"
+   ```
+
+   - **Any row from that query** — stop the rollout. `return_failed` is the client-observable
+     alarm: the `ShippingReturn` call itself errored, the contract was never handed back, and
+     the worker parks (the pass aborts by design — a parked worker holding a contract IS the
+     operator signal). `breached` stays in the query as insurance only.
+   - **A known contract id with no terminal row at all** — cross-check accepted contract ids
+     from the logs (`freight: taking <id>` / `Freight <id> to <dest>` activity lines) against
+     `freight_results.contract_id`; an orphan is presumed breached until proven otherwise.
+   - **Server-side ground truth**: `shipping --action=profile` on the canary —
+     `outstanding_debt > 0` or a `breaches` increment is definitive regardless of what our
+     telemetry says.
+5. **Read the canary's logs for these, in order:**
+   - Any `RETURN FAILED` line — pairs with the `return_failed` row above.
    - The distribution of `freight: skip <id>: net N below floor 500` lines — this is the
      measurement of whether `freightMinNet` is set sanely against real NPC rewards. If the
      board is uniformly rejected, lower the floor before concluding freight is unavailable.
    - Any `profile reports N active contract(s) but none found in the board read` line — the
-     reconciliation lookup assumption is wrong and needs the `ShippingTrack` fallback.
-4. **Re-tune** `freightTicksPerHop` and `freightDeadlineSlack` from `freight_results` timings.
-5. **Roll to the pool**, then consider Sub-project C (multi-package trips for large holds).
+     reconciliation lookup assumption is wrong and needs the `ShippingTrack` fallback. The
+     `ActiveContracts` guard in `freightCandidate` fails closed against this (no second
+     accept), so it is a fix-soon signal, not an emergency.
+   - On the first successful delivery, capture `deliver`'s ack frame: `pending:true` is
+     directly observed for `accept` but only inferred for `deliver` from api.md's general
+     queued-mutation contract. One logged frame closes the last inference.
+   - **Known artifacts, don't misread as failures:** `returned_infeasible` rows can be
+     dock-ordering artifacts (reconcile runs before the dock/recovery block, so a restart with
+     the package still in storage while undocked returns rather than docking first);
+     `returned_inflight` rows can fire one hop from delivery because the in-flight re-check
+     prices `RouteHops` as TOTAL hops (server refresh to remaining hops on `in_transit` is
+     unverified — these rows are also the data that answers that question).
+6. **Re-tune** `freightTicksPerHop` and `freightDeadlineSlack` from `freight_results` timings.
+7. **Roll to the pool**, then consider Sub-project C (multi-package trips for large holds).

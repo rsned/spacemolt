@@ -241,14 +241,36 @@ New `market.FreightResult` and its table, mirroring `market.MissionResult`
 service level, route hops, `base_reward`, `max_speed_bonus`, fuel cost, `carrier_payout`,
 outcome, reason, accepted/finished tick and timestamp.
 
-Outcomes: `delivered`, `returned_infeasible`, `returned_inflight`, `accept_failed`, `breached`.
+Outcomes: `delivered`, `returned_infeasible`, `returned_inflight`, `accept_failed`,
+`breached`, `return_failed`. (`return_failed` was added during implementation, user-approved:
+the `ShippingReturn` call itself errored, so the contract was never actually handed back and
+may still breach — recording the original outcome would have hidden exactly the alarm the
+rollout gate exists to catch.)
 
-Two signals drive the rollout decision:
-- **`breached` must be identically zero.** Any nonzero value stops the rollout.
+**The stop signal is NOT "any `breached` row."** Nothing in this client ever writes
+`breached` — a breach is a server-side event the client never observes, so that column is
+identically zero by construction and a gate watching it reads clean forever. The
+client-observable stop signals, in order of directness:
+
+1. **Any row with `outcome IN ('breached', 'return_failed')`** — `return_failed` is the one
+   that can actually fire, and it is the sole path where a breach can still happen despite
+   the fail-closed design. (`breached` stays in the query as insurance in case a future
+   change ever does record it.)
+2. **A known contract id with NO terminal row at all** — an orphaned contract that fell out
+   of tracking is presumed breached until proven otherwise.
+3. **The carrier profile itself**: `outstanding_debt > 0` or an unexplained `breaches`
+   increment on the live profile is server-side ground truth, independent of our telemetry.
+
+Secondary signal driving tuning rather than stop/go:
 - **`returned_infeasible` rate.** A high rate means the pre-accept `route_hops` filter is too
   loose and we are spending ticks and `returns++` to learn what we should have estimated. It is
   also the data that re-tunes `freightTicksPerHop` and `freightDeadlineSlack` away from their
-  single-sample values.
+  single-sample values. Two known artifacts inflate this count without indicating an economics
+  problem: reconcile now runs before the dock/recovery block, so a restart that finds the
+  package still in storage while undocked returns the contract (`returned_infeasible`) where
+  the old ordering would have docked first; and the in-flight re-check prices `RouteHops` as
+  total origin→destination hops (whether the server refreshes it to remaining hops on
+  `in_transit` is unverified), so `returned_inflight` rows can fire one hop from delivery.
 
 `returns++` on the carrier profile is an accepted cost of accept-then-verify. Its effect on
 tier progression (probationary → licensed at 5 deliveries + 250 delivered value) is unmeasured;
