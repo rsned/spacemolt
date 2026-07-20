@@ -122,6 +122,8 @@ type BattleEnded struct {
 // MiningYield represents successful mining action with resource extraction.
 // Server event type: mining_yield
 type MiningYield struct {
+	// Kind is the v0.531.4 response discriminator: yield.
+	Kind             string         `json:"kind,omitempty"`
 	ResourceID       string         `json:"resource_id"`
 	ResourceName     string         `json:"resource_name"`
 	Quantity         float64        `json:"quantity"`
@@ -158,13 +160,13 @@ type ScanDetected struct {
 // TradeOffer represents an incoming trade offer from another player.
 // Server event type: trade_offer_received
 type TradeOffer struct {
-	TradeID        string     `json:"trade_id"`
-	FromPlayer     string     `json:"from_player"`
-	FromName       string     `json:"from_name"`
+	TradeID        string      `json:"trade_id"`
+	FromPlayer     string      `json:"from_player"`
+	FromName       string      `json:"from_name"`
 	OfferItems     []CargoItem `json:"offer_items"`
-	OfferCredits   int        `json:"offer_credits"`
+	OfferCredits   int         `json:"offer_credits"`
 	RequestItems   []CargoItem `json:"request_items"`
-	RequestCredits int        `json:"request_credits"`
+	RequestCredits int         `json:"request_credits"`
 }
 
 // PilotlessShip represents a player who disconnected during combat.

@@ -239,7 +239,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	"facility":        reflect.TypeOf(serverapi.FacilityResponse{}),
 	"types":           reflect.TypeOf(serverapi.FacilityTypesResponse{}),
 	"facility_list":   reflect.TypeOf(serverapi.FacilityListResponse{}),
-	"list":            reflect.TypeOf(serverapi.FacilityListResponse{}),
+	"list":            reflect.TypeOf(serverapi.FacilityListResponse{}), // shipping's "list" too — see actionExtraResponseTypes
 	"browse_for_sale": reflect.TypeOf(serverapi.BrowseForSaleResponse{}),
 	"owned":           reflect.TypeOf(serverapi.FacilityOwnedResponse{}),
 	"job_list":        reflect.TypeOf(serverapi.CraftQueueListing{}),
@@ -336,6 +336,29 @@ var actionResponseTypes = map[string]reflect.Type{
 	"faction_create_sell_order": reflect.TypeOf(serverapi.FactionCreateSellOrderResponse{}),
 	"faction_post_mission":      reflect.TypeOf(serverapi.FactionPostMissionResponse{}),
 	"faction_cancel_mission":    reflect.TypeOf(serverapi.FactionCancelMissionResponse{}),
+
+	// /shipping reads (v0.531.4). The endpoint is action-dispatched, so the
+	// reply's top-level action is a BARE verb with no marker tying it back to
+	// /shipping — same invariant as the shipping_<action> storeRawJSON keys in
+	// client.go: this only works while no other command replies with these
+	// verbs. Shipping MUTATIONS (accept/deliver/return/cancel/post/pay_debt)
+	// arrive as tick-deferred action_result frames, which this monitor does
+	// not field-check, so only the synchronous reads are registered.
+	"get":     reflect.TypeOf(serverapi.ShippingContractResponse{}),
+	"profile": reflect.TypeOf(serverapi.ShippingProfileResponse{}),
+	"track":   reflect.TypeOf(serverapi.ShippingTrackResponse{}),
+}
+
+// actionExtraResponseTypes lists ADDITIONAL response structs for actions whose
+// verb is served by more than one command. The expected-field set for such an
+// action is the UNION of all its structs' fields: a genuinely new server field
+// (in none of them) still fires, and the only masking risk is one command
+// growing a field that happens to share a name with another command's — which
+// does not exist today. Needed because the payload carries no originating
+// command, so the shapes cannot be told apart at the monitor.
+var actionExtraResponseTypes = map[string][]reflect.Type{
+	// "list" is both the facility list and the /shipping board read.
+	"list": {reflect.TypeOf(serverapi.ShippingListResponse{})},
 }
 
 // eventExpectedFields maps non-OK event types to their expected payload fields.
@@ -633,11 +656,26 @@ func expectedFieldsForAction(action string) (map[string]bool, bool) {
 		return nil, false
 	}
 	fields := jsonFieldNames(responseType)
+	for _, extra := range actionExtraResponseTypes[action] {
+		for k := range jsonFieldNames(extra) {
+			fields[k] = true
+		}
+	}
 	for k := range commonOKFields {
 		fields[k] = true
 	}
 	actionFieldsCache.Store(action, fields)
 	return fields, true
+}
+
+// actionStructNames names every struct registered for an action, for warning
+// messages on union-checked actions.
+func actionStructNames(action string) string {
+	names := []string{actionResponseTypes[action].Name()}
+	for _, extra := range actionExtraResponseTypes[action] {
+		names = append(names, extra.Name())
+	}
+	return strings.Join(names, " or ")
 }
 
 // checkForAPIChanges inspects a server response for unhandled types or unknown fields.
@@ -685,10 +723,9 @@ func CheckOKResponseFields(payload map[string]any) {
 		sort.Strings(unknown)
 		key := "unknown_fields:" + action + ":" + strings.Join(unknown, ",")
 		if _, loaded := loggedAPIChanges.LoadOrStore(key, true); !loaded {
-			responseType := actionResponseTypes[action]
 			apiChangeLogger.Printf(
 				"New fields in %q response not in %s: %v - update the serverapi struct",
-				action, responseType.Name(), unknown)
+				action, actionStructNames(action), unknown)
 		}
 	}
 }

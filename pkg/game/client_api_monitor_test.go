@@ -134,9 +134,9 @@ func TestCheckEventFields_UnknownFields(t *testing.T) {
 	client.SetDebugLogging(false)
 
 	payload := map[string]any{
-		"tick":             float64(100),
-		"brand_new_field":  "surprise",
-		"another_new_one":  42,
+		"tick":            float64(100),
+		"brand_new_field": "surprise",
+		"another_new_one": 42,
 	}
 	// Should not panic
 	client.checkEventFields(protocol.TypeTick, payload)
@@ -151,5 +151,83 @@ func TestAllActionTypesHaveValidStructs(t *testing.T) {
 		if len(fields) == 0 {
 			t.Errorf("actionResponseTypes[%q] (%s) has no JSON fields", action, rt.Name())
 		}
+	}
+}
+
+// v0.531.4 added a `kind` discriminator to ~39 response shapes. The monitor
+// diffs top-level payload keys against the registered struct's json tags, so
+// every registered action whose response now carries kind must have a Kind
+// field or the fleet logs fill with [SERVER API CHANGE] spam.
+func TestExpectedFieldsIncludeKindDiscriminator(t *testing.T) {
+	actionFieldsCache.Range(func(key, _ any) bool {
+		actionFieldsCache.Delete(key)
+		return true
+	})
+	// Every registered action whose v0.531.4 response carries a top-level kind.
+	for _, action := range []string{
+		"get_system", "get_poi",
+		"create_buy_order", "create_sell_order", "cancel_order", "modify_order",
+		"faction_create_buy_order", "faction_create_sell_order",
+		"mine", "craft", "recycle",
+		"facility", "facility_list", "list",
+		"unload_passenger", "attack",
+	} {
+		fields, known := expectedFieldsForAction(action)
+		if !known {
+			t.Errorf("%q should be a known action", action)
+			continue
+		}
+		if !fields["kind"] {
+			t.Errorf("%q expected fields must include the v0.531.4 kind discriminator", action)
+		}
+	}
+}
+
+// The /shipping reads reply with bare-verb actions; they must be registered or
+// every carrier pass logs "Unhandled action" spam.
+func TestShippingReadActionsRegistered(t *testing.T) {
+	cases := map[string]string{
+		"get":     "contract",
+		"profile": "profile",
+		"track":   "events",
+	}
+	for action, marker := range cases {
+		fields, known := expectedFieldsForAction(action)
+		if !known {
+			t.Errorf("shipping read action %q should be registered", action)
+			continue
+		}
+		if !fields[marker] {
+			t.Errorf("%q expected fields must include %q from its shipping struct", action, marker)
+		}
+	}
+}
+
+// "list" is served by BOTH the facility command and the /shipping board read,
+// and the payload carries no originating command, so the expected-field set is
+// the union of both structs. A field in neither must still count as unknown —
+// the union must not become a sieve.
+func TestListActionUnionCoversFacilityAndShipping(t *testing.T) {
+	actionFieldsCache.Range(func(key, _ any) bool {
+		actionFieldsCache.Delete(key)
+		return true
+	})
+	fields, known := expectedFieldsForAction("list")
+	if !known {
+		t.Fatal("list should be a known action")
+	}
+	// Facility side.
+	if !fields["station_facilities"] {
+		t.Error("list union must include station_facilities from FacilityListResponse")
+	}
+	// Shipping side.
+	for _, f := range []string{"shipments", "total", "empty_reason"} {
+		if !fields[f] {
+			t.Errorf("list union must include %q from ShippingListResponse", f)
+		}
+	}
+	// Still a real check: a genuinely new server field is in neither struct.
+	if fields["definitely_not_a_real_field"] {
+		t.Error("union must not accept fields absent from every registered struct")
 	}
 }

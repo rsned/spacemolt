@@ -10,6 +10,8 @@ import "encoding/json"
 
 // GetSystemResponse wraps the response from get_system command.
 type GetSystemResponse struct {
+	// Kind is the v0.531.4 response discriminator: normal|transit (transit variant folded into this one struct; in_transit bool is the behavioral source).
+	Kind           string        `json:"kind,omitempty"`
 	Action         string        `json:"action"`
 	POI            CurrentPOI    `json:"poi,omitempty"`
 	SecurityStatus string        `json:"security_status"`
@@ -24,6 +26,8 @@ type GetSystemResponse struct {
 
 // GetPOIResponse wraps the response from get_poi command.
 type GetPOIResponse struct {
+	// Kind is the v0.531.4 response discriminator: normal|transit (transit variant folded into this one struct).
+	Kind          string            `json:"kind,omitempty"`
 	Action        string            `json:"action,omitempty"`
 	POI           POI               `json:"poi"`
 	Base          *Base             `json:"base,omitempty"`
@@ -319,6 +323,8 @@ type SellResponse struct {
 
 // CreateBuyOrderResponse wraps the response from create_buy_order command.
 type CreateBuyOrderResponse struct {
+	// Kind is the v0.531.4 response discriminator: single (server also defines a bulk shape; no client method issues bulk order ops).
+	Kind               string      `json:"kind,omitempty"`
 	Action             string      `json:"action"`
 	Item               string      `json:"item"`
 	ItemID             string      `json:"item_id"`
@@ -344,6 +350,8 @@ type CreateBuyOrderResponse struct {
 
 // CreateSellOrderResponse wraps the response from create_sell_order command.
 type CreateSellOrderResponse struct {
+	// Kind is the v0.531.4 response discriminator: single.
+	Kind              string      `json:"kind,omitempty"`
 	Action            string      `json:"action"`
 	Item              string      `json:"item"`
 	ItemID            string      `json:"item_id"`
@@ -366,6 +374,8 @@ type CreateSellOrderResponse struct {
 
 // CancelOrderResponse wraps the response from cancel_order command.
 type CancelOrderResponse struct {
+	// Kind is the v0.531.4 response discriminator: single.
+	Kind            string     `json:"kind,omitempty"`
 	Action          string     `json:"action"`
 	OrderID         string     `json:"order_id"`
 	Message         string     `json:"message"`
@@ -380,6 +390,8 @@ type CancelOrderResponse struct {
 
 // ModifyOrderResponse wraps the response from modify_order command.
 type ModifyOrderResponse struct {
+	// Kind is the v0.531.4 response discriminator: single.
+	Kind       string `json:"kind,omitempty"`
 	Action     string `json:"action"`
 	OrderID    string `json:"order_id"`
 	OldPrice   int    `json:"old_price"`
@@ -800,6 +812,8 @@ type FacilityTypeInfo struct {
 }
 
 type FacilityResponse struct {
+	// Kind is the v0.531.4 response discriminator: detail|discovery|list.
+	Kind         string             `json:"kind,omitempty"`
 	Action       string             `json:"action"`
 	Command      string             `json:"command,omitempty"`
 	BaseID       string             `json:"base_id,omitempty"`
@@ -939,6 +953,8 @@ type FacilityTypesResponse struct {
 // per-section facility lists it carries a station-wide construction queue and
 // a power-grid summary block.
 type FacilityListResponse struct {
+	// Kind is the v0.531.4 response discriminator: list.
+	Kind              string           `json:"kind,omitempty"`
 	Action            string           `json:"action,omitempty"`
 	BaseID            string           `json:"base_id"`
 	StationFacilities []map[string]any `json:"station_facilities"`
@@ -1601,6 +1617,8 @@ type LoadPassengerResponse struct {
 // (see client.go's storeKey detection for passenger responses). FareCollected is 0
 // when the passenger is stranded off-destination (no fare, small reputation hit).
 type UnloadPassengerResponse struct {
+	// Kind is the v0.531.4 response discriminator: single|all|transfer|lounge_checkin.
+	Kind          string `json:"kind,omitempty"`
 	Action        string `json:"action"`
 	FareCollected int    `json:"fare_collected,omitempty"`
 }
@@ -1681,6 +1699,8 @@ type FleetMemberStatus struct {
 
 // MineResponse wraps the response from mine command.
 type MineResponse struct {
+	// Kind is the v0.531.4 response discriminator: filtered|yield.
+	Kind    string `json:"kind,omitempty"`
 	Action  string `json:"action,omitempty"`
 	Command string `json:"command,omitempty"`
 	Pending bool   `json:"pending,omitempty"`
@@ -1743,6 +1763,8 @@ type CraftProduces struct {
 // CraftJobQueued is the response when a single craft (or recycle) job is accepted and queued.
 // Corresponds to the first oneOf variant of CraftJobResponse in the openapi spec.
 type CraftJobQueued struct {
+	// Kind is the v0.531.4 response discriminator: job|queue|quote|package|bulk_craft|cancel|bulk_cancel (RecycleResponse aliases this struct, so recycle is covered too).
+	Kind                string          `json:"kind,omitempty"`
 	Action              string          `json:"action"`
 	JobID               string          `json:"job_id"`
 	Recipe              string          `json:"recipe"`
@@ -2577,6 +2599,8 @@ type CaptainsLogListResponse struct {
 
 // AttackResponse — attack (ack frame)
 type AttackResponse struct {
+	// Kind is the v0.531.4 response discriminator: npc|player.
+	Kind    string `json:"kind,omitempty"`
 	Command string `json:"command,omitempty"`
 	Message string `json:"message"`
 	Pending bool   `json:"pending,omitempty"`
@@ -2830,6 +2854,8 @@ type FactionTradeIntelStatusResponse struct {
 
 // FactionCreateBuyOrderResponse — faction_create_buy_order
 type FactionCreateBuyOrderResponse struct {
+	// Kind is the v0.531.4 response discriminator: single.
+	Kind          string `json:"kind,omitempty"`
 	Action        string `json:"action,omitempty"`
 	Consolidated  bool   `json:"consolidated,omitempty"`
 	FactionID     string `json:"faction_id,omitempty"`
@@ -2846,6 +2872,8 @@ type FactionCreateBuyOrderResponse struct {
 
 // FactionCreateSellOrderResponse — faction_create_sell_order
 type FactionCreateSellOrderResponse struct {
+	// Kind is the v0.531.4 response discriminator: single.
+	Kind         string `json:"kind,omitempty"`
 	Action       string `json:"action,omitempty"`
 	Consolidated bool   `json:"consolidated,omitempty"`
 	FactionID    string `json:"faction_id,omitempty"`

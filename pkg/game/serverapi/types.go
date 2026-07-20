@@ -713,6 +713,8 @@ type ActiveBuff struct {
 
 // BattleParticipant represents a player or NPC in a battle.
 type BattleParticipant struct {
+	// Kind is the v0.531.4 response discriminator: participant discriminator (spec: ParticipantSnapshot).
+	Kind        string `json:"kind,omitempty"`
 	PlayerID    string `json:"player_id"`
 	Username    string `json:"username"`
 	ShipClass   string `json:"ship_class"`
@@ -757,6 +759,8 @@ type ActiveBattleSide struct {
 
 // ActiveBattleParticipant is one combatant in an ActiveBattle.
 type ActiveBattleParticipant struct {
+	// Kind is the v0.531.4 response discriminator: participant discriminator (spec: ActiveBattleParticipantInfo).
+	Kind      string `json:"kind,omitempty"`
 	PlayerID  string `json:"player_id"`
 	Username  string `json:"username"`
 	SideID    int    `json:"side_id"`
