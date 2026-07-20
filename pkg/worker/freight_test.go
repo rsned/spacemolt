@@ -395,3 +395,70 @@ func TestFreightAcceptRecordsReturnFailure(t *testing.T) {
 		t.Fatalf("reason must carry the underlying error, got %q", store.results[0].Reason)
 	}
 }
+
+func shippingSettlementJSON(t *testing.T, action string, c serverapi.ShipmentContract, payout int64) []byte {
+	t.Helper()
+	b, err := json.Marshal(serverapi.ShippingSettlementResponse{
+		Action: action, Contract: c, CarrierPayout: payout,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func TestFreightRunTripDeliversAndRecordsPayout(t *testing.T) {
+	store := &fakeFreightStore{}
+	delivered := acceptedContract(1200, 1380)
+	delivered.Status = "delivered"
+	f := &fakeClient{
+		state: &game.State{},
+		raw:   map[string][]byte{"shipping_deliver": shippingSettlementJSON(t, "deliver", delivered, 6000)},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	c := acceptedContract(1200, 1380)
+	navigated := ""
+	nav := func(ctx context.Context, baseID string) error { navigated = baseID; return nil }
+
+	if err := freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard); err != nil {
+		t.Fatalf("freightRunTrip: %v", err)
+	}
+	if navigated != "sol_central" {
+		t.Fatalf("must navigate to destination_base_id, went to %q", navigated)
+	}
+	// The package must be pulled from origin storage into the hold before transit.
+	if !slices.Contains(f.calls, "withdraw:package:pkg_hash:1") {
+		t.Fatalf("must withdraw the package: prefix item, calls were %v", f.calls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "delivered" {
+		t.Fatalf("want a delivered result, got %+v", store.results)
+	}
+	if store.results[0].CarrierPayout != 6000 {
+		t.Fatalf("payout must come from the settlement reply, got %v", store.results[0].CarrierPayout)
+	}
+}
+
+// If the package cannot be pulled into the hold we must not transit — a contract
+// we cannot physically carry is a guaranteed breach.
+func TestFreightRunTripReturnsWhenWithdrawFails(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &fakeClient{
+		state:       &game.State{},
+		withdrawErr: errors.New("no such item in storage"),
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	c := acceptedContract(1200, 1380)
+	navigated := false
+	nav := func(ctx context.Context, baseID string) error { navigated = true; return nil }
+
+	_ = freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard)
+	if navigated {
+		t.Fatal("must not transit a package we could not load")
+	}
+	if !slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must return the contract, calls were %v", f.shippingCalls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "returned_infeasible" {
+		t.Fatalf("want returned_infeasible, got %+v", store.results)
+	}
+}

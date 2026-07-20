@@ -322,3 +322,56 @@ func freightReturn(ctx context.Context, deps MissionDeps, out io.Writer, c serve
 	}
 	freightRecord(ctx, deps, out, c, cand, 0, outcome, reason)
 }
+
+// freightPackageItemID is the cargo/storage item id for a contract's package.
+// The contract carries the bare hash in package_id; storage and cargo address it
+// with a "package:" prefix (confirmed live).
+func freightPackageItemID(packageID string) string {
+	return "package:" + packageID
+}
+
+// freightRunTrip carries an accepted contract to its destination and delivers it.
+// Returns nil on every handled outcome — like Missions and Haul, a failed trip
+// logs and idles rather than killing the worker loop.
+func freightRunTrip(ctx context.Context, deps MissionDeps, c *serverapi.ShipmentContract, cand *freightCand, nav func(ctx context.Context, baseID string) error, out io.Writer) error {
+	if out == nil {
+		out = io.Discard
+	}
+	// Accept placed the sealed package in personal storage at origin; pull it
+	// into the hold before leaving. If it will not load we are holding a contract
+	// we cannot physically carry, which is a guaranteed breach — return instead.
+	item := freightPackageItemID(c.PackageID)
+	if err := deps.Client.WithdrawItems(ctx, item, 1); err != nil {
+		fmt.Fprintf(out, "freight: withdraw %s: %v; returning contract\n", item, err) //nolint:errcheck
+		freightReturn(ctx, deps, out, *c, cand, "returned_infeasible", "package would not load: "+err.Error())
+		return nil
+	}
+
+	if nav != nil {
+		if err := nav(ctx, c.DestinationBaseID); err != nil {
+			// Navigation failed but the deadline may still hold; leave the
+			// contract in flight and let the next pass re-check the buffer
+			// (freightInFlightCheck) rather than returning on a transient error.
+			fmt.Fprintf(out, "freight: navigate to %s: %v\n", c.DestinationBaseID, err) //nolint:errcheck
+			return nil
+		}
+	}
+
+	if err := deps.Client.ShippingDeliver(ctx, c.ID); err != nil {
+		fmt.Fprintf(out, "freight: deliver %s: %v\n", c.ID, err) //nolint:errcheck
+		return nil
+	}
+	var settle serverapi.ShippingSettlementResponse
+	if raw := deps.Client.GetRawJSON("shipping_deliver"); len(raw) > 0 {
+		if err := json.Unmarshal(raw, &settle); err != nil {
+			fmt.Fprintf(out, "freight: decode deliver %s: %v\n", c.ID, err) //nolint:errcheck
+		}
+	}
+	final := settle.Contract
+	if final.ID == "" {
+		final = *c
+	}
+	fmt.Fprintf(out, "freight: delivered %s, payout %d\n", c.ID, settle.CarrierPayout) //nolint:errcheck
+	freightRecord(ctx, deps, out, final, cand, float64(settle.CarrierPayout), "delivered", "")
+	return nil
+}
