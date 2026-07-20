@@ -2656,6 +2656,15 @@ func (c *Client) AgentLogs(ctx context.Context, category, severity, message stri
 // Shipping (freight contracts)
 // ============================================================================
 
+// shippingMutations are the tick-deferred /shipping actions. Their real reply
+// arrives later in an action_result frame, so they must await that frame rather
+// than the immediate pending ack (see storeRawJSON's TypeActionResult case).
+// The reads (list, get, profile, track) reply synchronously and keep the ack path.
+var shippingMutations = map[string]bool{
+	"accept": true, "deliver": true, "return": true,
+	"cancel": true, "post": true, "pay_debt": true,
+}
+
 // Shipping sends a /shipping action with the given payload (the action is
 // injected). The reply is cached under "shipping_<action>" (storeRawJSON);
 // read it with GetRawJSON and unmarshal into the matching serverapi struct.
@@ -2672,7 +2681,13 @@ func (c *Client) Shipping(ctx context.Context, action string, payload map[string
 		Payload:   out,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	opts := []SubmitOption{WithTimeout(SleepMedium)}
+	if shippingMutations[action] {
+		opts = append(opts, WithTerminator(terminateOnActionOrOK))
+	} else {
+		opts = append(opts, WithAckOnly())
+	}
+	h, err := c.Submit(ctx, msg, opts...)
 	if err == nil {
 		_, err = c.await(ctx, h)
 	}

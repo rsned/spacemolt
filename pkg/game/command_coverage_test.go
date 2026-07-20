@@ -37,6 +37,15 @@ var ignoredCommands = map[string]string{
 	"get_battle_log":     "battle read command; deferred to passthrough coverage (stopgap 2026-07-19)",
 	"inspect":            "inspect read command; deferred to passthrough coverage (stopgap 2026-07-19)",
 
+	// shipping is action-dispatched (list/get/accept/deliver/return/cancel/
+	// profile/track/pay_debt/quote/post): each sub-action has its own
+	// response shape, cached under shipping_<action> by storeRawJSON, not a
+	// single response type this map's one-command-to-one-type shape can
+	// hold. Per-action registration in actionResponseTypes is a separate
+	// follow-up (same shape as the battle/inspect stopgap above); parked
+	// here so it doesn't block the action_result decode fix landing.
+	"shipping": "action-dispatched; each sub-action keyed under shipping_<action>, not a single actionResponseTypes entry (stopgap 2026-07-20)",
+
 	// NOTE: the block that used to sit here listed 16 commands as "not
 	// implemented". That was misleading — every one of them IS implemented
 	// server-side and returns a fully-specified payload, and all are reachable
