@@ -23,6 +23,9 @@ import (
 // dispatch_test.go (identical body), so it is not redefined here.
 func (f *fakeClient) GetActiveMissions(ctx context.Context) error {
 	f.calls = append(f.calls, "get_active_missions")
+	if f.onGetActiveMissions != nil {
+		f.onGetActiveMissions()
+	}
 	return nil
 }
 func (f *fakeClient) AcceptMission(ctx context.Context, id string) error {

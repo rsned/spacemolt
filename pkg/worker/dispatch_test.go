@@ -42,6 +42,14 @@ type fakeClient struct {
 	shippingErr   map[string]error // per-action error, keyed by shipping action
 	shippingCalls []string         // shipping actions issued, in order
 
+	// cloneState makes GetState return a copy, as the real client does, so a
+	// stale snapshot is distinguishable from a fresh read.
+	cloneState bool
+	// onGetActiveMissions fires when GetActiveMissions is called, letting a
+	// test model server-side state changes that happen mid-pass (e.g. a resume
+	// unloading cargo and freeing the hold).
+	onGetActiveMissions func()
+
 	// activeMissionsSeq, when non-nil, supplies successive
 	// GetRawJSON("active_missions") results in call order — one entry per
 	// GetActiveMissions call in the pass (e.g. empty before accept, then
@@ -124,7 +132,22 @@ func (f *fakeClient) GetMissions(ctx context.Context) error {
 	f.calls = append(f.calls, "get_missions")
 	return nil
 }
-func (f *fakeClient) GetState() *game.State { return f.state }
+// GetState returns the live object by default. The REAL client returns
+// state.Clone() (client.go:2095), and that difference matters: with a shared
+// pointer, a snapshot taken early in a pass and a fresh read later are the same
+// object, so code that wrongly reuses a stale snapshot still looks correct.
+// Tests that need to tell those apart set cloneState. It is opt-in because
+// cloning unconditionally deadlocks TestKBUpdateMissionsUpsertsHandAuthoredOnly,
+// which relies on observing its own mutations through this pointer.
+func (f *fakeClient) GetState() *game.State {
+	if f.state == nil {
+		return nil
+	}
+	if f.cloneState {
+		return f.state.Clone()
+	}
+	return f.state
+}
 
 // IsConnected reports the game-connection state; connected unless a test sets
 // disconnected. The haul/mission passes skip work when disconnected.

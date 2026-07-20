@@ -248,6 +248,45 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	}
 	current := state.System.ID
 
+	// Freight reconcile runs before EVERY early return in this pass, which is
+	// why it sits here rather than with the candidate evaluation further down.
+	// A restart loses the in-memory task, and an orphaned in-flight package
+	// breaches in silence. Worse, missionRecoverToStation and missionResume
+	// below can both end the pass, and missionDryPass's reposition logic will
+	// happily fly the worker AWAY from its freight destination while it is
+	// still carrying the package. Reconcile needs neither the galaxy graph nor
+	// the fuel model, so moving it this early costs nothing; only CANDIDATE
+	// evaluation needs the routing substrate, and that stays below.
+	if deps.EnableFreight {
+		if held, ok := freightReconcile(ctx, deps, out); ok {
+			// held.RouteHops is the FULL origin->dest distance, so this
+			// re-prices the whole trip every pass and can return a contract
+			// that is one hop from delivery. That fails closed, which the spec
+			// endorses, so it is left alone — but it means canary
+			// `returned_inflight` rows may look like deadline problems when
+			// they are really this conservatism. Whether the server refreshes
+			// RouteHops to REMAINING hops on an in_transit contract is
+			// UNVERIFIED; the canary answers it. Do not "fix" this by guessing
+			// remaining hops or by switching to AcceptedTick-style optimism.
+			switch freightInFlightCheck(ctx, deps, held, nil, held.RouteHops, out) {
+			case freightStepProceed:
+				// Carrying a package to its destination legitimately owns the
+				// pass.
+				publishActivity(deps.SetActivity, "Freight "+held.ID+" to "+held.DestinationBaseID)
+				return freightRunTrip(ctx, deps, held, nil, func(ctx context.Context, baseID string) error {
+					return missionNavToBase(ctx, deps, baseID)
+				}, out)
+			case freightStepStuck:
+				// Return failed: a live contract we cannot discharge. Park.
+				return nil
+			}
+			// Released cleanly — unencumbered, docked, with the whole pass
+			// still ahead of us. Fall through and do real work rather than
+			// burning the recovery pass on the one occasion we just lost the
+			// freight earnings.
+		}
+	}
+
 	// Default reposition source: nearest accessible stations by the galaxy
 	// graph (the same query haul's stranded-recovery uses; it excludes
 	// strongholds and non-public stations). Initialized before recovery so the
@@ -371,30 +410,21 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// Idle and unencumbered: safe point for a treasury top-up before buying.
 	deps.Treasury.maybe(ctx, deps.Client, out, missionNow(deps))
 
-	// Freight is evaluated co-equally with the mission board: whichever nets
-	// more wins, exploration stays the fallback. Any freight failure degrades to
-	// "no freight this pass" — it must never be a new way for the pass to fail.
-	//
-	// Evaluated BEFORE the board read so the two dry paths below (empty board,
-	// availability gate empties the set) can fall through to it. Those are
-	// precisely where freight is worth the most: it converts a dry pass into a
-	// paying one, and the gate-empty path previously discarded an
-	// already-computed candidate outright.
+	// Freight candidate selection (the reconcile half ran far above). Evaluated
+	// BEFORE the board read so the dry paths below can fall through to it: an
+	// empty or fully-gated board is precisely where freight is worth the most,
+	// because it converts a dry pass into a paying one. Any freight failure
+	// degrades to "no freight this pass" — it must never be a new way for the
+	// pass to fail.
 	var freightBest *freightCand
 	if deps.EnableFreight {
-		// Reconcile first: a restart loses the in-memory task, and an orphaned
-		// in-flight package breaches in silence.
-		if held, ok := freightReconcile(ctx, deps, out); ok {
-			if freightInFlightCheck(ctx, deps, held, nil, held.RouteHops, out) {
-				publishActivity(deps.SetActivity, "Freight "+held.ID+" to "+held.DestinationBaseID)
-				return freightRunTrip(ctx, deps, held, nil, func(ctx context.Context, baseID string) error {
-					return missionNavToBase(ctx, deps, baseID)
-				}, out)
-			}
-			return nil
-		}
+		// Fresh state read, NOT the snapshot taken at the top of the pass:
+		// GetState returns a clone, and both missionResume and
+		// missionUnloadAtHomeBase have since freed hold space. Judging a worker
+		// that just shed 400 units of ore as still full would skip freight on
+		// the exact pass it finally has room for a package.
 		in := freightInputs{
-			CargoFree:   float64(cargoFreeSpace(state)),
+			CargoFree:   float64(cargoFreeSpace(deps.Client.GetState())),
 			FuelCostFor: ensureFuelModel(),
 			HopsTo: func(destBaseID string) (int, bool) {
 				return missionHopsToBase(ctx, deps, destBaseID)
@@ -412,10 +442,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	if !ok || len(board) == 0 {
 		fmt.Fprintln(out, "missions: no board entries here") //nolint:errcheck
 		// An empty board is a prime freight opportunity, not a dry pass.
-		if taken, ferr := missionTakeFreight(ctx, deps, freightBest, out); taken {
-			return ferr
-		}
-		return missionDryPass(ctx, deps, out)
+		return missionFreightOrDry(ctx, deps, freightBest, out)
 	}
 
 	// Distance map to every candidate destination.
@@ -493,10 +520,45 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	st := deps.Client.GetState()
 	cargoFree := st.Ship.CargoCapacity - st.Ship.CargoUsed
 	set := SelectMissionSet(cands, st.GetCredits(), cargoFree, deps.MaxJumps)
-	// Exploration runs solo (no cargo, its own tour): it takes the pass only
-	// when its best net beats the whole stacked delivery trip.
-	if best := bestExploreCandidate(exploreCands); best != nil && best.Net > tripNet(set) {
-		return missionAcceptAndExplore(ctx, deps, out, *best, current, state.CurrentPOI, baseID, strongholds)
+	// THE ranking point: freight, the stacked mission trip, and exploration are
+	// compared here, together, once. Exploration used to be compared against the
+	// mission trip alone and return immediately, so a 12k-net freight contract
+	// silently lost to a 600-net exploration tour — inverting the spec, in which
+	// exploration is the FALLBACK. Exploration now wins only when it out-nets
+	// both of the others.
+	//
+	// An empty `set` nets 0, so this doubles as the "no acceptable missions"
+	// decision: freight or exploration takes the pass if either has anything to
+	// offer, and only a genuinely empty slate falls through to missionDryPass.
+	//
+	// NOTE: tripNet(set) here is the PRE-availability-gate net, i.e. an upper
+	// bound on what the mission trip will really earn. Freight is therefore
+	// ranked conservatively against missions; when the gate later guts the set,
+	// the gate-empty path below hands the pass back to freight.
+	exploreBest := bestExploreCandidate(exploreCands)
+	missionNet := tripNet(set)
+	freightNet, exploreNet := 0.0, 0.0
+	if freightBest != nil {
+		freightNet = freightBest.Net
+	}
+	if exploreBest != nil {
+		exploreNet = exploreBest.Net
+	}
+	switch {
+	// Freight takes ties against exploration, per "exploration is the fallback".
+	case freightBest != nil && freightNet >= exploreNet && freightNet > missionNet:
+		fmt.Fprintf(out, "freight: taking %s (net %.0f) over the mission trip (net %.0f) and exploration (net %.0f)\n", freightBest.Contract.ID, freightNet, missionNet, exploreNet) //nolint:errcheck
+		step, ferr := missionTakeFreight(ctx, deps, freightBest, out)
+		switch step {
+		case freightStepProceed:
+			return ferr
+		case freightStepStuck:
+			return nil // undischarged contract; park rather than fly elsewhere
+		}
+		// Released — fall through to missions/exploration below.
+		freightBest = nil
+	case exploreBest != nil && exploreNet > missionNet:
+		return missionAcceptAndExplore(ctx, deps, out, *exploreBest, current, state.CurrentPOI, baseID, strongholds)
 	}
 	if len(set) == 0 {
 		fmt.Fprintln(out, "missions: no acceptable missions on this board") //nolint:errcheck
@@ -597,25 +659,12 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 				fmt.Fprintln(out, "missions: no acquirable missions on this board") //nolint:errcheck
 				// A fully-gated board is the other prime freight opportunity —
 				// and the candidate is already computed, so discarding it here
-				// would waste the whole evaluation.
-				if taken, ferr := missionTakeFreight(ctx, deps, freightBest, out); taken {
-					return ferr
-				}
-				return missionDryPass(ctx, deps, out)
+				// would waste the whole evaluation. Freight lost the ranking
+				// above against the PRE-gate mission net; now that the gate has
+				// emptied the set, it is the only thing left.
+				return missionFreightOrDry(ctx, deps, freightBest, out)
 			}
 		}
-	}
-
-	// Co-equal comparison: freight only preempts the mission trip once the
-	// trip's real net is known (post availability-gate, so both sides are
-	// priced on what would actually happen this pass).
-	if freightBest != nil && freightBest.Net > tripNet(set) {
-		fmt.Fprintf(out, "freight: taking %s (net %.0f) over the mission trip (net %.0f)\n", freightBest.Contract.ID, freightBest.Net, tripNet(set)) //nolint:errcheck
-		if taken, ferr := missionTakeFreight(ctx, deps, freightBest, out); taken {
-			return ferr
-		}
-		// Released (returned or accept failed) — fall through to missions.
-		freightBest = nil
 	}
 
 	// Accept. A failed accept just drops that mission from the trip.

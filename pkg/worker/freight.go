@@ -218,6 +218,26 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 	return best, ""
 }
 
+// freightStep is how a freight step ended. It exists because "released" and
+// "return failed" must NOT be treated alike: a clean release leaves us holding
+// nothing, while a failed return leaves a live, undischarged contract against
+// us. Collapsing the two into a bool is what let the pass continue into the
+// mission accept loop still on the hook for a package — the exact breach the
+// fail-closed design exists to prevent.
+type freightStep int
+
+const (
+	// freightStepProceed: contract in hand, carry on.
+	freightStepProceed freightStep = iota
+	// freightStepReleased: cleanly handed back, nothing owed; the pass
+	// continues without freight.
+	freightStepReleased
+	// freightStepStuck: the return itself failed. The contract is still live
+	// and we cannot discharge it, so the pass must abort and park rather than
+	// fly elsewhere on other work.
+	freightStepStuck
+)
+
 // freightRecord persists one settled contract outcome. Telemetry failures are
 // logged and swallowed: losing a metrics row must never abort a trip.
 func freightRecord(ctx context.Context, deps MissionDeps, out io.Writer, c serverapi.ShipmentContract, cand *freightCand, payout float64, outcome, reason string) {
@@ -263,7 +283,7 @@ func freightRecord(ctx context.Context, deps MissionDeps, out io.Writer, c serve
 // contract is immediately returned, which the live smoke confirmed is debt-free
 // (status returned_intact, full shipper_refund, liability released,
 // outstanding_debt unchanged). ok=false means the candidate was released.
-func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out io.Writer) (*serverapi.ShipmentContract, bool) {
+func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out io.Writer) (*serverapi.ShipmentContract, freightStep) {
 	if out == nil {
 		out = io.Discard
 	}
@@ -271,7 +291,8 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out
 	if err := deps.Client.ShippingAccept(ctx, id, "player"); err != nil {
 		fmt.Fprintf(out, "freight: accept %s: %v\n", id, err) //nolint:errcheck
 		freightRecord(ctx, deps, out, cand.Contract, cand, 0, "accept_failed", err.Error())
-		return nil, false
+		// A failed accept means we never took it on — nothing to discharge.
+		return nil, freightStepReleased
 	}
 
 	var resp serverapi.ShippingContractResponse
@@ -285,8 +306,7 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out
 		// The accept reply did not decode. We may well be holding a contract we
 		// cannot reason about, so release it rather than transit blind.
 		fmt.Fprintf(out, "freight: accept %s returned no contract; returning it\n", id) //nolint:errcheck
-		freightReturn(ctx, deps, out, cand.Contract, cand, "returned_infeasible", "accept reply did not decode")
-		return nil, false
+		return nil, freightReturn(ctx, deps, out, cand.Contract, cand, "returned_infeasible", "accept reply did not decode")
 	}
 
 	hops := c.RouteHops
@@ -300,50 +320,73 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out
 	// optimistic — the opposite of what a fail-closed check needs.
 	if ok, reason := freightDeadlineOK(hops, c.DeadlineTick, missionTick(deps)); !ok {
 		fmt.Fprintf(out, "freight: %s infeasible (%s); returning\n", id, reason) //nolint:errcheck
-		freightReturn(ctx, deps, out, c, cand, "returned_infeasible", reason)
-		return nil, false
+		return nil, freightReturn(ctx, deps, out, c, cand, "returned_infeasible", reason)
 	}
 	fmt.Fprintf(out, "freight: accepted %s to %s (deadline tick %d)\n", id, c.DestinationBaseID, c.DeadlineTick) //nolint:errcheck
-	return &c, true
+	return &c, freightStepProceed
 }
 
 // missionTakeFreight accepts cand and runs its trip. It is the single place the
 // accept -> publish -> run-trip sequence lives, shared by all three call sites in
 // Missions (empty board, fully-gated board, and the co-equal net comparison).
 //
-// taken=false means no trip was started — either there was no candidate, or the
-// contract was released by freightAccept (returned as infeasible, or the accept
-// itself failed) — and the caller continues with whatever it would have done
-// without freight. The returned error is freightRunTrip's, which is nil on every
-// handled outcome: freight must never become a new way for the pass to fail.
-func missionTakeFreight(ctx context.Context, deps MissionDeps, cand *freightCand, out io.Writer) (bool, error) {
+// freightStepReleased means no trip was started — either there was no
+// candidate, or the contract was released by freightAccept (returned as
+// infeasible, or the accept itself failed) — and the caller continues with
+// whatever it would have done without freight. freightStepStuck means a return
+// FAILED and an undischarged contract is still live: the caller must abort the
+// pass rather than fly elsewhere on other work. The returned error is
+// freightRunTrip's, which is nil on every handled outcome: freight must never
+// become a new way for the pass to fail.
+func missionTakeFreight(ctx context.Context, deps MissionDeps, cand *freightCand, out io.Writer) (freightStep, error) {
 	if cand == nil {
-		return false, nil
+		return freightStepReleased, nil
 	}
-	accepted, ok := freightAccept(ctx, deps, cand, out)
-	if !ok {
-		return false, nil
+	accepted, step := freightAccept(ctx, deps, cand, out)
+	if step != freightStepProceed {
+		return step, nil
 	}
 	publishActivity(deps.SetActivity, "Freight "+accepted.ID+" to "+accepted.DestinationBaseID)
-	return true, freightRunTrip(ctx, deps, accepted, cand, func(ctx context.Context, baseID string) error {
+	return freightStepProceed, freightRunTrip(ctx, deps, accepted, cand, func(ctx context.Context, baseID string) error {
 		return missionNavToBase(ctx, deps, baseID)
 	}, out)
+}
+
+// missionFreightOrDry is the tail of a dry path: take the freight candidate if
+// there is one, otherwise count the dry pass. The board-empty and
+// gate-empties-the-set paths both end this way. Ranking does NOT belong here —
+// there is nothing left to rank against on a dry path, which is why this is a
+// fallback rather than a second copy of the ranking switch in Missions.
+//
+// A stuck return (live undischarged contract) parks the pass instead of falling
+// into missionDryPass, whose reposition logic would fly the worker away from the
+// contract it still owes.
+func missionFreightOrDry(ctx context.Context, deps MissionDeps, cand *freightCand, out io.Writer) error {
+	step, ferr := missionTakeFreight(ctx, deps, cand, out)
+	switch step {
+	case freightStepProceed:
+		return ferr
+	case freightStepStuck:
+		return nil
+	}
+	return missionDryPass(ctx, deps, out)
 }
 
 // freightReturn hands a contract back and records the outcome. A failed return
 // is logged loudly: it is the only situation in which a breach becomes possible
 // despite the design, so it must be visible in the canary logs.
-func freightReturn(ctx context.Context, deps MissionDeps, out io.Writer, c serverapi.ShipmentContract, cand *freightCand, outcome, reason string) {
+func freightReturn(ctx context.Context, deps MissionDeps, out io.Writer, c serverapi.ShipmentContract, cand *freightCand, outcome, reason string) freightStep {
 	if err := deps.Client.ShippingReturn(ctx, c.ID); err != nil {
-		fmt.Fprintf(out, "freight: RETURN FAILED for %s (%s): %v — breach now possible\n", c.ID, reason, err) //nolint:errcheck
+		fmt.Fprintf(out, "freight: RETURN FAILED for %s (%s): %v — breach now possible; parking this pass\n", c.ID, reason, err) //nolint:errcheck
 		// Record return_failed, not the caller's outcome: the return itself
 		// didn't happen, so this contract can still breach. Grouping by
 		// Outcome must surface that as the alarm state it is, not as a clean
 		// return.
 		freightRecord(ctx, deps, out, c, cand, 0, "return_failed", "return failed: "+err.Error())
-		return
+		return freightStepStuck
 	}
 	freightRecord(ctx, deps, out, c, cand, 0, outcome, reason)
+	return freightStepReleased
 }
 
 // freightPackageItemID is the cargo/storage item id for a contract's package.
@@ -357,16 +400,15 @@ func freightPackageItemID(packageID string) string {
 // every pass: a long disconnect can burn the whole margin between passes, and a
 // contract that has become unwinnable is worth more returned than breached.
 // Returns false when the contract was released.
-func freightInFlightCheck(ctx context.Context, deps MissionDeps, c *serverapi.ShipmentContract, cand *freightCand, remainingHops int, out io.Writer) bool {
+func freightInFlightCheck(ctx context.Context, deps MissionDeps, c *serverapi.ShipmentContract, cand *freightCand, remainingHops int, out io.Writer) freightStep {
 	if out == nil {
 		out = io.Discard
 	}
 	if ok, reason := freightDeadlineOK(remainingHops, c.DeadlineTick, missionTick(deps)); !ok {
 		fmt.Fprintf(out, "freight: in-flight buffer collapsed for %s (%s); returning\n", c.ID, reason) //nolint:errcheck
-		freightReturn(ctx, deps, out, *c, cand, "returned_inflight", reason)
-		return false
+		return freightReturn(ctx, deps, out, *c, cand, "returned_inflight", reason)
 	}
-	return true
+	return freightStepProceed
 }
 
 // freightReconcile recovers an in-flight contract from server state after a
@@ -438,7 +480,9 @@ func freightRunTrip(ctx context.Context, deps MissionDeps, c *serverapi.Shipment
 	if cargoCount(deps.Client.GetState(), item) < 1 {
 		if err := deps.Client.WithdrawItems(ctx, item, 1); err != nil {
 			fmt.Fprintf(out, "freight: withdraw %s: %v; returning contract\n", item, err) //nolint:errcheck
-			freightReturn(ctx, deps, out, *c, cand, "returned_infeasible", "package would not load: "+err.Error())
+			_ = freightReturn(ctx, deps, out, *c, cand, "returned_infeasible", "package would not load: "+err.Error())
+			// Either way the trip is over; a stuck return has already logged
+			// loudly and recorded return_failed for the operator.
 			return nil
 		}
 	}
