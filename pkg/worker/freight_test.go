@@ -895,3 +895,73 @@ func TestMissionsFreightUsesFreshCargoReadNotStaleSnapshot(t *testing.T) {
 		t.Fatalf("freight must be judged against the freed hold, not the stale snapshot: %v", fc.shippingCalls)
 	}
 }
+
+// The highest-stakes stuck path: reconcile finds a package already aboard, the
+// deadline has collapsed, and the return FAILS. The worker is physically
+// carrying an undischarged contract, so it must park — taking mission work here
+// would fly it away mid-contract with the package still in the hold.
+func TestMissionsParksWhenReconciledContractCannotBeReturned(t *testing.T) {
+	held := acceptedContract(1100, 1210) // 10 ticks left at tick 1200 -> infeasible
+	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
+	fc := freightBoardClient(t, boardJSON(t, entry), map[string][]byte{
+		"shipping_profile": func() []byte {
+			b, _ := json.Marshal(serverapi.ShippingProfileResponse{
+				Action:  "profile",
+				Profile: serverapi.CarrierProfile{ActiveContracts: 1},
+			})
+			return b
+		}(),
+		"shipping_list": shippingListJSON(t, serverapi.ShippingListing{Eligible: true, Contract: held}),
+	})
+	fc.state.CurrentTick = 1200
+	fc.shippingErr = map[string]error{"return": errors.New("server refused the return")}
+	fc.activeMissionsSeq = [][]byte{activeJSON(t), activeJSON(t)}
+	store := &fakeFreightStore{}
+	store.asks = map[string]float64{"steel": 20}
+	deps := missionDeps(fc, &store.fakeMissionStore, missionKB())
+	deps.Market, deps.EnableFreight = store, true
+	deps.State = &missionRunState{}
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("a stuck reconciled contract must park the pass, not error: %v", err)
+	}
+	if strings.Contains(strings.Join(fc.calls, " "), "accept:m1") {
+		t.Fatalf("must not take mission work while carrying an undischarged package: %v", fc.calls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "return_failed" {
+		t.Fatalf("want a return_failed row for the operator, got %+v", store.results)
+	}
+	// Parked, not repositioned: missionDryPass would fly it away from the
+	// destination it still owes a package to.
+	if deps.State.dry != 0 {
+		t.Fatalf("a stuck contract must park, not count a dry pass: dry=%d", deps.State.dry)
+	}
+}
+
+// The dry-path variant of the stuck-return abort. Here freight is reached via
+// missionFreightOrDry (empty board), the contract proves infeasible on accept,
+// and the return fails. Falling through to missionDryPass would be wrong twice
+// over: it counts a dry pass and, on the third, REPOSITIONS the worker — flying
+// it away while it still owes an undischarged contract.
+func TestMissionsParksWhenDryPathFreightReturnFails(t *testing.T) {
+	fc := freightBoardClient(t, boardJSON(t), nil) // empty mission board
+	fc.state.CurrentTick = 9999                    // accept reply's deadline 1380 is long gone
+	fc.shippingErr = map[string]error{"return": errors.New("server refused the return")}
+	store := &fakeFreightStore{}
+	deps := missionDeps(fc, &store.fakeMissionStore, missionKB())
+	deps.Market, deps.EnableFreight = store, true
+	deps.State = &missionRunState{}
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("a stuck return must park the pass, not error: %v", err)
+	}
+	if !slices.Contains(fc.shippingCalls, "return") {
+		t.Fatalf("the infeasible contract must be returned: %v", fc.shippingCalls)
+	}
+	if deps.State.dry != 0 {
+		t.Fatalf("a stuck contract must park, not count a dry pass toward repositioning: dry=%d", deps.State.dry)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "return_failed" {
+		t.Fatalf("want a return_failed row for the operator, got %+v", store.results)
+	}
+}
