@@ -32,6 +32,16 @@ import (
 	"github.com/rsned/spacemolt/pkg/worker"
 )
 
+const (
+	// workerDBMaxOpenConns / workerDBMaxIdleConns size this worker's SQLite
+	// pools for the knowledge base and the market collector. A worker touches
+	// either DB on roughly a 10s cadence, so a wide pool buys nothing, while
+	// ~110 workers share one box and one file per DB — see the comment at the
+	// open sites for why the package defaults (25/5) are wrong here.
+	workerDBMaxOpenConns = 4
+	workerDBMaxIdleConns = 2
+)
+
 func main() {
 	agentID := flag.String("agent", "", "Agent ID (required, e.g. miner-1)")
 	role := flag.String("role", "idle", "Worker role (e.g. miner, trader)")
@@ -248,8 +258,23 @@ func main() {
 		}()
 
 		// ── Step 6b: Open shared KB (best-effort) ───────────────────────────
+		//
+		// Pool sizes are set explicitly rather than taking the package defaults
+		// (25 open / 5 idle). A worker queries on a ~10s cadence and can never
+		// use 25 connections, but ~110 of them run concurrently on one box
+		// against these same two SQLite files — at the default that is up to
+		// 2,750 potential connections per DB, whose opener goroutines and WAL
+		// lock contention cost far more than the pool ever buys back. Sized for
+		// the real access pattern instead; the package defaults are left alone
+		// because single-process consumers (the arbitrage scanner, dashboards)
+		// legitimately want a wider pool.
 		var kb knowledge.Base
-		if sqliteKB, kbErr := knowledge.NewSQLiteKB(knowledge.Config{DBPath: *kbPath, WAL: true}); kbErr != nil {
+		if sqliteKB, kbErr := knowledge.NewSQLiteKB(knowledge.Config{
+			DBPath:       *kbPath,
+			WAL:          true,
+			MaxOpenConns: workerDBMaxOpenConns,
+			MaxIdleConns: workerDBMaxIdleConns,
+		}); kbErr != nil {
 			logger.Printf("warning: open KB %s: %v (tracking disabled)", *kbPath, kbErr)
 		} else {
 			kb = sqliteKB
@@ -258,7 +283,12 @@ func main() {
 
 		// ── Step 6b2: Open market collector (best-effort) ───────────────────
 		var mc *market.Collector
-		if mktColl, mktErr := market.Open(market.Config{DBPath: *marketDBPath, WAL: true}); mktErr != nil {
+		if mktColl, mktErr := market.Open(market.Config{
+			DBPath:       *marketDBPath,
+			WAL:          true,
+			MaxOpenConns: workerDBMaxOpenConns,
+			MaxIdleConns: workerDBMaxIdleConns,
+		}); mktErr != nil {
 			logger.Printf("warning: open market DB %s: %v (market snapshots disabled)", *marketDBPath, mktErr)
 		} else {
 			mc = mktColl
