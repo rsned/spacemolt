@@ -313,7 +313,11 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out
 func freightReturn(ctx context.Context, deps MissionDeps, out io.Writer, c serverapi.ShipmentContract, cand *freightCand, outcome, reason string) {
 	if err := deps.Client.ShippingReturn(ctx, c.ID); err != nil {
 		fmt.Fprintf(out, "freight: RETURN FAILED for %s (%s): %v — breach now possible\n", c.ID, reason, err) //nolint:errcheck
-		freightRecord(ctx, deps, out, c, cand, 0, outcome, "return failed: "+err.Error())
+		// Record return_failed, not the caller's outcome: the return itself
+		// didn't happen, so this contract can still breach. Grouping by
+		// Outcome must surface that as the alarm state it is, not as a clean
+		// return.
+		freightRecord(ctx, deps, out, c, cand, 0, "return_failed", "return failed: "+err.Error())
 		return
 	}
 	freightRecord(ctx, deps, out, c, cand, 0, outcome, reason)

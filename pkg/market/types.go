@@ -332,8 +332,11 @@ type MissionResult struct {
 // FreightResult is one settled shipping contract's real outcome, the carrier
 // analogue of MissionResult. Outcome is one of: delivered, returned_infeasible
 // (accept-then-verify rejected it), returned_inflight (deadline buffer collapsed
-// mid-trip), accept_failed, breached. A nonzero breached count is the canary's
-// stop signal — the carrier is designed so no path chooses a breach.
+// mid-trip), accept_failed, breached, return_failed (the ShippingReturn call
+// itself errored, so the contract was never actually handed back and may still
+// breach — this is the alarm state a would-be-clean return degrades to). A
+// nonzero breached OR return_failed count is the canary's stop signal — the
+// carrier is designed so no path chooses a breach.
 type FreightResult struct {
 	ID            int64   `json:"id"`
 	AgentID       string  `json:"agent_id"`

@@ -368,3 +368,30 @@ func TestFreightAcceptRecordsAcceptFailure(t *testing.T) {
 		t.Fatalf("must record accept_failed, got %+v", store.results)
 	}
 }
+
+// If the return call itself fails, the contract was never actually handed
+// back and can still breach — the one path the design doesn't cover. That
+// must be recorded as its own return_failed outcome, not as a clean
+// returned_infeasible, or a dashboard grouping by Outcome would hide the
+// canary's stop signal.
+func TestFreightAcceptRecordsReturnFailure(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &fakeClient{
+		state:       &game.State{CurrentTick: 1200},
+		raw:         map[string][]byte{"shipping_accept": shippingContractJSON(t, "accept", acceptedContract(1100, 1210))},
+		shippingErr: map[string]error{"return": errors.New("connection reset")},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
+
+	got, ok := freightAccept(context.Background(), deps, cand, io.Discard)
+	if ok || got != nil {
+		t.Fatal("an infeasible contract must be released")
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "return_failed" {
+		t.Fatalf("must record return_failed, got %+v", store.results)
+	}
+	if !strings.Contains(store.results[0].Reason, "connection reset") {
+		t.Fatalf("reason must carry the underlying error, got %q", store.results[0].Reason)
+	}
+}
