@@ -589,3 +589,70 @@ func TestMissionHopsToBaseUsesCumulativeJumps(t *testing.T) {
 		t.Fatalf("want 3 cumulative hops, got %d (ok=%v)", hops, ok)
 	}
 }
+
+// The reconcile-resume path re-enters freightRunTrip for a contract whose
+// package is ALREADY in the hold (the nav-failure branch deliberately leaves it
+// in flight). Withdrawing again fails with "not in storage", and treating that
+// as "cannot carry" would destroy the very contract the nav-failure branch went
+// out of its way to preserve. Package aboard => no withdraw, no return, carry on.
+func TestFreightRunTripSkipsWithdrawWhenPackageAboard(t *testing.T) {
+	store := &fakeFreightStore{}
+	delivered := acceptedContract(1200, 1380)
+	delivered.Status = "delivered"
+	f := &fakeClient{
+		state: &game.State{Ship: game.Ship{
+			Cargo: []game.CargoItem{{ItemID: "package:pkg_hash", Quantity: 1}},
+		}},
+		// A withdraw would fail here, exactly as the live server behaves once the
+		// package has left storage — the test fails loudly if one is attempted.
+		withdrawErr: errors.New("no such item in storage"),
+		raw:         map[string][]byte{"shipping_deliver": shippingSettlementJSON(t, "deliver", delivered, 6000)},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	c := acceptedContract(1200, 1380)
+	navigated := ""
+	nav := func(ctx context.Context, baseID string) error { navigated = baseID; return nil }
+
+	if err := freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard); err != nil {
+		t.Fatalf("freightRunTrip: %v", err)
+	}
+	for _, call := range f.calls {
+		if strings.HasPrefix(call, "withdraw:") {
+			t.Fatalf("must not re-withdraw a package already aboard, calls were %v", f.calls)
+		}
+	}
+	if slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must not return a healthy in-flight contract, calls were %v", f.shippingCalls)
+	}
+	if navigated != "sol_central" {
+		t.Fatalf("must resume transit to the destination, went to %q", navigated)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "delivered" {
+		t.Fatalf("want a delivered result, got %+v", store.results)
+	}
+}
+
+// A settlement that never decoded records payout 0. Without a reason a canary
+// reading freight_results cannot tell that from a genuinely zero-payout
+// contract, so the outcome stays "delivered" but the reason must say why.
+func TestFreightRunTripFlagsUndecodableSettlement(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &fakeClient{state: &game.State{}} // no shipping_deliver raw reply at all
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	c := acceptedContract(1200, 1380)
+	nav := func(ctx context.Context, baseID string) error { return nil }
+
+	if err := freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard); err != nil {
+		t.Fatalf("freightRunTrip: %v", err)
+	}
+	if len(store.results) != 1 {
+		t.Fatalf("want 1 result row, got %+v", store.results)
+	}
+	r := store.results[0]
+	if r.Outcome != "delivered" {
+		t.Fatalf("a committed package stays delivered, got %q", r.Outcome)
+	}
+	if r.Reason == "" {
+		t.Fatal("an undecodable settlement must be distinguishable from a zero payout")
+	}
+}

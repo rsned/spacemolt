@@ -403,11 +403,21 @@ func freightRunTrip(ctx context.Context, deps MissionDeps, c *serverapi.Shipment
 	// Accept placed the sealed package in personal storage at origin; pull it
 	// into the hold before leaving. If it will not load we are holding a contract
 	// we cannot physically carry, which is a guaranteed breach — return instead.
+	//
+	// Conditional on the package not already being aboard: this function is
+	// re-entered by the reconcile-resume path for a contract whose nav failed on
+	// an earlier pass, and by then the package is in CARGO, not storage. An
+	// unconditional withdraw fails there with "not in storage" and the error
+	// branch below would return the contract — destroying the healthy contract
+	// the nav-failure branch deliberately left in flight. Only an absent package
+	// means "cannot physically carry".
 	item := freightPackageItemID(c.PackageID)
-	if err := deps.Client.WithdrawItems(ctx, item, 1); err != nil {
-		fmt.Fprintf(out, "freight: withdraw %s: %v; returning contract\n", item, err) //nolint:errcheck
-		freightReturn(ctx, deps, out, *c, cand, "returned_infeasible", "package would not load: "+err.Error())
-		return nil
+	if cargoCount(deps.Client.GetState(), item) < 1 {
+		if err := deps.Client.WithdrawItems(ctx, item, 1); err != nil {
+			fmt.Fprintf(out, "freight: withdraw %s: %v; returning contract\n", item, err) //nolint:errcheck
+			freightReturn(ctx, deps, out, *c, cand, "returned_infeasible", "package would not load: "+err.Error())
+			return nil
+		}
 	}
 
 	if nav != nil {
@@ -425,8 +435,19 @@ func freightRunTrip(ctx context.Context, deps MissionDeps, c *serverapi.Shipment
 		return nil
 	}
 	var settle serverapi.ShippingSettlementResponse
-	if raw := deps.Client.GetRawJSON("shipping_deliver"); len(raw) > 0 {
+	// The outcome stays "delivered" whatever happens here — a committed package
+	// cannot be un-delivered the way an unaccepted one can be released. But a
+	// payout of 0 from a decode failure must not read as a genuine zero payout in
+	// freight_results, so the reason carries the distinction.
+	settleReason := ""
+	raw := deps.Client.GetRawJSON("shipping_deliver")
+	switch {
+	case len(raw) == 0:
+		settleReason = "settlement decode failed: no reply"
+		fmt.Fprintf(out, "freight: deliver %s returned no settlement reply\n", c.ID) //nolint:errcheck
+	default:
 		if err := json.Unmarshal(raw, &settle); err != nil {
+			settleReason = "settlement decode failed: " + err.Error()
 			fmt.Fprintf(out, "freight: decode deliver %s: %v\n", c.ID, err) //nolint:errcheck
 		}
 	}
@@ -435,7 +456,7 @@ func freightRunTrip(ctx context.Context, deps MissionDeps, c *serverapi.Shipment
 		final = *c
 	}
 	fmt.Fprintf(out, "freight: delivered %s, payout %d\n", c.ID, settle.CarrierPayout) //nolint:errcheck
-	freightRecord(ctx, deps, out, final, cand, float64(settle.CarrierPayout), "delivered", "")
+	freightRecord(ctx, deps, out, final, cand, float64(settle.CarrierPayout), "delivered", settleReason)
 	return nil
 }
 
