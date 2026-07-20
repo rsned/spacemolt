@@ -1859,9 +1859,8 @@ func TestMissionsSkipsFreightWhenDisabled(t *testing.T) {
 	// EnableFreight deliberately left false.
 
 	_ = Missions(context.Background(), deps)
-	for _, c := range f.shippingCalls {
+	if len(f.shippingCalls) != 0 {
 		t.Fatalf("freight must be inert when disabled, but issued %v", f.shippingCalls)
-		_ = c
 	}
 }
 

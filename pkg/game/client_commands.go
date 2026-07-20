@@ -2656,6 +2656,15 @@ func (c *Client) AgentLogs(ctx context.Context, category, severity, message stri
 // Shipping (freight contracts)
 // ============================================================================
 
+// shippingMutations are the tick-deferred /shipping actions. Their real reply
+// arrives later in an action_result frame, so they must await that frame rather
+// than the immediate pending ack (see storeRawJSON's TypeActionResult case).
+// The reads (list, get, profile, track) reply synchronously and keep the ack path.
+var shippingMutations = map[string]bool{
+	"accept": true, "deliver": true, "return": true,
+	"cancel": true, "post": true, "pay_debt": true,
+}
+
 // Shipping sends a /shipping action with the given payload (the action is
 // injected). The reply is cached under "shipping_<action>" (storeRawJSON);
 // read it with GetRawJSON and unmarshal into the matching serverapi struct.
@@ -2667,12 +2676,28 @@ func (c *Client) Shipping(ctx context.Context, action string, payload map[string
 		out[k] = v
 	}
 	out["action"] = action
+	// Drop any body this session already cached for this action BEFORE issuing,
+	// so a call whose own reply never lands cannot be read as success against
+	// the PREVIOUS call's body. latestRawJSON is session-lifetime and has no
+	// per-command invalidation, and terminateOnActionOrOK returns on a
+	// non-pending ok — i.e. possibly before an action_result. A stale body is
+	// worse than none: it decodes into a real contract with a real ID, so the
+	// callers' `ID == ""` guards cannot fire and they act on the wrong
+	// contract. Clearing makes that failure mode empty-not-stale, which those
+	// guards already handle by returning rather than transiting blind.
+	c.ClearRawJSON("shipping_" + action)
 	msg := protocol.Message{
 		Type:      "shipping",
 		Payload:   out,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	opts := []SubmitOption{WithTimeout(SleepMedium)}
+	if shippingMutations[action] {
+		opts = append(opts, WithTerminator(terminateOnActionOrOK))
+	} else {
+		opts = append(opts, WithAckOnly())
+	}
+	h, err := c.Submit(ctx, msg, opts...)
 	if err == nil {
 		_, err = c.await(ctx, h)
 	}

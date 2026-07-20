@@ -4347,6 +4347,14 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				// Namespace the key so it can't collide with other commands' keys.
 				// (quote/post included so shipper-side reads land somewhere too, even
 				// though Sub-project A ships no quote/post client method yet.)
+				//
+				// INVARIANT: these are BARE verbs, matched with no check that the
+				// reply came from a /shipping request. It holds only because no
+				// other command replies with a top-level action of "get", "accept",
+				// "list", … today. A future server command that does would land its
+				// body under shipping_<verb> and silently corrupt a carrier read —
+				// so if one appears, this case must gate on the originating command
+				// rather than the verb alone.
 				storeKey = "shipping_" + action
 				shouldStore = true
 			}
@@ -4912,6 +4920,30 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			}
 		}
 	case protocol.TypeActionResult:
+		// Tick-deferred /shipping mutations (accept, deliver, return,
+		// cancel, post, pay_debt) reply here shaped
+		// {command:"shipping", tick, result:{action, ...}} with no
+		// top-level "action", so the generic command-name store below
+		// only preserves the wrapper under "shipping". Callers need the
+		// INNER result body under "shipping_<action>" — the same key the
+		// synchronous reads use — so they can decode serverapi structs
+		// directly with no unwrapping. Decoding the wrapper instead
+		// succeeds with every field zero, which is why this failed as an
+		// empty contract rather than a decode error — the same trap craft
+		// hit (see pkg/worker/craft_node.go unwrapActionResult).
+		if cmd, _ := resp.Payload["command"].(string); cmd == "shipping" {
+			if result, ok := resp.Payload["result"].(map[string]any); ok {
+				if action, ok := result["action"].(string); ok && action != "" {
+					if body, err := json.Marshal(result); err == nil {
+						c.rawJSONMu.Lock()
+						c.latestRawJSON["shipping_"+action] = body
+						c.rawJSONMu.Unlock()
+					} else {
+						c.debugLogger.Printf("Failed to marshal raw JSON for shipping_%s: %v", action, err)
+					}
+				}
+			}
+		}
 		// action_result responses are the terminal of mutation commands.
 		// Store the full payload under a key derived from the "command"
 		// field so the REPL's lookupRawJSON can find them via

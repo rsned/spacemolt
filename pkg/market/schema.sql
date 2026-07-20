@@ -212,6 +212,33 @@ CREATE TABLE IF NOT EXISTS mission_results (
 
 CREATE INDEX IF NOT EXISTS idx_mission_results_agent_time ON mission_results(agent_id, finished_at);
 
+-- Per-contract real outcomes for the freight-carrier fleet, the shipping
+-- analogue of mission_results.
+CREATE TABLE IF NOT EXISTS freight_results (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_id        TEXT NOT NULL,
+    contract_id     TEXT NOT NULL,
+    package_id      TEXT,
+    from_base_id    TEXT,
+    to_base_id      TEXT,
+    service_level   TEXT,
+    route_hops      INTEGER NOT NULL DEFAULT 0,
+    base_reward     REAL NOT NULL DEFAULT 0,
+    max_speed_bonus REAL NOT NULL DEFAULT 0,
+    fuel_cost       REAL NOT NULL DEFAULT 0,
+    carrier_payout  REAL NOT NULL DEFAULT 0,
+    outcome         TEXT NOT NULL,
+    reason          TEXT DEFAULT '',
+    accepted_at     TEXT NOT NULL,
+    finished_at     TEXT NOT NULL,
+    accepted_tick   INTEGER,
+    finished_tick   INTEGER,
+    created_at      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_freight_results_agent_time ON freight_results(agent_id, finished_at);
+CREATE INDEX IF NOT EXISTS idx_freight_results_outcome ON freight_results(outcome);
+
 -- One row per station, upserted in place (replace-on-capture — never grows).
 -- fuel_price_all_in is the per-unit cost a hauler pays; captured_at is a
 -- freshness stamp on the single row (not history).

@@ -39,6 +39,17 @@ type fakeClient struct {
 	viewStorageErr error // when set, ViewStorage returns it instead of recording success
 	withdrawErr    error // when set, WithdrawItems returns it instead of recording success
 
+	shippingErr   map[string]error // per-action error, keyed by shipping action
+	shippingCalls []string         // shipping actions issued, in order
+
+	// cloneState makes GetState return a copy, as the real client does, so a
+	// stale snapshot is distinguishable from a fresh read.
+	cloneState bool
+	// onGetActiveMissions fires when GetActiveMissions is called, letting a
+	// test model server-side state changes that happen mid-pass (e.g. a resume
+	// unloading cargo and freeing the hold).
+	onGetActiveMissions func()
+
 	// activeMissionsSeq, when non-nil, supplies successive
 	// GetRawJSON("active_missions") results in call order — one entry per
 	// GetActiveMissions call in the pass (e.g. empty before accept, then
@@ -121,7 +132,22 @@ func (f *fakeClient) GetMissions(ctx context.Context) error {
 	f.calls = append(f.calls, "get_missions")
 	return nil
 }
-func (f *fakeClient) GetState() *game.State { return f.state }
+// GetState returns the live object by default. The REAL client returns
+// state.Clone() (client.go:2095), and that difference matters: with a shared
+// pointer, a snapshot taken early in a pass and a fresh read later are the same
+// object, so code that wrongly reuses a stale snapshot still looks correct.
+// Tests that need to tell those apart set cloneState. It is opt-in because
+// cloning unconditionally deadlocks TestKBUpdateMissionsUpsertsHandAuthoredOnly,
+// which relies on observing its own mutations through this pointer.
+func (f *fakeClient) GetState() *game.State {
+	if f.state == nil {
+		return nil
+	}
+	if f.cloneState {
+		return f.state.Clone()
+	}
+	return f.state
+}
 
 // IsConnected reports the game-connection state; connected unless a test sets
 // disconnected. The haul/mission passes skip work when disconnected.
@@ -185,6 +211,36 @@ func (f *fakeClient) GetMarketListings() []game.MarketListing { return nil }
 func (f *fakeClient) BrowseShips(ctx context.Context, payload map[string]any) error {
 	f.calls = append(f.calls, "browse_ships")
 	return nil
+}
+func (f *fakeClient) ShippingList(ctx context.Context, sort string) error {
+	f.calls = append(f.calls, "shipping_list")
+	f.shippingCalls = append(f.shippingCalls, "list")
+	return f.shippingErr["list"]
+}
+func (f *fakeClient) ShippingProfile(ctx context.Context) error {
+	f.calls = append(f.calls, "shipping_profile")
+	f.shippingCalls = append(f.shippingCalls, "profile")
+	return f.shippingErr["profile"]
+}
+func (f *fakeClient) ShippingAccept(ctx context.Context, shipmentID, carrier string) error {
+	f.calls = append(f.calls, "shipping_accept:"+shipmentID)
+	f.shippingCalls = append(f.shippingCalls, "accept")
+	return f.shippingErr["accept"]
+}
+func (f *fakeClient) ShippingDeliver(ctx context.Context, shipmentID string) error {
+	f.calls = append(f.calls, "shipping_deliver:"+shipmentID)
+	f.shippingCalls = append(f.shippingCalls, "deliver")
+	return f.shippingErr["deliver"]
+}
+func (f *fakeClient) ShippingReturn(ctx context.Context, shipmentID string) error {
+	f.calls = append(f.calls, "shipping_return:"+shipmentID)
+	f.shippingCalls = append(f.shippingCalls, "return")
+	return f.shippingErr["return"]
+}
+func (f *fakeClient) ShippingGet(ctx context.Context, shipmentID string) error {
+	f.calls = append(f.calls, "shipping_get:"+shipmentID)
+	f.shippingCalls = append(f.shippingCalls, "get")
+	return f.shippingErr["get"]
 }
 
 func TestDispatchRunsKnownCommands(t *testing.T) {
