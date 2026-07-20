@@ -438,6 +438,78 @@ func TestFreightRunTripDeliversAndRecordsPayout(t *testing.T) {
 	}
 }
 
+func TestFreightInFlightCheckReturnsWhenBufferCollapses(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &fakeClient{state: &game.State{CurrentTick: 1200}}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	c := acceptedContract(1100, 1210) // only 10 ticks left at tick 1200
+
+	if ok := freightInFlightCheck(context.Background(), deps, &c, &freightCand{}, 3, io.Discard); ok {
+		t.Fatal("a collapsed buffer must not keep the contract")
+	}
+	if !slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must return, calls were %v", f.shippingCalls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "returned_inflight" {
+		t.Fatalf("want returned_inflight, got %+v", store.results)
+	}
+}
+
+func TestFreightInFlightCheckKeepsHealthyContract(t *testing.T) {
+	f := &fakeClient{state: &game.State{CurrentTick: 1200}}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}}
+	c := acceptedContract(1200, 1380)
+
+	if ok := freightInFlightCheck(context.Background(), deps, &c, &freightCand{}, 1, io.Discard); !ok {
+		t.Fatal("a healthy buffer must keep the contract")
+	}
+	if slices.Contains(f.shippingCalls, "return") {
+		t.Fatal("must not return a healthy contract")
+	}
+}
+
+// After a restart the in-memory task is gone; the server is the only source of
+// truth for what we are holding.
+func TestFreightReconcileFindsHeldContract(t *testing.T) {
+	held := acceptedContract(1200, 1380)
+	f := &fakeClient{
+		state: &game.State{},
+		raw: map[string][]byte{
+			"shipping_profile": func() []byte {
+				b, _ := json.Marshal(serverapi.ShippingProfileResponse{
+					Action:  "profile",
+					Profile: serverapi.CarrierProfile{ActiveContracts: 1},
+				})
+				return b
+			}(),
+			"shipping_list": shippingListJSON(t, serverapi.ShippingListing{
+				Eligible: true, Contract: held,
+			}),
+		},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}}
+
+	got, ok := freightReconcile(context.Background(), deps, io.Discard)
+	if !ok || got == nil {
+		t.Fatal("a held contract must be discovered from server state")
+	}
+	if got.ID != "high" {
+		t.Fatalf("wrong contract: %+v", got)
+	}
+}
+
+func TestFreightReconcileNoActiveContracts(t *testing.T) {
+	f := &fakeClient{
+		state: &game.State{},
+		raw:   map[string][]byte{"shipping_profile": shippingProfileJSON(t, false, "")},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}}
+
+	if got, ok := freightReconcile(context.Background(), deps, io.Discard); ok || got != nil {
+		t.Fatalf("no active contracts must reconcile to nothing, got %+v", got)
+	}
+}
+
 // If the package cannot be pulled into the hold we must not transit — a contract
 // we cannot physically carry is a guaranteed breach.
 func TestFreightRunTripReturnsWhenWithdrawFails(t *testing.T) {

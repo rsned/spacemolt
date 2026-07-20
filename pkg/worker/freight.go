@@ -330,6 +330,69 @@ func freightPackageItemID(packageID string) string {
 	return "package:" + packageID
 }
 
+// freightInFlightCheck re-verifies the deadline buffer while carrying. Called
+// every pass: a long disconnect can burn the whole margin between passes, and a
+// contract that has become unwinnable is worth more returned than breached.
+// Returns false when the contract was released.
+func freightInFlightCheck(ctx context.Context, deps MissionDeps, c *serverapi.ShipmentContract, cand *freightCand, remainingHops int, out io.Writer) bool {
+	if out == nil {
+		out = io.Discard
+	}
+	if ok, reason := freightDeadlineOK(remainingHops, c.DeadlineTick, missionTick(deps)); !ok {
+		fmt.Fprintf(out, "freight: in-flight buffer collapsed for %s (%s); returning\n", c.ID, reason) //nolint:errcheck
+		freightReturn(ctx, deps, out, *c, cand, "returned_inflight", reason)
+		return false
+	}
+	return true
+}
+
+// freightReconcile recovers an in-flight contract from server state after a
+// restart or reconnect. The worker's in-memory task does not survive a restart
+// (no captains_log resume yet), and an orphaned package rides to a breach in
+// silence, so this runs before taking any new work.
+func freightReconcile(ctx context.Context, deps MissionDeps, out io.Writer) (*serverapi.ShipmentContract, bool) {
+	if out == nil {
+		out = io.Discard
+	}
+	if err := deps.Client.ShippingProfile(ctx); err != nil {
+		fmt.Fprintf(out, "freight: reconcile profile: %v\n", err) //nolint:errcheck
+		return nil, false
+	}
+	var prof serverapi.ShippingProfileResponse
+	if raw := deps.Client.GetRawJSON("shipping_profile"); len(raw) > 0 {
+		if err := json.Unmarshal(raw, &prof); err != nil {
+			fmt.Fprintf(out, "freight: reconcile decode profile: %v\n", err) //nolint:errcheck
+			return nil, false
+		}
+	}
+	if prof.Profile.ActiveContracts == 0 {
+		return nil, false
+	}
+
+	// The profile reports only a count, so the board read supplies the contract
+	// itself — an in_transit contract we are contracted on comes back in list.
+	if err := deps.Client.ShippingList(ctx, ""); err != nil {
+		fmt.Fprintf(out, "freight: reconcile list: %v\n", err) //nolint:errcheck
+		return nil, false
+	}
+	var board serverapi.ShippingListResponse
+	if raw := deps.Client.GetRawJSON("shipping_list"); len(raw) > 0 {
+		if err := json.Unmarshal(raw, &board); err != nil {
+			fmt.Fprintf(out, "freight: reconcile decode list: %v\n", err) //nolint:errcheck
+			return nil, false
+		}
+	}
+	for _, l := range board.Shipments {
+		if l.Contract.Status == "in_transit" {
+			c := l.Contract
+			fmt.Fprintf(out, "freight: reconciled held contract %s to %s (deadline tick %d)\n", c.ID, c.DestinationBaseID, c.DeadlineTick) //nolint:errcheck
+			return &c, true
+		}
+	}
+	fmt.Fprintf(out, "freight: profile reports %d active contract(s) but none found in the board read\n", prof.Profile.ActiveContracts) //nolint:errcheck
+	return nil, false
+}
+
 // freightRunTrip carries an accepted contract to its destination and delivers it.
 // Returns nil on every handled outcome — like Missions and Haul, a failed trip
 // logs and idles rather than killing the worker loop.
