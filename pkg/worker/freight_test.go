@@ -283,7 +283,7 @@ func shippingContractJSON(t *testing.T, action string, c serverapi.ShipmentContr
 }
 
 // acceptedContract is the smoke's real shape: deadline set AT accept.
-func acceptedContract(deadlineTick int64) serverapi.ShipmentContract {
+func acceptedContract(acceptedTick, deadlineTick int64) serverapi.ShipmentContract {
 	return serverapi.ShipmentContract{
 		ID:                "high",
 		PackageID:         "pkg_hash",
@@ -291,7 +291,7 @@ func acceptedContract(deadlineTick int64) serverapi.ShipmentContract {
 		DestinationBaseID: "sol_central",
 		ServiceLevel:      "standard",
 		Status:            "in_transit",
-		AcceptedTick:      1200,
+		AcceptedTick:      acceptedTick,
 		TargetTick:        1290,
 		DeadlineTick:      deadlineTick,
 		BaseReward:        6000,
@@ -301,8 +301,8 @@ func acceptedContract(deadlineTick int64) serverapi.ShipmentContract {
 
 func TestFreightAcceptProceedsWhenDeadlineFeasible(t *testing.T) {
 	f := &fakeClient{
-		state: &game.State{},
-		raw:   map[string][]byte{"shipping_accept": shippingContractJSON(t, "accept", acceptedContract(1380))},
+		state: &game.State{CurrentTick: 1200},
+		raw:   map[string][]byte{"shipping_accept": shippingContractJSON(t, "accept", acceptedContract(1200, 1380))},
 	}
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeMissionStore{}}
 	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
@@ -322,12 +322,19 @@ func TestFreightAcceptProceedsWhenDeadlineFeasible(t *testing.T) {
 }
 
 // The whole point of accept-then-verify: an infeasible deadline is discovered
-// after committing, and `return` is the debt-free escape.
+// after committing, and `return` is the debt-free escape. AcceptedTick (1100)
+// is deliberately earlier than the client's current tick (1200) — the accept
+// reply is tick-deferred, so by the time it's in hand the game clock has
+// moved on. Deadline 1210 read against AcceptedTick looks feasible (110
+// ticks, needs 85.5); read against the current tick it's not (10 ticks).
+// This gap is what makes the check meaningful: see step 3 in the commit
+// message / task report for proof that checking against AcceptedTick lets
+// this contract wrongly proceed.
 func TestFreightAcceptReturnsWhenDeadlineInfeasible(t *testing.T) {
 	store := &fakeFreightStore{}
 	f := &fakeClient{
-		state: &game.State{},
-		raw:   map[string][]byte{"shipping_accept": shippingContractJSON(t, "accept", acceptedContract(1210))},
+		state: &game.State{CurrentTick: 1200},
+		raw:   map[string][]byte{"shipping_accept": shippingContractJSON(t, "accept", acceptedContract(1100, 1210))},
 	}
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
 	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}

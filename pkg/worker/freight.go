@@ -293,12 +293,12 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out
 	if hops == 0 {
 		hops = cand.Hops
 	}
-	// c.AcceptedTick, not missionTick(deps): the accept reply carries both
-	// AcceptedTick and DeadlineTick from the same server-side snapshot, so
-	// checking against it avoids any drift between our locally cached tick
-	// (GameClock only syncs forward — see reference_gameclock_forward_drift)
-	// and the tick the deadline was actually computed against.
-	if ok, reason := freightDeadlineOK(hops, c.DeadlineTick, c.AcceptedTick); !ok {
+	// missionTick(deps), not c.AcceptedTick: shipping mutations are
+	// tick-deferred, so by the time this reply is in hand the current tick
+	// is already >= AcceptedTick. Checking against AcceptedTick would
+	// overstate the remaining window and bias this feasibility gate
+	// optimistic — the opposite of what a fail-closed check needs.
+	if ok, reason := freightDeadlineOK(hops, c.DeadlineTick, missionTick(deps)); !ok {
 		fmt.Fprintf(out, "freight: %s infeasible (%s); returning\n", id, reason) //nolint:errcheck
 		freightReturn(ctx, deps, out, c, cand, "returned_infeasible", reason)
 		return nil, false
