@@ -189,6 +189,123 @@ docked pass ─▶ shipping profile (debt guard)
 The smoke is a hard gate: no fleet exposure until 1–4 are answered and the happy path
 (list→accept→withdraw→route→deliver→payout) completes once by hand.
 
+### Live findings (2026-07-19 — openapi v0.531.4 docs + partial `play_as` smoke on craftsman-1)
+
+The `/shipping` endpoint description (openapi.20260719.json) plus the item catalog **resolve
+the mechanics of all four open questions**; the smoke is now a confirmation run, not
+exploration. Answers Sub-project B must encode:
+
+- **Q4 (accept / carrier / where the package lands) — RESOLVED.** `carrier=player|faction`
+  selects who "permanently owns the consequences"; it is a bare enum, never an arbitrary faction
+  id. Acceptance **deposits the sealed package into the carrier's personal (or faction) storage
+  at `origin_base_id`, bypassing the ordinary package cap**, so it is withdrawn for hauling
+  later. `carrier=player` is the v1 value. LIVE-confirmed: `list` and `profile` responses decode
+  cleanly into `ShippingListResponse`/`ShippingProfileResponse` (fields exact, `storeRawJSON`
+  keys `shipping_list`/`shipping_profile` as built).
+- **Q2 (`deliver` mechanic) — RESOLVED (confirm cargo-consume live).** `deliver` deposits the
+  **still-sealed** package directly into destination storage (even over the recipient's package
+  cap). The carrier hauls the sealed package in cargo; **opening the seal breaches the contract**.
+  So: withdraw → haul sealed → `deliver` at destination. (Live: confirm it consumes the package
+  from cargo rather than requiring a manual deposit first.)
+- **Q3 (escape hatch / debt) — RESOLVED.** The carrier's release is **`return`** — "always
+  available to surrender freight back to the origin station," and it creates **no freight-debt**
+  unless the seal is opened or the deadline is missed (breach/default = 500 cr uninsured, or
+  covered value +10%, 100-cr min). **`cancel` is shipper-side and applies "only while still
+  posted"** (pre-acceptance) — it is NOT the carrier's post-accept escape. ⇒ Sub-project B's
+  fit-fail / unwinnable escape hatch = **`return`**, debt-free as long as it precedes a breach.
+- **Q1 (package cargo footprint) — the ONE genuine live unknown remaining.** Packages are built
+  by `craft pack_package` (consumes one `cargo_container`, packs ≤100 total item-size, requires
+  Logistics). A `cargo_container` is catalog size 4. `ShipmentContract` exposes no footprint
+  (only opaque `package_id`), so the accept→`withdraw`→(cargo delta) observation is still needed
+  to learn whether a withdrawn sealed package occupies just the size-4 container or scales with
+  packed contents. If it is a constant (one container), B's fit-check is a constant, not a
+  per-contract calc.
+
+**Carrier tier gate (live, craftsman-1 profile):** fresh carriers start `probationary`
+(single-package liability ≤5000, aggregate ≤10000); `probationary → licensed` needs **5
+successful deliveries AND 250 delivered_value**. A docked `list` where every posting exceeds the
+carrier's standing returns **empty + `empty_reason_code=no_eligible_shipments`** (it does not
+list ineligible runs). ⇒ B's gate needs a "no eligible freight at this tier/station" skip, and
+bootstrapping standing requires low-value public contracts (or self-ship, which bypasses the
+tier gate but earns no progress).
+
+**Smoke bootstrap:** self-shipping (post a `pack_package` to a different station, `accept
+--carrier=player`) "bypasses standing and tier liability-limit gates" (unpaid debt still blocks;
+no delivery/value/tier credit) — the deterministic way to exercise accept→withdraw→deliver→return
+without depending on the NPC freight market.
+
+### Live smoke RESULTS (craftsman-1 self-ship, 2026-07-19, server v0.531.4)
+
+Ran the FULL cycle live: pack_package(10 iron_ore) → post → list → accept → withdraw →
+travel(3 hops) → **deliver** → re-post → accept → **return**. All four open questions + the
+implementation finding confirmed on the wire. Concrete findings:
+
+- **Q2 (deliver) — RESOLVED.** `deliver` while docked at destination: `status`→`delivered`,
+  `terminal_reason:"delivered_intact"`, `carrier_payout:100` (top-level on
+  `ShippingSettlementResponse` AND on the contract), `reward_escrow`→0, beacon →
+  `player_storage:<dest>:player:<id>` — the sealed package is deposited into the recipient's
+  storage at the destination (consumes it from cargo). Trip timing: 3 hops took **56 ticks**
+  (~19/hop) inside the 180-tick window — a data point for B's pre-accept route-time estimate.
+- **Q3 (return) — RESOLVED = debt-free.** After a fresh accept, `return` (pre-transit):
+  `status`→`returned`, `terminal_reason:"returned_intact"`, **`shipper_refund:100`** (full reward
+  escrow refunded), **no `debt_created`**, `outstanding_debt` stays 0 — the package returns intact
+  to `origin_base_id` storage. ⇒ B's escape hatch = `return`, costs only the already-spent
+  `service_fee`. (`ShippingSettlementResponse`: `carrier_payout` on deliver, `shipper_refund` on
+  return.)
+- **Self-ship earns NO tier credit (confirmed):** after the Q2 delivery, `profile` still showed
+  `successful_deliveries:0` / `delivered_value:0`. Bootstrapping a real carrier to `licensed`
+  requires genuine third-party contracts. `active_liability` == the accepted contract's
+  `appraised_value` (40), drawn against the 10000 aggregate cap — that's what B's capacity check
+  consumes.
+- **Q1 (footprint) — RESOLVED = FLAT 100.** A sealed package's cargo `size` is **100**
+  regardless of contents (10 iron_ore, each catalog size 1 = 10 units of goods, still showed
+  `size:100` / `used:100` in `get_cargo`). It equals the container's 100-item packing capacity,
+  reserved whole — NOT contents-summed, NOT the empty-container size (4). ⇒ **Sub-project B's fit
+  pre-check is the constant "≥100 free cargo units,"** not a per-contract calc. (`pack_package`
+  caps packed goods at 100 total item-size, so 100 is the ceiling for the current container.)
+- **Q4 — RESOLVED live.** On accept the beacon fingerprint moved from
+  `shipping_house_escrow:…` to `player_storage:grand_exchange_station:player:<id>` — package
+  lands in the carrier's **personal storage at `origin_base_id`**. `withdraw
+  package:<pkg_id> 1` moves it into cargo. `contractor` becomes the carrier; self-ship sets
+  `reputation_eligible:false`. The `list` contract came back `eligible:true` at `probationary`
+  standing — self-ship tier-gate bypass confirmed.
+- **Deadline is set AT ACCEPT, not at post.** The `posted` listing has NO `deadline_tick` /
+  `target_tick`. On accept (standard service, route_hops 3): `accepted_tick T` →
+  `target_tick T+90` → `deadline_tick T+180`; `status` → `in_transit` immediately. ⇒ **the
+  deadline-slack gate cannot run pre-accept.** B must estimate the window from
+  `route_hops`+`service_level` (one live point: standard 3-hop = 180-tick window / 90-tick
+  on-time target — unknown yet whether the window scales with hops or is fixed per level), OR
+  accept-then-verify-and-`return`. **Revise the spec's earlier `route_ticks×1.5 ≤ deadline_tick−now`
+  gate accordingly.**
+- **CRITICAL for B — shipping MUTATIONS are tick-deferred and `action_result`-wrapped.**
+  `accept` (and by symmetry `deliver`/`return`/`cancel`/`post`/`pay_debt`) first returns a bare
+  `TypeOK` `{command, message, pending:true}` ack, then on the NEXT tick a separate
+  `action_result` message shaped `{command:"shipping", result:{action:"accept", contract:{…}}}`
+  — **no top-level `action`**. Consequences: (a) our `storeRawJSON` case keys on the top-level
+  `action` and will NOT capture the mutation result under `shipping_<action>`; (b)
+  `Client.Shipping`'s `WithAckOnly` await returns on the `pending` ack, not the contract. **B must
+  handle the `action_result` unwrap** (mirror the pkg/worker craft fix — terminate on the
+  action_result, read `result.contract`), and the mutation client methods likely need
+  `WithTerminator(terminateOnActionOrOK)` rather than `WithAckOnly`, plus a `storeRawJSON`
+  action_result path. READS (`list`/`get`/`profile`/`track`) are synchronous top-level-`action`
+  `TypeOK` and decode fine as-is (confirmed live). This is the same class as
+  the craft `action_result` gotcha (docs/… reference_craft_action_result_wrapping).
+- **Struct fidelity confirmed on the wire:** full `ShipmentContract` (44 fields incl.
+  `appraised_value`, `reward_escrow`, `service_fee`=25 floor, `failure_debt`=500 uninsured,
+  `route_hops`, `risk_band`, `{kind,id}` actors), `ShippingListResponse`,
+  `ShippingProfileResponse`, and `get_cargo` all decoded with no drift. `package_id` is the
+  BARE hash in the contract; the storage/cargo item id carries a `package:` prefix.
+
+### Follow-up discovered — MUST-FIX before Sub-project B fleet rollout
+
+The client API-drift monitor (`pkg/game/client_api_monitor.go`) keys on the bare `action` value
+and is unaware of shipping's namespaced `shipping_<action>` `GetRawJSON` scheme, so it emits a
+spurious `[SERVER API CHANGE]` on **every** shipping response (`action:"list"` collides with the
+`facility` list; `action:"profile"` is "unhandled"). Harmless in `play_as`, but it would spam
+fleet logs once B runs. Register the shipping actions (or teach the monitor the `shipping_`
+namespace) before rollout. Tracks the same area as the broader "new `kind` field in generic
+response shapes" drift the monitor is flagging.
+
 ## Telemetry
 
 Record a freight result per attempt (contract id, base_reward, carrier_payout, route fuel,
