@@ -3,7 +3,9 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -268,5 +270,94 @@ func TestFreightCandidateSkipsUnroutableDestination(t *testing.T) {
 
 	if cand, _ := freightCandidate(context.Background(), deps, in, io.Discard); cand != nil {
 		t.Fatal("an unroutable destination must not become a candidate")
+	}
+}
+
+func shippingContractJSON(t *testing.T, action string, c serverapi.ShipmentContract) []byte {
+	t.Helper()
+	b, err := json.Marshal(serverapi.ShippingContractResponse{Action: action, Contract: c})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// acceptedContract is the smoke's real shape: deadline set AT accept.
+func acceptedContract(deadlineTick int64) serverapi.ShipmentContract {
+	return serverapi.ShipmentContract{
+		ID:                "high",
+		PackageID:         "pkg_hash",
+		OriginBaseID:      "haven_station",
+		DestinationBaseID: "sol_central",
+		ServiceLevel:      "standard",
+		Status:            "in_transit",
+		AcceptedTick:      1200,
+		TargetTick:        1290,
+		DeadlineTick:      deadlineTick,
+		BaseReward:        6000,
+		RouteHops:         3,
+	}
+}
+
+func TestFreightAcceptProceedsWhenDeadlineFeasible(t *testing.T) {
+	f := &fakeClient{
+		state: &game.State{},
+		raw:   map[string][]byte{"shipping_accept": shippingContractJSON(t, "accept", acceptedContract(1380))},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeMissionStore{}}
+	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
+
+	got, ok := freightAccept(context.Background(), deps, cand, io.Discard)
+	if !ok || got == nil {
+		t.Fatal("a feasible contract must proceed")
+	}
+	if got.DeadlineTick != 1380 {
+		t.Fatalf("the accepted contract's real deadline must be read back, got %d", got.DeadlineTick)
+	}
+	for _, c := range f.shippingCalls {
+		if c == "return" {
+			t.Fatal("a feasible contract must not be returned")
+		}
+	}
+}
+
+// The whole point of accept-then-verify: an infeasible deadline is discovered
+// after committing, and `return` is the debt-free escape.
+func TestFreightAcceptReturnsWhenDeadlineInfeasible(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &fakeClient{
+		state: &game.State{},
+		raw:   map[string][]byte{"shipping_accept": shippingContractJSON(t, "accept", acceptedContract(1210))},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
+
+	got, ok := freightAccept(context.Background(), deps, cand, io.Discard)
+	if ok || got != nil {
+		t.Fatal("an infeasible contract must be released")
+	}
+	if !slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must return the contract, calls were %v", f.shippingCalls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "returned_infeasible" {
+		t.Fatalf("must record returned_infeasible, got %+v", store.results)
+	}
+}
+
+// A lost race (someone else took it) is a normal skip, recorded for the canary.
+func TestFreightAcceptRecordsAcceptFailure(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &fakeClient{
+		state:       &game.State{},
+		shippingErr: map[string]error{"accept": errors.New("contract already accepted")},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
+
+	if _, ok := freightAccept(context.Background(), deps, cand, io.Discard); ok {
+		t.Fatal("a failed accept must not proceed")
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "accept_failed" {
+		t.Fatalf("must record accept_failed, got %+v", store.results)
 	}
 }

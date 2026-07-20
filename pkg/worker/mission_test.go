@@ -58,6 +58,21 @@ func (s *fakeMissionStore) GetReferencePrice(ctx context.Context, itemID string,
 	p, ok := s.refPrices[itemID]
 	return p, ok, nil
 }
+func (s *fakeMissionStore) RecordFreightResult(ctx context.Context, r market.FreightResult) error {
+	return nil
+}
+
+// fakeFreightStore records freight results and satisfies the mission-store
+// surface the freight path shares with missions.
+type fakeFreightStore struct {
+	fakeMissionStore
+	results []market.FreightResult
+}
+
+func (s *fakeFreightStore) RecordFreightResult(ctx context.Context, r market.FreightResult) error {
+	s.results = append(s.results, r)
+	return nil
+}
 
 // missionKB returns a two-system KB (haven <-> sol) with the worker at haven.
 func missionKB() *fakeKB {

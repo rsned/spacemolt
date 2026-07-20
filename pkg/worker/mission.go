@@ -51,6 +51,8 @@ type MissionStore interface {
 	// (20th-percentile over lookback), used as the surge-ceiling basis for
 	// the local depth-walk gate — see missionSurgeMult.
 	GetReferencePrice(ctx context.Context, itemID string, lookback time.Duration) (float64, bool, error)
+	// RecordFreightResult persists one settled shipping-contract outcome.
+	RecordFreightResult(ctx context.Context, r market.FreightResult) error
 }
 
 var _ MissionStore = (*market.Collector)(nil)

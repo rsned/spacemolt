@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 const (
@@ -215,4 +216,105 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 	}
 	fmt.Fprintf(out, "freight: best %s to %s, %d hops, net %.0f\n", best.Contract.ID, best.DestBaseID, best.Hops, best.Net) //nolint:errcheck
 	return best, ""
+}
+
+// freightRecord persists one settled contract outcome. Telemetry failures are
+// logged and swallowed: losing a metrics row must never abort a trip.
+func freightRecord(ctx context.Context, deps MissionDeps, out io.Writer, c serverapi.ShipmentContract, cand *freightCand, payout float64, outcome, reason string) {
+	if deps.Market == nil {
+		return
+	}
+	now := missionNow(deps)
+	fuel := 0.0
+	hops := c.RouteHops
+	if cand != nil {
+		fuel = cand.FuelCost
+		if hops == 0 {
+			hops = cand.Hops
+		}
+	}
+	r := market.FreightResult{
+		AgentID:       deps.AgentID,
+		ContractID:    c.ID,
+		PackageID:     c.PackageID,
+		FromBaseID:    c.OriginBaseID,
+		ToBaseID:      c.DestinationBaseID,
+		ServiceLevel:  c.ServiceLevel,
+		RouteHops:     hops,
+		BaseReward:    float64(c.BaseReward),
+		MaxSpeedBonus: float64(c.MaxSpeedBonus),
+		FuelCost:      fuel,
+		CarrierPayout: payout,
+		Outcome:       outcome,
+		Reason:        reason,
+		AcceptedAt:    c.AcceptedAt,
+		FinishedAt:    rfc(now),
+		AcceptedTick:  c.AcceptedTick,
+		FinishedTick:  missionTick(deps),
+		CreatedAt:     rfc(now),
+	}
+	if err := deps.Market.RecordFreightResult(ctx, r); err != nil {
+		fmt.Fprintf(out, "freight: record %s result: %v\n", outcome, err) //nolint:errcheck
+	}
+}
+
+// freightAccept takes the candidate and then verifies it — the server only sets
+// deadline_tick at accept, so feasibility is unknowable beforehand. An infeasible
+// contract is immediately returned, which the live smoke confirmed is debt-free
+// (status returned_intact, full shipper_refund, liability released,
+// outstanding_debt unchanged). ok=false means the candidate was released.
+func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out io.Writer) (*serverapi.ShipmentContract, bool) {
+	if out == nil {
+		out = io.Discard
+	}
+	id := cand.Contract.ID
+	if err := deps.Client.ShippingAccept(ctx, id, "player"); err != nil {
+		fmt.Fprintf(out, "freight: accept %s: %v\n", id, err) //nolint:errcheck
+		freightRecord(ctx, deps, out, cand.Contract, cand, 0, "accept_failed", err.Error())
+		return nil, false
+	}
+
+	var resp serverapi.ShippingContractResponse
+	if raw := deps.Client.GetRawJSON("shipping_accept"); len(raw) > 0 {
+		if err := json.Unmarshal(raw, &resp); err != nil {
+			fmt.Fprintf(out, "freight: decode accept %s: %v\n", id, err) //nolint:errcheck
+		}
+	}
+	c := resp.Contract
+	if c.ID == "" {
+		// The accept reply did not decode. We may well be holding a contract we
+		// cannot reason about, so release it rather than transit blind.
+		fmt.Fprintf(out, "freight: accept %s returned no contract; returning it\n", id) //nolint:errcheck
+		freightReturn(ctx, deps, out, cand.Contract, cand, "returned_infeasible", "accept reply did not decode")
+		return nil, false
+	}
+
+	hops := c.RouteHops
+	if hops == 0 {
+		hops = cand.Hops
+	}
+	// c.AcceptedTick, not missionTick(deps): the accept reply carries both
+	// AcceptedTick and DeadlineTick from the same server-side snapshot, so
+	// checking against it avoids any drift between our locally cached tick
+	// (GameClock only syncs forward — see reference_gameclock_forward_drift)
+	// and the tick the deadline was actually computed against.
+	if ok, reason := freightDeadlineOK(hops, c.DeadlineTick, c.AcceptedTick); !ok {
+		fmt.Fprintf(out, "freight: %s infeasible (%s); returning\n", id, reason) //nolint:errcheck
+		freightReturn(ctx, deps, out, c, cand, "returned_infeasible", reason)
+		return nil, false
+	}
+	fmt.Fprintf(out, "freight: accepted %s to %s (deadline tick %d)\n", id, c.DestinationBaseID, c.DeadlineTick) //nolint:errcheck
+	return &c, true
+}
+
+// freightReturn hands a contract back and records the outcome. A failed return
+// is logged loudly: it is the only situation in which a breach becomes possible
+// despite the design, so it must be visible in the canary logs.
+func freightReturn(ctx context.Context, deps MissionDeps, out io.Writer, c serverapi.ShipmentContract, cand *freightCand, outcome, reason string) {
+	if err := deps.Client.ShippingReturn(ctx, c.ID); err != nil {
+		fmt.Fprintf(out, "freight: RETURN FAILED for %s (%s): %v — breach now possible\n", c.ID, reason, err) //nolint:errcheck
+		freightRecord(ctx, deps, out, c, cand, 0, outcome, "return failed: "+err.Error())
+		return
+	}
+	freightRecord(ctx, deps, out, c, cand, 0, outcome, reason)
 }
