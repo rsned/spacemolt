@@ -1,8 +1,13 @@
 package worker
 
 import (
+	"context"
+	"encoding/json"
+	"io"
+	"strings"
 	"testing"
 
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
@@ -121,5 +126,147 @@ func TestFreightDeadlineOK(t *testing.T) {
 	// Zero hops (same-base contract) still needs a positive deadline window.
 	if ok, _ := freightDeadlineOK(0, 1201, 1200); !ok {
 		t.Fatal("a zero-hop contract with a live deadline must pass")
+	}
+}
+
+func shippingListJSON(t *testing.T, listings ...serverapi.ShippingListing) []byte {
+	t.Helper()
+	b, err := json.Marshal(serverapi.ShippingListResponse{
+		Action: "list", Shipments: listings, Total: len(listings),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func shippingProfileJSON(t *testing.T, blocked bool, reason string) []byte {
+	t.Helper()
+	b, err := json.Marshal(serverapi.ShippingProfileResponse{
+		Action:               "profile",
+		Profile:              serverapi.CarrierProfile{Tier: "probationary"},
+		DebtBlocksAcceptance: blocked,
+		DebtBlockReason:      reason,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+// freightTestInputs routes every destination at 2 hops with free fuel.
+func freightTestInputs(cargoFree float64) freightInputs {
+	return freightInputs{
+		CargoFree:   cargoFree,
+		FuelCostFor: noFuel,
+		HopsTo:      func(string) (int, bool) { return 2, true },
+	}
+}
+
+// A hold too small for a package must short-circuit before ANY server call.
+// This is the cheapest possible rejection and must stay that way.
+func TestFreightCandidateSkipsWhenHoldTooSmall(t *testing.T) {
+	f := &fakeClient{state: &game.State{}}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4"}
+
+	cand, reason := freightCandidate(context.Background(), deps, freightTestInputs(99), io.Discard)
+	if cand != nil {
+		t.Fatal("a 99-unit hold cannot carry a 100-unit package")
+	}
+	if reason == "" {
+		t.Fatal("want a skip reason")
+	}
+	if len(f.shippingCalls) != 0 {
+		t.Fatalf("must make zero shipping calls, made %v", f.shippingCalls)
+	}
+}
+
+// Freight debt blocks acceptance server-side; we skip freight without spending
+// a list call, and never auto-pay.
+func TestFreightCandidateSkipsWhenDebtBlocked(t *testing.T) {
+	f := &fakeClient{
+		state: &game.State{},
+		raw:   map[string][]byte{"shipping_profile": shippingProfileJSON(t, true, "unpaid failure debt")},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4"}
+	var log strings.Builder
+
+	cand, reason := freightCandidate(context.Background(), deps, freightTestInputs(500), &log)
+	if cand != nil {
+		t.Fatal("debt-blocked carriers must not take freight")
+	}
+	if !strings.Contains(reason, "unpaid failure debt") {
+		t.Fatalf("skip reason must carry the server's debt_block_reason, got %q", reason)
+	}
+	for _, c := range f.shippingCalls {
+		if c == "list" {
+			t.Fatal("must not list the board while debt-blocked")
+		}
+		if c == "pay_debt" {
+			t.Fatal("must never auto-pay debt")
+		}
+	}
+}
+
+func TestFreightCandidatePicksBestEligible(t *testing.T) {
+	f := &fakeClient{
+		state: &game.State{},
+		raw: map[string][]byte{
+			"shipping_profile": shippingProfileJSON(t, false, ""),
+			"shipping_list": shippingListJSON(t,
+				listing("low", true, 800, 2),
+				listing("high", true, 6000, 2),
+				listing("ineligible", false, 99000, 2),
+			),
+		},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4"}
+
+	cand, reason := freightCandidate(context.Background(), deps, freightTestInputs(500), io.Discard)
+	if cand == nil {
+		t.Fatalf("want a candidate, got skip: %s", reason)
+	}
+	if cand.Contract.ID != "high" {
+		t.Fatalf("want the highest-net eligible contract, got %q", cand.Contract.ID)
+	}
+}
+
+// Rejected candidates must have their net logged. This is how the canary
+// measures the real NPC reward distribution against freightMinNet.
+func TestFreightCandidateLogsRejectedNets(t *testing.T) {
+	f := &fakeClient{
+		state: &game.State{},
+		raw: map[string][]byte{
+			"shipping_profile": shippingProfileJSON(t, false, ""),
+			"shipping_list":    shippingListJSON(t, listing("cheap", true, 100, 2)),
+		},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4"}
+	var log strings.Builder
+
+	cand, _ := freightCandidate(context.Background(), deps, freightTestInputs(500), &log)
+	if cand != nil {
+		t.Fatal("a 100-credit reward is below the floor")
+	}
+	if !strings.Contains(log.String(), "100") {
+		t.Fatalf("the rejected reward must appear in the log; got %q", log.String())
+	}
+}
+
+// An unroutable destination is skipped, not guessed at.
+func TestFreightCandidateSkipsUnroutableDestination(t *testing.T) {
+	f := &fakeClient{
+		state: &game.State{},
+		raw: map[string][]byte{
+			"shipping_profile": shippingProfileJSON(t, false, ""),
+			"shipping_list":    shippingListJSON(t, listing("far", true, 9000, 2)),
+		},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4"}
+	in := freightTestInputs(500)
+	in.HopsTo = func(string) (int, bool) { return 0, false }
+
+	if cand, _ := freightCandidate(context.Background(), deps, in, io.Discard); cand != nil {
+		t.Fatal("an unroutable destination must not become a candidate")
 	}
 }

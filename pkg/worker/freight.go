@@ -1,7 +1,10 @@
 package worker
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -117,4 +120,99 @@ func freightDeadlineOK(hops int, deadlineTick, nowTick int64) (bool, string) {
 		return false, fmt.Sprintf("deadline %d ticks < needed %.0f (%d hops)", remaining, needed, hops)
 	}
 	return true, ""
+}
+
+// freightInputs are the per-pass facts freightCandidate needs from the caller.
+// Passing them in (rather than deriving them) keeps the gate testable without a
+// live galaxy graph or fuel-price source.
+type freightInputs struct {
+	// CargoFree is the ship's remaining hold, in cargo units.
+	CargoFree float64
+	// FuelCostFor prices the fuel for a jump count (nil -> free).
+	FuelCostFor func(jumps int) float64
+	// HopsTo resolves jump distance to a destination base; ok=false means
+	// unroutable, and the contract is skipped rather than guessed at.
+	HopsTo func(destBaseID string) (int, bool)
+}
+
+// freightCandidate evaluates freight at the current dock and returns the best
+// scored candidate, or nil plus a skip reason. Failure is always "skip the
+// pass", never an error: the caller falls through to missions/exploration
+// exactly as it does when the mission board is empty.
+func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, out io.Writer) (*freightCand, string) {
+	if out == nil {
+		out = io.Discard
+	}
+	// Capability precondition first: a ship that cannot hold a package has no
+	// business talking to /shipping, so this costs zero server calls.
+	if freightPackagesFit(in.CargoFree) < 1 {
+		return nil, fmt.Sprintf("hold has %.0f free, a package needs %.0f", in.CargoFree, freightPackageFootprint)
+	}
+
+	// Debt guard. Freight debt blocks acceptance server-side, so listing the
+	// board would be wasted. We never auto-pay: an operator settles debt, so a
+	// systematic breach bug cannot buy back its own ability to keep breaching.
+	if err := deps.Client.ShippingProfile(ctx); err != nil {
+		return nil, fmt.Sprintf("shipping profile: %v", err)
+	}
+	var prof serverapi.ShippingProfileResponse
+	if raw := deps.Client.GetRawJSON("shipping_profile"); len(raw) > 0 {
+		if err := json.Unmarshal(raw, &prof); err != nil {
+			return nil, fmt.Sprintf("decode shipping profile: %v", err)
+		}
+	}
+	if prof.DebtBlocksAcceptance {
+		reason := prof.DebtBlockReason
+		if reason == "" {
+			reason = "freight debt blocks acceptance"
+		}
+		fmt.Fprintf(out, "freight: skipping, %s (outstanding %d) — operator must settle\n", reason, prof.Profile.OutstandingDebt) //nolint:errcheck
+		return nil, reason
+	}
+
+	if err := deps.Client.ShippingList(ctx, ""); err != nil {
+		return nil, fmt.Sprintf("shipping list: %v", err)
+	}
+	var board serverapi.ShippingListResponse
+	if raw := deps.Client.GetRawJSON("shipping_list"); len(raw) > 0 {
+		if err := json.Unmarshal(raw, &board); err != nil {
+			return nil, fmt.Sprintf("decode shipping list: %v", err)
+		}
+	}
+	if len(board.Shipments) == 0 {
+		reason := board.EmptyReason
+		if reason == "" {
+			reason = "no freight posted here"
+		}
+		return nil, reason
+	}
+
+	cands := make([]freightCand, 0, len(board.Shipments))
+	for _, l := range board.Shipments {
+		hops := l.Contract.RouteHops
+		if in.HopsTo != nil {
+			h, ok := in.HopsTo(l.Contract.DestinationBaseID)
+			if !ok {
+				fmt.Fprintf(out, "freight: skip %s: no route to %s\n", l.Contract.ID, l.Contract.DestinationBaseID) //nolint:errcheck
+				continue
+			}
+			hops = h
+		}
+		c, reason := buildFreightCand(l, hops, in.FuelCostFor)
+		if reason != "" {
+			// Logged at every rejection on purpose: the net distribution here is
+			// the only evidence for whether freightMinNet is set sanely against
+			// real NPC rewards, which are unmeasured.
+			fmt.Fprintf(out, "freight: skip %s: %s\n", l.Contract.ID, reason) //nolint:errcheck
+			continue
+		}
+		cands = append(cands, c)
+	}
+
+	best := selectFreightCand(cands)
+	if best == nil {
+		return nil, "no freight cleared the gate"
+	}
+	fmt.Fprintf(out, "freight: best %s to %s, %d hops, net %.0f\n", best.Contract.ID, best.DestBaseID, best.Hops, best.Net) //nolint:errcheck
+	return best, ""
 }

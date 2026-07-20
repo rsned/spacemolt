@@ -39,6 +39,9 @@ type fakeClient struct {
 	viewStorageErr error // when set, ViewStorage returns it instead of recording success
 	withdrawErr    error // when set, WithdrawItems returns it instead of recording success
 
+	shippingErr   map[string]error // per-action error, keyed by shipping action
+	shippingCalls []string         // shipping actions issued, in order
+
 	// activeMissionsSeq, when non-nil, supplies successive
 	// GetRawJSON("active_missions") results in call order — one entry per
 	// GetActiveMissions call in the pass (e.g. empty before accept, then
@@ -185,6 +188,36 @@ func (f *fakeClient) GetMarketListings() []game.MarketListing { return nil }
 func (f *fakeClient) BrowseShips(ctx context.Context, payload map[string]any) error {
 	f.calls = append(f.calls, "browse_ships")
 	return nil
+}
+func (f *fakeClient) ShippingList(ctx context.Context, sort string) error {
+	f.calls = append(f.calls, "shipping_list")
+	f.shippingCalls = append(f.shippingCalls, "list")
+	return f.shippingErr["list"]
+}
+func (f *fakeClient) ShippingProfile(ctx context.Context) error {
+	f.calls = append(f.calls, "shipping_profile")
+	f.shippingCalls = append(f.shippingCalls, "profile")
+	return f.shippingErr["profile"]
+}
+func (f *fakeClient) ShippingAccept(ctx context.Context, shipmentID, carrier string) error {
+	f.calls = append(f.calls, "shipping_accept:"+shipmentID)
+	f.shippingCalls = append(f.shippingCalls, "accept")
+	return f.shippingErr["accept"]
+}
+func (f *fakeClient) ShippingDeliver(ctx context.Context, shipmentID string) error {
+	f.calls = append(f.calls, "shipping_deliver:"+shipmentID)
+	f.shippingCalls = append(f.shippingCalls, "deliver")
+	return f.shippingErr["deliver"]
+}
+func (f *fakeClient) ShippingReturn(ctx context.Context, shipmentID string) error {
+	f.calls = append(f.calls, "shipping_return:"+shipmentID)
+	f.shippingCalls = append(f.shippingCalls, "return")
+	return f.shippingErr["return"]
+}
+func (f *fakeClient) ShippingGet(ctx context.Context, shipmentID string) error {
+	f.calls = append(f.calls, "shipping_get:"+shipmentID)
+	f.shippingCalls = append(f.shippingCalls, "get")
+	return f.shippingErr["get"]
 }
 
 func TestDispatchRunsKnownCommands(t *testing.T) {
