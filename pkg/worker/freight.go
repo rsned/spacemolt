@@ -438,3 +438,42 @@ func freightRunTrip(ctx context.Context, deps MissionDeps, c *serverapi.Shipment
 	freightRecord(ctx, deps, out, final, cand, float64(settle.CarrierPayout), "delivered", "")
 	return nil
 }
+
+// missionHopsToBase resolves jump distance to a base id via the server's router.
+// The KB cannot map base -> system (no POI-by-id lookup, and SpaceBase carries
+// only POIID), and the contract addresses its destination by base id only, so
+// the router is the authority — the same approach haulResolveSellSystem uses for
+// the moving capital. ok=false means unroutable, and the caller skips the
+// contract rather than guessing a distance.
+func missionHopsToBase(ctx context.Context, deps MissionDeps, destBaseID string) (int, bool) {
+	if destBaseID == "" {
+		return 0, false
+	}
+	route, err := deps.Client.FindRoute(ctx, destBaseID)
+	if err != nil || len(route) == 0 {
+		return 0, false
+	}
+	// RouteStep.Jumps is cumulative, so the last hop carries the total. Fall back
+	// to the step count when the server omits it.
+	if hops := route[len(route)-1].Jumps; hops > 0 {
+		return hops, true
+	}
+	return len(route), true
+}
+
+// missionNavToBase routes to a base id, resolving its system through the router
+// and reusing the pass's existing navigation rather than adding a second path.
+func missionNavToBase(ctx context.Context, deps MissionDeps, destBaseID string) error {
+	route, err := deps.Client.FindRoute(ctx, destBaseID)
+	if err != nil {
+		return fmt.Errorf("route to %s: %w", destBaseID, err)
+	}
+	if len(route) == 0 {
+		return fmt.Errorf("no route to %s", destBaseID)
+	}
+	destSystem := route[len(route)-1].SystemID
+	if destSystem == "" {
+		return fmt.Errorf("router returned no system for %s", destBaseID)
+	}
+	return deps.nav(ctx, destSystem, destBaseID)
+}

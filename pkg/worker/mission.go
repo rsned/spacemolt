@@ -162,6 +162,10 @@ type MissionDeps struct {
 	// tests). Set when a mission is accepted or a held one resumed, cleared
 	// ("") on a dry pass.
 	SetActivity func(string)
+	// EnableFreight opts this worker into the /shipping carrier path, evaluated
+	// co-equally with the mission board. Default false so existing fleets are
+	// unchanged until the canary opts in explicitly.
+	EnableFreight bool
 }
 
 // missionActivityLabel renders the accepted set as the status-page activity
@@ -378,6 +382,36 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		return ra.BestAsk, true
 	}
 
+	// Freight is evaluated co-equally with the mission board: whichever nets
+	// more wins, exploration stays the fallback. Any freight failure degrades to
+	// "no freight this pass" — it must never be a new way for the pass to fail.
+	var freightBest *freightCand
+	if deps.EnableFreight {
+		// Reconcile first: a restart loses the in-memory task, and an orphaned
+		// in-flight package breaches in silence.
+		if held, ok := freightReconcile(ctx, deps, out); ok {
+			if freightInFlightCheck(ctx, deps, held, nil, held.RouteHops, out) {
+				publishActivity(deps.SetActivity, "Freight "+held.ID+" to "+held.DestinationBaseID)
+				return freightRunTrip(ctx, deps, held, nil, func(ctx context.Context, baseID string) error {
+					return missionNavToBase(ctx, deps, baseID)
+				}, out)
+			}
+			return nil
+		}
+		in := freightInputs{
+			CargoFree:   float64(cargoFreeSpace(state)),
+			FuelCostFor: fuelCostFor,
+			HopsTo: func(destBaseID string) (int, bool) {
+				return missionHopsToBase(ctx, deps, destBaseID)
+			},
+		}
+		cand, skip := freightCandidate(ctx, deps, in, out)
+		if cand == nil {
+			fmt.Fprintf(out, "freight: no candidate (%s)\n", skip) //nolint:errcheck
+		}
+		freightBest = cand
+	}
+
 	// Gate + stack.
 	var cands []missionCandidate
 	var exploreCands []missionCandidate
@@ -539,6 +573,23 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 				fmt.Fprintln(out, "missions: no acquirable missions on this board") //nolint:errcheck
 				return missionDryPass(ctx, deps, out)
 			}
+		}
+	}
+
+	// Co-equal comparison: freight only preempts the mission trip once the
+	// trip's real net is known (post availability-gate, so both sides are
+	// priced on what would actually happen this pass).
+	if freightBest != nil && freightBest.Net > tripNet(set) {
+		fmt.Fprintf(out, "freight: taking %s (net %.0f) over the mission trip (net %.0f)\n", freightBest.Contract.ID, freightBest.Net, tripNet(set)) //nolint:errcheck
+		accepted, ok := freightAccept(ctx, deps, freightBest, out)
+		if !ok {
+			// Released (returned or accept failed) — fall through to missions.
+			freightBest = nil
+		} else {
+			publishActivity(deps.SetActivity, "Freight "+accepted.ID+" to "+accepted.DestinationBaseID)
+			return freightRunTrip(ctx, deps, accepted, freightBest, func(ctx context.Context, baseID string) error {
+				return missionNavToBase(ctx, deps, baseID)
+			}, out)
 		}
 	}
 

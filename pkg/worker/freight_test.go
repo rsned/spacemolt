@@ -534,3 +534,58 @@ func TestFreightRunTripReturnsWhenWithdrawFails(t *testing.T) {
 		t.Fatalf("want returned_infeasible, got %+v", store.results)
 	}
 }
+
+// Freight must not run unless a fleet opts in, so the pool is unaffected until
+// the canary flips the flag.
+func TestMissionsSkipsFreightWhenDisabled(t *testing.T) {
+	f := &fakeClient{
+		state: &game.State{},
+		raw: map[string][]byte{
+			"shipping_profile": shippingProfileJSON(t, false, ""),
+			"shipping_list":    shippingListJSON(t, listing("high", true, 9000, 2)),
+		},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}, KB: missionKB()}
+	// EnableFreight deliberately left false.
+
+	_ = Missions(context.Background(), deps)
+	if len(f.shippingCalls) != 0 {
+		t.Fatalf("freight must be inert when disabled, but issued %v", f.shippingCalls)
+	}
+}
+
+// With freight enabled and a hold too small, the pass must still complete
+// normally — freight is additive, never a new way for a pass to fail.
+func TestMissionsWithFreightEnabledStillCompletes(t *testing.T) {
+	f := &fakeClient{state: &game.State{}}
+	deps := MissionDeps{
+		Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{},
+		KB: missionKB(), EnableFreight: true,
+	}
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("a freight-enabled pass must not error: %v", err)
+	}
+}
+
+func TestMissionHopsToBaseUnroutable(t *testing.T) {
+	f := &fakeClient{state: &game.State{}, routeErr: errors.New("no route")}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4"}
+	if _, ok := missionHopsToBase(context.Background(), deps, "sol_central"); ok {
+		t.Fatal("a router error must report unroutable, not a guessed distance")
+	}
+	if _, ok := missionHopsToBase(context.Background(), deps, ""); ok {
+		t.Fatal("an empty base id must report unroutable")
+	}
+}
+
+func TestMissionHopsToBaseUsesCumulativeJumps(t *testing.T) {
+	f := &fakeClient{
+		state: &game.State{},
+		route: []game.RouteStep{{SystemID: "a", Jumps: 1}, {SystemID: "sol", Jumps: 3}},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4"}
+	hops, ok := missionHopsToBase(context.Background(), deps, "sol_central")
+	if !ok || hops != 3 {
+		t.Fatalf("want 3 cumulative hops, got %d (ok=%v)", hops, ok)
+	}
+}
