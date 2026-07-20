@@ -1983,3 +1983,87 @@ func (m *MCPGameClient) AgentLogs(ctx context.Context, category, severity, messa
 	}
 	return m.cacheResultAs(result, "agentlogs")
 }
+
+// ============================================================================
+// Shipping (freight contracts)
+// ============================================================================
+
+// Shipping sends a /shipping action with the given payload via the MCP
+// bridge. The reply is cached under "shipping_<action>"; read it with
+// GetRawJSON and unmarshal into the matching serverapi struct.
+func (m *MCPGameClient) Shipping(ctx context.Context, action string, payload map[string]any) error {
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	payload["action"] = action
+	result, err := m.callTool(ctx, "shipping", payload)
+	if err != nil {
+		return err
+	}
+	return m.cacheResultAs(result, "shipping_"+action)
+}
+
+// ShippingList fetches the current station's freight board (docked-only).
+// sort ∈ {reward,distance,age} (empty = server default reward).
+// Reply: shipping_list.
+func (m *MCPGameClient) ShippingList(ctx context.Context, sort string) error {
+	p := map[string]any{}
+	if sort != "" {
+		p["sort"] = sort
+	}
+	return m.Shipping(ctx, "list", p)
+}
+
+// ShippingGet fetches one contract by id. Reply: shipping_get.
+func (m *MCPGameClient) ShippingGet(ctx context.Context, shipmentID string) error {
+	return m.Shipping(ctx, "get", map[string]any{"shipment_id": shipmentID})
+}
+
+// ShippingAccept accepts a contract as the given carrier (player|faction). The
+// package lands in the carrier's storage at origin. Reply: shipping_accept.
+func (m *MCPGameClient) ShippingAccept(ctx context.Context, shipmentID, carrier string) error {
+	return m.Shipping(ctx, "accept", map[string]any{"shipment_id": shipmentID, "carrier": carrier})
+}
+
+// ShippingDeliver settles a delivered contract. Reply: shipping_deliver.
+func (m *MCPGameClient) ShippingDeliver(ctx context.Context, shipmentID string) error {
+	return m.Shipping(ctx, "deliver", map[string]any{"shipment_id": shipmentID})
+}
+
+// ShippingReturn returns a contract to its origin (breach-avoidance escape
+// hatch). Reply: shipping_return.
+func (m *MCPGameClient) ShippingReturn(ctx context.Context, shipmentID string) error {
+	return m.Shipping(ctx, "return", map[string]any{"shipment_id": shipmentID})
+}
+
+// ShippingCancel cancels a contract (breach-avoidance escape hatch). Reply:
+// shipping_cancel.
+func (m *MCPGameClient) ShippingCancel(ctx context.Context, shipmentID string) error {
+	return m.Shipping(ctx, "cancel", map[string]any{"shipment_id": shipmentID})
+}
+
+// ShippingTrack fetches a contract plus its beacon custody events (limit ≤
+// 200; 0 = server default). Reply: shipping_track.
+func (m *MCPGameClient) ShippingTrack(ctx context.Context, shipmentID string, limit int) error {
+	p := map[string]any{"shipment_id": shipmentID}
+	if limit > 0 {
+		p["limit"] = limit
+	}
+	return m.Shipping(ctx, "track", p)
+}
+
+// ShippingProfile fetches this actor's carrier standing, capacity,
+// progression and debts. Reply: shipping_profile.
+func (m *MCPGameClient) ShippingProfile(ctx context.Context) error {
+	return m.Shipping(ctx, "profile", nil)
+}
+
+// ShippingPayDebt pays freight debt (amount ≤ 0 pays the full balance).
+// Reply: shipping_pay_debt.
+func (m *MCPGameClient) ShippingPayDebt(ctx context.Context, amount int64) error {
+	p := map[string]any{}
+	if amount > 0 {
+		p["amount"] = amount
+	}
+	return m.Shipping(ctx, "pay_debt", p)
+}

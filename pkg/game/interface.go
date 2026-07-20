@@ -274,6 +274,18 @@ type GameClient interface {
 	// Generic passthrough for commands without explicit methods.
 	RawCommand(ctx context.Context, command string, args map[string]any) error
 
+	// Shipping (freight contracts)
+	Shipping(ctx context.Context, action string, payload map[string]any) error
+	ShippingList(ctx context.Context, sort string) error
+	ShippingGet(ctx context.Context, shipmentID string) error
+	ShippingAccept(ctx context.Context, shipmentID, carrier string) error
+	ShippingDeliver(ctx context.Context, shipmentID string) error
+	ShippingReturn(ctx context.Context, shipmentID string) error
+	ShippingCancel(ctx context.Context, shipmentID string) error
+	ShippingTrack(ctx context.Context, shipmentID string, limit int) error
+	ShippingProfile(ctx context.Context) error
+	ShippingPayDebt(ctx context.Context, amount int64) error
+
 	// Callbacks
 	SetOnChatMessage(fn func(msg serverapi.ChatMessage))
 }

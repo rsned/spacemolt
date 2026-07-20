@@ -808,3 +808,21 @@ func (m *mockGameClient) CaptainsLogDelete(ctx context.Context, index int) error
 func (m *mockGameClient) AgentLogs(ctx context.Context, category, severity, message string, data map[string]any) error {
 	return nil
 }
+
+// Shipping (freight contracts)
+func (m *mockGameClient) Shipping(ctx context.Context, action string, payload map[string]any) error {
+	return nil
+}
+func (m *mockGameClient) ShippingList(ctx context.Context, sort string) error      { return nil }
+func (m *mockGameClient) ShippingGet(ctx context.Context, shipmentID string) error { return nil }
+func (m *mockGameClient) ShippingAccept(ctx context.Context, shipmentID, carrier string) error {
+	return nil
+}
+func (m *mockGameClient) ShippingDeliver(ctx context.Context, shipmentID string) error { return nil }
+func (m *mockGameClient) ShippingReturn(ctx context.Context, shipmentID string) error  { return nil }
+func (m *mockGameClient) ShippingCancel(ctx context.Context, shipmentID string) error  { return nil }
+func (m *mockGameClient) ShippingTrack(ctx context.Context, shipmentID string, limit int) error {
+	return nil
+}
+func (m *mockGameClient) ShippingProfile(ctx context.Context) error               { return nil }
+func (m *mockGameClient) ShippingPayDebt(ctx context.Context, amount int64) error { return nil }

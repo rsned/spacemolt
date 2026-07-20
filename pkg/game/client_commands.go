@@ -2651,3 +2651,91 @@ func (c *Client) AgentLogs(ctx context.Context, category, severity, message stri
 	}
 	return err
 }
+
+// ============================================================================
+// Shipping (freight contracts)
+// ============================================================================
+
+// Shipping sends a /shipping action with the given payload (the action is
+// injected). The reply is cached under "shipping_<action>" (storeRawJSON);
+// read it with GetRawJSON and unmarshal into the matching serverapi struct.
+func (c *Client) Shipping(ctx context.Context, action string, payload map[string]any) error {
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	payload["action"] = action
+	msg := protocol.Message{
+		Type:      "shipping",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return err
+}
+
+// ShippingList fetches the current station's freight board (docked-only). sort ∈
+// {reward,distance,age} (empty = server default reward). Reply: shipping_list.
+func (c *Client) ShippingList(ctx context.Context, sort string) error {
+	p := map[string]any{}
+	if sort != "" {
+		p["sort"] = sort
+	}
+	return c.Shipping(ctx, "list", p)
+}
+
+// ShippingGet fetches one contract by id. Reply: shipping_get.
+func (c *Client) ShippingGet(ctx context.Context, shipmentID string) error {
+	return c.Shipping(ctx, "get", map[string]any{"shipment_id": shipmentID})
+}
+
+// ShippingAccept accepts a contract as the given carrier (player|faction). The
+// package lands in the carrier's storage at origin. Reply: shipping_accept.
+func (c *Client) ShippingAccept(ctx context.Context, shipmentID, carrier string) error {
+	return c.Shipping(ctx, "accept", map[string]any{"shipment_id": shipmentID, "carrier": carrier})
+}
+
+// ShippingDeliver settles a delivered contract. Reply: shipping_deliver.
+func (c *Client) ShippingDeliver(ctx context.Context, shipmentID string) error {
+	return c.Shipping(ctx, "deliver", map[string]any{"shipment_id": shipmentID})
+}
+
+// ShippingReturn returns a contract to its origin (breach-avoidance escape
+// hatch). Reply: shipping_return.
+func (c *Client) ShippingReturn(ctx context.Context, shipmentID string) error {
+	return c.Shipping(ctx, "return", map[string]any{"shipment_id": shipmentID})
+}
+
+// ShippingCancel cancels a contract (breach-avoidance escape hatch). Reply:
+// shipping_cancel.
+func (c *Client) ShippingCancel(ctx context.Context, shipmentID string) error {
+	return c.Shipping(ctx, "cancel", map[string]any{"shipment_id": shipmentID})
+}
+
+// ShippingTrack fetches a contract plus its beacon custody events (limit ≤ 200;
+// 0 = server default). Reply: shipping_track.
+func (c *Client) ShippingTrack(ctx context.Context, shipmentID string, limit int) error {
+	p := map[string]any{"shipment_id": shipmentID}
+	if limit > 0 {
+		p["limit"] = limit
+	}
+	return c.Shipping(ctx, "track", p)
+}
+
+// ShippingProfile fetches this actor's carrier standing, capacity, progression
+// and debts. Reply: shipping_profile.
+func (c *Client) ShippingProfile(ctx context.Context) error {
+	return c.Shipping(ctx, "profile", nil)
+}
+
+// ShippingPayDebt pays freight debt (amount ≤ 0 pays the full balance). Reply:
+// shipping_pay_debt.
+func (c *Client) ShippingPayDebt(ctx context.Context, amount int64) error {
+	p := map[string]any{}
+	if amount > 0 {
+		p["amount"] = amount
+	}
+	return c.Shipping(ctx, "pay_debt", p)
+}
