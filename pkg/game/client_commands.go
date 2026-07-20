@@ -2676,6 +2676,16 @@ func (c *Client) Shipping(ctx context.Context, action string, payload map[string
 		out[k] = v
 	}
 	out["action"] = action
+	// Drop any body this session already cached for this action BEFORE issuing,
+	// so a call whose own reply never lands cannot be read as success against
+	// the PREVIOUS call's body. latestRawJSON is session-lifetime and has no
+	// per-command invalidation, and terminateOnActionOrOK returns on a
+	// non-pending ok — i.e. possibly before an action_result. A stale body is
+	// worse than none: it decodes into a real contract with a real ID, so the
+	// callers' `ID == ""` guards cannot fire and they act on the wrong
+	// contract. Clearing makes that failure mode empty-not-stale, which those
+	// guards already handle by returning rather than transiting blind.
+	c.ClearRawJSON("shipping_" + action)
 	msg := protocol.Message{
 		Type:      "shipping",
 		Payload:   out,

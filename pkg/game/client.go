@@ -4347,6 +4347,14 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				// Namespace the key so it can't collide with other commands' keys.
 				// (quote/post included so shipper-side reads land somewhere too, even
 				// though Sub-project A ships no quote/post client method yet.)
+				//
+				// INVARIANT: these are BARE verbs, matched with no check that the
+				// reply came from a /shipping request. It holds only because no
+				// other command replies with a top-level action of "get", "accept",
+				// "list", … today. A future server command that does would land its
+				// body under shipping_<verb> and silently corrupt a carrier read —
+				// so if one appears, this case must gate on the originating command
+				// rather than the verb alone.
 				storeKey = "shipping_" + action
 				shouldStore = true
 			}
