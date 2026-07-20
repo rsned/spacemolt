@@ -4342,6 +4342,13 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 					// Check for XP changes after processing xp_gained
 					c.checkXPChanges()
 				}
+			case "list", "get", "accept", "deliver", "return", "cancel", "profile", "track", "pay_debt", "quote", "post":
+				// /shipping is action-dispatched; the reply's action is the verb.
+				// Namespace the key so it can't collide with other commands' keys.
+				// (quote/post included so shipper-side reads land somewhere too, even
+				// though Sub-project A ships no quote/post client method yet.)
+				storeKey = "shipping_" + action
+				shouldStore = true
 			}
 		}
 
