@@ -27,7 +27,14 @@ import (
 // added the espionage command, dropped the removed ShipClass price/
 // required_skills fields, and picked up the new additive fields. The
 // pre-v0.473.0 drift called out in the findings doc remains unaudited.
-const BuiltForAPIVersion = "v0.495.1"
+//
+// The v0.495.1 -> v0.531.4 bump (2026-07-19) added the /shipping freight-carrier
+// client (serverapi shipping structs + GameClient methods). The value tracks
+// server_docs/openapi.20260719.json (x-gameserver-version v0.531.4), the openapi
+// snapshot the shipping structs were built from; the server_docs/openapi.json
+// symlink still points at the older v0.501.0 snapshot (a stale-symlink follow-up,
+// not this constant).
+const BuiltForAPIVersion = "v0.531.4"
 
 // SemVer represents a semantic version (Major.Minor.Patch)
 type SemVer struct {
