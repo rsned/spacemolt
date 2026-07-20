@@ -36,6 +36,9 @@ func DefaultSpawn(workerBin, handoffQueuePath string) SpawnFunc {
 		if len(spec.MissionCategories) > 0 {
 			args = append(args, "--mission-categories", strings.Join(spec.MissionCategories, ","))
 		}
+		if spec.EnableFreight {
+			args = append(args, "--enable-freight")
+		}
 		cmd := exec.CommandContext(ctx, workerBin, args...)
 		cmd.Stdout = log.Writer()
 		cmd.Stderr = log.Writer()

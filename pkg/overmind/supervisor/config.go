@@ -17,6 +17,12 @@ type WorkerSpec struct {
 	// beyond the delivery default — e.g. the learning pool's
 	// [delivery, exploration]. Empty leaves the worker's delivery-only default.
 	MissionCategories []string `yaml:"mission_categories,omitempty"`
+	// EnableFreight forwards --enable-freight, opting this worker into the
+	// /shipping carrier path (evaluated co-equally with the mission board).
+	// Default false = freight fully dormant. Canary one worker before any
+	// pool rollout — see the Rollout section of
+	// docs/superpowers/plans/2026-07-20-shipping-carrier-subproject-b.md.
+	EnableFreight bool `yaml:"enable_freight,omitempty"`
 }
 
 type fleetFile struct {

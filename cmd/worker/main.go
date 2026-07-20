@@ -54,6 +54,7 @@ func main() {
 	rescueQueuePath := flag.String("rescue-queue", filepath.Join("data", "overmind", "rescue-queue.json"), "Shared stranded-worker rescue queue file")
 	handoffQueuePath := flag.String("handoff-queue", "", "Shared crafting-brain stock handoff queue file (empty disables handoff fulfillment)")
 	missionCategories := flag.String("mission-categories", "", "Comma-separated mission-board categories for the missions role (empty = delivery only; learning pool: delivery,exploration)")
+	enableFreight := flag.Bool("enable-freight", false, "Opt the missions role into the /shipping carrier path (freight evaluated co-equally with the mission board; default off)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
@@ -314,6 +315,7 @@ func main() {
 					}
 				}
 			}
+			dispatch.EnableFreight = *enableFreight
 			var handoffQueue *handoff.Queue
 			if *handoffQueuePath != "" {
 				handoffQueue = handoff.NewQueue(*handoffQueuePath)

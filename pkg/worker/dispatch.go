@@ -32,6 +32,10 @@ type WorkerDispatch struct {
 	// credentials.json), used by Deliver to resolve a gift recipient's agent
 	// id to its in-game username. Empty -> DefaultAgentsDir ("data/agents").
 	AgentsDir string
+	// EnableFreight opts the missions role into the /shipping carrier path
+	// (freight evaluated co-equally with the mission board). Default false =
+	// the freight code is fully inert.
+	EnableFreight bool
 	// MissionCategories is the mission-board category allowlist for the
 	// missions role (nil/empty -> delivery only; the learning pool adds
 	// "exploration").
@@ -223,8 +227,9 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return Missions(ctx, MissionDeps{
 			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
 			Treasury: d.treasury, FuelPrices: d.Market, State: d.mission,
-			Categories:  d.MissionCategories,
-			SetActivity: d.setActivity,
+			Categories:    d.MissionCategories,
+			EnableFreight: d.EnableFreight,
+			SetActivity:   d.setActivity,
 			// Exploration dock legs double as market-coverage sweeps: full
 			// view_market capture into market.db (haul's recapture pattern)
 			// plus the knowledge-side demand ledger.
