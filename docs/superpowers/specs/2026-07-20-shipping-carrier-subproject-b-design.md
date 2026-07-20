@@ -56,8 +56,8 @@ a 3-hop trip took 56 ticks (~19/hop).
 - **Shipper side** (`quote`/`post`) — deferred.
 - **Haulers** — phase 2, after the mission-runner carrier is validated live.
 - **Stacking** freight with other freight or with same-destination missions — v1 is a
-  standalone freight trip, one contract per run. The flat-100 footprint makes multi-package
-  planning possible in principle; it is still deferred until single-contract freight is proven.
+  standalone freight trip, one contract per run. Deferred, but **explicitly viable and worth
+  building next** (see below).
 - **Auto-`pay_debt`** — explicitly rejected (see Debt policy).
 - **The generalist opportunity selector.** The long-term intent is that no agent is *just* a
   mission-runner or *just* a miner — each agent weighs every path open to it at each juncture,
@@ -65,6 +65,31 @@ a 3-hop trip took 56 ticks (~19/hop).
   to any hold). B does not build that selector. It builds freight as a cleanly-scored candidate
   with an explicit capability precondition, so it drops into that selector unchanged when the
   selector is designed.
+
+## Deferred but viable: multi-package trips for large holds
+
+Because the footprint is a flat 100 rather than a per-contract unknown, the number of packages
+a pilot can carry is computable before any server call: `floor(cargoFree / 100)`. A 100-unit
+hold carries one; a 600-unit hauler carries six. Large-capacity pilots are therefore leaving
+most of their earning capacity idle on a single-contract trip, and the fleet's biggest holds
+are exactly the ones that would benefit most.
+
+This is deferred out of v1 only to keep freight's first live validation simple — not because it
+is hard. It is the natural Sub-project C, and v1 is shaped so it does not have to be unpicked:
+`freightPackageFootprint` is already a named constant rather than an inlined `100`, the
+capability precondition is a capacity comparison rather than a boolean, and `freightCand` is a
+scored candidate that a set-selector can rank rather than a singleton the trip loop assumes.
+
+Three things a stacking design must handle that v1 does not:
+- **Aggregate liability caps.** Carrier tiers bound *total* concurrent exposure, not just single
+  contracts (probationary: ≤5000 single, ≤10000 aggregate). Concurrency is capped by
+  `min(floor(cargoFree/100), liability headroom)`, so the hold is not always the binding
+  constraint.
+- **Per-contract deadlines on a shared route.** Each package has its own `deadline_tick`, so
+  feasibility becomes a route-ordering problem — the accept-then-verify check must hold for
+  *every* contract given the visiting order, not just the next one.
+- **Partial abort.** If one contract in a set becomes infeasible, `return` that one and continue
+  the trip, rather than abandoning the set.
 
 ## Architecture
 
@@ -117,7 +142,9 @@ Fix, mirroring craft:
 1. **Capability precondition — before any server call.**
    `cargoFreeSpace(state) >= freightPackageFootprint` (const `100`). An agent whose current
    ship cannot hold a package never touches `/shipping`. This is the ship-capability gate the
-   generalist selector will eventually own.
+   generalist selector will eventually own. Deliberately written as a capacity comparison, not
+   a boolean: `floor(cargoFree / freightPackageFootprint)` is the concurrent-package count that
+   Sub-project C will act on.
 2. **Debt guard.** `ShippingProfile`. If `DebtBlocksAcceptance`, log `DebtBlockReason` once for
    the pass, surface it in the status line, and skip freight. The agent still runs missions and
    exploration.
@@ -257,7 +284,7 @@ bytes is the only honest guard.
 4. Re-tune `freightTicksPerHop` / `freightDeadlineSlack` from canary data.
 5. Roll to the mission-learn pool.
 
-Haulers remain phase 2.
+Haulers remain phase 2, and multi-package trips for large holds are Sub-project C.
 
 ## Open questions
 
