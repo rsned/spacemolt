@@ -2660,13 +2660,16 @@ func (c *Client) AgentLogs(ctx context.Context, category, severity, message stri
 // injected). The reply is cached under "shipping_<action>" (storeRawJSON);
 // read it with GetRawJSON and unmarshal into the matching serverapi struct.
 func (c *Client) Shipping(ctx context.Context, action string, payload map[string]any) error {
-	if payload == nil {
-		payload = map[string]any{}
+	// Build a fresh outbound map so we never mutate the caller's payload
+	// (injecting "action" into a map the caller reuses would be a footgun).
+	out := make(map[string]any, len(payload)+1)
+	for k, v := range payload {
+		out[k] = v
 	}
-	payload["action"] = action
+	out["action"] = action
 	msg := protocol.Message{
 		Type:      "shipping",
-		Payload:   payload,
+		Payload:   out,
 		Timestamp: time.Now().UnixMilli(),
 	}
 	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))

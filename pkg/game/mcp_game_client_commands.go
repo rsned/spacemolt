@@ -1992,11 +1992,14 @@ func (m *MCPGameClient) AgentLogs(ctx context.Context, category, severity, messa
 // bridge. The reply is cached under "shipping_<action>"; read it with
 // GetRawJSON and unmarshal into the matching serverapi struct.
 func (m *MCPGameClient) Shipping(ctx context.Context, action string, payload map[string]any) error {
-	if payload == nil {
-		payload = map[string]any{}
+	// Build a fresh outbound map so we never mutate the caller's payload
+	// (injecting "action" into a map the caller reuses would be a footgun).
+	out := make(map[string]any, len(payload)+1)
+	for k, v := range payload {
+		out[k] = v
 	}
-	payload["action"] = action
-	result, err := m.callTool(ctx, "shipping", payload)
+	out["action"] = action
+	result, err := m.callTool(ctx, "shipping", out)
 	if err != nil {
 		return err
 	}
