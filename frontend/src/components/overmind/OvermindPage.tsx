@@ -23,10 +23,17 @@ export function OvermindPage() {
   const agents = useMemo(() => [...stream.agents.values()], [stream.agents]);
 
   // Escape returns to the galaxy; clicking empty space never does.
+  // Exiting must also clear the hover highlight: Escape doesn't move the
+  // mouse, so SystemView's mouseleave never fires and the rail's cyan
+  // rings would otherwise persist into the galaxy view.
+  const closeSystemView = () => {
+    setView({ kind: 'galaxy' });
+    setHighlightedIds(new Set());
+  };
   useEffect(() => {
     if (view.kind !== 'system') return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setView({ kind: 'galaxy' });
+      if (e.key === 'Escape') closeSystemView();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -113,7 +120,7 @@ export function OvermindPage() {
                 selectedId={selectedAgent}
                 onAgentClick={setSelectedAgent}
                 onHoverAgents={(ids) => setHighlightedIds(new Set(ids))}
-                onClose={() => setView({ kind: 'galaxy' })}
+                onClose={closeSystemView}
               />
             )}
           </div>
