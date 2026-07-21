@@ -8,6 +8,17 @@ const ZOOM_MIN = 1;
 const ZOOM_MAX = 6;
 const DRAG_THRESHOLD = 5;
 
+const GLIDE_MS = 1500;   // intra-system POI change, arrivals
+const DEPART_MS = 800;   // sprint to the jump gate
+
+interface DotAnim {
+  from: { x: number; y: number };  // POI-space
+  to: { x: number; y: number };    // POI-space
+  started: number;
+  duration: number;
+  ghost?: { fleet: string };       // departure: agent no longer in `agents`
+}
+
 /** Planet fill by KB class; anything unknown gets the neutral gray. */
 const CLASS_COLORS: Record<string, string> = {
   terran: '#4ade80', arid: '#fbbf24', scorched: '#f87171', tundra: '#93c5fd',
@@ -23,7 +34,7 @@ function radius(p: { x: number; y: number }): number {
   return Math.hypot(p.x, p.y);
 }
 
-export function SystemView({ system, systems, agents, selectedId, onAgentClick, onHoverAgents, onClose }: {
+export function SystemView({ system, systems, agents, moves, selectedId, onAgentClick, onHoverAgents, onClose }: {
   system: GalaxySystem;
   systems: GalaxySystem[];
   agents: AgentState[];
@@ -54,7 +65,10 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
   }, []);
 
   // Reset viewport when switching systems.
-  useEffect(() => { setZoom(ZOOM_MIN); setPan({ x: 0, y: 0 }); }, [system.id]);
+  useEffect(() => {
+    setZoom(ZOOM_MIN); setPan({ x: 0, y: 0 });
+    anims.current.clear(); lastPoi.current.clear();
+  }, [system.id]);
 
   const maxPoiR = useMemo(
     () => (pois ?? []).reduce((m, p) => Math.max(m, radius(p)), 0) || 1,
@@ -90,6 +104,70 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
     for (const e of placedMap.values()) e.list.sort((x, y) => x.agent_id.localeCompare(y.agent_id));
     return { placed: [...placedMap.values()], unplaced: un };
   }, [agents, poiIndex]);
+
+  const anims = useRef(new Map<string, DotAnim>());
+  const lastPoi = useRef(new Map<string, string>());  // agentId -> poi name last seen
+  const [, force] = useState(0);
+
+  const gateFor = (systemId: string) =>
+    gates.find((g) => g.systemId === systemId) ?? { x: 0, y: 0 };
+  const poiPos = (poiName: string) => {
+    const p = poiIndex.get((poiName ?? '').toLowerCase());
+    return p ? { x: p.x, y: p.y } : { x: 0, y: 0 };
+  };
+
+  // Departures + arrivals from the latest delta's moves.
+  useEffect(() => {
+    const now = performance.now();
+    for (const m of moves) {
+      if (m.from_system_id === system.id && m.agent.system_id !== system.id) {
+        anims.current.set(m.agent.agent_id, {
+          from: poiPos(lastPoi.current.get(m.agent.agent_id) ?? ''),
+          to: gateFor(m.agent.system_id),
+          started: now, duration: DEPART_MS,
+          ghost: { fleet: m.agent.fleet },
+        });
+        lastPoi.current.delete(m.agent.agent_id);
+      } else if (m.agent.system_id === system.id) {
+        anims.current.set(m.agent.agent_id, {
+          from: gateFor(m.from_system_id),
+          to: poiPos(m.agent.poi),
+          started: now, duration: GLIDE_MS,
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moves]);
+
+  // Intra-system POI changes: diff against last seen poi per agent.
+  useEffect(() => {
+    const now = performance.now();
+    for (const a of agents) {
+      const prev = lastPoi.current.get(a.agent_id);
+      if (prev !== undefined && prev !== a.poi && !anims.current.has(a.agent_id)) {
+        anims.current.set(a.agent_id, {
+          from: poiPos(prev), to: poiPos(a.poi),
+          started: now, duration: GLIDE_MS,
+        });
+      }
+      lastPoi.current.set(a.agent_id, a.poi);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agents]);
+
+  // Tick re-renders while any animation is live; expire finished ones.
+  useEffect(() => {
+    if (anims.current.size === 0) return;
+    const iv = setInterval(() => {
+      const t = performance.now();
+      for (const [id, a] of anims.current) {
+        if (t - a.started > a.duration + 300) anims.current.delete(id); // +300ms ghost fade
+      }
+      force((n) => n + 1);
+      if (anims.current.size === 0) clearInterval(iv);
+    }, 50);
+    return () => clearInterval(iv);
+  });
 
   // Fit gateRadius inside the viewport with padding; zoom multiplies.
   const baseScale = (Math.min(dims.width, dims.height) / 2) * 0.85 / gateRadius;
@@ -356,7 +434,15 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
               <g key={`agents-${poi.id}`}>
                 {list.map((a, i) => {
                   const { dx, dy } = fanOffset(i, list.length, 12 * ms);
-                  const x = base.x + dx, y = base.y + dy;
+                  const anim = anims.current.get(a.agent_id);
+                  let x = base.x + dx, y = base.y + dy;
+                  if (anim && !anim.ghost) {
+                    const t = Math.min(1, (performance.now() - anim.started) / anim.duration);
+                    const from = T(anim.from.x, anim.from.y);
+                    const to = { x: base.x + dx, y: base.y + dy };
+                    x = from.x + (to.x - from.x) * t;
+                    y = from.y + (to.y - from.y) * t;
+                  }
                   const color = FLEETS[a.fleet] ?? '#fff';
                   const isSel = selectedId === a.agent_id;
                   const isHov = hovered?.kind === 'dot' && hovered.agentId === a.agent_id;
@@ -369,6 +455,23 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
                     </g>
                   );
                 })}
+              </g>
+            );
+          })}
+
+          {/* Departure ghosts: sprint to the gate, then fade. */}
+          {[...anims.current.entries()].filter(([, a]) => a.ghost).map(([id, a]) => {
+            const t = Math.min(1, (performance.now() - a.started) / a.duration);
+            const from = T(a.from.x, a.from.y);
+            const to = T(a.to.x, a.to.y);
+            const x = from.x + (to.x - from.x) * t;
+            const y = from.y + (to.y - from.y) * t;
+            const fade = t >= 1 ? Math.max(0, 1 - (performance.now() - a.started - a.duration) / 300) : 1;
+            return (
+              <g key={`ghost-${id}`} opacity={fade}>
+                <line x1={from.x} y1={from.y} x2={x} y2={y}
+                  stroke={FLEETS[a.ghost!.fleet] ?? '#fff'} strokeWidth={1} opacity={0.4} />
+                <circle cx={x} cy={y} r={4} fill={FLEETS[a.ghost!.fleet] ?? '#fff'} />
               </g>
             );
           })}
