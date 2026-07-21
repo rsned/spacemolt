@@ -3,6 +3,8 @@ import { useGalaxyMap, type AgentLocation, type GalaxySystem } from '../../lib/u
 
 interface GalaxyMapProps {
   systems?: GalaxySystem[];
+  overlay?: (project: (x: number, y: number) => { x: number; y: number }) => React.ReactNode;
+  onSystemClick?: (system: GalaxySystem) => void;
 }
 
 // ---------- Territory blob constants ----------
@@ -32,7 +34,7 @@ const STRONGHOLD_COLOR = '#FF0000';
 // Muted gray for systems that have never been visited (last_visited_tick === 0)
 const UNEXPLORED_COLOR = '#4B5563';
 
-export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) => {
+export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems, overlay, onSystemClick }) => {
   const galaxyData = useGalaxyMap();
 
   // Zoom state
@@ -44,12 +46,14 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
   const dragStart = useRef({ x: 0, y: 0 });
   const panStart = useRef({ x: 0, y: 0 });
 
-  // Use fetched data or fall back to prop data
+  // Prefer caller-supplied systems (e.g. Overmind's own useGalaxyMap('/api/overmind')
+  // fetch); only fall back to this component's internal /api/systems fetch when
+  // no systems prop is given (the default App.tsx galaxy view).
   const systems = useMemo(() => {
-    if (galaxyData?.systems) {
-      return galaxyData.systems;
+    if (propSystems) {
+      return propSystems;
     }
-    return propSystems || [];
+    return galaxyData?.systems || [];
   }, [galaxyData, propSystems]);
 
   const agentLocations = useMemo(() => {
@@ -441,8 +445,9 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
                 stroke={color}
                 strokeWidth="1"
                 opacity="0.9"
+                onClick={() => onSystemClick?.(system)}
                 className="cursor-pointer hover:scale-125 transition-transform"
-                style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
+                style={{ transformBox: 'fill-box', transformOrigin: 'center', cursor: onSystemClick ? 'pointer' : undefined }}
               />
 
               {/* System name */}
@@ -496,6 +501,9 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems }) =>
             </g>
           );
         })}
+
+        {/* Caller-supplied overlay (e.g. Overmind live fleet layer) — drawn last so it's on top. */}
+        {overlay?.(transform)}
       </svg>
 
       <div className="absolute bottom-4 left-4 bg-spacemolt-panel/95 backdrop-blur-sm p-4 rounded-lg border border-spacemolt-border shadow-lg text-xs">
