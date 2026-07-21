@@ -156,6 +156,10 @@ export function SystemView({ system, systems, agents, moves, selectedId, onAgent
   }, [agents]);
 
   // Tick re-renders while any animation is live; expire finished ones.
+  // Keyed on the two effects above that register anims (moves/agents) — a
+  // no-deps version would be torn down by every render, and a drag-pan
+  // render burst (setPan per mousemove) then starves the 50ms tick so
+  // expired ghosts linger in anims until the drag ends.
   useEffect(() => {
     if (anims.current.size === 0) return;
     const iv = setInterval(() => {
@@ -167,7 +171,8 @@ export function SystemView({ system, systems, agents, moves, selectedId, onAgent
       if (anims.current.size === 0) clearInterval(iv);
     }, 50);
     return () => clearInterval(iv);
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moves, agents]);
 
   // Fit gateRadius inside the viewport with padding; zoom multiplies.
   const baseScale = (Math.min(dims.width, dims.height) / 2) * 0.85 / gateRadius;
