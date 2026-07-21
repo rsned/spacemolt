@@ -117,10 +117,19 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// Insert or update system
+	// Insert or update system.
+	//
+	// empire is deliberately NOT part of the ON CONFLICT UPDATE SET, and a
+	// first-seen row is always inserted with empire = '' regardless of what
+	// the caller passed in. get_system's "empire" field means regional space
+	// affiliation, not ownership, but this column is the ownership column
+	// (get_map's "empire" field, ~70 systems, omitempty). Writing the
+	// regional value here would silently corrupt ownership data on every
+	// visit. get_map data — the sole authority for ownership — is written by
+	// UpsertSystemFromMap instead.
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO systems (id, name, description, position_x, position_y, police_level, security_status, empire, is_stronghold, last_updated_tick, last_visited_tick)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
 			description = excluded.description,
@@ -128,7 +137,6 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 			position_y = CASE WHEN excluded.position_y != 0 THEN excluded.position_y ELSE systems.position_y END,
 			police_level = excluded.police_level,
 			security_status = excluded.security_status,
-			empire = excluded.empire,
 			-- is_stronghold is sticky: a get_system scan omits this field (it
 			-- only appears in get_map), so it decodes to false on every visit.
 			-- A plain overwrite would erase a known stronghold each time the
@@ -138,7 +146,7 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 			last_updated_tick = excluded.last_updated_tick,
 			last_visited_tick = CASE WHEN excluded.last_visited_tick > 0 THEN excluded.last_visited_tick ELSE systems.last_visited_tick END
 	`, sys.ID, sys.Name, sys.Description, sys.Position.X, sys.Position.Y,
-		sys.PoliceLevel, sys.SecurityStatus, sys.Empire, sys.IsStronghold, sys.LastUpdatedTick, sys.LastVisitedTick)
+		sys.PoliceLevel, sys.SecurityStatus, sys.IsStronghold, sys.LastUpdatedTick, sys.LastVisitedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert system: %w", err)
 	}
@@ -164,8 +172,14 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 // UpsertSystemFromMap inserts or updates a system using map data only.
 // Unlike RememberSystem, this preserves richer data (police_level, description,
 // last_updated_tick) that may have been collected by explorers. It only updates
-// fields that the map data provides: name, position, empire (when non-empty),
-// is_stronghold, and connections.
+// fields that the map data provides: name, position, empire, is_stronghold, and
+// connections.
+//
+// empire is authoritatively overwritten (not merged) here: get_map is the
+// sole source of ownership data, and callers (see cmd/data/import-map-data)
+// upsert every system returned by a single get_map fetch, so a system that
+// has been de-owned since the last import arrives with empire = "" and must
+// have that clear it, not preserve a stale owner.
 func (kb *SQLiteKB) UpsertSystemFromMap(ctx context.Context, data MapSystemData) error {
 	tx, err := kb.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -180,7 +194,7 @@ func (kb *SQLiteKB) UpsertSystemFromMap(ctx context.Context, data MapSystemData)
 			name = excluded.name,
 			position_x = excluded.position_x,
 			position_y = excluded.position_y,
-			empire = CASE WHEN excluded.empire <> '' THEN excluded.empire ELSE systems.empire END,
+			empire = excluded.empire,
 			-- Sticky, matching RememberSystem: never let a source that lacks the
 			-- flag clear a known stronghold. MAX is NULL-safe.
 			is_stronghold = MAX(systems.is_stronghold, excluded.is_stronghold)

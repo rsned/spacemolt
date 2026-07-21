@@ -3472,6 +3472,19 @@ func (c *Client) parseMapData(payload map[string]any) {
 func (c *Client) mergeSystemDataLocked(ext serverapi.SystemData) {
 	sys := SystemDataFromAPI(ext)
 
+	// get_system's "empire" field means regional space affiliation, and the
+	// server omits it entirely for many systems. A bare non-empty guard lets
+	// a previous system's empire value bleed onto the next system once we
+	// travel/jump, since the field is then simply never touched again.
+	// Determine whether this payload describes a different system than the
+	// one currently held BEFORE System.ID is overwritten below, so we know
+	// whether to reset Empire outright instead of merging it.
+	incomingID := sys.ID
+	if incomingID == "" {
+		incomingID = sys.Name
+	}
+	sameSystem := incomingID == "" || incomingID == c.state.System.ID
+
 	if sys.ID != "" {
 		c.state.System.ID = sys.ID
 		c.debugLogger.Printf("Set System.ID = '%s' from id field", sys.ID)
@@ -3489,7 +3502,16 @@ func (c *Client) mergeSystemDataLocked(ext serverapi.SystemData) {
 	if sys.Description != "" {
 		c.state.System.Description = sys.Description
 	}
-	if sys.Empire != "" {
+	if sameSystem {
+		// Partial update for the same system: don't let an omitted empire
+		// field (common — get_system frequently omits it) clear a value we
+		// already know.
+		if sys.Empire != "" {
+			c.state.System.Empire = sys.Empire
+		}
+	} else {
+		// A different system than what we had: the old empire never applies
+		// here, so assign unconditionally, including the empty case.
 		c.state.System.Empire = sys.Empire
 	}
 	c.state.System.PoliceLevel = sys.PoliceLevel

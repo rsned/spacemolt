@@ -728,3 +728,82 @@ func TestParseActionResult_CloakTogglesState(t *testing.T) {
 		t.Error("expected IsCloaked=false after cloak disengage")
 	}
 }
+
+// TestMergeSystemData_EmpireDoesNotBleedAcrossSystems guards against
+// get_system's "empire" field (regional space affiliation) persisting on
+// c.state.System.Empire after the ship moves to a system that omits it.
+// Prior to the fix, the non-empty guard on line ~3492 never reset Empire
+// between systems, so a system with a real empire value followed by one
+// that omits the field (or belongs to a different, unset region) would
+// keep showing the previous system's empire.
+func TestMergeSystemData_EmpireDoesNotBleedAcrossSystems(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.SetDebugLogging(false)
+
+	// First system: has an empire value.
+	client.handleResponse(protocol.Response{
+		Type: protocol.TypeOK,
+		Payload: map[string]any{
+			"system": map[string]any{
+				"id":     "sys-a",
+				"name":   "Alpha",
+				"empire": "crimson",
+			},
+		},
+	})
+	if got := client.GetState().System.Empire; got != "crimson" {
+		t.Fatalf("after first system, Empire = %q, want %q", got, "crimson")
+	}
+
+	// Ship moves to a different system that omits the empire field entirely.
+	client.handleResponse(protocol.Response{
+		Type: protocol.TypeOK,
+		Payload: map[string]any{
+			"system": map[string]any{
+				"id":   "sys-b",
+				"name": "Beta",
+			},
+		},
+	})
+	if got := client.GetState().System.Empire; got != "" {
+		t.Errorf("after moving to a different system omitting empire, Empire = %q, want \"\" (must not bleed from previous system)", got)
+	}
+}
+
+// TestMergeSystemData_EmpirePreservedOnSameSystemPartialUpdate ensures the
+// fix above did not regress the original purpose of the non-empty guard:
+// a partial get_system update for the SAME system that happens to omit the
+// empire field (a common shape) must not clear an already-known value.
+func TestMergeSystemData_EmpirePreservedOnSameSystemPartialUpdate(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.SetDebugLogging(false)
+
+	client.handleResponse(protocol.Response{
+		Type: protocol.TypeOK,
+		Payload: map[string]any{
+			"system": map[string]any{
+				"id":     "sys-a",
+				"name":   "Alpha",
+				"empire": "crimson",
+			},
+		},
+	})
+	if got := client.GetState().System.Empire; got != "crimson" {
+		t.Fatalf("after first update, Empire = %q, want %q", got, "crimson")
+	}
+
+	// A second update for the SAME system, omitting empire (e.g. a partial
+	// refresh) — must preserve the previously known value.
+	client.handleResponse(protocol.Response{
+		Type: protocol.TypeOK,
+		Payload: map[string]any{
+			"system": map[string]any{
+				"id":   "sys-a",
+				"name": "Alpha",
+			},
+		},
+	})
+	if got := client.GetState().System.Empire; got != "crimson" {
+		t.Errorf("after same-system partial update omitting empire, Empire = %q, want %q (preserved)", got, "crimson")
+	}
+}

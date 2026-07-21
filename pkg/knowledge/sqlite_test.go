@@ -104,6 +104,61 @@ func TestSQLiteKB_RememberSystem_StrongholdSticky(t *testing.T) {
 	}
 }
 
+// TestSQLiteKB_RememberSystem_DoesNotWriteEmpire guards the root-cause fix
+// for KB empire ownership rot: get_system's "empire" field means regional
+// space affiliation, while the systems.empire column means ownership
+// (populated only by get_map / UpsertSystemFromMap). RememberSystem — fed
+// from get_system captures — must never write the empire column, on either
+// the first-seen INSERT or a subsequent UPDATE, so a regional value can
+// never masquerade as an ownership value.
+func TestSQLiteKB_RememberSystem_DoesNotWriteEmpire(t *testing.T) {
+	t.Parallel()
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+
+	ctx := context.Background()
+
+	// Seed ownership via the map path, as would happen in production.
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "sys-own", Name: "Owned System", Empire: "crimson",
+	}); err != nil {
+		t.Fatalf("UpsertSystemFromMap (seed): %v", err)
+	}
+
+	// A get_system visit reports a *different* value in the empire field
+	// (regional affiliation, not ownership) via RememberSystem.
+	if err := kb.RememberSystem(ctx, System{
+		ID: "sys-own", Name: "Owned System", Empire: "nebula",
+		LastUpdatedTick: 50, LastVisitedTick: 50,
+	}); err != nil {
+		t.Fatalf("RememberSystem: %v", err)
+	}
+
+	got, err := kb.GetSystem(ctx, "sys-own")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem: %v", err)
+	}
+	if got.Empire != "crimson" {
+		t.Errorf("Empire = %q after RememberSystem, want %q (RememberSystem must not touch ownership)", got.Empire, "crimson")
+	}
+
+	// Same check on a brand-new row: a first-seen system captured only via
+	// get_system must not seed the ownership column with the regional value.
+	if err := kb.RememberSystem(ctx, System{
+		ID: "sys-fresh", Name: "Fresh System", Empire: "voidborn",
+		LastUpdatedTick: 10, LastVisitedTick: 10,
+	}); err != nil {
+		t.Fatalf("RememberSystem (fresh): %v", err)
+	}
+	gotFresh, err := kb.GetSystem(ctx, "sys-fresh")
+	if err != nil || gotFresh == nil {
+		t.Fatalf("GetSystem (fresh): %v", err)
+	}
+	if gotFresh.Empire != "" {
+		t.Errorf("Empire = %q for a system first seen via RememberSystem, want \"\" (no ownership knowledge)", gotFresh.Empire)
+	}
+}
+
 func TestSQLiteKB_GetSystem_NotFound(t *testing.T) {
 	t.Parallel()
 	kb := newTestSQLiteKB(t)
@@ -903,6 +958,48 @@ func TestSQLiteKB_UpsertSystemFromMap_PreservesLastVisitedTick(t *testing.T) {
 	}
 	if !got.Visited() {
 		t.Error("Visited() = false after map re-import, want true")
+	}
+}
+
+// TestSQLiteKB_UpsertSystemFromMap_SetsAndClearsEmpire pins get_map (via
+// UpsertSystemFromMap) as the sole authority for systems.empire (ownership).
+// A single get_map fetch enumerates every system, including ones that have
+// been de-owned since the last import (empire omitted -> ""), and
+// cmd/data/import-map-data upserts every system in that response — so, unlike
+// the sticky is_stronghold field, empire must be an authoritative overwrite:
+// re-importing with an empty empire must clear a previously known owner.
+func TestSQLiteKB_UpsertSystemFromMap_SetsAndClearsEmpire(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "sys-owned", Name: "Owned", Empire: "solarian",
+	}); err != nil {
+		t.Fatalf("UpsertSystemFromMap (set): %v", err)
+	}
+	got, err := kb.GetSystem(ctx, "sys-owned")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem (set): %v", err)
+	}
+	if got.Empire != "solarian" {
+		t.Fatalf("Empire = %q, want %q", got.Empire, "solarian")
+	}
+
+	// Re-import from a fresh get_map fetch where this system is no longer
+	// owned (empire omitted -> decodes to "").
+	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+		ID: "sys-owned", Name: "Owned",
+	}); err != nil {
+		t.Fatalf("UpsertSystemFromMap (clear): %v", err)
+	}
+	got, err = kb.GetSystem(ctx, "sys-owned")
+	if err != nil || got == nil {
+		t.Fatalf("GetSystem (clear): %v", err)
+	}
+	if got.Empire != "" {
+		t.Errorf("Empire = %q after re-import with no owner, want \"\" (map import must clear stale ownership)", got.Empire)
 	}
 }
 
