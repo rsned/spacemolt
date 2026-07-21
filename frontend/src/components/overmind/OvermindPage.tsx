@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useFleetStream } from '../../lib/useFleetStream';
 import { AccountingStrip } from './AccountingStrip';
 import { FleetRail } from './FleetRail';
@@ -6,6 +6,11 @@ import { FleetRail } from './FleetRail';
 export function OvermindPage() {
   const stream = useFleetStream();
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  // stream.agents (a Map) gets a fresh identity on every snapshot/delta event
+  // (see useFleetStream.ts), so this recomputes exactly when the data changes —
+  // not on every OvermindPage render (e.g. selection clicks) — preserving
+  // FleetRail's own useMemo/AgentCard memoization downstream.
+  const agents = useMemo(() => [...stream.agents.values()], [stream.agents]);
   return (
     <div className="h-full flex flex-col bg-[#0a0a08] text-[#d8d3c0]">
       <AccountingStrip
@@ -21,7 +26,7 @@ export function OvermindPage() {
         </div>
         <div className="w-80 border-l border-[#2a2618] overflow-y-auto" id="ov-rail-slot">
           <FleetRail
-            agents={[...stream.agents.values()]}
+            agents={agents}
             offMap={stream.offMap}
             staleFleets={stream.staleFleets}
             selectedId={selectedAgent}

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { AgentState } from '../../lib/useFleetStream';
 
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
@@ -9,7 +10,19 @@ function Bar({ value, max, color }: { value: number; max: number; color: string 
   );
 }
 
-export function AgentCard({ agent, color, selected, stale, onClick }: {
+/** Terse relative age (e.g. "3s", "2m", "1h") for the seen-age footer. */
+function seenAge(lastSeen: string): string {
+  const ms = Date.now() - new Date(lastSeen).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return '0s';
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  return `${h}h`;
+}
+
+export const AgentCard = memo(function AgentCard({ agent, color, selected, stale, onClick }: {
   agent: AgentState; color: string; selected: boolean; stale: boolean; onClick: () => void;
 }) {
   const unhealthy = !agent.healthy || !agent.seen;
@@ -39,7 +52,7 @@ export function AgentCard({ agent, color, selected, stale, onClick }: {
         {Math.round(agent.cargo_used)}/{Math.round(agent.cargo_capacity)}
       </div>
       {agent.activity && <div className="text-[#d4a017] truncate">► {agent.activity}</div>}
-      <div className="text-[#8a8570]">restarts {agent.restarts}</div>
+      <div className="text-[#8a8570]">restarts {agent.restarts} · seen {seenAge(agent.last_seen)}</div>
     </button>
   );
-}
+});
