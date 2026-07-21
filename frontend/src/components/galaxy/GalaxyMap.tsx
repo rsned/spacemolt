@@ -187,6 +187,29 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems, over
   // Calculate zoom level display (1x to 5x)
   const zoomLevel = Math.round((1 + (zoom - ZOOM_MIN) * 4) * 10) / 10;
 
+  // Deduplicated undirected edge list. The systems API lists each connection
+  // twice per system (e.g. adhafera.connections = ['harborlight', 'harborlight', ...]),
+  // which produced duplicate React keys on the <line> elements below. Duplicate
+  // keys break React's reconciliation: one sibling gets orphaned and never
+  // receives updated x1/y1/x2/y2 on the next render, leaving a stale line frozen
+  // at its previous zoom/pan position — the "ghosting" artifact seen while
+  // zooming. Deduping here (independent of zoom/pan) guarantees unique keys.
+  const edges = useMemo(() => {
+    const seen = new Set<string>();
+    const list: { key: string; fromId: string; toId: string }[] = [];
+    for (const system of systems) {
+      for (const connId of system.connections) {
+        if (!systemMap.has(connId) || system.id === connId) continue;
+        const [a, b] = system.id <= connId ? [system.id, connId] : [connId, system.id];
+        const key = `${a}-${b}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        list.push({ key, fromId: a, toId: b });
+      }
+    }
+    return list;
+  }, [systems, systemMap]);
+
   // Group systems by empire for territory rendering (memoized on systems data)
   const empireSystemGroups = useMemo(() => {
     const groups = new Map<string, GalaxySystem[]>();
@@ -362,31 +385,27 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems, over
           );
         })}
 
-        {/* Connections */}
-        {systems.map((system) => {
-          const from = transform(system.position.x, system.position.y);
-          return system.connections.map((connId) => {
-            const toSystem = systemMap.get(connId);
-            if (!toSystem) return null;
-            const to = transform(toSystem.position.x, toSystem.position.y);
+        {/* Connections — deduplicated edge list, see `edges` above */}
+        {edges.map((edge) => {
+          const fromSystem = systemMap.get(edge.fromId);
+          const toSystem = systemMap.get(edge.toId);
+          if (!fromSystem || !toSystem) return null;
+          const from = transform(fromSystem.position.x, fromSystem.position.y);
+          const to = transform(toSystem.position.x, toSystem.position.y);
 
-            // Only draw each connection once (from lower ID to higher ID)
-            if (system.id > connId) return null;
-
-            return (
-              <line
-                key={`${system.id}-${connId}`}
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
-                stroke="#67e8f9"
-                strokeWidth="1"
-                opacity="0.6"
-                strokeDasharray="none"
-              />
-            );
-          });
+          return (
+            <line
+              key={edge.key}
+              x1={from.x}
+              y1={from.y}
+              x2={to.x}
+              y2={to.y}
+              stroke="#67e8f9"
+              strokeWidth="1"
+              opacity="0.6"
+              strokeDasharray="none"
+            />
+          );
         })}
 
         {/* Systems */}
