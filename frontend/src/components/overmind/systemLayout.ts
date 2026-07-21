@@ -31,7 +31,8 @@ export function computeGates(current: GalaxySystem, all: GalaxySystem[], gateRad
 }
 
 /** Deterministic fan placement so co-located agent dots stay individually
- * hoverable; mirrors FleetOverlay's orbit() but with a larger radius. */
+ * hoverable. Unlike FleetOverlay's orbit(), a lone dot is still offset
+ * (diagonally by r) so it sits beside its POI instead of covering the icon. */
 export function fanOffset(index: number, count: number, r: number): { dx: number; dy: number } {
   if (count <= 1) return { dx: r, dy: r };
   const angle = (2 * Math.PI * index) / count;
