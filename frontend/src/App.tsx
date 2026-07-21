@@ -16,6 +16,7 @@ import { StoragePanel } from './components/station/StoragePanel';
 import { ConnectionPanel } from './components/layout/ConnectionPanel';
 import { TeamMapView } from './components/team/TeamMapView';
 import { ThoughtEnginePage } from './components/ThoughtEnginePage';
+import { OvermindPage } from './components/overmind/OvermindPage';
 import { useObserver } from './lib/useObserver';
 import { useSystemMap } from './lib/useSystemMap';
 import { useThoughtEngine } from './lib/useThoughtEngine';
@@ -24,7 +25,7 @@ import {
   mockRecipes,
 } from './lib/mockData';
 
-type ViewType = 'hud' | 'galaxy' | 'system' | 'station' | 'market' | 'workshop' | 'shipyard' | 'missions' | 'cloning' | 'insurance' | 'storage' | 'team' | 'thinking';
+type ViewType = 'hud' | 'galaxy' | 'system' | 'station' | 'market' | 'workshop' | 'shipyard' | 'missions' | 'cloning' | 'insurance' | 'storage' | 'team' | 'thinking' | 'overmind';
 
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
 
@@ -141,6 +142,7 @@ function App() {
               { id: 'station' as ViewType, label: 'Station' },
               { id: 'team' as ViewType, label: 'Team' },
               { id: 'thinking' as ViewType, label: 'Thinking' },
+              { id: 'overmind' as ViewType, label: 'Overmind' },
             ].map((view) => (
               <button
                 key={view.id}
@@ -383,6 +385,12 @@ function App() {
             thoughtEngine={thoughtEngine}
             onAgentChange={setThoughtAgentId}
           />
+        )}
+
+        {activeView === 'overmind' && (
+          <div className="h-[calc(100vh-120px)]">
+            <OvermindPage />
+          </div>
         )}
 
         {activeView === 'storage' && (

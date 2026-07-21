@@ -1,0 +1,43 @@
+import type { Accounting } from '../../lib/useFleetStream';
+
+function cr(n: number): string {
+  return Math.round(n).toLocaleString();
+}
+
+function Stat({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+  return (
+    <div className="px-4 border-r border-[#2a2618] last:border-r-0">
+      <div className="text-[10px] uppercase tracking-widest text-[#8a8570]">{label}</div>
+      <div className={`font-mono text-lg ${warn ? 'text-red-400' : 'text-[#d4a017]'}`}>{value}</div>
+    </div>
+  );
+}
+
+export function AccountingStrip({ accounting, agentCount, staleFleets, connected }: {
+  accounting: Accounting | null;
+  agentCount: number;
+  staleFleets: string[];
+  connected: boolean;
+}) {
+  const a = accounting;
+  return (
+    <div className="flex items-center bg-[#11100c] border-b border-[#2a2618] py-2">
+      <div className="px-4 text-[#d4a017] font-bold tracking-widest text-sm">FLEET ACCOUNTING</div>
+      <Stat label="credits" value={a ? `₡ ${cr(a.total_credits)}` : '—'} />
+      <Stat label="agents" value={a ? `${a.healthy}/${a.agents} healthy` : `${agentCount}`}
+        warn={!!a && a.healthy < a.agents} />
+      <Stat label="earn/hr (24h)" value={a ? cr(a.combined_per_hour) : '—'} />
+      <Stat label="haul/hr" value={a ? cr(a.haul.per_hour) : '—'} />
+      <Stat label="freight/hr" value={a ? cr(a.freight.per_hour) : '—'} />
+      <Stat label="missions/hr" value={a ? cr(a.missions.per_hour) : '—'} />
+      <Stat label="restarts" value={a ? `${a.restarts}` : '—'} warn={!!a && a.restarts > 0} />
+      <div className="flex-1" />
+      {staleFleets.length > 0 && (
+        <div className="px-3 text-xs text-amber-500">stale: {staleFleets.join(' ')}</div>
+      )}
+      <div className={`px-4 text-xs ${connected ? 'text-emerald-500' : 'text-red-500'}`}>
+        {connected ? '● live' : '○ reconnecting'}
+      </div>
+    </div>
+  );
+}
