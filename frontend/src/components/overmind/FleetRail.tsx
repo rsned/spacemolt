@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { FLEETS, type AgentState } from '../../lib/useFleetStream';
 import { AgentCard } from './AgentCard';
 
-export function FleetRail({ agents, offMap, staleFleets, selectedId, onSelect }: {
+export function FleetRail({ agents, offMap, staleFleets, selectedId, onSelect, highlightedIds }: {
   agents: AgentState[]; offMap: AgentState[]; staleFleets: string[];
   selectedId: string | null; onSelect: (id: string) => void;
+  highlightedIds?: ReadonlySet<string>;
 }) {
   const [filter, setFilter] = useState('');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -55,6 +56,7 @@ export function FleetRail({ agents, offMap, staleFleets, selectedId, onSelect }:
             {!isCollapsed && list.map((a) => (
               <AgentCard key={a.agent_id} agent={a} color={color}
                 selected={selectedId === a.agent_id} stale={stale.has(fleet)}
+                highlighted={highlightedIds?.has(a.agent_id) ?? false}
                 onClick={() => onSelect(a.agent_id)} />
             ))}
           </div>

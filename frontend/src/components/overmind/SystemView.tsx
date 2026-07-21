@@ -103,7 +103,7 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
 
   return (
     <div ref={containerRef} className="absolute inset-0 flex flex-col bg-[#0a0a08]">
-      {/* Header strip — absorbs the retired SystemPanel's info. */}
+      {/* Header strip — absorbs the retired system info panel's content. */}
       <div className="flex items-center gap-4 px-3 py-1.5 border-b border-[#2a2618] bg-[#11100c] text-xs">
         <span className="text-[#d4a017] font-bold tracking-widest uppercase text-sm">{system.name}</span>
         <span className="text-[#8a8570] uppercase tracking-widest">{system.empire || 'neutral'}</span>

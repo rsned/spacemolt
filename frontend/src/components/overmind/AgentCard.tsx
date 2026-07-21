@@ -22,8 +22,9 @@ function seenAge(lastSeen: string): string {
   return `${h}h`;
 }
 
-export const AgentCard = memo(function AgentCard({ agent, color, selected, stale, onClick }: {
-  agent: AgentState; color: string; selected: boolean; stale: boolean; onClick: () => void;
+export const AgentCard = memo(function AgentCard({ agent, color, selected, stale, highlighted = false, onClick }: {
+  agent: AgentState; color: string; selected: boolean; stale: boolean;
+  highlighted?: boolean; onClick: () => void;
 }) {
   const unhealthy = !agent.healthy || !agent.seen;
   return (
@@ -31,7 +32,8 @@ export const AgentCard = memo(function AgentCard({ agent, color, selected, stale
       onClick={onClick}
       className={`w-full text-left mb-2 p-2 border rounded-sm bg-[#11100c] text-xs
         ${selected ? 'border-[#d4a017]' : unhealthy ? 'border-red-700' : 'border-[#2a2618]'}
-        ${stale ? 'opacity-50' : ''}`}
+        ${stale ? 'opacity-50' : ''}
+        ${highlighted ? 'ring-1 ring-[#22d3ee]' : ''}`}
     >
       <div className="flex items-center justify-between border-b border-[#2a2618] pb-1 mb-1">
         <span className="font-bold" style={{ color }}>{agent.agent_id}</span>
