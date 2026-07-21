@@ -23,20 +23,28 @@ export interface GalaxyMapData {
   agentLocations: AgentLocation[];
 }
 
-export function useGalaxyMap(): GalaxyMapData | null {
+export function useGalaxyMap(basePath = ''): GalaxyMapData | null {
   const [data, setData] = useState<GalaxyMapData | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
+    const systemsURL = basePath ? `${basePath}/systems` : '/api/systems';
+
     // Fetch all systems
-    fetch('/api/systems')
+    fetch(systemsURL)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json() as Promise<GalaxySystem[]>;
       })
       .then((systems) => {
         if (cancelled) return;
+
+        // When basePath is set the caller owns agent data (SSE); skip /api/agents.
+        if (basePath) {
+          setData({ systems, agentLocations: [] });
+          return;
+        }
 
         // Fetch agents to get their locations
         return fetch('/api/agents')
@@ -76,7 +84,7 @@ export function useGalaxyMap(): GalaxyMapData | null {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [basePath]);
 
   return data;
 }

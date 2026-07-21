@@ -10,6 +10,10 @@ export default defineConfig({
         target: 'ws://localhost:8090',
         ws: true,
       },
+      '/api/overmind': {
+        target: 'http://localhost:8091',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://localhost:8090',
       },
