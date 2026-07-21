@@ -64,6 +64,7 @@ export function OvermindPage() {
             <GalaxyMap
               systems={galaxy?.systems}
               onSystemClick={setSelectedSystem}
+              hideInfoPanel
               overlay={(project) => (
                 <FleetOverlay
                   agents={agents}

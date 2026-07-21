@@ -5,6 +5,12 @@ interface GalaxyMapProps {
   systems?: GalaxySystem[];
   overlay?: (project: (x: number, y: number) => { x: number; y: number }) => React.ReactNode;
   onSystemClick?: (system: GalaxySystem) => void;
+  // Suppresses the bottom-left zoom/pan/counts info panel. Used by embedders
+  // (e.g. Overmind) that already show their own zoom control and whose agent
+  // count would otherwise read misleadingly as 0 (this component's internal
+  // /api/agents feed is inert when a `systems` prop is supplied). Defaults to
+  // false so the standalone Galaxy Map page (plain <GalaxyMap />) is unchanged.
+  hideInfoPanel?: boolean;
 }
 
 // ---------- Territory blob constants ----------
@@ -34,7 +40,7 @@ const STRONGHOLD_COLOR = '#FF0000';
 // Muted gray for systems that have never been visited (last_visited_tick === 0)
 const UNEXPLORED_COLOR = '#4B5563';
 
-export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems, overlay, onSystemClick }) => {
+export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems, overlay, onSystemClick, hideInfoPanel = false }) => {
   const galaxyData = useGalaxyMap();
 
   // Zoom state
@@ -525,31 +531,33 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems, over
         {overlay?.(transform)}
       </svg>
 
-      <div className="absolute bottom-4 left-4 bg-spacemolt-panel/95 backdrop-blur-sm p-4 rounded-lg border border-spacemolt-border shadow-lg text-xs">
-        <div className="flex gap-6">
-          <div>
-            <span className="text-gray-400">Zoom: {zoomLevel}x</span>
-            <div className="w-32 h-1.5 bg-gray-700 rounded-full mt-1">
-              <div
-                className="h-full bg-cyan-500 rounded-full transition-all duration-150 shadow-lg"
-                style={{ width: `${((zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN)) * 100}%` }}
-              />
+      {!hideInfoPanel && (
+        <div className="absolute bottom-4 left-4 bg-spacemolt-panel/95 backdrop-blur-sm p-4 rounded-lg border border-spacemolt-border shadow-lg text-xs">
+          <div className="flex gap-6">
+            <div>
+              <span className="text-gray-400">Zoom: {zoomLevel}x</span>
+              <div className="w-32 h-1.5 bg-gray-700 rounded-full mt-1">
+                <div
+                  className="h-full bg-cyan-500 rounded-full transition-all duration-150 shadow-lg"
+                  style={{ width: `${((zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN)) * 100}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <span className="text-gray-400">Pan:</span>
+              <div className="text-cyan-400 font-mono mt-1 font-bold">
+                X: {Math.round(pan.x)} Y: {Math.round(pan.y)}
+              </div>
             </div>
           </div>
-          <div>
-            <span className="text-gray-400">Pan:</span>
-            <div className="text-cyan-400 font-mono mt-1 font-bold">
-              X: {Math.round(pan.x)} Y: {Math.round(pan.y)}
-            </div>
+          <div className="mt-3 text-gray-400">
+            <span className="font-medium">Systems:</span> {systems.length} | <span className="font-medium">Agents:</span> {agentLocations.length}
+          </div>
+          <div className="mt-2 text-gray-500 text-xs">
+            Drag to pan • Scroll or use slider to zoom • Click ⟲ to reset
           </div>
         </div>
-        <div className="mt-3 text-gray-400">
-          <span className="font-medium">Systems:</span> {systems.length} | <span className="font-medium">Agents:</span> {agentLocations.length}
-        </div>
-        <div className="mt-2 text-gray-500 text-xs">
-          Drag to pan • Scroll or use slider to zoom • Click ⟲ to reset
-        </div>
-      </div>
+      )}
     </div>
   );
 };
