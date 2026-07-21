@@ -50,7 +50,12 @@ export function OvermindPage() {
       />
       <div className="flex-1 flex min-h-0">
         <div className="flex-1 min-w-0 relative flex flex-col" id="ov-map-slot">
-          {/* fleet toggles + off-map tray: unchanged block from the current file */}
+          {/* Fleet layer toggles + off-map tray, in normal document flow above the
+              map — NOT absolutely positioned over it. GalaxyMap already claims its
+              own top-left (search) and top-right (EMPIRES legend) corners with
+              absolutely-positioned panels; stacking our controls there collided
+              with them (confirmed live). Living in the flex column above the map
+              keeps both fully visible and clickable. */}
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#2a2618] bg-[#0a0a08] flex-wrap">
             <span className="text-[10px] uppercase tracking-widest text-[#8a8570]">fleets</span>
             {Object.entries(FLEETS).map(([fleet, color]) => (
