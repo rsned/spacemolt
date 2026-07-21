@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type WheelEvent } from 'react';
 import type { GalaxySystem } from '../../lib/useGalaxyMap';
 import { FLEETS, type AgentMove, type AgentState } from '../../lib/useFleetStream';
-import { useSystemPois } from '../../lib/useSystemPois';
-import { computeGates, seededScatter, type Gate } from './systemLayout';
+import { useSystemPois, type SystemPOI } from '../../lib/useSystemPois';
+import { computeGates, fanOffset, seededScatter, type Gate } from './systemLayout';
 
 const ZOOM_MIN = 1;
 const ZOOM_MAX = 6;
@@ -23,7 +23,7 @@ function radius(p: { x: number; y: number }): number {
   return Math.hypot(p.x, p.y);
 }
 
-export function SystemView({ system, systems, agents, selectedId, onAgentClick, onClose }: {
+export function SystemView({ system, systems, agents, selectedId, onAgentClick, onHoverAgents, onClose }: {
   system: GalaxySystem;
   systems: GalaxySystem[];
   agents: AgentState[];
@@ -66,6 +66,31 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
     [system, systems, gateRadius],
   );
 
+  // Match each agent to a POI by name (case-insensitive), then by id.
+  // AgentState.poi is a display name in practice; id fallback is belt+braces.
+  const poiIndex = useMemo(() => {
+    const m = new Map<string, SystemPOI>();
+    for (const p of pois ?? []) {
+      m.set(p.name.toLowerCase(), p);
+      m.set(p.id.toLowerCase(), p);
+    }
+    return m;
+  }, [pois]);
+
+  const { placed, unplaced } = useMemo(() => {
+    const placedMap = new Map<string, { poi: SystemPOI; list: AgentState[] }>();
+    const un: AgentState[] = [];
+    for (const a of agents) {
+      const p = poiIndex.get((a.poi ?? '').toLowerCase());
+      if (!p) { un.push(a); continue; }
+      const entry = placedMap.get(p.id) ?? { poi: p, list: [] };
+      entry.list.push(a);
+      placedMap.set(p.id, entry);
+    }
+    for (const e of placedMap.values()) e.list.sort((x, y) => x.agent_id.localeCompare(y.agent_id));
+    return { placed: [...placedMap.values()], unplaced: un };
+  }, [agents, poiIndex]);
+
   // Fit gateRadius inside the viewport with padding; zoom multiplies.
   const baseScale = (Math.min(dims.width, dims.height) / 2) * 0.85 / gateRadius;
   const scale = baseScale * zoom;
@@ -75,6 +100,42 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
   });
   // Markers grow at half the zoom rate (same trick as SystemMap).
   const ms = 1 + (zoom - 1) * 0.5;
+
+  const [hovered, setHovered] = useState<{ kind: 'poi'; poiId: string } | { kind: 'dot'; agentId: string } | null>(null);
+
+  // Screen positions of every dot and every POI, for forgiving hit tests.
+  const dotPositions = useMemo(() => {
+    const out: { agent: AgentState; x: number; y: number }[] = [];
+    for (const { poi, list } of placed) {
+      const base = T(poi.x, poi.y);
+      list.forEach((a, i) => {
+        const { dx, dy } = fanOffset(i, list.length, 12 * ms);
+        out.push({ agent: a, x: base.x + dx, y: base.y + dy });
+      });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placed, scale, pan, dims]);
+
+  const findHover = (mx: number, my: number): typeof hovered => {
+    // Agent dots win over POIs when both are in range.
+    let best: typeof hovered = null;
+    let bestDist = 10 * ms;
+    for (const d of dotPositions) {
+      const dist = Math.hypot(mx - d.x, my - d.y);
+      if (dist < bestDist) { bestDist = dist; best = { kind: 'dot', agentId: d.agent.agent_id }; }
+    }
+    if (best) return best;
+    bestDist = 24 * ms;
+    for (const p of pois ?? []) {
+      const pos = T(p.x, p.y);
+      const dist = Math.hypot(mx - pos.x, my - pos.y);
+      if (dist < bestDist) { bestDist = dist; best = { kind: 'poi', poiId: p.id }; }
+    }
+    return best;
+  };
+
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const handleWheel = (e: WheelEvent<SVGSVGElement>) => {
     const factor = e.deltaY > 0 ? 1 / 1.15 : 1.15;
@@ -88,16 +149,24 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
     panStart.current = { ...pan };
   };
   const handleMouseMove = (e: MouseEvent<SVGSVGElement>) => {
-    if (!isDragging) return;
-    const dx = e.clientX - dragStart.current.x;
-    const dy = e.clientY - dragStart.current.y;
-    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) didDrag.current = true;
-    setPan({ x: panStart.current.x + dx, y: panStart.current.y + dy });
+    if (isDragging) {
+      const dx = e.clientX - dragStart.current.x;
+      const dy = e.clientY - dragStart.current.y;
+      if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) didDrag.current = true;
+      setPan({ x: panStart.current.x + dx, y: panStart.current.y + dy });
+      return;
+    }
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const h = findHover(e.clientX - rect.left, e.clientY - rect.top);
+    setHovered(h);
+    if (h?.kind === 'dot') onHoverAgents([h.agentId]);
+    else if (h?.kind === 'poi') {
+      const entry = placed.find((pl) => pl.poi.id === h.poiId);
+      onHoverAgents(entry ? entry.list.map((a) => a.agent_id) : []);
+    } else onHoverAgents([]);
   };
   const handleMouseUp = () => setIsDragging(false);
-
-  // Placeholder until Task 5: everything shows in the tray; dots come next.
-  const unplaced = agents;
 
   const sun = (pois ?? []).find((p) => p.type === 'sun');
 
@@ -127,13 +196,18 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
 
       <div className="flex-1 min-h-0 relative">
         <svg
+          ref={svgRef}
           className="w-full h-full"
           style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
           onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={() => setIsDragging(false)}
+          onMouseLeave={() => { setIsDragging(false); setHovered(null); onHoverAgents([]); }}
+          onClick={() => {
+            if (didDrag.current) return;
+            if (hovered?.kind === 'dot') onAgentClick(hovered.agentId);
+          }}
         >
           {/* Orbit rings — one dashed circle per non-sun POI radius. */}
           {(pois ?? []).filter((p) => p.type !== 'sun').map((p) => {
@@ -240,7 +314,56 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
               </g>
             );
           })}
+
+          {/* Agent dots, fanned beside their POI. */}
+          {placed.map(({ poi, list }) => {
+            const base = T(poi.x, poi.y);
+            const isPoiHovered = hovered?.kind === 'poi' && hovered.poiId === poi.id;
+            return (
+              <g key={`agents-${poi.id}`}>
+                {isPoiHovered && (
+                  <circle cx={base.x} cy={base.y} r={20 * ms} fill="none" stroke="#22d3ee" strokeWidth={1} opacity={0.6} />
+                )}
+                {list.map((a, i) => {
+                  const { dx, dy } = fanOffset(i, list.length, 12 * ms);
+                  const x = base.x + dx, y = base.y + dy;
+                  const color = FLEETS[a.fleet] ?? '#fff';
+                  const isSel = selectedId === a.agent_id;
+                  const isHov = hovered?.kind === 'dot' && hovered.agentId === a.agent_id;
+                  return (
+                    <g key={a.agent_id} style={{ cursor: 'pointer' }}>
+                      {(isSel || isHov) && <circle cx={x} cy={y} r={7} fill="none" stroke="#fff" strokeWidth={0.8} />}
+                      {a.docked
+                        ? <circle cx={x} cy={y} r={4} fill="none" stroke={color} strokeWidth={1.5} />
+                        : <circle cx={x} cy={y} r={4} fill={color} />}
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })}
         </svg>
+
+        {hovered?.kind === 'poi' && (() => {
+          const entry = placed.find((pl) => pl.poi.id === hovered.poiId);
+          const p = (pois ?? []).find((pp) => pp.id === hovered.poiId);
+          if (!p) return null;
+          const pos = T(p.x, p.y);
+          return (
+            <div className="absolute z-10 pointer-events-none bg-[#11100c]/95 border border-[#2a2618] rounded-sm p-2 text-xs shadow-lg max-w-60"
+              style={{ left: Math.min(pos.x + 16, dims.width - 240), top: Math.max(pos.y - 8, 8) }}>
+              <div className="text-[#d4a017] font-bold">{p.name}</div>
+              <div className="text-[#8a8570] uppercase tracking-widest text-[10px]">{p.type}{p.class ? ` · ${p.class}` : ''}</div>
+              {(entry?.list ?? []).map((a) => (
+                <div key={a.agent_id} className="flex justify-between gap-3 py-0.5">
+                  <span style={{ color: FLEETS[a.fleet] }}>{a.agent_id}{a.docked ? ' ⚓' : ''}</span>
+                  <span className="text-[#8a8570] truncate">{a.activity || a.role}</span>
+                </div>
+              ))}
+              {!entry && <div className="text-[#8a8570] py-0.5">no fleet agents here</div>}
+            </div>
+          );
+        })()}
 
         {/* Unplaced tray — agents whose POI we can't match never vanish. */}
         {unplaced.length > 0 && (
