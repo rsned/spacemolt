@@ -41,7 +41,7 @@ func earnQuery(ctx context.Context, db *sql.DB, q, since string, hours float64) 
 // LoadEarnings computes the three trailing-window earnings streams from the
 // market DB (read-only).
 func LoadEarnings(ctx context.Context, dbPath string, now time.Time, window time.Duration) (haul, freight, missions SourceEarnings, err error) {
-	db, err := sql.Open(sqliteDriver, "file:"+dbPath+"?mode=ro&_busy_timeout=5000")
+	db, err := sql.Open(sqliteDriver, "file:"+dbPath+"?mode=ro&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return haul, freight, missions, fmt.Errorf("open market db: %w", err)
 	}

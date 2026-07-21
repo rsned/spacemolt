@@ -90,11 +90,23 @@ func LoadGalaxy(ctx context.Context, dbPath string) (*Galaxy, error) {
 		return nil, fmt.Errorf("query connections: %w", err)
 	}
 	defer crows.Close() //nolint:errcheck
+	// The KB stores connections symmetrically (both (a,b) and (b,a) rows for
+	// every lane); dedupe on the normalized pair so each lane is expanded
+	// into both endpoints' Connections exactly once.
+	seenPairs := map[[2]string]bool{}
 	for crows.Next() {
 		var from, to string
 		if err := crows.Scan(&from, &to); err != nil {
 			return nil, fmt.Errorf("scan connection: %w", err)
 		}
+		pair := [2]string{from, to}
+		if pair[0] > pair[1] {
+			pair[0], pair[1] = pair[1], pair[0]
+		}
+		if seenPairs[pair] {
+			continue
+		}
+		seenPairs[pair] = true
 		if i, ok := idx[from]; ok {
 			g.Systems[i].Connections = append(g.Systems[i].Connections, to)
 		}

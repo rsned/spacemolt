@@ -41,8 +41,8 @@ export interface Accounting {
 export interface AgentMove { agent: AgentState; from_system_id: string }
 
 interface Snapshot {
-  agents: AgentState[];
-  off_map: AgentState[];
+  agents: AgentState[] | null;
+  off_map: AgentState[] | null;
   stale_fleets: string[] | null;
 }
 
@@ -74,36 +74,53 @@ export interface FleetStream {
   connected: boolean;
 }
 
+/** An agent with no resolved system belongs in the off-map tray, not the map. */
+function isOffMap(a: AgentState): boolean {
+  return !a.system_id;
+}
+
+/** Moves `a` into the collection matching its current system_id, removing it
+ * from the other one first so an agent can never appear in both. */
+function route(onMap: Map<string, AgentState>, offMap: Map<string, AgentState>, a: AgentState): void {
+  onMap.delete(a.agent_id);
+  offMap.delete(a.agent_id);
+  (isOffMap(a) ? offMap : onMap).set(a.agent_id, a);
+}
+
 export function useFleetStream(streamURL = '/api/overmind/stream'): FleetStream {
   const [state, setState] = useState<FleetStream>({
     agents: new Map(), offMap: [], accounting: null,
     staleFleets: [], moves: [], connected: false,
   });
   const agentsRef = useRef(new Map<string, AgentState>());
+  const offMapRef = useRef(new Map<string, AgentState>());
 
   useEffect(() => {
     const es = new EventSource(streamURL);
 
     es.addEventListener('snapshot', (e) => {
       const snap: Snapshot = JSON.parse((e as MessageEvent).data);
-      const m = new Map<string, AgentState>();
-      (snap.agents ?? []).forEach((a) => m.set(a.agent_id, a));
-      agentsRef.current = m;
+      const onMap = new Map<string, AgentState>();
+      const offMap = new Map<string, AgentState>();
+      [...(snap.agents ?? []), ...(snap.off_map ?? [])].forEach((a) => route(onMap, offMap, a));
+      agentsRef.current = onMap;
+      offMapRef.current = offMap;
       setState((s) => ({
-        ...s, agents: new Map(m), offMap: snap.off_map ?? [],
+        ...s, agents: new Map(onMap), offMap: [...offMap.values()],
         staleFleets: snap.stale_fleets ?? [], moves: [], connected: true,
       }));
     });
 
     es.addEventListener('delta', (e) => {
       const d: Delta = JSON.parse((e as MessageEvent).data);
-      const m = agentsRef.current;
-      (d.joined ?? []).forEach((a) => m.set(a.agent_id, a));
-      (d.updated ?? []).forEach((a) => m.set(a.agent_id, a));
-      (d.moved ?? []).forEach(({ agent }) => m.set(agent.agent_id, agent));
-      (d.left ?? []).forEach((id) => m.delete(id));
+      const onMap = agentsRef.current;
+      const offMap = offMapRef.current;
+      (d.joined ?? []).forEach((a) => route(onMap, offMap, a));
+      (d.updated ?? []).forEach((a) => route(onMap, offMap, a));
+      (d.moved ?? []).forEach(({ agent }) => route(onMap, offMap, agent));
+      (d.left ?? []).forEach((id) => { onMap.delete(id); offMap.delete(id); });
       setState((s) => ({
-        ...s, agents: new Map(m),
+        ...s, agents: new Map(onMap), offMap: [...offMap.values()],
         staleFleets: d.stale_fleets ?? s.staleFleets,
         moves: d.moved ?? [], connected: true,
       }));

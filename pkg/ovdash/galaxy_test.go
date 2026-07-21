@@ -28,7 +28,10 @@ func fixtureKB(t *testing.T) string {
 			('sol','Sol',0,0,10,'solarian',0,100),
 			('nova_terra','Nova Terra',50,-30,8,'solarian',0,90),
 			('krynn','Krynn',900,900,0,'crimson',1,0)`,
-		`INSERT INTO connections VALUES ('sol','nova_terra',12.5)`,
+		// The live KB stores both directions of every lane (verified
+		// symmetric in production); the fixture mirrors that so the loader's
+		// dedupe is actually exercised.
+		`INSERT INTO connections VALUES ('sol','nova_terra',12.5), ('nova_terra','sol',12.5)`,
 	}
 	for _, s := range stmts {
 		if _, err := db.Exec(s); err != nil {
@@ -54,13 +57,13 @@ func TestLoadGalaxyBuildsSystemsAndConnections(t *testing.T) {
 	if sol.Name != "Sol" || sol.X != 0 || sol.Police != 10 || sol.Empire != "solarian" {
 		t.Fatalf("sol fields wrong: %+v", sol)
 	}
-	// Connections are bidirectional on the node view even though the table
-	// stores one row per lane.
+	// The fixture stores both directions of the sol<->nova_terra lane (like
+	// the live KB); each must appear exactly once per side, not doubled.
 	if len(sol.Connections) != 1 || sol.Connections[0] != "nova_terra" {
-		t.Fatalf("sol connections wrong: %v", sol.Connections)
+		t.Fatalf("sol connections wrong (want exactly one, deduped): %v", sol.Connections)
 	}
 	if nt := byID["nova_terra"]; len(nt.Connections) != 1 || nt.Connections[0] != "sol" {
-		t.Fatalf("reverse connection missing: %v", nt.Connections)
+		t.Fatalf("nova_terra connections wrong (want exactly one, deduped): %v", nt.Connections)
 	}
 	if k := byID["krynn"]; !k.Stronghold || len(k.Connections) != 0 {
 		t.Fatalf("krynn fields wrong: %+v", k)
