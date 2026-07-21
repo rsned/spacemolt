@@ -68,10 +68,13 @@ func (s *server) refresh(ctx context.Context, now time.Time) {
 	s.mu.Unlock()
 
 	d := ovdash.Diff(prev, snap)
+	// Keyframe must be updated before delta broadcast: a client connecting
+	// between the two calls is never left with neither (it either gets the
+	// fresh keyframe, or was registered for the delta).
+	s.hub.SetKeyframe("snapshot", snap)
 	if !d.Empty() || prev == nil {
 		s.hub.Broadcast("delta", d)
 	}
-	s.hub.SetKeyframe("snapshot", snap)
 
 	if now.Sub(s.lastAcct) >= accountEvery {
 		haul, freight, missions, err := ovdash.LoadEarnings(ctx, s.cfg.MarketPath, now, earningsWindow)
