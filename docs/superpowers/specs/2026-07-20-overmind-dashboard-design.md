@@ -112,8 +112,9 @@ Reuse `GalaxyMap.tsx` (SVG, zoom/pan, empire territory blobs) extended with:
 - **Layer toggles:** legend chip row toggles per-fleet visibility; empire
   territories and unexplored-dimming are toggles too.
 - **Interactions:** hover tooltip (agent or system summary); click system →
-  side panel (reused `SystemMap` orbital view + system facts + agents
-  present); click agent dot → highlight + scroll/expand its rail card.
+  side panel (v1 ships a lightweight SystemPanel — facts + agents present; full
+  SystemMap orbital reuse is a follow-up needing an observer-shaped per-system
+  endpoint); click agent dot → highlight + scroll/expand its rail card.
 
 ## Agent cards
 
