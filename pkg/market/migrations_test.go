@@ -87,7 +87,7 @@ func TestRunMigrations_IndexesAndChecks(t *testing.T) {
 	}
 
 	// Indexes should exist.
-	idx := []string{"idx_orders_station_item", "idx_orders_item_time", "idx_orders_bucket", "idx_arbitrage_status", "idx_arbitrage_item"}
+	idx := []string{"idx_orders_station_item", "idx_orders_item_time", "idx_orders_bucket", "idx_orders_item_side_station_time", "idx_arbitrage_status", "idx_arbitrage_item"}
 	got, err := indexNames(db)
 	if err != nil {
 		t.Fatalf("indexNames: %v", err)

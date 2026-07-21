@@ -40,6 +40,18 @@ CREATE INDEX IF NOT EXISTS idx_orders_item_time ON market_orders(item_id, captur
 -- on a 40M-row live DB).
 CREATE INDEX IF NOT EXISTS idx_orders_buy_station_item_cap ON market_orders(station_id, item_id, captured_at) WHERE side='buy';
 CREATE INDEX IF NOT EXISTS idx_orders_bucket ON market_orders(bucket_utc);
+-- Covering index for "latest order per station for a given item+side" reads
+-- (GetReferenceAsk, FindBestPrices, FindItemSellers): each first finds, per
+-- station_id, MAX(captured_at) WHERE item_id = ? AND side = ?, then joins
+-- back on (station_id, captured_at) to fetch the row. Without this index
+-- neither step is covered by an existing one (idx_orders_item_time lacks
+-- side/station_id; idx_orders_station_item is station_id-first, not
+-- item_id-first), so both the GROUP BY and the join fall back to scanning
+-- every row for the item. Measured ~3.3s/call on the 190M-row live DB,
+-- called in a loop by mission-runner workers (a full core burned per
+-- worker). (item_id, side, station_id, captured_at) makes both the grouping
+-- and the join index-only.
+CREATE INDEX IF NOT EXISTS idx_orders_item_side_station_time ON market_orders(item_id, side, station_id, captured_at);
 
 -- Hourly OHLCV aggregates
 CREATE TABLE IF NOT EXISTS market_ohlcv (
