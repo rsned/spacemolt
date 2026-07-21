@@ -102,6 +102,31 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
   const ms = 1 + (zoom - 1) * 0.5;
 
   const [hovered, setHovered] = useState<{ kind: 'poi'; poiId: string } | { kind: 'dot'; agentId: string } | null>(null);
+  // Stable key for the current hover target, so mousemove can skip redundant
+  // setHovered calls (fresh object identity every event otherwise).
+  const hoverKeyRef = useRef<string | null>(null);
+  const hoverKey = (h: typeof hovered): string | null =>
+    h ? `${h.kind}:${h.kind === 'poi' ? h.poiId : h.agentId}` : null;
+
+  // onHoverAgents is a fresh arrow every parent render; stash it in a ref so
+  // the emission effect below can depend on [placed, hovered] only.
+  const onHoverAgentsRef = useRef(onHoverAgents);
+  useEffect(() => { onHoverAgentsRef.current = onHoverAgents; }, [onHoverAgents]);
+
+  // Sole place that emits onHoverAgents: re-runs whenever the hover target
+  // OR the agents at it change, so the rail highlight can't go stale under
+  // a stationary cursor (e.g. a hovered agent departs its POI).
+  useEffect(() => {
+    const emit = onHoverAgentsRef.current;
+    if (!hovered) { emit([]); return; }
+    if (hovered.kind === 'dot') {
+      const stillPresent = placed.some((pl) => pl.list.some((a) => a.agent_id === hovered.agentId));
+      emit(stillPresent ? [hovered.agentId] : []);
+      return;
+    }
+    const entry = placed.find((pl) => pl.poi.id === hovered.poiId);
+    emit(entry ? entry.list.map((a) => a.agent_id) : []);
+  }, [placed, hovered]);
 
   // Screen positions of every dot and every POI, for forgiving hit tests.
   const dotPositions = useMemo(() => {
@@ -159,12 +184,10 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
     const h = findHover(e.clientX - rect.left, e.clientY - rect.top);
+    const key = hoverKey(h);
+    if (key === hoverKeyRef.current) return; // same target — skip the re-render + emit
+    hoverKeyRef.current = key;
     setHovered(h);
-    if (h?.kind === 'dot') onHoverAgents([h.agentId]);
-    else if (h?.kind === 'poi') {
-      const entry = placed.find((pl) => pl.poi.id === h.poiId);
-      onHoverAgents(entry ? entry.list.map((a) => a.agent_id) : []);
-    } else onHoverAgents([]);
   };
   const handleMouseUp = () => setIsDragging(false);
 
@@ -203,7 +226,7 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={() => { setIsDragging(false); setHovered(null); onHoverAgents([]); }}
+          onMouseLeave={() => { setIsDragging(false); hoverKeyRef.current = null; setHovered(null); }}
           onClick={() => {
             if (didDrag.current) return;
             if (hovered?.kind === 'dot') onAgentClick(hovered.agentId);
@@ -315,15 +338,22 @@ export function SystemView({ system, systems, agents, selectedId, onAgentClick, 
             );
           })}
 
+          {/* POI hover ring — driven by `hovered` directly (not placed.map) so
+              a POI with zero agent dots still gets hover feedback. */}
+          {hovered?.kind === 'poi' && (() => {
+            const p = (pois ?? []).find((pp) => pp.id === hovered.poiId);
+            if (!p) return null;
+            const pos = T(p.x, p.y);
+            return (
+              <circle cx={pos.x} cy={pos.y} r={20 * ms} fill="none" stroke="#22d3ee" strokeWidth={1} opacity={0.6} />
+            );
+          })()}
+
           {/* Agent dots, fanned beside their POI. */}
           {placed.map(({ poi, list }) => {
             const base = T(poi.x, poi.y);
-            const isPoiHovered = hovered?.kind === 'poi' && hovered.poiId === poi.id;
             return (
               <g key={`agents-${poi.id}`}>
-                {isPoiHovered && (
-                  <circle cx={base.x} cy={base.y} r={20 * ms} fill="none" stroke="#22d3ee" strokeWidth={1} opacity={0.6} />
-                )}
                 {list.map((a, i) => {
                   const { dx, dy } = fanOffset(i, list.length, 12 * ms);
                   const x = base.x + dx, y = base.y + dy;
