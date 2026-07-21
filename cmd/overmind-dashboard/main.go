@@ -96,6 +96,14 @@ func (s *server) mux() *http.ServeMux {
 	m.HandleFunc("GET /api/overmind/systems", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSONResp(w, s.galaxy.Systems)
 	})
+	m.HandleFunc("GET /api/overmind/system/{id}/pois", func(w http.ResponseWriter, r *http.Request) {
+		pois, ok := s.galaxy.SystemPOIs(r.PathValue("id"))
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		writeJSONResp(w, pois)
+	})
 	m.HandleFunc("GET /api/overmind/agents", func(w http.ResponseWriter, _ *http.Request) {
 		s.mu.RLock()
 		snap := s.snap

@@ -30,6 +30,14 @@ func writeFixtures(t *testing.T) (kb, market, statusDir string) {
 			is_stronghold BOOLEAN DEFAULT 0, last_visited_tick INTEGER DEFAULT 0)`,
 		`CREATE TABLE connections (from_system TEXT, to_system TEXT, distance REAL)`,
 		`INSERT INTO systems VALUES ('sol','Sol',0,0,10,'solarian',0,1)`,
+		`CREATE TABLE pois (id TEXT PRIMARY KEY, system_id TEXT NOT NULL,
+			name TEXT NOT NULL, type TEXT NOT NULL, description TEXT,
+			position_x REAL NOT NULL, position_y REAL NOT NULL,
+			base_id TEXT, last_updated_tick INTEGER DEFAULT 0,
+			class TEXT DEFAULT '', hidden BOOLEAN NOT NULL DEFAULT 0)`,
+		`INSERT INTO pois (id, system_id, name, type, position_x, position_y, class, hidden) VALUES
+			('sol_star','sol','Sol','sun',0,0,'G2V',0),
+			('earth','sol','Earth','planet',1,0,'terran',0)`,
 	})
 	market = filepath.Join(dir, "market.db")
 	mustExec(t, market, []string{
@@ -105,6 +113,33 @@ func writeJSON(t *testing.T, path string, v any) {
 	}
 	if err := os.WriteFile(path, b, 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+func TestSystemPOIsEndpoint(t *testing.T) {
+	kb, market, statusDir := writeFixtures(t)
+	srv, err := newServer(context.Background(), serverConfig{
+		KBPath: kb, MarketPath: market, StatusDir: statusDir, DistDir: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("newServer: %v", err)
+	}
+	ts := httptest.NewServer(srv.mux())
+	defer ts.Close()
+
+	var pois []map[string]any
+	getJSON(t, ts.URL+"/api/overmind/system/sol/pois", &pois)
+	if len(pois) != 2 || pois[0]["id"] != "sol_star" || pois[1]["class"] != "terran" {
+		t.Fatalf("pois: %+v", pois)
+	}
+
+	resp, err := http.Get(ts.URL + "/api/overmind/system/atlantis/pois") //nolint:gosec,noctx
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("unknown system: want 404, got %d", resp.StatusCode)
 	}
 }
 
