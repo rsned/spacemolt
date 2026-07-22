@@ -48,10 +48,23 @@ func (n SystemNode) MarshalJSON() ([]byte, error) {
 	}{n.X, n.Y}})
 }
 
+// POI is one point of interest inside a system, in the shape the frontend's
+// SystemView consumes. Coordinates are the KB's system-local units.
+type POI struct {
+	ID    string  `json:"id"`
+	Name  string  `json:"name"`
+	Type  string  `json:"type"`
+	Class string  `json:"class"`
+	X     float64 `json:"x"`
+	Y     float64 `json:"y"`
+}
+
 // Galaxy is the immutable topology loaded once at startup.
 type Galaxy struct {
 	Systems []SystemNode
 	byName  map[string]string // lower(name) -> id
+	ids     map[string]bool    // system id -> exists
+	pois    map[string][]POI   // system id -> POIs
 }
 
 // LoadGalaxy reads systems and connections from the knowledge DB (read-only).
@@ -69,7 +82,11 @@ func LoadGalaxy(ctx context.Context, dbPath string) (*Galaxy, error) {
 	}
 	defer rows.Close() //nolint:errcheck
 
-	g := &Galaxy{byName: map[string]string{}}
+	g := &Galaxy{
+		byName: map[string]string{},
+		ids:    map[string]bool{},
+		pois:   map[string][]POI{},
+	}
 	idx := map[string]int{}
 	for rows.Next() {
 		var n SystemNode
@@ -79,6 +96,7 @@ func LoadGalaxy(ctx context.Context, dbPath string) (*Galaxy, error) {
 		}
 		idx[n.ID] = len(g.Systems)
 		g.byName[strings.ToLower(n.Name)] = n.ID
+		g.ids[n.ID] = true
 		g.Systems = append(g.Systems, n)
 	}
 	if err := rows.Err(); err != nil {
@@ -117,6 +135,46 @@ func LoadGalaxy(ctx context.Context, dbPath string) (*Galaxy, error) {
 	if err := crows.Err(); err != nil {
 		return nil, err
 	}
+
+	// POIs power the zoomed per-system view. Older KB snapshots (and test
+	// fixtures) predate the pois table; treat its absence as "no POIs".
+	var havePOIs int
+	if err := db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='pois'`,
+	).Scan(&havePOIs); err != nil {
+		return nil, fmt.Errorf("check pois table: %w", err)
+	}
+	if havePOIs > 0 {
+		prows, err := db.QueryContext(ctx, `SELECT id, system_id, name, type,
+			COALESCE(class,''), position_x, position_y FROM pois WHERE hidden = 0`)
+		if err != nil {
+			return nil, fmt.Errorf("query pois: %w", err)
+		}
+		defer prows.Close() //nolint:errcheck
+		for prows.Next() {
+			var p POI
+			var systemID string
+			if err := prows.Scan(&p.ID, &systemID, &p.Name, &p.Type, &p.Class,
+				&p.X, &p.Y); err != nil {
+				return nil, fmt.Errorf("scan poi: %w", err)
+			}
+			g.pois[systemID] = append(g.pois[systemID], p)
+		}
+		if err := prows.Err(); err != nil {
+			return nil, err
+		}
+		for _, list := range g.pois {
+			sort.Slice(list, func(i, j int) bool {
+				ri := list[i].X*list[i].X + list[i].Y*list[i].Y
+				rj := list[j].X*list[j].X + list[j].Y*list[j].Y
+				if ri != rj {
+					return ri < rj
+				}
+				return list[i].Name < list[j].Name
+			})
+		}
+	}
+
 	for i := range g.Systems {
 		sort.Strings(g.Systems[i].Connections)
 	}
@@ -127,4 +185,17 @@ func LoadGalaxy(ctx context.Context, dbPath string) (*Galaxy, error) {
 func (g *Galaxy) ResolveName(name string) (string, bool) {
 	id, ok := g.byName[strings.ToLower(name)]
 	return id, ok
+}
+
+// SystemPOIs returns the POIs for a system id (sorted by orbital radius,
+// hidden excluded) and whether the system exists at all. A known system with
+// no POIs yields an empty non-nil slice so it JSON-encodes as [].
+func (g *Galaxy) SystemPOIs(systemID string) ([]POI, bool) {
+	if !g.ids[systemID] {
+		return nil, false
+	}
+	if list, ok := g.pois[systemID]; ok {
+		return list, true
+	}
+	return []POI{}, true
 }

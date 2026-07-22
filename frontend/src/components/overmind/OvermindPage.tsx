@@ -1,23 +1,52 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GalaxyMap } from '../galaxy/GalaxyMap';
-import { useGalaxyMap, type GalaxySystem } from '../../lib/useGalaxyMap';
+import { useGalaxyMap } from '../../lib/useGalaxyMap';
 import { FLEETS, useFleetStream } from '../../lib/useFleetStream';
 import { AccountingStrip } from './AccountingStrip';
 import { FleetRail } from './FleetRail';
 import { FleetOverlay } from './FleetOverlay';
-import { SystemPanel } from './SystemPanel';
+import { SystemView } from './SystemView';
+
+type OvView = { kind: 'galaxy' } | { kind: 'system'; systemId: string };
 
 export function OvermindPage() {
   const stream = useFleetStream();
   const galaxy = useGalaxyMap('/api/overmind');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
-  const [selectedSystem, setSelectedSystem] = useState<GalaxySystem | null>(null);
+  const [view, setView] = useState<OvView>({ kind: 'galaxy' });
+  const [highlightedIds, setHighlightedIds] = useState<ReadonlySet<string>>(new Set());
   const [visibleFleets, setVisibleFleets] = useState(new Set(Object.keys(FLEETS)));
   // stream.agents (a Map) gets a fresh identity on every snapshot/delta event
   // (see useFleetStream.ts), so this recomputes exactly when the data changes —
   // not on every OvermindPage render (e.g. selection clicks) — preserving
   // FleetRail's own useMemo/AgentCard memoization downstream.
   const agents = useMemo(() => [...stream.agents.values()], [stream.agents]);
+
+  // Escape returns to the galaxy; clicking empty space never does.
+  // Exiting must also clear the hover highlight: Escape doesn't move the
+  // mouse, so SystemView's mouseleave never fires and the rail's cyan
+  // rings would otherwise persist into the galaxy view.
+  const closeSystemView = () => {
+    setView({ kind: 'galaxy' });
+    setHighlightedIds(new Set());
+  };
+  useEffect(() => {
+    if (view.kind !== 'system') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeSystemView();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [view.kind]);
+
+  const viewedSystem = view.kind === 'system'
+    ? galaxy?.systems.find((s) => s.id === view.systemId) ?? null
+    : null;
+  const systemAgents = useMemo(
+    () => (viewedSystem ? agents.filter((a) => a.system_id === viewedSystem.id) : []),
+    [agents, viewedSystem],
+  );
+
   return (
     <div className="h-full flex flex-col bg-[#0a0a08] text-[#d8d3c0]">
       <AccountingStrip
@@ -61,27 +90,37 @@ export function OvermindPage() {
             )}
           </div>
           <div className="flex-1 min-h-0 relative">
-            <GalaxyMap
-              systems={galaxy?.systems}
-              onSystemClick={setSelectedSystem}
-              hideInfoPanel
-              overlay={(project) => (
-                <FleetOverlay
-                  agents={agents}
-                  moves={stream.moves}
-                  systems={galaxy?.systems ?? []}
-                  project={project}
-                  visibleFleets={visibleFleets}
-                  selectedId={selectedAgent}
-                  onAgentClick={setSelectedAgent}
-                />
-              )}
-            />
-            {selectedSystem && (
-              <SystemPanel
-                system={selectedSystem}
-                agents={agents.filter((a) => a.system_id === selectedSystem.id)}
-                onClose={() => setSelectedSystem(null)}
+            {/* GalaxyMap stays mounted while zoomed in so its pan/zoom and
+                fetched data survive the round trip; `hidden` removes it from
+                layout without unmounting. */}
+            <div className={view.kind === 'system' ? 'hidden' : 'absolute inset-0'}>
+              <GalaxyMap
+                systems={galaxy?.systems}
+                onSystemClick={(s) => setView({ kind: 'system', systemId: s.id })}
+                hideInfoPanel
+                overlay={(project) => (
+                  <FleetOverlay
+                    agents={agents}
+                    moves={stream.moves}
+                    systems={galaxy?.systems ?? []}
+                    project={project}
+                    visibleFleets={visibleFleets}
+                    selectedId={selectedAgent}
+                    onAgentClick={setSelectedAgent}
+                  />
+                )}
+              />
+            </div>
+            {viewedSystem && (
+              <SystemView
+                system={viewedSystem}
+                systems={galaxy?.systems ?? []}
+                agents={systemAgents}
+                moves={stream.moves}
+                selectedId={selectedAgent}
+                onAgentClick={setSelectedAgent}
+                onHoverAgents={(ids) => setHighlightedIds(new Set(ids))}
+                onClose={closeSystemView}
               />
             )}
           </div>
@@ -93,6 +132,7 @@ export function OvermindPage() {
             staleFleets={stream.staleFleets}
             selectedId={selectedAgent}
             onSelect={setSelectedAgent}
+            highlightedIds={highlightedIds}
           />
         </div>
       </div>

@@ -461,6 +461,19 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({ systems: propSystems, over
                 </>
               )}
 
+              {/* Forgiving hit target: clicks near (not just on) the 6px
+                  marker select the system. Empty space stays inert. */}
+              {onSystemClick && (
+                <circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r="14"
+                  fill="transparent"
+                  onClick={() => onSystemClick(system)}
+                  className="cursor-pointer"
+                />
+              )}
+
               {/* System marker - larger with outer ring */}
               <circle
                 cx={pos.x}

@@ -32,6 +32,16 @@ func fixtureKB(t *testing.T) string {
 		// symmetric in production); the fixture mirrors that so the loader's
 		// dedupe is actually exercised.
 		`INSERT INTO connections VALUES ('sol','nova_terra',12.5), ('nova_terra','sol',12.5)`,
+		`CREATE TABLE pois (id TEXT PRIMARY KEY, system_id TEXT NOT NULL,
+			name TEXT NOT NULL, type TEXT NOT NULL, description TEXT,
+			position_x REAL NOT NULL, position_y REAL NOT NULL,
+			base_id TEXT, last_updated_tick INTEGER DEFAULT 0,
+			class TEXT DEFAULT '', hidden BOOLEAN NOT NULL DEFAULT 0)`,
+		`INSERT INTO pois (id, system_id, name, type, position_x, position_y, class, hidden) VALUES
+			('sol_star','sol','Sol','sun',0,0,'G2V',0),
+			('earth','sol','Earth','planet',1,0,'terran',0),
+			('mars','sol','Mars','planet',2,-0.3,'arid',0),
+			('sol_hideout','sol','Hidden Cache','anomaly',5,5,'',1)`,
 	}
 	for _, s := range stmts {
 		if _, err := db.Exec(s); err != nil {
@@ -107,5 +117,84 @@ func TestSystemNodeJSONShapeMatchesUseGalaxyMap(t *testing.T) {
 	pos, ok := m["position"].(map[string]any)
 	if !ok || pos["x"] != 1.0 || pos["y"] != 2.0 {
 		t.Fatalf("position shape wrong: %v", m["position"])
+	}
+}
+
+func TestSystemPOIsSortedAndFiltered(t *testing.T) {
+	g, err := LoadGalaxy(context.Background(), fixtureKB(t))
+	if err != nil {
+		t.Fatalf("LoadGalaxy: %v", err)
+	}
+	pois, ok := g.SystemPOIs("sol")
+	if !ok {
+		t.Fatal("sol should exist")
+	}
+	// Hidden POI excluded; sorted by orbital radius (sun first).
+	if len(pois) != 3 {
+		t.Fatalf("want 3 pois, got %d: %+v", len(pois), pois)
+	}
+	if pois[0].ID != "sol_star" || pois[1].ID != "earth" || pois[2].ID != "mars" {
+		t.Fatalf("wrong order: %+v", pois)
+	}
+	if pois[1].Class != "terran" || pois[1].X != 1 || pois[1].Type != "planet" {
+		t.Fatalf("earth fields wrong: %+v", pois[1])
+	}
+}
+
+func TestSystemPOIsKnownSystemWithoutPOIs(t *testing.T) {
+	g, err := LoadGalaxy(context.Background(), fixtureKB(t))
+	if err != nil {
+		t.Fatalf("LoadGalaxy: %v", err)
+	}
+	pois, ok := g.SystemPOIs("krynn") // exists in fixture, has no pois rows
+	if !ok || pois == nil || len(pois) != 0 {
+		t.Fatalf("want empty non-nil slice + ok, got %v %v", pois, ok)
+	}
+}
+
+func TestSystemPOIsUnknownSystem(t *testing.T) {
+	g, err := LoadGalaxy(context.Background(), fixtureKB(t))
+	if err != nil {
+		t.Fatalf("LoadGalaxy: %v", err)
+	}
+	if _, ok := g.SystemPOIs("atlantis"); ok {
+		t.Fatal("unknown system must return ok=false")
+	}
+}
+
+// fixtureKBNoPOIs mirrors the pre-POI schema (and the cmd/overmind-dashboard
+// fixture): LoadGalaxy must tolerate a KB without a pois table.
+func fixtureKBNoPOIs(t *testing.T) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "kb-nopois.db")
+	db, err := sql.Open(sqliteDriver, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close() //nolint:errcheck
+	stmts := []string{
+		`CREATE TABLE systems (id TEXT PRIMARY KEY, name TEXT NOT NULL,
+			position_x REAL NOT NULL, position_y REAL NOT NULL,
+			police_level INTEGER DEFAULT 0, empire TEXT DEFAULT '',
+			is_stronghold BOOLEAN DEFAULT 0, last_visited_tick INTEGER DEFAULT 0)`,
+		`CREATE TABLE connections (from_system TEXT, to_system TEXT, distance REAL)`,
+		`INSERT INTO systems VALUES ('sol','Sol',0,0,10,'solarian',0,1)`,
+	}
+	for _, s := range stmts {
+		if _, err := db.Exec(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return p
+}
+
+func TestLoadGalaxyToleratesMissingPOIsTable(t *testing.T) {
+	g, err := LoadGalaxy(context.Background(), fixtureKBNoPOIs(t))
+	if err != nil {
+		t.Fatalf("LoadGalaxy without pois table: %v", err)
+	}
+	pois, ok := g.SystemPOIs("sol")
+	if !ok || len(pois) != 0 {
+		t.Fatalf("want ok+empty, got %v %v", pois, ok)
 	}
 }
