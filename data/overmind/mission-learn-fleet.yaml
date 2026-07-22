@@ -15,16 +15,16 @@
 #
 # Spec: docs/superpowers/specs/2026-07-17-exploration-missions-design.md
 workers:
-  - { agent_id: engineer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: engineer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: engineer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: engineer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: engineer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: engineer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: engineer-7, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: engineer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: engineer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: engineer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: engineer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: engineer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: engineer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: engineer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: engineer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: engineer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: engineer-7, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: engineer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: engineer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: engineer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: explorer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: explorer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: explorer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
@@ -37,21 +37,23 @@ workers:
   - { agent_id: explorer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: explorer-11, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: explorer-12, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: fighter-1, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: fighter-2, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: fighter-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   # fighter-4 re-added 2026-07-19 after manual operator rescue completed (returned home,
   # sold off cargo, recovered). Joins fully-supervised on the next fleet restart.
-  # fighter-4 = the FREIGHT CANARY (2026-07-20): sole enable_freight worker.
+  # fighter-4 = the FREIGHT CANARY (2026-07-20); proven 23/0 and rolled out to
+  # wave 1 (2026-07-22): all engineers + fighters with >=100 cargo carry
+  # enable_freight. Explorers/randoms excluded (holds <100 or broke).
   # 790 free cargo (multi-package candidate for Sub-project C). Runbook =
   # Rollout section of docs/superpowers/plans/2026-07-20-shipping-carrier-subproject-b.md
   - { agent_id: fighter-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: fighter-5, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: fighter-6, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: fighter-7, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: fighter-8, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: fighter-9, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: fighter-10, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: fighter-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: fighter-6, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: fighter-7, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: fighter-8, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: fighter-9, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: fighter-10, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: random-1, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: random-2, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: random-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
