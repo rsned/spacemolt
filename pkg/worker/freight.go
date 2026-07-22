@@ -483,123 +483,83 @@ func freightInFlightCheck(ctx context.Context, deps MissionDeps, c *serverapi.Sh
 	return freightStepProceed
 }
 
-// freightReconcile recovers an in-flight contract before taking any new work.
-// An orphaned package rides to a default in silence (proven live 2026-07-20:
-// the canary flew away from its contract and it defaulted for a flat 500
-// debt), so this runs before every pass.
-//
-// The in-memory held contract (missionRunState.heldFreight) is the PRIMARY
-// source: the live canary proved the board read NEVER returns our own
-// in_transit contracts, so the profile+board path below only covers the
-// post-restart case — and usually cannot recover the contract itself, only
-// detect that one exists. When memory holds a contract, its live status is
-// re-read via the synchronous `get`; a contract the server reports as no
-// longer in_transit is recorded terminally here (the defaulted canary
-// contract produced NO freight_results row — this closes that gap).
+// freightReconcile is the transitional v1 entry point; Task 6 replaces the
+// mission.go call site with freightReconcileSet + freightChainRun.
 func freightReconcile(ctx context.Context, deps MissionDeps, out io.Writer) (*serverapi.ShipmentContract, bool) {
+	held := freightReconcileSet(ctx, deps, out)
+	if len(held) == 0 {
+		return nil, false
+	}
+	return held[0], true
+}
+
+// freightReconcileSet verifies every remembered in-flight contract against
+// the server before the pass takes any new work. An orphaned package rides
+// to a default in silence (proven live 2026-07-20), so this runs before
+// every pass. Per contract it applies exactly the v1 reconcile rules:
+// fail-open on read trouble (memory wins; worst case is one clean deliver
+// error), refresh on in_transit, record-and-drop on terminal statuses —
+// "defaulted" records outcome "breached" because nothing else will.
+// Server-side actives we do NOT remember are unrecoverable from here (own
+// contracts never list on the board); the gate's unaccounted-for skip keeps
+// us from accepting on top of them, and the loud log line below is the
+// operator's rescue cue.
+func freightReconcileSet(ctx context.Context, deps MissionDeps, out io.Writer) []*serverapi.ShipmentContract {
 	if out == nil {
 		out = io.Discard
 	}
-	if held := deps.State.heldFreightContract(); held != nil {
-		return freightReconcileHeld(ctx, deps, held, out)
+	for _, held := range deps.State.heldFreightAll() {
+		freightVerifyHeld(ctx, deps, held, out)
 	}
-	if err := deps.Client.ShippingProfile(ctx); err != nil {
-		fmt.Fprintf(out, "freight: reconcile profile: %v\n", err) //nolint:errcheck
-		return nil, false
-	}
-	var prof serverapi.ShippingProfileResponse
-	if raw := deps.Client.GetRawJSON("shipping_profile"); len(raw) > 0 {
-		if err := json.Unmarshal(raw, &prof); err != nil {
-			fmt.Fprintf(out, "freight: reconcile decode profile: %v\n", err) //nolint:errcheck
-			return nil, false
+	survivors := deps.State.heldFreightAll()
+	// Loud mismatch detection, log-only: the gate refuses new accepts on a
+	// mismatch, so this cannot orphan anything further.
+	if err := deps.Client.ShippingProfile(ctx); err == nil {
+		var prof serverapi.ShippingProfileResponse
+		if raw := deps.Client.GetRawJSON("shipping_profile"); len(raw) > 0 && json.Unmarshal(raw, &prof) == nil {
+			if prof.Profile.ActiveContracts > len(survivors) {
+				fmt.Fprintf(out, "freight: profile reports %d active contract(s) but memory holds %d — UNRECOVERABLE without operator rescue (own contracts never list; no captains_log resume yet)\n", //nolint:errcheck
+					prof.Profile.ActiveContracts, len(survivors))
+			}
 		}
 	}
-	if prof.Profile.ActiveContracts == 0 {
-		return nil, false
-	}
-
-	// The profile reports only a count, and the board read is known NOT to
-	// list our own in_transit contracts (confirmed live 2026-07-20). This
-	// scan survives as a best-effort fallback in case that ever changes; in
-	// practice a restart with an in-flight contract reaches the loud
-	// "none found" line below, which is the operator's cue to rescue via
-	// play_as (shipping track/deliver) before the deadline.
-	if err := deps.Client.ShippingList(ctx, ""); err != nil {
-		fmt.Fprintf(out, "freight: reconcile list: %v\n", err) //nolint:errcheck
-		return nil, false
-	}
-	var board serverapi.ShippingListResponse
-	if raw := deps.Client.GetRawJSON("shipping_list"); len(raw) > 0 {
-		if err := json.Unmarshal(raw, &board); err != nil {
-			fmt.Fprintf(out, "freight: reconcile decode list: %v\n", err) //nolint:errcheck
-			return nil, false
-		}
-	}
-	for _, l := range board.Shipments {
-		if l.Contract.Status == "in_transit" {
-			c := l.Contract
-			fmt.Fprintf(out, "freight: reconciled held contract %s to %s (deadline tick %d)\n", c.ID, c.DestinationBaseID, c.DeadlineTick) //nolint:errcheck
-			return &c, true
-		}
-	}
-	fmt.Fprintf(out, "freight: profile reports %d active contract(s) but none found in the board read — UNRECOVERABLE without operator rescue (own contracts never list; no captains_log resume yet)\n", prof.Profile.ActiveContracts) //nolint:errcheck
-	return nil, false
+	return survivors
 }
 
-// freightReconcileHeld verifies the remembered in-flight contract against the
-// server before resuming its trip. `get` is a synchronous read, so unlike the
-// mutations there is no tick-deferral to reason about.
-//
-// Fail-open on read/decode trouble: a transient get failure must not orphan a
-// healthy contract, so memory wins and the trip resumes; the worst case is one
-// wasted deliver attempt that errors cleanly. Terminal statuses clear memory —
-// and a "defaulted" contract records outcome "breached" here because nothing
-// else will: the client-side deliver error path records no row, so a deadline
-// that expired between passes would otherwise vanish from freight_results
-// (exactly what happened to the live canary's contract).
-func freightReconcileHeld(ctx context.Context, deps MissionDeps, held *serverapi.ShipmentContract, out io.Writer) (*serverapi.ShipmentContract, bool) {
+// freightVerifyHeld re-reads one remembered contract via the synchronous
+// `get` and updates held-set state per its status. See freightReconcileSet
+// for the rules; this is the v1 freightReconcileHeld body, set-based.
+func freightVerifyHeld(ctx context.Context, deps MissionDeps, held *serverapi.ShipmentContract, out io.Writer) {
 	if err := deps.Client.ShippingGet(ctx, held.ID); err != nil {
 		fmt.Fprintf(out, "freight: reconcile get %s: %v; resuming from memory\n", held.ID, err) //nolint:errcheck
-		return held, true
+		return
 	}
 	var resp serverapi.ShippingContractResponse
 	if raw := deps.Client.GetRawJSON("shipping_get"); len(raw) > 0 {
 		if err := json.Unmarshal(raw, &resp); err != nil {
 			fmt.Fprintf(out, "freight: reconcile decode get %s: %v; resuming from memory\n", held.ID, err) //nolint:errcheck
-			return held, true
+			return
 		}
 	}
 	c := resp.Contract
 	if c.ID == "" {
 		fmt.Fprintf(out, "freight: reconcile get %s returned no contract; resuming from memory\n", held.ID) //nolint:errcheck
-		return held, true
+		return
 	}
 	switch c.Status {
 	case "in_transit":
-		// Refresh memory with the server's copy (deadline etc. authoritative).
-		deps.State.addHeldFreight(&c)
-		fmt.Fprintf(out, "freight: resuming held contract %s to %s (deadline tick %d)\n", c.ID, c.DestinationBaseID, c.DeadlineTick) //nolint:errcheck
-		return &c, true
+		deps.State.addHeldFreight(&c) // refresh: server deadline etc. authoritative
 	case "defaulted":
 		fmt.Fprintf(out, "freight: held contract %s DEFAULTED server-side (flat debt; operator settles via pay_debt, package is keepable/unpackable)\n", c.ID) //nolint:errcheck
 		freightRecord(ctx, deps, out, c, nil, 0, "breached", "reconciled: server status defaulted")
 		deps.State.removeHeldFreight(c.ID)
-		return nil, false
 	case "delivered":
-		// The deliver landed server-side but the client never saw the
-		// settlement (tick-deferred reply lost to a disconnect or error).
-		// Record it so the row exists; payout unknown from here.
 		fmt.Fprintf(out, "freight: held contract %s already delivered server-side; recording without payout\n", c.ID) //nolint:errcheck
 		freightRecord(ctx, deps, out, c, nil, 0, "delivered", "reconciled: settlement reply unseen; payout unrecorded")
 		deps.State.removeHeldFreight(c.ID)
-		return nil, false
 	default:
-		// returned_* and any future terminal status: our own successful
-		// ShippingReturn already recorded its row at the time, so just release
-		// the memory. Log the status so anything genuinely novel is visible.
 		fmt.Fprintf(out, "freight: held contract %s no longer in transit (status %q); releasing\n", c.ID, c.Status) //nolint:errcheck
 		deps.State.removeHeldFreight(c.ID)
-		return nil, false
 	}
 }
 

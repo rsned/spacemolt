@@ -12,6 +12,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/market"
 )
 
 // noFuel prices every route at zero, isolating reward arithmetic.
@@ -518,10 +519,16 @@ func TestFreightInFlightCheckKeepsHealthyContract(t *testing.T) {
 	}
 }
 
-// After a restart the in-memory task is gone; the server is the only source of
-// truth for what we are holding.
-func TestFreightReconcileFindsHeldContract(t *testing.T) {
-	held := acceptedContract(1200, 1380)
+// After a restart the in-memory held set is gone, and the board read never
+// lists our own in_transit contracts (proven live 2026-07-20), so board-scan
+// recovery is impossible: reconcile cannot resume anything from the server,
+// it can only detect the mismatch and log it loudly for an operator rescue.
+// (v1's TestFreightReconcileFindsHeldContract asserted board-scan recovery;
+// that behavior was proven dead and is intentionally dropped — see Task 4
+// brief. What this test still protects is the loud-log/no-accept guarantee;
+// the gate's unaccounted-for skip, covered elsewhere, is what actually stops
+// a second accept from stacking on top of the orphaned contract.)
+func TestFreightReconcileLogsLoudMismatchWhenMemoryEmpty(t *testing.T) {
 	f := &fakeClient{
 		state: &game.State{},
 		raw: map[string][]byte{
@@ -532,19 +539,20 @@ func TestFreightReconcileFindsHeldContract(t *testing.T) {
 				})
 				return b
 			}(),
-			"shipping_list": shippingListJSON(t, serverapi.ShippingListing{
-				Eligible: true, Contract: held,
-			}),
 		},
 	}
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}}
+	var log strings.Builder
 
-	got, ok := freightReconcile(context.Background(), deps, io.Discard)
-	if !ok || got == nil {
-		t.Fatal("a held contract must be discovered from server state")
+	got, ok := freightReconcile(context.Background(), deps, &log)
+	if ok || got != nil {
+		t.Fatalf("empty memory must never resume anything from the board, got %+v", got)
 	}
-	if got.ID != "high" {
-		t.Fatalf("wrong contract: %+v", got)
+	if slices.Contains(f.shippingCalls, "list") {
+		t.Fatal("board-scan recovery is dropped; must not read the board")
+	}
+	if !strings.Contains(log.String(), "UNRECOVERABLE") {
+		t.Fatalf("a profile/memory mismatch must log loudly for operator rescue, got %q", log.String())
 	}
 }
 
@@ -982,18 +990,15 @@ func TestMissionsFreightUsesFreshCargoReadNotStaleSnapshot(t *testing.T) {
 // deadline has collapsed, and the return FAILS. The worker is physically
 // carrying an undischarged contract, so it must park — taking mission work here
 // would fly it away mid-contract with the package still in the hold.
+// Reconcile has no board fallback (Task 4: dropped, own contracts never
+// list), so a contract held in memory from earlier this session — not one
+// "discovered" from the server after a restart — is what exercises this
+// path; freightVerifyHeld's synchronous get still refreshes/verifies it.
 func TestMissionsParksWhenReconciledContractCannotBeReturned(t *testing.T) {
 	held := acceptedContract(1100, 1210) // 10 ticks left at tick 1200 -> infeasible
 	entry := boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0)
 	fc := freightBoardClient(t, boardJSON(t, entry), map[string][]byte{
-		"shipping_profile": func() []byte {
-			b, _ := json.Marshal(serverapi.ShippingProfileResponse{
-				Action:  "profile",
-				Profile: serverapi.CarrierProfile{ActiveContracts: 1},
-			})
-			return b
-		}(),
-		"shipping_list": shippingListJSON(t, serverapi.ShippingListing{Eligible: true, Contract: held}),
+		"shipping_get": shippingContractJSON(t, "get", held),
 	})
 	fc.state.CurrentTick = 1200
 	fc.shippingErr = map[string]error{"return": errors.New("server refused the return")}
@@ -1003,6 +1008,7 @@ func TestMissionsParksWhenReconciledContractCannotBeReturned(t *testing.T) {
 	deps := missionDeps(fc, &store.fakeMissionStore, missionKB())
 	deps.Market, deps.EnableFreight = store, true
 	deps.State = &missionRunState{}
+	deps.State.addHeldFreight(&held)
 
 	if err := Missions(context.Background(), deps); err != nil {
 		t.Fatalf("a stuck reconciled contract must park the pass, not error: %v", err)
@@ -1123,7 +1129,9 @@ func TestFreightRunTripLeavesInFlightWhenDockNeverSettles(t *testing.T) {
 
 // The board read never lists our own in_transit contracts (proven live), so
 // reconcile must resume from the in-memory held contract, verified via the
-// synchronous get — no profile or list read at all.
+// synchronous get — never the board. (Task 4: freightReconcileSet does call
+// ShippingProfile unconditionally now, but only for the loud-mismatch log;
+// it never falls back to it for recovery, and must never touch the board.)
 func TestFreightReconcileUsesHeldMemoryFirst(t *testing.T) {
 	held := acceptedContract(1200, 1380)
 	f := &fakeClient{
@@ -1141,10 +1149,8 @@ func TestFreightReconcileUsesHeldMemoryFirst(t *testing.T) {
 	if !slices.Contains(f.calls, "shipping_get:high") {
 		t.Fatalf("must verify the held contract via get, calls were %v", f.calls)
 	}
-	for _, call := range f.shippingCalls {
-		if call == "profile" || call == "list" {
-			t.Fatalf("memory-first reconcile must not fall back to profile/list, calls were %v", f.shippingCalls)
-		}
+	if slices.Contains(f.shippingCalls, "list") {
+		t.Fatalf("memory-first reconcile must never read the board, calls were %v", f.shippingCalls)
 	}
 }
 
@@ -1176,8 +1182,8 @@ func TestFreightReconcileRecordsDefaultedHeldContract(t *testing.T) {
 	if !strings.Contains(store.results[0].Reason, "defaulted") {
 		t.Fatalf("reason must carry the server status, got %q", store.results[0].Reason)
 	}
-	if st.heldFreightContract() != nil {
-		t.Fatal("a terminal status must clear the held-freight memory")
+	if all := st.heldFreightAll(); len(all) != 0 {
+		t.Fatalf("a terminal status must clear the held-freight memory, got %+v", all)
 	}
 }
 
@@ -1197,7 +1203,7 @@ func TestFreightReconcileHeldSurvivesGetFailure(t *testing.T) {
 	if !ok || got == nil || got.ID != "high" {
 		t.Fatalf("memory must win over a transient get failure, got %+v ok=%v", got, ok)
 	}
-	if st.heldFreightContract() == nil {
+	if all := st.heldFreightAll(); len(all) == 0 {
 		t.Fatal("the held-freight memory must survive a transient get failure")
 	}
 }
@@ -1222,16 +1228,16 @@ func TestFreightHeldMemoryLifecycle(t *testing.T) {
 	if step != freightStepProceed {
 		t.Fatalf("accept must proceed, got step %v", step)
 	}
-	if h := st.heldFreightContract(); h == nil || h.ID != "high" {
-		t.Fatalf("accept must set the held-freight memory, got %+v", h)
+	if all := st.heldFreightAll(); len(all) == 0 || all[0].ID != "high" {
+		t.Fatalf("accept must set the held-freight memory, got %+v", all)
 	}
 
 	nav := func(ctx context.Context, baseID string) error { return nil }
 	if err := freightRunTrip(context.Background(), deps, accepted, cand, nav, io.Discard); err != nil {
 		t.Fatalf("freightRunTrip: %v", err)
 	}
-	if st.heldFreightContract() != nil {
-		t.Fatal("a delivered trip must clear the held-freight memory")
+	if all := st.heldFreightAll(); len(all) != 0 {
+		t.Fatalf("a delivered trip must clear the held-freight memory, got %+v", all)
 	}
 
 	// A failed return keeps (or re-establishes) the hold.
@@ -1240,7 +1246,7 @@ func TestFreightHeldMemoryLifecycle(t *testing.T) {
 	if step := freightReturn(context.Background(), deps, io.Discard, c, cand, "returned_inflight", "test"); step != freightStepStuck {
 		t.Fatalf("a failed return must report stuck, got %v", step)
 	}
-	if h := st.heldFreightContract(); h == nil || h.ID != "high" {
+	if all := st.heldFreightAll(); len(all) == 0 || all[0].ID != "high" {
 		t.Fatal("a failed return must keep the held-freight memory for the next pass")
 	}
 }
@@ -1344,5 +1350,94 @@ func TestFreightCandidateSkipsCandidateOverLiability(t *testing.T) {
 	cand, _ := freightCandidate(context.Background(), deps, in, io.Discard)
 	if cand == nil || cand.Contract.ID != "ok" {
 		t.Fatalf("cand = %+v, want contract ok (big skipped on liability)", cand)
+	}
+}
+
+// reconcileFakeClient answers ShippingGet per contract ID, unlike the shared
+// fakeClient (which only has one static "shipping_get" slot) — needed
+// because freightReconcileSet verifies a whole set of held contracts in one
+// pass, each with its own server-side answer.
+type reconcileFakeClient struct {
+	fakeClient
+	byID    map[string]string // contractID -> raw shipping_get JSON; absent = get error
+	lastGet []byte
+}
+
+func (f *reconcileFakeClient) ShippingGet(ctx context.Context, shipmentID string) error {
+	f.calls = append(f.calls, "shipping_get:"+shipmentID)
+	f.shippingCalls = append(f.shippingCalls, "get")
+	raw, ok := f.byID[shipmentID]
+	if !ok {
+		return errors.New("no such contract")
+	}
+	f.lastGet = []byte(raw)
+	return nil
+}
+
+func (f *reconcileFakeClient) GetRawJSON(key string) []byte {
+	if key == "shipping_get" {
+		return f.lastGet
+	}
+	return f.fakeClient.GetRawJSON(key)
+}
+
+// freightReconcileStore is a fakeFreightStore that also indexes recorded
+// outcomes by contract ID, so reconcile-set tests can assert an outcome
+// without walking the results slice.
+type freightReconcileStore struct {
+	fakeFreightStore
+	outcomes map[string]string
+}
+
+func (s *freightReconcileStore) RecordFreightResult(ctx context.Context, r market.FreightResult) error {
+	if s.outcomes == nil {
+		s.outcomes = make(map[string]string)
+	}
+	s.outcomes[r.ContractID] = r.Outcome
+	return s.fakeFreightStore.RecordFreightResult(ctx, r)
+}
+
+// freightReconcileDeps builds a MissionDeps + recording store for
+// freightReconcileSet tests, factored out of the single-contract mock setup
+// in TestFreightReconcileUsesHeldMemoryFirst and neighbors: ShippingGet
+// answers byID[contractID] verbatim (a get error when the ID is absent).
+func freightReconcileDeps(t *testing.T, byID map[string]string) (MissionDeps, *freightReconcileStore) {
+	t.Helper()
+	store := &freightReconcileStore{}
+	f := &reconcileFakeClient{fakeClient: fakeClient{state: &game.State{}}, byID: byID}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: &missionRunState{}}
+	return deps, store
+}
+
+func TestFreightReconcileSetDropsTerminalKeepsTransit(t *testing.T) {
+	// Two remembered contracts: "gone" now reports defaulted server-side
+	// (recorded as breached, removed), "live" stays in_transit (refreshed).
+	// Mock ShippingGet returns per-ID JSON, as the v1 reconcile tests do.
+	deps, store := freightReconcileDeps(t, map[string]string{
+		"gone": `{"contract":{"id":"gone","status":"defaulted","destination_base_id":"d1"}}`,
+		"live": `{"contract":{"id":"live","status":"in_transit","destination_base_id":"d2","deadline_tick":99999}}`,
+	})
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "gone"})
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "live"})
+	held := freightReconcileSet(context.Background(), deps, io.Discard)
+	if len(held) != 1 || held[0].ID != "live" {
+		t.Fatalf("held = %v, want [live]", held)
+	}
+	if deps.State.heldFreightCount() != 1 {
+		t.Fatal("terminal contract not removed from state")
+	}
+	if got := store.outcomes["gone"]; got != "breached" {
+		t.Fatalf("defaulted contract recorded %q, want breached", got)
+	}
+}
+
+func TestFreightReconcileSetFailOpenOnGetError(t *testing.T) {
+	// A transient get failure must not orphan a healthy contract: memory
+	// wins and the contract stays held (v1 fail-open rule, per contract).
+	deps, _ := freightReconcileDeps(t, map[string]string{}) // gets error
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "x", DestinationBaseID: "d"})
+	held := freightReconcileSet(context.Background(), deps, io.Discard)
+	if len(held) != 1 || held[0].ID != "x" {
+		t.Fatalf("held = %v, want [x] (fail-open)", held)
 	}
 }

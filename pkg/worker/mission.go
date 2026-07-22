@@ -133,20 +133,6 @@ func (s *missionRunState) heldFreightCount() int {
 	return len(s.heldFreight)
 }
 
-// heldFreightContract returns the single held contract when exactly one is
-// held, else the first by ID.
-//
-// TRANSITIONAL (sub-project C Task 2): exists only so freightReconcile
-// compiles until Task 4 replaces it with freightReconcileSet. Do not add
-// callers.
-func (s *missionRunState) heldFreightContract() *serverapi.ShipmentContract {
-	all := s.heldFreightAll()
-	if len(all) == 0 {
-		return nil
-	}
-	return all[0]
-}
-
 // markAttempted records that mission id has been accepted (and recorded,
 // win or lose) this session, so a future pass never re-selects it. No-op on
 // a nil receiver (State is optional; tests that don't care simply omit it).
