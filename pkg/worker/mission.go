@@ -8,6 +8,7 @@ import (
 	"io"
 	"maps"
 	"slices"
+	"sort"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
@@ -75,40 +76,75 @@ type missionRunState struct {
 	// pass. A changed reason (e.g. the expiry countdown crossing the floor)
 	// is a new key, so it logs again.
 	loggedSkips map[string]bool
-	// heldFreight is the in-flight shipping contract accepted this session,
-	// if any. The live canary (2026-07-20) proved the board read NEVER
-	// returns our own in_transit contracts, so this in-memory copy is the
-	// PRIMARY reconcile source; the profile+board read in freightReconcile
-	// survives only as the post-restart fallback (and will usually miss
-	// until captains_log-style server-side resume exists).
-	heldFreight *serverapi.ShipmentContract
+	// heldFreight is the set of in-flight shipping contracts accepted this
+	// session, keyed by contract ID. The live canary (2026-07-20) proved the
+	// board read NEVER returns our own in_transit contracts, so this
+	// in-memory set is the PRIMARY reconcile source; the profile count in
+	// freightReconcileSet survives only as the post-restart mismatch detector
+	// (and will usually be unrecoverable until captains_log-style server-side
+	// resume exists). Sub-project C: was a single *ShipmentContract.
+	heldFreight map[string]*serverapi.ShipmentContract
 }
 
-// setHeldFreight remembers the contract we are currently carrying. No-op on
-// a nil receiver (State is optional; tests that don't care simply omit it).
-func (s *missionRunState) setHeldFreight(c *serverapi.ShipmentContract) {
+// addHeldFreight remembers (or refreshes) a contract we are carrying. No-op
+// on a nil receiver (State is optional; tests that don't care omit it).
+func (s *missionRunState) addHeldFreight(c *serverapi.ShipmentContract) {
+	if s == nil || c == nil {
+		return
+	}
+	if s.heldFreight == nil {
+		s.heldFreight = make(map[string]*serverapi.ShipmentContract)
+	}
+	s.heldFreight[c.ID] = c
+}
+
+// removeHeldFreight forgets one contract after its terminal outcome. No-op
+// on a nil receiver.
+func (s *missionRunState) removeHeldFreight(id string) {
 	if s == nil {
 		return
 	}
-	s.heldFreight = c
+	delete(s.heldFreight, id)
 }
 
-// heldFreightContract returns the in-flight contract remembered this
-// session, or nil. Always nil on a nil receiver.
-func (s *missionRunState) heldFreightContract() *serverapi.ShipmentContract {
-	if s == nil {
+// heldFreightAll returns the held contracts sorted by ID (deterministic
+// iteration for feasibility math, logs and tests). Nil on a nil receiver.
+func (s *missionRunState) heldFreightAll() []*serverapi.ShipmentContract {
+	if s == nil || len(s.heldFreight) == 0 {
 		return nil
 	}
-	return s.heldFreight
+	ids := make([]string, 0, len(s.heldFreight))
+	for id := range s.heldFreight {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	out := make([]*serverapi.ShipmentContract, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, s.heldFreight[id])
+	}
+	return out
 }
 
-// clearHeldFreight forgets the held contract after a terminal outcome.
-// No-op on a nil receiver.
-func (s *missionRunState) clearHeldFreight() {
+// heldFreightCount is len(held); 0 on a nil receiver.
+func (s *missionRunState) heldFreightCount() int {
 	if s == nil {
-		return
+		return 0
 	}
-	s.heldFreight = nil
+	return len(s.heldFreight)
+}
+
+// heldFreightContract returns the single held contract when exactly one is
+// held, else the first by ID.
+//
+// TRANSITIONAL (sub-project C Task 2): exists only so freightReconcile
+// compiles until Task 4 replaces it with freightReconcileSet. Do not add
+// callers.
+func (s *missionRunState) heldFreightContract() *serverapi.ShipmentContract {
+	all := s.heldFreightAll()
+	if len(all) == 0 {
+		return nil
+	}
+	return all[0]
 }
 
 // markAttempted records that mission id has been accepted (and recorded,
@@ -657,8 +693,8 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 				localCost, _, avgFill, enough := market.CostToAcquire(lad, marketQty)
 				if marketQty > 0 && !enough {
 					fmt.Fprintf(out, "missions: skip %s (%s): market here can't fill %.0f %s\n", c.Entry.MissionID, c.Entry.Title, marketQty, c.ItemID) //nolint:errcheck
-					deps.State.markAttempted(c.Entry.MissionID)                                                                                       // don't re-price it every pass this session
-					continue                                                                                                                          // skipped: buys nothing, so consume nothing
+					deps.State.markAttempted(c.Entry.MissionID)                                                                                         // don't re-price it every pass this session
+					continue                                                                                                                            // skipped: buys nothing, so consume nothing
 				}
 				if ref, ok, _ := deps.Market.GetReferencePrice(ctx, c.ItemID, missionReferenceLookback); ok && avgFill > missionSurgeMult*ref {
 					fmt.Fprintf(out, "missions: skip %s (%s): %s avg %.0f > %.1fx reference %.0f (surge)\n", c.Entry.MissionID, c.Entry.Title, c.ItemID, avgFill, missionSurgeMult, ref) //nolint:errcheck

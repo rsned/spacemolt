@@ -1130,7 +1130,9 @@ func TestFreightReconcileUsesHeldMemoryFirst(t *testing.T) {
 		state: &game.State{},
 		raw:   map[string][]byte{"shipping_get": shippingContractJSON(t, "get", held)},
 	}
-	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}, State: &missionRunState{heldFreight: &held}}
+	st := &missionRunState{}
+	st.addHeldFreight(&held)
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}, State: st}
 
 	got, ok := freightReconcile(context.Background(), deps, io.Discard)
 	if !ok || got == nil || got.ID != "high" {
@@ -1160,7 +1162,8 @@ func TestFreightReconcileRecordsDefaultedHeldContract(t *testing.T) {
 		state: &game.State{},
 		raw:   map[string][]byte{"shipping_get": shippingContractJSON(t, "get", defaulted)},
 	}
-	st := &missionRunState{heldFreight: &held}
+	st := &missionRunState{}
+	st.addHeldFreight(&held)
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: st}
 
 	got, ok := freightReconcile(context.Background(), deps, io.Discard)
@@ -1186,7 +1189,8 @@ func TestFreightReconcileHeldSurvivesGetFailure(t *testing.T) {
 		state:       &game.State{},
 		shippingErr: map[string]error{"get": errors.New("connection reset")},
 	}
-	st := &missionRunState{heldFreight: &held}
+	st := &missionRunState{}
+	st.addHeldFreight(&held)
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}, State: st}
 
 	got, ok := freightReconcile(context.Background(), deps, io.Discard)

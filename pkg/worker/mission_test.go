@@ -828,7 +828,7 @@ func TestMissionsEscapesStationlessSystem(t *testing.T) {
 	}
 	fc.state.System = game.SystemData{ID: "wealth_lane", Name: "Wealth Lane"}
 	fc.state.CurrentPOI = "wealth_lane_ice_belt" // no station in this system
-	kb := missionKB() // knows haven/sol only — wealth_lane has no station POI
+	kb := missionKB()                            // knows haven/sol only — wealth_lane has no station POI
 	var navTo string
 	deps := missionDeps(fc, &fakeMissionStore{}, kb)
 	// No local station in wealth_lane, so recovery must consult nearbyStations
@@ -1280,4 +1280,29 @@ func TestMissionUnloadAtHomeBase(t *testing.T) {
 			t.Fatalf("want no calls with empty hold, got %v", fc.calls)
 		}
 	})
+}
+
+func TestHeldFreightSetAccessors(t *testing.T) {
+	var nilState *missionRunState
+	nilState.addHeldFreight(&serverapi.ShipmentContract{ID: "x"}) // must not panic
+	nilState.removeHeldFreight("x")
+	if nilState.heldFreightCount() != 0 || nilState.heldFreightAll() != nil {
+		t.Fatal("nil receiver must read as empty")
+	}
+
+	s := &missionRunState{}
+	s.addHeldFreight(&serverapi.ShipmentContract{ID: "b"})
+	s.addHeldFreight(&serverapi.ShipmentContract{ID: "a"})
+	s.addHeldFreight(&serverapi.ShipmentContract{ID: "b"}) // upsert, not dup
+	if s.heldFreightCount() != 2 {
+		t.Fatalf("count = %d, want 2", s.heldFreightCount())
+	}
+	all := s.heldFreightAll()
+	if len(all) != 2 || all[0].ID != "a" || all[1].ID != "b" {
+		t.Fatalf("heldFreightAll not ID-sorted: %v", all)
+	}
+	s.removeHeldFreight("a")
+	if s.heldFreightCount() != 1 || s.heldFreightAll()[0].ID != "b" {
+		t.Fatal("remove did not drop exactly one entry")
+	}
 }

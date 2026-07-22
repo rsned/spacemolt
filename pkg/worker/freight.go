@@ -341,7 +341,7 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out
 	// Remember the held contract in cross-pass memory: the board read never
 	// shows our own in_transit contracts, so this is what reconcile resumes
 	// from if the trip is interrupted mid-session.
-	deps.State.setHeldFreight(&c)
+	deps.State.addHeldFreight(&c)
 	return &c, freightStepProceed
 }
 
@@ -404,11 +404,11 @@ func freightReturn(ctx context.Context, deps MissionDeps, out io.Writer, c serve
 		freightRecord(ctx, deps, out, c, cand, 0, "return_failed", "return failed: "+err.Error())
 		// The contract is still live and still ours — keep (or establish) the
 		// in-memory hold so the next pass's reconcile finds it.
-		deps.State.setHeldFreight(&c)
+		deps.State.addHeldFreight(&c)
 		return freightStepStuck
 	}
 	freightRecord(ctx, deps, out, c, cand, 0, outcome, reason)
-	deps.State.clearHeldFreight()
+	deps.State.removeHeldFreight(c.ID)
 	return freightStepReleased
 }
 
@@ -528,13 +528,13 @@ func freightReconcileHeld(ctx context.Context, deps MissionDeps, held *serverapi
 	switch c.Status {
 	case "in_transit":
 		// Refresh memory with the server's copy (deadline etc. authoritative).
-		deps.State.setHeldFreight(&c)
+		deps.State.addHeldFreight(&c)
 		fmt.Fprintf(out, "freight: resuming held contract %s to %s (deadline tick %d)\n", c.ID, c.DestinationBaseID, c.DeadlineTick) //nolint:errcheck
 		return &c, true
 	case "defaulted":
 		fmt.Fprintf(out, "freight: held contract %s DEFAULTED server-side (flat debt; operator settles via pay_debt, package is keepable/unpackable)\n", c.ID) //nolint:errcheck
 		freightRecord(ctx, deps, out, c, nil, 0, "breached", "reconciled: server status defaulted")
-		deps.State.clearHeldFreight()
+		deps.State.removeHeldFreight(c.ID)
 		return nil, false
 	case "delivered":
 		// The deliver landed server-side but the client never saw the
@@ -542,14 +542,14 @@ func freightReconcileHeld(ctx context.Context, deps MissionDeps, held *serverapi
 		// Record it so the row exists; payout unknown from here.
 		fmt.Fprintf(out, "freight: held contract %s already delivered server-side; recording without payout\n", c.ID) //nolint:errcheck
 		freightRecord(ctx, deps, out, c, nil, 0, "delivered", "reconciled: settlement reply unseen; payout unrecorded")
-		deps.State.clearHeldFreight()
+		deps.State.removeHeldFreight(c.ID)
 		return nil, false
 	default:
 		// returned_* and any future terminal status: our own successful
 		// ShippingReturn already recorded its row at the time, so just release
 		// the memory. Log the status so anything genuinely novel is visible.
 		fmt.Fprintf(out, "freight: held contract %s no longer in transit (status %q); releasing\n", c.ID, c.Status) //nolint:errcheck
-		deps.State.clearHeldFreight()
+		deps.State.removeHeldFreight(c.ID)
 		return nil, false
 	}
 }
@@ -668,7 +668,7 @@ func freightRunTrip(ctx context.Context, deps MissionDeps, c *serverapi.Shipment
 	}
 	fmt.Fprintf(out, "freight: delivered %s, payout %d\n", c.ID, settle.CarrierPayout) //nolint:errcheck
 	freightRecord(ctx, deps, out, final, cand, float64(settle.CarrierPayout), "delivered", settleReason)
-	deps.State.clearHeldFreight()
+	deps.State.removeHeldFreight(c.ID)
 	return nil
 }
 
