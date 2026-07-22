@@ -171,7 +171,6 @@ export function SystemView({ system, systems, agents, moves, selectedId, onAgent
       if (anims.current.size === 0) clearInterval(iv);
     }, 50);
     return () => clearInterval(iv);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moves, agents]);
 
   // Fit gateRadius inside the viewport with padding; zoom multiplies.
@@ -367,15 +366,31 @@ export function SystemView({ system, systems, agents, moves, selectedId, onAgent
           {(pois ?? []).filter((p) => p.type !== 'sun' && !RING_TYPES.has(p.type)).map((p) => {
             const pos = T(p.x, p.y);
             if (p.type === 'station') {
+              // Station glyph matches the game server's own station pages:
+              // filled hex inside a docking ring — spokes with pad circles at
+              // their tips, plus a thin outer ring.
               const r = 6 * ms;
+              const ringR = 9.5 * ms;
+              const outerR = 13 * ms;
               const hex = Array.from({ length: 6 }, (_, i) => {
                 const a = (Math.PI / 3) * i - Math.PI / 6;
                 return `${pos.x + r * Math.cos(a)},${pos.y + r * Math.sin(a)}`;
               }).join(' ');
+              const padAngles = Array.from({ length: 6 }, (_, i) => (Math.PI / 3) * i);
               return (
                 <g key={p.id}>
-                  <polygon points={hex} fill="#11100c" stroke="#d8d3c0" strokeWidth={1.2} />
-                  <text x={pos.x} y={pos.y - 12 * ms} textAnchor="middle" fill="#d8d3c0" fontSize={10 * ms}>
+                  <circle cx={pos.x} cy={pos.y} r={outerR} fill="none" stroke="#22d3ee" strokeWidth={0.8} opacity={0.35} />
+                  <circle cx={pos.x} cy={pos.y} r={ringR} fill="none" stroke="#8a8570" strokeWidth={0.8} opacity={0.6} />
+                  {padAngles.map((a, i) => (
+                    <g key={i} opacity={0.7}>
+                      <line x1={pos.x} y1={pos.y} x2={pos.x + ringR * Math.cos(a)} y2={pos.y + ringR * Math.sin(a)}
+                        stroke="#8a8570" strokeWidth={0.7} />
+                      <circle cx={pos.x + ringR * Math.cos(a)} cy={pos.y + ringR * Math.sin(a)} r={1.8 * ms}
+                        fill="#9ca3af" />
+                    </g>
+                  ))}
+                  <polygon points={hex} fill="#22d3ee" stroke="#0a0a08" strokeWidth={1} opacity={0.9} />
+                  <text x={pos.x} y={pos.y - 17 * ms} textAnchor="middle" fill="#d8d3c0" fontSize={10 * ms}>
                     {p.name}
                   </text>
                 </g>

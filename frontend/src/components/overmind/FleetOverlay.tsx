@@ -83,10 +83,16 @@ export function FleetOverlay({ agents, moves, systems, project, visibleFleets, s
         const dominantColor = FLEETS[dominantFleet(list)] ?? '#d4a017';
         return (
           <g key={sysId}>
-            {/* soft glow tinted by the dominant fleet present */}
-            <circle cx={center.x} cy={center.y} r={14} fill={dominantColor} opacity={0.15} />
-            {/* count badge */}
-            <g transform={`translate(${center.x + 8}, ${center.y - 10})`}>
+            {/* soft glow tinted by the dominant fleet present. pointer-events
+                MUST stay off: this filled circle sits on top of the system's
+                click target (overlay draws last), and a painted SVG circle
+                swallows clicks even at 15% opacity — with agents present, the
+                system underneath became unclickable (found live: zoom-to-system
+                only worked on agent-less systems). */}
+            <circle cx={center.x} cy={center.y} r={14} fill={dominantColor} opacity={0.15}
+              pointerEvents="none" />
+            {/* count badge — decorative, same click-shielding concern */}
+            <g transform={`translate(${center.x + 8}, ${center.y - 10})`} pointerEvents="none">
               <rect x={-2} y={-8} width={list.length >= 10 ? 18 : 12} height={11}
                 rx={2} fill="#11100c" stroke={dominantColor} strokeWidth={0.5} />
               <text x={list.length >= 10 ? 7 : 4} y={1} textAnchor="middle"
