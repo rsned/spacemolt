@@ -60,27 +60,27 @@ func TestFreightPackagesFit(t *testing.T) {
 func TestBuildFreightCandRejects(t *testing.T) {
 	// Ineligible listings never become candidates — the server's flag already
 	// encodes carrier tier, liability and debt, and we do not second-guess it.
-	if _, reason := buildFreightCand(listing("a", false, 5000, 2), 2, noFuel); reason == "" {
+	if _, reason := buildFreightCand(listing("a", false, 5000, 2), 2, nil, 0, noFuel); reason == "" {
 		t.Fatal("an ineligible listing must be rejected")
 	}
 	// Below the net floor.
-	if _, reason := buildFreightCand(listing("b", true, 100, 2), 2, noFuel); reason == "" {
+	if _, reason := buildFreightCand(listing("b", true, 100, 2), 2, nil, 0, noFuel); reason == "" {
 		t.Fatal("a reward below freightMinNet must be rejected")
 	}
 	// Fuel can push an otherwise-acceptable reward under the floor.
-	if _, reason := buildFreightCand(listing("c", true, 520, 5), 5, flatFuel); reason == "" {
+	if _, reason := buildFreightCand(listing("c", true, 520, 5), 5, nil, 0, flatFuel); reason == "" {
 		t.Fatal("net after fuel below freightMinNet must be rejected")
 	}
 	// No destination is unroutable.
 	bad := listing("d", true, 5000, 2)
 	bad.Contract.DestinationBaseID = ""
-	if _, reason := buildFreightCand(bad, 2, noFuel); reason == "" {
+	if _, reason := buildFreightCand(bad, 2, nil, 0, noFuel); reason == "" {
 		t.Fatal("a listing with no destination must be rejected")
 	}
 }
 
 func TestBuildFreightCandAccepts(t *testing.T) {
-	c, reason := buildFreightCand(listing("e", true, 5000, 3), 3, flatFuel)
+	c, reason := buildFreightCand(listing("e", true, 5000, 3), 3, nil, 0, flatFuel)
 	if reason != "" {
 		t.Fatalf("want acceptance, got skip reason %q", reason)
 	}
@@ -93,7 +93,7 @@ func TestBuildFreightCandAccepts(t *testing.T) {
 	// max_speed_bonus is upside only; it must never lift a candidate over the floor.
 	low := listing("f", true, 100, 1)
 	low.Contract.MaxSpeedBonus = 10000
-	if _, reason := buildFreightCand(low, 1, noFuel); reason == "" {
+	if _, reason := buildFreightCand(low, 1, nil, 0, noFuel); reason == "" {
 		t.Fatal("max_speed_bonus must not count toward the net floor")
 	}
 }
@@ -102,9 +102,9 @@ func TestSelectFreightCandPicksHighestNet(t *testing.T) {
 	if got := selectFreightCand(nil); got != nil {
 		t.Fatal("no candidates must select nothing")
 	}
-	a, _ := buildFreightCand(listing("a", true, 1000, 1), 1, noFuel)
-	b, _ := buildFreightCand(listing("b", true, 9000, 1), 1, noFuel)
-	c, _ := buildFreightCand(listing("c", true, 3000, 1), 1, noFuel)
+	a, _ := buildFreightCand(listing("a", true, 1000, 1), 1, nil, 0, noFuel)
+	b, _ := buildFreightCand(listing("b", true, 9000, 1), 1, nil, 0, noFuel)
+	c, _ := buildFreightCand(listing("c", true, 3000, 1), 1, nil, 0, noFuel)
 	got := selectFreightCand([]freightCand{a, b, c})
 	if got == nil || got.Contract.ID != "b" {
 		t.Fatalf("want highest-net candidate b, got %+v", got)
@@ -245,10 +245,10 @@ func TestFreightCandidateSkipsWhenContractAlreadyHeld(t *testing.T) {
 	if cand != nil {
 		t.Fatalf("must not take a second contract while one is held, got %s", cand.Contract.ID)
 	}
-	if !strings.Contains(reason, "active contract") {
-		t.Fatalf("want a distinct already-held skip reason, got %q", reason)
+	if !strings.Contains(reason, "unaccounted") {
+		t.Fatalf("want the unaccounted-contract skip reason, got %q", reason)
 	}
-	if !strings.Contains(log.String(), "active contract") {
+	if !strings.Contains(log.String(), "unaccounted") {
 		t.Fatalf("the decline must show in the pass log, got %q", log.String())
 	}
 	for _, c := range f.shippingCalls {
@@ -355,7 +355,7 @@ func TestFreightAcceptProceedsWhenDeadlineFeasible(t *testing.T) {
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeMissionStore{}}
 	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
 
-	got, step := freightAccept(context.Background(), deps, cand, io.Discard)
+	got, step := freightAccept(context.Background(), deps, cand, nil, io.Discard)
 	if step != freightStepProceed || got == nil {
 		t.Fatal("a feasible contract must proceed")
 	}
@@ -387,7 +387,7 @@ func TestFreightAcceptReturnsWhenDeadlineInfeasible(t *testing.T) {
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
 	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
 
-	got, step := freightAccept(context.Background(), deps, cand, io.Discard)
+	got, step := freightAccept(context.Background(), deps, cand, nil, io.Discard)
 	if step == freightStepProceed || got != nil {
 		t.Fatal("an infeasible contract must be released")
 	}
@@ -409,7 +409,7 @@ func TestFreightAcceptRecordsAcceptFailure(t *testing.T) {
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
 	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
 
-	if _, step := freightAccept(context.Background(), deps, cand, io.Discard); step == freightStepProceed {
+	if _, step := freightAccept(context.Background(), deps, cand, nil, io.Discard); step == freightStepProceed {
 		t.Fatal("a failed accept must not proceed")
 	}
 	if len(store.results) != 1 || store.results[0].Outcome != "accept_failed" {
@@ -432,7 +432,7 @@ func TestFreightAcceptRecordsReturnFailure(t *testing.T) {
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
 	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
 
-	got, step := freightAccept(context.Background(), deps, cand, io.Discard)
+	got, step := freightAccept(context.Background(), deps, cand, nil, io.Discard)
 	if step == freightStepProceed || got != nil {
 		t.Fatal("an infeasible contract must be released")
 	}
@@ -1218,7 +1218,7 @@ func TestFreightHeldMemoryLifecycle(t *testing.T) {
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}, State: st}
 	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
 
-	accepted, step := freightAccept(context.Background(), deps, cand, io.Discard)
+	accepted, step := freightAccept(context.Background(), deps, cand, nil, io.Discard)
 	if step != freightStepProceed {
 		t.Fatalf("accept must proceed, got step %v", step)
 	}
@@ -1242,5 +1242,107 @@ func TestFreightHeldMemoryLifecycle(t *testing.T) {
 	}
 	if h := st.heldFreightContract(); h == nil || h.ID != "high" {
 		t.Fatal("a failed return must keep the held-freight memory for the next pass")
+	}
+}
+
+// freightGateDeps builds a MissionDeps backed by a fake client that answers
+// shipping_profile (and, when non-empty, shipping_list) with the given raw
+// JSON verbatim — factored out of the inline mock construction in
+// TestFreightCandidateSkipsWhenContractAlreadyHeld / TestFreightCandidatePicksBestEligible
+// for gate tests that need direct control over profile/capacity fields those
+// builders don't expose (active_contracts_unlimited, liability, exposure).
+func freightGateDeps(t *testing.T, profileJSON, boardJSON string) MissionDeps {
+	t.Helper()
+	raw := map[string][]byte{"shipping_profile": []byte(profileJSON)}
+	if boardJSON != "" {
+		raw["shipping_list"] = []byte(boardJSON)
+	}
+	f := &fakeClient{state: &game.State{}, raw: raw}
+	return MissionDeps{Client: f, AgentID: "fighter-4"}
+}
+
+func TestFreightEffectiveMax(t *testing.T) {
+	for in, want := range map[int]int{-1: 1, 0: 1, 1: 1, 3: 3, 7: 7} {
+		if got := freightEffectiveMax(in); got != want {
+			t.Fatalf("freightEffectiveMax(%d) = %d, want %d", in, got, want)
+		}
+	}
+}
+
+func TestBuildFreightCandMarginalPricing(t *testing.T) {
+	// Held stop at 5 hops; candidate at 2 hops adds marginal 4 hops
+	// (order [2,5]: total 2*2+5=9, minus 5 held-only). Fuel 100/hop.
+	held := []chainStop{{ContractID: "h", DestBaseID: "hb", Hops: 5, DeadlineTick: 100000}}
+	l := serverapi.ShippingListing{Eligible: true, Contract: serverapi.ShipmentContract{
+		ID: "c", DestinationBaseID: "cb", BaseReward: 1000,
+	}}
+	cand, reason := buildFreightCand(l, 2, held, 0, func(j int) float64 { return float64(j) * 100 })
+	if reason != "" {
+		t.Fatalf("unexpected reject: %s", reason)
+	}
+	if cand.FuelCost != 400 { // marginal 4 hops * 100, NOT 2*100
+		t.Fatalf("FuelCost = %.0f, want 400 (marginal-hop pricing)", cand.FuelCost)
+	}
+	if cand.Net != 600 {
+		t.Fatalf("Net = %.0f, want 600", cand.Net)
+	}
+}
+
+func TestBuildFreightCandRejectsWhenHeldDeadlineBreaks(t *testing.T) {
+	// Held contract barely feasible alone (5 hops -> needs 142.5 ticks,
+	// has 150). Inserting a nearer candidate (2 hops) pushes it to
+	// cumulative 9 -> needs 256.5, breaking it. Must reject the CANDIDATE.
+	held := []chainStop{{ContractID: "h", DestBaseID: "hb", Hops: 5, DeadlineTick: 150}}
+	l := serverapi.ShippingListing{Eligible: true, Contract: serverapi.ShipmentContract{
+		ID: "c", DestinationBaseID: "cb", BaseReward: 100000,
+	}}
+	_, reason := buildFreightCand(l, 2, held, 0, nil)
+	if reason == "" {
+		t.Fatal("candidate that breaks a held deadline must be rejected")
+	}
+}
+
+func TestFreightCandidateSkipsAtMaxPackages(t *testing.T) {
+	// Gate must refuse to list the board at all when held >= cap.
+	// Build deps/in as in TestFreightCandidateSkipsWhenContractAlreadyHeld,
+	// with profile JSON reporting active_contracts=1 to match Held, and:
+	in := freightInputs{
+		CargoFree: 500,
+		Held:      []chainStop{{ContractID: "h", DestBaseID: "hb", Hops: 3, DeadlineTick: 100000}},
+	}
+	deps := freightGateDeps(t, `{"profile":{"active_contracts":1},"capacity":{"active_contracts":1,"active_contracts_unlimited":true,"liability_unlimited":true}}`, "")
+	deps.FreightMaxPackages = 1
+	cand, skip := freightCandidate(context.Background(), deps, in, io.Discard)
+	if cand != nil || !strings.Contains(skip, "at max packages") {
+		t.Fatalf("cand=%v skip=%q; want nil + at-max-packages skip", cand, skip)
+	}
+}
+
+func TestFreightCandidateSkipsWhenProfileExceedsHeld(t *testing.T) {
+	// Server says 2 active, we hold 1 -> reconcile gap; fail closed exactly
+	// like v1's ActiveContracts>0-with-empty-memory skip.
+	in := freightInputs{
+		CargoFree: 500,
+		Held:      []chainStop{{ContractID: "h", DestBaseID: "hb", Hops: 3, DeadlineTick: 100000}},
+	}
+	deps := freightGateDeps(t, `{"profile":{"active_contracts":2},"capacity":{"active_contracts":2,"active_contracts_unlimited":true,"liability_unlimited":true}}`, "")
+	deps.FreightMaxPackages = 4
+	cand, skip := freightCandidate(context.Background(), deps, in, io.Discard)
+	if cand != nil || !strings.Contains(skip, "unaccounted") {
+		t.Fatalf("cand=%v skip=%q; want nil + unaccounted skip", cand, skip)
+	}
+}
+
+func TestFreightCandidateSkipsCandidateOverLiability(t *testing.T) {
+	// Candidate's ReservedExposure exceeds remaining aggregate liability ->
+	// that candidate is skipped (not the whole pass).
+	board := `{"shipments":[{"eligible":true,"contract":{"id":"big","destination_base_id":"d1","base_reward":5000,"reserved_exposure":9000}},
+	                        {"eligible":true,"contract":{"id":"ok","destination_base_id":"d2","base_reward":4000,"reserved_exposure":100}}]}`
+	deps := freightGateDeps(t, `{"profile":{"active_contracts":0},"capacity":{"active_contracts":0,"active_contracts_unlimited":true,"aggregate_liability_limit":10000,"remaining_aggregate_liability":500}}`, board)
+	deps.FreightMaxPackages = 4
+	in := freightInputs{CargoFree: 500, HopsTo: func(string) (int, bool) { return 1, true }}
+	cand, _ := freightCandidate(context.Background(), deps, in, io.Discard)
+	if cand == nil || cand.Contract.ID != "ok" {
+		t.Fatalf("cand = %+v, want contract ok (big skipped on liability)", cand)
 	}
 }

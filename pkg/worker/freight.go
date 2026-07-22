@@ -63,9 +63,19 @@ func freightPackagesFit(cargoFree float64) int {
 	return int(math.Floor(cargoFree / freightPackageFootprint))
 }
 
-// buildFreightCand derives economics for one listing. A non-empty reason means
-// skip, and is logged verbatim so a canary pass shows why the board emptied out.
-func buildFreightCand(l serverapi.ShippingListing, hops int, fuelCostFor func(jumps int) float64) (freightCand, string) {
+// freightEffectiveMax normalizes the configured package cap: anything below
+// 1 (unset, or nonsense negatives) is the v1 single-contract behavior.
+func freightEffectiveMax(n int) int {
+	if n < 1 {
+		return 1
+	}
+	return n
+}
+
+// buildFreightCand derives economics for one listing given the chain we
+// already hold. A non-empty reason means skip, and is logged verbatim so a
+// canary pass shows why the board emptied out.
+func buildFreightCand(l serverapi.ShippingListing, hops int, held []chainStop, nowTick int64, fuelCostFor func(jumps int) float64) (freightCand, string) {
 	if !l.Eligible {
 		reason := l.Reason
 		if reason == "" {
@@ -76,10 +86,20 @@ func buildFreightCand(l serverapi.ShippingListing, hops int, fuelCostFor func(ju
 	if l.Contract.DestinationBaseID == "" {
 		return freightCand{}, "no destination_base_id"
 	}
+	stop := chainStop{ContractID: l.Contract.ID, DestBaseID: l.Contract.DestinationBaseID, Hops: hops}
+	// Inserting this stop must not break any HELD contract's deadline under
+	// the chain bound (the candidate's own deadline does not exist until
+	// accept; freightAccept checks it then, chain-aware).
+	withCand := make([]chainStop, 0, len(held)+1)
+	withCand = append(withCand, held...)
+	withCand = append(withCand, stop)
+	if ok, reason := chainFeasible(withCand, nowTick); !ok {
+		return freightCand{}, "would break held deadline: " + reason
+	}
 	reward := float64(l.Contract.BaseReward)
 	fuel := 0.0
 	if fuelCostFor != nil {
-		fuel = fuelCostFor(hops)
+		fuel = fuelCostFor(chainMarginalHops(held, stop))
 	}
 	// max_speed_bonus is deliberately excluded: it is upside, never a reason to
 	// take a contract whose base reward does not stand on its own.
@@ -136,6 +156,11 @@ type freightInputs struct {
 	// HopsTo resolves jump distance to a destination base; ok=false means
 	// unroutable, and the contract is skipped rather than guessed at.
 	HopsTo func(destBaseID string) (int, bool)
+	// Held is the current chain (one stop per held contract), priced from
+	// this dock. Empty on a v1-equivalent pass.
+	Held []chainStop
+	// NowTick anchors chain-deadline feasibility (missionTick at pass start).
+	NowTick int64
 }
 
 // freightCandidate evaluates freight at the current dock and returns the best
@@ -173,16 +198,27 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 		return nil, reason
 	}
 
-	// Concurrency guard, from the same profile read. This design carries exactly
-	// ONE contract at a time: the 100-unit footprint and the single-package
-	// liability are both sized for one. freightReconcile gives up — (nil, false)
-	// — when the profile reports actives but the board read shows none, and the
-	// pass then falls straight through to here; without this we would accept a
-	// SECOND contract while the first is still undischarged, and the orphaned
-	// first is exactly the one that breaches. Fail closed on the count.
-	if prof.Profile.ActiveContracts > 0 {
-		reason := fmt.Sprintf("%d active contract(s) already held", prof.Profile.ActiveContracts)
-		fmt.Fprintf(out, "freight: skipping, %s — one contract at a time\n", reason) //nolint:errcheck
+	// Headroom gates (sub-project C). The v1 "one contract at a time" rule
+	// is the maxPk==1 special case of these.
+	maxPk := freightEffectiveMax(deps.FreightMaxPackages)
+	if len(in.Held) >= maxPk {
+		reason := fmt.Sprintf("at max packages (%d/%d)", len(in.Held), maxPk)
+		fmt.Fprintf(out, "freight: skipping, %s\n", reason) //nolint:errcheck
+		return nil, reason
+	}
+	// Reconcile-gap guard: the server counting more actives than we remember
+	// means a contract we cannot see (post-restart amnesia). Accepting more
+	// while any contract is unaccounted for is how orphans breach — fail
+	// closed exactly as v1 did with ActiveContracts>0 on empty memory.
+	if prof.Profile.ActiveContracts > len(in.Held) {
+		reason := fmt.Sprintf("%d active contract(s) unaccounted for (holding %d)", prof.Profile.ActiveContracts, len(in.Held))
+		fmt.Fprintf(out, "freight: skipping, %s\n", reason) //nolint:errcheck
+		return nil, reason
+	}
+	if !prof.Capacity.ActiveContractsUnlimited && prof.Capacity.ActiveContractLimit > 0 &&
+		prof.Profile.ActiveContracts >= prof.Capacity.ActiveContractLimit {
+		reason := fmt.Sprintf("server contract limit reached (%d/%d)", prof.Profile.ActiveContracts, prof.Capacity.ActiveContractLimit)
+		fmt.Fprintf(out, "freight: skipping, %s\n", reason) //nolint:errcheck
 		return nil, reason
 	}
 
@@ -205,6 +241,11 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 
 	cands := make([]freightCand, 0, len(board.Shipments))
 	for _, l := range board.Shipments {
+		if !prof.Capacity.LiabilityUnlimited && prof.Capacity.AggregateLiabilityLimit > 0 &&
+			l.Contract.ReservedExposure > prof.Capacity.RemainingAggregateLiability {
+			fmt.Fprintf(out, "freight: skip %s: exposure %d over remaining liability %d\n", l.Contract.ID, l.Contract.ReservedExposure, prof.Capacity.RemainingAggregateLiability) //nolint:errcheck
+			continue
+		}
 		hops := l.Contract.RouteHops
 		if in.HopsTo != nil {
 			h, ok := in.HopsTo(l.Contract.DestinationBaseID)
@@ -214,7 +255,7 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 			}
 			hops = h
 		}
-		c, reason := buildFreightCand(l, hops, in.FuelCostFor)
+		c, reason := buildFreightCand(l, hops, in.Held, in.NowTick, in.FuelCostFor)
 		if reason != "" {
 			// Logged at every rejection on purpose: the net distribution here is
 			// the only evidence for whether freightMinNet is set sanely against
@@ -298,7 +339,7 @@ func freightRecord(ctx context.Context, deps MissionDeps, out io.Writer, c serve
 // contract is immediately returned, which the live smoke confirmed is debt-free
 // (status returned_intact, full shipper_refund, liability released,
 // outstanding_debt unchanged). ok=false means the candidate was released.
-func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out io.Writer) (*serverapi.ShipmentContract, freightStep) {
+func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, held []chainStop, out io.Writer) (*serverapi.ShipmentContract, freightStep) {
 	if out == nil {
 		out = io.Discard
 	}
@@ -329,11 +370,19 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out
 		hops = cand.Hops
 	}
 	// missionTick(deps), not c.AcceptedTick: shipping mutations are
-	// tick-deferred, so by the time this reply is in hand the current tick
-	// is already >= AcceptedTick. Checking against AcceptedTick would
-	// overstate the remaining window and bias this feasibility gate
-	// optimistic — the opposite of what a fail-closed check needs.
-	if ok, reason := freightDeadlineOK(hops, c.DeadlineTick, missionTick(deps)); !ok {
+	// tick-deferred, so by the time this reply is in hand the current tick is
+	// already >= AcceptedTick; AcceptedTick would bias the gate optimistic.
+	// Chain-aware: the accepted contract is checked at its position in the
+	// held chain, not solo — its deadline exists only now.
+	withNew := make([]chainStop, 0, len(held)+1)
+	withNew = append(withNew, held...)
+	withNew = append(withNew, chainStop{ContractID: c.ID, DestBaseID: c.DestinationBaseID, Hops: hops, DeadlineTick: c.DeadlineTick})
+	if c.DeadlineTick <= 0 {
+		// Fail closed on a missing deadline, as v1's freightDeadlineOK did.
+		fmt.Fprintf(out, "freight: %s infeasible (contract carries no deadline_tick); returning\n", id) //nolint:errcheck
+		return nil, freightReturn(ctx, deps, out, c, cand, "returned_infeasible", "contract carries no deadline_tick")
+	}
+	if ok, reason := chainFeasible(withNew, missionTick(deps)); !ok {
 		fmt.Fprintf(out, "freight: %s infeasible (%s); returning\n", id, reason) //nolint:errcheck
 		return nil, freightReturn(ctx, deps, out, c, cand, "returned_infeasible", reason)
 	}
@@ -357,11 +406,11 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, out
 // pass rather than fly elsewhere on other work. The returned error is
 // freightRunTrip's, which is nil on every handled outcome: freight must never
 // become a new way for the pass to fail.
-func missionTakeFreight(ctx context.Context, deps MissionDeps, cand *freightCand, out io.Writer) (freightStep, error) {
+func missionTakeFreight(ctx context.Context, deps MissionDeps, cand *freightCand, held []chainStop, out io.Writer) (freightStep, error) {
 	if cand == nil {
 		return freightStepReleased, nil
 	}
-	accepted, step := freightAccept(ctx, deps, cand, out)
+	accepted, step := freightAccept(ctx, deps, cand, held, out)
 	if step != freightStepProceed {
 		return step, nil
 	}
@@ -380,8 +429,8 @@ func missionTakeFreight(ctx context.Context, deps MissionDeps, cand *freightCand
 // A stuck return (live undischarged contract) parks the pass instead of falling
 // into missionDryPass, whose reposition logic would fly the worker away from the
 // contract it still owes.
-func missionFreightOrDry(ctx context.Context, deps MissionDeps, cand *freightCand, out io.Writer) error {
-	step, ferr := missionTakeFreight(ctx, deps, cand, out)
+func missionFreightOrDry(ctx context.Context, deps MissionDeps, cand *freightCand, held []chainStop, out io.Writer) error {
+	step, ferr := missionTakeFreight(ctx, deps, cand, held, out)
 	switch step {
 	case freightStepProceed:
 		return ferr

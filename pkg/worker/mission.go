@@ -236,6 +236,11 @@ type MissionDeps struct {
 	// co-equally with the mission board. Default false so existing fleets are
 	// unchanged until the canary opts in explicitly.
 	EnableFreight bool
+	// FreightMaxPackages caps concurrent freight contracts (sub-project C
+	// multi-package trips). 0 and 1 both mean the v1 single-contract
+	// behavior; the cap layers UNDER the server/cargo headroom gates and is
+	// never a target. Canary: fighter-4 at 3.
+	FreightMaxPackages int
 }
 
 // missionActivityLabel renders the accepted set as the status-page activity
@@ -512,7 +517,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	if !ok || len(board) == 0 {
 		fmt.Fprintln(out, "missions: no board entries here") //nolint:errcheck
 		// An empty board is a prime freight opportunity, not a dry pass.
-		return missionFreightOrDry(ctx, deps, freightBest, out)
+		return missionFreightOrDry(ctx, deps, freightBest, nil, out)
 	}
 
 	// Distance map to every candidate destination.
@@ -618,7 +623,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// Freight takes ties against exploration, per "exploration is the fallback".
 	case freightBest != nil && freightNet >= exploreNet && freightNet > missionNet:
 		fmt.Fprintf(out, "freight: taking %s (net %.0f) over the mission trip (net %.0f) and exploration (net %.0f)\n", freightBest.Contract.ID, freightNet, missionNet, exploreNet) //nolint:errcheck
-		step, ferr := missionTakeFreight(ctx, deps, freightBest, out)
+		step, ferr := missionTakeFreight(ctx, deps, freightBest, nil, out)
 		switch step {
 		case freightStepProceed:
 			return ferr
@@ -732,7 +737,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 				// would waste the whole evaluation. Freight lost the ranking
 				// above against the PRE-gate mission net; now that the gate has
 				// emptied the set, it is the only thing left.
-				return missionFreightOrDry(ctx, deps, freightBest, out)
+				return missionFreightOrDry(ctx, deps, freightBest, nil, out)
 			}
 		}
 	}
