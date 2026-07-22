@@ -4,9 +4,9 @@ function cr(n: number): string {
   return Math.round(n).toLocaleString();
 }
 
-function Stat({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+function Stat({ label, value, warn, title }: { label: string; value: string; warn?: boolean; title?: string }) {
   return (
-    <div className="px-4 border-r border-[#2a2618] last:border-r-0">
+    <div className="px-4 border-r border-[#2a2618] last:border-r-0" title={title}>
       <div className="text-[10px] uppercase tracking-widest text-[#8a8570]">{label}</div>
       <div className={`font-mono text-lg ${warn ? 'text-red-400' : 'text-[#d4a017]'}`}>{value}</div>
     </div>
@@ -26,10 +26,13 @@ export function AccountingStrip({ accounting, agentCount, staleFleets, connected
       <Stat label="credits" value={a ? `₡ ${cr(a.total_credits)}` : '—'} />
       <Stat label="agents" value={a ? `${a.healthy}/${a.agents} healthy` : `${agentCount}`}
         warn={!!a && a.healthy < a.agents} />
-      <Stat label="earn/hr (24h)" value={a ? cr(a.combined_per_hour) : '—'} />
-      <Stat label="haul/hr" value={a ? cr(a.haul.per_hour) : '—'} />
-      <Stat label="freight/hr" value={a ? cr(a.freight.per_hour) : '—'} />
-      <Stat label="missions/hr" value={a ? cr(a.missions.per_hour) : '—'} />
+      {/* All four rates share the same trailing-24h window; the first is
+          simply the sum of the three streams, so label it as the total. */}
+      <Stat label="total earn/hr" value={a ? cr(a.combined_per_hour) : '—'}
+        title="haul + freight + missions, 24h trailing average" />
+      <Stat label="haul/hr" value={a ? cr(a.haul.per_hour) : '—'} title="24h trailing average" />
+      <Stat label="freight/hr" value={a ? cr(a.freight.per_hour) : '—'} title="24h trailing average" />
+      <Stat label="missions/hr" value={a ? cr(a.missions.per_hour) : '—'} title="24h trailing average" />
       <Stat label="restarts" value={a ? `${a.restarts}` : '—'} warn={!!a && a.restarts > 0} />
       <div className="flex-1" />
       {staleFleets.length > 0 && (
