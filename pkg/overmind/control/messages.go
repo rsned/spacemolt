@@ -10,14 +10,17 @@ import (
 type Type string
 
 const (
-	TypeHello  Type = "hello"
-	TypeStatus Type = "status"
-	TypeEvent  Type = "event"
-	TypeAbort  Type = "abort"
-	TypePause  Type = "pause"
-	TypeResume Type = "resume"
-	TypeAssign Type = "assign"
-	TypeDrain  Type = "drain"
+	TypeHello      Type = "hello"
+	TypeStatus     Type = "status"
+	TypeEvent      Type = "event"
+	TypeAbort      Type = "abort"
+	TypePause      Type = "pause"
+	TypeResume     Type = "resume"
+	TypeAssign     Type = "assign"
+	TypeDrain      Type = "drain"
+	TypeAdminRemove Type = "admin_remove"
+	TypeAdminReadd  Type = "admin_readd"
+	TypeAdminAck    Type = "admin_ack"
 )
 
 // Envelope is the framed wire unit; one Envelope is one NDJSON line.
@@ -89,6 +92,27 @@ type Assign struct {
 	TaskID string            `json:"task_id"`
 	Script string            `json:"script"`
 	Params map[string]string `json:"params,omitempty"`
+}
+
+// AdminRequest asks the overmind to change fleet membership for one agent.
+// Sent by an admin client (dashboard backend) instead of a Hello; the
+// connection receives one AdminAck and closes.
+type AdminRequest struct {
+	AgentID string `json:"agent_id"`
+}
+
+// AdminAck statuses.
+const (
+	AckAccepted       = "accepted"
+	AckUnknownAgent   = "unknown_agent"
+	AckAlreadyPending = "already_pending"
+)
+
+// AdminAck is the overmind's reply to an AdminRequest.
+type AdminAck struct {
+	AgentID string `json:"agent_id"`
+	Status  string `json:"status"`
+	Detail  string `json:"detail,omitempty"`
 }
 
 // NewEnvelope marshals payload and wraps it with the given type and agent id.

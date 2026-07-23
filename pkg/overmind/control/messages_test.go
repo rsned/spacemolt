@@ -52,3 +52,28 @@ func TestAssignRoundTrip(t *testing.T) {
 		t.Fatalf("round-trip mismatch: got %+v want %+v", out, in)
 	}
 }
+
+func TestAdminEnvelopeRoundTrip(t *testing.T) {
+	env, err := NewEnvelope(TypeAdminRemove, "craftsman-1", AdminRequest{AgentID: "craftsman-1"})
+	if err != nil {
+		t.Fatalf("NewEnvelope: %v", err)
+	}
+	var req AdminRequest
+	if err := env.Into(&req); err != nil {
+		t.Fatalf("Into: %v", err)
+	}
+	if req.AgentID != "craftsman-1" {
+		t.Fatalf("AgentID = %q, want craftsman-1", req.AgentID)
+	}
+	ack, err := NewEnvelope(TypeAdminAck, "craftsman-1", AdminAck{AgentID: "craftsman-1", Status: AckAccepted})
+	if err != nil {
+		t.Fatalf("NewEnvelope ack: %v", err)
+	}
+	var a AdminAck
+	if err := ack.Into(&a); err != nil {
+		t.Fatalf("Into ack: %v", err)
+	}
+	if a.Status != AckAccepted {
+		t.Fatalf("Status = %q, want %q", a.Status, AckAccepted)
+	}
+}
