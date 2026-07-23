@@ -14,6 +14,12 @@ The binaries already carry the raw data: Go's build system auto-embeds `vcs.revi
 1. **Worker granularity:** per-worker version. Each worker reports its own build; the dashboard shows mixed versions within a fleet mid-roll (e.g. `v0.3.0 ×35  v0.2.9 ×6`). This is the point — you watch a fleet convert one worker at a time.
 2. **"Current" reference:** the newest build seen across all fleets. The dashboard computes the max build-time observed; anything older is "behind." Zero config, self-adjusting as you deploy.
 3. **Version label:** `git describe --tags --always --dirty` SemVer + commit (e.g. `v0.3.0-2-g8016cd8`), stamped via ldflags, layered on the auto-embedded commit/time.
+3a. **Color tiers (SemVer-distance from the current build):**
+   - **Green** — current: identical to the newest build (same version string, code-clean).
+   - **Yellow** — same `Major.Minor` as current but drifted: behind on Patch / commits-ahead, **or** code-dirty. "Missing fixes only," low risk.
+   - **Red** — different `Minor`/`Major` from current, **or** `legacy`/unstamped. "Missing a whole feature, or unknown."
+   Build-time (`vcs.time`) still selects *which* build is current; SemVer distance selects the *color*. Parsing reuses `pkg/version.ParseSemVer` + `MinorDiff` on the base tag from `git describe`.
+3b. **"Dirty" means code-dirty, not raw VCS dirty.** Go's `vcs.modified` is ~always true because tracked `data/*.json` churns, which would make green unreachable. The build script computes a separate `codeDirty` flag over tracked files **excluding `data/`** (`git status --porcelain -- ':!data/'`) and stamps it. Coloring uses `codeDirty`; raw `vcs.modified` is a cosmetic `*` marker only.
 4. **Scheme:** local git tags only — **not** GitHub releases. Tags are local git objects; pushing to GitHub is an optional later step that changes nothing here.
 5. **Release policy (when to bump):**
    - **Patch `0.0.X`** — bug fixes and patches.
@@ -51,20 +57,26 @@ dashboard reads all *-status.json
 ## Components
 
 ### 1. `pkg/buildinfo` (new)
-- `type Info struct { Version, Commit string; BuiltAt time.Time; Modified bool }`
+- `type Info struct { Version, Commit string; BuiltAt time.Time; Modified bool; CodeDirty bool }`
 - `func Get() Info` — memoized; reads `ReadBuildInfo()` once.
 - `var version string` — ldflags target `-X github.com/rsned/spacemolt/pkg/buildinfo.version=...`.
-- Unit-tested: fallback ladder (ldflags var → pseudo-version → `"dev"`), settings parse, missing-settings safety.
+- `var codeDirty string` — ldflags target `...buildinfo.codeDirty=true|false`; parsed to `Info.CodeDirty` (unset ⇒ false).
+- `Modified` = raw `vcs.modified` (cosmetic); `CodeDirty` = the color-relevant flag.
+- Unit-tested: fallback ladder (ldflags var → pseudo-version → `"dev"`), settings parse, missing-settings safety, `codeDirty` parse.
 
 ### 2. Build stamping (`scripts/build.sh` + optional `Makefile`)
 - A script that builds the fleet binaries into `bin/` with the ldflags stamp:
   ```
-  LDFLAGS="-X github.com/rsned/spacemolt/pkg/buildinfo.version=$(git describe --tags --always --dirty)"
+  DESC=$(git describe --tags --always --dirty)
+  # code-dirty = tracked changes OUTSIDE data/ (data/*.json churns constantly)
+  test -z "$(git status --porcelain -- ':!data/')" && CODEDIRTY=false || CODEDIRTY=true
+  LDFLAGS="-X github.com/rsned/spacemolt/pkg/buildinfo.version=$DESC \
+           -X github.com/rsned/spacemolt/pkg/buildinfo.codeDirty=$CODEDIRTY"
   go build -ldflags "$LDFLAGS" -o bin/overmind ./cmd/overmind
   go build -ldflags "$LDFLAGS" -o bin/worker ./cmd/worker
   go build -ldflags "$LDFLAGS" -o bin/overmind-dashboard ./cmd/overmind-dashboard
   ```
-- One ldflags target covers all binaries (it names the shared `buildinfo` package). A plain `go build ./...` still works and just yields `dev` + the embedded commit — the script is for release builds, not a hard requirement.
+- One ldflags target covers all binaries (it names the shared `buildinfo` package). A plain `go build ./...` still works and just yields `dev` + the embedded commit (`codeDirty` unset → treated as unknown/false) — the script is for release builds, not a hard requirement.
 
 ### 3. `pkg/overmind/control` — `Hello`
 - Add `Version string`, `Commit string`, `BuiltAt string` (RFC3339) to `control.Hello`. Backward compatible: an old worker omits them; the overmind treats empty as "unknown."
@@ -77,14 +89,18 @@ dashboard reads all *-status.json
 - `StatusFile.OvermindVersion string`, `StatusFile.OvermindBuiltAt string` — the overmind writes its own `buildinfo.Get()` when it writes the status file.
 
 ### 6. `pkg/ovdash`
-- Snapshot gains per-worker version + per-fleet overmind version.
-- Compute `newestBuiltAt` across all overminds and workers; a process is **behind** if its `BuiltAt` is older than `newestBuiltAt`.
-- Legacy (no version reported) → treated as behind, labeled `legacy`.
+- Snapshot gains per-worker `{version, commit, built_at, code_dirty}` + per-fleet overmind version.
+- Determine the **current** build = the one with the newest `built_at` across all overminds and workers.
+- Classify each process into a color tier vs current (parse base SemVer via `pkg/version.ParseSemVer` on the `git describe` base tag):
+  - **green** — same version string as current AND not code-dirty.
+  - **yellow** — same `Major.Minor` as current, but behind on patch/commits **or** code-dirty.
+  - **red** — `MinorDiff != 0` (or major differs), or unparseable/`legacy`/no version.
+- Expose the tier per worker and a rolled-up fleet tier (worst tier present) on the snapshot.
 
 ### 7. `frontend/`
-- Per-fleet header badge: overmind version, green (current) / amber (behind).
-- Worker-version summary line grouping counts by version (`v0.3.0 ×35  v0.2.9 ×6`), amber on any non-current group.
-- `dirty` shown as a small marker (e.g. `*`), never used as the behind signal.
+- Per-fleet header badge: overmind version + tier color (green/yellow/red).
+- Worker-version summary line grouping counts by version (`v0.3.0 ×35  v0.2.9 ×6`), each group colored by its tier.
+- Raw `vcs.modified` shown as a small `*` marker; it is cosmetic and never changes the tier (only `code_dirty` does).
 
 ## Data flow / ordering
 
@@ -96,8 +112,10 @@ dashboard reads all *-status.json
 | Case | Behavior |
 |---|---|
 | Plain `go build` (no ldflags) | `Version` = module pseudo-version, else `"dev"`; commit/time still from embedded VCS |
-| Binary predates this feature (no version in hello / status) | Shown as `legacy`, treated as behind (correct during this rollout) |
-| `vcs.modified=true` (dirty tree) | Small `*` marker only; never the behind signal (noisy from `data/*.json` churn) |
+| Binary predates this feature (no version in hello / status) | Shown as `legacy`, classified **red** (correct during this rollout) |
+| `vcs.modified=true` (dirty tree) | Cosmetic `*` marker only; never affects tier (noisy from `data/*.json` churn) |
+| `codeDirty=true` (uncommitted code outside data/) | Pushes an otherwise-green build to **yellow** |
+| `codeDirty` unstamped (plain `go build`) | Treated as false; the `dev` version already classifies red via unparseable SemVer |
 | `ReadBuildInfo()` returns `ok=false` (unusual) | `Commit`/`BuiltAt` empty; `Version` = `"dev"`; no panic |
 
 ## Out of scope (YAGNI)
@@ -112,8 +130,8 @@ dashboard reads all *-status.json
 - **buildinfo:** fallback ladder, settings parse, missing-settings safety.
 - **control:** `Hello` round-trip carrying `Version`/`Commit`/`BuiltAt`; old-hello (empty) decodes clean.
 - **balances:** status file carries per-worker `Version` and overmind version; existing callers updated.
-- **ovdash:** newest-seen computation + behind-flagging on a mixed-version fixture; legacy-as-behind.
-- **frontend:** production build clean; badge + summary render from a fixture status file (current, behind, legacy, dirty).
+- **ovdash:** current = newest built_at; tier classification on a fixture covering green (==current), yellow (same minor, patch-behind), yellow (code-dirty at current version), red (minor behind), red (legacy/unparseable); rolled-up fleet tier = worst present.
+- **frontend:** production build clean; badge + summary render from a fixture status file across all tiers, plus the cosmetic `*` for raw dirty.
 
 ## Rollout note
 
