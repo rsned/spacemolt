@@ -13,6 +13,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 )
 
@@ -835,6 +836,43 @@ func TestMissionsResumesHeldChainBeforeBoardWork(t *testing.T) {
 	}
 	if deps.State.heldFreightCount() != 0 {
 		t.Fatal("held contract not delivered by the pass")
+	}
+}
+
+// brokenConnsKB always fails GetConnections, simulating the transient KB
+// outage the reviewer used to prove the Critical finding: a held in-flight
+// package went unreconciled because deps.KB.GetConnections was hoisted above
+// the freight reconcile block and its error short-circuited the pass.
+type brokenConnsKB struct {
+	*fakeKB
+}
+
+func (b *brokenConnsKB) GetConnections(context.Context) ([]knowledge.Connection, error) {
+	return nil, errors.New("kb: connections unavailable")
+}
+
+// TestMissionsReconcilesFreightDespiteBrokenConnectionsKB is the Critical-finding
+// regression test. Freight reconcile must run before EVERY early return in the
+// pass, including the one from a failed connections/graph fetch that the
+// candidate-evaluation BFS table needs further down. Reusing
+// missionsFreightFixture's boardFatalClient keeps the discrimination proof
+// intact: reconcile must both fire (held count reaches 0) and own the pass
+// without ever touching the mission board (which would t.Fatal).
+//
+// With the pre-fix ordering (GetConnections hoisted above the freight
+// reconcile block) this test fails: Missions returns
+// "missions: get connections: kb: connections unavailable" and the held
+// contract is never reconciled. Recorded red output is in the Task 6 report.
+func TestMissionsReconcilesFreightDespiteBrokenConnectionsKB(t *testing.T) {
+	deps := missionsFreightFixture(t)
+	deps.KB = &brokenConnsKB{fakeKB: missionKB()}
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "x", DestinationBaseID: "baseA", DeadlineTick: 99999, Status: "in_transit"})
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if deps.State.heldFreightCount() != 0 {
+		t.Fatal("held contract not reconciled/delivered despite a broken connections KB")
 	}
 }
 

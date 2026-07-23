@@ -309,29 +309,38 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	}
 	current := state.System.ID
 
-	// Routing substrate (same shape as Haul), hoisted above the freight
-	// reconcile block below: a held chain must be able to price its stops
-	// (hopsTo/fuelCostFor) before this pass proves it is at a valid station
-	// or reads the mission board.
-	conns, err := deps.KB.GetConnections(ctx)
-	if err != nil {
-		return fmt.Errorf("missions: get connections: %w", err)
+	// hopsTo resolves jump distance to a destination base via the server's
+	// router. Shared — not redeclared — by the reconcile block, candidate
+	// evaluation, and every take-freight call site below: it is pure plumbing
+	// over ctx+deps.
+	hopsTo := func(destBaseID string) (int, bool) {
+		return missionHopsToBase(ctx, deps, destBaseID)
 	}
-	graph := navigation.JumpGraphFromConnections(conns)
 
-	// Fuel model (same probe as Haul), built once per pass and memoized. It is
-	// declared here because freight is evaluated before the board read, but the
-	// probe is a server call, so it must not FIRE before the board read on a
-	// freight-disabled pass: ensureFuelModel defers the work to the first caller.
-	// With EnableFreight false that first caller is still the mission-candidate
-	// loop below, exactly where the probe has always happened.
+	// Fuel model (same probe as Haul), built once per pass and memoized, and
+	// self-sufficient: it fetches its own connections lazily on first call
+	// rather than capturing the pass's `graph` below, because the freight
+	// reconcile block runs before that graph is fetched (reconcile must
+	// precede EVERY early return, including one from a failed connections
+	// fetch). On a GetConnections error it logs once and degrades to the
+	// zero-cost model (fail-open, mirroring the existing fuelPerJump<=0
+	// branch) instead of aborting the pass. With EnableFreight false the
+	// first caller is still the mission-candidate loop further down, exactly
+	// where the probe has always happened.
 	var fuelCostFor func(jumps int) float64
 	ensureFuelModel := func() func(jumps int) float64 {
 		if fuelCostFor != nil {
 			return fuelCostFor
 		}
 		probeTarget := ""
-		for _, nb := range graph[current] {
+		conns, cerr := deps.KB.GetConnections(ctx)
+		if cerr != nil {
+			fmt.Fprintf(out, "fuel model unavailable: %v; pricing fuel at 0\n", cerr) //nolint:errcheck
+			fuelCostFor = func(int) float64 { return 0 }
+			return fuelCostFor
+		}
+		localGraph := navigation.JumpGraphFromConnections(conns)
+		for _, nb := range localGraph[current] {
 			probeTarget = nb
 			break
 		}
@@ -346,21 +355,18 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		return fuelCostFor
 	}
 
-	// hopsTo resolves jump distance to a destination base via the server's
-	// router. Shared — not redeclared — by the reconcile block, candidate
-	// evaluation, and every take-freight call site below: it is pure plumbing
-	// over ctx+deps.
-	hopsTo := func(destBaseID string) (int, bool) {
-		return missionHopsToBase(ctx, deps, destBaseID)
-	}
-
-	// Freight reconcile runs before EVERY early return in this pass, which is
-	// why it sits here rather than with the candidate evaluation further down.
+	// Freight reconcile runs before EVERY early return in this pass -- true
+	// again now that it sits above the connections/graph fetch below rather
+	// than after it: a transient KB failure there must not preempt reconcile.
 	// A restart loses the in-memory task, and an orphaned in-flight package
 	// breaches in silence. Worse, missionRecoverToStation and missionResume
-	// below can both end the pass, and missionDryPass's reposition logic will
-	// happily fly the worker AWAY from its freight destination while it is
-	// still carrying the package.
+	// further down can both end the pass, and missionDryPass's reposition
+	// logic will happily fly the worker AWAY from its freight destination
+	// while it is still carrying the package. Reconcile itself needs neither
+	// the galaxy graph nor the fuel model: hopsTo above hits the server's
+	// router directly, and the chain run below prices fuel through
+	// ensureFuelModel's self-sufficient lazy probe, which degrades to
+	// zero-cost on its own KB failure rather than blocking reconcile.
 	if deps.EnableFreight {
 		if held := freightReconcileSet(ctx, deps, out); len(held) > 0 {
 			// Carrying package(s) legitimately owns the pass. The chain run
@@ -381,6 +387,16 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			return ferr
 		}
 	}
+
+	// Routing substrate (same shape as Haul) for the BFS distance table used
+	// by board-driven candidate evaluation further down. Freight reconcile
+	// above does not depend on this: it already ran using hopsTo and
+	// ensureFuelModel's own lazy connections fetch.
+	conns, err := deps.KB.GetConnections(ctx)
+	if err != nil {
+		return fmt.Errorf("missions: get connections: %w", err)
+	}
+	graph := navigation.JumpGraphFromConnections(conns)
 
 	// Default reposition source: nearest accessible stations by the galaxy
 	// graph (the same query haul's stranded-recovery uses; it excludes
