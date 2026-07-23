@@ -115,6 +115,18 @@ type Supervisor struct {
 	releaseMu sync.Mutex
 	releases  []string
 
+	// Membership: queued roster changes applied at reap-tick start (same
+	// single-goroutine ownership pattern as releases). leaving tracks
+	// in-progress removals; RemoveDrainTimeout bounds the per-worker drain
+	// wait before force-stop. Sender delivers per-worker control envelopes
+	// (the *Server in production; a fake in tests).
+	memberMu           sync.Mutex
+	pending            []MembershipRequest
+	specsMu            sync.Mutex
+	leaving            map[string]*leavingState
+	Sender             ControlSender
+	RemoveDrainTimeout time.Duration
+
 	// procs tracks the live process per agent id; procMu guards it.
 	procMu sync.Mutex
 	procs  map[string]*workerProc
@@ -139,15 +151,15 @@ type Supervisor struct {
 
 // NewSupervisor wires a supervisor. server may be nil in tests.
 func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn SpawnFunc, logger *log.Logger) *Supervisor {
-	return &Supervisor{
+	s := &Supervisor{
 		server: server, fleet: fleet, specs: specs, spawn: spawn, logger: logger,
 		SilenceTimeout:  9 * game.SleepTick,   // 90s: heartbeat-gap tolerance for established workers
 		StallTimeout:    90 * game.SleepTick,  // 15min: undocked-and-frozen tolerance (stall watchdog)
 		DisconnectGrace: 180 * game.SleepTick, // 30min: leave a reconnecting worker to the gate before restarting
-		BootTimeout:     30 * game.SleepTick, // 5min: max alive-but-no-Hello before a boot is "wedged"
-		StaggerInterval: game.SleepMedium,    // 5s between initial spawns (per-IP /login pacing)
-		KillGrace:       game.SleepMedium,    // 5s SIGTERM->SIGKILL window
-		RestartBatch:    1,                   // 1 relaunch per reap tick (~12/min, mirrors stagger)
+		BootTimeout:     30 * game.SleepTick,  // 5min: max alive-but-no-Hello before a boot is "wedged"
+		StaggerInterval: game.SleepMedium,     // 5s between initial spawns (per-IP /login pacing)
+		KillGrace:       game.SleepMedium,     // 5s SIGTERM->SIGKILL window
+		RestartBatch:    1,                    // 1 relaunch per reap tick (~12/min, mirrors stagger)
 		MaxRestarts:     100,
 		restarts:        make(map[string]int),
 		procs:           make(map[string]*workerProc),
@@ -155,7 +167,14 @@ func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn Spawn
 		FuelStrandFraction: 0.10, // fuel-dead when fuel < max(10% of tank, floor)
 		FuelStrandFloor:    10,
 		StallRestartLimit:  3, // quarantine after 3 futile stall-restarts
+
+		leaving:            make(map[string]*leavingState),
+		RemoveDrainTimeout: 4 * time.Minute,
 	}
+	if server != nil {
+		s.Sender = server
+	}
+	return s
 }
 
 // ReleaseQuarantine schedules a quarantined worker for relaunch on the next
@@ -194,7 +213,7 @@ func (s *Supervisor) socket() string {
 
 // Run spawns each spec, then periodically restarts silent/dead workers.
 func (s *Supervisor) Run(ctx context.Context) error {
-	for i, spec := range s.specs {
+	for i, spec := range s.Roster() {
 		if s.fleet.IsQuarantined(spec.AgentID) {
 			continue // restored-from-queue quarantine: do not launch stranded
 		}
@@ -268,6 +287,9 @@ func (s *Supervisor) kill(p *workerProc) {
 }
 
 func (s *Supervisor) reapAndRestart(ctx context.Context) {
+	now0 := time.Now()
+	s.applyMembership(now0)
+
 	for _, id := range s.drainReleases() {
 		s.fleet.ClearQuarantine(id)
 		delete(s.restarts, id)
@@ -282,11 +304,21 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 	// per-IP /login limit; a non-positive RestartBatch disables the cap.
 	budget := s.RestartBatch
 	if budget <= 0 {
-		budget = len(s.specs)
+		budget = len(s.Roster())
 	}
-	for _, spec := range s.specs {
+	s.progressLeaving(ctx, now0, &budget)
+	// Snapshot the roster AFTER progressLeaving: a removal or rolling update
+	// completing this tick mutates s.specs (completeRemoval), and the main
+	// loop below must see that result — otherwise a just-removed agent would
+	// still appear in a stale pre-progressLeaving roster copy, fall into the
+	// proc==nil branch, and get instantly relaunched via tryRestart.
+	roster := s.Roster()
+	for _, spec := range roster {
 		if s.fleet.IsQuarantined(spec.AgentID) {
 			continue // pulled from fleet; waiting on rescue
+		}
+		if s.leaving[spec.AgentID] != nil {
+			continue // removal in progress; not a restart candidate
 		}
 		proc := procSnapshot(s, spec.AgentID)
 
@@ -298,6 +330,12 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 
 		if proc.alive() {
 			w, seen := healthy[spec.AgentID]
+			// A worker whose only fleet entry came from tryRestart's MarkRestart
+			// bookkeeping (never an actual Hello) has a zero LastSeen, which would
+			// otherwise make NeedsRestart's silence check fire immediately on the
+			// very next tick — killing a worker before it ever gets a chance to
+			// report in. Treat that as not-yet-seen; BootTimeout governs it instead.
+			seen = seen && !w.LastSeen.IsZero()
 			switch {
 			case seen && NeedsRestart(w, now, s.SilenceTimeout):
 				// Established worker whose heartbeat went silent: hung. Kill it
