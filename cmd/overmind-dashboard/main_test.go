@@ -143,6 +143,48 @@ func TestSystemPOIsEndpoint(t *testing.T) {
 	}
 }
 
+func TestAdminRemoveEndpoint(t *testing.T) {
+	kb, market, statusDir := writeFixtures(t)
+	srv, err := newServer(context.Background(), serverConfig{
+		KBPath: kb, MarketPath: market, StatusDir: statusDir, DistDir: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("newServer: %v", err)
+	}
+	ts := httptest.NewServer(srv.mux())
+	defer ts.Close()
+
+	// No haul socket listening in this fixture dir: degraded offline mode.
+	resp, err := http.Post(ts.URL+"/api/overmind/fleets/haul/agents/hauler-0/remove", "application/json", nil) //nolint:noctx
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("remove: want 200, got %d", resp.StatusCode)
+	}
+	var res ovdash.AdminResult
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		t.Fatal(err)
+	}
+	if res.Status != "recorded_offline" {
+		t.Fatalf("status = %q, want recorded_offline", res.Status)
+	}
+	if _, err := os.Stat(filepath.Join(statusDir, "haul-overrides.json")); err != nil {
+		t.Fatalf("overrides sidecar not created: %v", err)
+	}
+
+	// Unknown fleet label: 400.
+	resp2, err := http.Post(ts.URL+"/api/overmind/fleets/nope/agents/hauler-0/remove", "application/json", nil) //nolint:noctx
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp2.Body.Close() //nolint:errcheck
+	if resp2.StatusCode != http.StatusBadRequest {
+		t.Fatalf("unknown fleet: want 400, got %d", resp2.StatusCode)
+	}
+}
+
 func getJSON(t *testing.T, url string, v any) {
 	t.Helper()
 	resp, err := http.Get(url) //nolint:gosec,noctx // test-only fixed localhost URL

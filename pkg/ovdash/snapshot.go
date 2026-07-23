@@ -5,26 +5,29 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/overmind/balances"
+	"github.com/rsned/spacemolt/pkg/overmind/supervisor"
 )
 
 // FleetDef names one fleet's status file and how the UI labels/colors it.
 type FleetDef struct {
-	File  string // status file prefix: data/overmind/<File>-status.json
-	Label string
-	Color string
+	File   string // status file prefix: data/overmind/<File>-status.json
+	Label  string
+	Color  string
+	Socket string // basename of the fleet's control-channel unix socket
 }
 
 // Fleets is the fixed fleet registry. Order is display order.
 var Fleets = []FleetDef{
-	{File: "fleet", Label: "haul", Color: "#d4a017"},
-	{File: "mission-learn", Label: "mission", Color: "#22d3ee"},
-	{File: "craft", Label: "craft", Color: "#34d399"},
-	{File: "mb", Label: "mb", Color: "#a78bfa"},
-	{File: "assist", Label: "assist", Color: "#fb923c"},
-	{File: "shuttle", Label: "shuttle", Color: "#f472b6"},
+	{File: "fleet", Label: "haul", Color: "#d4a017", Socket: "haul.sock"},
+	{File: "mission-learn", Label: "mission", Color: "#22d3ee", Socket: "mission-learn.sock"},
+	{File: "craft", Label: "craft", Color: "#34d399", Socket: "craft.sock"},
+	{File: "mb", Label: "mb", Color: "#a78bfa", Socket: "mb.sock"},
+	{File: "assist", Label: "assist", Color: "#fb923c", Socket: "assist.sock"},
+	{File: "shuttle", Label: "shuttle", Color: "#f472b6", Socket: "shuttle.sock"},
 }
 
 // AgentState is one worker in one snapshot, system resolved to a map id.
@@ -48,14 +51,16 @@ type AgentState struct {
 	Seen       bool    `json:"seen"`
 	Restarts   int     `json:"restarts"`
 	LastSeen   string  `json:"last_seen"`
+	Leaving    bool    `json:"leaving,omitempty"`
 }
 
 // Snapshot is the merged live view across every fleet.
 type Snapshot struct {
-	CapturedAt  map[string]string `json:"captured_at"`  // fleet label -> RFC3339
-	Agents      []AgentState      `json:"agents"`       // system resolved
-	OffMap      []AgentState      `json:"off_map"`      // unresolvable system names
-	StaleFleets []string          `json:"stale_fleets"` // labels; missing/old/corrupt
+	CapturedAt  map[string]string   `json:"captured_at"`       // fleet label -> RFC3339
+	Agents      []AgentState        `json:"agents"`            // system resolved
+	OffMap      []AgentState        `json:"off_map"`           // unresolvable system names
+	StaleFleets []string            `json:"stale_fleets"`      // labels; missing/old/corrupt
+	Removed     map[string][]string `json:"removed,omitempty"` // fleet label -> override-removed agent ids
 }
 
 // ReadSnapshot reads every fleet status file under dir and merges them.
@@ -89,6 +94,7 @@ func ReadSnapshot(dir string, g *Galaxy, now time.Time, staleAfter time.Duration
 				CargoUsed: w.CargoUsed, CargoCap: w.CargoCapacity,
 				Activity: w.Activity, Healthy: w.Healthy, Seen: w.Seen,
 				Restarts: w.Restarts, LastSeen: w.LastSeen,
+				Leaving: w.Leaving,
 			}
 			if id, ok := g.ResolveName(w.System); ok {
 				a.SystemID = id
@@ -96,6 +102,14 @@ func ReadSnapshot(dir string, g *Galaxy, now time.Time, staleAfter time.Duration
 			} else {
 				s.OffMap = append(s.OffMap, a)
 			}
+		}
+
+		ovPath := filepath.Join(dir, strings.TrimSuffix(f.Socket, ".sock")+"-overrides.json")
+		if ov, err := supervisor.LoadOverrides(ovPath); err == nil && len(ov.Removed) > 0 {
+			if s.Removed == nil {
+				s.Removed = map[string][]string{}
+			}
+			s.Removed[f.Label] = ov.Removed
 		}
 	}
 	if len(s.Agents) == 0 && len(s.OffMap) == 0 && len(s.StaleFleets) == len(Fleets) {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/overmind/balances"
+	"github.com/rsned/spacemolt/pkg/overmind/supervisor"
 )
 
 func writeStatus(t *testing.T, dir, fleetFile, capturedAt string, ws []balances.LiveRecord) {
@@ -102,5 +103,46 @@ func TestReadSnapshotFlagsOldCaptureAsStale(t *testing.T) {
 	// Stale still shows its (last-known) agents — grey-out is the frontend's job.
 	if len(s.Agents) != 1 {
 		t.Fatalf("stale fleet agents must still be listed, got %+v", s.Agents)
+	}
+}
+
+func TestReadSnapshotSurfacesLeavingAndRemoved(t *testing.T) {
+	g, err := LoadGalaxy(context.Background(), fixtureKB(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	now := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC)
+	fresh := now.Add(-5 * time.Second).Format(time.RFC3339)
+	writeStatus(t, dir, "fleet", fresh, []balances.LiveRecord{
+		{AgentID: "hauler-0", Role: "hauler", System: "Sol", Credits: 100,
+			Seen: true, Healthy: true, Leaving: true},
+	})
+	ov := supervisor.Overrides{Removed: []string{"hauler-9"}, By: "dashboard"}
+	if err := supervisor.SaveOverrides(filepath.Join(dir, "haul-overrides.json"), ov); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := ReadSnapshot(dir, g, now, time.Minute)
+	if err != nil {
+		t.Fatalf("ReadSnapshot: %v", err)
+	}
+	var hauler0 AgentState
+	found := false
+	for _, a := range s.Agents {
+		if a.AgentID == "hauler-0" {
+			hauler0 = a
+			found = true
+		}
+	}
+	if !found || !hauler0.Leaving {
+		t.Fatalf("hauler-0 leaving not surfaced: found=%v %+v", found, hauler0)
+	}
+	if got := s.Removed["haul"]; len(got) != 1 || got[0] != "hauler-9" {
+		t.Fatalf("removed not surfaced: %+v", s.Removed)
+	}
+	// A fleet with no overrides sidecar must not appear in the map at all.
+	if _, ok := s.Removed["craft"]; ok {
+		t.Fatalf("fleet with no sidecar must be absent from Removed: %+v", s.Removed)
 	}
 }

@@ -116,6 +116,22 @@ func (s *server) mux() *http.ServeMux {
 		s.mu.RUnlock()
 		writeJSONResp(w, acct)
 	})
+	m.HandleFunc("POST /api/overmind/fleets/{fleet}/agents/{id}/remove", func(w http.ResponseWriter, r *http.Request) {
+		res, err := ovdash.AdminRemove(s.cfg.StatusDir, r.PathValue("fleet"), r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSONResp(w, res)
+	})
+	m.HandleFunc("POST /api/overmind/fleets/{fleet}/agents/{id}/readd", func(w http.ResponseWriter, r *http.Request) {
+		res, err := ovdash.AdminReadd(s.cfg.StatusDir, r.PathValue("fleet"), r.PathValue("id"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSONResp(w, res)
+	})
 	m.Handle("GET /api/overmind/stream", s.hub)
 	m.Handle("/", http.FileServer(http.Dir(s.cfg.DistDir)))
 	return m
