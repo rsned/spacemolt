@@ -1520,3 +1520,47 @@ func TestFreightChainRunReturnsDegradedContractOnly(t *testing.T) {
 		t.Fatalf("outcomes = %v", store.outcomes)
 	}
 }
+
+// TestFreightChainRunRefillStuckPropagates proves the Critical-review fix:
+// a FAILED return surfaced inside freightChainRefill (not the deadline-victim
+// loop) must still park the whole pass. Held starts with one deliverable
+// contract ("near") so the loop reaches the refill step after delivering it.
+// At refill, the board offers one eligible contract ("refill"); its accept
+// call succeeds but the reply is undecodable (no "shipping_accept" raw JSON
+// staged), which drives freightAccept's internal freightReturn — and that
+// return is scripted to FAIL. freightChainRun must come back Stuck, not
+// Proceed, even though nothing here touches the deadline-victim loop.
+func TestFreightChainRunRefillStuckPropagates(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &fakeClient{
+		state: &game.State{Doc: true, Ship: game.Ship{CargoCapacity: 200}},
+		raw: map[string][]byte{
+			"shipping_profile": shippingProfileJSON(t, false, ""),
+			"shipping_list":    shippingListJSON(t, listing("refill", true, 5000, 2)),
+			// "shipping_accept" deliberately absent: an empty raw reply is what
+			// drives freightAccept's decode-failure return path below.
+		},
+		shippingErr: map[string]error{"return": errors.New("network blip")},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: &missionRunState{}}
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "near", DestinationBaseID: "baseA", DeadlineTick: 99999, Status: "in_transit"})
+	nav := func(ctx context.Context, baseID string) error { return nil }
+	hops := func(base string) (int, bool) { return map[string]int{"baseA": 2, "sol_central": 2}[base], true }
+
+	step, err := freightChainRun(context.Background(), deps, nav, hops, noFuel, io.Discard)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if step != freightStepStuck {
+		t.Fatalf("step = %v, want freightStepStuck — a failed return inside chain refill must park the pass", step)
+	}
+	if !slices.Contains(f.shippingCalls, "deliver") {
+		t.Fatalf("must have delivered 'near' before reaching refill, calls were %v", f.shippingCalls)
+	}
+	if !slices.Contains(f.shippingCalls, "accept") || !slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must have attempted accept+return on the refill candidate, calls were %v", f.shippingCalls)
+	}
+	if store.outcomes["refill"] != "return_failed" {
+		t.Fatalf("outcomes = %v, want refill -> return_failed", store.outcomes)
+	}
+}

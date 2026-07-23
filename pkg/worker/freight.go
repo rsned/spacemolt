@@ -718,7 +718,11 @@ func freightChainRun(ctx context.Context, deps MissionDeps, nav func(ctx context
 			victim := freightChainWorstStop(stops, missionTick(deps))
 			c := freightHeldByID(deps, victim.ContractID)
 			if c == nil {
-				break // defensive: stop pricing a contract we no longer hold
+				// Defensive: stop pricing a contract we no longer hold. This
+				// leaves `stops` in a still-infeasible state by design — a
+				// degradation, not a bug — the next leg re-prices from
+				// scratch and either resolves it or picks a new victim.
+				break
 			}
 			fmt.Fprintf(out, "freight: in-flight buffer collapsed for %s (%s); returning\n", c.ID, reason) //nolint:errcheck
 			if freightReturn(ctx, deps, out, *c, nil, "returned_inflight", reason) == freightStepStuck {
@@ -762,8 +766,13 @@ func freightChainRun(ctx context.Context, deps MissionDeps, nav func(ctx context
 		}
 
 		// Refill: accept while the gate still clears (headroom + chain
-		// feasibility are all inside freightCandidate/freightAccept).
-		freightChainRefill(ctx, deps, hopsTo, fuelCostFor, out)
+		// feasibility are all inside freightCandidate/freightAccept). A Stuck
+		// result means a return FAILED inside the refill loop (live
+		// undischarged contract) and must propagate as the pass's own
+		// park-now signal, not be swallowed.
+		if freightChainRefill(ctx, deps, hopsTo, fuelCostFor, out) == freightStepStuck {
+			return freightStepStuck, nil
+		}
 	}
 	fmt.Fprintf(out, "freight: chain-run leg guard (%d) hit; leaving remainder in flight\n", freightChainMaxLegs) //nolint:errcheck
 	return freightStepProceed, nil
@@ -801,7 +810,16 @@ func freightHeldByID(deps MissionDeps, id string) *serverapi.ShipmentContract {
 // the gate clears. Each accept immediately loads its package so hold-space
 // headroom self-updates for the next iteration; a load failure has already
 // returned that contract inside freightLoadPackage.
-func freightChainRefill(ctx context.Context, deps MissionDeps, hopsTo func(string) (int, bool), fuelCostFor func(int) float64, out io.Writer) {
+//
+// Returns freightStepStuck the moment either freightAccept or
+// freightLoadPackage reports Stuck: a FAILED return means a live
+// undischarged contract, which is the ONLY global park condition, and it
+// must propagate to the caller rather than be swallowed here. Returns
+// freightStepProceed for every other outcome: the gate simply ran dry (no
+// candidate), or an accept came back Released (accept itself failed, or the
+// contract proved infeasible and was returned cleanly) — refill stops for
+// this dock either way, but the pass as a whole is free to continue.
+func freightChainRefill(ctx context.Context, deps MissionDeps, hopsTo func(string) (int, bool), fuelCostFor func(int) float64, out io.Writer) freightStep {
 	for {
 		heldStops := freightChainStops(ctx, deps, hopsTo, out)
 		in := freightInputs{
@@ -814,14 +832,20 @@ func freightChainRefill(ctx context.Context, deps MissionDeps, hopsTo func(strin
 		cand, skip := freightCandidate(ctx, deps, in, out)
 		if cand == nil {
 			fmt.Fprintf(out, "freight: refill done (%s)\n", skip) //nolint:errcheck
-			return
+			return freightStepProceed
 		}
 		accepted, step := freightAccept(ctx, deps, cand, heldStops, out)
-		if step != freightStepProceed {
-			return // released or stuck; stuck is re-detected by the caller's next return
+		if step == freightStepStuck {
+			return freightStepStuck
 		}
-		if freightLoadPackage(ctx, deps, accepted, cand, out) != freightStepProceed {
-			continue // that contract was returned; headroom unchanged, try again
+		if step != freightStepProceed {
+			return freightStepProceed // released; refill stops here, pass continues
+		}
+		if step := freightLoadPackage(ctx, deps, accepted, cand, out); step != freightStepProceed {
+			if step == freightStepStuck {
+				return freightStepStuck
+			}
+			continue // released; that contract was returned, headroom unchanged, try again
 		}
 	}
 }
