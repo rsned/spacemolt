@@ -390,7 +390,15 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, hel
 // still live: the caller must abort the pass rather than fly elsewhere on
 // other work. The returned error is freightChainRun's, which is nil on every
 // handled outcome: freight must never become a new way for the pass to fail.
-func missionTakeFreight(ctx context.Context, deps MissionDeps, cand *freightCand, held []chainStop, hopsTo func(string) (int, bool), fuelCostFor func(int) float64, out io.Writer) (freightStep, error) {
+// fuelModel is built at most once per pass (ensureFuelModel memoizes it) and
+// building it costs a KB GetConnections plus a FindRoute server probe
+// (haulFuelPerJump). Taking it as a builder rather than an already-built
+// func(int) float64 keeps that cost lazy: it must run only once a candidate
+// is actually being taken, not merely evaluated as a call argument at a dry
+// path's call site (Go evaluates arguments before the call, so passing the
+// built model there would probe the server on every board-empty pass even
+// for EnableFreight=false workers, which take no freight path at all).
+func missionTakeFreight(ctx context.Context, deps MissionDeps, cand *freightCand, held []chainStop, hopsTo func(string) (int, bool), fuelModel func() func(int) float64, out io.Writer) (freightStep, error) {
 	if cand == nil {
 		return freightStepReleased, nil
 	}
@@ -407,7 +415,7 @@ func missionTakeFreight(ctx context.Context, deps MissionDeps, cand *freightCand
 	// FreightMaxPackages 1 this is exactly the v1 accept->trip sequence.
 	return freightChainRun(ctx, deps, func(ctx context.Context, baseID string) error {
 		return missionNavToBase(ctx, deps, baseID)
-	}, hopsTo, fuelCostFor, out)
+	}, hopsTo, fuelModel(), out)
 }
 
 // missionFreightOrDry is the tail of a dry path: take the freight candidate if
@@ -419,8 +427,8 @@ func missionTakeFreight(ctx context.Context, deps MissionDeps, cand *freightCand
 // A stuck return (live undischarged contract) parks the pass instead of falling
 // into missionDryPass, whose reposition logic would fly the worker away from the
 // contract it still owes.
-func missionFreightOrDry(ctx context.Context, deps MissionDeps, cand *freightCand, held []chainStop, hopsTo func(string) (int, bool), fuelCostFor func(int) float64, out io.Writer) error {
-	step, ferr := missionTakeFreight(ctx, deps, cand, held, hopsTo, fuelCostFor, out)
+func missionFreightOrDry(ctx context.Context, deps MissionDeps, cand *freightCand, held []chainStop, hopsTo func(string) (int, bool), fuelModel func() func(int) float64, out io.Writer) error {
+	step, ferr := missionTakeFreight(ctx, deps, cand, held, hopsTo, fuelModel, out)
 	switch step {
 	case freightStepProceed:
 		return ferr
@@ -651,9 +659,9 @@ func freightDeliverDueHere(ctx context.Context, deps MissionDeps, baseID string,
 
 // freightChainRun is the sub-project C dock-pass loop: deliver what is due
 // here, return what can no longer make its deadline, refill while headroom
-// lasts, fly to the nearest held destination, repeat. The chain and the
-// refill behavior both emerge from repeating this at every dock; a held set
-// of one with FreightMaxPackages 1 walks exactly the v1 trip.
+// lasts (cap > 1 only), fly to the nearest held destination, repeat. At the
+// default cap of 1, refill is skipped entirely: deliver, no refill, pass
+// ends — the exact v1 trip shape (Plan Global Constraint #1).
 //
 // freightStepProceed covers both "set empty, pass done" and "contracts
 // intentionally left in flight" (nav/deliver trouble — next pass reconciles
@@ -735,7 +743,15 @@ func freightChainRun(ctx context.Context, deps MissionDeps, nav func(ctx context
 		// result means a return FAILED inside the refill loop (live
 		// undischarged contract) and must propagate as the pass's own
 		// park-now signal, not be swallowed.
-		if freightChainRefill(ctx, deps, hopsTo, fuelCostFor, out) == freightStepStuck {
+		//
+		// At the default cap (1), refill must NOT run at all: v1 ended the
+		// trip after one delivery, and Plan Global Constraint #1 requires the
+		// default to reproduce that exactly (no new accept at this dock, pass
+		// ends so the next pass re-ranks freight against missions/exploration
+		// from here).
+		if maxPk == 1 {
+			fmt.Fprintln(out, "freight: cap 1, no refill (v1 trip shape)") //nolint:errcheck
+		} else if freightChainRefill(ctx, deps, hopsTo, fuelCostFor, out) == freightStepStuck {
 			return freightStepStuck, nil
 		}
 	}
@@ -774,15 +790,20 @@ func freightHeldByID(deps MissionDeps, id string) *serverapi.ShipmentContract {
 // freightChainRefill accepts additional contracts at the current dock while
 // the gate clears. Each accept immediately loads its package so hold-space
 // headroom self-updates for the next iteration; a load failure has already
-// returned that contract inside freightLoadPackage.
+// returned that contract inside freightLoadPackage, and refill stops for
+// this dock rather than retrying — an unbounded retry here is how a
+// systemic load failure (persistent WithdrawItems trouble, or the server
+// re-listing a just-returned contract) turns into an infinite
+// accept/withdraw-fail/return loop.
 //
 // Returns freightStepStuck the moment either freightAccept or
 // freightLoadPackage reports Stuck: a FAILED return means a live
 // undischarged contract, which is the ONLY global park condition, and it
 // must propagate to the caller rather than be swallowed here. Returns
 // freightStepProceed for every other outcome: the gate simply ran dry (no
-// candidate), or an accept came back Released (accept itself failed, or the
-// contract proved infeasible and was returned cleanly) — refill stops for
+// candidate), an accept came back Released (accept itself failed, or the
+// contract proved infeasible and was returned cleanly), or a load came back
+// Released (package would not load, contract returned) — refill stops for
 // this dock either way, but the pass as a whole is free to continue.
 func freightChainRefill(ctx context.Context, deps MissionDeps, hopsTo func(string) (int, bool), fuelCostFor func(int) float64, out io.Writer) freightStep {
 	for {
@@ -810,7 +831,13 @@ func freightChainRefill(ctx context.Context, deps MissionDeps, hopsTo func(strin
 			if step == freightStepStuck {
 				return freightStepStuck
 			}
-			continue // released; that contract was returned, headroom unchanged, try again
+			// Released: the contract was returned (unloadable package), same as
+			// an accept-release above. Stop refilling at this dock rather than
+			// looping — an unbounded retry here is how a systemic load failure
+			// (e.g. persistent WithdrawItems trouble) churns accept+return
+			// forever if the board keeps re-offering. The pass continues
+			// without further refill; the next dock re-evaluates from scratch.
+			return freightStepProceed
 		}
 	}
 }

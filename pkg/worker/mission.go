@@ -525,7 +525,12 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	if !ok || len(board) == 0 {
 		fmt.Fprintln(out, "missions: no board entries here") //nolint:errcheck
 		// An empty board is a prime freight opportunity, not a dry pass.
-		return missionFreightOrDry(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel(), out)
+		// ensureFuelModel is passed unevaluated (not called) — Go evaluates
+		// call arguments eagerly, so calling it here would probe the server
+		// (GetConnections + FindRoute) even when freightBest is nil, i.e. on
+		// every EnableFreight=false pass. missionTakeFreight only invokes the
+		// builder once cand is confirmed non-nil.
+		return missionFreightOrDry(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel, out)
 	}
 
 	// Distance map to every candidate destination.
@@ -631,7 +636,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// Freight takes ties against exploration, per "exploration is the fallback".
 	case freightBest != nil && freightNet >= exploreNet && freightNet > missionNet:
 		fmt.Fprintf(out, "freight: taking %s (net %.0f) over the mission trip (net %.0f) and exploration (net %.0f)\n", freightBest.Contract.ID, freightNet, missionNet, exploreNet) //nolint:errcheck
-		step, ferr := missionTakeFreight(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel(), out)
+		step, ferr := missionTakeFreight(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel, out)
 		switch step {
 		case freightStepProceed:
 			return ferr
@@ -745,7 +750,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 				// would waste the whole evaluation. Freight lost the ranking
 				// above against the PRE-gate mission net; now that the gate has
 				// emptied the set, it is the only thing left.
-				return missionFreightOrDry(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel(), out)
+				return missionFreightOrDry(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel, out)
 			}
 		}
 	}

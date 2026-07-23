@@ -57,8 +57,12 @@ freight pass runs four steps in order:
 4. **Nav to nearest.** Fly toward the held destination with the fewest hops
    from here (tie-break: earliest `DeadlineTick`). Arrival re-enters step 1.
 
-An empty held set degenerates to exactly the v1 pass; `freight_max_packages: 1`
-makes steps 1–4 behaviorally identical to today.
+An empty held set degenerates to exactly the v1 pass. Step 2's refill (item 3
+above, "refill at every stop") applies only when `freight_max_packages` > 1;
+at the default cap of 1, step 3 is skipped entirely after a clean delivery —
+the pass ends there, exactly as the v1 trip did — so steps 1, 2, and 4 are
+what stay behaviorally identical to today at cap 1, not a refill that
+immediately finds nothing to add.
 
 ## Chain deadline bound (fail-closed without pairwise distances)
 

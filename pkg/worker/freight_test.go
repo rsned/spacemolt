@@ -627,6 +627,40 @@ func TestMissionsSkipsFreightWhenDisabled(t *testing.T) {
 	}
 }
 
+// TestMissionsFreightDisabledEmptyBoardNoFuelProbe is the I1 regression test.
+// With EnableFreight false and an empty board, Missions() must not build the
+// freight fuel model at all — ensureFuelModel's first call issues a KB
+// GetConnections plus a FindRoute server probe (haul_fuel.go's
+// haulFuelPerJump), and that probe must stay gated behind an actual freight
+// candidate, not fire merely because ensureFuelModel() was evaluated as a Go
+// call argument. Pre-fix, mission.go's board-empty branch passed
+// ensureFuelModel() (called, not the builder) to missionFreightOrDry, which
+// Go evaluates before the call happens regardless of EnableFreight or
+// freightBest being nil — so a disabled worker still paid a FindRoute call on
+// every board-empty pass. Post-fix the builder itself is passed and
+// missionTakeFreight only invokes it once cand is confirmed non-nil, which
+// never happens here since EnableFreight is false.
+func TestMissionsFreightDisabledEmptyBoardNoFuelProbe(t *testing.T) {
+	f := freightBoardClient(t, boardJSON(t), nil) // empty board
+	deps := missionDeps(f, &fakeMissionStore{}, missionKB())
+	deps.State = &missionRunState{}
+	// EnableFreight deliberately left false.
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	// Reachability guard: proves the pass really reached the board-empty
+	// branch this test targets, rather than bailing out earlier.
+	if !slices.Contains(f.calls, "get_missions") {
+		t.Fatalf("test is vacuous — the pass never reached the board read: %v", f.calls)
+	}
+	for _, c := range f.calls {
+		if strings.HasPrefix(c, "find_route:") {
+			t.Fatalf("EnableFreight=false must not probe FindRoute on an empty board, calls were %v", f.calls)
+		}
+	}
+}
+
 // With freight enabled and a hold too small, the pass must still complete
 // normally — freight is additive, never a new way for a pass to fail.
 func TestMissionsWithFreightEnabledStillCompletes(t *testing.T) {
@@ -1677,6 +1711,11 @@ func TestFreightChainRunRefillStuckPropagates(t *testing.T) {
 		shippingErr: map[string]error{"return": errors.New("network blip")},
 	}
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: &missionRunState{}}
+	// Refill only runs above cap 1 (C1 fix: the default cap 1 skips refill
+	// entirely for v1 equivalence, see TestFreightChainRunCap1NoRefillAfterDelivery).
+	// This test is specifically about refill's Stuck-propagation, so it needs
+	// a cap that lets refill actually run.
+	deps.FreightMaxPackages = 3
 	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "near", DestinationBaseID: "baseA", DeadlineTick: 99999, Status: "in_transit"})
 	nav := func(ctx context.Context, baseID string) error { return nil }
 	hops := func(base string) (int, bool) { return map[string]int{"baseA": 2, "sol_central": 2}[base], true }
@@ -1696,5 +1735,160 @@ func TestFreightChainRunRefillStuckPropagates(t *testing.T) {
 	}
 	if store.outcomes["refill"] != "return_failed" {
 		t.Fatalf("outcomes = %v, want refill -> return_failed", store.outcomes)
+	}
+}
+
+// freightAcceptFatalClient wraps fakeClient and fails the test the instant
+// ShippingAccept is called. Used to prove the C1 fix: at the default cap of
+// 1, a clean delivery must end the pass without the chain ever touching the
+// board again — v1 equivalence means the worker does not accept anything
+// else at this dock, not merely that some policy discourages it.
+type freightAcceptFatalClient struct {
+	fakeClient
+	t *testing.T
+}
+
+func (f *freightAcceptFatalClient) ShippingAccept(ctx context.Context, shipmentID, carrier string) error {
+	f.t.Fatal("freight: cap 1 must not accept anything after delivering — no refill at cap 1")
+	return nil
+}
+
+// TestFreightChainRunCap1NoRefillAfterDelivery is the C1 regression test.
+// FreightMaxPackages is left at its zero value (freightEffectiveMax normalizes
+// 0/1 to the v1 single-contract cap). One held contract ("near") is due at
+// baseA; the board separately offers a highly profitable contract ("high")
+// that would clear the gate easily if refill ran. Pre-fix, freightChainRun
+// called freightChainRefill unconditionally after a zero-failure delivery, so
+// this test failed on freightAcceptFatalClient's t.Fatal (recorded red
+// evidence: "freight: cap 1 must not accept anything after delivering — no
+// refill at cap 1"). Post-fix, refill is skipped outright at cap 1, so
+// ShippingAccept is never called and the pass ends with an empty held set.
+func TestFreightChainRunCap1NoRefillAfterDelivery(t *testing.T) {
+	store := &fakeFreightStore{}
+	bf := &freightAcceptFatalClient{
+		fakeClient: fakeClient{
+			state: &game.State{Doc: true, Ship: game.Ship{CargoCapacity: 200}},
+			raw: map[string][]byte{
+				"shipping_profile": shippingProfileJSON(t, false, ""),
+				"shipping_list":    shippingListJSON(t, listing("high", true, 9000, 2)),
+			},
+		},
+		t: t,
+	}
+	deps := MissionDeps{Client: bf, AgentID: "fighter-4", Market: store, State: &missionRunState{}}
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "near", DestinationBaseID: "baseA", DeadlineTick: 99999, Status: "in_transit"})
+	nav := func(ctx context.Context, baseID string) error { return nil }
+	hops := func(base string) (int, bool) { return map[string]int{"baseA": 2}[base], true }
+
+	step, err := freightChainRun(context.Background(), deps, nav, hops, noFuel, io.Discard)
+	if err != nil || step != freightStepProceed {
+		t.Fatalf("step=%v err=%v", step, err)
+	}
+	if store.outcomes["near"] != "delivered" {
+		t.Fatalf("outcomes = %v, want near -> delivered", store.outcomes)
+	}
+	if deps.State.heldFreightCount() != 0 {
+		t.Fatal("held set must be empty after the v1-equivalent cap-1 delivery")
+	}
+}
+
+// TestFreightChainRunCap3StillRefillsAfterDelivery is the companion in the
+// other direction: above cap 1, refill must still run after a clean
+// delivery. Without this, the C1 fix could over-apply and silently disable
+// refill for every cap, not just 1.
+func TestFreightChainRunCap3StillRefillsAfterDelivery(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &fakeClient{
+		state: &game.State{Doc: true, Ship: game.Ship{CargoCapacity: 300}},
+		raw: map[string][]byte{
+			"shipping_profile": shippingProfileJSON(t, false, ""),
+			"shipping_list":    shippingListJSON(t, listing("high", true, 9000, 2)),
+			"shipping_accept":  shippingContractJSON(t, "accept", acceptedContract(0, 99999)),
+		},
+	}
+	// The real /shipping board drops a listing once accepted; model that so
+	// refill doesn't re-offer "high" forever (it would just hit the chain's
+	// leg-count guard instead of proving anything new).
+	f.onShippingAccept = func(string) { f.raw["shipping_list"] = shippingListJSON(t) }
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: &missionRunState{}, FreightMaxPackages: 3}
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "near", DestinationBaseID: "baseA", DeadlineTick: 99999, Status: "in_transit"})
+	nav := func(ctx context.Context, baseID string) error { return nil }
+	hops := func(base string) (int, bool) { return map[string]int{"baseA": 2, "sol_central": 2}[base], true }
+
+	if _, err := freightChainRun(context.Background(), deps, nav, hops, noFuel, io.Discard); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !slices.Contains(f.shippingCalls, "accept") {
+		t.Fatalf("cap>1 must still refill after a clean delivery, calls were %v", f.shippingCalls)
+	}
+}
+
+// limitedBoardClient offers a fixed board listing for a bounded number of
+// ShippingList calls, then reports the board empty. Used by
+// TestFreightChainRefillStopsAfterLoadRelease to bound a would-be-infinite
+// refill loop deterministically (rather than hanging the test on the pre-fix
+// behavior) while still proving the discriminating accept count.
+type limitedBoardClient struct {
+	fakeClient
+	offersLeft int
+	boardRaw   []byte
+	emptyRaw   []byte
+}
+
+func (f *limitedBoardClient) ShippingList(ctx context.Context, sort string) error {
+	f.calls = append(f.calls, "shipping_list")
+	f.shippingCalls = append(f.shippingCalls, "list")
+	if f.offersLeft > 0 {
+		f.offersLeft--
+		f.raw["shipping_list"] = f.boardRaw
+	} else {
+		f.raw["shipping_list"] = f.emptyRaw
+	}
+	return f.shippingErr["list"]
+}
+
+// TestFreightChainRefillStopsAfterLoadRelease is the I2 regression test.
+// WithdrawItems always fails, so every accepted candidate is immediately
+// load-released (package would not load) and returned. The board is scripted
+// to keep offering the same eligible listing for 2 ShippingList calls before
+// going empty — bounding what would otherwise be a true infinite loop
+// pre-fix, while still exposing the discriminating signal: pre-fix,
+// freightChainRefill `continue`s after a load-release and accepts the
+// candidate a SECOND time (2 accepts total before the board finally empties);
+// post-fix, a load-release stops refill immediately (exactly 1 accept).
+func TestFreightChainRefillStopsAfterLoadRelease(t *testing.T) {
+	store := &fakeFreightStore{}
+	bc := &limitedBoardClient{
+		fakeClient: fakeClient{
+			state: &game.State{Doc: true, Ship: game.Ship{CargoCapacity: 300}},
+			raw: map[string][]byte{
+				"shipping_profile": shippingProfileJSON(t, false, ""),
+				"shipping_accept":  shippingContractJSON(t, "accept", acceptedContract(1200, 99999)),
+			},
+			withdrawErr: errors.New("no such item in storage"),
+		},
+		offersLeft: 2,
+		boardRaw:   shippingListJSON(t, listing("high", true, 9000, 2)),
+		emptyRaw:   shippingListJSON(t),
+	}
+	bc.state.CurrentTick = 1200
+	deps := MissionDeps{Client: bc, AgentID: "fighter-4", Market: store, State: &missionRunState{}, FreightMaxPackages: 5}
+	hops := func(string) (int, bool) { return 2, true }
+
+	step := freightChainRefill(context.Background(), deps, hops, noFuel, io.Discard)
+	if step != freightStepProceed {
+		t.Fatalf("step = %v, want freightStepProceed", step)
+	}
+	acceptCount := 0
+	for _, c := range bc.shippingCalls {
+		if c == "accept" {
+			acceptCount++
+		}
+	}
+	if acceptCount != 1 {
+		t.Fatalf("accept count = %d, want exactly 1 — a load-release must stop refill at this dock, not retry (calls were %v)", acceptCount, bc.shippingCalls)
+	}
+	if !slices.Contains(bc.shippingCalls, "return") {
+		t.Fatalf("must have returned the unloadable contract, calls were %v", bc.shippingCalls)
 	}
 }
