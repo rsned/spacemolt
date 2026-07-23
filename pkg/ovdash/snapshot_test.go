@@ -146,3 +146,75 @@ func TestReadSnapshotSurfacesLeavingAndRemoved(t *testing.T) {
 		t.Fatalf("fleet with no sidecar must be absent from Removed: %+v", s.Removed)
 	}
 }
+
+func writeStatusOv(t *testing.T, dir, fleetFile, capturedAt string, ov balances.OvermindBuild, ws []balances.LiveRecord) {
+	t.Helper()
+	sf := balances.StatusFile{
+		CapturedAt: capturedAt, Workers: ws,
+		OvermindVersion: ov.Version, OvermindCommit: ov.Commit, OvermindBuiltAt: ov.BuiltAt,
+		OvermindCodeDirty: ov.CodeDirty, OvermindModified: ov.Modified,
+	}
+	b, err := json.Marshal(sf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, fleetFile+"-status.json"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReadSnapshotClassifiesVersionTiers(t *testing.T) {
+	g, err := LoadGalaxy(context.Background(), fixtureKB(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	now := time.Date(2026, 7, 23, 12, 0, 0, 0, time.UTC)
+	fresh := now.Add(-5 * time.Second).Format(time.RFC3339)
+	newest := "2026-07-23T10:00:00Z" // the current build's built_at
+	older := "2026-07-22T09:00:00Z"
+
+	// haul overmind IS the current build (v0.3.0 @ newest).
+	writeStatusOv(t, dir, "fleet", fresh,
+		balances.OvermindBuild{Version: "v0.3.0", BuiltAt: newest},
+		[]balances.LiveRecord{
+			{AgentID: "hauler-green", System: "Sol", Seen: true, Healthy: true,
+				Version: "v0.3.0", BuiltAt: newest},
+			{AgentID: "hauler-yellow-patch", System: "Sol", Seen: true, Healthy: true,
+				Version: "v0.3.0-2-g8016cd8", BuiltAt: "2026-07-23T09:00:00Z"},
+			{AgentID: "hauler-yellow-dirty", System: "Sol", Seen: true, Healthy: true,
+				Version: "v0.3.0", BuiltAt: newest, CodeDirty: true},
+			{AgentID: "hauler-red-minor", System: "Sol", Seen: true, Healthy: true,
+				Version: "v0.2.9", BuiltAt: older},
+			{AgentID: "hauler-red-legacy", System: "Sol", Seen: true, Healthy: true},
+		})
+
+	s, err := ReadSnapshot(dir, g, now, time.Minute)
+	if err != nil {
+		t.Fatalf("ReadSnapshot: %v", err)
+	}
+	byID := map[string]AgentState{}
+	for _, a := range s.Agents {
+		byID[a.AgentID] = a
+	}
+	want := map[string]Tier{
+		"hauler-green":        TierGreen,
+		"hauler-yellow-patch": TierYellow,
+		"hauler-yellow-dirty": TierYellow,
+		"hauler-red-minor":    TierRed,
+		"hauler-red-legacy":   TierRed,
+	}
+	for id, wt := range want {
+		if got := byID[id].Tier; got != wt {
+			t.Errorf("%s tier = %q, want %q", id, got, wt)
+		}
+	}
+	ov, ok := s.Overminds["haul"]
+	if !ok || ov.Version != "v0.3.0" || ov.Tier != TierGreen {
+		t.Fatalf("haul overmind info wrong: %+v (ok=%v)", ov, ok)
+	}
+	// Rolled-up fleet tier = worst worker present = red (legacy + minor-behind).
+	if ov.FleetTier != TierRed {
+		t.Fatalf("haul FleetTier = %q, want red", ov.FleetTier)
+	}
+}
