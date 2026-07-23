@@ -97,6 +97,26 @@ func (s *Supervisor) applyMembership(now time.Time) {
 // memberAdd records the spec; the launch itself happens in the main reap loop
 // (no tracked proc -> tryRestart), which enforces the RestartBatch budget.
 func (s *Supervisor) memberAdd(spec WorkerSpec) {
+	// F2: an add for an agent whose removal is still draining CANCELS that
+	// removal rather than racing it. applyMembership runs before
+	// progressLeaving each tick, so clearing s.leaving here lands on the
+	// correct side of the ordering — progressLeaving will not see the agent and
+	// cannot complete the removal (which would strip the spec and vanish the
+	// agent from both the live roster and the Removed section). The worker is
+	// still alive; Resume undoes the drain it already received so it does not
+	// sit idle after being kept.
+	if s.leaving[spec.AgentID] != nil {
+		delete(s.leaving, spec.AgentID)
+		s.fleet.ClearLeaving(spec.AgentID)
+		s.setSpec(spec)
+		if s.Sender != nil {
+			if err := s.Sender.Send(spec.AgentID, control.Envelope{Type: control.TypeResume, AgentID: spec.AgentID}); err != nil {
+				s.logger.Printf("membership: resume to re-added %q failed (%v)", spec.AgentID, err)
+			}
+		}
+		s.logger.Printf("membership: add %q cancelled its in-flight removal", spec.AgentID)
+		return
+	}
 	if s.hasSpec(spec.AgentID) {
 		s.setSpec(spec) // add of an existing agent refreshes its spec
 		return

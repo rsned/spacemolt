@@ -288,13 +288,20 @@ func (s *Supervisor) kill(p *workerProc) {
 
 func (s *Supervisor) reapAndRestart(ctx context.Context) {
 	now0 := time.Now()
-	s.applyMembership(now0)
-
+	// Drain quarantine releases BEFORE applying membership (F3): if a quarantined
+	// agent gets both a ReleaseQuarantine and a membership-remove in the same
+	// tick, running applyMembership first would completeRemoval -> fleet.Remove
+	// the entry, and the subsequent ClearQuarantine's fleet.get would re-create a
+	// blank ghost entry that never reaps. Clearing quarantine first lets
+	// memberRemove take the ordinary (non-quarantined) drain/stop path and leaves
+	// no ghost. Releases without a paired remove behave identically either way.
 	for _, id := range s.drainReleases() {
 		s.fleet.ClearQuarantine(id)
 		delete(s.restarts, id)
 		s.logger.Printf("quarantine released for %q; relaunching", id)
 	}
+	s.applyMembership(now0)
+
 	now := time.Now()
 	healthy := make(map[string]WorkerInfo)
 	for _, w := range s.fleet.Snapshot() {

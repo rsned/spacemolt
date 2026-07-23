@@ -194,6 +194,82 @@ func TestDuplicateRequestsCollapseLastOpWins(t *testing.T) {
 	}
 }
 
+// TestReaddDuringDrainCancelsRemoval is the F2 regression: an add for an agent
+// whose removal is still draining (cross-tick) must cancel the removal — the
+// worker ends ALIVE, in the roster, and not marked Leaving — rather than
+// letting the in-flight drain race to completion and vanish it from both the
+// live roster and the Removed section.
+func TestReaddDuringDrainCancelsRemoval(t *testing.T) {
+	ctx := t.Context()
+	specs := []WorkerSpec{{AgentID: "a1", Role: "missionrunner"}}
+	sup, sender, fleet := newTestSup(t, specs)
+	sup.launch(ctx, specs[0])
+	fleet.ApplyHello(control.Hello{AgentID: "a1", Role: "missionrunner"}, 1, time.Now())
+	fleet.ApplyStatus("a1", control.Status{Timestamp: "t", System: "sol"}, time.Now())
+
+	// Tick 1: remove -> marks leaving, drain sent, still alive.
+	sup.EnqueueMembership(MembershipRequest{Op: MembershipRemove, Spec: WorkerSpec{AgentID: "a1"}})
+	sup.Tick(ctx)
+	if snap := fleet.Snapshot(); len(snap) != 1 || !snap[0].Leaving {
+		t.Fatalf("after remove tick: %+v, want a1 Leaving", snap)
+	}
+
+	// The worker reports drained AND the deadline is already past, so without the
+	// cancel the very next tick's progressLeaving would stop+remove it. A re-add
+	// enqueued for the same tick must win.
+	sup.RemoveDrainTimeout = -time.Second
+	fleet.ApplyStatus("a1", control.Status{Timestamp: "t", System: "sol", Drained: true}, time.Now())
+	sup.EnqueueMembership(MembershipRequest{Op: MembershipAdd, Spec: WorkerSpec{AgentID: "a1", Role: "missionrunner"}})
+	sup.Tick(ctx)
+
+	if p := procSnapshot(sup, "a1"); p == nil || !p.alive() {
+		t.Fatal("re-added worker was stopped by the racing removal (F2)")
+	}
+	roster := sup.Roster()
+	if len(roster) != 1 || roster[0].AgentID != "a1" {
+		t.Fatalf("roster = %+v, want just a1", roster)
+	}
+	snap := fleet.Snapshot()
+	if len(snap) != 1 || snap[0].AgentID != "a1" || snap[0].Leaving {
+		t.Fatalf("fleet = %+v, want a1 present and not Leaving", snap)
+	}
+	if sup.leaving["a1"] != nil {
+		t.Fatal("leaving state for a1 not cleared after re-add")
+	}
+	// The re-added worker must be resumed (un-drained), not left parked.
+	resumed := false
+	for _, e := range sender.sent {
+		if e.Type == control.TypeResume && e.AgentID == "a1" {
+			resumed = true
+		}
+	}
+	if !resumed {
+		t.Fatal("re-add did not send Resume to un-drain the kept worker")
+	}
+}
+
+// TestReleaseAndRemoveSameTickNoGhost is the F3 regression: a quarantined agent
+// that receives both a ReleaseQuarantine and a membership-remove in the same
+// tick must leave NO ghost fleet entry (completeRemoval deletes it; a later
+// ClearQuarantine must not re-create a blank one via fleet.get).
+func TestReleaseAndRemoveSameTickNoGhost(t *testing.T) {
+	ctx := t.Context()
+	specs := []WorkerSpec{{AgentID: "q1", Role: "missionrunner"}}
+	sup, _, fleet := newTestSup(t, specs)
+	fleet.Quarantine("q1", "stranded")
+
+	sup.ReleaseQuarantine("q1")
+	sup.EnqueueMembership(MembershipRequest{Op: MembershipRemove, Spec: WorkerSpec{AgentID: "q1"}})
+	sup.Tick(ctx)
+
+	if got := fleet.Snapshot(); len(got) != 0 {
+		t.Fatalf("ghost fleet entry left behind: %+v", got)
+	}
+	if got := sup.Roster(); len(got) != 0 {
+		t.Fatalf("roster = %+v, want empty", got)
+	}
+}
+
 func TestRemoveQuarantinedIsBookkeepingOnly(t *testing.T) {
 	ctx := t.Context()
 	specs := []WorkerSpec{{AgentID: "q1", Role: "missionrunner"}}

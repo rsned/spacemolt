@@ -148,11 +148,12 @@ func main() {
 			case syscall.SIGHUP:
 				logger.Printf("received SIGHUP: reloading fleet roster")
 				if eff, ok := rs.reload(*fleetPath, *overridesPath, logger); ok {
-					reqs := diffSpecs(sup.Roster(), eff)
-					for _, r := range reqs {
-						sup.EnqueueMembership(r)
+					if reqs, safe := safeDiff(sup.Roster(), eff, logger); safe {
+						for _, r := range reqs {
+							sup.EnqueueMembership(r)
+						}
+						logger.Printf("SIGHUP: %d membership change(s) enqueued", len(reqs))
 					}
-					logger.Printf("SIGHUP: %d membership change(s) enqueued", len(reqs))
 				}
 			}
 		}

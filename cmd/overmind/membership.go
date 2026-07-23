@@ -87,6 +87,40 @@ func diffSpecs(current, desired []supervisor.WorkerSpec) []supervisor.Membership
 	return reqs
 }
 
+// safeDiff computes the SIGHUP membership requests but refuses a wholesale
+// wipe. An effective roster that is empty — or that would remove more than
+// half the live fleet — is far more likely a truncated / fat-fingered / caught
+// mid-write yaml than a real intent, and the spec's guarantee is "never drop a
+// fleet on a bad edit". In that case it returns (nil, false) so the SIGHUP
+// caller keeps the current roster (a loud log is emitted here).
+//
+// This guard is SIGHUP-only: an empty live roster imposes no guard, so an
+// operator legitimately starting or growing an empty fleet is unaffected
+// (boot loads specs directly, never through this path). Legitimate large
+// scale-downs remain possible via the dashboard per-agent removes or by
+// staging the yaml edit across more than one SIGHUP.
+func safeDiff(live, effective []supervisor.WorkerSpec, logger *log.Logger) ([]supervisor.MembershipRequest, bool) {
+	reqs := diffSpecs(live, effective)
+	if len(live) == 0 {
+		return reqs, true // nothing running to protect
+	}
+	if len(effective) == 0 {
+		logger.Printf("SIGHUP: REFUSING reload — effective roster is EMPTY while %d worker(s) are live (truncated/empty yaml?); keeping current roster", len(live))
+		return nil, false
+	}
+	removes := 0
+	for _, r := range reqs {
+		if r.Op == supervisor.MembershipRemove {
+			removes++
+		}
+	}
+	if removes*2 > len(live) {
+		logger.Printf("SIGHUP: REFUSING reload — would remove %d of %d live worker(s) (>half; likely a bad edit); keeping current roster", removes, len(live))
+		return nil, false
+	}
+	return reqs, true
+}
+
 // makeAdminHook builds the server admin callback: remove records the override
 // is NOT done here (the dashboard owns the sidecar); this hook only enqueues
 // the live change and acks. readd resolves the spec from the latest yaml copy.
