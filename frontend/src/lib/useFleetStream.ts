@@ -21,6 +21,31 @@ export interface AgentState {
   restarts: number;
   last_seen: string;
   leaving?: boolean;
+  version?: string;
+  commit?: string;
+  built_at?: string;
+  code_dirty?: boolean;
+  modified?: boolean;
+  tier?: Tier;
+}
+
+export type Tier = 'green' | 'yellow' | 'red';
+
+/** Tier → badge color. Kept distinct from FLEETS accent colors. */
+export const TIER_COLORS: Record<Tier, string> = {
+  green: '#34d399',
+  yellow: '#fbbf24',
+  red: '#f87171',
+};
+
+export interface OvermindInfo {
+  version?: string;
+  commit?: string;
+  built_at?: string;
+  code_dirty?: boolean;
+  modified?: boolean;
+  tier?: Tier;
+  fleet_tier?: Tier;
 }
 
 export interface SourceEarnings { total: number; per_hour: number; count: number }
@@ -46,6 +71,7 @@ interface Snapshot {
   off_map: AgentState[] | null;
   stale_fleets: string[] | null;
   removed?: Record<string, string[]>;
+  overminds?: Record<string, OvermindInfo>;
 }
 
 interface Delta {
@@ -75,6 +101,9 @@ export interface FleetStream {
    * "snapshot" event (full keyframe); deltas never touch it, so it persists
    * across delta updates until the next snapshot. */
   removed: Record<string, string[]>;
+  /** Fleet label -> overmind build identity. Carried only on the "snapshot"
+   * keyframe (like `removed`); persists across deltas until the next snapshot. */
+  overminds: Record<string, OvermindInfo>;
   /** Moves from the most recent delta — consumed by the map for animation. */
   moves: AgentMove[];
   connected: boolean;
@@ -96,7 +125,7 @@ function route(onMap: Map<string, AgentState>, offMap: Map<string, AgentState>, 
 export function useFleetStream(streamURL = '/api/overmind/stream'): FleetStream {
   const [state, setState] = useState<FleetStream>({
     agents: new Map(), offMap: [], accounting: null,
-    staleFleets: [], removed: {}, moves: [], connected: false,
+    staleFleets: [], removed: {}, overminds: {}, moves: [], connected: false,
   });
   const agentsRef = useRef(new Map<string, AgentState>());
   const offMapRef = useRef(new Map<string, AgentState>());
@@ -114,6 +143,7 @@ export function useFleetStream(streamURL = '/api/overmind/stream'): FleetStream 
       setState((s) => ({
         ...s, agents: new Map(onMap), offMap: [...offMap.values()],
         staleFleets: snap.stale_fleets ?? [], removed: snap.removed ?? {},
+        overminds: snap.overminds ?? {},
         moves: [], connected: true,
       }));
     });

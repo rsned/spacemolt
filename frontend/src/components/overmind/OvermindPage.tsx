@@ -156,6 +156,7 @@ export function OvermindPage() {
             removed={stream.removed}
             onRemove={handleRemove}
             onReadd={handleReadd}
+            overminds={stream.overminds}
           />
         </div>
       </div>

@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
-import { FLEETS, type AgentState } from '../../lib/useFleetStream';
+import { FLEETS, TIER_COLORS, type AgentState, type OvermindInfo, type Tier } from '../../lib/useFleetStream';
 import { AgentCard } from './AgentCard';
 
 export function FleetRail({
   agents, offMap, staleFleets, selectedId, onSelect, highlightedIds,
-  removed, onRemove, onReadd,
+  removed, onRemove, onReadd, overminds,
 }: {
   agents: AgentState[]; offMap: AgentState[]; staleFleets: string[];
   selectedId: string | null; onSelect: (id: string) => void;
@@ -12,6 +12,7 @@ export function FleetRail({
   removed?: Record<string, string[]>;
   onRemove?: (agent: AgentState) => void;
   onReadd?: (fleet: string, agentId: string) => void;
+  overminds?: Record<string, OvermindInfo>;
 }) {
   const [filter, setFilter] = useState('');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -33,6 +34,28 @@ export function FleetRail({
     return g;
   }, [agents, offMap, filter]);
 
+  // Group a fleet's workers by version string, worst-tier and any raw-modified
+  // marker per group, for the "v0.3.0 ×35  v0.2.9 ×6" summary line.
+  const versionGroups = (list: AgentState[]): { version: string; count: number; tier: Tier; modified: boolean }[] => {
+    const m = new Map<string, { count: number; tier: Tier; modified: boolean }>();
+    const rank: Record<Tier, number> = { green: 0, yellow: 1, red: 2 };
+    for (const a of list) {
+      const version = a.version || 'legacy';
+      const tier = a.tier ?? 'red';
+      const cur = m.get(version);
+      if (cur) {
+        cur.count += 1;
+        if (rank[tier] > rank[cur.tier]) cur.tier = tier;
+        cur.modified = cur.modified || !!a.modified;
+      } else {
+        m.set(version, { count: 1, tier, modified: !!a.modified });
+      }
+    }
+    return [...m.entries()]
+      .map(([version, v]) => ({ version, ...v }))
+      .sort((x, y) => y.count - x.count);
+  };
+
   return (
     <div className="p-2">
       <input
@@ -46,6 +69,9 @@ export function FleetRail({
         const credits = list.reduce((s, a) => s + a.credits, 0);
         const isCollapsed = collapsed[fleet];
         const worstUnhealthy = list.some((a) => !a.healthy || !a.seen);
+        const ov = overminds?.[fleet];
+        const fleetTier: Tier = ov?.fleet_tier ?? 'red';
+        const vGroups = versionGroups(list);
         return (
           <div key={fleet} className="mb-2">
             <button
@@ -57,8 +83,28 @@ export function FleetRail({
                 {isCollapsed ? '▸' : '▾'} {fleet} <span className="text-[#8a8570]">{list.length}</span>
                 <span className={`ml-1 ${worstUnhealthy ? 'text-red-500' : 'text-emerald-500'}`}>◉</span>
               </span>
-              <span className="font-mono text-[#8a8570]">₡ {Math.round(credits).toLocaleString()}</span>
+              <span className="flex items-center gap-1">
+                {ov?.version && (
+                  <span
+                    className="px-1 text-[9px] font-mono rounded-sm border"
+                    style={{ color: TIER_COLORS[fleetTier], borderColor: TIER_COLORS[fleetTier] }}
+                    title={`overmind ${ov.version}${ov.commit ? ` (${ov.commit})` : ''}${ov.modified ? ' *' : ''}`}
+                  >
+                    {ov.version}{ov.modified ? ' *' : ''}
+                  </span>
+                )}
+                <span className="font-mono text-[#8a8570]">₡ {Math.round(credits).toLocaleString()}</span>
+              </span>
             </button>
+            {!isCollapsed && vGroups.length > 0 && (
+              <div className="flex flex-wrap gap-x-2 gap-y-0.5 px-1 pb-1 text-[9px] font-mono">
+                {vGroups.map((g) => (
+                  <span key={g.version} style={{ color: TIER_COLORS[g.tier] }}>
+                    {g.version}{g.modified ? '*' : ''} ×{g.count}
+                  </span>
+                ))}
+              </div>
+            )}
             {!isCollapsed && list.map((a) => (
               <AgentCard key={a.agent_id} agent={a} color={color}
                 selected={selectedId === a.agent_id} stale={stale.has(fleet)}
