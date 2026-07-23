@@ -79,7 +79,7 @@ dashboard reads all *-status.json
 - One ldflags target covers all binaries (it names the shared `buildinfo` package). A plain `go build ./...` still works and just yields `dev` + the embedded commit (`codeDirty` unset → treated as unknown/false) — the script is for release builds, not a hard requirement.
 
 ### 3. `pkg/overmind/control` — `Hello`
-- Add `Version string`, `Commit string`, `BuiltAt string` (RFC3339) to `control.Hello`. Backward compatible: an old worker omits them; the overmind treats empty as "unknown."
+- Add `Version string`, `Commit string`, `BuiltAt string` (RFC3339), `CodeDirty bool`, and `Modified bool` (raw, cosmetic) to `control.Hello`. `CodeDirty`/`Modified` ride here because per-worker tier classification (Component 6) needs each worker's code-dirty flag and there is no other transport. Backward compatible: an old worker omits them; the overmind treats empty as "unknown."
 
 ### 4. `pkg/overmind/supervisor` — `ApplyHello` / `WorkerInfo`
 - Store the hello's version fields on `WorkerInfo`; surface into the per-worker `LiveRecord`.
