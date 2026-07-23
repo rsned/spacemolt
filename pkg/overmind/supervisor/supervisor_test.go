@@ -412,6 +412,96 @@ func TestDisconnectedWorkerNotStallRestartedWithinGrace(t *testing.T) {
 	}
 }
 
+// hasArg reports whether needle appears anywhere in args.
+func hasArg(args []string, needle string) bool {
+	for _, a := range args {
+		if a == needle {
+			return true
+		}
+	}
+	return false
+}
+
+// hasArgPair reports whether flag is immediately followed by value in args.
+func hasArgPair(args []string, flag, value string) bool {
+	for i, a := range args {
+		if a == flag && i+1 < len(args) && args[i+1] == value {
+			return true
+		}
+	}
+	return false
+}
+
+// DefaultSpawn's freight flags are the last hop from WorkerSpec to the worker
+// process's argv; a table-driven check here is what would have caught a typo
+// in the flag name or a missed "> 1" guard.
+func TestDefaultSpawnFreightArgs(t *testing.T) {
+	tests := []struct {
+		name     string
+		spec     WorkerSpec
+		wantArgs []string // must all be present
+		wantNo   []string // must all be absent
+	}{
+		{
+			name:     "enable freight with multi-package cap",
+			spec:     WorkerSpec{AgentID: "canary", EnableFreight: true, FreightMaxPackages: 3},
+			wantArgs: []string{"--enable-freight"},
+		},
+		{
+			name:   "freight disabled: no freight flags at all",
+			spec:   WorkerSpec{AgentID: "plain"},
+			wantNo: []string{"--enable-freight", "--freight-max-packages"},
+		},
+		{
+			name:   "cap of 0 leaves the flag absent (worker default 1)",
+			spec:   WorkerSpec{AgentID: "zero", EnableFreight: true, FreightMaxPackages: 0},
+			wantNo: []string{"--freight-max-packages"},
+		},
+		{
+			name:   "cap of 1 leaves the flag absent (worker default 1)",
+			spec:   WorkerSpec{AgentID: "one", EnableFreight: true, FreightMaxPackages: 1},
+			wantNo: []string{"--freight-max-packages"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spawn := DefaultSpawn("true", "")
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			cmd, err := spawn(ctx, tt.spec, "/tmp/does-not-matter.sock")
+			if err != nil {
+				t.Fatalf("spawn: %v", err)
+			}
+			_ = cmd.Wait()
+			for _, want := range tt.wantArgs {
+				if !hasArg(cmd.Args, want) {
+					t.Errorf("args %v missing %q", cmd.Args, want)
+				}
+			}
+			for _, unwanted := range tt.wantNo {
+				if hasArg(cmd.Args, unwanted) {
+					t.Errorf("args %v must not contain %q", cmd.Args, unwanted)
+				}
+			}
+		})
+	}
+
+	// The pair check needs its own case since it inspects flag+value adjacency.
+	t.Run("cap of 3 forwards the paired flag and value", func(t *testing.T) {
+		spawn := DefaultSpawn("true", "")
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		cmd, err := spawn(ctx, WorkerSpec{AgentID: "canary", EnableFreight: true, FreightMaxPackages: 3}, "/tmp/does-not-matter.sock")
+		if err != nil {
+			t.Fatalf("spawn: %v", err)
+		}
+		_ = cmd.Wait()
+		if !hasArgPair(cmd.Args, "--freight-max-packages", "3") {
+			t.Errorf("args %v missing --freight-max-packages 3", cmd.Args)
+		}
+	})
+}
+
 // Past DisconnectGrace the worker is treated as genuinely wedged (its reconnect
 // never recovered) and falls through to the stall watchdog's restart.
 func TestDisconnectedWorkerRestartedAfterGrace(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -38,6 +39,9 @@ func DefaultSpawn(workerBin, handoffQueuePath string) SpawnFunc {
 		}
 		if spec.EnableFreight {
 			args = append(args, "--enable-freight")
+		}
+		if spec.FreightMaxPackages > 1 {
+			args = append(args, "--freight-max-packages", strconv.Itoa(spec.FreightMaxPackages))
 		}
 		cmd := exec.CommandContext(ctx, workerBin, args...)
 		cmd.Stdout = log.Writer()

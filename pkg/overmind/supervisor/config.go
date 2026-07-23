@@ -23,6 +23,11 @@ type WorkerSpec struct {
 	// pool rollout — see the Rollout section of
 	// docs/superpowers/plans/2026-07-20-shipping-carrier-subproject-b.md.
 	EnableFreight bool `yaml:"enable_freight,omitempty"`
+	// FreightMaxPackages forwards --freight-max-packages, capping concurrent
+	// freight contracts (sub-project C multi-package trips). 0/1 = the v1
+	// single-contract behavior; canary fighter-4 runs 3. Layers UNDER the
+	// server/cargo headroom gates.
+	FreightMaxPackages int `yaml:"freight_max_packages,omitempty"`
 }
 
 type fleetFile struct {

@@ -36,6 +36,9 @@ type WorkerDispatch struct {
 	// (freight evaluated co-equally with the mission board). Default false =
 	// the freight code is fully inert.
 	EnableFreight bool
+	// FreightMaxPackages caps concurrent freight contracts; see
+	// MissionDeps.FreightMaxPackages. 0/1 = single-contract v1 behavior.
+	FreightMaxPackages int
 	// MissionCategories is the mission-board category allowlist for the
 	// missions role (nil/empty -> delivery only; the learning pool adds
 	// "exploration").
@@ -227,9 +230,10 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return Missions(ctx, MissionDeps{
 			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
 			Treasury: d.treasury, FuelPrices: d.Market, State: d.mission,
-			Categories:    d.MissionCategories,
-			EnableFreight: d.EnableFreight,
-			SetActivity:   d.setActivity,
+			Categories:         d.MissionCategories,
+			EnableFreight:      d.EnableFreight,
+			FreightMaxPackages: d.FreightMaxPackages,
+			SetActivity:        d.setActivity,
 			// Exploration dock legs double as market-coverage sweeps: full
 			// view_market capture into market.db (haul's recapture pattern)
 			// plus the knowledge-side demand ledger.

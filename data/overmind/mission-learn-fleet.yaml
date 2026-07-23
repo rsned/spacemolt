@@ -61,7 +61,7 @@ workers:
   # enable_freight. Explorers/randoms excluded (holds <100 or broke).
   # 790 free cargo (multi-package candidate for Sub-project C). Runbook =
   # Rollout section of docs/superpowers/plans/2026-07-20-shipping-carrier-subproject-b.md
-  - { agent_id: fighter-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: fighter-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 3 }
   - { agent_id: fighter-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-6, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-7, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }

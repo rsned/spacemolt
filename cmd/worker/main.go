@@ -55,6 +55,7 @@ func main() {
 	handoffQueuePath := flag.String("handoff-queue", "", "Shared crafting-brain stock handoff queue file (empty disables handoff fulfillment)")
 	missionCategories := flag.String("mission-categories", "", "Comma-separated mission-board categories for the missions role (empty = delivery only; learning pool: delivery,exploration)")
 	enableFreight := flag.Bool("enable-freight", false, "Opt the missions role into the /shipping carrier path (freight evaluated co-equally with the mission board; default off)")
+	freightMaxPackages := flag.Int("freight-max-packages", 1, "Max concurrent freight contracts for the missions role (sub-project C multi-package trips; 1 = single-contract v1 behavior)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
@@ -316,6 +317,7 @@ func main() {
 				}
 			}
 			dispatch.EnableFreight = *enableFreight
+			dispatch.FreightMaxPackages = *freightMaxPackages
 			var handoffQueue *handoff.Queue
 			if *handoffQueuePath != "" {
 				handoffQueue = handoff.NewQueue(*handoffQueuePath)

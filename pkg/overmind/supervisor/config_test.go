@@ -38,7 +38,7 @@ func TestLoadFleetRejectsMissingID(t *testing.T) {
 func TestLoadFleetEnableFreight(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "fleet.yaml")
 	if err := os.WriteFile(p, []byte("workers:\n"+
-		"  - agent_id: canary\n    role: missionrunner\n    enable_freight: true\n"+
+		"  - agent_id: canary\n    role: missionrunner\n    enable_freight: true\n    freight_max_packages: 3\n"+
 		"  - agent_id: rest\n    role: missionrunner\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -51,5 +51,11 @@ func TestLoadFleetEnableFreight(t *testing.T) {
 	}
 	if specs[1].EnableFreight {
 		t.Error("enable_freight must default false when absent")
+	}
+	if specs[0].FreightMaxPackages != 3 {
+		t.Errorf("canary must parse freight_max_packages: 3, got %d", specs[0].FreightMaxPackages)
+	}
+	if specs[1].FreightMaxPackages != 0 {
+		t.Errorf("freight_max_packages must default 0 when absent, got %d", specs[1].FreightMaxPackages)
 	}
 }
