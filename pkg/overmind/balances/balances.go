@@ -51,6 +51,9 @@ type LiveRecord struct {
 	// says why (e.g. "fuel-dead: ..."). Omitted for healthy workers.
 	Quarantined      bool   `json:"quarantined,omitempty"`
 	QuarantineReason string `json:"quarantine_reason,omitempty"`
+	// Leaving mirrors the supervisor's in-progress membership removal (drain
+	// sent, stop pending); surfaced to the dashboard as the "draining" chip.
+	Leaving bool `json:"leaving,omitempty"`
 	// Seen is true once the worker has sent at least one heartbeat, so its
 	// Credits reflect a real balance rather than the zero value. Only seen
 	// workers are eligible for a daily snapshot.
@@ -62,6 +65,10 @@ type LiveRecord struct {
 type StatusFile struct {
 	CapturedAt string       `json:"captured_at"`
 	Workers    []LiveRecord `json:"workers"`
+	// Removed lists agent ids currently override-removed from the fleet (the
+	// dashboard's membership sidecar), so the status page can show them
+	// separately from live workers rather than as simply "missing".
+	Removed []string `json:"removed,omitempty"`
 }
 
 // DailyRecord is one agent's balance on one UTC day.
@@ -107,9 +114,10 @@ func (r *Recorder) mark(date, agentID string) {
 	day[agentID] = true
 }
 
-// WriteStatus atomically overwrites the live status file with the given records.
-func (r *Recorder) WriteStatus(live []LiveRecord, now time.Time) error {
-	sf := StatusFile{CapturedAt: now.UTC().Format(time.RFC3339), Workers: live}
+// WriteStatus atomically overwrites the live status file with the given
+// records and the current override-removed agent ids.
+func (r *Recorder) WriteStatus(live []LiveRecord, removed []string, now time.Time) error {
+	sf := StatusFile{CapturedAt: now.UTC().Format(time.RFC3339), Workers: live, Removed: removed}
 	data, err := json.MarshalIndent(sf, "", "  ")
 	if err != nil {
 		return fmt.Errorf("balances: marshal status: %w", err)

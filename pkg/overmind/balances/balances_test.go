@@ -28,7 +28,7 @@ func TestWriteAndReadStatusRoundTrip(t *testing.T) {
 		{AgentID: "trader-1", Role: "hauler", System: "Sol", Credits: 1000, Seen: true},
 		{AgentID: "trader-2", Role: "hauler", System: "Krynn", Credits: 2000, Seen: true},
 	}
-	if err := r.WriteStatus(live, mustTime(t, "2026-06-25T12:00:00Z")); err != nil {
+	if err := r.WriteStatus(live, nil, mustTime(t, "2026-06-25T12:00:00Z")); err != nil {
 		t.Fatalf("WriteStatus: %v", err)
 	}
 	sf, err := ReadStatus(sp)
@@ -40,6 +40,40 @@ func TestWriteAndReadStatusRoundTrip(t *testing.T) {
 	}
 	if sf.CapturedAt != "2026-06-25T12:00:00Z" {
 		t.Fatalf("captured_at = %q", sf.CapturedAt)
+	}
+}
+
+func TestWriteStatusRemovedRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	sp := filepath.Join(dir, "fleet-status.json")
+	r, err := NewRecorder(sp, filepath.Join(dir, "fleet-history.jsonl"))
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+	if err := r.WriteStatus(nil, []string{"trader-9"}, mustTime(t, "2026-06-25T12:00:00Z")); err != nil {
+		t.Fatalf("WriteStatus: %v", err)
+	}
+	sf, err := ReadStatus(sp)
+	if err != nil {
+		t.Fatalf("ReadStatus: %v", err)
+	}
+	if len(sf.Removed) != 1 || sf.Removed[0] != "trader-9" {
+		t.Fatalf("removed roundtrip mismatch: %+v", sf.Removed)
+	}
+}
+
+func TestLiveRecordLeavingField(t *testing.T) {
+	rec := LiveRecord{AgentID: "trader-8", Leaving: true}
+	data, err := json.Marshal(rec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"leaving":true`) {
+		t.Errorf("marshal missing leaving:true: %s", data)
+	}
+	data, _ = json.Marshal(LiveRecord{AgentID: "ok"})
+	if strings.Contains(string(data), "leaving") {
+		t.Errorf("leaving field must be omitempty: %s", data)
 	}
 }
 

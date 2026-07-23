@@ -47,6 +47,7 @@ func main() {
 	planStateDir := flag.String("plan-state-dir", "data/overmind/craft-plans", "Directory for persisted craft-plan run state")
 	handoffQueuePath := flag.String("handoff-queue", "data/overmind/handoff-queue.json", "Shared crafting-brain stock handoff queue file (forwarded to every spawned worker when non-empty; consumed by the plan runner only when --plan-queue is set)")
 	holdersRosterPath := flag.String("holders-roster", "data/overmind/mb-fleet.yaml", "Fleet roster YAML for marketbot stock holders (the plan runner's Managed set; required when --plan-queue is set)")
+	overridesPath := flag.String("overrides-file", "", "Membership overrides sidecar (default: <socket dir>/<fleet>-overrides.json)")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "[overmind] ", log.LstdFlags)
@@ -54,6 +55,9 @@ func main() {
 	// ── Step 0b: Rescue-queue setup (fleet name default, KB handle, queue) ────
 	if *fleetName == "" {
 		*fleetName = strings.TrimSuffix(filepath.Base(*socketPath), ".sock")
+	}
+	if *overridesPath == "" {
+		*overridesPath = strings.TrimSuffix(*socketPath, ".sock") + "-overrides.json"
 	}
 	var kb knowledge.Base
 	if sqliteKB, kbErr := knowledge.NewSQLiteKB(knowledge.Config{DBPath: *kbPath, WAL: true}); kbErr != nil {
@@ -63,12 +67,13 @@ func main() {
 	}
 	queue := rescue.NewQueue(*rescueQueuePath)
 
-	// ── Step 1: Load fleet roster ────────────────────────────────────────────
-	specs, err := supervisor.LoadFleet(*fleetPath)
-	if err != nil {
-		logger.Fatalf("load fleet: %v", err)
+	// ── Step 1: Load fleet roster (yaml minus dashboard membership overrides) ─
+	rs := &rosterState{}
+	specs, ok := rs.reload(*fleetPath, *overridesPath, logger)
+	if !ok {
+		logger.Fatalf("load fleet: unreadable at boot")
 	}
-	logger.Printf("loaded %d worker spec(s) from %s", len(specs), *fleetPath)
+	logger.Printf("loaded %d worker spec(s) from %s (overrides: %s)", len(specs), *fleetPath, *overridesPath)
 
 	// ── Step 2: Build fleet registry, control server, and supervisor ─────────
 	fleet := supervisor.NewFleet()
@@ -81,6 +86,7 @@ func main() {
 	sup := supervisor.NewSupervisor(srv, fleet, specs, supervisor.DefaultSpawn(*workerBin, *handoffQueuePath), logger)
 	sup.StaggerInterval = *stagger
 	sup.RestartBatch = *restartBatch
+	srv.SetAdminHook(makeAdminHook(rs, sup, *overridesPath, logger))
 
 	// ── Step 2b: Load task store and wire event hook ──────────────────────────
 	var taskStore *tasks.Store
@@ -124,7 +130,7 @@ func main() {
 	restoreQuarantine(logger, fleet, queue, *rescueHistPath, *fleetName)
 
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1, syscall.SIGUSR2, syscall.SIGHUP)
 	go func() {
 		for sig := range sigCh {
 			switch sig {
@@ -139,6 +145,15 @@ func main() {
 				logger.Printf("received SIGUSR2: resuming fleet")
 				n := broadcast(srv, fleet.Snapshot(), control.TypeResume, nil, func(m string) { logger.Print(m) })
 				logger.Printf("resume sent to %d workers", n)
+			case syscall.SIGHUP:
+				logger.Printf("received SIGHUP: reloading fleet roster")
+				if eff, ok := rs.reload(*fleetPath, *overridesPath, logger); ok {
+					reqs := diffSpecs(sup.Roster(), eff)
+					for _, r := range reqs {
+						sup.EnqueueMembership(r)
+					}
+					logger.Printf("SIGHUP: %d membership change(s) enqueued", len(reqs))
+				}
 			}
 		}
 	}()
@@ -191,7 +206,7 @@ func main() {
 				planRunner.Tick()
 			}
 			logFleetSnapshot(logger, snap)
-			recordBalances(ctx, logger, recorder, marketCol, snap)
+			recordBalances(ctx, logger, recorder, marketCol, snap, rs.removedList())
 			pollRescues(logger, sup, queue, *rescueHistPath, *fleetName, "data/agents", *rescueFee, snap)
 		}
 	}
@@ -236,7 +251,7 @@ func crossedQuarterBoundary(last, now time.Time) bool {
 // midnight, appends a daily balance snapshot. On quarter-hour boundaries it also writes a
 // per-hauler fleet_timeseries row to marketCol (nil disables it). Errors are logged, never
 // fatal — reporting must not take down the fleet supervisor.
-func recordBalances(ctx context.Context, logger *log.Logger, recorder *balances.Recorder, marketCol *market.Collector, snap []supervisor.WorkerInfo) {
+func recordBalances(ctx context.Context, logger *log.Logger, recorder *balances.Recorder, marketCol *market.Collector, snap []supervisor.WorkerInfo, removedIDs []string) {
 	if recorder == nil {
 		return
 	}
@@ -253,13 +268,14 @@ func recordBalances(ctx context.Context, logger *log.Logger, recorder *balances.
 			ActiveTaskID: st.ActiveTaskID, FactionID: st.FactionID, FactionTag: st.FactionTag,
 			Healthy: w.Healthy, Restarts: w.Restarts,
 			Quarantined: w.Quarantined, QuarantineReason: w.QuarantineReason,
+			Leaving: w.Leaving,
 			// Seen requires a real status heartbeat (Timestamp is always set on
 			// one), not merely a Hello — otherwise credits read as a bogus 0
 			// before the first heartbeat, poisoning the starting balance.
 			Seen: st.Timestamp != "", LastSeen: w.LastSeen.UTC().Format(time.RFC3339),
 		})
 	}
-	if err := recorder.WriteStatus(live, now); err != nil {
+	if err := recorder.WriteStatus(live, removedIDs, now); err != nil {
 		logger.Printf("balances: write status: %v", err)
 	}
 	if n, err := recorder.MaybeSnapshotDaily(live, now); err != nil {
