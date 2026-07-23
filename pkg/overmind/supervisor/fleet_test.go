@@ -286,3 +286,24 @@ func TestFleetLeavingAndRemove(t *testing.T) {
 		t.Fatalf("Remove(ghost) created an entry: %+v", got)
 	}
 }
+
+func TestApplyHelloStoresBuildIdentity(t *testing.T) {
+	f := NewFleet()
+	now := time.Date(2026, 7, 23, 12, 0, 0, 0, time.UTC)
+	f.ApplyHello(control.Hello{
+		AgentID: "hauler-3", Role: "hauler", Station: "ST-1",
+		Version: "v0.3.0", Commit: "8016cd8abcde", BuiltAt: "2026-07-23T10:00:00Z",
+		CodeDirty: true, Modified: true,
+	}, 7, now)
+	snap := f.Snapshot()
+	if len(snap) != 1 {
+		t.Fatalf("want 1 worker, got %d", len(snap))
+	}
+	w := snap[0]
+	if w.Version != "v0.3.0" || w.Commit != "8016cd8abcde" || w.BuiltAt != "2026-07-23T10:00:00Z" {
+		t.Fatalf("build identity not stored: %+v", w)
+	}
+	if !w.CodeDirty || !w.Modified {
+		t.Fatalf("dirty flags not stored: CodeDirty=%v Modified=%v", w.CodeDirty, w.Modified)
+	}
+}

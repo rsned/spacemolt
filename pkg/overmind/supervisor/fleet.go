@@ -17,6 +17,15 @@ type WorkerInfo struct {
 	Role       string
 	Station    string
 	PID        int
+	// Version/Commit/BuiltAt/CodeDirty/Modified are the worker binary's build
+	// identity, reported in its Hello (buildinfo.Get). Empty Version = a
+	// pre-feature "legacy" worker. Modified is the raw vcs.modified cosmetic
+	// flag; CodeDirty is the color-relevant one (uncommitted code outside data/).
+	Version    string
+	Commit     string
+	BuiltAt    string
+	CodeDirty  bool
+	Modified   bool
 	LastStatus control.Status
 	LastSeen   time.Time
 	// LastProgress is the last time the worker's status showed forward motion
@@ -80,6 +89,8 @@ func (f *Fleet) ApplyHello(h control.Hello, pid int, now time.Time) {
 	defer f.mu.Unlock()
 	w := f.get(h.AgentID)
 	w.Role, w.Station, w.PID = h.Role, h.Station, pid
+	w.Version, w.Commit, w.BuiltAt = h.Version, h.Commit, h.BuiltAt
+	w.CodeDirty, w.Modified = h.CodeDirty, h.Modified
 	w.LastSeen, w.LastProgress, w.Healthy = now, now, true
 }
 

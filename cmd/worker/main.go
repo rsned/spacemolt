@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/buildinfo"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/handoff"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -176,11 +177,21 @@ func main() {
 	if conn != nil {
 		enc := control.NewEncoder(conn)
 
+		bi := buildinfo.Get()
+		builtAt := ""
+		if !bi.BuiltAt.IsZero() {
+			builtAt = bi.BuiltAt.UTC().Format(time.RFC3339)
+		}
 		hello := control.Hello{
-			AgentID: *agentID,
-			Role:    *role,
-			Station: *station,
-			PID:     os.Getpid(),
+			AgentID:   *agentID,
+			Role:      *role,
+			Station:   *station,
+			PID:       os.Getpid(),
+			Version:   bi.Version,
+			Commit:    bi.Commit,
+			BuiltAt:   builtAt,
+			CodeDirty: bi.CodeDirty,
+			Modified:  bi.Modified,
 		}
 		if err := sendEnvelope(enc, control.TypeHello, *agentID, hello); err != nil {
 			log.Fatalf("send hello: %v", err)
