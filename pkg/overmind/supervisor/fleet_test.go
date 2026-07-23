@@ -200,7 +200,7 @@ func TestStranded(t *testing.T) {
 		w    WorkerInfo
 		want bool
 	}{
-		{"fuel dead big tank", base(nil), true},                    // 2 < max(42, 10)
+		{"fuel dead big tank", base(nil), true}, // 2 < max(42, 10)
 		{"fuel below floor small tank", base(func(w *WorkerInfo) { // 8 < max(5, 10)
 			w.LastStatus.MaxFuel, w.LastStatus.Fuel = 50, 8
 		}), true},
@@ -260,5 +260,29 @@ func TestQuarantineLifecycle(t *testing.T) {
 	f.Quarantine("newcomer", "restored from queue")
 	if !f.IsQuarantined("newcomer") {
 		t.Fatal("Quarantine must create missing entries for boot restore")
+	}
+}
+
+func TestFleetLeavingAndRemove(t *testing.T) {
+	f := NewFleet()
+	f.ApplyHello(control.Hello{AgentID: "a1", Role: "missionrunner"}, 42, time.Now())
+	f.MarkLeaving("a1")
+	snap := f.Snapshot()
+	if len(snap) != 1 || !snap[0].Leaving {
+		t.Fatalf("after MarkLeaving: snapshot = %+v, want one entry with Leaving=true", snap)
+	}
+	f.ClearLeaving("a1")
+	if snap = f.Snapshot(); snap[0].Leaving {
+		t.Fatal("ClearLeaving did not clear the flag")
+	}
+	f.MarkLeaving("a1")
+	f.Remove("a1")
+	if got := f.Snapshot(); len(got) != 0 {
+		t.Fatalf("after Remove: snapshot has %d entries, want 0", len(got))
+	}
+	// Remove of an unknown agent must not create an entry.
+	f.Remove("ghost")
+	if got := f.Snapshot(); len(got) != 0 {
+		t.Fatalf("Remove(ghost) created an entry: %+v", got)
 	}
 }

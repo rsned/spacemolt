@@ -37,6 +37,11 @@ type WorkerInfo struct {
 	// ClearQuarantine.
 	Quarantined      bool
 	QuarantineReason string
+	// Leaving means a membership-remove is in progress: the worker has been
+	// sent a drain and will be stopped and dropped from the fleet once idle
+	// (or after the remove-drain timeout). Surfaced to the dashboard as the
+	// "draining" chip.
+	Leaving bool
 	// DisconnectedSince is when the worker first reported its game-server
 	// connection down (LastStatus.Disconnected) without a reconnect since; zero
 	// when connected. A disconnected worker keeps heartbeating over the control
@@ -224,6 +229,33 @@ func (f *Fleet) IsQuarantined(agentID string) bool {
 	defer f.mu.RUnlock()
 	w, ok := f.workers[agentID]
 	return ok && w.Quarantined
+}
+
+// MarkLeaving flags a worker as being removed from the fleet (drain sent,
+// stop pending). Creates the entry if absent so a booting worker can still
+// be marked.
+func (f *Fleet) MarkLeaving(agentID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.get(agentID).Leaving = true
+}
+
+// ClearLeaving clears the removal-in-progress flag (rolling update: the same
+// agent relaunches, so its entry stays and must not keep the draining chip).
+func (f *Fleet) ClearLeaving(agentID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if w, ok := f.workers[agentID]; ok {
+		w.Leaving = false
+	}
+}
+
+// Remove drops a worker from the registry entirely (membership removal
+// complete). Unknown ids are a no-op — Remove must not create entries.
+func (f *Fleet) Remove(agentID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.workers, agentID)
 }
 
 // Stranded reports whether a stalled worker is beyond what a restart can fix,
