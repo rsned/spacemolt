@@ -77,3 +77,38 @@ func TestAdminEnvelopeRoundTrip(t *testing.T) {
 		t.Fatalf("Status = %q, want %q", a.Status, AckAccepted)
 	}
 }
+
+func TestHelloCarriesBuildIdentity(t *testing.T) {
+	want := Hello{
+		AgentID: "hauler-3", Role: "hauler", Station: "ST-1", PID: 7,
+		Version: "v0.3.0-2-g8016cd8", Commit: "8016cd8abcde",
+		BuiltAt: "2026-07-23T10:00:00Z", CodeDirty: true, Modified: true,
+	}
+	env, err := NewEnvelope(TypeHello, want.AgentID, want)
+	if err != nil {
+		t.Fatalf("NewEnvelope: %v", err)
+	}
+	var got Hello
+	if err := env.Into(&got); err != nil {
+		t.Fatalf("Into: %v", err)
+	}
+	if got != want {
+		t.Fatalf("build identity lost in round trip: got %+v want %+v", got, want)
+	}
+}
+
+func TestOldHelloWithoutBuildDecodesClean(t *testing.T) {
+	// A pre-feature worker sends no version fields; they must decode to zero
+	// values, never an error (backward compatibility during the rollout).
+	env, err := NewEnvelope(TypeHello, "legacy-1", Hello{AgentID: "legacy-1", Role: "hauler", PID: 3})
+	if err != nil {
+		t.Fatalf("NewEnvelope: %v", err)
+	}
+	var got Hello
+	if err := env.Into(&got); err != nil {
+		t.Fatalf("Into: %v", err)
+	}
+	if got.Version != "" || got.CodeDirty || got.Modified || got.BuiltAt != "" {
+		t.Fatalf("absent build fields must be zero, got %+v", got)
+	}
+}

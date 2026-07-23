@@ -36,6 +36,13 @@ type Hello struct {
 	Role    string `json:"role"`
 	Station string `json:"station"`
 	PID     int    `json:"pid"`
+	// Build identity of the worker binary (buildinfo.Get). Omitted by a
+	// pre-feature worker, which the overmind treats as "unknown"/legacy.
+	Version   string `json:"version,omitempty"`
+	Commit    string `json:"commit,omitempty"`
+	BuiltAt   string `json:"built_at,omitempty"` // RFC3339
+	CodeDirty bool   `json:"code_dirty,omitempty"`
+	Modified  bool   `json:"modified,omitempty"` // raw vcs.modified — cosmetic
 }
 
 // Status is a worker heartbeat snapshot.
