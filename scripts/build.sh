@@ -2,7 +2,10 @@
 # Build the fleet binaries into bin/ with build-identity stamping.
 #
 # Stamps two ldflags vars in pkg/buildinfo:
-#   version   = git describe --tags --always --dirty (SemVer label + commit)
+#   version   = git describe --tags --always (SemVer label + commit). NOTE: no
+#               --dirty — git describe --dirty has no pathspec exclusion, so the
+#               data/*.json runtime churn would append "-dirty" to every real
+#               build. The codeDirty flag below carries the true dirty signal.
 #   codeDirty = whether tracked files OUTSIDE data/ have uncommitted changes
 #               (data/*.json churns constantly, so raw vcs.modified is unusable
 #                for coloring).
@@ -16,7 +19,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-DESC=$(git describe --tags --always --dirty)
+DESC=$(git describe --tags --always)
 if [ -z "$(git status --porcelain -- ':!data/')" ]; then
   CODEDIRTY=false
 else

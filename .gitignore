@@ -176,6 +176,11 @@ docs/*.md
 # Local scratch / throwaway working files
 scratch/
 /worker
+/overmind
+/overmind-dashboard
+
+# Untracked local debug tool (WIP, never compiled into fleet binaries)
+cmd/debug/enqueue-rescue/
 
 # Runtime lock files (flock guards, never versioned)
 data/overmind/*.lock
