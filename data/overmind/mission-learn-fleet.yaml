@@ -15,16 +15,30 @@
 #
 # Spec: docs/superpowers/specs/2026-07-17-exploration-missions-design.md
 workers:
-  - { agent_id: engineer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-7, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # craftsman-1: TEMPORARY freight-tier grind (operator request 2026-07-22) —
+  # 1100 cargo. Normally reserved for operator play_as (see craft-fleet.yaml);
+  # remove from this roster when done.
+  - { agent_id: craftsman-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # PULLED 2026-07-22 for manual cargo-clear (operator): re-enable when ready
+  # - { agent_id: engineer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # PULLED 2026-07-22 for manual cargo-clear (operator): re-enable when ready
+  # - { agent_id: engineer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # PULLED 2026-07-22 for manual cargo-clear (operator): re-enable when ready
+  # - { agent_id: engineer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # PULLED 2026-07-22 for manual cargo-clear (operator): re-enable when ready
+  # - { agent_id: engineer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # PULLED 2026-07-22 for manual cargo-clear (operator): re-enable when ready
+  # - { agent_id: engineer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # PULLED 2026-07-22 for manual cargo-clear (operator): re-enable when ready
+  # - { agent_id: engineer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # PULLED 2026-07-22 for manual cargo-clear (operator): re-enable when ready
+  # - { agent_id: engineer-7, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # PULLED 2026-07-22 for manual cargo-clear (operator): re-enable when ready
+  # - { agent_id: engineer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # PULLED 2026-07-22 for manual cargo-clear (operator): re-enable when ready
+  # - { agent_id: engineer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # PULLED 2026-07-22 for manual cargo-clear (operator): re-enable when ready
+  # - { agent_id: engineer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: explorer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: explorer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: explorer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
