@@ -115,22 +115,52 @@ func TestSelectFreightCandPicksHighestNet(t *testing.T) {
 
 // The deadline is only knowable after accept, so this gate runs post-accept.
 // The smoke's own contract (3 hops, 180 ticks granted) must clear it.
-func TestFreightDeadlineOK(t *testing.T) {
+// Migrated from v1's freightDeadlineOK (Task 6 retired it): chainFeasible's
+// single-stop case reduces to exactly the same worst-case bound (cum[0] ==
+// hops for a lone stop), so these scenarios move here unchanged.
+func TestFreightChainFeasibleSingleStopDeadlineGate(t *testing.T) {
 	// 3 hops * 19 ticks * 1.5 slack = 85.5 needed.
-	if ok, reason := freightDeadlineOK(3, 1380, 1200); !ok {
+	live := []chainStop{{ContractID: "high", Hops: 3, DeadlineTick: 1380}}
+	if ok, reason := chainFeasible(live, 1200); !ok {
 		t.Fatalf("the live smoke contract must clear the gate, got %q", reason)
 	}
-	if ok, _ := freightDeadlineOK(3, 1240, 1200); ok {
+	tight := []chainStop{{ContractID: "high", Hops: 3, DeadlineTick: 1240}}
+	if ok, _ := chainFeasible(tight, 1200); ok {
 		t.Fatal("40 ticks for a 3-hop trip must fail the gate")
 	}
-	// A missing deadline must fail closed: without a deadline we cannot prove
-	// feasibility, and guessing is how you breach.
-	if ok, _ := freightDeadlineOK(3, 0, 1200); ok {
-		t.Fatal("a zero deadline_tick must fail the gate, not pass it")
-	}
 	// Zero hops (same-base contract) still needs a positive deadline window.
-	if ok, _ := freightDeadlineOK(0, 1201, 1200); !ok {
+	zeroHop := []chainStop{{ContractID: "high", Hops: 0, DeadlineTick: 1201}}
+	if ok, _ := chainFeasible(zeroHop, 1200); !ok {
 		t.Fatal("a zero-hop contract with a live deadline must pass")
+	}
+}
+
+// A missing deadline (DeadlineTick <= 0) is NOT gated by chainFeasible, which
+// treats it as "not yet known" and skips it — that fail-closed rule lives
+// solely in freightAccept, applied the instant the server assigns a real
+// deadline. Migrated from v1's freightDeadlineOK zero-deadline case.
+func TestFreightAcceptRejectsMissingDeadline(t *testing.T) {
+	store := &fakeFreightStore{}
+	noDeadline := acceptedContract(1200, 0) // server assigned no deadline_tick
+	f := &fakeClient{
+		state: &game.State{CurrentTick: 1200},
+		raw:   map[string][]byte{"shipping_accept": shippingContractJSON(t, "accept", noDeadline)},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
+
+	got, step := freightAccept(context.Background(), deps, cand, nil, io.Discard)
+	if step == freightStepProceed || got != nil {
+		t.Fatal("a contract with no deadline_tick must be released, not carried")
+	}
+	if !slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must return the contract, calls were %v", f.shippingCalls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "returned_infeasible" {
+		t.Fatalf("want returned_infeasible, got %+v", store.results)
+	}
+	if !strings.Contains(store.results[0].Reason, "no deadline_tick") {
+		t.Fatalf("reason must say why, got %q", store.results[0].Reason)
 	}
 }
 
@@ -457,7 +487,13 @@ func shippingSettlementJSON(t *testing.T, action string, c serverapi.ShipmentCon
 	return b
 }
 
-func TestFreightRunTripDeliversAndRecordsPayout(t *testing.T) {
+// Migrated from v1's freightRunTrip to freightChainRun (Task 6 retired
+// freightRunTrip): a single held stop walks exactly the same
+// nav->settle->deliver->record sequence. The withdraw-before-transit
+// assertion moved to the freightLoadPackage-focused tests below — the chain
+// loop itself no longer withdraws (that invariant is now established once, at
+// accept time, before a contract ever enters the held set).
+func TestFreightChainRunDeliversAndRecordsPayout(t *testing.T) {
 	store := &fakeFreightStore{}
 	delivered := acceptedContract(1200, 1380)
 	delivered.Status = "delivered"
@@ -467,20 +503,19 @@ func TestFreightRunTripDeliversAndRecordsPayout(t *testing.T) {
 		state: &game.State{Doc: true},
 		raw:   map[string][]byte{"shipping_deliver": shippingSettlementJSON(t, "deliver", delivered, 6000)},
 	}
-	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: &missionRunState{}}
 	c := acceptedContract(1200, 1380)
-	navigated := ""
-	nav := func(ctx context.Context, baseID string) error { navigated = baseID; return nil }
+	deps.State.addHeldFreight(&c)
+	var navigated []string
+	nav := func(ctx context.Context, baseID string) error { navigated = append(navigated, baseID); return nil }
+	hopsTo := func(string) (int, bool) { return 3, true }
 
-	if err := freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard); err != nil {
-		t.Fatalf("freightRunTrip: %v", err)
+	step, err := freightChainRun(context.Background(), deps, nav, hopsTo, nil, io.Discard)
+	if err != nil || step != freightStepProceed {
+		t.Fatalf("step=%v err=%v", step, err)
 	}
-	if navigated != "sol_central" {
-		t.Fatalf("must navigate to destination_base_id, went to %q", navigated)
-	}
-	// The package must be pulled from origin storage into the hold before transit.
-	if !slices.Contains(f.calls, "withdraw:package:pkg_hash:1") {
-		t.Fatalf("must withdraw the package: prefix item, calls were %v", f.calls)
+	if len(navigated) != 1 || navigated[0] != "sol_central" {
+		t.Fatalf("must navigate to destination_base_id, went to %v", navigated)
 	}
 	if len(store.results) != 1 || store.results[0].Outcome != "delivered" {
 		t.Fatalf("want a delivered result, got %+v", store.results)
@@ -488,35 +523,8 @@ func TestFreightRunTripDeliversAndRecordsPayout(t *testing.T) {
 	if store.results[0].CarrierPayout != 6000 {
 		t.Fatalf("payout must come from the settlement reply, got %v", store.results[0].CarrierPayout)
 	}
-}
-
-func TestFreightInFlightCheckReturnsWhenBufferCollapses(t *testing.T) {
-	store := &fakeFreightStore{}
-	f := &fakeClient{state: &game.State{CurrentTick: 1200}}
-	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
-	c := acceptedContract(1100, 1210) // only 10 ticks left at tick 1200
-
-	if step := freightInFlightCheck(context.Background(), deps, &c, &freightCand{}, 3, io.Discard); step == freightStepProceed {
-		t.Fatal("a collapsed buffer must not keep the contract")
-	}
-	if !slices.Contains(f.shippingCalls, "return") {
-		t.Fatalf("must return, calls were %v", f.shippingCalls)
-	}
-	if len(store.results) != 1 || store.results[0].Outcome != "returned_inflight" {
-		t.Fatalf("want returned_inflight, got %+v", store.results)
-	}
-}
-
-func TestFreightInFlightCheckKeepsHealthyContract(t *testing.T) {
-	f := &fakeClient{state: &game.State{CurrentTick: 1200}}
-	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}}
-	c := acceptedContract(1200, 1380)
-
-	if step := freightInFlightCheck(context.Background(), deps, &c, &freightCand{}, 1, io.Discard); step != freightStepProceed {
-		t.Fatal("a healthy buffer must keep the contract")
-	}
-	if slices.Contains(f.shippingCalls, "return") {
-		t.Fatal("must not return a healthy contract")
+	if deps.State.heldFreightCount() != 0 {
+		t.Fatal("a delivered contract must be cleared from the held set")
 	}
 }
 
@@ -545,9 +553,9 @@ func TestFreightReconcileLogsLoudMismatchWhenMemoryEmpty(t *testing.T) {
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}}
 	var log strings.Builder
 
-	got, ok := freightReconcile(context.Background(), deps, &log)
-	if ok || got != nil {
-		t.Fatalf("empty memory must never resume anything from the board, got %+v", got)
+	held := freightReconcileSet(context.Background(), deps, &log)
+	if len(held) != 0 {
+		t.Fatalf("empty memory must never resume anything from the board, got %+v", held)
 	}
 	if slices.Contains(f.shippingCalls, "list") {
 		t.Fatal("board-scan recovery is dropped; must not read the board")
@@ -564,14 +572,18 @@ func TestFreightReconcileNoActiveContracts(t *testing.T) {
 	}
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}}
 
-	if got, ok := freightReconcile(context.Background(), deps, io.Discard); ok || got != nil {
-		t.Fatalf("no active contracts must reconcile to nothing, got %+v", got)
+	if held := freightReconcileSet(context.Background(), deps, io.Discard); len(held) != 0 {
+		t.Fatalf("no active contracts must reconcile to nothing, got %+v", held)
 	}
 }
 
-// If the package cannot be pulled into the hold we must not transit — a contract
-// we cannot physically carry is a guaranteed breach.
-func TestFreightRunTripReturnsWhenWithdrawFails(t *testing.T) {
+// If the package cannot be pulled into the hold we must not transit — a
+// contract we cannot physically carry is a guaranteed breach. Migrated from
+// v1's freightRunTrip directly onto freightLoadPackage, which now owns this
+// check: Task 6's chain loop no longer withdraws per leg, so "must not
+// transit" is enforced by freightLoadPackage's caller never entering the
+// chain on a non-Proceed step (covered at the missionTakeFreight level).
+func TestFreightLoadPackageReturnsWhenWithdrawFails(t *testing.T) {
 	store := &fakeFreightStore{}
 	f := &fakeClient{
 		state:       &game.State{},
@@ -579,12 +591,9 @@ func TestFreightRunTripReturnsWhenWithdrawFails(t *testing.T) {
 	}
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
 	c := acceptedContract(1200, 1380)
-	navigated := false
-	nav := func(ctx context.Context, baseID string) error { navigated = true; return nil }
 
-	_ = freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard)
-	if navigated {
-		t.Fatal("must not transit a package we could not load")
+	if step := freightLoadPackage(context.Background(), deps, &c, &freightCand{Hops: 3}, io.Discard); step == freightStepProceed {
+		t.Fatal("a package that will not load must not proceed")
 	}
 	if !slices.Contains(f.shippingCalls, "return") {
 		t.Fatalf("must return the contract, calls were %v", f.shippingCalls)
@@ -666,60 +675,52 @@ func TestMissionHopsToBaseUsesCumulativeJumps(t *testing.T) {
 	}
 }
 
-// The reconcile-resume path re-enters freightRunTrip for a contract whose
-// package is ALREADY in the hold (the nav-failure branch deliberately leaves it
-// in flight). Withdrawing again fails with "not in storage", and treating that
-// as "cannot carry" would destroy the very contract the nav-failure branch went
-// out of its way to preserve. Package aboard => no withdraw, no return, carry on.
-func TestFreightRunTripSkipsWithdrawWhenPackageAboard(t *testing.T) {
-	store := &fakeFreightStore{}
-	delivered := acceptedContract(1200, 1380)
-	delivered.Status = "delivered"
+// freightLoadPackage must not re-withdraw a package already aboard — the
+// reconcile-resume path re-enters the chain for a contract whose package is
+// ALREADY in the hold (a nav-failure leg deliberately leaves it in flight).
+// Withdrawing again fails with "not in storage", and treating that as "cannot
+// carry" would destroy the very contract the nav-failure branch went out of
+// its way to preserve. Migrated from v1's freightRunTrip: the chain loop
+// itself never withdraws (see TestFreightChainRunDeliversAndRecordsPayout's
+// doc comment), so this behavior now belongs to freightLoadPackage alone.
+func TestFreightLoadPackageSkipsWithdrawWhenAboard(t *testing.T) {
 	f := &fakeClient{
-		state: &game.State{Doc: true, Ship: game.Ship{
+		state: &game.State{Ship: game.Ship{
 			Cargo: []game.CargoItem{{ItemID: "package:pkg_hash", Quantity: 1}},
 		}},
 		// A withdraw would fail here, exactly as the live server behaves once the
 		// package has left storage — the test fails loudly if one is attempted.
 		withdrawErr: errors.New("no such item in storage"),
-		raw:         map[string][]byte{"shipping_deliver": shippingSettlementJSON(t, "deliver", delivered, 6000)},
 	}
-	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}}
 	c := acceptedContract(1200, 1380)
-	navigated := ""
-	nav := func(ctx context.Context, baseID string) error { navigated = baseID; return nil }
 
-	if err := freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard); err != nil {
-		t.Fatalf("freightRunTrip: %v", err)
+	if step := freightLoadPackage(context.Background(), deps, &c, &freightCand{Hops: 3}, io.Discard); step != freightStepProceed {
+		t.Fatalf("a package already aboard must proceed, got %v", step)
 	}
 	for _, call := range f.calls {
 		if strings.HasPrefix(call, "withdraw:") {
 			t.Fatalf("must not re-withdraw a package already aboard, calls were %v", f.calls)
 		}
 	}
-	if slices.Contains(f.shippingCalls, "return") {
-		t.Fatalf("must not return a healthy in-flight contract, calls were %v", f.shippingCalls)
-	}
-	if navigated != "sol_central" {
-		t.Fatalf("must resume transit to the destination, went to %q", navigated)
-	}
-	if len(store.results) != 1 || store.results[0].Outcome != "delivered" {
-		t.Fatalf("want a delivered result, got %+v", store.results)
-	}
 }
 
 // A settlement that never decoded records payout 0. Without a reason a canary
 // reading freight_results cannot tell that from a genuinely zero-payout
 // contract, so the outcome stays "delivered" but the reason must say why.
-func TestFreightRunTripFlagsUndecodableSettlement(t *testing.T) {
+// Migrated from v1's freightRunTrip to freightChainRun.
+func TestFreightChainRunFlagsUndecodableSettlement(t *testing.T) {
 	store := &fakeFreightStore{}
 	f := &fakeClient{state: &game.State{Doc: true}} // no shipping_deliver raw reply at all
-	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: &missionRunState{}}
 	c := acceptedContract(1200, 1380)
+	deps.State.addHeldFreight(&c)
 	nav := func(ctx context.Context, baseID string) error { return nil }
+	hopsTo := func(string) (int, bool) { return 3, true }
 
-	if err := freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard); err != nil {
-		t.Fatalf("freightRunTrip: %v", err)
+	step, err := freightChainRun(context.Background(), deps, nav, hopsTo, nil, io.Discard)
+	if err != nil || step != freightStepProceed {
+		t.Fatalf("step=%v err=%v", step, err)
 	}
 	if len(store.results) != 1 {
 		t.Fatalf("want 1 result row, got %+v", store.results)
@@ -750,10 +751,90 @@ func freightBoardClient(t *testing.T, missionsRaw []byte, extraRaw map[string][]
 	for k, v := range extraRaw {
 		raw[k] = v
 	}
-	return &fakeClient{
+	f := &fakeClient{
 		state: missionState(true, 5000, 0),
 		route: []game.RouteStep{{SystemID: "sol", Jumps: 2}},
 		raw:   raw,
+	}
+	// Task 6 wires every freight call site through freightChainRun's refill
+	// loop, which re-lists the board after each delivery within the SAME
+	// pass. The real /shipping board drops a listing once it is accepted
+	// (it's now in_transit, owned by us) — model that so a static canned
+	// reply doesn't let refill re-accept "high" every leg up to the chain's
+	// leg-count guard.
+	f.onShippingAccept = func(string) {
+		f.raw["shipping_list"] = shippingListJSON(t)
+	}
+	return f
+}
+
+// boardFatalClient wraps fakeClient and fails the test the instant the
+// mission board is read. Used to prove a held freight chain owns the whole
+// pass end to end and never falls through to board-driven mission work — the
+// discrimination check TestMissionsResumesHeldChainBeforeBoardWork depends on.
+type boardFatalClient struct {
+	fakeClient
+	t *testing.T
+}
+
+func (f *boardFatalClient) GetMissions(ctx context.Context) error {
+	f.t.Fatal("missions: board must not be read while a held freight chain owns the pass")
+	return nil
+}
+
+// missionsFreightFixture builds a Missions()-level fixture for the held-chain
+// resume test: a docked, freight-enabled worker whose profile already
+// reflects one active contract, and whose /shipping `get`/`deliver` replies
+// resolve contract "x" (destination baseA) as in_transit then delivered.
+// Built from the same pieces as freightBoardClient/missionDeps — the
+// Missions-level freight fixtures elsewhere in this file — except the
+// mission board itself is wired to t.Fatal if ever read: the caller adds a
+// held contract (or doesn't, for the discrimination check) and the pass must
+// resolve it via the chain without ever reaching missionReadBoard.
+func missionsFreightFixture(t *testing.T) MissionDeps {
+	t.Helper()
+	held := serverapi.ShipmentContract{ID: "x", DestinationBaseID: "baseA", Status: "in_transit", DeadlineTick: 99999}
+	delivered := held
+	delivered.Status = "delivered"
+	bf := &boardFatalClient{
+		fakeClient: fakeClient{
+			state: missionState(true, 5000, 0),
+			route: []game.RouteStep{{SystemID: "sol", Jumps: 1}},
+			raw: map[string][]byte{
+				"shipping_profile": shippingProfileActiveJSON(t, 1),
+				"shipping_get":     shippingContractJSON(t, "get", held),
+				"shipping_deliver": shippingSettlementJSON(t, "deliver", delivered, 100),
+			},
+		},
+		t: t,
+	}
+	store := &fakeFreightStore{}
+	deps := missionDeps(&bf.fakeClient, &store.fakeMissionStore, missionKB())
+	deps.Client = bf
+	deps.Market = store
+	deps.EnableFreight = true
+	deps.State = &missionRunState{}
+	return deps
+}
+
+// TestMissionsResumesHeldChainBeforeBoardWork is the Task 6 Step 1 test: a
+// held in_transit contract must own the pass end to end via the chain run —
+// Missions() must deliver it and must NEVER read the mission board. This is
+// the exact vacuous-test shape flagged by reference_missions_vacuous_test_trap
+// (a bare &game.State{} would make Missions() early-return before reaching
+// any of this code), so the discrimination proof matters: neutering by
+// removing the addHeldFreight line below must make the test fail on
+// boardFatalClient's t.Fatal, not pass trivially. See the Task 6 report for
+// the recorded red output.
+func TestMissionsResumesHeldChainBeforeBoardWork(t *testing.T) {
+	deps := missionsFreightFixture(t)
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "x", DestinationBaseID: "baseA", DeadlineTick: 99999, Status: "in_transit"})
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if deps.State.heldFreightCount() != 0 {
+		t.Fatal("held contract not delivered by the pass")
 	}
 }
 
@@ -1058,7 +1139,8 @@ func TestMissionsParksWhenDryPathFreightReturnFails(t *testing.T) {
 // The live canary (2026-07-20) delivered 14 seconds before its tick-deferred
 // dock resolved and got not_docked back — /shipping does not auto-dock. The
 // trip must wait for State to actually report docked before issuing deliver.
-func TestFreightRunTripSettlesDockBeforeDeliver(t *testing.T) {
+// Migrated from v1's freightRunTrip to freightChainRun.
+func TestFreightChainRunSettlesDockBeforeDeliver(t *testing.T) {
 	store := &fakeFreightStore{}
 	delivered := acceptedContract(1200, 1380)
 	delivered.Status = "delivered"
@@ -1066,7 +1148,7 @@ func TestFreightRunTripSettlesDockBeforeDeliver(t *testing.T) {
 		state: &game.State{}, // undocked: nav's dock is still pending
 		raw:   map[string][]byte{"shipping_deliver": shippingSettlementJSON(t, "deliver", delivered, 6000)},
 	}
-	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: &missionRunState{}}
 	// The injected sleep stands in for the pending dock landing on the next
 	// tick: the first poll wait flips the state to docked.
 	deps.sleep = func(ctx context.Context, d time.Duration) error {
@@ -1074,10 +1156,13 @@ func TestFreightRunTripSettlesDockBeforeDeliver(t *testing.T) {
 		return nil
 	}
 	c := acceptedContract(1200, 1380)
+	deps.State.addHeldFreight(&c)
 	nav := func(ctx context.Context, baseID string) error { return nil }
+	hopsTo := func(string) (int, bool) { return 3, true }
 
-	if err := freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard); err != nil {
-		t.Fatalf("freightRunTrip: %v", err)
+	step, err := freightChainRun(context.Background(), deps, nav, hopsTo, nil, io.Discard)
+	if err != nil || step != freightStepProceed {
+		t.Fatalf("step=%v err=%v", step, err)
 	}
 	if !slices.Contains(f.shippingCalls, "deliver") {
 		t.Fatalf("deliver must run once the dock settles, calls were %v", f.shippingCalls)
@@ -1095,17 +1180,24 @@ func TestFreightRunTripSettlesDockBeforeDeliver(t *testing.T) {
 // A dock that never settles must leave the contract in flight (next pass
 // re-checks the buffer and retries) — NOT deliver into a not_docked error and
 // NOT record any outcome. One explicit Dock nudge is expected after the
-// pending dock has had a full tick to land.
-func TestFreightRunTripLeavesInFlightWhenDockNeverSettles(t *testing.T) {
+// pending dock has had a full tick to land. Migrated from v1's freightRunTrip
+// to freightChainRun.
+func TestFreightChainRunLeavesInFlightWhenDockNeverSettles(t *testing.T) {
 	store := &fakeFreightStore{}
 	f := &fakeClient{state: &game.State{}} // undocked forever
-	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: &missionRunState{}}
 	deps.sleep = func(ctx context.Context, d time.Duration) error { return nil }
 	c := acceptedContract(1200, 1380)
+	deps.State.addHeldFreight(&c)
 	nav := func(ctx context.Context, baseID string) error { return nil }
+	hopsTo := func(string) (int, bool) { return 3, true }
 
-	if err := freightRunTrip(context.Background(), deps, &c, &freightCand{Hops: 3}, nav, io.Discard); err != nil {
+	step, err := freightChainRun(context.Background(), deps, nav, hopsTo, nil, io.Discard)
+	if err != nil {
 		t.Fatalf("a dock-settle failure must not fail the pass: %v", err)
+	}
+	if step != freightStepProceed {
+		t.Fatalf("step = %v, want Proceed (contract left in flight for the next pass)", step)
 	}
 	if slices.Contains(f.shippingCalls, "deliver") {
 		t.Fatalf("must not deliver while undocked, calls were %v", f.shippingCalls)
@@ -1126,6 +1218,9 @@ func TestFreightRunTripLeavesInFlightWhenDockNeverSettles(t *testing.T) {
 	if len(store.results) != 0 {
 		t.Fatalf("no terminal outcome may be recorded for an in-flight contract, got %+v", store.results)
 	}
+	if deps.State.heldFreightCount() != 1 {
+		t.Fatal("contract must remain held for the next pass")
+	}
 }
 
 // The board read never lists our own in_transit contracts (proven live), so
@@ -1143,9 +1238,9 @@ func TestFreightReconcileUsesHeldMemoryFirst(t *testing.T) {
 	st.addHeldFreight(&held)
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}, State: st}
 
-	got, ok := freightReconcile(context.Background(), deps, io.Discard)
-	if !ok || got == nil || got.ID != "high" {
-		t.Fatalf("must resume the held contract from memory, got %+v ok=%v", got, ok)
+	got := freightReconcileSet(context.Background(), deps, io.Discard)
+	if len(got) != 1 || got[0].ID != "high" {
+		t.Fatalf("must resume the held contract from memory, got %+v", got)
 	}
 	if !slices.Contains(f.calls, "shipping_get:high") {
 		t.Fatalf("must verify the held contract via get, calls were %v", f.calls)
@@ -1173,8 +1268,8 @@ func TestFreightReconcileRecordsDefaultedHeldContract(t *testing.T) {
 	st.addHeldFreight(&held)
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: st}
 
-	got, ok := freightReconcile(context.Background(), deps, io.Discard)
-	if ok || got != nil {
+	got := freightReconcileSet(context.Background(), deps, io.Discard)
+	if len(got) != 0 {
 		t.Fatalf("a defaulted contract must not be resumed, got %+v", got)
 	}
 	if len(store.results) != 1 || store.results[0].Outcome != "breached" {
@@ -1200,9 +1295,9 @@ func TestFreightReconcileHeldSurvivesGetFailure(t *testing.T) {
 	st.addHeldFreight(&held)
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}, State: st}
 
-	got, ok := freightReconcile(context.Background(), deps, io.Discard)
-	if !ok || got == nil || got.ID != "high" {
-		t.Fatalf("memory must win over a transient get failure, got %+v ok=%v", got, ok)
+	got := freightReconcileSet(context.Background(), deps, io.Discard)
+	if len(got) != 1 || got[0].ID != "high" {
+		t.Fatalf("memory must win over a transient get failure, got %+v", got)
 	}
 	if all := st.heldFreightAll(); len(all) == 0 {
 		t.Fatal("the held-freight memory must survive a transient get failure")
@@ -1225,7 +1320,7 @@ func TestFreightHeldMemoryLifecycle(t *testing.T) {
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeFreightStore{}, State: st}
 	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: 6000}
 
-	accepted, step := freightAccept(context.Background(), deps, cand, nil, io.Discard)
+	_, step := freightAccept(context.Background(), deps, cand, nil, io.Discard)
 	if step != freightStepProceed {
 		t.Fatalf("accept must proceed, got step %v", step)
 	}
@@ -1234,8 +1329,9 @@ func TestFreightHeldMemoryLifecycle(t *testing.T) {
 	}
 
 	nav := func(ctx context.Context, baseID string) error { return nil }
-	if err := freightRunTrip(context.Background(), deps, accepted, cand, nav, io.Discard); err != nil {
-		t.Fatalf("freightRunTrip: %v", err)
+	hopsTo := func(string) (int, bool) { return 3, true }
+	if _, err := freightChainRun(context.Background(), deps, nav, hopsTo, nil, io.Discard); err != nil {
+		t.Fatalf("freightChainRun: %v", err)
 	}
 	if all := st.heldFreightAll(); len(all) != 0 {
 		t.Fatalf("a delivered trip must clear the held-freight memory, got %+v", all)

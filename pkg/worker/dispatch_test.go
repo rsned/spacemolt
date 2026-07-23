@@ -41,6 +41,12 @@ type fakeClient struct {
 
 	shippingErr   map[string]error // per-action error, keyed by shipping action
 	shippingCalls []string         // shipping actions issued, in order
+	// onShippingAccept fires after a successful ShippingAccept, letting a test
+	// model the real server dropping an accepted listing off the /shipping
+	// board (e.g. so a static canned shipping_list reply doesn't offer the
+	// same contract forever, which the chain refill loop would otherwise
+	// re-accept every leg).
+	onShippingAccept func(shipmentID string)
 
 	// cloneState makes GetState return a copy, as the real client does, so a
 	// stale snapshot is distinguishable from a fresh read.
@@ -132,6 +138,7 @@ func (f *fakeClient) GetMissions(ctx context.Context) error {
 	f.calls = append(f.calls, "get_missions")
 	return nil
 }
+
 // GetState returns the live object by default. The REAL client returns
 // state.Clone() (client.go:2095), and that difference matters: with a shared
 // pointer, a snapshot taken early in a pass and a fresh read later are the same
@@ -225,7 +232,11 @@ func (f *fakeClient) ShippingProfile(ctx context.Context) error {
 func (f *fakeClient) ShippingAccept(ctx context.Context, shipmentID, carrier string) error {
 	f.calls = append(f.calls, "shipping_accept:"+shipmentID)
 	f.shippingCalls = append(f.shippingCalls, "accept")
-	return f.shippingErr["accept"]
+	err := f.shippingErr["accept"]
+	if err == nil && f.onShippingAccept != nil {
+		f.onShippingAccept(shipmentID)
+	}
+	return err
 }
 func (f *fakeClient) ShippingDeliver(ctx context.Context, shipmentID string) error {
 	f.calls = append(f.calls, "shipping_deliver:"+shipmentID)

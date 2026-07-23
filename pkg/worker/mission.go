@@ -309,42 +309,76 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	}
 	current := state.System.ID
 
+	// Routing substrate (same shape as Haul), hoisted above the freight
+	// reconcile block below: a held chain must be able to price its stops
+	// (hopsTo/fuelCostFor) before this pass proves it is at a valid station
+	// or reads the mission board.
+	conns, err := deps.KB.GetConnections(ctx)
+	if err != nil {
+		return fmt.Errorf("missions: get connections: %w", err)
+	}
+	graph := navigation.JumpGraphFromConnections(conns)
+
+	// Fuel model (same probe as Haul), built once per pass and memoized. It is
+	// declared here because freight is evaluated before the board read, but the
+	// probe is a server call, so it must not FIRE before the board read on a
+	// freight-disabled pass: ensureFuelModel defers the work to the first caller.
+	// With EnableFreight false that first caller is still the mission-candidate
+	// loop below, exactly where the probe has always happened.
+	var fuelCostFor func(jumps int) float64
+	ensureFuelModel := func() func(jumps int) float64 {
+		if fuelCostFor != nil {
+			return fuelCostFor
+		}
+		probeTarget := ""
+		for _, nb := range graph[current] {
+			probeTarget = nb
+			break
+		}
+		fuelPerJump := haulFuelPerJump(ctx, deps.Client, probeTarget)
+		priceOf := buildPriceOf(ctx, deps.FuelPrices)
+		fuelCostFor = func(jumps int) float64 {
+			if fuelPerJump <= 0 || priceOf == nil {
+				return 0
+			}
+			return float64(jumps*fuelPerJump) * priceOf(state.CurrentPOI)
+		}
+		return fuelCostFor
+	}
+
+	// hopsTo resolves jump distance to a destination base via the server's
+	// router. Shared — not redeclared — by the reconcile block, candidate
+	// evaluation, and every take-freight call site below: it is pure plumbing
+	// over ctx+deps.
+	hopsTo := func(destBaseID string) (int, bool) {
+		return missionHopsToBase(ctx, deps, destBaseID)
+	}
+
 	// Freight reconcile runs before EVERY early return in this pass, which is
 	// why it sits here rather than with the candidate evaluation further down.
 	// A restart loses the in-memory task, and an orphaned in-flight package
 	// breaches in silence. Worse, missionRecoverToStation and missionResume
 	// below can both end the pass, and missionDryPass's reposition logic will
 	// happily fly the worker AWAY from its freight destination while it is
-	// still carrying the package. Reconcile needs neither the galaxy graph nor
-	// the fuel model, so moving it this early costs nothing; only CANDIDATE
-	// evaluation needs the routing substrate, and that stays below.
+	// still carrying the package.
 	if deps.EnableFreight {
-		if held, ok := freightReconcile(ctx, deps, out); ok {
-			// held.RouteHops is the FULL origin->dest distance, so this
-			// re-prices the whole trip every pass and can return a contract
-			// that is one hop from delivery. That fails closed, which the spec
-			// endorses, so it is left alone — but it means canary
-			// `returned_inflight` rows may look like deadline problems when
-			// they are really this conservatism. Whether the server refreshes
-			// RouteHops to REMAINING hops on an in_transit contract is
-			// UNVERIFIED; the canary answers it. Do not "fix" this by guessing
-			// remaining hops or by switching to AcceptedTick-style optimism.
-			switch freightInFlightCheck(ctx, deps, held, nil, held.RouteHops, out) {
-			case freightStepProceed:
-				// Carrying a package to its destination legitimately owns the
-				// pass.
-				publishActivity(deps.SetActivity, "Freight "+held.ID+" to "+held.DestinationBaseID)
-				return freightRunTrip(ctx, deps, held, nil, func(ctx context.Context, baseID string) error {
-					return missionNavToBase(ctx, deps, baseID)
-				}, out)
-			case freightStepStuck:
-				// Return failed: a live contract we cannot discharge. Park.
-				return nil
+		if held := freightReconcileSet(ctx, deps, out); len(held) > 0 {
+			// Carrying package(s) legitimately owns the pass. The chain run
+			// re-prices every deadline from here with fresh hops (v1's
+			// RouteHops-is-total-hops conservatism note carries over: rows
+			// with outcome returned_inflight can be this bound, not a real
+			// deadline problem). Whether the server refreshes RouteHops to
+			// REMAINING hops on an in_transit contract is UNVERIFIED; the
+			// canary answers it. Do not "fix" this by guessing remaining hops
+			// or by switching to AcceptedTick-style optimism.
+			publishActivity(deps.SetActivity, fmt.Sprintf("Freight chain: %d package(s)", len(held)))
+			step, ferr := freightChainRun(ctx, deps, func(ctx context.Context, baseID string) error {
+				return missionNavToBase(ctx, deps, baseID)
+			}, hopsTo, ensureFuelModel(), out)
+			if step == freightStepStuck {
+				return nil // live undischarged contract: park the pass
 			}
-			// Released cleanly — unencumbered, docked, with the whole pass
-			// still ahead of us. Fall through and do real work rather than
-			// burning the recovery pass on the one occasion we just lost the
-			// freight earnings.
+			return ferr
 		}
 	}
 
@@ -403,13 +437,6 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		}
 	}
 
-	// Routing substrate (same shape as Haul).
-	conns, err := deps.KB.GetConnections(ctx)
-	if err != nil {
-		return fmt.Errorf("missions: get connections: %w", err)
-	}
-	graph := navigation.JumpGraphFromConnections(conns)
-
 	// Pirate-stronghold guard (the Dross Citadel incident: a live mission targeted a
 	// stronghold and destroyed the worker flying there). Mirrors Haul's protections.
 	systems, err := deps.KB.GetSystems(ctx)
@@ -425,33 +452,6 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	if gerr := galGraph.BuildFromDB(ctx, deps.KB); gerr != nil {
 		fmt.Fprintf(out, "missions: galaxy graph build failed: %v; route-safety disabled this pass\n", gerr) //nolint:errcheck
 		galGraph = nil
-	}
-
-	// Fuel model (same probe as Haul), built once per pass and memoized. It is
-	// declared here because freight is evaluated before the board read, but the
-	// probe is a server call, so it must not FIRE before the board read on a
-	// freight-disabled pass: ensureFuelModel defers the work to the first caller.
-	// With EnableFreight false that first caller is still the mission-candidate
-	// loop below, exactly where the probe has always happened.
-	var fuelCostFor func(jumps int) float64
-	ensureFuelModel := func() func(jumps int) float64 {
-		if fuelCostFor != nil {
-			return fuelCostFor
-		}
-		probeTarget := ""
-		for _, nb := range graph[current] {
-			probeTarget = nb
-			break
-		}
-		fuelPerJump := haulFuelPerJump(ctx, deps.Client, probeTarget)
-		priceOf := buildPriceOf(ctx, deps.FuelPrices)
-		fuelCostFor = func(jumps int) float64 {
-			if fuelPerJump <= 0 || priceOf == nil {
-				return 0
-			}
-			return float64(jumps*fuelPerJump) * priceOf(state.CurrentPOI)
-		}
-		return fuelCostFor
 	}
 
 	// Resume held missions before accepting new ones: complete what's aboard,
@@ -478,18 +478,24 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// degrades to "no freight this pass" — it must never be a new way for the
 	// pass to fail.
 	var freightBest *freightCand
+	var freightHeldStops []chainStop
 	if deps.EnableFreight {
 		// Fresh state read, NOT the snapshot taken at the top of the pass:
 		// GetState returns a clone, and both missionResume and
 		// missionUnloadAtHomeBase have since freed hold space. Judging a worker
 		// that just shed 400 units of ore as still full would skip freight on
 		// the exact pass it finally has room for a package.
+		//
+		// freightHeldStops is empty whenever this point is reached — a
+		// non-empty held set owned the pass in the reconcile block above —
+		// but passing it keeps the code honest if that invariant ever changes.
+		freightHeldStops = freightChainStops(ctx, deps, hopsTo, out)
 		in := freightInputs{
 			CargoFree:   float64(cargoFreeSpace(deps.Client.GetState())),
 			FuelCostFor: ensureFuelModel(),
-			HopsTo: func(destBaseID string) (int, bool) {
-				return missionHopsToBase(ctx, deps, destBaseID)
-			},
+			HopsTo:      hopsTo,
+			Held:        freightHeldStops,
+			NowTick:     missionTick(deps),
 		}
 		cand, skip := freightCandidate(ctx, deps, in, out)
 		if cand == nil {
@@ -503,7 +509,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	if !ok || len(board) == 0 {
 		fmt.Fprintln(out, "missions: no board entries here") //nolint:errcheck
 		// An empty board is a prime freight opportunity, not a dry pass.
-		return missionFreightOrDry(ctx, deps, freightBest, nil, out)
+		return missionFreightOrDry(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel(), out)
 	}
 
 	// Distance map to every candidate destination.
@@ -609,7 +615,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// Freight takes ties against exploration, per "exploration is the fallback".
 	case freightBest != nil && freightNet >= exploreNet && freightNet > missionNet:
 		fmt.Fprintf(out, "freight: taking %s (net %.0f) over the mission trip (net %.0f) and exploration (net %.0f)\n", freightBest.Contract.ID, freightNet, missionNet, exploreNet) //nolint:errcheck
-		step, ferr := missionTakeFreight(ctx, deps, freightBest, nil, out)
+		step, ferr := missionTakeFreight(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel(), out)
 		switch step {
 		case freightStepProceed:
 			return ferr
@@ -723,7 +729,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 				// would waste the whole evaluation. Freight lost the ranking
 				// above against the PRE-gate mission net; now that the gate has
 				// emptied the set, it is the only thing left.
-				return missionFreightOrDry(ctx, deps, freightBest, nil, out)
+				return missionFreightOrDry(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel(), out)
 			}
 		}
 	}
