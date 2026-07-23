@@ -24,6 +24,7 @@ type Server struct {
 	mu        sync.RWMutex
 	conns     map[string]*control.Encoder // agentID -> writer
 	eventHook func(agentID string, ev control.Event)
+	adminHook func(op control.Type, agentID string) control.AdminAck
 }
 
 // NewServer removes any stale socket then listens on socketPath.
@@ -49,6 +50,13 @@ func (s *Server) SetEventHook(h func(agentID string, ev control.Event)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.eventHook = h
+}
+
+// SetAdminHook installs the callback for admin membership envelopes.
+func (s *Server) SetAdminHook(h func(op control.Type, agentID string) control.AdminAck) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.adminHook = h
 }
 
 // Serve accepts connections until ctx is cancelled.
@@ -112,6 +120,27 @@ func (s *Server) handleConn(ctx context.Context, conn net.Conn) {
 			if hook != nil {
 				hook(env.AgentID, ev)
 			}
+		case control.TypeAdminRemove, control.TypeAdminReadd:
+			var req control.AdminRequest
+			if err := env.Into(&req); err != nil {
+				s.logger.Printf("bad admin request: %v", err)
+				return
+			}
+			s.mu.RLock()
+			hook := s.adminHook
+			s.mu.RUnlock()
+			ack := control.AdminAck{AgentID: req.AgentID, Status: control.AckUnknownAgent, Detail: "no admin hook installed"}
+			if hook != nil {
+				ack = hook(env.Type, req.AgentID)
+			}
+			reply, err := control.NewEnvelope(control.TypeAdminAck, req.AgentID, ack)
+			if err == nil {
+				err = enc.Encode(reply)
+			}
+			if err != nil {
+				s.logger.Printf("admin ack write failed: %v", err)
+			}
+			return // one request per admin connection; close without registering
 		default:
 			s.logger.Printf("worker %q: unhandled inbound type %q", agentID, env.Type)
 		}
