@@ -23,8 +23,11 @@ type buildSample struct {
 }
 
 // currentVersion returns the version string of the sample with the newest
-// parseable built_at. Build-time — not SemVer — decides which build is current
-// (monotonic, robust to out-of-order tags). Empty when nothing is datable.
+// parseable built_at AND a parseable SemVer. Build-time — not SemVer — decides
+// which build is current (monotonic, robust to out-of-order tags), but a sample
+// whose Version is unparseable (a stray plain-`go build` "dev" binary still
+// carries a valid vcs.time) must never win: as the reference it would redden
+// the whole fleet via Classify's errCur path. Empty when nothing qualifies.
 func currentVersion(samples []buildSample) string {
 	var best time.Time
 	var bestVer string
@@ -34,6 +37,9 @@ func currentVersion(samples []buildSample) string {
 		}
 		t, err := time.Parse(time.RFC3339, s.BuiltAt)
 		if err != nil {
+			continue
+		}
+		if _, err := version.ParseSemVer(s.Version); err != nil {
 			continue
 		}
 		if bestVer == "" || t.After(best) {

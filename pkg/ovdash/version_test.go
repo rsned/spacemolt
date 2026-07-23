@@ -40,6 +40,32 @@ func TestCurrentVersionPicksNewestBuiltAt(t *testing.T) {
 	}
 }
 
+func TestClassifyUnparseableCurrentIsRed(t *testing.T) {
+	// No current build yet (empty/unparseable reference) → everything red.
+	// This is the fail-safe backward-compat path during a rolling deploy
+	// (before the first stamped binary lands, currentVersion returns "").
+	if got := Classify("v0.3.0", false, ""); got != TierRed {
+		t.Fatalf(`Classify("v0.3.0",false,"") = %q, want red`, got)
+	}
+	if got := Classify("v0.3.0", false, "dev"); got != TierRed {
+		t.Fatalf(`Classify("v0.3.0",false,"dev") = %q, want red`, got)
+	}
+}
+
+func TestCurrentVersionSkipsUnparseableVersion(t *testing.T) {
+	// A stray plain-`go build` binary (Version "dev") built from a newer
+	// commit still carries a valid vcs.time. It must NOT become "current" —
+	// otherwise Classify(_,_,"dev") reddens the whole fleet. The newest
+	// sample with a PARSEABLE SemVer wins.
+	got := currentVersion([]buildSample{
+		{Version: "v0.3.0", BuiltAt: "2026-07-23T10:00:00Z"},
+		{Version: "dev", BuiltAt: "2026-07-24T10:00:00Z"}, // newer but unparseable — skipped
+	})
+	if got != "v0.3.0" {
+		t.Fatalf("current = %q, want v0.3.0 (unparseable 'dev' must be skipped)", got)
+	}
+}
+
 func TestWorstTier(t *testing.T) {
 	if worstTier(TierGreen, TierYellow, TierGreen) != TierYellow {
 		t.Fatal("green+yellow → yellow")
