@@ -20,6 +20,7 @@ export interface AgentState {
   seen: boolean;
   restarts: number;
   last_seen: string;
+  leaving?: boolean;
 }
 
 export interface SourceEarnings { total: number; per_hour: number; count: number }
@@ -44,6 +45,7 @@ interface Snapshot {
   agents: AgentState[] | null;
   off_map: AgentState[] | null;
   stale_fleets: string[] | null;
+  removed?: Record<string, string[]>;
 }
 
 interface Delta {
@@ -69,6 +71,10 @@ export interface FleetStream {
   offMap: AgentState[];
   accounting: Accounting | null;
   staleFleets: string[];
+  /** Fleet label -> override-removed agent ids. Only carried on the
+   * "snapshot" event (full keyframe); deltas never touch it, so it persists
+   * across delta updates until the next snapshot. */
+  removed: Record<string, string[]>;
   /** Moves from the most recent delta — consumed by the map for animation. */
   moves: AgentMove[];
   connected: boolean;
@@ -90,7 +96,7 @@ function route(onMap: Map<string, AgentState>, offMap: Map<string, AgentState>, 
 export function useFleetStream(streamURL = '/api/overmind/stream'): FleetStream {
   const [state, setState] = useState<FleetStream>({
     agents: new Map(), offMap: [], accounting: null,
-    staleFleets: [], moves: [], connected: false,
+    staleFleets: [], removed: {}, moves: [], connected: false,
   });
   const agentsRef = useRef(new Map<string, AgentState>());
   const offMapRef = useRef(new Map<string, AgentState>());
@@ -107,7 +113,8 @@ export function useFleetStream(streamURL = '/api/overmind/stream'): FleetStream 
       offMapRef.current = offMap;
       setState((s) => ({
         ...s, agents: new Map(onMap), offMap: [...offMap.values()],
-        staleFleets: snap.stale_fleets ?? [], moves: [], connected: true,
+        staleFleets: snap.stale_fleets ?? [], removed: snap.removed ?? {},
+        moves: [], connected: true,
       }));
     });
 

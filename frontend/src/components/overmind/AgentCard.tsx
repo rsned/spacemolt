@@ -22,22 +22,41 @@ function seenAge(lastSeen: string): string {
   return `${h}h`;
 }
 
-export const AgentCard = memo(function AgentCard({ agent, color, selected, stale, highlighted = false, onClick }: {
+export const AgentCard = memo(function AgentCard({ agent, color, selected, stale, highlighted = false, onClick, onRemove }: {
   agent: AgentState; color: string; selected: boolean; stale: boolean;
-  highlighted?: boolean; onClick: () => void;
+  highlighted?: boolean; onClick: () => void; onRemove?: (agent: AgentState) => void;
 }) {
   const unhealthy = !agent.healthy || !agent.seen;
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`w-full text-left mb-2 p-2 border rounded-sm bg-[#11100c] text-xs
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      className={`group w-full text-left mb-2 p-2 border rounded-sm bg-[#11100c] text-xs cursor-pointer
         ${selected ? 'border-[#d4a017]' : unhealthy ? 'border-red-700' : 'border-[#2a2618]'}
         ${stale ? 'opacity-50' : ''}
         ${highlighted ? 'ring-1 ring-[#22d3ee]' : ''}`}
     >
       <div className="flex items-center justify-between border-b border-[#2a2618] pb-1 mb-1">
         <span className="font-bold" style={{ color }}>{agent.agent_id}</span>
-        <span className={unhealthy ? 'text-red-500' : 'text-emerald-500'}>◉</span>
+        <span className="flex items-center gap-1">
+          {agent.leaving && (
+            <span className="px-1 text-[10px] uppercase tracking-widest rounded-sm border border-[#d4a017] text-[#d4a017] bg-[#d4a017]/10">
+              draining
+            </span>
+          )}
+          {onRemove && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRemove(agent); }}
+              title="Remove from fleet"
+              className="opacity-0 group-hover:opacity-100 text-[#8a8570] hover:text-red-500 px-1"
+            >
+              ✕
+            </button>
+          )}
+          <span className={unhealthy ? 'text-red-500' : 'text-emerald-500'}>◉</span>
+        </span>
       </div>
       <div className="text-[#8a8570] truncate">
         {agent.system_name} / {agent.poi}{agent.docked ? ' ⚓' : ''}
@@ -55,6 +74,6 @@ export const AgentCard = memo(function AgentCard({ agent, color, selected, stale
       </div>
       {agent.activity && <div className="text-[#d4a017] truncate">► {agent.activity}</div>}
       <div className="text-[#8a8570]">restarts {agent.restarts} · seen {seenAge(agent.last_seen)}</div>
-    </button>
+    </div>
   );
 });

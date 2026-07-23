@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { GalaxyMap } from '../galaxy/GalaxyMap';
 import { useGalaxyMap } from '../../lib/useGalaxyMap';
-import { FLEETS, useFleetStream } from '../../lib/useFleetStream';
+import { FLEETS, useFleetStream, type AgentState } from '../../lib/useFleetStream';
+import { removeAgent, readdAgent } from '../../lib/fleetAdmin';
 import { AccountingStrip } from './AccountingStrip';
 import { FleetRail } from './FleetRail';
 import { FleetOverlay } from './FleetOverlay';
@@ -46,6 +47,25 @@ export function OvermindPage() {
     () => (viewedSystem ? agents.filter((a) => a.system_id === viewedSystem.id) : []),
     [agents, viewedSystem],
   );
+
+  const handleRemove = useCallback(async (agent: AgentState) => {
+    if (!window.confirm(`Remove ${agent.agent_id} from the ${agent.fleet} fleet?\nIt will drain, stop, and stay out until re-added.`)) return;
+    try {
+      const res = await removeAgent(agent.fleet, agent.agent_id);
+      if (res.status !== 'accepted') alert(`${agent.agent_id}: ${res.status}${res.detail ? ` — ${res.detail}` : ''}`);
+    } catch (err) {
+      alert(String(err));
+    }
+  }, []);
+
+  const handleReadd = useCallback(async (fleet: string, agentId: string) => {
+    try {
+      const res = await readdAgent(fleet, agentId);
+      if (res.status !== 'accepted') alert(`${agentId}: ${res.status}${res.detail ? ` — ${res.detail}` : ''}`);
+    } catch (err) {
+      alert(String(err));
+    }
+  }, []);
 
   return (
     <div className="h-full flex flex-col bg-[#0a0a08] text-[#d8d3c0]">
@@ -133,6 +153,9 @@ export function OvermindPage() {
             selectedId={selectedAgent}
             onSelect={setSelectedAgent}
             highlightedIds={highlightedIds}
+            removed={stream.removed}
+            onRemove={handleRemove}
+            onReadd={handleReadd}
           />
         </div>
       </div>

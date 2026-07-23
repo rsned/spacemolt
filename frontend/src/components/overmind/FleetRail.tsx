@@ -2,10 +2,16 @@ import { useMemo, useState } from 'react';
 import { FLEETS, type AgentState } from '../../lib/useFleetStream';
 import { AgentCard } from './AgentCard';
 
-export function FleetRail({ agents, offMap, staleFleets, selectedId, onSelect, highlightedIds }: {
+export function FleetRail({
+  agents, offMap, staleFleets, selectedId, onSelect, highlightedIds,
+  removed, onRemove, onReadd,
+}: {
   agents: AgentState[]; offMap: AgentState[]; staleFleets: string[];
   selectedId: string | null; onSelect: (id: string) => void;
   highlightedIds?: ReadonlySet<string>;
+  removed?: Record<string, string[]>;
+  onRemove?: (agent: AgentState) => void;
+  onReadd?: (fleet: string, agentId: string) => void;
 }) {
   const [filter, setFilter] = useState('');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -57,8 +63,24 @@ export function FleetRail({ agents, offMap, staleFleets, selectedId, onSelect, h
               <AgentCard key={a.agent_id} agent={a} color={color}
                 selected={selectedId === a.agent_id} stale={stale.has(fleet)}
                 highlighted={highlightedIds?.has(a.agent_id) ?? false}
-                onClick={() => onSelect(a.agent_id)} />
+                onClick={() => onSelect(a.agent_id)} onRemove={onRemove} />
             ))}
+            {!isCollapsed && (removed?.[fleet]?.length ?? 0) > 0 && (
+              <div className="mt-1 pt-1 border-t border-[#2a2618]">
+                <div className="text-[10px] uppercase tracking-widest text-[#8a8570] mb-1">removed</div>
+                {removed![fleet].map((id) => (
+                  <div key={id} className="flex items-center justify-between text-xs text-[#8a8570] mb-1">
+                    <span className="truncate">{id}</span>
+                    <button
+                      onClick={() => onReadd?.(fleet, id)}
+                      className="px-1.5 py-0.5 text-[10px] uppercase tracking-widest border border-[#2a2618] rounded-sm text-[#d8d3c0] hover:border-[#d4a017] hover:text-[#d4a017]"
+                    >
+                      Re-add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
