@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/buildinfo"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
@@ -274,9 +275,18 @@ func recordBalances(ctx context.Context, logger *log.Logger, recorder *balances.
 			// one), not merely a Hello — otherwise credits read as a bogus 0
 			// before the first heartbeat, poisoning the starting balance.
 			Seen: st.Timestamp != "", LastSeen: w.LastSeen.UTC().Format(time.RFC3339),
+			Version: w.Version, Commit: w.Commit, BuiltAt: w.BuiltAt,
+			CodeDirty: w.CodeDirty, Modified: w.Modified,
 		})
 	}
-	if err := recorder.WriteStatus(live, removedIDs, now); err != nil {
+	bi := buildinfo.Get()
+	ov := balances.OvermindBuild{
+		Version: bi.Version, Commit: bi.Commit, CodeDirty: bi.CodeDirty, Modified: bi.Modified,
+	}
+	if !bi.BuiltAt.IsZero() {
+		ov.BuiltAt = bi.BuiltAt.UTC().Format(time.RFC3339)
+	}
+	if err := recorder.WriteStatus(live, removedIDs, ov, now); err != nil {
 		logger.Printf("balances: write status: %v", err)
 	}
 	if n, err := recorder.MaybeSnapshotDaily(live, now); err != nil {

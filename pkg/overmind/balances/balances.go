@@ -59,6 +59,23 @@ type LiveRecord struct {
 	// workers are eligible for a daily snapshot.
 	Seen     bool   `json:"seen"`
 	LastSeen string `json:"last_seen"`
+	// Build identity of the worker binary, reported via its Hello. Empty
+	// Version = a pre-feature "legacy" worker. Modified is the cosmetic raw
+	// vcs.modified flag; CodeDirty is the color-relevant one.
+	Version   string `json:"version,omitempty"`
+	Commit    string `json:"commit,omitempty"`
+	BuiltAt   string `json:"built_at,omitempty"`
+	CodeDirty bool   `json:"code_dirty,omitempty"`
+	Modified  bool   `json:"modified,omitempty"`
+}
+
+// OvermindBuild identifies the overmind binary that wrote a status file.
+type OvermindBuild struct {
+	Version   string
+	Commit    string
+	BuiltAt   string
+	CodeDirty bool
+	Modified  bool
 }
 
 // StatusFile is the on-disk shape of the live status file.
@@ -69,6 +86,12 @@ type StatusFile struct {
 	// dashboard's membership sidecar), so the status page can show them
 	// separately from live workers rather than as simply "missing".
 	Removed []string `json:"removed,omitempty"`
+	// Build identity of the overmind process that wrote this file.
+	OvermindVersion   string `json:"overmind_version,omitempty"`
+	OvermindCommit    string `json:"overmind_commit,omitempty"`
+	OvermindBuiltAt   string `json:"overmind_built_at,omitempty"`
+	OvermindCodeDirty bool   `json:"overmind_code_dirty,omitempty"`
+	OvermindModified  bool   `json:"overmind_modified,omitempty"`
 }
 
 // DailyRecord is one agent's balance on one UTC day.
@@ -115,9 +138,14 @@ func (r *Recorder) mark(date, agentID string) {
 }
 
 // WriteStatus atomically overwrites the live status file with the given
-// records and the current override-removed agent ids.
-func (r *Recorder) WriteStatus(live []LiveRecord, removed []string, now time.Time) error {
-	sf := StatusFile{CapturedAt: now.UTC().Format(time.RFC3339), Workers: live, Removed: removed}
+// records, the current override-removed agent ids, and the overmind's own
+// build identity.
+func (r *Recorder) WriteStatus(live []LiveRecord, removed []string, ov OvermindBuild, now time.Time) error {
+	sf := StatusFile{
+		CapturedAt: now.UTC().Format(time.RFC3339), Workers: live, Removed: removed,
+		OvermindVersion: ov.Version, OvermindCommit: ov.Commit, OvermindBuiltAt: ov.BuiltAt,
+		OvermindCodeDirty: ov.CodeDirty, OvermindModified: ov.Modified,
+	}
 	data, err := json.MarshalIndent(sf, "", "  ")
 	if err != nil {
 		return fmt.Errorf("balances: marshal status: %w", err)

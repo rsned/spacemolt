@@ -28,7 +28,7 @@ func TestWriteAndReadStatusRoundTrip(t *testing.T) {
 		{AgentID: "trader-1", Role: "hauler", System: "Sol", Credits: 1000, Seen: true},
 		{AgentID: "trader-2", Role: "hauler", System: "Krynn", Credits: 2000, Seen: true},
 	}
-	if err := r.WriteStatus(live, nil, mustTime(t, "2026-06-25T12:00:00Z")); err != nil {
+	if err := r.WriteStatus(live, nil, OvermindBuild{}, mustTime(t, "2026-06-25T12:00:00Z")); err != nil {
 		t.Fatalf("WriteStatus: %v", err)
 	}
 	sf, err := ReadStatus(sp)
@@ -50,7 +50,7 @@ func TestWriteStatusRemovedRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewRecorder: %v", err)
 	}
-	if err := r.WriteStatus(nil, []string{"trader-9"}, mustTime(t, "2026-06-25T12:00:00Z")); err != nil {
+	if err := r.WriteStatus(nil, []string{"trader-9"}, OvermindBuild{}, mustTime(t, "2026-06-25T12:00:00Z")); err != nil {
 		t.Fatalf("WriteStatus: %v", err)
 	}
 	sf, err := ReadStatus(sp)
@@ -254,5 +254,37 @@ func TestLiveRecordQuarantineFields(t *testing.T) {
 	data, _ = json.Marshal(LiveRecord{AgentID: "ok"})
 	if strings.Contains(string(data), "quarantine") {
 		t.Errorf("quarantine fields must be omitempty: %s", data)
+	}
+}
+
+func TestWriteStatusCarriesVersions(t *testing.T) {
+	dir := t.TempDir()
+	sp := filepath.Join(dir, "fleet-status.json")
+	r, err := NewRecorder(sp, filepath.Join(dir, "fleet-history.jsonl"))
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+	live := []LiveRecord{{
+		AgentID: "hauler-3", Role: "hauler", System: "Sol", Seen: true,
+		Version: "v0.2.9", Commit: "aaaa1111bbbb", BuiltAt: "2026-07-22T09:00:00Z",
+		CodeDirty: true, Modified: true,
+	}}
+	ov := OvermindBuild{
+		Version: "v0.3.0", Commit: "8016cd8abcde", BuiltAt: "2026-07-23T10:00:00Z",
+		CodeDirty: false, Modified: true,
+	}
+	if err := r.WriteStatus(live, nil, ov, mustTime(t, "2026-07-23T12:00:00Z")); err != nil {
+		t.Fatalf("WriteStatus: %v", err)
+	}
+	sf, err := ReadStatus(sp)
+	if err != nil {
+		t.Fatalf("ReadStatus: %v", err)
+	}
+	if sf.OvermindVersion != "v0.3.0" || sf.OvermindBuiltAt != "2026-07-23T10:00:00Z" || sf.OvermindModified != true {
+		t.Fatalf("overmind version not written: %+v", sf)
+	}
+	w := sf.Workers[0]
+	if w.Version != "v0.2.9" || w.Commit != "aaaa1111bbbb" || !w.CodeDirty || w.BuiltAt != "2026-07-22T09:00:00Z" {
+		t.Fatalf("worker version not written: %+v", w)
 	}
 }
