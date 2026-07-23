@@ -10,14 +10,14 @@ import (
 type Type string
 
 const (
-	TypeHello      Type = "hello"
-	TypeStatus     Type = "status"
-	TypeEvent      Type = "event"
-	TypeAbort      Type = "abort"
-	TypePause      Type = "pause"
-	TypeResume     Type = "resume"
-	TypeAssign     Type = "assign"
-	TypeDrain      Type = "drain"
+	TypeHello       Type = "hello"
+	TypeStatus      Type = "status"
+	TypeEvent       Type = "event"
+	TypeAbort       Type = "abort"
+	TypePause       Type = "pause"
+	TypeResume      Type = "resume"
+	TypeAssign      Type = "assign"
+	TypeDrain       Type = "drain"
 	TypeAdminRemove Type = "admin_remove"
 	TypeAdminReadd  Type = "admin_readd"
 	TypeAdminAck    Type = "admin_ack"
