@@ -18,17 +18,17 @@ workers:
   # craftsman-1: TEMPORARY freight-tier grind (operator request 2026-07-22) —
   # 1100 cargo. Normally reserved for operator play_as (see craft-fleet.yaml);
   # remove from this roster when done.
-  - { agent_id: craftsman-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-7, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: engineer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  - { agent_id: craftsman-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 11 }
+  - { agent_id: engineer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
+  - { agent_id: engineer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
+  - { agent_id: engineer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
+  - { agent_id: engineer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
+  - { agent_id: engineer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
+  - { agent_id: engineer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
+  - { agent_id: engineer-7, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
+  - { agent_id: engineer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
+  - { agent_id: engineer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
+  - { agent_id: engineer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: explorer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: explorer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: explorer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
@@ -49,9 +49,12 @@ workers:
   # fighter-4 = the FREIGHT CANARY (2026-07-20); proven 23/0 and rolled out to
   # wave 1 (2026-07-22): all engineers + fighters with >=100 cargo carry
   # enable_freight. Explorers/randoms excluded (holds <100 or broke).
-  # 790 free cargo (multi-package candidate for Sub-project C). Runbook =
-  # Rollout section of docs/superpowers/plans/2026-07-20-shipping-carrier-subproject-b.md
-  - { agent_id: fighter-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 3 }
+  # 790 free cargo -> freight_max_packages 7 (2026-07-22: operator sized craftsman-1/
+  # fighter-4/engineers by hold; caps are ceilings — effective concurrency stays
+  # min(cargoFree/100, server tier contract limit, liability headroom), so agents
+  # grow into their cap as their carrier tier advances). Runbook =
+  # Rollout section of docs/superpowers/plans/2026-07-22-shipping-carrier-subproject-c.md
+  - { agent_id: fighter-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 7 }
   - { agent_id: fighter-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-6, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-7, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
