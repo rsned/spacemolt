@@ -1,58 +1,34 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Build the fleet binaries into bin/ with build-identity stamping.
+#
+# Stamps two ldflags vars in pkg/buildinfo:
+#   version   = git describe --tags --always --dirty (SemVer label + commit)
+#   codeDirty = whether tracked files OUTSIDE data/ have uncommitted changes
+#               (data/*.json churns constantly, so raw vcs.modified is unusable
+#                for coloring).
+#
+# A plain `go build ./...` still works and yields version "dev" with codeDirty
+# unset — this script is for release builds, not a hard requirement.
+#
+# For a recursive dev build of every cmd/* tool (with -race, no stamping), see
+# scripts/build-all.sh.
+set -euo pipefail
 
-# Build script for spacemolt-agent-server tools
-# Builds all commands in ./cmd/ into ./bin/
+cd "$(dirname "$0")/.."
 
-# Colors for output
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
-
-# Create bin directory if it doesn't exist
-mkdir -p bin
-
-echo "Building spacemolt-agent-server tools..."
-echo ""
-
-# Track success/failure
-SUCCESS_COUNT=0
-FAIL_COUNT=0
-FAILED_TOOLS=()
-
-# Build each tool in cmd/ (recursively find all directories with main.go)
-while IFS= read -r -d '' main_file; do
-    dir=$(dirname "$main_file")
-    tool=$(basename "$dir")
-    # Create unique binary name for nested tools (e.g., tools-skill-graph)
-    relative_path="${dir#cmd/}"
-    if [[ "$relative_path" != "$tool" ]]; then
-        binary_name=$(echo "$relative_path" | tr '/' '-')
-    else
-        binary_name="$tool"
-    fi
-
-    echo -n "Building $tool (from $relative_path)... "
-
-    if go build -race -o "bin/$binary_name" "./$dir"; then
-        echo -e "${GREEN}✓${NC}"
-        ((SUCCESS_COUNT++))
-    else
-        echo -e "${RED}✗${NC}"
-        ((FAIL_COUNT++))
-        FAILED_TOOLS+=("$relative_path")
-    fi
-done < <(find cmd -name "main.go" -print0)
-
-echo ""
-echo "Build complete: $SUCCESS_COUNT succeeded, $FAIL_COUNT failed"
-
-if [ $FAIL_COUNT -gt 0 ]; then
-    echo -e "${RED}Failed tools:${NC}"
-    for tool in "${FAILED_TOOLS[@]}"; do
-        echo "  - $tool"
-    done
-    exit 1
+DESC=$(git describe --tags --always --dirty)
+if [ -z "$(git status --porcelain -- ':!data/')" ]; then
+  CODEDIRTY=false
+else
+  CODEDIRTY=true
 fi
 
-echo -e "${GREEN}All tools built successfully!${NC}"
-echo "Binaries are in ./bin/"
+LDFLAGS="-X github.com/rsned/spacemolt/pkg/buildinfo.version=$DESC \
+-X github.com/rsned/spacemolt/pkg/buildinfo.codeDirty=$CODEDIRTY"
+
+mkdir -p bin
+go build -ldflags "$LDFLAGS" -o bin/overmind ./cmd/overmind
+go build -ldflags "$LDFLAGS" -o bin/worker ./cmd/worker
+go build -ldflags "$LDFLAGS" -o bin/overmind-dashboard ./cmd/overmind-dashboard
+
+echo "built bin/overmind bin/worker bin/overmind-dashboard @ $DESC (codeDirty=$CODEDIRTY)"
