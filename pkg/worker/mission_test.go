@@ -70,10 +70,17 @@ func (s *fakeMissionStore) RecordFreightResult(ctx context.Context, r market.Fre
 type fakeFreightStore struct {
 	fakeMissionStore
 	results []market.FreightResult
+	// outcomes maps contract ID -> last recorded outcome, letting chain-run
+	// tests assert per-contract terminal state without scanning results.
+	outcomes map[string]string
 }
 
 func (s *fakeFreightStore) RecordFreightResult(ctx context.Context, r market.FreightResult) error {
 	s.results = append(s.results, r)
+	if s.outcomes == nil {
+		s.outcomes = make(map[string]string)
+	}
+	s.outcomes[r.ContractID] = r.Outcome
 	return nil
 }
 

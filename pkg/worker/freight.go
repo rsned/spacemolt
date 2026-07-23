@@ -599,6 +599,233 @@ func freightSettleDock(ctx context.Context, deps MissionDeps, out io.Writer) err
 	return fmt.Errorf("still undocked after %s", budget)
 }
 
+// freightChainMaxLegs bounds the chain-run loop. Deliveries and returns
+// strictly shrink the held set; refills are bounded by headroom — this
+// guard exists only to make an unforeseen no-progress cycle exit loudly
+// instead of spinning the pass forever.
+const freightChainMaxLegs = 25
+
+// freightChainStops prices the held set from the current dock. A held
+// contract the router cannot reach right now prices at hops 0 with a log
+// line — unroutable is a transient (mobile capitals, KB gaps), not proof of
+// infeasibility, and pricing it 0 keeps its deadline check maximally
+// conservative for the OTHER stops while its own deliver attempt resolves
+// the truth.
+func freightChainStops(ctx context.Context, deps MissionDeps, hopsTo func(string) (int, bool), out io.Writer) []chainStop {
+	held := deps.State.heldFreightAll()
+	stops := make([]chainStop, 0, len(held))
+	for _, c := range held {
+		hops := 0
+		if hopsTo != nil {
+			if h, ok := hopsTo(c.DestinationBaseID); ok {
+				hops = h
+			} else {
+				fmt.Fprintf(out, "freight: no route to %s for held %s from here; pricing leg at 0\n", c.DestinationBaseID, c.ID) //nolint:errcheck
+			}
+		}
+		stops = append(stops, chainStop{ContractID: c.ID, DestBaseID: c.DestinationBaseID, Hops: hops, DeadlineTick: c.DeadlineTick})
+	}
+	return stops
+}
+
+// freightLoadPackage pulls a contract's sealed package from station storage
+// into the hold, if it is not already aboard (the reconcile-resume path
+// re-enters with the package in CARGO — an unconditional withdraw would
+// fail there and destroy a healthy contract). An absent, unloadable package
+// means "cannot physically carry" and returns THAT contract.
+func freightLoadPackage(ctx context.Context, deps MissionDeps, c *serverapi.ShipmentContract, cand *freightCand, out io.Writer) freightStep {
+	item := freightPackageItemID(c.PackageID)
+	if cargoCount(deps.Client.GetState(), item) >= 1 {
+		return freightStepProceed
+	}
+	if err := deps.Client.WithdrawItems(ctx, item, 1); err != nil {
+		fmt.Fprintf(out, "freight: withdraw %s: %v; returning contract\n", item, err) //nolint:errcheck
+		return freightReturn(ctx, deps, out, *c, cand, "returned_infeasible", "package would not load: "+err.Error())
+	}
+	return freightStepProceed
+}
+
+// freightDeliverDueHere delivers every held contract whose destination is
+// baseID. Per contract this is the v1 runTrip deliver+record sequence; a
+// deliver failure leaves that contract in flight (failed++) and the loop
+// continues with the rest.
+func freightDeliverDueHere(ctx context.Context, deps MissionDeps, baseID string, out io.Writer) (delivered, failed int) {
+	for _, c := range deps.State.heldFreightAll() {
+		if c.DestinationBaseID != baseID {
+			continue
+		}
+		if err := deps.Client.ShippingDeliver(ctx, c.ID); err != nil {
+			fmt.Fprintf(out, "freight: deliver %s: %v\n", c.ID, err) //nolint:errcheck
+			failed++
+			continue
+		}
+		var settle serverapi.ShippingSettlementResponse
+		settleReason := ""
+		raw := deps.Client.GetRawJSON("shipping_deliver")
+		switch {
+		case len(raw) == 0:
+			settleReason = "settlement decode failed: no reply"
+			fmt.Fprintf(out, "freight: deliver %s returned no settlement reply\n", c.ID) //nolint:errcheck
+		default:
+			if err := json.Unmarshal(raw, &settle); err != nil {
+				settleReason = "settlement decode failed: " + err.Error()
+				fmt.Fprintf(out, "freight: decode deliver %s: %v\n", c.ID, err) //nolint:errcheck
+			}
+		}
+		final := settle.Contract
+		if final.ID == "" {
+			final = *c
+		}
+		fmt.Fprintf(out, "freight: delivered %s, payout %d\n", c.ID, settle.CarrierPayout) //nolint:errcheck
+		freightRecord(ctx, deps, out, final, nil, float64(settle.CarrierPayout), "delivered", settleReason)
+		deps.State.removeHeldFreight(c.ID)
+		delivered++
+	}
+	return delivered, failed
+}
+
+// freightChainRun is the sub-project C dock-pass loop: deliver what is due
+// here, return what can no longer make its deadline, refill while headroom
+// lasts, fly to the nearest held destination, repeat. The chain and the
+// refill behavior both emerge from repeating this at every dock; a held set
+// of one with FreightMaxPackages 1 walks exactly the v1 trip.
+//
+// freightStepProceed covers both "set empty, pass done" and "contracts
+// intentionally left in flight" (nav/deliver trouble — next pass reconciles
+// and resumes). freightStepStuck means a return FAILED (live undischarged
+// contract): the caller must park this pass.
+func freightChainRun(ctx context.Context, deps MissionDeps, nav func(ctx context.Context, baseID string) error, hopsTo func(string) (int, bool), fuelCostFor func(int) float64, out io.Writer) (freightStep, error) {
+	if out == nil {
+		out = io.Discard
+	}
+	attempted := map[string]bool{} // destinations that failed nav/deliver this pass
+	for leg := 0; leg < freightChainMaxLegs; leg++ {
+		stops := freightChainStops(ctx, deps, hopsTo, out)
+		if len(stops) == 0 {
+			return freightStepProceed, nil
+		}
+		maxPk := freightEffectiveMax(deps.FreightMaxPackages)
+		fmt.Fprintf(out, "freight: holding %d/%d packages\n", len(stops), maxPk) //nolint:errcheck
+
+		// Return contracts whose deadline no longer clears the chain bound
+		// from here — one at a time, re-pricing after each removal, so a
+		// single degraded contract never takes healthy ones down with it.
+		for {
+			ok, reason := chainFeasible(stops, missionTick(deps))
+			if ok {
+				break
+			}
+			victim := freightChainWorstStop(stops, missionTick(deps))
+			c := freightHeldByID(deps, victim.ContractID)
+			if c == nil {
+				break // defensive: stop pricing a contract we no longer hold
+			}
+			fmt.Fprintf(out, "freight: in-flight buffer collapsed for %s (%s); returning\n", c.ID, reason) //nolint:errcheck
+			if freightReturn(ctx, deps, out, *c, nil, "returned_inflight", reason) == freightStepStuck {
+				return freightStepStuck, nil
+			}
+			stops = freightChainStops(ctx, deps, hopsTo, out)
+			if len(stops) == 0 {
+				return freightStepProceed, nil
+			}
+		}
+
+		// Nav to the nearest held destination not already attempted this pass.
+		target := ""
+		for _, s := range chainOrder(stops) {
+			if !attempted[s.DestBaseID] {
+				target = s.DestBaseID
+				break
+			}
+		}
+		if target == "" {
+			// Every remaining destination already failed once this pass;
+			// leave the rest in flight for the next pass.
+			return freightStepProceed, nil
+		}
+		if err := nav(ctx, target); err != nil {
+			fmt.Fprintf(out, "freight: navigate to %s: %v; leaving in flight\n", target, err) //nolint:errcheck
+			attempted[target] = true
+			continue
+		}
+		if err := freightSettleDock(ctx, deps, out); err != nil {
+			fmt.Fprintf(out, "freight: dock settle at %s: %v; leaving in flight\n", target, err) //nolint:errcheck
+			attempted[target] = true
+			continue
+		}
+		_, failed := freightDeliverDueHere(ctx, deps, target, out)
+		if failed > 0 {
+			// Headroom cannot be trusted mid-failure: no refill at this dock
+			// (spec, Error handling). Try the next destination instead.
+			attempted[target] = true
+			continue
+		}
+
+		// Refill: accept while the gate still clears (headroom + chain
+		// feasibility are all inside freightCandidate/freightAccept).
+		freightChainRefill(ctx, deps, hopsTo, fuelCostFor, out)
+	}
+	fmt.Fprintf(out, "freight: chain-run leg guard (%d) hit; leaving remainder in flight\n", freightChainMaxLegs) //nolint:errcheck
+	return freightStepProceed, nil
+}
+
+// freightChainWorstStop picks the stop to sacrifice when the chain bound
+// fails: the one with the least deadline slack at its chain position.
+func freightChainWorstStop(stops []chainStop, nowTick int64) chainStop {
+	ordered := chainOrder(stops)
+	cum := chainCumulative(ordered)
+	worst, worstSlack := ordered[0], math.Inf(1)
+	for i, s := range ordered {
+		if s.DeadlineTick <= 0 {
+			continue
+		}
+		slack := float64(s.DeadlineTick-nowTick) - float64(cum[i])*freightTicksPerHop*freightDeadlineSlack
+		if slack < worstSlack {
+			worst, worstSlack = s, slack
+		}
+	}
+	return worst
+}
+
+// freightHeldByID fetches one held contract, nil when absent.
+func freightHeldByID(deps MissionDeps, id string) *serverapi.ShipmentContract {
+	for _, c := range deps.State.heldFreightAll() {
+		if c.ID == id {
+			return c
+		}
+	}
+	return nil
+}
+
+// freightChainRefill accepts additional contracts at the current dock while
+// the gate clears. Each accept immediately loads its package so hold-space
+// headroom self-updates for the next iteration; a load failure has already
+// returned that contract inside freightLoadPackage.
+func freightChainRefill(ctx context.Context, deps MissionDeps, hopsTo func(string) (int, bool), fuelCostFor func(int) float64, out io.Writer) {
+	for {
+		heldStops := freightChainStops(ctx, deps, hopsTo, out)
+		in := freightInputs{
+			CargoFree:   float64(cargoFreeSpace(deps.Client.GetState())),
+			FuelCostFor: fuelCostFor,
+			HopsTo:      hopsTo,
+			Held:        heldStops,
+			NowTick:     missionTick(deps),
+		}
+		cand, skip := freightCandidate(ctx, deps, in, out)
+		if cand == nil {
+			fmt.Fprintf(out, "freight: refill done (%s)\n", skip) //nolint:errcheck
+			return
+		}
+		accepted, step := freightAccept(ctx, deps, cand, heldStops, out)
+		if step != freightStepProceed {
+			return // released or stuck; stuck is re-detected by the caller's next return
+		}
+		if freightLoadPackage(ctx, deps, accepted, cand, out) != freightStepProceed {
+			continue // that contract was returned; headroom unchanged, try again
+		}
+	}
+}
+
 // freightRunTrip carries an accepted contract to its destination and delivers it.
 // Returns nil on every handled outcome — like Missions and Haul, a failed trip
 // logs and idles rather than killing the worker loop.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -1439,5 +1440,83 @@ func TestFreightReconcileSetFailOpenOnGetError(t *testing.T) {
 	held := freightReconcileSet(context.Background(), deps, io.Discard)
 	if len(held) != 1 || held[0].ID != "x" {
 		t.Fatalf("held = %v, want [x] (fail-open)", held)
+	}
+}
+
+// freightChainDeps builds the scripted-client fixture shared by the
+// chain-run tests, factored from TestFreightRunTripDeliversAndRecordsPayout:
+// the ship is docked (so freightSettleDock never has to poll), the profile
+// is debt-free with zero server-side actives (so the gate never trips on
+// the reconcile-gap guard), and the shipping board is EMPTY (`shipping_list`
+// decodes to zero shipments) so freightChainRefill is always a no-op here —
+// refill-through-the-gate is already covered by the Task 3 gate tests.
+func freightChainDeps(t *testing.T) (MissionDeps, *fakeFreightStore) {
+	t.Helper()
+	store := &fakeFreightStore{}
+	f := &fakeClient{
+		state: &game.State{Doc: true},
+		raw: map[string][]byte{
+			"shipping_profile": shippingProfileJSON(t, false, ""),
+			"shipping_list":    shippingListJSON(t),
+		},
+	}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: &missionRunState{}}
+	return deps, store
+}
+
+func TestFreightChainRunDeliversNearestFirstAndAll(t *testing.T) {
+	// Held: far (5 hops to baseB), near (2 hops to baseA). The chain must
+	// nav to baseA first, deliver near, then baseB, deliver far. Both
+	// recorded delivered; held set empty at exit; step Proceed.
+	deps, store := freightChainDeps(t)
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "near", DestinationBaseID: "baseA", DeadlineTick: 99999, Status: "in_transit"})
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "far", DestinationBaseID: "baseB", DeadlineTick: 99999, Status: "in_transit"})
+	var navved []string
+	nav := func(ctx context.Context, baseID string) error { navved = append(navved, baseID); return nil }
+	hops := func(base string) (int, bool) { return map[string]int{"baseA": 2, "baseB": 5}[base], true }
+	step, err := freightChainRun(context.Background(), deps, nav, hops, nil, io.Discard)
+	if err != nil || step != freightStepProceed {
+		t.Fatalf("step=%v err=%v", step, err)
+	}
+	if len(navved) != 2 || navved[0] != "baseA" || navved[1] != "baseB" {
+		t.Fatalf("nav order = %v, want [baseA baseB]", navved)
+	}
+	if deps.State.heldFreightCount() != 0 {
+		t.Fatal("held set not empty after full chain")
+	}
+	if store.outcomes["near"] != "delivered" || store.outcomes["far"] != "delivered" {
+		t.Fatalf("outcomes = %v", store.outcomes)
+	}
+}
+
+func TestFreightChainRunNavFailureLeavesInFlight(t *testing.T) {
+	deps, _ := freightChainDeps(t)
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "x", DestinationBaseID: "baseA", DeadlineTick: 99999, Status: "in_transit"})
+	nav := func(ctx context.Context, baseID string) error { return fmt.Errorf("no route") }
+	hops := func(string) (int, bool) { return 2, true }
+	step, err := freightChainRun(context.Background(), deps, nav, hops, nil, io.Discard)
+	if err != nil || step != freightStepProceed {
+		t.Fatalf("step=%v err=%v; nav failure must leave contract in flight, not error", step, err)
+	}
+	if deps.State.heldFreightCount() != 1 {
+		t.Fatal("contract must remain held for the next pass")
+	}
+}
+
+func TestFreightChainRunReturnsDegradedContractOnly(t *testing.T) {
+	// "dead" can no longer make its deadline from here (bound blown);
+	// "fine" can. Chain returns dead (outcome returned_inflight), keeps and
+	// delivers fine.
+	deps, store := freightChainDeps(t)
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "dead", DestinationBaseID: "baseB", DeadlineTick: 10, Status: "in_transit"})
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{ID: "fine", DestinationBaseID: "baseA", DeadlineTick: 99999, Status: "in_transit"})
+	nav := func(ctx context.Context, baseID string) error { return nil }
+	hops := func(base string) (int, bool) { return map[string]int{"baseA": 1, "baseB": 5}[base], true }
+	step, _ := freightChainRun(context.Background(), deps, nav, hops, nil, io.Discard)
+	if step != freightStepProceed {
+		t.Fatalf("step = %v", step)
+	}
+	if store.outcomes["dead"] != "returned_inflight" || store.outcomes["fine"] != "delivered" {
+		t.Fatalf("outcomes = %v", store.outcomes)
 	}
 }
