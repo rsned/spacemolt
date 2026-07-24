@@ -642,6 +642,34 @@ func freightChainStops(ctx context.Context, deps MissionDeps, hopsTo func(string
 	return stops
 }
 
+// freightPollLoaded waits until a withdrawn package actually lands in the hold.
+// WithdrawItems is tick-deferred (client_commands.go acks the request, not the
+// storage->cargo transfer), so returning Proceed the instant the ack lands can
+// navigate a multi-package chain away with the package still in origin storage —
+// the strand that loops forever on package_not_present (engineer-3, 2026-07-23).
+// Mirrors freightSettleDock: poll up to three ticks at SleepQuick cadence, using
+// deps.sleep so tests run instantly. Returns (true, nil) once aboard, (false, nil)
+// on timeout, (false, err) if the sleep is cancelled.
+func freightPollLoaded(ctx context.Context, deps MissionDeps, item string) (bool, error) {
+	if cargoCount(deps.Client.GetState(), item) >= 1 {
+		return true, nil
+	}
+	sl := deps.sleep
+	if sl == nil {
+		sl = craftPollSleepFunc
+	}
+	const budget = 3 * game.SleepTick
+	for waited := time.Duration(0); waited < budget; waited += game.SleepQuick {
+		if err := sl(ctx, game.SleepQuick); err != nil {
+			return false, err
+		}
+		if cargoCount(deps.Client.GetState(), item) >= 1 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // freightLoadPackage pulls a contract's sealed package from station storage
 // into the hold, if it is not already aboard (the reconcile-resume path
 // re-enters with the package in CARGO — an unconditional withdraw would
@@ -655,6 +683,18 @@ func freightLoadPackage(ctx context.Context, deps MissionDeps, c *serverapi.Ship
 	if err := deps.Client.WithdrawItems(ctx, item, 1); err != nil {
 		fmt.Fprintf(out, "freight: withdraw %s: %v; returning contract\n", item, err) //nolint:errcheck
 		return freightReturn(ctx, deps, out, *c, cand, "returned_infeasible", "package would not load: "+err.Error())
+	}
+	loaded, err := freightPollLoaded(ctx, deps, item)
+	if err != nil {
+		// ctx cancelled mid-poll: the load is unconfirmed but the contract is still
+		// held (freightAccept added it), so park rather than transit blind — the next
+		// session's reconcile settles it.
+		fmt.Fprintf(out, "freight: load poll for %s cancelled: %v; parking\n", item, err) //nolint:errcheck
+		return freightStepStuck
+	}
+	if !loaded {
+		fmt.Fprintf(out, "freight: package %s did not load into cargo after withdraw; returning contract\n", item) //nolint:errcheck
+		return freightReturn(ctx, deps, out, *c, cand, "returned_infeasible", "package did not load into cargo after withdraw")
 	}
 	return freightStepProceed
 }

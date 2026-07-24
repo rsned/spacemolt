@@ -604,6 +604,77 @@ func TestFreightLoadPackageReturnsWhenWithdrawFails(t *testing.T) {
 	}
 }
 
+// A withdraw that succeeds but whose package never lands in cargo (tick-deferred
+// transfer that silently fails) must NOT proceed — proceeding is the multi-package
+// strand bug. The contract is returned instead.
+func TestFreightLoadPackageReturnsWhenPackageNeverLoads(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &fakeClient{state: &game.State{}} // withdraw succeeds; cargo stays empty
+	deps := MissionDeps{
+		Client: f, AgentID: "engineer-3", Market: store,
+		sleep: func(ctx context.Context, d time.Duration) error { return nil }, // instant, cargo never changes
+	}
+	c := acceptedContract(1200, 1380)
+
+	step := freightLoadPackage(context.Background(), deps, &c, &freightCand{Hops: 3}, io.Discard)
+	if step == freightStepProceed {
+		t.Fatal("a package that never lands in cargo must not proceed")
+	}
+	if !slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must return the un-loaded contract, calls were %v", f.shippingCalls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "returned_infeasible" {
+		t.Fatalf("want returned_infeasible, got %+v", store.results)
+	}
+}
+
+// When the tick-deferred withdraw lands within the poll budget, the pass proceeds.
+// The injected sleep drops the package into cargo on its first call, standing in for
+// the transfer completing a tick after the withdraw ack.
+func TestFreightLoadPackageProceedsOncePackageLands(t *testing.T) {
+	f := &fakeClient{state: &game.State{}}
+	c := acceptedContract(1200, 1380)
+	item := freightPackageItemID(c.PackageID)
+	landed := false
+	deps := MissionDeps{
+		Client: f, AgentID: "engineer-3", Market: &fakeFreightStore{},
+		sleep: func(ctx context.Context, d time.Duration) error {
+			if !landed {
+				landed = true
+				f.state.Ship.Cargo = append(f.state.Ship.Cargo, game.CargoItem{ItemID: item, Quantity: 1})
+			}
+			return nil
+		},
+	}
+
+	step := freightLoadPackage(context.Background(), deps, &c, &freightCand{Hops: 3}, io.Discard)
+	if step != freightStepProceed {
+		t.Fatalf("a package that lands within budget must proceed, got %v", step)
+	}
+	if slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must not return a contract whose package loaded, calls were %v", f.shippingCalls)
+	}
+}
+
+// A ctx cancellation mid-poll must park the pass (Stuck), NOT return the contract:
+// the load is unconfirmed, the contract is still held, and the next session reconciles.
+func TestFreightLoadPackageParksOnContextCancelMidPoll(t *testing.T) {
+	f := &fakeClient{state: &game.State{}}
+	deps := MissionDeps{
+		Client: f, AgentID: "engineer-3", Market: &fakeFreightStore{},
+		sleep: func(ctx context.Context, d time.Duration) error { return context.Canceled },
+	}
+	c := acceptedContract(1200, 1380)
+
+	step := freightLoadPackage(context.Background(), deps, &c, &freightCand{Hops: 3}, io.Discard)
+	if step != freightStepStuck {
+		t.Fatalf("a ctx cancel mid-load must park (Stuck), got %v", step)
+	}
+	if slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must not return the contract on a ctx cancel, calls were %v", f.shippingCalls)
+	}
+}
+
 // Freight must not run unless a fleet opts in, so the pool is unaffected until
 // the canary flips the flag.
 func TestMissionsSkipsFreightWhenDisabled(t *testing.T) {
@@ -769,6 +840,26 @@ func TestFreightChainRunFlagsUndecodableSettlement(t *testing.T) {
 	}
 }
 
+// freightSimulatePackageLoad returns a MissionDeps.sleep func that drops the
+// canned acceptedContract package into fc's cargo on its first call, standing
+// in for the tick-deferred withdraw landing a tick after the ack.
+// freightBoardClient's canned shipping_accept reply always resolves to
+// acceptedContract, so any Missions()-level test that must get past
+// freightLoadPackage's confirm poll (freightPollLoaded) to reach delivery
+// needs this — the fixture's fakeClient.WithdrawItems never mutates cargo on
+// its own.
+func freightSimulatePackageLoad(fc *fakeClient) func(ctx context.Context, d time.Duration) error {
+	landed := false
+	item := freightPackageItemID(acceptedContract(0, 1380).PackageID)
+	return func(ctx context.Context, d time.Duration) error {
+		if !landed {
+			landed = true
+			fc.state.Ship.Cargo = append(fc.state.Ship.Cargo, game.CargoItem{ItemID: item, Quantity: 1})
+		}
+		return nil
+	}
+}
+
 // freightBoardClient builds a docked fake whose /shipping board carries one
 // good contract, wired end to end (profile -> list -> accept -> deliver) plus
 // the router replies missionHopsToBase/missionNavToBase need.
@@ -919,6 +1010,7 @@ func TestMissionsTakesFreightOnEmptyBoard(t *testing.T) {
 	deps := missionDeps(fc, &store.fakeMissionStore, missionKB())
 	deps.Market, deps.EnableFreight = store, true
 	deps.State = &missionRunState{}
+	deps.sleep = freightSimulatePackageLoad(fc)
 
 	if err := Missions(context.Background(), deps); err != nil {
 		t.Fatalf("Missions: %v", err)
@@ -969,6 +1061,7 @@ func TestMissionsTakesFreightWhenAvailabilityGateEmptiesSet(t *testing.T) {
 	deps := missionDeps(fc, &store.fakeMissionStore, missionKB())
 	deps.Market, deps.EnableFreight = store, true
 	deps.State = &missionRunState{}
+	deps.sleep = freightSimulatePackageLoad(fc)
 
 	if err := Missions(context.Background(), deps); err != nil {
 		t.Fatalf("Missions: %v", err)
@@ -1020,6 +1113,7 @@ func TestMissionsFreightOutranksExploration(t *testing.T) {
 	deps.Market, deps.EnableFreight = store, true
 	deps.Categories = []string{"delivery", "exploration"}
 	deps.State = &missionRunState{}
+	deps.sleep = freightSimulatePackageLoad(fc)
 
 	if err := Missions(context.Background(), deps); err != nil {
 		t.Fatalf("Missions: %v", err)
@@ -1069,6 +1163,7 @@ func TestMissionsFreightTakesTiesWithExploration(t *testing.T) {
 	deps.Market, deps.EnableFreight = store, true
 	deps.Categories = []string{"delivery", "exploration"}
 	deps.State = &missionRunState{}
+	deps.sleep = freightSimulatePackageLoad(fc)
 
 	if err := Missions(context.Background(), deps); err != nil {
 		t.Fatalf("Missions: %v", err)
