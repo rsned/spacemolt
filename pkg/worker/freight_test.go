@@ -2018,6 +2018,48 @@ func TestEffectiveFreightFloor(t *testing.T) {
 	}
 }
 
+func TestCarrierTierAboveProbationary(t *testing.T) {
+	cases := map[string]bool{
+		"":             false, // unknown/empty: never treated as advanced
+		"probationary": false,
+		"licensed":     true,
+		"trusted":      true,
+		"prime":        true,
+	}
+	for tier, want := range cases {
+		if got := carrierTierAboveProbationary(tier); got != want {
+			t.Fatalf("carrierTierAboveProbationary(%q) = %v, want %v", tier, got, want)
+		}
+	}
+}
+
+func TestFreightBandExcluded(t *testing.T) {
+	cases := []struct {
+		name         string
+		carrierTier  string
+		contractBand string
+		bootstrap    bool
+		want         bool
+	}{
+		{"probationary carrier is never fenced from probationary cargo", "probationary", "probationary", true, false},
+		{"licensed carrier is fenced from probationary cargo", "licensed", "probationary", true, true},
+		{"trusted carrier is fenced from probationary cargo", "trusted", "probationary", true, true},
+		{"licensed carrier keeps its own-tier cargo", "licensed", "licensed", true, false},
+		{"bootstrap off disables the fence", "licensed", "probationary", false, false},
+		{"unknown carrier tier is never fenced", "", "probationary", true, false},
+		{"empty contract band is never fenced", "licensed", "", true, false},
+		{"unpriced contract band is never fenced", "licensed", "unpriced", true, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := freightBandExcluded(tc.carrierTier, tc.contractBand, tc.bootstrap); got != tc.want {
+				t.Fatalf("freightBandExcluded(%q, %q, %v) = %v, want %v",
+					tc.carrierTier, tc.contractBand, tc.bootstrap, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestBootstrapSpentTally(t *testing.T) {
 	var nilState *missionRunState
 	if got := nilState.bootstrapSpent(); got != 0 {

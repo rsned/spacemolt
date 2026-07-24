@@ -103,6 +103,24 @@ func effectiveFreightFloor(tier string, bootstrapEnabled bool, spent, budget flo
 	return freightMinNet
 }
 
+// carrierTierAboveProbationary reports whether a KNOWN tier outranks
+// probationary. An empty/unknown tier returns false: never fence a carrier that
+// might itself be probationary (that would starve it of the hauls it needs).
+func carrierTierAboveProbationary(tier string) bool {
+	return tier != "" && tier != carrierTierProbationary
+}
+
+// freightBandExcluded reports whether to skip a board listing to reserve
+// probationary-band cargo for carriers still climbing out of the probationary
+// tier. Gated on the bootstrap switch (the fleet-wide "help the probationary
+// climb" policy): with bootstrap off, selection is unchanged. Pure — the caller
+// supplies the live carrier tier, the contract's required band, and the toggle.
+func freightBandExcluded(carrierTier, contractBand string, bootstrapEnabled bool) bool {
+	return bootstrapEnabled &&
+		contractBand == carrierTierProbationary &&
+		carrierTierAboveProbationary(carrierTier)
+}
+
 // buildFreightCand derives economics for one listing given the chain we
 // already hold. A non-empty reason means skip, and is logged verbatim so a
 // canary pass shows why the board emptied out.
