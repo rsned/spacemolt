@@ -106,7 +106,7 @@ func effectiveFreightFloor(tier string, bootstrapEnabled bool, spent, budget flo
 // buildFreightCand derives economics for one listing given the chain we
 // already hold. A non-empty reason means skip, and is logged verbatim so a
 // canary pass shows why the board emptied out.
-func buildFreightCand(l serverapi.ShippingListing, hops int, held []chainStop, nowTick int64, fuelCostFor func(jumps int) float64) (freightCand, string) {
+func buildFreightCand(l serverapi.ShippingListing, hops int, held []chainStop, nowTick int64, fuelCostFor func(jumps int) float64, floor float64) (freightCand, string) {
 	if !l.Eligible {
 		reason := l.Reason
 		if reason == "" {
@@ -135,8 +135,8 @@ func buildFreightCand(l serverapi.ShippingListing, hops int, held []chainStop, n
 	// max_speed_bonus is deliberately excluded: it is upside, never a reason to
 	// take a contract whose base reward does not stand on its own.
 	net := reward - fuel
-	if net < freightMinNet {
-		return freightCand{}, fmt.Sprintf("net %.0f below floor %.0f (reward %.0f, fuel %.0f)", net, freightMinNet, reward, fuel)
+	if net < floor {
+		return freightCand{}, fmt.Sprintf("net %.0f below floor %.0f (reward %.0f, fuel %.0f)", net, floor, reward, fuel)
 	}
 	return freightCand{
 		Contract:   l.Contract,
@@ -269,7 +269,7 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 			}
 			hops = h
 		}
-		c, reason := buildFreightCand(l, hops, in.Held, in.NowTick, in.FuelCostFor)
+		c, reason := buildFreightCand(l, hops, in.Held, in.NowTick, in.FuelCostFor, freightMinNet)
 		if reason != "" {
 			// Logged at every rejection on purpose: the net distribution here is
 			// the only evidence for whether freightMinNet is set sanely against

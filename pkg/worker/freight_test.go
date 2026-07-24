@@ -63,27 +63,27 @@ func TestFreightPackagesFit(t *testing.T) {
 func TestBuildFreightCandRejects(t *testing.T) {
 	// Ineligible listings never become candidates — the server's flag already
 	// encodes carrier tier, liability and debt, and we do not second-guess it.
-	if _, reason := buildFreightCand(listing("a", false, 5000, 2), 2, nil, 0, noFuel); reason == "" {
+	if _, reason := buildFreightCand(listing("a", false, 5000, 2), 2, nil, 0, noFuel, freightMinNet); reason == "" {
 		t.Fatal("an ineligible listing must be rejected")
 	}
 	// Below the net floor.
-	if _, reason := buildFreightCand(listing("b", true, 100, 2), 2, nil, 0, noFuel); reason == "" {
+	if _, reason := buildFreightCand(listing("b", true, 100, 2), 2, nil, 0, noFuel, freightMinNet); reason == "" {
 		t.Fatal("a reward below freightMinNet must be rejected")
 	}
 	// Fuel can push an otherwise-acceptable reward under the floor.
-	if _, reason := buildFreightCand(listing("c", true, 520, 5), 5, nil, 0, flatFuel); reason == "" {
+	if _, reason := buildFreightCand(listing("c", true, 520, 5), 5, nil, 0, flatFuel, freightMinNet); reason == "" {
 		t.Fatal("net after fuel below freightMinNet must be rejected")
 	}
 	// No destination is unroutable.
 	bad := listing("d", true, 5000, 2)
 	bad.Contract.DestinationBaseID = ""
-	if _, reason := buildFreightCand(bad, 2, nil, 0, noFuel); reason == "" {
+	if _, reason := buildFreightCand(bad, 2, nil, 0, noFuel, freightMinNet); reason == "" {
 		t.Fatal("a listing with no destination must be rejected")
 	}
 }
 
 func TestBuildFreightCandAccepts(t *testing.T) {
-	c, reason := buildFreightCand(listing("e", true, 5000, 3), 3, nil, 0, flatFuel)
+	c, reason := buildFreightCand(listing("e", true, 5000, 3), 3, nil, 0, flatFuel, freightMinNet)
 	if reason != "" {
 		t.Fatalf("want acceptance, got skip reason %q", reason)
 	}
@@ -96,7 +96,7 @@ func TestBuildFreightCandAccepts(t *testing.T) {
 	// max_speed_bonus is upside only; it must never lift a candidate over the floor.
 	low := listing("f", true, 100, 1)
 	low.Contract.MaxSpeedBonus = 10000
-	if _, reason := buildFreightCand(low, 1, nil, 0, noFuel); reason == "" {
+	if _, reason := buildFreightCand(low, 1, nil, 0, noFuel, freightMinNet); reason == "" {
 		t.Fatal("max_speed_bonus must not count toward the net floor")
 	}
 }
@@ -105,9 +105,9 @@ func TestSelectFreightCandPicksHighestNet(t *testing.T) {
 	if got := selectFreightCand(nil); got != nil {
 		t.Fatal("no candidates must select nothing")
 	}
-	a, _ := buildFreightCand(listing("a", true, 1000, 1), 1, nil, 0, noFuel)
-	b, _ := buildFreightCand(listing("b", true, 9000, 1), 1, nil, 0, noFuel)
-	c, _ := buildFreightCand(listing("c", true, 3000, 1), 1, nil, 0, noFuel)
+	a, _ := buildFreightCand(listing("a", true, 1000, 1), 1, nil, 0, noFuel, freightMinNet)
+	b, _ := buildFreightCand(listing("b", true, 9000, 1), 1, nil, 0, noFuel, freightMinNet)
+	c, _ := buildFreightCand(listing("c", true, 3000, 1), 1, nil, 0, noFuel, freightMinNet)
 	got := selectFreightCand([]freightCand{a, b, c})
 	if got == nil || got.Contract.ID != "b" {
 		t.Fatalf("want highest-net candidate b, got %+v", got)
@@ -1451,7 +1451,7 @@ func TestBuildFreightCandMarginalPricing(t *testing.T) {
 	l := serverapi.ShippingListing{Eligible: true, Contract: serverapi.ShipmentContract{
 		ID: "c", DestinationBaseID: "cb", BaseReward: 1000,
 	}}
-	cand, reason := buildFreightCand(l, 2, held, 0, func(j int) float64 { return float64(j) * 100 })
+	cand, reason := buildFreightCand(l, 2, held, 0, func(j int) float64 { return float64(j) * 100 }, freightMinNet)
 	if reason != "" {
 		t.Fatalf("unexpected reject: %s", reason)
 	}
@@ -1471,7 +1471,7 @@ func TestBuildFreightCandRejectsWhenHeldDeadlineBreaks(t *testing.T) {
 	l := serverapi.ShippingListing{Eligible: true, Contract: serverapi.ShipmentContract{
 		ID: "c", DestinationBaseID: "cb", BaseReward: 100000,
 	}}
-	_, reason := buildFreightCand(l, 2, held, 0, nil)
+	_, reason := buildFreightCand(l, 2, held, 0, nil, freightMinNet)
 	if reason == "" {
 		t.Fatal("candidate that breaks a held deadline must be rejected")
 	}
