@@ -532,7 +532,7 @@ func freightReconcileSet(ctx context.Context, deps MissionDeps, out io.Writer) [
 		var prof serverapi.ShippingProfileResponse
 		if raw := deps.Client.GetRawJSON("shipping_profile"); len(raw) > 0 && json.Unmarshal(raw, &prof) == nil {
 			if prof.Profile.ActiveContracts > len(survivors) {
-				fmt.Fprintf(out, "freight: profile reports %d active contract(s) but memory holds %d — UNRECOVERABLE without operator rescue (own contracts never list; no captains_log resume yet)\n", //nolint:errcheck
+				fmt.Fprintf(out, "freight: profile reports %d active contract(s) but memory holds %d — the held-freight file did not cover them (lost/corrupted or accepted elsewhere); operator rescue needed (own contracts never list)\n", //nolint:errcheck
 					prof.Profile.ActiveContracts, len(survivors))
 			}
 		}

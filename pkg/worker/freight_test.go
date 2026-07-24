@@ -561,7 +561,7 @@ func TestFreightReconcileLogsLoudMismatchWhenMemoryEmpty(t *testing.T) {
 	if slices.Contains(f.shippingCalls, "list") {
 		t.Fatal("board-scan recovery is dropped; must not read the board")
 	}
-	if !strings.Contains(log.String(), "UNRECOVERABLE") {
+	if !strings.Contains(log.String(), "operator rescue") {
 		t.Fatalf("a profile/memory mismatch must log loudly for operator rescue, got %q", log.String())
 	}
 }

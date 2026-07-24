@@ -6,10 +6,12 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 )
@@ -57,6 +59,8 @@ type WorkerDispatch struct {
 	// mission carries cross-pass mission-runner memory (dry-pass streak +
 	// reposition cursor), the shuttleState pattern.
 	mission *missionRunState
+	// freightPersistOnce guards the one-time load+wire of freight-held persistence.
+	freightPersistOnce sync.Once
 
 	// craftPollSleep is the sleep-with-cancellation used between craft_node's
 	// completion-poll retries (waitForCraftJob). Defaults to a real ctx-aware
@@ -108,6 +112,31 @@ func publishActivity(set func(string), s string) {
 	if set != nil {
 		set(s)
 	}
+}
+
+// ensureFreightPersistence loads any persisted held-freight set into mission state
+// and wires the persist callback so later mutations write through to disk. Inert
+// unless this is a freight worker with an AgentID (no file churn for the general
+// pool). Idempotent: the load+wire happens at most once per dispatch.
+func (d *WorkerDispatch) ensureFreightPersistence() {
+	if !d.EnableFreight || d.AgentID == "" || d.mission == nil {
+		return
+	}
+	d.freightPersistOnce.Do(func() {
+		path := freightHeldPath(d.agentsDir(), d.AgentID)
+		if held, err := loadHeldFreight(path); err != nil {
+			fmt.Fprintf(d.Out, "freight: load held set %s: %v; starting empty\n", path, err) //nolint:errcheck
+		} else {
+			for _, c := range held {
+				d.mission.addHeldFreight(c)
+			}
+		}
+		d.mission.persistHeld = func(cs []*serverapi.ShipmentContract) {
+			if err := saveHeldFreight(path, cs); err != nil {
+				fmt.Fprintf(d.Out, "freight: persist held set: %v\n", err) //nolint:errcheck
+			}
+		}
+	})
 }
 
 // NewWorkerDispatch builds a dispatch over the given client, KB, and optional
@@ -231,6 +260,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			fmt.Fprintln(d.Out, "missions: market collector not configured (use --market-db-path)") //nolint:errcheck
 			return nil
 		}
+		d.ensureFreightPersistence()
 		return Missions(ctx, MissionDeps{
 			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
 			Treasury: d.treasury, FuelPrices: d.Market, State: d.mission,

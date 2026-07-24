@@ -80,10 +80,16 @@ type missionRunState struct {
 	// session, keyed by contract ID. The live canary (2026-07-20) proved the
 	// board read NEVER returns our own in_transit contracts, so this
 	// in-memory set is the PRIMARY reconcile source; the profile count in
-	// freightReconcileSet survives only as the post-restart mismatch detector
-	// (and will usually be unrecoverable until captains_log-style server-side
-	// resume exists). Sub-project C: was a single *ShipmentContract.
+	// freightReconcileSet is now just the post-restart mismatch detector —
+	// the held set itself resumes across restarts via the freight-held.json
+	// file (WorkerDispatch.ensureFreightPersistence), so the detector only
+	// fires when that file is lost or corrupted. Sub-project C: was a single
+	// *ShipmentContract.
 	heldFreight map[string]*serverapi.ShipmentContract
+	// persistHeld saves the held set to disk after every mutation. nil (tests,
+	// non-freight workers, no AgentID) keeps the pre-persistence in-memory-only
+	// behavior. Set by WorkerDispatch.ensureFreightPersistence for freight workers.
+	persistHeld func([]*serverapi.ShipmentContract)
 	// bootstrapLoss is the cumulative freight LOSS (sum of -net over accepted
 	// negative-net contracts) this worker has eaten to climb out of the
 	// probationary carrier tier. In-memory and per-worker; resets on restart
@@ -102,6 +108,7 @@ func (s *missionRunState) addHeldFreight(c *serverapi.ShipmentContract) {
 		s.heldFreight = make(map[string]*serverapi.ShipmentContract)
 	}
 	s.heldFreight[c.ID] = c
+	s.saveHeld()
 }
 
 // removeHeldFreight forgets one contract after its terminal outcome. No-op
@@ -111,6 +118,15 @@ func (s *missionRunState) removeHeldFreight(id string) {
 		return
 	}
 	delete(s.heldFreight, id)
+	s.saveHeld()
+}
+
+// saveHeld pushes the current held set through the persist callback, if wired.
+func (s *missionRunState) saveHeld() {
+	if s == nil || s.persistHeld == nil {
+		return
+	}
+	s.persistHeld(s.heldFreightAll())
 }
 
 // heldFreightAll returns the held contracts sorted by ID (deterministic
