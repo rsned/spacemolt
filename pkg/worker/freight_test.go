@@ -1972,6 +1972,65 @@ func TestFreightCandidateProbationBootstrapAdmitsSubFloor(t *testing.T) {
 	}
 }
 
+// TestFreightCandidateProbationAdmitsNegativeNetWithinFloor drives genuinely
+// NEGATIVE-net contracts through the real freightCandidate gate (unlike
+// TestFreightAcceptAccruesBootstrapLoss, which builds a freightCand{Net: -300}
+// directly and never exercises buildFreightCand's `net < floor` comparison).
+//
+// Listing "neg300": base_reward 100, route_hops 4, fuel priced at 100/hop ->
+// fuel 400 -> net = 100 - 400 = -300. That sits strictly inside (-400, 0), so
+// a probationary carrier with bootstrap on must ADMIT it.
+//
+// Listing "neg450": base_reward 100, route_hops 5, fuel priced at 110/hop ->
+// fuel 550 -> net = 100 - 550 = -450. That is at-or-below -400, so the same
+// probationary+bootstrap-on carrier must REJECT it — proven not by routing,
+// eligibility or deadline (both listings are eligible, routable via
+// route_hops, and carry no deadline_tick yet, since the server only assigns
+// one at accept) but by asserting the logged skip reason names the net/floor
+// numbers themselves.
+func TestFreightCandidateProbationAdmitsNegativeNetWithinFloor(t *testing.T) {
+	profile := `{"profile":{"active_contracts":0},"progression":{"current_tier":"probationary"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
+
+	// -300 net: admitted.
+	admitBoard := `{"shipments":[{"eligible":true,"contract":{"id":"neg300","destination_base_id":"sol_central","base_reward":100,"route_hops":4,"service_level":"standard"}}]}`
+	deps := freightGateDeps(t, profile, admitBoard)
+	deps.State = &missionRunState{}
+	deps.FreightBootstrap = true
+	admitFuel := func(jumps int) float64 { return float64(jumps) * 100 } // 4 hops * 100 = 400
+	in := freightInputs{CargoFree: 500, FuelCostFor: admitFuel, NowTick: 0}
+
+	cand, skip := freightCandidate(context.Background(), deps, in, io.Discard)
+	if cand == nil {
+		t.Fatalf("a -300 net must clear the relaxed -400 floor, got skip %q", skip)
+	}
+	if cand.Contract.ID != "neg300" {
+		t.Fatalf("wrong candidate %q, want neg300", cand.Contract.ID)
+	}
+	if cand.Net != -300 {
+		t.Fatalf("Net = %.0f, want -300 (reward 100 - fuel 400)", cand.Net)
+	}
+
+	// -450 net: rejected, and specifically by the net-vs-floor gate.
+	rejectBoard := `{"shipments":[{"eligible":true,"contract":{"id":"neg450","destination_base_id":"sol_central","base_reward":100,"route_hops":5,"service_level":"standard"}}]}`
+	depsReject := freightGateDeps(t, profile, rejectBoard)
+	depsReject.State = &missionRunState{}
+	depsReject.FreightBootstrap = true
+	rejectFuel := func(jumps int) float64 { return float64(jumps) * 110 } // 5 hops * 110 = 550
+	inReject := freightInputs{CargoFree: 500, FuelCostFor: rejectFuel, NowTick: 0}
+	var log strings.Builder
+
+	candReject, skipReject := freightCandidate(context.Background(), depsReject, inReject, &log)
+	if candReject != nil {
+		t.Fatalf("a -450 net must still be rejected under the -400 floor, got %+v", candReject)
+	}
+	if !strings.Contains(skipReject, "no freight cleared the gate") {
+		t.Fatalf("want the board-emptied skip reason, got %q", skipReject)
+	}
+	if !strings.Contains(log.String(), "net -450 below floor -400 (reward 100, fuel 550)") {
+		t.Fatalf("the per-listing rejection must name the net/floor numbers (not routing/eligibility/deadline), got log %q", log.String())
+	}
+}
+
 // The budget caps losses: once bootstrapSpent >= freightProbationBudget the
 // floor reverts to 500 even while still probationary, so a sub-500 contract is
 // rejected.
