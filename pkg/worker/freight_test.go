@@ -1892,3 +1892,33 @@ func TestFreightChainRefillStopsAfterLoadRelease(t *testing.T) {
 		t.Fatalf("must have returned the unloadable contract, calls were %v", bc.shippingCalls)
 	}
 }
+
+func TestEffectiveFreightFloor(t *testing.T) {
+	cases := []struct {
+		name      string
+		tier      string
+		enabled   bool
+		spent     float64
+		budget    float64
+		wantFloor float64
+	}{
+		{"probationary with budget remaining relaxes", "probationary", true, 0, freightProbationBudget, freightProbationFloor},
+		{"probationary partway through budget still relaxes", "probationary", true, 2999, freightProbationBudget, freightProbationFloor},
+		{"probationary budget exhausted reverts", "probationary", true, freightProbationBudget, freightProbationBudget, freightMinNet},
+		{"probationary over budget reverts", "probationary", true, 3500, freightProbationBudget, freightMinNet},
+		{"licensed keeps normal floor", "licensed", true, 0, freightProbationBudget, freightMinNet},
+		{"trusted keeps normal floor", "trusted", true, 0, freightProbationBudget, freightMinNet},
+		{"prime keeps normal floor", "prime", true, 0, freightProbationBudget, freightMinNet},
+		{"empty tier keeps normal floor", "", true, 0, freightProbationBudget, freightMinNet},
+		{"unknown legacy tier keeps normal floor", "gold", true, 0, freightProbationBudget, freightMinNet},
+		{"bootstrap disabled forces normal floor even when probationary", "probationary", false, 0, freightProbationBudget, freightMinNet},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := effectiveFreightFloor(tc.tier, tc.enabled, tc.spent, tc.budget); got != tc.wantFloor {
+				t.Fatalf("effectiveFreightFloor(%q, %v, %v, %v) = %v, want %v",
+					tc.tier, tc.enabled, tc.spent, tc.budget, got, tc.wantFloor)
+			}
+		})
+	}
+}

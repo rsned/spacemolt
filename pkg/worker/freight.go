@@ -38,6 +38,23 @@ const (
 	// low, this floor rejects the whole board. freightCandidate logs the net of
 	// every rejected candidate so one canary pass reveals the true distribution.
 	freightMinNet = 500.0
+
+	// carrierTierProbationary is the lowest carrier standing. Bootstrap relaxes
+	// the freight net floor ONLY at this tier; every higher tier's cargo already
+	// clears the normal floor. Matches ShippingProfileResponse.Progression.CurrentTier.
+	carrierTierProbationary = "probationary"
+
+	// freightProbationFloor is the relaxed net floor a probationary carrier
+	// accepts down to while bootstrapping out of the tier. Negative: the
+	// probationary board is mostly small POSITIVE-net contracts the 500 floor
+	// wrongly rejects, plus a few small losses worth eating to reach the
+	// ~4x-paying licensed tier. Aggressive-profile value; tunable.
+	freightProbationFloor = -400.0
+
+	// freightProbationBudget caps cumulative bootstrap LOSSES per worker
+	// (positive-net accepts are free). Once spent, the floor reverts to 500
+	// until the server flips the tier. Aggressive-profile value; tunable.
+	freightProbationBudget = 3000.0
 )
 
 // freightCand is an eligible freight listing with derived routing and economics,
@@ -70,6 +87,20 @@ func freightEffectiveMax(n int) int {
 		return 1
 	}
 	return n
+}
+
+// effectiveFreightFloor is the net floor a contract must clear this pass. It
+// relaxes from freightMinNet (500) to freightProbationFloor (-400) only while a
+// worker is bootstrapping out of the probationary tier: bootstrap enabled, tier
+// is exactly probationary, and its per-worker loss budget is not yet spent. Any
+// other tier, an unknown/empty tier, a spent budget, or a disabled toggle all
+// yield the normal 500 floor. Pure — the caller supplies the live tier and the
+// per-worker spend so this needs no I/O and is table-testable.
+func effectiveFreightFloor(tier string, bootstrapEnabled bool, spent, budget float64) float64 {
+	if bootstrapEnabled && tier == carrierTierProbationary && spent < budget {
+		return freightProbationFloor
+	}
+	return freightMinNet
 }
 
 // buildFreightCand derives economics for one listing given the chain we
