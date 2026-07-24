@@ -1922,3 +1922,96 @@ func TestEffectiveFreightFloor(t *testing.T) {
 		})
 	}
 }
+
+func TestBootstrapSpentTally(t *testing.T) {
+	var nilState *missionRunState
+	if got := nilState.bootstrapSpent(); got != 0 {
+		t.Fatalf("nil state bootstrapSpent = %v, want 0", got)
+	}
+	nilState.addBootstrapSpent(500) // must not panic on nil receiver
+
+	s := &missionRunState{}
+	if got := s.bootstrapSpent(); got != 0 {
+		t.Fatalf("fresh state bootstrapSpent = %v, want 0", got)
+	}
+	s.addBootstrapSpent(300)
+	s.addBootstrapSpent(200)
+	if got := s.bootstrapSpent(); got != 500 {
+		t.Fatalf("bootstrapSpent = %v, want 500", got)
+	}
+}
+
+// A probationary bootstrap worker accepts a contract whose net is below the
+// normal 500 floor but above the -400 probation floor. The same board with
+// bootstrap OFF selects nothing.
+func TestFreightCandidateProbationBootstrapAdmitsSubFloor(t *testing.T) {
+	// One eligible contract: reward 100, no fuel -> net +100 (below 500,
+	// above -400). Profile reports the probationary tier.
+	profile := `{"profile":{"active_contracts":0},"progression":{"current_tier":"probationary"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
+	board := `{"shipments":[{"eligible":true,"contract":{"id":"p1","destination_base_id":"sol_central","base_reward":100,"route_hops":2,"service_level":"standard"}}]}`
+
+	// Bootstrap ON: the sub-floor contract clears.
+	deps := freightGateDeps(t, profile, board)
+	deps.State = &missionRunState{}
+	deps.FreightBootstrap = true
+	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
+	cand, skip := freightCandidate(context.Background(), deps, in, io.Discard)
+	if cand == nil {
+		t.Fatalf("probationary bootstrap must admit the sub-floor contract, got skip %q", skip)
+	}
+	if cand.Contract.ID != "p1" {
+		t.Fatalf("wrong candidate %q, want p1", cand.Contract.ID)
+	}
+
+	// Bootstrap OFF: same board, normal 500 floor rejects it.
+	depsOff := freightGateDeps(t, profile, board)
+	depsOff.State = &missionRunState{}
+	depsOff.FreightBootstrap = false
+	if cand, _ := freightCandidate(context.Background(), depsOff, in, io.Discard); cand != nil {
+		t.Fatalf("bootstrap off must reject the sub-floor contract, got %+v", cand)
+	}
+}
+
+// The budget caps losses: once bootstrapSpent >= freightProbationBudget the
+// floor reverts to 500 even while still probationary, so a sub-500 contract is
+// rejected.
+func TestFreightCandidateProbationBudgetExhaustedReverts(t *testing.T) {
+	profile := `{"profile":{"active_contracts":0},"progression":{"current_tier":"probationary"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
+	board := `{"shipments":[{"eligible":true,"contract":{"id":"p1","destination_base_id":"sol_central","base_reward":100,"route_hops":2,"service_level":"standard"}}]}`
+	deps := freightGateDeps(t, profile, board)
+	deps.State = &missionRunState{}
+	deps.State.addBootstrapSpent(freightProbationBudget) // budget fully spent
+	deps.FreightBootstrap = true
+	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
+	if cand, _ := freightCandidate(context.Background(), deps, in, io.Discard); cand != nil {
+		t.Fatalf("a spent budget must revert to the 500 floor and reject, got %+v", cand)
+	}
+}
+
+// A negative-net accept accrues -net against the budget; a positive-net accept
+// does not touch it.
+func TestFreightAcceptAccruesBootstrapLoss(t *testing.T) {
+	feasible := shippingContractJSON(t, "accept", acceptedContract(1200, 1380))
+
+	// Negative net -> accrue.
+	f := &fakeClient{state: &game.State{CurrentTick: 1200}, raw: map[string][]byte{"shipping_accept": feasible}}
+	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: &fakeMissionStore{}, State: &missionRunState{}}
+	cand := &freightCand{Contract: serverapi.ShipmentContract{ID: "high"}, Hops: 3, Net: -300}
+	if _, step := freightAccept(context.Background(), deps, cand, nil, io.Discard); step != freightStepProceed {
+		t.Fatal("a feasible contract must proceed")
+	}
+	if got := deps.State.bootstrapSpent(); got != 300 {
+		t.Fatalf("bootstrapSpent = %v, want 300 after a -300 accept", got)
+	}
+
+	// Positive net -> no accrual.
+	f2 := &fakeClient{state: &game.State{CurrentTick: 1200}, raw: map[string][]byte{"shipping_accept": shippingContractJSON(t, "accept", acceptedContract(1200, 1380))}}
+	deps2 := MissionDeps{Client: f2, AgentID: "fighter-4", Market: &fakeMissionStore{}, State: &missionRunState{}}
+	candPos := &freightCand{Contract: serverapi.ShipmentContract{ID: "high2"}, Hops: 3, Net: 6000}
+	if _, step := freightAccept(context.Background(), deps2, candPos, nil, io.Discard); step != freightStepProceed {
+		t.Fatal("a feasible positive contract must proceed")
+	}
+	if got := deps2.State.bootstrapSpent(); got != 0 {
+		t.Fatalf("bootstrapSpent = %v, want 0 after a positive-net accept", got)
+	}
+}

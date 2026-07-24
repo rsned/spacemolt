@@ -84,6 +84,12 @@ type missionRunState struct {
 	// (and will usually be unrecoverable until captains_log-style server-side
 	// resume exists). Sub-project C: was a single *ShipmentContract.
 	heldFreight map[string]*serverapi.ShipmentContract
+	// bootstrapLoss is the cumulative freight LOSS (sum of -net over accepted
+	// negative-net contracts) this worker has eaten to climb out of the
+	// probationary carrier tier. In-memory and per-worker; resets on restart
+	// (bounded — the probationary gate and fast advancement keep it small).
+	// Positive-net accepts never touch it. Read via bootstrapSpent().
+	bootstrapLoss float64
 }
 
 // addHeldFreight remembers (or refreshes) a contract we are carrying. No-op
@@ -173,6 +179,24 @@ func (s *missionRunState) shouldLogSkip(id, reason string) bool {
 	return true
 }
 
+// addBootstrapSpent adds a bootstrap freight loss to the per-worker tally. No-op
+// on a nil receiver (State is optional; tests that don't care omit it).
+func (s *missionRunState) addBootstrapSpent(loss float64) {
+	if s == nil {
+		return
+	}
+	s.bootstrapLoss += loss
+}
+
+// bootstrapSpent is the cumulative bootstrap freight loss this session; 0 on a
+// nil receiver.
+func (s *missionRunState) bootstrapSpent() float64 {
+	if s == nil {
+		return 0
+	}
+	return s.bootstrapLoss
+}
+
 // stationHop is one reposition target from the nearest-stations query.
 type stationHop struct {
 	SystemID string
@@ -227,6 +251,11 @@ type MissionDeps struct {
 	// behavior; the cap layers UNDER the server/cargo headroom gates and is
 	// never a target. Canary: fighter-4 at 3.
 	FreightMaxPackages int
+	// FreightBootstrap enables the probationary loss-leader floor relaxation
+	// (effectiveFreightFloor). Defaults on wherever EnableFreight is set; a
+	// false value forces the normal 500 floor — the kill switch. Inert unless
+	// EnableFreight is also true (freightCandidate only runs on the freight path).
+	FreightBootstrap bool
 }
 
 // missionActivityLabel renders the accepted set as the status-page activity

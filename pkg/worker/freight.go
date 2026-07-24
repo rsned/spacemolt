@@ -253,6 +253,11 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 		return nil, reason
 	}
 
+	// Bootstrap floor: relaxed to freightProbationFloor only while this worker
+	// is probationary and its loss budget holds; otherwise the normal 500 floor.
+	// Read from the profile just fetched — no extra server call.
+	floor := effectiveFreightFloor(prof.Progression.CurrentTier, deps.FreightBootstrap, deps.State.bootstrapSpent(), freightProbationBudget)
+
 	cands := make([]freightCand, 0, len(board.Shipments))
 	for _, l := range board.Shipments {
 		if !prof.Capacity.LiabilityUnlimited && prof.Capacity.AggregateLiabilityLimit > 0 &&
@@ -269,7 +274,7 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 			}
 			hops = h
 		}
-		c, reason := buildFreightCand(l, hops, in.Held, in.NowTick, in.FuelCostFor, freightMinNet)
+		c, reason := buildFreightCand(l, hops, in.Held, in.NowTick, in.FuelCostFor, floor)
 		if reason != "" {
 			// Logged at every rejection on purpose: the net distribution here is
 			// the only evidence for whether freightMinNet is set sanely against
@@ -405,6 +410,11 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, hel
 	// shows our own in_transit contracts, so this is what reconcile resumes
 	// from if the trip is interrupted mid-session.
 	deps.State.addHeldFreight(&c)
+	// A negative-net accept only happens under the relaxed probation floor;
+	// charge the loss against the per-worker budget so it eventually reverts.
+	if cand.Net < 0 {
+		deps.State.addBootstrapSpent(-cand.Net)
+	}
 	return &c, freightStepProceed
 }
 
