@@ -39,6 +39,10 @@ type WorkerDispatch struct {
 	// FreightMaxPackages caps concurrent freight contracts; see
 	// MissionDeps.FreightMaxPackages. 0/1 = single-contract v1 behavior.
 	FreightMaxPackages int
+	// FreightBootstrap enables the probationary loss-leader floor relaxation for
+	// the missions role. Defaults on when EnableFreight is set; false is the
+	// kill switch. See MissionDeps.FreightBootstrap.
+	FreightBootstrap bool
 	// MissionCategories is the mission-board category allowlist for the
 	// missions role (nil/empty -> delivery only; the learning pool adds
 	// "exploration").
@@ -233,6 +237,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			Categories:         d.MissionCategories,
 			EnableFreight:      d.EnableFreight,
 			FreightMaxPackages: d.FreightMaxPackages,
+			FreightBootstrap:   d.FreightBootstrap,
 			SetActivity:        d.setActivity,
 			// Exploration dock legs double as market-coverage sweeps: full
 			// view_market capture into market.db (haul's recapture pattern)

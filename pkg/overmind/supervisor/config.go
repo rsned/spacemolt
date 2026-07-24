@@ -28,6 +28,10 @@ type WorkerSpec struct {
 	// single-contract behavior; canary fighter-4 runs 3. Layers UNDER the
 	// server/cargo headroom gates.
 	FreightMaxPackages int `yaml:"freight_max_packages,omitempty"`
+	// DisableFreightBootstrap forwards --freight-bootstrap=false, turning off the
+	// probationary loss-leader floor while leaving freight enabled. Zero value
+	// (false) keeps the CLI default (bootstrap on).
+	DisableFreightBootstrap bool `yaml:"disable_freight_bootstrap,omitempty"`
 }
 
 type fleetFile struct {

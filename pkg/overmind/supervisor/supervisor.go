@@ -43,6 +43,9 @@ func DefaultSpawn(workerBin, handoffQueuePath string) SpawnFunc {
 		if spec.FreightMaxPackages > 1 {
 			args = append(args, "--freight-max-packages", strconv.Itoa(spec.FreightMaxPackages))
 		}
+		if spec.DisableFreightBootstrap {
+			args = append(args, "--freight-bootstrap=false")
+		}
 		cmd := exec.CommandContext(ctx, workerBin, args...)
 		cmd.Stdout = log.Writer()
 		cmd.Stderr = log.Writer()

@@ -57,6 +57,7 @@ func main() {
 	missionCategories := flag.String("mission-categories", "", "Comma-separated mission-board categories for the missions role (empty = delivery only; learning pool: delivery,exploration)")
 	enableFreight := flag.Bool("enable-freight", false, "Opt the missions role into the /shipping carrier path (freight evaluated co-equally with the mission board; default off)")
 	freightMaxPackages := flag.Int("freight-max-packages", 1, "Max concurrent freight contracts for the missions role (sub-project C multi-package trips; 1 = single-contract v1 behavior)")
+	freightBootstrap := flag.Bool("freight-bootstrap", true, "Enable the probationary loss-leader freight floor for the missions role (default on when --enable-freight; set =false to keep freight on but disable bootstrapping)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
@@ -329,6 +330,7 @@ func main() {
 			}
 			dispatch.EnableFreight = *enableFreight
 			dispatch.FreightMaxPackages = *freightMaxPackages
+			dispatch.FreightBootstrap = *freightBootstrap
 			var handoffQueue *handoff.Queue
 			if *handoffQueuePath != "" {
 				handoffQueue = handoff.NewQueue(*handoffQueuePath)

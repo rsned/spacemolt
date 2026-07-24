@@ -502,6 +502,40 @@ func TestDefaultSpawnFreightArgs(t *testing.T) {
 	})
 }
 
+// The bootstrap kill switch defaults on (CLI default), so DefaultSpawn must
+// only ever emit --freight-bootstrap=false, and only when the operator has
+// explicitly set DisableFreightBootstrap; the default-on case must forward no
+// flag at all, relying on the worker's own CLI default.
+func TestDefaultSpawnFreightBootstrapDisable(t *testing.T) {
+	spawn := DefaultSpawn("true", "")
+
+	t.Run("bootstrap on by default: no disable flag", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		cmd, err := spawn(ctx, WorkerSpec{AgentID: "on", Role: "missions", EnableFreight: true}, "/tmp/does-not-matter.sock")
+		if err != nil {
+			t.Fatalf("spawn: %v", err)
+		}
+		_ = cmd.Wait()
+		if hasArg(cmd.Args, "--freight-bootstrap=false") {
+			t.Errorf("bootstrap on by default must not emit the disable flag: %v", cmd.Args)
+		}
+	})
+
+	t.Run("DisableFreightBootstrap set: disable flag present", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		cmd, err := spawn(ctx, WorkerSpec{AgentID: "off", Role: "missions", EnableFreight: true, DisableFreightBootstrap: true}, "/tmp/does-not-matter.sock")
+		if err != nil {
+			t.Fatalf("spawn: %v", err)
+		}
+		_ = cmd.Wait()
+		if !hasArg(cmd.Args, "--freight-bootstrap=false") {
+			t.Errorf("DisableFreightBootstrap must emit --freight-bootstrap=false: %v", cmd.Args)
+		}
+	})
+}
+
 // Past DisconnectGrace the worker is treated as genuinely wedged (its reconnect
 // never recovered) and falls through to the stall watchdog's restart.
 func TestDisconnectedWorkerRestartedAfterGrace(t *testing.T) {
