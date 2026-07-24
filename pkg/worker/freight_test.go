@@ -2211,3 +2211,92 @@ func TestFreightAcceptAccruesBootstrapLoss(t *testing.T) {
 		t.Fatalf("bootstrapSpent = %v, want 0 after a positive-net accept", got)
 	}
 }
+
+// fenceBoard: two eligible contracts. The probationary-band one has the higher
+// net (reward 800, no fuel -> net 800); the licensed-band one is lower (600).
+// Without the fence selectFreightCand picks prob800; the fence flips it.
+const fenceBoard = `{"shipments":[` +
+	`{"eligible":true,"contract":{"id":"prob800","destination_base_id":"sol_central","base_reward":800,"route_hops":2,"service_level":"standard","risk_band":"probationary"}},` +
+	`{"eligible":true,"contract":{"id":"lic600","destination_base_id":"sol_central","base_reward":600,"route_hops":2,"service_level":"standard","risk_band":"licensed"}}` +
+	`],"total":2}`
+
+// An above-probationary carrier skips the (higher-net) probationary cargo and
+// takes its own-tier licensed cargo instead; the skip is logged.
+func TestFreightCandidateFencesProbationaryForAdvancedCarrier(t *testing.T) {
+	profile := `{"profile":{"active_contracts":0},"progression":{"current_tier":"licensed"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
+	deps := freightGateDeps(t, profile, fenceBoard)
+	deps.State = &missionRunState{}
+	deps.FreightBootstrap = true
+	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
+	var log strings.Builder
+
+	cand, skip := freightCandidate(context.Background(), deps, in, &log)
+	if cand == nil {
+		t.Fatalf("a licensed carrier must still take licensed cargo, got skip %q", skip)
+	}
+	if cand.Contract.ID != "lic600" {
+		t.Fatalf("want the licensed contract lic600 (probationary fenced), got %q", cand.Contract.ID)
+	}
+	if !strings.Contains(log.String(), "prob800") || !strings.Contains(log.String(), "reserved for climbing carriers") {
+		t.Fatalf("the fence must log why prob800 was skipped, got %q", log.String())
+	}
+}
+
+// A probationary carrier is never fenced: it takes the highest-net probationary
+// contract as before, and nothing is logged as reserved.
+func TestFreightCandidateProbationaryCarrierNotFenced(t *testing.T) {
+	profile := `{"profile":{"active_contracts":0},"progression":{"current_tier":"probationary"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
+	deps := freightGateDeps(t, profile, fenceBoard)
+	deps.State = &missionRunState{}
+	deps.FreightBootstrap = true
+	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
+	var log strings.Builder
+
+	cand, skip := freightCandidate(context.Background(), deps, in, &log)
+	if cand == nil {
+		t.Fatalf("a probationary carrier must take probationary cargo, got skip %q", skip)
+	}
+	if cand.Contract.ID != "prob800" {
+		t.Fatalf("want the highest-net probationary contract prob800, got %q", cand.Contract.ID)
+	}
+	if strings.Contains(log.String(), "reserved for climbing carriers") {
+		t.Fatalf("a probationary carrier must never fence itself, log was %q", log.String())
+	}
+}
+
+// Bootstrap off disables the fence entirely: even an advanced carrier takes the
+// highest-net contract regardless of band.
+func TestFreightCandidateFenceOffWhenBootstrapDisabled(t *testing.T) {
+	profile := `{"profile":{"active_contracts":0},"progression":{"current_tier":"licensed"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
+	deps := freightGateDeps(t, profile, fenceBoard)
+	deps.State = &missionRunState{}
+	deps.FreightBootstrap = false
+	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
+
+	cand, skip := freightCandidate(context.Background(), deps, in, io.Discard)
+	if cand == nil {
+		t.Fatalf("bootstrap off must not fence, got skip %q", skip)
+	}
+	if cand.Contract.ID != "prob800" {
+		t.Fatalf("bootstrap off: want the highest-net contract prob800, got %q", cand.Contract.ID)
+	}
+}
+
+// An above-probationary carrier at a station whose only eligible cargo is
+// probationary-band fences everything and falls through (nil candidate).
+func TestFreightCandidateAdvancedCarrierProbationaryOnlyBoardFallsThrough(t *testing.T) {
+	profile := `{"profile":{"active_contracts":0},"progression":{"current_tier":"licensed"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
+	board := `{"shipments":[{"eligible":true,"contract":{"id":"prob800","destination_base_id":"sol_central","base_reward":800,"route_hops":2,"service_level":"standard","risk_band":"probationary"}}],"total":1}`
+	deps := freightGateDeps(t, profile, board)
+	deps.State = &missionRunState{}
+	deps.FreightBootstrap = true
+	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
+
+	cand, skip := freightCandidate(context.Background(), deps, in, io.Discard)
+	if cand != nil {
+		t.Fatalf("all cargo fenced must yield no candidate, got %q", cand.Contract.ID)
+	}
+	if !strings.Contains(skip, "no freight cleared the gate") {
+		t.Fatalf("want the board-emptied skip reason, got %q", skip)
+	}
+}

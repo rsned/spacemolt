@@ -278,6 +278,11 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 
 	cands := make([]freightCand, 0, len(board.Shipments))
 	for _, l := range board.Shipments {
+		if freightBandExcluded(prof.Progression.CurrentTier, l.Contract.RiskBand, deps.FreightBootstrap) {
+			fmt.Fprintf(out, "freight: skip %s: probationary cargo reserved for climbing carriers (carrier tier %s)\n", //nolint:errcheck
+				l.Contract.ID, prof.Progression.CurrentTier)
+			continue
+		}
 		if !prof.Capacity.LiabilityUnlimited && prof.Capacity.AggregateLiabilityLimit > 0 &&
 			l.Contract.ReservedExposure > prof.Capacity.RemainingAggregateLiability {
 			fmt.Fprintf(out, "freight: skip %s: exposure %d over remaining liability %d\n", l.Contract.ID, l.Contract.ReservedExposure, prof.Capacity.RemainingAggregateLiability) //nolint:errcheck
