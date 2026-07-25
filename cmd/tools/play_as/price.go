@@ -135,14 +135,14 @@ func renderPriceText(itemID, fromSystem string, hops int, marginPct float64, mod
 			fmt.Fprintf(&b, " → %d units/run", r.OutputUnits)
 		}
 		b.WriteString("\n")
-		fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", "COMPONENT", "QTY", "NEARBY", "MKT-AVG")
+		fmt.Fprintf(&b, "  %-20s %8s %10s %10s %10s\n", "COMPONENT", "QTY", "NEARBY", "MKT-BEST", "MKT-AVG")
 		// Track which components lack a price on each basis so coverage can be
 		// reported (and the SUGGESTED total flagged as partial) per basis.
 		var nearbyMissing, mktMissing []string
 		for _, c := range r.Components {
-			fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", c.ItemID,
+			fmt.Fprintf(&b, "  %-20s %8s %10s %10s %10s\n", c.ItemID,
 				strconv.FormatFloat(c.Qty, 'f', -1, 64),
-				money(c.NearbyUnit, c.NearbyFound), money(c.MktUnit, c.MktFound))
+				money(c.NearbyUnit, c.NearbyFound), money(c.MktBestUnit, c.MktBestFound), money(c.MktUnit, c.MktFound))
 			if !c.NearbyFound {
 				nearbyMissing = append(nearbyMissing, c.ItemID)
 			}
@@ -154,13 +154,13 @@ func renderPriceText(itemID, fromSystem string, hops int, marginPct float64, mod
 		if r.OutputUnits <= 1 {
 			costLabel = "build cost"
 		}
-		fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", "---- "+costLabel, "", money(r.Nearby.BuildCost, r.Nearby.Covered > 0), money(r.Mkt.BuildCost, r.Mkt.Covered > 0))
-		fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", "---- per unit", "", money(r.Nearby.PerUnit, r.Nearby.Covered > 0), money(r.Mkt.PerUnit, r.Mkt.Covered > 0))
-		fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", fmt.Sprintf("---- + %.0f%% margin", marginPct), "", money(r.Nearby.Margin, r.Nearby.Covered > 0), money(r.Mkt.Margin, r.Mkt.Covered > 0))
+		fmt.Fprintf(&b, "  %-20s %8s %10s %10s %10s\n", "---- "+costLabel, "", money(r.Nearby.BuildCost, r.Nearby.Covered > 0), money(r.MktBest.BuildCost, r.MktBest.Covered > 0), money(r.Mkt.BuildCost, r.Mkt.Covered > 0))
+		fmt.Fprintf(&b, "  %-20s %8s %10s %10s %10s\n", "---- per unit", "", money(r.Nearby.PerUnit, r.Nearby.Covered > 0), money(r.MktBest.PerUnit, r.MktBest.Covered > 0), money(r.Mkt.PerUnit, r.Mkt.Covered > 0))
+		fmt.Fprintf(&b, "  %-20s %8s %10s %10s %10s\n", fmt.Sprintf("---- + %.0f%% margin", marginPct), "", money(r.Nearby.Margin, r.Nearby.Covered > 0), money(r.MktBest.Margin, r.MktBest.Covered > 0), money(r.Mkt.Margin, r.Mkt.Covered > 0))
 		// SUGGESTED renders whenever a basis priced at least one component,
 		// consistent with the cost rows above. A basis that priced some but not
 		// all components yields a partial floor, flagged below.
-		fmt.Fprintf(&b, "  %-20s %8s %10s %10s\n", "= SUGGESTED", "", money(r.Nearby.Suggested, r.Nearby.Covered > 0), money(r.Mkt.Suggested, r.Mkt.Covered > 0))
+		fmt.Fprintf(&b, "  %-20s %8s %10s %10s %10s\n", "= SUGGESTED", "", money(r.Nearby.Suggested, r.Nearby.Covered > 0), money(r.MktBest.Suggested, r.MktBest.Covered > 0), money(r.Mkt.Suggested, r.Mkt.Covered > 0))
 		fmt.Fprintf(&b, "  coverage: nearby %d/%d", r.Nearby.Covered, r.Nearby.Total)
 		if len(nearbyMissing) > 0 {
 			fmt.Fprintf(&b, " (missing: %s)", strings.Join(nearbyMissing, ", "))
@@ -181,8 +181,9 @@ func renderPriceText(itemID, fromSystem string, hops int, marginPct float64, mod
 	if len(modes) > 0 {
 		r := modes[0].R
 		b.WriteString("\nCURRENT MARKET  " + itemID + "\n")
-		fmt.Fprintf(&b, "  nearby ask %s   best bid %s   mkt-avg ask %s\n",
-			money(r.CurAskNearby, r.HasAskNearby), money(r.CurBid, r.HasBid), money(r.CurAskMkt, r.HasAskMkt))
+		fmt.Fprintf(&b, "  nearby ask %s   mkt-best ask %s   mkt-avg ask %s   best bid %s\n",
+			money(r.CurAskNearby, r.HasAskNearby), money(r.CurAskMktBest, r.HasAskMktBest),
+			money(r.CurAskMkt, r.HasAskMkt), money(r.CurBid, r.HasBid))
 		if r.Class != "" {
 			fmt.Fprintf(&b, "  → %s\n", r.Class)
 		}

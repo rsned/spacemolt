@@ -1,10 +1,12 @@
 // Package pricing computes a suggested sell price for a craftable item from
 // the live market cost of its inputs plus a profit margin. It powers the
 // play_as `price` command: given an item's decomposition (recipe inputs or
-// bill-of-materials ore), it prices each component two ways — Nearby (cheapest
-// ask within N jumps) and Market-wide (mean ask across stations) — rolls the
-// costs up per output unit, adds a margin line, and compares the result to the
-// finished good's own current market price.
+// bill-of-materials ore), it prices each component three ways — Nearby
+// (cheapest ask within N jumps), Market-best (cheapest ask anywhere) and
+// Market-wide (mean ask across stations) — rolls the costs up per output unit,
+// adds a margin line, and compares the result to the finished good's own
+// current market price. Best sits beside the mean because one outlier listing
+// can dominate a mean and hide the real sourcing floor.
 package pricing
 
 import (
@@ -26,10 +28,16 @@ type Component struct {
 // basis; the unit price is then zero and excluded from the roll-up.
 type PricedComponent struct {
 	Component
-	NearbyUnit  float64
-	MktUnit     float64
-	NearbyFound bool
-	MktFound    bool
+	NearbyUnit float64
+	MktUnit    float64
+	// MktBestUnit is the cheapest ask at ANY station, ignoring distance. It
+	// answers what the mean cannot: what this actually costs if you go get it.
+	// A single outlier ask can dominate the mean (titanium_ore showed a 10000
+	// mkt-avg), so the two figures are reported side by side.
+	MktBestUnit  float64
+	NearbyFound  bool
+	MktFound     bool
+	MktBestFound bool
 }
 
 // Basis is the rolled-up cost on one pricing basis (Nearby or Market-wide).
@@ -48,12 +56,13 @@ func (b Basis) Complete() bool { return b.Total > 0 && b.Covered == b.Total }
 // rollUp turns priced components into the Nearby and Market-wide bases.
 // outputUnits <= 0 is treated as 1 so the per-unit conversion degrades to
 // identity.
-func rollUp(comps []PricedComponent, outputUnits int, marginPct float64) (nearby, mkt Basis) {
+func rollUp(comps []PricedComponent, outputUnits int, marginPct float64) (nearby, mkt, mktBest Basis) {
 	if outputUnits <= 0 {
 		outputUnits = 1
 	}
 	nearby.Total = len(comps)
 	mkt.Total = len(comps)
+	mktBest.Total = len(comps)
 	for _, c := range comps {
 		if c.NearbyFound {
 			nearby.BuildCost += c.Qty * c.NearbyUnit
@@ -63,6 +72,10 @@ func rollUp(comps []PricedComponent, outputUnits int, marginPct float64) (nearby
 			mkt.BuildCost += c.Qty * c.MktUnit
 			mkt.Covered++
 		}
+		if c.MktBestFound {
+			mktBest.BuildCost += c.Qty * c.MktBestUnit
+			mktBest.Covered++
+		}
 	}
 	finish := func(b *Basis) {
 		b.PerUnit = b.BuildCost / float64(outputUnits)
@@ -71,15 +84,29 @@ func rollUp(comps []PricedComponent, outputUnits int, marginPct float64) (nearby
 	}
 	finish(&nearby)
 	finish(&mkt)
-	return nearby, mkt
+	finish(&mktBest)
+	return nearby, mkt, mktBest
+}
+
+// askPrices is one item's per-station asks reduced to the three reported
+// bases. Kept as a struct rather than a return list because three
+// value+found pairs as positional results is unreadable at the call site.
+type askPrices struct {
+	Nearby      float64 // cheapest ask reachable within hops
+	NearbyFound bool
+	Mkt         float64 // mean ask across every station
+	MktFound    bool
+	Best        float64 // cheapest ask at ANY station, distance ignored
+	BestFound   bool
 }
 
 // askStats reduces one item's per-station sell asks (as returned by
-// finditem.Find) to a Nearby unit price (cheapest ask reachable within hops)
-// and a Market-wide unit price (mean ask across every station). A result with
-// Jumps == finditem.JumpsUnknown or Jumps >= navigation.RouteInf is outside
-// "nearby" but still counts toward the market-wide mean. Asks of 0 are ignored.
-func askStats(results []finditem.Result, hops int) (nearbyUnit float64, nearbyFound bool, mktUnit float64, mktFound bool) {
+// finditem.Find) to the Nearby, Market-mean and Market-best bases. A result
+// with Jumps == finditem.JumpsUnknown or Jumps >= navigation.RouteInf is
+// outside "nearby" but still counts toward both market-wide figures — Best is
+// a sourcing floor, not a reachability claim. Asks of 0 are ignored.
+func askStats(results []finditem.Result, hops int) askPrices {
+	var out askPrices
 	var sum float64
 	var n int
 	for _, r := range results {
@@ -88,16 +115,19 @@ func askStats(results []finditem.Result, hops int) (nearbyUnit float64, nearbyFo
 		}
 		sum += r.BestPrice
 		n++
+		if !out.BestFound || r.BestPrice < out.Best {
+			out.Best, out.BestFound = r.BestPrice, true
+		}
 		if r.Jumps >= 0 && r.Jumps <= hops {
-			if !nearbyFound || r.BestPrice < nearbyUnit {
-				nearbyUnit, nearbyFound = r.BestPrice, true
+			if !out.NearbyFound || r.BestPrice < out.Nearby {
+				out.Nearby, out.NearbyFound = r.BestPrice, true
 			}
 		}
 	}
 	if n > 0 {
-		mktUnit, mktFound = sum/float64(n), true
+		out.Mkt, out.MktFound = sum/float64(n), true
 	}
-	return nearbyUnit, nearbyFound, mktUnit, mktFound
+	return out
 }
 
 // Verdicts comparing the finished good's current market ask to the
@@ -140,14 +170,20 @@ type PriceReport struct {
 	Components  []PricedComponent `json:"components"`
 	Nearby      Basis             `json:"nearby"`
 	Mkt         Basis             `json:"market"`
+	// MktBest rolls up the cheapest ask found anywhere per component — the
+	// realistic sourcing floor when the mean is skewed by an outlier listing.
+	MktBest Basis `json:"market_best"`
 
 	CurAskNearby float64 `json:"cur_ask_nearby,omitempty"`
 	HasAskNearby bool    `json:"has_ask_nearby"`
 	CurAskMkt    float64 `json:"cur_ask_mkt,omitempty"`
 	HasAskMkt    bool    `json:"has_ask_mkt"`
-	CurBid       float64 `json:"cur_bid,omitempty"`
-	HasBid       bool    `json:"has_bid"`
-	Class        string  `json:"class,omitempty"`
+	// CurAskMktBest is the finished good's cheapest ask anywhere.
+	CurAskMktBest float64 `json:"cur_ask_mkt_best,omitempty"`
+	HasAskMktBest bool    `json:"has_ask_mkt_best"`
+	CurBid        float64 `json:"cur_bid,omitempty"`
+	HasBid        bool    `json:"has_bid"`
+	Class         string  `json:"class,omitempty"`
 }
 
 // Report prices every component of one decomposition (comps) on both bases,
@@ -164,18 +200,28 @@ func Report(ctx context.Context, col *market.Collector, kb knowledge.Base, fromS
 		if err != nil {
 			return nil, err
 		}
-		nu, nf, mu, mf := askStats(results, hops)
-		priced = append(priced, PricedComponent{Component: c, NearbyUnit: nu, MktUnit: mu, NearbyFound: nf, MktFound: mf})
+		a := askStats(results, hops)
+		priced = append(priced, PricedComponent{
+			Component:   c,
+			NearbyUnit:  a.Nearby,
+			MktUnit:     a.Mkt,
+			MktBestUnit: a.Best,
+			NearbyFound: a.NearbyFound,
+			MktFound:    a.MktFound, MktBestFound: a.BestFound,
+		})
 	}
 	rep.Components = priced
-	rep.Nearby, rep.Mkt = rollUp(priced, outputUnits, marginPct)
+	rep.Nearby, rep.Mkt, rep.MktBest = rollUp(priced, outputUnits, marginPct)
 
-	// Finished good's own asks (nearby cheapest + market-wide mean).
+	// Finished good's own asks (nearby cheapest + market-wide mean + best anywhere).
 	goodAsks, err := finditem.Find(ctx, col, kb, itemID, 0, fromSystem, findLimit)
 	if err != nil {
 		return nil, err
 	}
-	rep.CurAskNearby, rep.HasAskNearby, rep.CurAskMkt, rep.HasAskMkt = askStats(goodAsks, hops)
+	ga := askStats(goodAsks, hops)
+	rep.CurAskNearby, rep.HasAskNearby = ga.Nearby, ga.NearbyFound
+	rep.CurAskMkt, rep.HasAskMkt = ga.Mkt, ga.MktFound
+	rep.CurAskMktBest, rep.HasAskMktBest = ga.Best, ga.BestFound
 
 	// Finished good's best bid anywhere (instant-sell reference).
 	stationPrices, err := col.GetItemStationPrices(ctx, itemID)

@@ -21,7 +21,7 @@ func TestRollUpBothBasesFound(t *testing.T) {
 		{Component: Component{ItemID: "copper_ore", Qty: 8}, NearbyUnit: 30, MktUnit: 28, NearbyFound: true, MktFound: true},
 	}
 	// nearby build = 20*12 + 8*30 = 480; per unit (÷5) = 96; +20% = 19.2; suggested 115.2
-	nearby, mkt := rollUp(comps, 5, 20)
+	nearby, mkt, _ := rollUp(comps, 5, 20)
 	if !approx(nearby.BuildCost, 480) || !approx(nearby.PerUnit, 96) || !approx(nearby.Margin, 19.2) || !approx(nearby.Suggested, 115.2) {
 		t.Fatalf("nearby wrong: %+v", nearby)
 	}
@@ -39,7 +39,7 @@ func TestRollUpMissingNearbyComponentContributesZeroAndMarksIncomplete(t *testin
 		{Component: Component{ItemID: "iron_ore", Qty: 10}, NearbyUnit: 5, MktUnit: 5, NearbyFound: true, MktFound: true},
 		{Component: Component{ItemID: "rare_ore", Qty: 2}, MktUnit: 100, MktFound: true}, // no nearby price
 	}
-	nearby, mkt := rollUp(comps, 1, 0)
+	nearby, mkt, _ := rollUp(comps, 1, 0)
 	if !approx(nearby.BuildCost, 50) { // only iron_ore counted
 		t.Fatalf("nearby build should skip missing: %+v", nearby)
 	}
@@ -53,7 +53,7 @@ func TestRollUpMissingNearbyComponentContributesZeroAndMarksIncomplete(t *testin
 
 func TestRollUpOutputUnitsFloorsAtOne(t *testing.T) {
 	comps := []PricedComponent{{Component: Component{ItemID: "x", Qty: 3}, NearbyUnit: 10, MktUnit: 10, NearbyFound: true, MktFound: true}}
-	nearby, _ := rollUp(comps, 0, 0) // outputUnits 0 must be treated as 1
+	nearby, _, _ := rollUp(comps, 0, 0) // outputUnits 0 must be treated as 1
 	if !approx(nearby.PerUnit, 30) {
 		t.Fatalf("perUnit with outputUnits<=0 should divide by 1: %+v", nearby)
 	}
@@ -69,7 +69,8 @@ func TestAskStatsNearbyMinWithinHopsAndMktMean(t *testing.T) {
 		res(80, 2),  // within 2 hops, cheaper
 		res(10, 5),  // far — cheapest overall but outside 2 hops
 	}
-	nu, nf, mu, mf := askStats(rs, 2)
+	a := askStats(rs, 2)
+	nu, nf, mu, mf := a.Nearby, a.NearbyFound, a.Mkt, a.MktFound
 	if !nf || !approx(nu, 80) { // cheapest within <=2 hops
 		t.Fatalf("nearby wrong: found=%v unit=%v", nf, nu)
 	}
@@ -81,7 +82,8 @@ func TestAskStatsNearbyMinWithinHopsAndMktMean(t *testing.T) {
 
 func TestAskStatsNoNearbyWhenAllTooFarOrUnknown(t *testing.T) {
 	rs := []finditem.Result{res(50, finditem.JumpsUnknown), res(60, navigation.RouteInf), res(70, 4)}
-	nu, nf, _, mf := askStats(rs, 2)
+	a := askStats(rs, 2)
+	nu, nf, mf := a.Nearby, a.NearbyFound, a.MktFound
 	if nf || nu != 0 {
 		t.Fatalf("expected no nearby, got found=%v unit=%v", nf, nu)
 	}
@@ -91,7 +93,8 @@ func TestAskStatsNoNearbyWhenAllTooFarOrUnknown(t *testing.T) {
 }
 
 func TestAskStatsEmpty(t *testing.T) {
-	nu, nf, mu, mf := askStats(nil, 2)
+	a := askStats(nil, 2)
+	nu, nf, mu, mf := a.Nearby, a.NearbyFound, a.Mkt, a.MktFound
 	if nf || mf || nu != 0 || mu != 0 {
 		t.Fatalf("empty should yield nothing: %v %v %v %v", nu, nf, mu, mf)
 	}
