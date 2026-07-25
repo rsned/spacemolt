@@ -100,6 +100,10 @@ func pickBestRecipe(reports []*pricing.PriceReport) (best, altMkt int) {
 type modeReport struct {
 	Label string
 	R     *pricing.PriceReport
+	// Note is rendered immediately below this block's coverage line. The BOM
+	// basis uses it to disclose the route it chose and whether that route
+	// assumes facility access — both invisible before 2026-07-25.
+	Note string
 }
 
 // money renders a price with two decimals, or an em dash when absent.
@@ -168,6 +172,9 @@ func renderPriceText(itemID, fromSystem string, hops int, marginPct float64, mod
 		b.WriteString("\n")
 		if (r.Nearby.Covered > 0 && !r.Nearby.Complete()) || (r.Mkt.Covered > 0 && !r.Mkt.Complete()) {
 			b.WriteString("  ⚠ a partial SUGGESTED (coverage < full) excludes unpriced components — the true price is higher\n")
+		}
+		if m.Note != "" {
+			fmt.Fprintf(&b, "  %s\n", m.Note)
 		}
 	}
 
@@ -255,23 +262,21 @@ func handlePrice(client game.GameClient, ctx context.Context, parts []string, cr
 	}
 
 	if mode == "both" || mode == "bom" {
-		bom, berr := src.BOM(ctx, []string{itemID})
-		switch {
-		case berr != nil:
-			fmt.Printf("price %s: BoM unavailable (%v)\n", itemID, berr)
-		case len(bom[itemID]) == 0:
-			fmt.Printf("price %s: no bill-of-materials rows (base material or untracked).\n", itemID)
-		default:
-			comps := make([]pricing.Component, 0, len(bom[itemID]))
-			for _, row := range bom[itemID] {
-				comps = append(comps, pricing.Component{ItemID: row.BaseItemID, Qty: float64(row.Quantity)})
-			}
-			// BoM quantities are already per single output unit -> outputUnits = 1.
-			rep, rerr := pricing.Report(ctx, globalMarketCollector, globalKB, fromSystem, hops, itemID, "", 1, comps, margin)
+		// Expand the recipe tree directly rather than reading the crafting DB's
+		// bill_of_materials: that table's quantity column is INTEGER, so it
+		// ceils fractional per-unit values at write time (ghost_rounds stored
+		// plasma_gas 2 for a true 1.5, titanium_ore 8 for a true 7.5) and
+		// records neither the sub-recipes chosen nor that a choice existed.
+		exp := expandToBase(itemID, recipes)
+		if len(exp.Path) == 0 {
+			fmt.Printf("price %s: base material — no recipe produces it, so it has no bill of materials.\n", itemID)
+		} else {
+			// exp.Comps is already exact per ONE output unit -> outputUnits = 1.
+			rep, rerr := pricing.Report(ctx, globalMarketCollector, globalKB, fromSystem, hops, itemID, "", 1, exp.Comps, margin)
 			if rerr != nil {
 				return rerr
 			}
-			modes = append(modes, modeReport{Label: "BOM (ore)", R: rep})
+			modes = append(modes, modeReport{Label: "BOM (ore)", R: rep, Note: bomRouteNote(exp)})
 		}
 	}
 
