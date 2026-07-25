@@ -55,6 +55,10 @@ ALLOWLIST=(
     # envelope to a worker via a Unix socket), not the game client legacy Send.
     pkg/overmind/supervisor/server.go
     pkg/overmind/supervisor/server_test.go
+    # Overmind membership — s.Sender.Send() is the ControlSender interface
+    # (Send(agentID string, env control.Envelope) error — routes a control
+    # envelope to a worker), not the game client legacy Send.
+    pkg/overmind/supervisor/membership.go
     # Overmind main — calls srv.Send() which is supervisor.Server.Send (same as above).
     cmd/overmind/main.go
     # Overmind drain helper — s.Send() is the controlSender interface (routes a
