@@ -34,10 +34,13 @@ workers:
   # above-probationary engineers/fighters correctly fence-skip. Caps sized from
   # live `ship` cargo_capacity / 100 (freightPackageFootprint): explorer-1
   # floor_price 420 -> 4, explorer-2 dividend 340 -> 3, explorer-3 compendium
-  # 925 -> 9, explorer-7 dirk 210 -> 2, explorer-8 arbitrage 145 -> 1 (marginal;
-  # single-package carrier until it gets a cargo expander).
+  # 925 -> 9, explorer-7 dirk 210 -> 2, explorer-8 arbitrage 145 -> 445 -> 4
+  # (REFITTED 2026-07-25: afterburner_ii pulled from its utility slot — it burned
+  # 30% more fuel per jump — and all 3 utility slots filled with cargo_expander_iii).
   # Wave 2 (same day): explorer-4 meridian_freighter 465 -> 4, explorer-5 cogito 315 -> 3.
-  # explorer-6/9/10/11/12 stay PARKED in mission-learn-overrides.json awaiting refit.
+  # Wave 3 (same day): explorer-9 fugue 135 -> 1, explorer-10 cobble 175 -> 1,
+  # explorer-11 dirk 210 -> 2, explorer-12 empirica 495 -> 4.
+  # explorer-6 is the ONLY explorer still PARKED in mission-learn-overrides.json.
   - { agent_id: explorer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 4 }
   - { agent_id: explorer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 3 }
   - { agent_id: explorer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 9 }
@@ -45,11 +48,11 @@ workers:
   - { agent_id: explorer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 3 }
   - { agent_id: explorer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: explorer-7, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 2 }
-  - { agent_id: explorer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 1 }
-  - { agent_id: explorer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: explorer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: explorer-11, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  - { agent_id: explorer-12, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 4 }
+  - { agent_id: explorer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 1 }
+  - { agent_id: explorer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 1 }
+  - { agent_id: explorer-11, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 2 }
+  - { agent_id: explorer-12, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 4 }
   - { agent_id: fighter-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
