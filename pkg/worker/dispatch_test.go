@@ -144,7 +144,7 @@ func (f *fakeClient) GetMissions(ctx context.Context) error {
 // pointer, a snapshot taken early in a pass and a fresh read later are the same
 // object, so code that wrongly reuses a stale snapshot still looks correct.
 // Tests that need to tell those apart set cloneState. It is opt-in because
-// cloning unconditionally deadlocks TestKBUpdateMissionsUpsertsHandAuthoredOnly,
+// cloning unconditionally deadlocks TestKBUpdateMissionsCapturesProceduralToo,
 // which relies on observing its own mutations through this pointer.
 func (f *fakeClient) GetState() *game.State {
 	if f.state == nil {

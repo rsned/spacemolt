@@ -22,10 +22,10 @@ func (r *recordingMissionKB) UpsertMissionTemplate(ctx context.Context, entry se
 
 const missionsRaw = `{"base_id":"nyx_nexus_station","base_name":"Nyx Nexus Station","missions":[
  {"mission_id":"m1","template_id":"tpl_courier_1","title":"Courier Run"},
- {"mission_id":"m2","template_id":"","title":"Procedural Haul"}
+ {"mission_id":"smuggling_courier_nyx_haven_red_mist~deadbeef","template_id":"","title":"Procedural Haul","type":"smuggling"}
 ]}`
 
-func TestKBUpdateMissionsUpsertsHandAuthoredOnly(t *testing.T) {
+func TestKBUpdateMissionsCapturesProceduralToo(t *testing.T) {
 	st := &game.State{Doc: true}
 	st.System.ID = "nyx"
 	st.CurrentPOI = "nyx_nexus_station"
@@ -35,8 +35,8 @@ func TestKBUpdateMissionsUpsertsHandAuthoredOnly(t *testing.T) {
 	if err := KBUpdateMissions(context.Background(), client, kb); err != nil {
 		t.Fatal(err)
 	}
-	if len(kb.upserts) != 1 || kb.upserts[0].TemplateID != "tpl_courier_1" {
-		t.Fatalf("want exactly the hand-authored template upserted, got %+v", kb.upserts)
+	if len(kb.upserts) != 2 {
+		t.Fatalf("want both hand-authored + procedural upserted, got %d: %+v", len(kb.upserts), kb.upserts)
 	}
 }
 
