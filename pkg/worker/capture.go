@@ -750,7 +750,7 @@ func KBUpdateFacilities(ctx context.Context, client game.GameClient, kb knowledg
 }
 
 // KBUpdateMissions fetches the mission board at the current station and
-// upserts each hand-authored entry into the KB mission catalog. Procedural
+// upserts each keyable entry into the KB mission catalog. Procedural
 // missions (no template_id) are keyed by a synthetic id (mission_id with the
 // ~<hash> suffix stripped) and captured; only entries with neither a
 // template_id nor a mission_id are skipped. Ported from play_as so the
@@ -789,7 +789,8 @@ func KBUpdateMissions(ctx context.Context, client game.GameClient, kb knowledge.
 
 	var inserted, unchanged, changed, skipped int
 	for _, entry := range resp.Missions {
-		if id, _ := knowledge.MissionCatalogID(entry); id == "" {
+		id, _ := knowledge.MissionCatalogID(entry)
+		if id == "" {
 			skipped++
 			continue
 		}
@@ -805,7 +806,7 @@ func KBUpdateMissions(ctx context.Context, client game.GameClient, kb knowledge.
 			changed++
 			for _, d := range res.Diffs {
 				fmt.Printf("mission template %s changed at %s: %s: %q -> %q\n",
-					entry.TemplateID, baseID, d.Field, d.OldValue, d.NewValue)
+					id, baseID, d.Field, d.OldValue, d.NewValue)
 			}
 		default:
 			unchanged++
