@@ -774,6 +774,9 @@ func runMigrations(db *sql.DB) error {
 	if err := ensureShipClassPrestigeCols(db); err != nil {
 		return fmt.Errorf("ensure ships prestige/unlock columns: %w", err)
 	}
+	if err := ensureMissionTemplatesProceduralCol(db); err != nil {
+		return fmt.Errorf("ensure mission_templates procedural column: %w", err)
+	}
 
 	return nil
 }
@@ -825,6 +828,36 @@ func ensureShipClassPrestigeCols(db *sql.DB) error {
 		}
 	}
 
+	return nil
+}
+
+// ensureMissionTemplatesProceduralCol adds the mission_templates.procedural
+// column (0 = hand-authored template, 1 = route-generated/procedural) to DBs
+// that predate it. Self-healing ensure rather than a numbered migration so it
+// runs AFTER ensureCollapseMissingTables guarantees the table exists — mirrors
+// ensureShipClassPrestigeCols.
+func ensureMissionTemplatesProceduralCol(db *sql.DB) error {
+	var tableCount int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='mission_templates'`,
+	).Scan(&tableCount); err != nil {
+		return fmt.Errorf("check mission_templates table: %w", err)
+	}
+	if tableCount == 0 {
+		return nil // table not created yet; nothing to reconcile
+	}
+	var present int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM pragma_table_info('mission_templates') WHERE name='procedural'`,
+	).Scan(&present); err != nil {
+		return fmt.Errorf("check mission_templates.procedural column: %w", err)
+	}
+	if present > 0 {
+		return nil
+	}
+	if _, err := db.Exec(`ALTER TABLE mission_templates ADD COLUMN procedural INTEGER DEFAULT 0`); err != nil {
+		return fmt.Errorf("add mission_templates.procedural column: %w", err)
+	}
 	return nil
 }
 

@@ -400,6 +400,7 @@ CREATE TABLE mission_templates (
     requirements        TEXT DEFAULT '{}',
     required_modules    TEXT DEFAULT '[]',
     provided_items      TEXT DEFAULT '{}',
+    procedural          INTEGER DEFAULT 0,
     first_seen_tick     INTEGER DEFAULT 0,
     last_seen_tick      INTEGER DEFAULT 0,
     first_seen_at       TEXT,

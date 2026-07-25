@@ -12,7 +12,7 @@
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
 -- Migrations applied: 20
--- Last Regenerated: 2026-07-14
+-- Last Regenerated: 2026-07-25
 
 -- ============================================================================
 -- TABLES
@@ -563,6 +563,7 @@ CREATE TABLE mission_templates (
     requirements        TEXT DEFAULT '{}',
     required_modules    TEXT DEFAULT '[]',
     provided_items      TEXT DEFAULT '{}',
+    procedural          INTEGER DEFAULT 0,
     first_seen_tick     INTEGER DEFAULT 0,
     last_seen_tick      INTEGER DEFAULT 0,
     first_seen_at       TEXT,
