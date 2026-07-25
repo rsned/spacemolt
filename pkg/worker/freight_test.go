@@ -2300,3 +2300,49 @@ func TestFreightCandidateAdvancedCarrierProbationaryOnlyBoardFallsThrough(t *tes
 		t.Fatalf("want the board-emptied skip reason, got %q", skip)
 	}
 }
+
+// TestLogTierIfChanged verifies the per-worker tier logger writes on first
+// observation and on promotion, stays silent on an unchanged tier, formats the
+// max tier specially, and is a safe no-op on a nil receiver or empty tier.
+func TestLogTierIfChanged(t *testing.T) {
+	var buf strings.Builder
+	s := &missionRunState{}
+	prog := func(tier, next string, done, req int) serverapi.CarrierTierProgress {
+		return serverapi.CarrierTierProgress{
+			CurrentTier: tier, NextTier: next,
+			SuccessfulDeliveries: done, RequiredSuccessfulDeliveries: req,
+		}
+	}
+
+	s.logTierIfChanged(&buf, prog("probationary", "licensed", 4, 5))
+	if !strings.Contains(buf.String(), "carrier tier probationary") {
+		t.Fatalf("first observation not logged: %q", buf.String())
+	}
+
+	buf.Reset()
+	s.logTierIfChanged(&buf, prog("probationary", "licensed", 4, 5))
+	if buf.Len() != 0 {
+		t.Fatalf("unchanged tier should not re-log: %q", buf.String())
+	}
+
+	buf.Reset()
+	s.logTierIfChanged(&buf, prog("licensed", "trusted", 0, 20))
+	if !strings.Contains(buf.String(), "carrier tier licensed") {
+		t.Fatalf("promotion not logged: %q", buf.String())
+	}
+
+	buf.Reset()
+	s.logTierIfChanged(&buf, serverapi.CarrierTierProgress{CurrentTier: "prime", AtMaximumTier: true})
+	if !strings.Contains(buf.String(), "prime (max tier)") {
+		t.Fatalf("max tier format wrong: %q", buf.String())
+	}
+
+	// nil receiver must not panic; empty tier is a no-op.
+	var nilS *missionRunState
+	nilS.logTierIfChanged(&buf, prog("licensed", "trusted", 1, 20))
+	buf.Reset()
+	(&missionRunState{}).logTierIfChanged(&buf, serverapi.CarrierTierProgress{CurrentTier: ""})
+	if buf.Len() != 0 {
+		t.Fatalf("empty tier should be a no-op: %q", buf.String())
+	}
+}

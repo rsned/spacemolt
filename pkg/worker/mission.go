@@ -96,6 +96,11 @@ type missionRunState struct {
 	// (bounded — the probationary gate and fast advancement keep it small).
 	// Positive-net accepts never touch it. Read via bootstrapSpent().
 	bootstrapLoss float64
+	// lastLoggedTier is the carrier tier last written to the log this session.
+	// logTierIfChanged prints the tier the first time it is seen and again on
+	// any change (a promotion), giving the tagged log an authoritative
+	// per-worker tier without logging it every freight pass.
+	lastLoggedTier string
 }
 
 // addHeldFreight remembers (or refreshes) a contract we are carrying. No-op

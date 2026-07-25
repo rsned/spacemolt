@@ -103,6 +103,25 @@ func effectiveFreightFloor(tier string, bootstrapEnabled bool, spent, budget flo
 	return freightMinNet
 }
 
+// logTierIfChanged writes the carrier's tier the first time it is observed this
+// session and again whenever it changes (a promotion). This gives the tagged
+// worker log an authoritative per-worker carrier tier — captured on the next
+// worker update without any per-agent shipping-profile query — while avoiding a
+// line every freight pass. No-op on a nil receiver (tests) or empty tier.
+func (s *missionRunState) logTierIfChanged(out io.Writer, p serverapi.CarrierTierProgress) {
+	if s == nil || p.CurrentTier == "" || p.CurrentTier == s.lastLoggedTier {
+		return
+	}
+	s.lastLoggedTier = p.CurrentTier
+	if p.AtMaximumTier {
+		fmt.Fprintf(out, "freight: carrier tier %s (max tier)\n", p.CurrentTier) //nolint:errcheck
+		return
+	}
+	fmt.Fprintf(out, "freight: carrier tier %s (%d/%d deliveries, %d/%d value to %s)\n", //nolint:errcheck
+		p.CurrentTier, p.SuccessfulDeliveries, p.RequiredSuccessfulDeliveries,
+		p.DeliveredValue, p.RequiredDeliveredValue, p.NextTier)
+}
+
 // carrierTierAboveProbationary reports whether a KNOWN tier outranks
 // probationary. An empty/unknown tier returns false: never fence a carrier that
 // might itself be probationary (that would starve it of the hauls it needs).
@@ -221,6 +240,8 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 			return nil, fmt.Sprintf("decode shipping profile: %v", err)
 		}
 	}
+	deps.State.logTierIfChanged(out, prof.Progression)
+
 	if prof.DebtBlocksAcceptance {
 		reason := prof.DebtBlockReason
 		if reason == "" {
