@@ -16,8 +16,10 @@
 # Spec: docs/superpowers/specs/2026-07-17-exploration-missions-design.md
 workers:
   # craftsman-1: TEMPORARY freight-tier grind (operator request 2026-07-22) —
-  # 1100 cargo. Normally reserved for operator play_as (see craft-fleet.yaml);
-  # remove from this roster when done.
+  # 1100 cargo. Normally reserved for operator play_as (see craft-fleet.yaml).
+  # HELD OUT via mission-learn-overrides.json since 2026-07-25: operator is using
+  # it for PRODUCTION FACILITY work. Do NOT re-add without operator say-so.
+  # engineer-2 likewise held out as the standing smuggling pilot.
   - { agent_id: craftsman-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 11 }
   - { agent_id: engineer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
@@ -40,13 +42,14 @@ workers:
   # Wave 2 (same day): explorer-4 meridian_freighter 465 -> 4, explorer-5 cogito 315 -> 3.
   # Wave 3 (same day): explorer-9 fugue 135 -> 1, explorer-10 cobble 175 -> 1,
   # explorer-11 dirk 210 -> 2, explorer-12 empirica 495 -> 4.
-  # explorer-6 is the ONLY explorer still PARKED in mission-learn-overrides.json.
+  # Wave 4 (same day): explorer-6 threshold 265 -> 2. ALL 12 explorers now carry
+  # freight; none remain parked in mission-learn-overrides.json.
   - { agent_id: explorer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 4 }
   - { agent_id: explorer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 3 }
   - { agent_id: explorer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 9 }
   - { agent_id: explorer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 4 }
   - { agent_id: explorer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 3 }
-  - { agent_id: explorer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
+  - { agent_id: explorer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 2 }
   - { agent_id: explorer-7, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 2 }
   - { agent_id: explorer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 4 }
   - { agent_id: explorer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 1 }
