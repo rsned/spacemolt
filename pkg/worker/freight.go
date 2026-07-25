@@ -707,6 +707,14 @@ func freightPollLoaded(ctx context.Context, deps MissionDeps, item string) (bool
 		if err := sl(ctx, game.SleepQuick); err != nil {
 			return false, err
 		}
+		// Ask for cargo rather than re-reading the snapshot. The transfer
+		// completes server-side, but Ship.Cargo only reflects it once a reply
+		// updates state — nothing pushes cargo spontaneously, and the worker
+		// heartbeat only reads local state. Without this the poll times out on
+		// a package already aboard and returns a healthy contract: the live
+		// 2026-07-24 regression that took the fleet to 0 deliveries.
+		// Best-effort — a failed refresh is not proof of absence, so keep polling.
+		_ = deps.Client.GetCargo(ctx)
 		if cargoCount(deps.Client.GetState(), item) >= 1 {
 			return true, nil
 		}

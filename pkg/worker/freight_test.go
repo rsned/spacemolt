@@ -675,6 +675,61 @@ func TestFreightLoadPackageParksOnContextCancelMidPoll(t *testing.T) {
 	}
 }
 
+// deferredLoadClient models the REAL client's cargo semantics, which the plain
+// fakeClient does not: WithdrawItems is tick-deferred, and the completed
+// transfer only becomes visible in Ship.Cargo once a reply updates state
+// (client.go handleResponse). Nothing pushes cargo spontaneously, so a poller
+// that never asks sees an empty hold forever no matter how long it waits.
+//
+// This is the live 2026-07-24 regression: freightPollLoaded polled a stale
+// snapshot, timed out, and returned 88 healthy contracts across the fleet
+// (0 deliveries after the load-confirm check shipped, 67 in the 4 days before).
+type deferredLoadClient struct {
+	*fakeClient
+	pending []game.CargoItem // withdrawn server-side, not yet observed by the client
+}
+
+func (d *deferredLoadClient) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
+	if err := d.fakeClient.WithdrawItems(ctx, itemID, quantity); err != nil {
+		return err
+	}
+	d.pending = append(d.pending, game.CargoItem{ItemID: itemID, Quantity: quantity})
+	return nil
+}
+
+func (d *deferredLoadClient) GetCargo(ctx context.Context) error {
+	if err := d.fakeClient.GetCargo(ctx); err != nil {
+		return err
+	}
+	d.state.Ship.Cargo = append(d.state.Ship.Cargo, d.pending...)
+	d.pending = nil
+	return nil
+}
+
+// A package whose tick-deferred transfer has landed server-side must be found
+// by the poll, which means the poll has to REFRESH cargo rather than re-read a
+// snapshot. Deleting the refresh from freightPollLoaded fails this test.
+func TestFreightLoadPackageRefreshesCargoWhilePolling(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &deferredLoadClient{fakeClient: &fakeClient{state: &game.State{}}}
+	deps := MissionDeps{
+		Client: f, AgentID: "explorer-3", Market: store,
+		sleep: func(ctx context.Context, d time.Duration) error { return nil },
+	}
+	c := acceptedContract(1200, 1380)
+
+	step := freightLoadPackage(context.Background(), deps, &c, &freightCand{Hops: 3}, io.Discard)
+	if step != freightStepProceed {
+		t.Fatalf("a package that landed server-side must proceed, got %v", step)
+	}
+	if slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must not return a contract whose package loaded, calls were %v", f.shippingCalls)
+	}
+	if len(store.results) != 0 {
+		t.Fatalf("a loaded package must record no return outcome, got %+v", store.results)
+	}
+}
+
 // Freight must not run unless a fleet opts in, so the pool is unaffected until
 // the canary flips the flag.
 func TestMissionsSkipsFreightWhenDisabled(t *testing.T) {
