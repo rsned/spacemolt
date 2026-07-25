@@ -297,6 +297,45 @@ func TestSQLiteKB_UpsertMissionTemplate_SecondLocation(t *testing.T) {
 	}
 }
 
+func TestMissionCatalogID(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name           string
+		entry          serverapi.MissionBoardEntry
+		wantID         string
+		wantProcedural bool
+	}{
+		{
+			name:   "hand-authored template",
+			entry:  serverapi.MissionBoardEntry{MissionID: "no_questions_asked", TemplateID: "no_questions_asked"},
+			wantID: "no_questions_asked", wantProcedural: false,
+		},
+		{
+			name:   "procedural courier strips hash suffix",
+			entry:  serverapi.MissionBoardEntry{MissionID: "smuggling_courier_a_b_red_mist~3a980627043000ee"},
+			wantID: "smuggling_courier_a_b_red_mist", wantProcedural: true,
+		},
+		{
+			name:   "procedural without hash",
+			entry:  serverapi.MissionBoardEntry{MissionID: "trade_a_b_gutter_flux"},
+			wantID: "trade_a_b_gutter_flux", wantProcedural: true,
+		},
+		{
+			name:   "no key at all",
+			entry:  serverapi.MissionBoardEntry{},
+			wantID: "", wantProcedural: true,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			id, proc := MissionCatalogID(c.entry)
+			if id != c.wantID || proc != c.wantProcedural {
+				t.Fatalf("got (%q, %v), want (%q, %v)", id, proc, c.wantID, c.wantProcedural)
+			}
+		})
+	}
+}
+
 func TestUpsertMissionTemplate_RealFixture(t *testing.T) {
 	t.Parallel()
 	raw, err := os.ReadFile("testdata/get_missions.json")

@@ -140,16 +140,16 @@ func insertMissionRow(ctx context.Context, tx *sql.Tx, r missionCatalogRow, tick
 			dialog_offer, dialog_accept, dialog_decline, dialog_complete,
 			chain_next, repeatable, expires_in_ticks,
 			rewards_credits, rewards_skill_xp, rewards_items,
-			requirements, required_modules, provided_items,
+			requirements, required_modules, provided_items, procedural,
 			first_seen_tick, last_seen_tick, first_seen_at, last_seen_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		r.ID, r.Title, r.Description, r.Type, r.Difficulty,
 		r.GiverName, r.GiverTitle, r.FactionID, r.FactionName,
 		r.DialogOffer, r.DialogAccept, r.DialogDecline, r.DialogComplete,
 		r.ChainNext, missionBoolToInt(r.Repeatable), r.ExpiresInTicks,
 		r.RewardsCredits, r.RewardsSkillXP, r.RewardsItems,
-		r.Requirements, r.RequiredModules, r.ProvidedItems,
+		r.Requirements, r.RequiredModules, r.ProvidedItems, missionBoolToInt(r.Procedural),
 		tick, tick, now, now,
 	)
 	if err != nil {

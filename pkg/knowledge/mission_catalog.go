@@ -2,6 +2,7 @@ package knowledge
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
@@ -29,6 +30,7 @@ type MissionUpsertResult struct {
 // canonical string form so diffing is a trivial string comparison.
 type missionCatalogRow struct {
 	ID              string
+	Procedural      bool
 	Title           string
 	Description     string
 	Type            string
@@ -86,12 +88,33 @@ func jsonUnmarshalString(s string, v any) error {
 	return json.Unmarshal([]byte(s), v)
 }
 
+// MissionCatalogID returns the catalog key for a board entry and whether it is
+// a procedural (route-generated) mission. Hand-authored missions carry a stable
+// template_id and are keyed by it (procedural=false). Procedural missions
+// (couriers, trade-runs) carry no template_id; their mission_id embeds a
+// per-instance "~<hash>" suffix, so the key is the mission_id with that suffix
+// stripped (procedural=true) — which dedups repeat sightings of the same route.
+// id is "" when the entry has neither a template_id nor a mission_id (caller
+// must skip such entries).
+func MissionCatalogID(e serverapi.MissionBoardEntry) (id string, procedural bool) {
+	if e.TemplateID != "" {
+		return e.TemplateID, false
+	}
+	id = e.MissionID
+	if i := strings.IndexByte(id, '~'); i >= 0 {
+		id = id[:i]
+	}
+	return id, true
+}
+
 // missionRowFromEntry converts a game-protocol MissionBoardEntry to the
-// catalog row form. Callers must skip entries with empty TemplateID before
-// calling this.
+// catalog row form. Callers must skip entries whose MissionCatalogID is empty
+// before calling this.
 func missionRowFromEntry(e serverapi.MissionBoardEntry) missionCatalogRow {
+	id, procedural := MissionCatalogID(e)
 	row := missionCatalogRow{
-		ID:              e.TemplateID,
+		ID:              id,
+		Procedural:      procedural,
 		Title:           e.Title,
 		Description:     e.Description,
 		Type:            e.Type,
