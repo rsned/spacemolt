@@ -1803,8 +1803,10 @@ type CraftJobEntry struct {
 // CraftQueueListing is the response when listing queued craft jobs.
 // Corresponds to the second oneOf variant of CraftJobResponse in the openapi spec.
 type CraftQueueListing struct {
-	Action string          `json:"action"`
-	Jobs   []CraftJobEntry `json:"jobs"`
+	Action    string          `json:"action"`
+	Kind      string          `json:"kind,omitempty"`
+	Jobs      []CraftJobEntry `json:"jobs"`
+	TotalJobs int             `json:"total_jobs,omitempty"`
 }
 
 // CraftBulkResult is the outcome of a single job in a bulk craft request.

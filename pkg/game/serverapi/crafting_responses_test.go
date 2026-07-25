@@ -20,16 +20,20 @@ func TestDecodeCraftJobQueued(t *testing.T) {
 }
 
 func TestDecodeCraftQueueListing(t *testing.T) {
-	// Verbatim live `craft queue` payload (2026-07-06): carries venue + a
+	// Verbatim live `craft queue` payload (2026-07-24): carries venue + a
 	// produces[] entry whose quantity is the per-run output (4 copper_piping ×
-	// 225 runs). Guards the CraftQueueListing/CraftJobEntry shape against drift.
-	raw := `{"action":"queue","jobs":[{"eta_ticks":144,"facility_id":"workshop:abc:grand_exchange_station","job_id":"340c12","mode":"craft","orderer":"self","position":0,"produces":[{"item_id":"copper_piping","name":"Copper Piping","quantity":4}],"progress":0.2066,"recipe":"Draw Copper Piping","runs_done":39,"runs_remaining":186,"runs_total":225,"status":"active","venue":"Station Workshop"}]}`
+	// 225 runs), plus the top-level kind/total_jobs discriminators added
+	// server-side. Guards the CraftQueueListing/CraftJobEntry shape against drift.
+	raw := `{"action":"queue","kind":"queue","total_jobs":1,"jobs":[{"eta_ticks":144,"facility_id":"workshop:abc:grand_exchange_station","job_id":"340c12","mode":"craft","orderer":"self","position":0,"produces":[{"item_id":"copper_piping","name":"Copper Piping","quantity":4}],"progress":0.2066,"recipe":"Draw Copper Piping","runs_done":39,"runs_remaining":186,"runs_total":225,"status":"active","venue":"Station Workshop"}]}`
 	var r CraftQueueListing
 	if err := json.Unmarshal([]byte(raw), &r); err != nil {
 		t.Fatal(err)
 	}
 	if r.Action != "queue" || len(r.Jobs) != 1 {
 		t.Fatalf("bad decode: %+v", r)
+	}
+	if r.Kind != "queue" || r.TotalJobs != 1 {
+		t.Fatalf("kind/total_jobs mismatch: %+v", r)
 	}
 	j := r.Jobs[0]
 	if j.RunsTotal != 225 || j.RunsDone != 39 || j.RunsRemaining != 186 {
