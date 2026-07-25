@@ -7,6 +7,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -43,6 +44,31 @@ const (
 	workerDBMaxIdleConns = 2
 )
 
+// logLineWriter adapts the worker's prefixed *log.Logger into an io.Writer so
+// the decision stream (freight/haul/mission/autopilot/explore reasoning, which
+// is written via fmt.Fprintf to a plain io.Writer) inherits the same
+// "[worker:<id>] <timestamp>" prefix as the lifecycle log lines. It buffers
+// partial writes and emits one logger.Print per complete line so multi-line or
+// chunked writes each get a single prefix, and any trailing unterminated
+// remainder is held until its newline arrives.
+type logLineWriter struct {
+	l   *log.Logger
+	buf []byte
+}
+
+func (w *logLineWriter) Write(p []byte) (int, error) {
+	w.buf = append(w.buf, p...)
+	for {
+		i := bytes.IndexByte(w.buf, '\n')
+		if i < 0 {
+			break
+		}
+		w.l.Print(string(w.buf[:i]))
+		w.buf = w.buf[i+1:]
+	}
+	return len(p), nil
+}
+
 func main() {
 	agentID := flag.String("agent", "", "Agent ID (required, e.g. miner-1)")
 	role := flag.String("role", "idle", "Worker role (e.g. miner, trader)")
@@ -68,6 +94,9 @@ func main() {
 	}
 
 	logger := log.New(os.Stdout, fmt.Sprintf("[worker:%s] ", *agentID), log.LstdFlags)
+	// logOut carries the decision stream (freight/haul/mission/etc.) through the
+	// prefixed logger so every reasoning line is attributable to this agent.
+	logOut := &logLineWriter{l: logger}
 
 	// Resolve DB path.
 	resolvedDB := *dbPath
@@ -316,7 +345,7 @@ func main() {
 		}
 		roleCfg, haveRole := roles[*role]
 		if haveRole {
-			dispatch := worker.NewWorkerDispatch(client, kb, mc, os.Stdout)
+			dispatch := worker.NewWorkerDispatch(client, kb, mc, logOut)
 			dispatch.AgentID = *agentID
 			dispatch.Station = *station
 			dispatch.SetActivitySink(&activity)
@@ -349,7 +378,7 @@ func main() {
 					Paused:     paused.Load,
 					Draining:   draining.Load,
 					SetDrained: drained.Store,
-					Out:        os.Stdout,
+					Out:        logOut,
 					NowFn:      func() time.Time { return time.Now().UTC() },
 					AgentID:    *agentID,
 					NextTask: func() *worker.AssignedTask {
@@ -361,7 +390,7 @@ func main() {
 						return t
 					},
 					PayDebts: func(c context.Context) {
-						worker.PayRescueDebt(c, client, os.Stdout, filepath.Join("data", "agents"), *agentID)
+						worker.PayRescueDebt(c, client, logOut, filepath.Join("data", "agents"), *agentID)
 					},
 					OnTaskResult: func(taskID string, err error) {
 						kind := "task_done"
