@@ -148,9 +148,7 @@ func CommandAnnotations() map[string]Annotation {
 		"buy_listed_ship": {
 			Preconditions: []Precondition{RequiresDocked, RequiresCredits},
 		},
-		"sell_ship": {
-			Preconditions: []Precondition{RequiresDocked, RequiresStoredShips},
-		},
+		// sell_ship retired server-side 2026-07-26 — see actions.go.
 		"list_ship_for_sale": {
 			Preconditions: []Precondition{RequiresDocked, RequiresStoredShips},
 		},

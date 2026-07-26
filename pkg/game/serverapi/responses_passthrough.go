@@ -225,3 +225,50 @@ type StationConfigResponse struct {
 	RepairPricePerHull      int               `json:"repair_price_per_hull,omitempty"`
 	Message                 string            `json:"message,omitempty"`
 }
+
+// DismantleOutpostResponse is returned by dismantle_outpost: a faction outpost
+// packed back into a single Outpost Kit dropped into the ship's cargo. The
+// founding fee is not refunded, so FeeRefunded is expected to be 0 — it is
+// modelled because openapi declares it, not because the server pays it.
+// Dismantling sets the ship adrift at the outpost's POI, which is what the
+// auto_docked / auto_undocked flags report.
+//   - dismantle_outpost
+type DismantleOutpostResponse struct {
+	BaseID       string `json:"base_id"`
+	Name         string `json:"name"`
+	KitItem      string `json:"kit_item"`
+	KitRefunded  bool   `json:"kit_refunded"`
+	FeeRefunded  int    `json:"fee_refunded"`
+	Hint         string `json:"hint"`
+	AutoDocked   bool   `json:"auto_docked,omitempty"`
+	AutoUndocked bool   `json:"auto_undocked,omitempty"`
+}
+
+// LoginLinkResponse is returned by login_link, which starts a browser-based
+// device login for hosts that cannot supply a password. The client authenticates
+// with stored credentials (pkg/credentials) and never opens this flow itself,
+// but play_as's raw passthrough can, so the shape is typed for drift detection.
+// Show VerificationURIComplete to a human, then poll login_link_poll with
+// DeviceCode every Interval seconds until ExpiresIn runs out.
+//   - login_link
+type LoginLinkResponse struct {
+	VerificationURI         string `json:"verification_uri"`
+	VerificationURIComplete string `json:"verification_uri_complete"`
+	UserCode                string `json:"user_code"`
+	DeviceCode              string `json:"device_code"`
+	Interval                int    `json:"interval"`
+	ExpiresIn               int    `json:"expires_in"`
+	Instructions            string `json:"instructions"`
+}
+
+// LoginLinkPollResponse is the PENDING reply to login_link_poll. openapi types
+// the command as a oneOf: this shape while the human has not finished, or a full
+// LoginResponse once they approve. Only the pending arm is modelled here — the
+// approved arm is an ordinary login reply the client already handles. Status is
+// authorization_pending (keep polling), access_denied (declined) or
+// expired_token (start over with a fresh login_link).
+//   - login_link_poll
+type LoginLinkPollResponse struct {
+	Status   string `json:"status"`
+	Interval int    `json:"interval,omitempty"`
+}

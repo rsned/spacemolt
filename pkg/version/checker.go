@@ -34,7 +34,18 @@ import (
 // snapshot the shipping structs were built from; the server_docs/openapi.json
 // symlink still points at the older v0.501.0 snapshot (a stale-symlink follow-up,
 // not this constant).
-const BuiltForAPIVersion = "v0.531.4"
+//
+// The v0.531.4 -> v0.547.1 bump (2026-07-26) follows the spec sync that repointed
+// the server_docs symlinks at the 20260726 snapshot (x-gameserver-version
+// v0.547.1), clearing the stale-symlink follow-up noted above. Driven by the
+// three drift guards going red rather than a struct re-audit: it added response
+// structs for dismantle_outpost and the login_link device-login pair, promoted
+// auto_docked/auto_undocked to commonOKFields (openapi declares them on 87
+// schemas — they are envelope keys, not per-command fields), and dropped
+// sell_ship from pkg/actionspace after the server retired it. Response-struct
+// verification is otherwise unchanged: still partial, still itemized in the
+// findings doc.
+const BuiltForAPIVersion = "v0.547.1"
 
 // SemVer represents a semantic version (Major.Minor.Patch)
 type SemVer struct {

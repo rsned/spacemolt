@@ -273,6 +273,16 @@ func (c *Client) SwitchShip(ctx context.Context, shipID string) error {
 }
 
 // SellShip sells a stored ship at the current station.
+//
+// RETIRED SERVER-SIDE: sell_ship disappeared from both openapi and
+// get_commands in the 2026-07-26 spec sync, so this call now errors. Selling
+// goes through the exchange (ListShipForSale / BuyListedShip), straight into a
+// standing bid (SellShipToOrder), or ScrapShip for no-payout disposal. Kept
+// rather than deleted because nothing automated calls it (only play_as and the
+// MCP bridge) and the spec has been wrong before — see BuildBaseResponse. It is
+// already gone from pkg/actionspace, so no agent can choose it. Delete this
+// method, its interface entry and both mocks once the retirement is confirmed
+// against a live server.
 func (c *Client) SellShip(ctx context.Context, shipID string) error {
 	msg := protocol.Message{
 		Type:      "sell_ship",

@@ -42,6 +42,14 @@ var commonOKFields = map[string]bool{
 	"ship":    true,
 	"modules": true,
 	"message": true,
+	// Auto-dock/undock is a side effect the server may attach to ANY command
+	// that needs the docked (or undocked) state and finds the ship in the
+	// other one — openapi declares these on 87 different response schemas, so
+	// they are envelope keys, not per-command fields. Listing them here says
+	// "never warn about these"; a command whose caller actually consumes the
+	// flag still models it explicitly (see DockResponse.AutoDocked).
+	"auto_docked":   true,
+	"auto_undocked": true,
 }
 
 // actionResponseTypes maps server action strings to their serverapi response
@@ -225,6 +233,12 @@ var actionResponseTypes = map[string]reflect.Type{
 	"station":                   reflect.TypeOf(serverapi.StationConfigResponse{}),
 	"view_insurance":            reflect.TypeOf(serverapi.ViewInsuranceResponse{}),
 	"scrap_ship":                reflect.TypeOf(serverapi.ScrapShipResponse{}),
+	"dismantle_outpost":         reflect.TypeOf(serverapi.DismantleOutpostResponse{}),
+	// Device-login flow (v0.53x). The client authenticates with stored
+	// credentials and never opens it, but passthrough can, and login_link_poll's
+	// oneOf makes it exactly the kind of shape worth watching for drift.
+	"login_link":      reflect.TypeOf(serverapi.LoginLinkResponse{}),
+	"login_link_poll": reflect.TypeOf(serverapi.LoginLinkPollResponse{}),
 
 	// Missions, notes & log
 	"completed_missions":  reflect.TypeOf(serverapi.CompletedMissionsResponse{}),

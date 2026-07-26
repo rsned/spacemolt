@@ -31,6 +31,12 @@ var passthroughSchemas = map[string]string{
 	"station":                   "StationConfigResponse",
 	"get_faction_tax_estimate":  "FactionTaxEstimateResponse",
 	"get_tax_estimate":          "TaxEstimateResponse",
+	"dismantle_outpost":         "DismantleOutpostResponse",
+	"login_link":                "LoginLinkResponse",
+	// login_link_poll's openapi entry (LoginLinkPollCommandResponse) is a oneOf
+	// with no properties of its own, so pin the pending arm — the shape our
+	// struct actually models. The approved arm is a plain LoginResponse.
+	"login_link_poll": "LoginLinkPollResponse",
 }
 
 func TestPassthroughStructsCoverOpenAPISchemas(t *testing.T) {

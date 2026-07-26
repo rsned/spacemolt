@@ -219,11 +219,12 @@ var AllActions = []Action{
 		Category: "ship", IsMutation: true,
 		Preconditions: []Precondition{RequiresDocked, RequiresCredits},
 	},
-	{
-		Name: "sell_ship", Summary: "Sell a stored ship at the current station",
-		Category: "ship", IsMutation: true,
-		Preconditions: []Precondition{RequiresDocked, RequiresStoredShips},
-	},
+	// sell_ship was RETIRED server-side (gone from both openapi and
+	// get_commands as of the 2026-07-26 spec sync). Selling a stored ship now
+	// goes through the exchange — list_ship_for_sale / buy_listed_ship — or
+	// straight into a standing bid via sell_ship_to_order; scrap_ship is the
+	// no-payout disposal. Offering it here would hand agents an action the
+	// server rejects.
 	{
 		Name: "list_ship_for_sale", Summary: "List a stored ship for sale on the exchange",
 		Category: "ship", IsMutation: true,
