@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FLEETS, TIER_COLORS, type AgentState, type OvermindInfo, type Tier } from '../../lib/useFleetStream';
 import { AgentCard } from './AgentCard';
+import { shortVersion } from '../../lib/version';
 
 export function FleetRail({
   agents, offMap, staleFleets, selectedId, onSelect, highlightedIds,
@@ -83,24 +84,25 @@ export function FleetRail({
                 {isCollapsed ? '▸' : '▾'} {fleet} <span className="text-[#8a8570]">{list.length}</span>
                 <span className={`ml-1 ${worstUnhealthy ? 'text-red-500' : 'text-emerald-500'}`}>◉</span>
               </span>
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 shrink-0">
                 {ov?.version && (
                   <span
-                    className="px-1 text-[9px] font-mono rounded-sm border"
+                    className="px-1 text-[9px] font-mono rounded-sm border whitespace-nowrap"
                     style={{ color: TIER_COLORS[fleetTier], borderColor: TIER_COLORS[fleetTier] }}
                     title={`overmind ${ov.version}${ov.commit ? ` (${ov.commit})` : ''}${ov.modified ? ' *' : ''}`}
                   >
-                    {ov.version}{ov.modified ? ' *' : ''}
+                    {shortVersion(ov.version)}{ov.modified ? ' *' : ''}
                   </span>
                 )}
-                <span className="font-mono text-[#8a8570]">₡ {Math.round(credits).toLocaleString()}</span>
+                <span className="font-mono text-[#8a8570] whitespace-nowrap">₡ {Math.round(credits).toLocaleString()}</span>
               </span>
             </button>
             {!isCollapsed && vGroups.length > 0 && (
               <div className="flex flex-wrap gap-x-2 gap-y-0.5 px-1 pb-1 text-[9px] font-mono">
                 {vGroups.map((g) => (
-                  <span key={g.version} style={{ color: TIER_COLORS[g.tier] }}>
-                    {g.version}{g.modified ? '*' : ''} ×{g.count}
+                  <span key={g.version} style={{ color: TIER_COLORS[g.tier] }}
+                    className="whitespace-nowrap" title={g.version}>
+                    {shortVersion(g.version)}{g.modified ? '*' : ''} ×{g.count}
                   </span>
                 ))}
               </div>
