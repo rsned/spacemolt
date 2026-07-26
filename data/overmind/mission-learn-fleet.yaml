@@ -22,7 +22,11 @@ workers:
   # engineer-2 likewise held out as the standing smuggling pilot.
   - { agent_id: craftsman-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 11 }
   - { agent_id: engineer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
-  - { agent_id: engineer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
+  # SMUGGLING CANARY 1 of 2 (2026-07-26). Contraband couriers carry warnings
+  # (insurance voided) and only these two workers are opted in. Chosen for the
+  # biggest fuel reserves in the fleet, since the mission distance cap is now
+  # lifted and the chain-1 route to smuggling L2 is a 17-jump cross-border run.
+  - { agent_id: engineer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
@@ -55,7 +59,8 @@ workers:
   - { agent_id: explorer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 1 }
   - { agent_id: explorer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 1 }
   - { agent_id: explorer-11, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 2 }
-  - { agent_id: explorer-12, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 4 }
+  # SMUGGLING CANARY 2 of 2 — see engineer-1 above.
+  - { agent_id: explorer-12, role: missionrunner, station: "", mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 4 }
   - { agent_id: fighter-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }

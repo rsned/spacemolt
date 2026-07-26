@@ -13,9 +13,19 @@ const (
 	// MissionMaxStack is the server's concurrent-mission cap per player (the
 	// Mission Runner guide's "accept 5 simultaneous missions" stacking play).
 	MissionMaxStack = 5
-	// DefaultMissionMaxJumps caps how far (jumps) a mission destination may be,
-	// matching the haul fleet's reposition philosophy (DefaultHaulMaxJumps):
-	// several nearby runs net more than one distant payday.
+	// DefaultMissionMaxJumps is the OPT-IN distance cap for mission
+	// destinations, in jumps. It is no longer applied by default: MaxJumps 0
+	// (the only value dispatch ever produced) now means unlimited.
+	//
+	// It was a flat 5, borrowed from the haul fleet's reposition philosophy
+	// ("several nearby runs net more than one distant payday"). That reasoning
+	// does not transfer — a hauler chooses its own destination and can always
+	// find another opportunity, while a mission board offers what it offers.
+	// The cap silently hid every long-haul mission from the entire fleet,
+	// including the 17-jump cross-border run that is the ONLY route to
+	// smuggling level 2. Distance is priced by the expiry gate, the fuel term
+	// in the net, and Autopilot's pre-route refuel; a flat radius on top of
+	// those only removed work the economics would have taken.
 	DefaultMissionMaxJumps = 5
 	// missionMinNet is the minimum estimated profit (reward - item cost - fuel)
 	// a mission must clear. Below this the accept isn't worth the slot.
@@ -207,14 +217,16 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 // The greedy fill respects the buy budget (missionBuyBudgetFraction of credits)
 // and free cargo space; anchors farther than maxJumps are skipped entirely.
 func SelectMissionSet(cands []missionCandidate, credits, cargoFree float64, maxJumps int) []missionCandidate {
-	if maxJumps <= 0 {
-		maxJumps = DefaultMissionMaxJumps
-	}
 	sorted := make([]missionCandidate, 0, len(cands))
 	for _, c := range cands {
-		if c.Jumps <= maxJumps {
-			sorted = append(sorted, c)
+		// maxJumps <= 0 means no cap. Distance is PRICED, not forbidden: the
+		// expiry gate already scales with jumps, fuel cost is subtracted in the
+		// net, and Autopilot tops the tank up before departing. A flat radius on
+		// top of all three only hid work the economics would have accepted.
+		if maxJumps > 0 && c.Jumps > maxJumps {
+			continue
 		}
+		sorted = append(sorted, c)
 	}
 	if len(sorted) == 0 {
 		return nil

@@ -212,10 +212,23 @@ func TestSelectMissionSet(t *testing.T) {
 		}
 	})
 
-	t.Run("drops anchors beyond maxJumps", func(t *testing.T) {
+	t.Run("drops anchors beyond an explicit maxJumps", func(t *testing.T) {
 		got := SelectMissionSet([]missionCandidate{mk("far", "sol", 9000, 9, 1, 1)}, credits, cargoFree, 5)
 		if len(got) != 0 {
 			t.Fatalf("9-jump destination with maxJumps=5 must be dropped: %+v", got)
+		}
+	})
+
+	// maxJumps <= 0 means NO distance cap. It used to fall back to a hardcoded
+	// 5, which made every long-haul mission invisible to the whole fleet —
+	// including the only route to smuggling level 2 (a 17-jump cross-border
+	// run). Distance is now priced, not forbidden: the expiry gate scales with
+	// jumps, fuel cost enters the net, and Autopilot tops the tank up before
+	// departing.
+	t.Run("no cap when maxJumps is unset", func(t *testing.T) {
+		got := SelectMissionSet([]missionCandidate{mk("crossborder", "sol", 9000, 17, 1, 1)}, credits, cargoFree, 0)
+		if len(got) != 1 {
+			t.Fatalf("a 17-jump mission must be selectable with no cap configured, got %+v", got)
 		}
 	})
 }
