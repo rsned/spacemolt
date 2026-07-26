@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -355,6 +356,14 @@ const (
 	// and we cannot discharge it, so the pass must abort and park rather than
 	// fly elsewhere on other work.
 	freightStepStuck
+	// freightStepUndischargeable: the return was refused for a reason retrying
+	// cannot fix — the package is only returnable at its origin station and we
+	// could not get back there. Unlike Stuck this must NOT park the pass:
+	// parking retries the same impossible call every ~10s while the deadline
+	// runs out (fighter-1, 2026-07-25: 28 attempts in 4.5 minutes, then a
+	// breach). The contract stays held and gets flown to its destination — a
+	// late delivery may still settle, sitting still cannot.
+	freightStepUndischargeable
 )
 
 // freightRecord persists one settled contract outcome. Telemetry failures are
@@ -527,7 +536,61 @@ func missionFreightOrDry(ctx context.Context, deps MissionDeps, cand *freightCan
 // is logged loudly: it is the only situation in which a breach becomes possible
 // despite the design, so it must be visible in the canary logs.
 func freightReturn(ctx context.Context, deps MissionDeps, out io.Writer, c serverapi.ShipmentContract, cand *freightCand, outcome, reason string) freightStep {
-	if err := deps.Client.ShippingReturn(ctx, c.ID); err != nil {
+	return freightReturnVia(ctx, deps, out, nil, c, cand, outcome, reason)
+}
+
+// freightErrWrongOrigin is the server's machine-readable refusal code when a
+// return is attempted away from the package's origin station. Live text:
+// "wrong_origin: Return the intact package at its origin station." Only the
+// code is matched; the prose after it is not part of any contract.
+const freightErrWrongOrigin = "wrong_origin"
+
+// freightIsWrongOrigin reports whether a return failure means the call was
+// illegal HERE but legal at the contract's origin. It is the one return error
+// that retrying from the same place can never resolve.
+func freightIsWrongOrigin(err error) bool {
+	return err != nil && strings.Contains(err.Error(), freightErrWrongOrigin)
+}
+
+// freightReturnAtOrigin flies back to a contract's origin station and retries
+// the return there, since that is the only place the server accepts one.
+// Returns the residual error, nil on success. Every failure string here keeps
+// the wrong_origin code so the caller still classifies the contract as
+// undischargeable rather than as a retryable blip.
+func freightReturnAtOrigin(ctx context.Context, deps MissionDeps, out io.Writer, nav func(context.Context, string) error, c serverapi.ShipmentContract) error {
+	if c.OriginBaseID == "" {
+		return fmt.Errorf("%s and the contract carries no origin_base_id", freightErrWrongOrigin)
+	}
+	fmt.Fprintf(out, "freight: %s is only returnable at its origin %s; flying back to discharge it\n", c.ID, c.OriginBaseID) //nolint:errcheck
+	if err := nav(ctx, c.OriginBaseID); err != nil {
+		return fmt.Errorf("%s: navigate to origin %s: %w", freightErrWrongOrigin, c.OriginBaseID, err)
+	}
+	if err := freightSettleDock(ctx, deps, out); err != nil {
+		return fmt.Errorf("%s: dock at origin %s: %w", freightErrWrongOrigin, c.OriginBaseID, err)
+	}
+	return deps.Client.ShippingReturn(ctx, c.ID)
+}
+
+// freightReturnVia is freightReturn with an origin-recovery hook. originNav
+// non-nil marks the caller as the in-flight chain, which can still fly the
+// ship: a wrong_origin refusal there is answered by navigating home and
+// returning the package where it is legal to. It also unlocks the
+// Undischargeable step, which only the chain's victim loop knows how to
+// absorb. The nav-less callers (accept, load) are standing at the origin
+// already, so wrong_origin cannot arise for them; if it somehow does they keep
+// the conservative pre-existing behaviour and park.
+func freightReturnVia(ctx context.Context, deps MissionDeps, out io.Writer, originNav func(context.Context, string) error, c serverapi.ShipmentContract, cand *freightCand, outcome, reason string) freightStep {
+	err := deps.Client.ShippingReturn(ctx, c.ID)
+	if originNav != nil && freightIsWrongOrigin(err) {
+		err = freightReturnAtOrigin(ctx, deps, out, originNav, c)
+	}
+	if err != nil {
+		if originNav != nil && freightIsWrongOrigin(err) {
+			fmt.Fprintf(out, "freight: %s CANNOT be returned from here and its origin is out of reach (%v); flying it to its destination instead — a late delivery may still settle, retrying this return cannot\n", c.ID, err) //nolint:errcheck
+			freightRecord(ctx, deps, out, c, cand, 0, "return_failed", "return refused away from origin: "+err.Error())
+			deps.State.addHeldFreight(&c)
+			return freightStepUndischargeable
+		}
 		fmt.Fprintf(out, "freight: RETURN FAILED for %s (%s): %v — breach now possible; parking this pass\n", c.ID, reason, err) //nolint:errcheck
 		// Record return_failed, not the caller's outcome: the return itself
 		// didn't happen, so this contract can still breach. Grouping by
@@ -799,12 +862,19 @@ func freightDeliverDueHere(ctx context.Context, deps MissionDeps, baseID string,
 // freightStepProceed covers both "set empty, pass done" and "contracts
 // intentionally left in flight" (nav/deliver trouble — next pass reconciles
 // and resumes). freightStepStuck means a return FAILED (live undischarged
-// contract): the caller must park this pass.
+// contract): the caller must park this pass. A return the server refuses
+// outright because we are away from the package's origin is NOT stuck: the
+// chain flies home to discharge it, or, failing that, carries it to its
+// destination — see freightStepUndischargeable.
 func freightChainRun(ctx context.Context, deps MissionDeps, nav func(ctx context.Context, baseID string) error, hopsTo func(string) (int, bool), fuelCostFor func(int) float64, out io.Writer) (freightStep, error) {
 	if out == nil {
 		out = io.Discard
 	}
 	attempted := map[string]bool{} // destinations that failed nav/deliver this pass
+	// Contracts whose return the server refuses from here and whose origin we
+	// could not reach. They stay held and get flown; they must never be
+	// nominated for return again this pass.
+	undischargeable := map[string]bool{}
 	for leg := 0; leg < freightChainMaxLegs; leg++ {
 		stops := freightChainStops(ctx, deps, hopsTo, out)
 		if len(stops) == 0 {
@@ -821,7 +891,15 @@ func freightChainRun(ctx context.Context, deps MissionDeps, nav func(ctx context
 			if ok {
 				break
 			}
-			victim := freightChainWorstStop(stops, missionTick(deps))
+			victim, returnable := freightWorstReturnableStop(stops, missionTick(deps), undischargeable)
+			if !returnable {
+				// Every blown stop is one we cannot hand back from here. Stop
+				// pricing returns and fall through to the delivery legs below:
+				// flying a doomed package at least gives it a chance to settle,
+				// and it clears the hold either way.
+				fmt.Fprintf(out, "freight: chain still infeasible (%s) but nothing left is returnable from here; flying the remainder anyway\n", reason) //nolint:errcheck
+				break
+			}
 			c := freightHeldByID(deps, victim.ContractID)
 			if c == nil {
 				// Defensive: stop pricing a contract we no longer hold. This
@@ -831,8 +909,15 @@ func freightChainRun(ctx context.Context, deps MissionDeps, nav func(ctx context
 				break
 			}
 			fmt.Fprintf(out, "freight: in-flight buffer collapsed for %s (%s); returning\n", c.ID, reason) //nolint:errcheck
-			if freightReturn(ctx, deps, out, *c, nil, "returned_inflight", reason) == freightStepStuck {
+			switch freightReturnVia(ctx, deps, out, nav, *c, nil, "returned_inflight", reason) {
+			case freightStepStuck:
 				return freightStepStuck, nil
+			case freightStepUndischargeable:
+				// Held, unreturnable, and now excluded from victim selection so
+				// the next iteration prices the rest of the chain instead of
+				// re-nominating this one forever.
+				undischargeable[c.ID] = true
+				continue
 			}
 			stops = freightChainStops(ctx, deps, hopsTo, out)
 			if len(stops) == 0 {
@@ -892,22 +977,26 @@ func freightChainRun(ctx context.Context, deps MissionDeps, nav func(ctx context
 	return freightStepProceed, nil
 }
 
-// freightChainWorstStop picks the stop to sacrifice when the chain bound
-// fails: the one with the least deadline slack at its chain position.
-func freightChainWorstStop(stops []chainStop, nowTick int64) chainStop {
+// freightWorstReturnableStop picks the stop to sacrifice when the chain bound
+// fails: the one with the least deadline slack at its chain position, ignoring
+// any contract in skip. ok is false when every blown stop is skipped — the
+// caller must then stop hunting for a victim, or it re-nominates the same
+// undischargeable contract on every iteration and never gets to fly it.
+func freightWorstReturnableStop(stops []chainStop, nowTick int64, skip map[string]bool) (chainStop, bool) {
 	ordered := chainOrder(stops)
 	cum := chainCumulative(ordered)
-	worst, worstSlack := ordered[0], math.Inf(1)
+	var worst chainStop
+	worstSlack, found := math.Inf(1), false
 	for i, s := range ordered {
-		if s.DeadlineTick <= 0 {
+		if s.DeadlineTick <= 0 || skip[s.ContractID] {
 			continue
 		}
 		slack := float64(s.DeadlineTick-nowTick) - float64(cum[i])*freightTicksPerHop*freightDeadlineSlack
 		if slack < worstSlack {
-			worst, worstSlack = s, slack
+			worst, worstSlack, found = s, slack, true
 		}
 	}
-	return worst
+	return worst, found
 }
 
 // freightHeldByID fetches one held contract, nil when absent.
