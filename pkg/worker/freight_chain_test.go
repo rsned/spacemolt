@@ -62,3 +62,23 @@ func TestChainMarginalHops(t *testing.T) {
 		t.Fatalf("marginal on empty held = %d, want 7", got)
 	}
 }
+
+// A detour flown BEFORE any delivery pushes every stop back by the round trip
+// through here: 2*detourHops on top of each cumulative bound. Charging it is
+// what stops a fly-home-and-return from silently killing the packages still
+// aboard.
+func TestChainFeasibleAfterDetourChargesTheRoundTrip(t *testing.T) {
+	// One stop, 1 hop out: needs 1*19*1.5 = 28.5 ticks with no detour.
+	stops := []chainStop{{ContractID: "keep", Hops: 1, DeadlineTick: 100}}
+	if ok, reason := chainFeasibleAfterDetour(stops, 0, 0); !ok {
+		t.Fatalf("zero detour must match chainFeasible exactly, got %s", reason)
+	}
+	// A 2-hop detour makes it (2*2+1)*19*1.5 = 142.5 > 100.
+	if ok, _ := chainFeasibleAfterDetour(stops, 0, 2); ok {
+		t.Fatal("a 2-hop detour blows a 100-tick deadline; must report infeasible")
+	}
+	// A 1-hop detour is (2*1+1)*19*1.5 = 85.5 <= 100: still affordable.
+	if ok, reason := chainFeasibleAfterDetour(stops, 0, 1); !ok {
+		t.Fatalf("an affordable detour must not be refused: %s", reason)
+	}
+}

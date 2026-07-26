@@ -45,21 +45,30 @@ func (c *originGatedReturnClient) ShippingReturn(ctx context.Context, shipmentID
 }
 
 // Victim selection must skip contracts already proven undischargeable, or the
-// return loop re-nominates the same one forever and never reaches the healthy
-// remainder. Slack at 19 ticks/hop x1.5: doomed = 10 - 7*28.5, tight = 40 - 28.5.
+// return loop re-nominates the same one forever and never reaches the rest —
+// and it must never promote a HEALTHY stop into the vacancy.
+//
+// Ordered by hops: fine(1), alsoBlown(2), worst(3); cum = [1, 4, 9]; the bound
+// is 19 ticks/hop x1.5 = 28.5 per cumulative hop. So fine has +71.5 slack,
+// alsoBlown -64, worst -246.5.
 func TestFreightWorstReturnableStopSkipsUndischargeable(t *testing.T) {
 	stops := []chainStop{
-		{ContractID: "doomed", DestBaseID: "b1", Hops: 5, DeadlineTick: 10},
-		{ContractID: "tight", DestBaseID: "b2", Hops: 1, DeadlineTick: 40},
+		{ContractID: "fine", DestBaseID: "b1", Hops: 1, DeadlineTick: 100},
+		{ContractID: "alsoBlown", DestBaseID: "b2", Hops: 2, DeadlineTick: 50},
+		{ContractID: "worst", DestBaseID: "b3", Hops: 3, DeadlineTick: 10},
 	}
-	if got, ok := freightWorstReturnableStop(stops, 0, nil); !ok || got.ContractID != "doomed" {
-		t.Fatalf("worst = %+v ok=%v, want doomed", got, ok)
+	if got, ok := freightWorstReturnableStop(stops, 0, nil); !ok || got.ContractID != "worst" {
+		t.Fatalf("worst = %+v ok=%v, want worst", got, ok)
 	}
-	if got, ok := freightWorstReturnableStop(stops, 0, map[string]bool{"doomed": true}); !ok || got.ContractID != "tight" {
-		t.Fatalf("worst excluding doomed = %+v ok=%v, want tight", got, ok)
+	skipWorst := map[string]bool{"worst": true}
+	if got, ok := freightWorstReturnableStop(stops, 0, skipWorst); !ok || got.ContractID != "alsoBlown" {
+		t.Fatalf("worst excluding worst = %+v ok=%v, want alsoBlown", got, ok)
 	}
-	if _, ok := freightWorstReturnableStop(stops, 0, map[string]bool{"doomed": true, "tight": true}); ok {
-		t.Fatal("with every stop excluded there is no returnable victim; ok must be false so the caller stops looping")
+	// Only "fine" is left, and it clears its own bound. Returning a contract we
+	// can still deliver is strictly worse than flying it.
+	skipBoth := map[string]bool{"worst": true, "alsoBlown": true}
+	if got, ok := freightWorstReturnableStop(stops, 0, skipBoth); ok {
+		t.Fatalf("nominated %q, but a stop meeting its own bound is never a sacrifice; ok must be false", got.ContractID)
 	}
 }
 
@@ -140,5 +149,63 @@ func TestFreightChainRunWrongOriginDoesNotParkOrHammer(t *testing.T) {
 	}
 	if store.outcomes["doomed"] != "delivered" {
 		t.Fatalf("outcomes = %v, want doomed -> delivered: an undischargeable package must still be flown", store.outcomes)
+	}
+}
+
+// The fly-home recovery is not free: the detour delays every package still
+// aboard. A carrier holding a healthy contract must NOT sacrifice it to
+// discharge a dead one — it carries the dead package instead and keeps the
+// delivery it can still make.
+//
+// Numbers (19 ticks/hop x1.5 slack): held "dead" is 5 hops out with 10 ticks
+// left (bound 7*28.5 = 199.5 — hopeless, so it is the return victim), held
+// "healthy" is 1 hop out with 100 ticks (bound 28.5 — comfortable). Flying to
+// dead's origin costs 2 hops, which re-prices healthy at (2*2+1)*28.5 = 142.5
+// against its 100 remaining: the detour would breach the good contract.
+func TestFreightChainRunSkipsOriginDetourThatWouldBlowTheChain(t *testing.T) {
+	deps, store := freightChainDeps(t)
+	f := deps.Client.(*fakeClient)
+	f.shippingErr = map[string]error{"return": errWrongOrigin}
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{
+		ID: "dead", OriginBaseID: "home", DestinationBaseID: "baseB",
+		DeadlineTick: 10, Status: "in_transit",
+	})
+	deps.State.addHeldFreight(&serverapi.ShipmentContract{
+		ID: "healthy", OriginBaseID: "home", DestinationBaseID: "baseA",
+		DeadlineTick: 100, Status: "in_transit",
+	})
+
+	var navved []string
+	nav := func(ctx context.Context, baseID string) error {
+		navved = append(navved, baseID)
+		return nil
+	}
+	hops := func(base string) (int, bool) {
+		return map[string]int{"baseA": 1, "baseB": 5, "home": 2}[base], true
+	}
+
+	step, err := freightChainRun(context.Background(), deps, nav, hops, nil, io.Discard)
+	if err != nil {
+		t.Fatalf("freightChainRun: %v", err)
+	}
+	if step == freightStepStuck {
+		t.Fatal("declining the detour must not park the pass")
+	}
+	for _, b := range navved {
+		if b == "home" {
+			t.Fatalf("nav = %v: flew to the origin anyway; the detour breaches 'healthy'", navved)
+		}
+	}
+	if store.outcomes["healthy"] != "delivered" {
+		t.Fatalf("outcomes = %v, want healthy -> delivered; a dead package must not cost a live one", store.outcomes)
+	}
+	var returns int
+	for _, c := range f.shippingCalls {
+		if c == "return" {
+			returns++
+		}
+	}
+	if returns > 1 {
+		t.Fatalf("return attempted %d times, want at most the one probe that discovers wrong_origin", returns)
 	}
 }

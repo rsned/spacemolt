@@ -59,14 +59,32 @@ func chainCumulative(ordered []chainStop) []int {
 // skipped: freightAccept re-runs this with the server-assigned deadline the
 // moment it exists.
 func chainFeasible(stops []chainStop, nowTick int64) (bool, string) {
+	return chainFeasibleAfterDetour(stops, nowTick, 0)
+}
+
+// chainFeasibleAfterDetour is chainFeasible with a detour of detourHops flown
+// FIRST, before any delivery — the fly-home-and-return recovery for a package
+// the server will only take back at its origin. Inserting the detour as stop
+// zero of the ordered chain adds exactly 2*detourHops to every cumulative
+// bound (same round-trip-through-here argument as chainCumulative), so a
+// detour of 0 reduces to chainFeasible identically.
+//
+// This is what stops a doomed package from taking healthy ones with it: the
+// trip home is not free, and on a multi-package carrier it can push the rest
+// of the hold past their own deadlines.
+func chainFeasibleAfterDetour(stops []chainStop, nowTick int64, detourHops int) (bool, string) {
 	ordered := chainOrder(stops)
 	cum := chainCumulative(ordered)
 	for i, s := range ordered {
 		if s.DeadlineTick <= 0 {
 			continue
 		}
-		needed := float64(cum[i]) * freightTicksPerHop * freightDeadlineSlack
+		needed := float64(2*detourHops+cum[i]) * freightTicksPerHop * freightDeadlineSlack
 		if float64(s.DeadlineTick-nowTick) < needed {
+			if detourHops > 0 {
+				return false, fmt.Sprintf("a %d-hop detour leaves %s at position %d needing %.0f ticks, has %d",
+					detourHops, s.ContractID, i+1, needed, s.DeadlineTick-nowTick)
+			}
 			return false, fmt.Sprintf("chain bound: %s at position %d needs %.0f ticks, has %d",
 				s.ContractID, i+1, needed, s.DeadlineTick-nowTick)
 		}
