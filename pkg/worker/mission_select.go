@@ -101,22 +101,38 @@ func resolveActiveMissionIDs(accepted []missionCandidate, actives []serverapi.Ac
 	return resolved
 }
 
-// missionTypeDelivery is the only board category v1 runs. Smuggling missions
-// also carry deliver_item objectives (often with provided contraband and no
-// warnings), so the mission-level type allowlist — not objective shape — is
-// what keeps them out.
+// missionTypeDelivery is the board category v1 runs by default. Smuggling
+// missions also carry deliver_item objectives (often with provided contraband
+// and no warnings), so the mission-level type allowlist — not objective shape —
+// is what keeps them out.
 const missionTypeDelivery = "delivery"
+
+// missionTypeSmuggling is the contraband-courier board category. It is
+// deliver-shaped and otherwise indistinguishable from freight, so it is gated
+// on explicit operator opt-in (mission_categories) at every decision point:
+// nothing here infers it from the objective.
+const missionTypeSmuggling = "smuggling"
 
 // missionObjectiveDeliver is the deliver-cargo objective type on the wire.
 const missionObjectiveDeliver = "deliver_item"
 
+// missionDeliverType reports whether a board type is one this worker will run
+// as a plain delivery. Smuggling only qualifies with explicit opt-in.
+func missionDeliverType(t string, allowSmuggling bool) bool {
+	return t == missionTypeDelivery || (allowSmuggling && t == missionTypeSmuggling)
+}
+
 // deliverShape extracts the runnable core of a board entry. The server sends
 // no requirements block (openapi: additionalProperties=false) — deliver
 // details live in objectives. ok=false for anything but a single-leg
-// delivery-type deliver_item mission (multi-leg chains and compound
-// objectives are v1-rejected), or when a module gate is present.
-func deliverShape(e serverapi.MissionBoardEntry) (item string, qty int, destBase, destSystem string, ok bool) {
-	if e.Type != missionTypeDelivery || len(e.RequiredModules) > 0 || len(e.Objectives) != 1 {
+// deliver_item mission (multi-leg chains and compound objectives are
+// v1-rejected), or when a module gate is present.
+//
+// allowSmuggling widens the type gate to contraband couriers. It is a
+// parameter rather than a package rule so the gate stays inside this pure
+// function: a caller that forgets to pass it gets the safe answer.
+func deliverShape(e serverapi.MissionBoardEntry, allowSmuggling bool) (item string, qty int, destBase, destSystem string, ok bool) {
+	if !missionDeliverType(e.Type, allowSmuggling) || len(e.RequiredModules) > 0 || len(e.Objectives) != 1 {
 		return "", 0, "", "", false
 	}
 	o := e.Objectives[0]
@@ -131,14 +147,22 @@ func deliverShape(e serverapi.MissionBoardEntry) (item string, qty int, destBase
 // returns the sentinel-filtered best ask for an item (ok=false -> unpriceable);
 // fuelCostFor prices the fuel for a jump count. A non-empty reason means the
 // entry was filtered out (and why, for the worker log).
-func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64) (missionCandidate, string) {
-	item, qty, destBase, destSystem, ok := deliverShape(e)
+func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64, allowSmuggling bool) (missionCandidate, string) {
+	item, qty, destBase, destSystem, ok := deliverShape(e, allowSmuggling)
 	if !ok {
 		return missionCandidate{}, "not a plain deliver mission"
 	}
-	// Deliver-shaped smuggling missions carry warnings (e.g. contraband,
-	// insurance voided); uninsured idle accounts must never run these.
-	if len(e.Warnings) > 0 {
+	// Deliver-shaped missions can carry warnings (e.g. contraband, insurance
+	// voided); uninsured idle accounts must never run these by accident.
+	//
+	// Smuggling is the exception, and only because its warnings ARE the
+	// category: a contraband courier that carried no warning would be the
+	// surprising case. Allowlisting `smuggling` in mission_categories is the
+	// operator saying yes to exactly this risk, so re-refusing it here would
+	// make the category impossible to enable. Ordinary freight is unchanged —
+	// a delivery mission with warnings is still refused on a smuggling-enabled
+	// worker, because nothing opted THAT run into the risk.
+	if len(e.Warnings) > 0 && e.Type != missionTypeSmuggling {
 		return missionCandidate{}, fmt.Sprintf("has warnings: %s", strings.Join(e.Warnings, "; "))
 	}
 	jumps, reachable := dist[destSystem]

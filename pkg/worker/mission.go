@@ -586,7 +586,10 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// Distance map to every candidate destination.
 	targets := make([]string, 0, len(board))
 	for _, e := range board {
-		if _, _, _, destSys, shaped := deliverShape(e); shaped {
+		// Shape-only pass to collect routing targets: pass the widest gate so a
+		// smuggling destination gets a distance entry. Whether the worker may
+		// actually take it is decided by the category switch below, not here.
+		if _, _, _, destSys, shaped := deliverShape(e, true); shaped {
 			targets = append(targets, destSys)
 		}
 	}
@@ -606,6 +609,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	var exploreCands []missionCandidate
 	exploreEnabled := missionCategoryEnabled(deps, missionTypeExploration)
 	deliveryEnabled := missionCategoryEnabled(deps, missionTypeDelivery)
+	smugglingEnabled := missionCategoryEnabled(deps, missionTypeSmuggling)
 	// One pairwise distance table covers every exploration entry on the board.
 	var explorePair func(a, b string) int
 	if exploreEnabled {
@@ -629,8 +633,10 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		switch {
 		case e.Type == missionTypeExploration && exploreEnabled:
 			c, reason = buildExploreCandidate(e, current, explorePair, fuelCostFor)
-		case deliveryEnabled:
-			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor)
+		case e.Type == missionTypeSmuggling && smugglingEnabled:
+			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, true)
+		case e.Type == missionTypeDelivery && deliveryEnabled:
+			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, false)
 		default:
 			continue // category not allowlisted for this worker
 		}
@@ -1144,7 +1150,11 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 			}
 			continue
 		}
-		if m.Type != missionTypeDelivery || len(m.Objectives) != 1 {
+		// Resume smuggling only for a worker still allowlisted for it. If the
+		// operator revokes the category mid-run the mission is left alone
+		// rather than abandoned: it stays on the books for manual handling,
+		// which is the same treatment any other unrecognised active gets.
+		if !missionDeliverType(m.Type, missionCategoryEnabled(deps, missionTypeSmuggling)) || len(m.Objectives) != 1 {
 			continue // non-single-leg-delivery active mission: leave it alone (manual/other origin)
 		}
 		o := m.Objectives[0]

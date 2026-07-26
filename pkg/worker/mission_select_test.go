@@ -32,7 +32,7 @@ func TestBuildMissionCandidate(t *testing.T) {
 	noFuel := func(jumps int) float64 { return 0 }
 
 	t.Run("deliver mission prices and routes", func(t *testing.T) {
-		c, reason := buildMissionCandidate(boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0), dist, ask, noFuel)
+		c, reason := buildMissionCandidate(boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0), dist, ask, noFuel, false)
 		if reason != "" {
 			t.Fatalf("rejected: %s", reason)
 		}
@@ -47,7 +47,7 @@ func TestBuildMissionCandidate(t *testing.T) {
 	t.Run("provided items reduce buy quantity", func(t *testing.T) {
 		e := boardEntry("m2", "steel", 20, "sol_station", "sol", 3000, 0)
 		e.ProvidedItems = map[string]int{"steel": 20}
-		c, reason := buildMissionCandidate(e, dist, ask, noFuel)
+		c, reason := buildMissionCandidate(e, dist, ask, noFuel, false)
 		if reason != "" {
 			t.Fatalf("rejected: %s", reason)
 		}
@@ -62,16 +62,41 @@ func TestBuildMissionCandidate(t *testing.T) {
 			Rewards:    &serverapi.MissionRewards{Credits: 5000},
 			Objectives: []serverapi.MissionObjective{{Type: "kill_creature", Quantity: 3}},
 		}
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false); reason == "" {
 			t.Fatal("kill mission must be rejected")
 		}
 	})
 
-	t.Run("smuggling deliver_item rejected", func(t *testing.T) {
+	// Smuggling is deliver-shaped, so nothing about the objective distinguishes
+	// it from ordinary freight — the type gate is the only thing standing
+	// between a worker and a contraband run. It must stay closed by default and
+	// open only for a worker whose operator allowlisted the category.
+	t.Run("smuggling rejected unless the category is enabled", func(t *testing.T) {
 		e := boardEntry("m3b", "steel", 20, "sol_station", "sol", 3000, 0)
-		e.Type = "smuggling" // no warnings on smuggling missions; the type allowlist must catch this
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
-			t.Fatal("smuggling mission (deliver_item objective, no warnings) must be rejected")
+		e.Type = "smuggling"
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false); reason == "" {
+			t.Fatal("smuggling must be rejected when the category is not enabled")
+		}
+		if c, reason := buildMissionCandidate(e, dist, ask, noFuel, true); reason != "" {
+			t.Fatalf("smuggling must be accepted once enabled, got %q (%+v)", reason, c)
+		}
+	})
+
+	// Contraband board entries carry warnings (insurance voided, and so on).
+	// Rejecting on warnings is right for ordinary freight — it is what keeps an
+	// uninsured account off a contraband run it never opted into — but for
+	// smuggling the warning IS the category, so enabling it is the opt-in.
+	t.Run("warnings tolerated for smuggling only", func(t *testing.T) {
+		e := boardEntry("m3d", "steel", 5, "haven_station", "haven", 800, 0)
+		e.Type = "smuggling"
+		e.Warnings = []string{"contraband cargo", "insurance voided"}
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true); reason != "" {
+			t.Fatalf("an enabled smuggling mission must tolerate its own warnings, got %q", reason)
+		}
+		d := boardEntry("m3e", "steel", 20, "sol_station", "sol", 3000, 0)
+		d.Warnings = []string{"insurance voided"}
+		if _, reason := buildMissionCandidate(d, dist, ask, noFuel, true); reason == "" {
+			t.Fatal("a DELIVERY mission with warnings must still be rejected even on a smuggling-enabled worker")
 		}
 	})
 
@@ -84,7 +109,7 @@ func TestBuildMissionCandidate(t *testing.T) {
 				{Type: "deliver_item", ItemID: "steel", Quantity: 10, TargetBaseID: "haven_station", SystemID: "haven"},
 			},
 		}
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false); reason == "" {
 			t.Fatal("multi-leg (two deliver_item objectives) mission must be rejected")
 		}
 	})
@@ -92,35 +117,35 @@ func TestBuildMissionCandidate(t *testing.T) {
 	t.Run("module-gated mission rejected", func(t *testing.T) {
 		e := boardEntry("m4", "steel", 20, "sol_station", "sol", 3000, 0)
 		e.RequiredModules = []string{"smuggler_hold"}
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false); reason == "" {
 			t.Fatal("module-gated mission must be rejected")
 		}
 	})
 
 	t.Run("tight expiry rejected", func(t *testing.T) {
 		e := boardEntry("m5", "steel", 20, "sol_station", "sol", 3000, 30)
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false); reason == "" {
 			t.Fatal("30-tick expiry must be rejected (arbitrage-expiry lesson)")
 		}
 	})
 
 	t.Run("unpriceable item rejected", func(t *testing.T) {
 		e := boardEntry("m6", "unobtainium", 5, "sol_station", "sol", 3000, 0)
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false); reason == "" {
 			t.Fatal("no reference ask + buy needed must be rejected")
 		}
 	})
 
 	t.Run("unreachable destination rejected", func(t *testing.T) {
 		e := boardEntry("m7", "steel", 20, "far_station", "far_system", 3000, 0)
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false); reason == "" {
 			t.Fatal("destination missing from dist map must be rejected")
 		}
 	})
 
 	t.Run("negative net rejected", func(t *testing.T) {
 		e := boardEntry("m8", "steel", 100, "sol_station", "sol", 500, 0) // cost 2000 > reward 500
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false); reason == "" {
 			t.Fatal("negative-net mission must be rejected")
 		}
 	})
@@ -128,7 +153,7 @@ func TestBuildMissionCandidate(t *testing.T) {
 	t.Run("mission with warnings rejected", func(t *testing.T) {
 		e := boardEntry("m9", "steel", 20, "sol_station", "sol", 3000, 0)
 		e.Warnings = []string{"contraband: insurance voided"}
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false); reason == "" {
 			t.Fatal("deliver-shaped mission carrying warnings must be rejected")
 		}
 	})
