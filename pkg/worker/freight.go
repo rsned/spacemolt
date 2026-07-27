@@ -764,7 +764,7 @@ func freightChainStops(ctx context.Context, deps MissionDeps, hopsTo func(string
 // Mirrors freightSettleDock: poll up to three ticks at SleepQuick cadence, using
 // deps.sleep so tests run instantly. Returns (true, nil) once aboard, (false, nil)
 // on timeout, (false, err) if the sleep is cancelled.
-func freightPollLoaded(ctx context.Context, deps MissionDeps, item string) (bool, error) {
+func freightPollLoaded(ctx context.Context, deps MissionDeps, item string, out io.Writer) (bool, error) {
 	if cargoCount(deps.Client.GetState(), item) >= 1 {
 		return true, nil
 	}
@@ -773,6 +773,8 @@ func freightPollLoaded(ctx context.Context, deps MissionDeps, item string) (bool
 		sl = craftPollSleepFunc
 	}
 	const budget = 3 * game.SleepTick
+	refreshErrs, refreshes := 0, 0
+	var lastErr error
 	for waited := time.Duration(0); waited < budget; waited += game.SleepQuick {
 		if err := sl(ctx, game.SleepQuick); err != nil {
 			return false, err
@@ -784,12 +786,52 @@ func freightPollLoaded(ctx context.Context, deps MissionDeps, item string) (bool
 		// a package already aboard and returns a healthy contract: the live
 		// 2026-07-24 regression that took the fleet to 0 deliveries.
 		// Best-effort — a failed refresh is not proof of absence, so keep polling.
-		_ = deps.Client.GetCargo(ctx)
+		// The error is still COUNTED: a refresh that never lands is
+		// indistinguishable from an empty hold, and silently discarding it is
+		// what made this failure mode unreadable for weeks (see the diagnostic
+		// below).
+		refreshes++
+		if err := deps.Client.GetCargo(ctx); err != nil {
+			refreshErrs++
+			lastErr = err
+		}
 		if cargoCount(deps.Client.GetState(), item) >= 1 {
 			return true, nil
 		}
 	}
+	freightLogPollMiss(out, deps, item, refreshes, refreshErrs, lastErr)
+
 	return false, nil
+}
+
+// freightLogPollMiss dumps what the poll could actually see when it gives up.
+// A bare timeout cannot distinguish the three explanations for a package that
+// was withdrawn successfully and later returned successfully (a return requires
+// the sealed package IN the active ship, so it WAS aboard):
+//
+//	refresh never landed      -> refreshErrs > 0, or 0 entries with 0 errors
+//	hold genuinely empty      -> 0 entries, refreshes all succeeded
+//	aboard under another id   -> entries present, none matching item
+//
+// One occurrence of this line settles which. Instrumentation only — the caller's
+// behavior is unchanged.
+func freightLogPollMiss(out io.Writer, deps MissionDeps, item string, refreshes, refreshErrs int, lastErr error) {
+	if out == nil {
+		return
+	}
+	st := deps.Client.GetState()
+	if st == nil {
+		fmt.Fprintf(out, "freight: DIAG load poll missed %s: no client state; %d/%d cargo refreshes failed (last %v)\n", //nolint:errcheck
+			item, refreshErrs, refreshes, lastErr)
+
+		return
+	}
+	aboard := make([]string, 0, len(st.Ship.Cargo))
+	for _, it := range st.Ship.Cargo {
+		aboard = append(aboard, fmt.Sprintf("%s x%.0f", it.ItemID, it.Quantity))
+	}
+	fmt.Fprintf(out, "freight: DIAG load poll missed %s: %d/%d cargo refreshes failed (last %v); hold reads %.0f/%.0f used, %d entries [%s]\n", //nolint:errcheck
+		item, refreshErrs, refreshes, lastErr, st.Ship.CargoUsed, st.Ship.CargoCapacity, len(aboard), strings.Join(aboard, ", "))
 }
 
 // freightLoadPackage pulls a contract's sealed package from station storage
@@ -814,7 +856,7 @@ func freightLoadPackage(ctx context.Context, deps MissionDeps, c *serverapi.Ship
 		}
 		return freightLoadUnconfirmed(ctx, deps, c, cand, item, "server reported no transfer", out)
 	}
-	loaded, err := freightPollLoaded(ctx, deps, item)
+	loaded, err := freightPollLoaded(ctx, deps, item, out)
 	if err != nil {
 		// ctx cancelled mid-poll: the load is unconfirmed but the contract is still
 		// held (freightAccept added it), so park rather than transit blind — the next

@@ -670,6 +670,44 @@ func TestFreightLoadPackageParksThenReturnsWhenLoadNeverConfirms(t *testing.T) {
 	}
 }
 
+// failingCargoRefreshClient makes every cargo refresh fail, standing in for a
+// GetCargo that never lands. The poll gives up either way — what matters is that
+// the diagnostic says the REFRESHES failed instead of implying an empty hold,
+// which is the distinction a bare timeout could never make.
+type failingCargoRefreshClient struct {
+	*fakeClient
+	err error
+}
+
+func (f *failingCargoRefreshClient) GetCargo(ctx context.Context) error { return f.err }
+
+// When the load poll gives up it must report what it could actually see: how
+// many refreshes failed, and what the hold reads. Without this a poll miss is
+// unreadable — the state that made 52 returned contracts undiagnosable.
+func TestFreightLoadPollMissDiagnosesFailedRefreshes(t *testing.T) {
+	f := &failingCargoRefreshClient{
+		fakeClient: &fakeClient{state: &game.State{}},
+		err:        errors.New("timeout waiting for get_cargo"),
+	}
+	f.state.Ship.Cargo = []game.CargoItem{{ItemID: "iron_ore", Quantity: 7}}
+	f.state.Ship.CargoUsed, f.state.Ship.CargoCapacity = 7, 445
+	deps := MissionDeps{
+		Client: f, AgentID: "explorer-8", Market: &fakeFreightStore{}, State: &missionRunState{},
+		sleep: func(ctx context.Context, d time.Duration) error { return nil },
+	}
+	c := acceptedContract(1200, 1380)
+
+	var buf strings.Builder
+	if step := freightLoadPackage(context.Background(), deps, &c, &freightCand{Hops: 3}, &buf); step != freightStepStuck {
+		t.Fatalf("an unconfirmed load must park, got %v", step)
+	}
+	for _, want := range []string{"DIAG load poll missed", "timeout waiting for get_cargo", "iron_ore x7", "7/445"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Fatalf("diagnostic must report %q, got:\n%s", want, buf.String())
+		}
+	}
+}
+
 // A leftover reply from an EARLIER withdraw must never confirm this one: the raw
 // store is keyed by command, so only a reply naming our own item counts.
 func TestFreightWithdrawConfirmedIgnoresAnotherItemsReply(t *testing.T) {
