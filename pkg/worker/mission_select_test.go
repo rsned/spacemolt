@@ -74,6 +74,10 @@ func TestBuildMissionCandidate(t *testing.T) {
 	t.Run("smuggling rejected unless the category is enabled", func(t *testing.T) {
 		e := boardEntry("m3b", "steel", 20, "sol_station", "sol", 3000, 0)
 		e.Type = "smuggling"
+		// Real contraband couriers hand the goods over on accept; a smuggling
+		// run we would have to source is separately (and correctly) refused,
+		// so provide the items to keep this test about the TYPE gate.
+		e.ProvidedItems = map[string]int{"steel": 20}
 		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false); reason == "" {
 			t.Fatal("smuggling must be rejected when the category is not enabled")
 		}
@@ -89,6 +93,7 @@ func TestBuildMissionCandidate(t *testing.T) {
 	t.Run("warnings tolerated for smuggling only", func(t *testing.T) {
 		e := boardEntry("m3d", "steel", 5, "haven_station", "haven", 800, 0)
 		e.Type = "smuggling"
+		e.ProvidedItems = map[string]int{"steel": 5} // couriers supply the goods
 		e.Warnings = []string{"contraband cargo", "insurance voided"}
 		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true); reason != "" {
 			t.Fatalf("an enabled smuggling mission must tolerate its own warnings, got %q", reason)
@@ -288,4 +293,138 @@ func TestResolveActiveMissionIDs(t *testing.T) {
 			t.Fatalf("only one candidate should claim the single matching active, got %d resolved: %+v", resolvedCount, got)
 		}
 	})
+}
+
+// TestSmugglingGate covers the smuggling-specific economics. These runs are
+// taken for SKILL XP, not credits: the ladder to chain 2 (free pirate-stronghold
+// docking) and chain 3 (Crimson wormholes) is gated on smuggling level, and the
+// couriers that supply that XP pay 300-1400 cr against real fuel. Judged on
+// credits alone every one of them is a loss, which is exactly what stranded
+// engineer-1 at level 2 with 88/340 XP and zero accepts.
+func TestSmugglingGate(t *testing.T) {
+	dist := map[string]int{"sol": 2, "haven": 0, "far": 10}
+	ask := func(item string) (float64, bool) {
+		if item == "steel" {
+			return 20, true
+		}
+		return 0, false // contraband is not sold anywhere
+	}
+	noFuel := func(jumps int) float64 { return 0 }
+	costlyFuel := func(jumps int) float64 { return float64(jumps) * 300 }
+
+	// smugglingRun builds a provided-items contraband courier: nothing to buy,
+	// paying credits plus smuggling XP.
+	smugglingRun := func(id string, qty, reward, expiry, xp int, destSystem string) serverapi.MissionBoardEntry {
+		e := boardEntry(id, "starshine", qty, destSystem+"_station", destSystem, reward, expiry)
+		e.Type = "smuggling"
+		e.ProvidedItems = map[string]int{"starshine": qty}
+		e.Rewards.SkillXP = map[string]int{"smuggling": xp}
+		return e
+	}
+
+	t.Run("XP carries a run whose credit net is negative", func(t *testing.T) {
+		// 10 jumps of fuel against a 1400 cr reward: -1600 on credits alone.
+		// 175 XP is most of the 252 this worker needs for the chain-2 unlock.
+		e := smugglingRun("s1", 5, 1400, 900, 175, "far")
+		c, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true)
+		if reason != "" {
+			t.Fatalf("XP-rich courier rejected: %s", reason)
+		}
+		if c.Net >= 0 {
+			t.Fatalf("expected a negative credit net, got %.0f", c.Net)
+		}
+	})
+
+	t.Run("XP does not excuse an arbitrarily bad trade", func(t *testing.T) {
+		// Same 10-jump cost, but only 5 XP: not worth 3000 credits of fuel.
+		e := smugglingRun("s2", 5, 1400, 900, 5, "far")
+		if _, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true); reason == "" {
+			t.Fatal("an XP-poor, fuel-expensive courier must still be rejected")
+		}
+	})
+
+	t.Run("a mission we must source contraband for is rejected", func(t *testing.T) {
+		// The operator's second smuggling shape: "source the goods yourself".
+		// Contraband has no sell orders anywhere, so this can never be
+		// completed and must never be accepted. ProvidedItems is short.
+		e := smugglingRun("s3", 5, 5000, 900, 175, "haven")
+		e.ProvidedItems = map[string]int{"starshine": 2} // 3 short
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true); reason == "" {
+			t.Fatal("a smuggling mission requiring us to buy contraband must be rejected")
+		}
+	})
+
+	t.Run("sourcing rejection holds even when the item happens to be priceable", func(t *testing.T) {
+		// Do not lean on the ref-ask lookup failing: a stale ask would let an
+		// uncompletable run through. Steel is priceable in this fixture.
+		e := smugglingRun("s4", 5, 5000, 900, 175, "haven")
+		e.Objectives[0].ItemID = "steel"
+		e.ProvidedItems = map[string]int{"steel": 0}
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true); reason == "" {
+			t.Fatal("smuggling must reject a buy-it-yourself run even when priced")
+		}
+	})
+
+	t.Run("short expiry allowed when no travel is required", func(t *testing.T) {
+		// Black-market jobs board AT the current station (0 jumps). The 180-tick
+		// base margin refused six of them for runway they never needed.
+		e := smugglingRun("s5", 5, 3000, 140, 60, "haven") // haven = 0 jumps
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true); reason != "" {
+			t.Fatalf("0-jump smuggling run rejected on expiry: %s", reason)
+		}
+		// The same short window on ordinary freight is still refused.
+		d := boardEntry("s6", "steel", 5, "haven_station", "haven", 3000, 140)
+		if _, reason := buildMissionCandidate(d, dist, ask, noFuel, true); reason == "" {
+			t.Fatal("delivery must keep the conservative expiry margin")
+		}
+	})
+
+	t.Run("delivery economics are unchanged", func(t *testing.T) {
+		// XP valuation must not leak into ordinary freight: a delivery that
+		// loses money stays rejected even if it grants XP.
+		d := boardEntry("s7", "steel", 5, "far_station", "far", 100, 900)
+		d.Rewards.SkillXP = map[string]int{"smuggling": 175}
+		if _, reason := buildMissionCandidate(d, dist, ask, costlyFuel, true); reason == "" {
+			t.Fatal("XP must not rescue a loss-making DELIVERY mission")
+		}
+	})
+}
+
+// TestSmugglingGateAgainstLiveBoard uses a real board trio the operator
+// captured (Grand Exchange Station -> Frontier Station, 2026-07-27): three
+// couriers, each +300 cr and +50 smuggling xp, goods PROVIDED ("slides you 5
+// units of raw gutter flux"), all to the same destination so they stack into
+// one trip. Fuel is the measured rate from engineer-1's across_the_line run:
+// 952 credits over 17 jumps, ~56/jump. Priced on credits alone each of these
+// is a ~430 credit loss and the floor refuses it; they are worth taking for
+// the 150 xp toward the chain-2 unlock.
+func TestSmugglingGateAgainstLiveBoard(t *testing.T) {
+	dist := map[string]int{"frontier": 13}
+	ask := func(string) (float64, bool) { return 0, false }
+	measuredFuel := func(jumps int) float64 { return float64(jumps) * 56 }
+
+	courier := func(id, item string, qty int) serverapi.MissionBoardEntry {
+		e := boardEntry(id, item, qty, "frontier_station", "frontier", 300, 900)
+		e.Type = "smuggling"
+		e.ProvidedItems = map[string]int{item: qty}
+		e.Rewards.SkillXP = map[string]int{"smuggling": 50}
+		return e
+	}
+
+	for _, tc := range []struct{ id, item string; qty int }{
+		{"gutter", "gutter_flux", 5},
+		{"nerve", "nerve_burn", 3},
+		{"star", "starshine", 3},
+	} {
+		c, reason := buildMissionCandidate(courier(tc.id, tc.item, tc.qty), dist, ask, measuredFuel, true)
+		if reason != "" {
+			t.Fatalf("live courier %s rejected: %s", tc.id, reason)
+		}
+		if c.Net >= 0 {
+			t.Fatalf("%s: expected a credit loss, got net %.0f", tc.id, c.Net)
+		}
+		if c.DestSystem != "frontier" {
+			t.Fatalf("%s: destination %q breaks stacking", tc.id, c.DestSystem)
+		}
+	}
 }

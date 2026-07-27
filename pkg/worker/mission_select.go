@@ -35,6 +35,30 @@ const (
 	// travel allowance. Ticks are ~10s wall.
 	missionMinExpiryTicks = 180 // 30 min base margin
 	missionTicksPerJump   = 12  // ~2 min/jump allowance (jump + transit + dock)
+	// missionSmugglingMinExpiryTicks replaces the base margin for smuggling.
+	// The 180-tick margin is travel-blind, and black-market jobs board AT the
+	// station the worker is already docked at — six of them were refused for
+	// runway they never needed (140 ticks available, 180 "needed for 0 jumps").
+	// 30 ticks still covers the fixed accept/deliver overhead, and the per-jump
+	// allowance above is untouched, so anything with actual travel is priced the
+	// same as before.
+	missionSmugglingMinExpiryTicks = 30
+	// missionSmugglingXPCreditValue prices one point of smuggling XP in credits.
+	//
+	// Smuggling couriers are taken for XP, not money: they pay 300-1400 cr
+	// against real fuel, so on credits alone every one is a loss and the floor
+	// above rejects all of them. That is what left engineer-1 parked at level 2
+	// (88/340) with the category enabled and zero accepts. The XP is the actual
+	// payload — smuggling level gates chain 2 (`an_introduction`, which grants
+	// permanent pirate-stronghold docking) and chain 3 (the Crimson wormholes),
+	// both fleet-wide routing wins.
+	//
+	// 25 cr/XP makes the 252 XP that engineer-1 needs for the chain-2 unlock
+	// worth ~6300 credits — less than a single fat haul run, for a permanent
+	// unlock. It is deliberately not high enough to excuse anything: at this
+	// rate a 175-XP courier survives a 2000 cr loss while a 5-XP one does not,
+	// so the gate still discriminates rather than waving the category through.
+	missionSmugglingXPCreditValue = 25.0
 	// missionBuyBudgetFraction of current credits may be spent acquiring
 	// mission cargo across the whole stacked set — never bet the full wallet.
 	missionBuyBudgetFraction = 0.8
@@ -123,6 +147,11 @@ const missionTypeDelivery = "delivery"
 // nothing here infers it from the objective.
 const missionTypeSmuggling = "smuggling"
 
+// skillSmuggling is the skill id the server credits smuggling XP under in
+// MissionRewards.SkillXP. It matches the board `type`, but they are distinct
+// namespaces (mission type vs skill id), so they are named separately.
+const skillSmuggling = "smuggling"
+
 // missionObjectiveDeliver is the deliver-cargo objective type on the wire.
 const missionObjectiveDeliver = "deliver_item"
 
@@ -182,15 +211,32 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 	if !reachable || jumps >= navigation.RouteInf {
 		return missionCandidate{}, fmt.Sprintf("destination system %s unreachable", destSystem)
 	}
-	if e.ExpiresInTicks > 0 && e.ExpiresInTicks < missionMinExpiryTicks+jumps*missionTicksPerJump {
+	smuggling := e.Type == missionTypeSmuggling
+	minExpiry := missionMinExpiryTicks
+	if smuggling {
+		minExpiry = missionSmugglingMinExpiryTicks
+	}
+	if e.ExpiresInTicks > 0 && e.ExpiresInTicks < minExpiry+jumps*missionTicksPerJump {
 		return missionCandidate{}, fmt.Sprintf("expires in %d ticks (< %d needed for %d jumps)",
-			e.ExpiresInTicks, missionMinExpiryTicks+jumps*missionTicksPerJump, jumps)
+			e.ExpiresInTicks, minExpiry+jumps*missionTicksPerJump, jumps)
 	}
 	reward := 0.0
 	if e.Rewards != nil {
 		reward = float64(e.Rewards.Credits)
 	}
 	buyQty := max(qty-e.ProvidedItems[item], 0)
+	// Smuggling comes in two shapes: the goods are handed over on accept, or the
+	// mission tells you to source them yourself. The second is UNCOMPLETABLE —
+	// contraband has no sell orders on any market — so a short ProvidedItems is
+	// a hard reject, not an economics question.
+	//
+	// This deliberately does not lean on the refAsk lookup failing to catch it.
+	// That happens to work today (an unpriceable item is rejected below) but it
+	// is incidental: one stale ask for a contraband item would let a run through
+	// that the worker can then never finish.
+	if smuggling && buyQty > 0 {
+		return missionCandidate{}, fmt.Sprintf("smuggling run must source %d x %s itself; contraband is not sold on the market", buyQty, item)
+	}
 	itemCost := 0.0
 	if buyQty > 0 {
 		ask, priced := refAsk(item)
@@ -201,7 +247,19 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 	}
 	fuelCost := fuelCostFor(jumps)
 	net := reward - itemCost - fuelCost
-	if net < missionMinNet {
+	// Net stays the CREDIT number — it is what gets recorded and reported. The
+	// gate, for smuggling only, judges credits plus the value of the skill XP,
+	// because that XP is why the run is worth taking at all.
+	gateNet := net
+	if smuggling && e.Rewards != nil {
+		if xp := e.Rewards.SkillXP[skillSmuggling]; xp > 0 {
+			gateNet += float64(xp) * missionSmugglingXPCreditValue
+		}
+	}
+	if gateNet < missionMinNet {
+		if smuggling && gateNet != net {
+			return missionCandidate{}, fmt.Sprintf("net %.0f (+XP = %.0f) below floor %.0f", net, gateNet, missionMinNet)
+		}
 		return missionCandidate{}, fmt.Sprintf("net %.0f below floor %.0f", net, missionMinNet)
 	}
 	return missionCandidate{
