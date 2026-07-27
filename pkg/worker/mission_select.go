@@ -186,7 +186,14 @@ func deliverShape(e serverapi.MissionBoardEntry, allowSmuggling bool) (item stri
 // returns the sentinel-filtered best ask for an item (ok=false -> unpriceable);
 // fuelCostFor prices the fuel for a jump count. A non-empty reason means the
 // entry was filtered out (and why, for the worker log).
-func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64, allowSmuggling bool) (missionCandidate, string) {
+// fuelShare is how many same-destination smuggling entries the board is
+// offering (1 when unbatched). Smuggling couriers arrive 2-3 at a time to one
+// destination and SelectMissionSet already stacks by DestSystem, so the trip
+// fuel is paid ONCE for the whole cohort — charging each candidate the full
+// bill rejects a collectively profitable batch before stacking ever sees it.
+// It affects the gate only; recorded economics stay at full cost. Ignored for
+// non-smuggling entries.
+func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64, allowSmuggling bool, fuelShare int) (missionCandidate, string) {
 	item, qty, destBase, destSystem, ok := deliverShape(e, allowSmuggling)
 	if !ok {
 		return missionCandidate{}, "not a plain deliver mission"
@@ -247,13 +254,23 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 	}
 	fuelCost := fuelCostFor(jumps)
 	net := reward - itemCost - fuelCost
-	// Net stays the CREDIT number — it is what gets recorded and reported. The
-	// gate, for smuggling only, judges credits plus the value of the skill XP,
-	// because that XP is why the run is worth taking at all.
+	// Net stays the CREDIT number at FULL trip cost — it is what gets recorded
+	// and reported, and it must not be flattered by either adjustment below.
+	// The gate, for smuggling only, judges two things the credit net misses:
+	// the skill XP (which is why the run is worth taking at all), and the fact
+	// that a batch of couriers to one destination pays for the trip once.
 	gateNet := net
-	if smuggling && e.Rewards != nil {
-		if xp := e.Rewards.SkillXP[skillSmuggling]; xp > 0 {
-			gateNet += float64(xp) * missionSmugglingXPCreditValue
+	if smuggling {
+		if share := min(max(fuelShare, 1), MissionMaxStack); share > 1 {
+			// Give back the fuel the siblings will carry. Capped at the stack
+			// limit: a board offering fifty identical couriers does not make
+			// fuel free, because at most MissionMaxStack ride one trip.
+			gateNet += fuelCost - fuelCost/float64(share)
+		}
+		if e.Rewards != nil {
+			if xp := e.Rewards.SkillXP[skillSmuggling]; xp > 0 {
+				gateNet += float64(xp) * missionSmugglingXPCreditValue
+			}
 		}
 	}
 	if gateNet < missionMinNet {

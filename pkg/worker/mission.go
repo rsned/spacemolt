@@ -621,6 +621,23 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		}
 		explorePair = missionPairDist(ctx, deps, current, allLegs)
 	}
+	// Smuggling couriers are posted in same-destination batches (a board will
+	// offer three runs to Frontier Station at once), and SelectMissionSet stacks
+	// by DestSystem, so one trip carries the lot. Count the cohort per
+	// destination up front; buildMissionCandidate spreads the trip fuel across
+	// it, which is what lets a batch clear a floor none of its members can clear
+	// alone. Cheap: one extra deliverShape pass over the board.
+	smugglingCohort := map[string]int{}
+	if smugglingEnabled {
+		for _, e := range board {
+			if e.Type != missionTypeSmuggling {
+				continue
+			}
+			if _, _, _, destSystem, ok := deliverShape(e, true); ok {
+				smugglingCohort[destSystem]++
+			}
+		}
+	}
 	for _, e := range board {
 		if deps.State.wasAttempted(e.MissionID) {
 			if deps.State.shouldLogSkip(e.MissionID, "already attempted") {
@@ -634,9 +651,10 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		case e.Type == missionTypeExploration && exploreEnabled:
 			c, reason = buildExploreCandidate(e, current, explorePair, fuelCostFor)
 		case e.Type == missionTypeSmuggling && smugglingEnabled:
-			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, true)
+			_, _, _, destSystem, _ := deliverShape(e, true)
+			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, true, smugglingCohort[destSystem])
 		case e.Type == missionTypeDelivery && deliveryEnabled:
-			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, false)
+			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, false, 1)
 		default:
 			continue // category not allowlisted for this worker
 		}
