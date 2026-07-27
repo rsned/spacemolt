@@ -32,6 +32,24 @@ const DefaultHaulPoolLimit = 500
 // "use this default"; the pure ranker treats maxJumps<=0 as no cap (for tests).
 const DefaultHaulMaxJumps = 5
 
+// HaulAnyDistanceNet releases DefaultHaulMaxJumps for a single opportunity whose
+// net-of-fuel profit clears this bar.
+//
+// The distance cap's premise -- "several nearby hauls of comparable margin" -- silently
+// fails when the available pool concentrates in one region and the fleet is somewhere
+// else. Then there is no nearby haul to prefer, every candidate is outside the radius,
+// and the cap turns a temporary geographic mismatch into an indefinite idle: the hauler
+// cannot earn its way back, because everything that would pay for the trip is beyond the
+// radius that lets it see anything at all. Observed live 2026-07-27 with 18 of 21 haulers
+// 7-17 jumps from nova_terra_central while all 30 available opportunities bought there.
+//
+// The bar is deliberately high (the fuel_cell / power_cell / trade_authenticator tier),
+// so crossing the galaxy stays exceptional rather than becoming the default and leaving
+// the fleet permanently in transit earning nothing. Fuel barely dents this tier -- ~15
+// jumps at 8 units and 8 credits/unit is under 1,000 credits against a six-figure gross
+// -- so in practice the release tracks gross.
+const HaulAnyDistanceNet = 100_000
+
 // haulNearTieFraction: opportunities within this fraction of the top gross profit
 // are reordered by proximity/chaining rather than raw profit.
 const haulNearTieFraction = 0.10
@@ -227,8 +245,10 @@ type rankedOpp struct {
 // id. Opportunities whose buy-system name does not resolve to a known system id, or
 // whose buy-system is unreachable, are dropped. When maxJumps > 0, any opportunity
 // whose buy-system is more than maxJumps from currentSystemID is also dropped (maxJumps
-// <= 0 disables the cap). Independently, any opportunity whose haul leg (buy->sell)
-// exceeds HaulMaxHaulJumps is dropped as a hard backstop, regardless of maxJumps.
+// <= 0 disables the cap) — UNLESS its net-of-fuel profit clears HaulAnyDistanceNet, which
+// releases the cap for that one opportunity so a fat-tier run is never abandoned merely
+// for being far. Independently, any opportunity whose haul leg (buy->sell) exceeds
+// HaulMaxHaulJumps is dropped as a hard backstop, regardless of maxJumps or the release.
 func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID string, nameToID map[string]string, graph navigation.JumpGraph, maxJumps int, fuelPerJump int, priceOf func(stationID string) float64) []market.ArbitrageOpportunity {
 	resolved := make([]rankedOpp, 0, len(opps))
 	buyTargets := make([]string, 0, len(opps))
@@ -246,14 +266,32 @@ func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID s
 
 	dist := navigation.BFSJumps(graph, currentSystemID, buyTargets)
 
+	// netOfFuel is gross minus the fuel for both legs (approach + haul), priced at the buy
+	// station. Deliberately carries NO stability boost: a streak is a ranking convenience
+	// and must not by itself unlock a cross-galaxy trip.
+	netOfFuel := func(r rankedOpp) float64 {
+		if fuelPerJump <= 0 || priceOf == nil {
+			return r.opp.GrossProfit
+		}
+		jumps := r.jumps
+		if r.haulJumps > 0 {
+			jumps += r.haulJumps
+		}
+		return r.opp.GrossProfit - float64(jumps*fuelPerJump)*priceOf(r.opp.FromStationID)
+	}
+
 	reach := make([]rankedOpp, 0, len(resolved))
 	for _, r := range resolved {
 		d, ok := dist[r.buySysID]
 		if !ok || d >= navigation.RouteInf {
 			continue
 		}
-		if maxJumps > 0 && d > maxJumps {
-			continue // too far to reposition for
+		tooFar := maxJumps > 0 && d > maxJumps
+		// Cheap pre-filter: fuel only ever subtracts, so gross bounds net from above. A
+		// too-far opportunity that cannot clear the release bar even at full gross is
+		// dropped here, before paying for the haul-leg BFS below.
+		if tooFar && r.opp.GrossProfit < HaulAnyDistanceNet {
+			continue
 		}
 		r.jumps = d
 		// Haul leg (buy->sell): measure when the sell system resolves and is reachable.
@@ -269,6 +307,11 @@ func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID s
 				r.haulJumps = hj
 			}
 		}
+		// Distance cap, applied only now that the whole trip can be priced: a fat-tier
+		// opportunity is worth crossing the galaxy for even though a mid-tier one is not.
+		if tooFar && netOfFuel(r) < HaulAnyDistanceNet {
+			continue
+		}
 		reach = append(reach, r)
 	}
 	if len(reach) == 0 {
@@ -279,18 +322,9 @@ func RankHaulOpportunities(opps []market.ArbitrageOpportunity, currentSystemID s
 		reach[i].chain = sellChains(reach[i], reach, graph)
 	}
 
-	// effNet is the ranking value: gross minus total (approach+haul) fuel, lifted by
-	// the stability streak. fuelPerJump<=0 (no rate) makes fuel 0 -> gross-only.
+	// effNet is the ranking value: net of both legs' fuel, lifted by the stability streak.
 	effNet := func(r rankedOpp) float64 {
-		fuelCost := 0.0
-		if fuelPerJump > 0 && priceOf != nil {
-			jumps := r.jumps
-			if r.haulJumps > 0 {
-				jumps += r.haulJumps
-			}
-			fuelCost = float64(jumps*fuelPerJump) * priceOf(r.opp.FromStationID)
-		}
-		return (r.opp.GrossProfit - fuelCost) * stabilityBoost(r.opp.CyclesSeen)
+		return netOfFuel(r) * stabilityBoost(r.opp.CyclesSeen)
 	}
 
 	maxNet := 0.0

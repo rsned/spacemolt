@@ -324,14 +324,14 @@ func TestRankDeterministicByID(t *testing.T) {
 
 func TestRankDistanceCapDropsFarOpps(t *testing.T) {
 	// Line a-b-c-d-e. current=a. opp 1 buys at b (1 jump, low gross), opp 2 buys at e
-	// (4 jumps, huge gross). With maxJumps=2 the distant high-gross opp is dropped
-	// despite its profit; only the nearby one survives. With no cap (0) the far opp
-	// is kept (and, being far higher gross, sorts first).
+	// (4 jumps, much higher gross but BELOW HaulAnyDistanceNet). With maxJumps=2 the
+	// distant opp is dropped despite its profit; only the nearby one survives. With no
+	// cap (0) the far opp is kept (and, being higher gross, sorts first).
 	g, n2id := graphFor([]string{"a", "b", "c", "d", "e"},
 		[2]string{"a", "b"}, [2]string{"b", "c"}, [2]string{"c", "d"}, [2]string{"d", "e"})
 	opps := []market.ArbitrageOpportunity{
 		opp(1, "b", "c", 100),
-		opp(2, "e", "d", 999999),
+		opp(2, "e", "d", HaulAnyDistanceNet-1),
 	}
 	capped := RankHaulOpportunities(opps, "a", n2id, g, 2, 0, nil)
 	if len(capped) != 1 || capped[0].ID != 1 {
@@ -341,6 +341,80 @@ func TestRankDistanceCapDropsFarOpps(t *testing.T) {
 	if len(uncapped) != 2 || uncapped[0].ID != 2 {
 		t.Fatalf("no cap should keep both with high-gross id 2 first, got %v", ids(uncapped))
 	}
+}
+
+// TestRankDistanceCapReleasedForFatTier covers the escape from the idle trap observed
+// live on 2026-07-27: 18 of 21 haulers sat 7-17 jumps from the only station with any
+// opportunities, so the distance cap dropped the entire pool and they idled indefinitely
+// with no way to earn their way back.
+func TestRankDistanceCapReleasedForFatTier(t *testing.T) {
+	// Line a-b-c-d-e. current=a, so buying at e is 4 jumps -- outside maxJumps=2.
+	g, n2id := graphFor([]string{"a", "b", "c", "d", "e"},
+		[2]string{"a", "b"}, [2]string{"b", "c"}, [2]string{"c", "d"}, [2]string{"d", "e"})
+
+	t.Run("net at the bar releases the cap", func(t *testing.T) {
+		got := RankHaulOpportunities([]market.ArbitrageOpportunity{
+			opp(2, "e", "d", HaulAnyDistanceNet),
+		}, "a", n2id, g, 2, 0, nil)
+		if len(got) != 1 || got[0].ID != 2 {
+			t.Fatalf("a fat-tier opp must survive the distance cap, got %v", ids(got))
+		}
+	})
+
+	t.Run("one credit under the bar stays capped", func(t *testing.T) {
+		got := RankHaulOpportunities([]market.ArbitrageOpportunity{
+			opp(2, "e", "d", HaulAnyDistanceNet-1),
+		}, "a", n2id, g, 2, 0, nil)
+		if len(got) != 0 {
+			t.Fatalf("below the bar must stay capped, got %v", ids(got))
+		}
+	})
+
+	t.Run("release is judged on net, not gross", func(t *testing.T) {
+		// Gross clears the bar but fuel drags net under it: 4 approach + 1 haul jump at
+		// 10 units/jump and 100 credits/unit = 5,000 of fuel.
+		o := opp(2, "e", "d", HaulAnyDistanceNet+4000)
+		got := RankHaulOpportunities([]market.ArbitrageOpportunity{o}, "a", n2id, g, 2,
+			10, func(string) float64 { return 100 })
+		if len(got) != 0 {
+			t.Fatalf("net below the bar after fuel must stay capped, got %v", ids(got))
+		}
+		// Same opportunity with the fuel model disabled: net == gross, so it releases.
+		if got := RankHaulOpportunities([]market.ArbitrageOpportunity{o}, "a", n2id, g, 2, 0, nil); len(got) != 1 {
+			t.Fatalf("gross-only should release the same opp, got %v", ids(got))
+		}
+	})
+
+	t.Run("stability streak alone must not unlock a far trip", func(t *testing.T) {
+		// A 6-cycle streak boosts the RANKING value by 50%, which would lift this opp
+		// over the bar. The release deliberately ignores the boost, so it stays capped.
+		o := opp(2, "e", "d", HaulAnyDistanceNet*2/3)
+		o.CyclesSeen = 6
+		if got := RankHaulOpportunities([]market.ArbitrageOpportunity{o}, "a", n2id, g, 2, 0, nil); len(got) != 0 {
+			t.Fatalf("a streak must not by itself release the cap, got %v", ids(got))
+		}
+	})
+
+	t.Run("overlong haul leg still drops a released opp", func(t *testing.T) {
+		// The HaulMaxHaulJumps backstop is independent of the release: build a sell
+		// system further than the backstop allows from the buy system.
+		systems := []string{"a", "b", "c", "d", "e"}
+		pairs := [][2]string{{"a", "b"}, {"b", "c"}, {"c", "d"}, {"d", "e"}}
+		prev := "e"
+		for i := range HaulMaxHaulJumps + 1 {
+			nxt := fmt.Sprintf("h%d", i)
+			systems = append(systems, nxt)
+			pairs = append(pairs, [2]string{prev, nxt})
+			prev = nxt
+		}
+		g2, n2id2 := graphFor(systems, pairs...)
+		got := RankHaulOpportunities([]market.ArbitrageOpportunity{
+			opp(2, "e", prev, HaulAnyDistanceNet*10),
+		}, "a", n2id2, g2, 2, 0, nil)
+		if len(got) != 0 {
+			t.Fatalf("the haul-leg backstop must outrank the release, got %v", ids(got))
+		}
+	})
 }
 
 // mkRankOpp builds an opp whose buy/sell SYSTEM ids equal buySys/sellSys and whose
