@@ -1309,6 +1309,11 @@ func haulAutopilot(ctx context.Context, deps HaulDeps, out io.Writer, system, po
 			return KBUpdatePOI(ctx, deps.Client, deps.KB, "")
 		},
 		WaypointCheck: check,
+		// Haul is the first role opted into price-aware refuel timing: it jumps the
+		// most, so it pays the most fuel, and its realized P&L is already tracked
+		// per run. Other roles keep the legacy price-blind top-off until this is
+		// proven not to strand anyone.
+		FuelPriceAt: buildFuelPriceAt(ctx, deps.FuelPrices),
 	}, system, poi)
 }
 

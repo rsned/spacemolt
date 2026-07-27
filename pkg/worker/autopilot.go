@@ -32,6 +32,28 @@ var errAutopilotStopped = errors.New("autopilot stopped early by waypoint check"
 // pre-route station refuel triggers if current fuel is below this fraction of capacity.
 const AutopilotRefuelThreshold = 0.5
 
+// AutopilotDeferReserveJumps is the fuel headroom, expressed in jump-equivalents, that
+// must remain beyond a route's jump estimate before a refuel may be DEFERRED to a
+// cheaper destination. It exists because estimatedFuel covers jumps ONLY -- the
+// in-system POI travel at both ends also burns fuel -- so a tank that merely clears the
+// estimate can still strand on the final hop. Stranding costs a rescue, which dwarfs
+// any endpoint price spread, so this is deliberately generous.
+const AutopilotDeferReserveJumps = 2
+
+// fuelTiming carries the endpoint fuel prices for a refuel-timing decision. The zero
+// value is Comparable=false, which reproduces the legacy price-blind behavior exactly --
+// so every caller that does not opt in is unaffected.
+type fuelTiming struct {
+	OriginPrice float64
+	DestPrice   float64
+	// Comparable is true only when BOTH endpoint prices are known. One unknown end
+	// makes the comparison meaningless, and guessing is how a worker strands.
+	Comparable bool
+	// Reserve is the fuel headroom required beyond the route estimate before a
+	// refuel may be deferred. Zero disables deferral.
+	Reserve int
+}
+
 // needsRefuelForRoute reports whether to station-refuel before starting a route. It
 // refuels when the route's jump estimate needs more fuel than is available, OR whenever
 // the tank is below a fuel-fraction threshold. The threshold check matters because the
@@ -39,11 +61,38 @@ const AutopilotRefuelThreshold = 0.5
 // clears the jumps can still strand on the final travel to the station. Returns false if
 // capacity is unknown (maxFuel <= 0).
 func needsRefuelForRoute(estimatedFuel, fuelAvailable int, fuel, maxFuel, threshold float64) bool {
+	return needsRefuelForRouteAt(estimatedFuel, fuelAvailable, fuel, maxFuel, threshold, fuelTiming{})
+}
+
+// needsRefuelForRouteAt is needsRefuelForRoute with endpoint price comparison. Given an
+// incomparable timing it is exactly needsRefuelForRoute.
+//
+// A station refuel always fills the tank to full and charges only for the gap (the
+// server ignores quantity for credit refuels), so the purchase is all-or-nothing per
+// visit and its cost scales with how empty the tank is. Total units burned over a
+// journey is fixed by the route, so the only free variable is the price paid per unit:
+// buy at the cheaper of the two stations you were going to visit anyway.
+func needsRefuelForRouteAt(estimatedFuel, fuelAvailable int, fuel, maxFuel, threshold float64, ft fuelTiming) bool {
 	if maxFuel <= 0 {
 		return false
 	}
+	// Forced: the route needs more fuel than we hold. No price makes this optional.
 	if estimatedFuel > 0 && estimatedFuel > fuelAvailable {
 		return true
+	}
+	if !ft.Comparable {
+		return fuel/maxFuel < threshold
+	}
+	// No dearer here than at the destination: buy now and fill completely, even above
+	// the threshold. Since the refuel fills to full either way, a cheap stop also
+	// pre-pays the next leg. Equal prices buy here too — waiting gains nothing and
+	// risks the destination's price having drifted (it tracks bunker reserve level).
+	if ft.OriginPrice <= ft.DestPrice {
+		return fuel < maxFuel
+	}
+	// Dearer here than there: defer the purchase, but only with headroom to spare.
+	if estimatedFuel > 0 && ft.Reserve > 0 && fuelAvailable >= estimatedFuel+ft.Reserve {
+		return false
 	}
 	return fuel/maxFuel < threshold
 }
@@ -53,13 +102,19 @@ func needsRefuelForRoute(estimatedFuel, fuelAvailable int, fuel, maxFuel, thresh
 // ship is not at a dockable station the dock fails, so it logs and returns, leaving
 // autopilot to fall back to burning cargo fuel cells. Returns the (possibly increased)
 // available fuel for display. Shared by every mobile role via Autopilot.
-func ensureRouteFuel(ctx context.Context, client game.GameClient, out io.Writer, estimatedFuel, fuelAvailable int) int {
+func ensureRouteFuel(ctx context.Context, client game.GameClient, out io.Writer, estimatedFuel, fuelAvailable int, ft fuelTiming) int {
 	state := client.GetState()
 	if state == nil {
 		return fuelAvailable
 	}
 	fuel, maxFuel := state.GetFuel()
-	if !needsRefuelForRoute(estimatedFuel, fuelAvailable, fuel, maxFuel, AutopilotRefuelThreshold) {
+	if !needsRefuelForRouteAt(estimatedFuel, fuelAvailable, fuel, maxFuel, AutopilotRefuelThreshold, ft) {
+		// Make a deliberate deferral visible: otherwise "departed on a half tank"
+		// is indistinguishable in the log from the old threshold behavior.
+		if ft.Comparable && ft.OriginPrice > ft.DestPrice && fuel < maxFuel {
+			fmt.Fprintf(out, "  Fuel %.0f/%.0f: deferring refuel (%.0f/unit here vs %.0f at destination)\n", //nolint:errcheck
+				fuel, maxFuel, ft.OriginPrice, ft.DestPrice)
+		}
 		return fuelAvailable
 	}
 	if !state.IsDocked() {
@@ -89,6 +144,38 @@ type AutopilotDeps struct {
 	// WaypointCheck is an optional per-arrival early-stop decision (re-route hook);
 	// nil -> never stops. It runs after OnWaypoint on each jump arrival.
 	WaypointCheck WaypointCheckFunc
+	// FuelPriceAt opts this route into price-aware refuel timing: buy fuel at the
+	// cheaper of the origin and destination stations rather than topping off blindly
+	// at AutopilotRefuelThreshold. nil (the default for every role that has not opted
+	// in) leaves the legacy price-blind behavior untouched.
+	FuelPriceAt FuelPriceAt
+}
+
+// fuelTimingFor resolves the endpoint fuel prices for a route into a refuel-timing
+// decision input. It returns the zero (incomparable) value — i.e. exactly the legacy
+// price-blind behavior — when the role has not opted in, when there is no distinct
+// destination station, or when EITHER endpoint's price is unknown. Roughly half the
+// galaxy's stations have never been price-captured, so "unknown" is the common case and
+// must stay safe.
+func (d AutopilotDeps) fuelTimingFor(destStation string, fuelPerJump int) fuelTiming {
+	if d.FuelPriceAt == nil || destStation == "" || fuelPerJump <= 0 {
+		return fuelTiming{}
+	}
+	state := d.Client.GetState()
+	if state == nil || state.CurrentPOI == "" || state.CurrentPOI == destStation {
+		return fuelTiming{}
+	}
+	originPrice, originOK := d.FuelPriceAt(state.CurrentPOI)
+	destPrice, destOK := d.FuelPriceAt(destStation)
+	if !originOK || !destOK {
+		return fuelTiming{}
+	}
+	return fuelTiming{
+		OriginPrice: originPrice,
+		DestPrice:   destPrice,
+		Comparable:  true,
+		Reserve:     AutopilotDeferReserveJumps * fuelPerJump,
+	}
 }
 
 // Autopilot executes a multi-jump route to targetSystem, then travels to
@@ -123,7 +210,9 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 	fuelPerJump, estimatedFuel, fuelAvailable := parseFuelEstimates(client)
 	// Top up at the origin station if the route needs more fuel than we have. Without
 	// this, a mobile worker carrying no fuel cells (e.g. a hauler) strands on jump 1.
-	fuelAvailable = ensureRouteFuel(ctx, client, out, estimatedFuel, fuelAvailable)
+	// With FuelPriceAt configured this also defers a merely-optional top-off when the
+	// destination sells fuel cheaper.
+	fuelAvailable = ensureRouteFuel(ctx, client, out, estimatedFuel, fuelAvailable, deps.fuelTimingFor(targetPOI, fuelPerJump))
 	totalJumps := len(route)
 	fmt.Fprintf(out, "\n Route: %d jump(s) to %s\n", totalJumps, targetSystem) //nolint:errcheck
 	for i, step := range route {

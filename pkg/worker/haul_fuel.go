@@ -32,6 +32,37 @@ type FuelPriceSource interface {
 	MedianStationFuelAllIn(ctx context.Context) (median int, ok bool, err error)
 }
 
+// FuelPriceAt resolves a station's all-in fuel price. ok is false when no price is
+// known for that station -- deliberately distinct from a KNOWN price of 0 (a free
+// faction/ally pump), because the two must drive opposite decisions: a known 0 is the
+// cheapest possible place to buy, while an unknown price is a station we must not run
+// a tank down to reach.
+type FuelPriceAt func(stationID string) (price float64, ok bool)
+
+// buildFuelPriceAt returns a known-ness-preserving price resolver for refuel-timing
+// decisions. Unlike buildPriceOf it deliberately does NOT fall back to the galaxy
+// median: a median is an acceptable stand-in for RANKING opportunities, but not for
+// deciding to arrive somewhere on a near-empty tank. Station fuel spans 2-26 all-in
+// across the galaxy, so the median predicts an individual station poorly. A nil source
+// yields a nil resolver, which leaves refuel timing price-blind (legacy behavior).
+func buildFuelPriceAt(ctx context.Context, src FuelPriceSource) FuelPriceAt {
+	if src == nil {
+		return nil
+	}
+	return func(stationID string) (float64, bool) {
+		if stationID == "" {
+			return 0, false
+		}
+		if haulFreeFuelStations[stationID] {
+			return 0, true
+		}
+		if allIn, _, ok, err := src.GetStationFuelPrice(ctx, stationID); err == nil && ok {
+			return float64(allIn), true
+		}
+		return 0, false
+	}
+}
+
 // haulFuel is the per-pass fuel model: the ship's fuel-per-jump rate, a
 // station->price resolver, and the jump graph for leg distances. Built once per
 // haul pass. A zero perJump (no probe) makes every cost 0 (gross-only fallback).

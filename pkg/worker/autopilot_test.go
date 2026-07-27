@@ -143,14 +143,14 @@ func TestNeedsRefuelForRoute(t *testing.T) {
 func TestEnsureRouteFuel(t *testing.T) {
 	t.Run("full tank: no dock/refuel", func(t *testing.T) {
 		f := &fakeClient{state: &game.State{Fuel: 100, MaxFuel: 100}}
-		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0)
+		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0, fuelTiming{})
 		if slices.Contains(f.calls, "refuel") || slices.Contains(f.calls, "dock") {
 			t.Errorf("unexpected dock/refuel with full tank: %v", f.calls)
 		}
 	})
 	t.Run("low fuel, undocked: docks then refuels", func(t *testing.T) {
 		f := &fakeClient{state: &game.State{Fuel: 5, MaxFuel: 100}}
-		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0)
+		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0, fuelTiming{})
 		d, r := slices.Index(f.calls, "dock"), slices.Index(f.calls, "refuel")
 		if d < 0 || r < 0 || d > r {
 			t.Errorf("want dock before refuel, got %v", f.calls)
@@ -158,7 +158,7 @@ func TestEnsureRouteFuel(t *testing.T) {
 	})
 	t.Run("low fuel, docked: refuels without docking", func(t *testing.T) {
 		f := &fakeClient{state: &game.State{Fuel: 5, MaxFuel: 100, Doc: true}}
-		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0)
+		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0, fuelTiming{})
 		if slices.Contains(f.calls, "dock") {
 			t.Errorf("should not dock when already docked: %v", f.calls)
 		}
@@ -168,14 +168,14 @@ func TestEnsureRouteFuel(t *testing.T) {
 	})
 	t.Run("route shortfall refuels even with full tank reading", func(t *testing.T) {
 		f := &fakeClient{state: &game.State{Fuel: 100, MaxFuel: 100, Doc: true}}
-		ensureRouteFuel(context.Background(), f, io.Discard, 50, 10)
+		ensureRouteFuel(context.Background(), f, io.Discard, 50, 10, fuelTiming{})
 		if !slices.Contains(f.calls, "refuel") {
 			t.Errorf("want refuel on route shortfall, got %v", f.calls)
 		}
 	})
 	t.Run("not at a station: dock fails, no refuel", func(t *testing.T) {
 		f := &fakeClient{state: &game.State{Fuel: 5, MaxFuel: 100}, dockErr: errors.New("must be docked at a base")}
-		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0)
+		ensureRouteFuel(context.Background(), f, io.Discard, 0, 0, fuelTiming{})
 		if !slices.Contains(f.calls, "dock") {
 			t.Errorf("want dock attempt, got %v", f.calls)
 		}
