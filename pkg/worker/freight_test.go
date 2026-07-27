@@ -604,9 +604,89 @@ func TestFreightLoadPackageReturnsWhenWithdrawFails(t *testing.T) {
 	}
 }
 
-// A withdraw that succeeds but whose package never lands in cargo (tick-deferred
-// transfer that silently fails) must NOT proceed — proceeding is the multi-package
-// strand bug. The contract is returned instead.
+// The load signal must come from the withdraw's OWN correlated reply, not from
+// watching cargo. Ship.Cargo is shared mutable state that any ship-bearing reply
+// replaces wholesale (client.go parseShipData), so a package that IS aboard can
+// read as absent for the whole poll — the live 2026-07-27 defect that returned 52
+// healthy contracts. Here cargo stays empty forever and the contract must still
+// proceed on the server's word. Deleting the confirm check fails this test.
+func TestFreightLoadPackageProceedsOnCorrelatedReplyWhenCargoReadsEmpty(t *testing.T) {
+	store := &fakeFreightStore{}
+	c := acceptedContract(1200, 1380)
+	item := freightPackageItemID(c.PackageID)
+	f := &fakeClient{
+		state: &game.State{}, // a concurrent ship reply wiped the package from view
+		raw: map[string][]byte{
+			"withdraw_items": []byte(`{"command":"withdraw_items","result":{"action":"withdraw_items",` +
+				`"cargo_space":344,"cargo_total":1,"item_id":"` + item + `","quantity":1,"storage_remaining":296}}`),
+		},
+	}
+	deps := MissionDeps{
+		Client: f, AgentID: "explorer-8", Market: store, State: &missionRunState{},
+		sleep: func(ctx context.Context, d time.Duration) error { return nil },
+	}
+
+	if step := freightLoadPackage(context.Background(), deps, &c, &freightCand{Hops: 3}, io.Discard); step != freightStepProceed {
+		t.Fatalf("a withdraw the server confirmed must proceed even when cargo reads empty, got %v", step)
+	}
+	if slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must not return a contract the server said it loaded, calls were %v", f.shippingCalls)
+	}
+	if len(store.results) != 0 {
+		t.Fatalf("a confirmed load must record no return outcome, got %+v", store.results)
+	}
+}
+
+// An unconfirmed load parks for a bounded number of passes before it is handed
+// back: the package is usually aboard and returning forfeits a tier-counting
+// delivery. Once the parks are spent, the contract IS returned so a genuinely
+// uncarriable one cannot pin the worker.
+func TestFreightLoadPackageParksThenReturnsWhenLoadNeverConfirms(t *testing.T) {
+	store := &fakeFreightStore{}
+	f := &fakeClient{state: &game.State{}} // withdraw succeeds; nothing ever confirms it
+	deps := MissionDeps{
+		Client: f, AgentID: "engineer-3", Market: store, State: &missionRunState{},
+		sleep: func(ctx context.Context, d time.Duration) error { return nil },
+	}
+	c := acceptedContract(1200, 1380)
+
+	for park := 1; park <= freightLoadMaxParks; park++ {
+		if step := freightLoadPackage(context.Background(), deps, &c, &freightCand{Hops: 3}, io.Discard); step != freightStepStuck {
+			t.Fatalf("park %d/%d: an unconfirmed load must park, got %v", park, freightLoadMaxParks, step)
+		}
+		if slices.Contains(f.shippingCalls, "return") {
+			t.Fatalf("park %d/%d: must not return while parks remain, calls were %v", park, freightLoadMaxParks, f.shippingCalls)
+		}
+	}
+
+	if step := freightLoadPackage(context.Background(), deps, &c, &freightCand{Hops: 3}, io.Discard); step == freightStepProceed {
+		t.Fatal("a package that never loads must not proceed once the parks are spent")
+	}
+	if !slices.Contains(f.shippingCalls, "return") {
+		t.Fatalf("must return the un-loaded contract once parks are spent, calls were %v", f.shippingCalls)
+	}
+	if len(store.results) != 1 || store.results[0].Outcome != "returned_infeasible" {
+		t.Fatalf("want returned_infeasible, got %+v", store.results)
+	}
+}
+
+// A leftover reply from an EARLIER withdraw must never confirm this one: the raw
+// store is keyed by command, so only a reply naming our own item counts.
+func TestFreightWithdrawConfirmedIgnoresAnotherItemsReply(t *testing.T) {
+	raw := []byte(`{"command":"withdraw_items","result":{"action":"withdraw_items","cargo_total":1,"item_id":"xenon_gas","quantity":1}}`)
+	if _, known := freightWithdrawConfirmed(raw, "package:abc"); known {
+		t.Fatal("a reply about a different item must not be treated as a verdict on ours")
+	}
+	if confirmed, known := freightWithdrawConfirmed(raw, "xenon_gas"); !known || !confirmed {
+		t.Fatalf("our own item's reply must confirm, got confirmed=%v known=%v", confirmed, known)
+	}
+	if confirmed, known := freightWithdrawConfirmed([]byte(`{"result":{"item_id":"package:abc","quantity":0}}`), "package:abc"); !known || confirmed {
+		t.Fatalf("a zero-quantity transfer must be a known non-confirmation, got confirmed=%v known=%v", confirmed, known)
+	}
+}
+
+// With no run state there is nowhere to count parks, so an unconfirmed load must
+// fall back to returning the contract rather than parking forever.
 func TestFreightLoadPackageReturnsWhenPackageNeverLoads(t *testing.T) {
 	store := &fakeFreightStore{}
 	f := &fakeClient{state: &game.State{}} // withdraw succeeds; cargo stays empty

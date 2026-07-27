@@ -56,6 +56,13 @@ const (
 	// (positive-net accepts are free). Once spent, the floor reverts to 500
 	// until the server flips the tier. Aggressive-profile value; tunable.
 	freightProbationBudget = 3000.0
+
+	// freightLoadMaxParks bounds how many times ONE contract may park on an
+	// unconfirmed load before we give up and hand it back. Parking beats
+	// returning because the package is usually aboard already (see
+	// freightWithdrawConfirmed), but an unbounded park would pin the worker to
+	// a contract it genuinely cannot carry.
+	freightLoadMaxParks = 2
 )
 
 // freightCand is an eligible freight listing with derived routing and economics,
@@ -799,6 +806,14 @@ func freightLoadPackage(ctx context.Context, deps MissionDeps, c *serverapi.Ship
 		fmt.Fprintf(out, "freight: withdraw %s: %v; returning contract\n", item, err) //nolint:errcheck
 		return freightReturn(ctx, deps, out, *c, cand, "returned_infeasible", "package would not load: "+err.Error())
 	}
+	// Prefer the withdraw's OWN correlated reply over watching cargo: it is the
+	// only load signal a concurrent state write cannot erase.
+	if confirmed, known := freightWithdrawConfirmed(deps.Client.GetRawJSON("withdraw_items"), item); known {
+		if confirmed {
+			return freightStepProceed
+		}
+		return freightLoadUnconfirmed(ctx, deps, c, cand, item, "server reported no transfer", out)
+	}
 	loaded, err := freightPollLoaded(ctx, deps, item)
 	if err != nil {
 		// ctx cancelled mid-poll: the load is unconfirmed but the contract is still
@@ -808,10 +823,73 @@ func freightLoadPackage(ctx context.Context, deps MissionDeps, c *serverapi.Ship
 		return freightStepStuck
 	}
 	if !loaded {
-		fmt.Fprintf(out, "freight: package %s did not load into cargo after withdraw; returning contract\n", item) //nolint:errcheck
-		return freightReturn(ctx, deps, out, *c, cand, "returned_infeasible", "package did not load into cargo after withdraw")
+		return freightLoadUnconfirmed(ctx, deps, c, cand, item, "not visible in cargo after withdraw", out)
 	}
 	return freightStepProceed
+}
+
+// freightWithdrawConfirmed reads the withdraw's OWN action_result — the frame
+// the server correlates to our request by request_id — and reports whether it
+// says the package reached the hold. known=false means there was no such reply,
+// or it was about a different item, so the caller must fall back to observation.
+//
+// This exists because Ship.Cargo is shared mutable state: parseShipData replaces
+// the WHOLE Ship struct on any reply carrying a ship object — the 10s heartbeat's
+// get_status among them — so a package that IS aboard can vanish from the local
+// snapshot mid-poll. The correlated reply is immune to that race; a cargo poll is
+// not. Trusting the poll is what returned 52 healthy contracts across 18 agents
+// (traced 2026-07-27), each one costing a delivery that would have counted toward
+// carrier tier. Live payload shape, operator-captured:
+//
+//	{"command":"withdraw_items","result":{"action":"withdraw_items","cargo_space":344,
+//	 "cargo_total":1,"item_id":"xenon_gas","quantity":1,"storage_remaining":296}}
+func freightWithdrawConfirmed(raw []byte, item string) (confirmed, known bool) {
+	if len(raw) == 0 {
+		return false, false
+	}
+	var res struct {
+		ItemID     string   `json:"item_id"`
+		Quantity   float64  `json:"quantity"`
+		CargoTotal *float64 `json:"cargo_total"`
+		DestTotal  *float64 `json:"dest_total"`
+	}
+	if err := json.Unmarshal(unwrapActionResult(raw), &res); err != nil {
+		return false, false
+	}
+	// The raw store is keyed by command, so a leftover entry from an earlier
+	// withdraw would lie about this one. Only a reply naming OUR item counts.
+	if res.ItemID != item {
+		return false, false
+	}
+	if res.Quantity >= 1 {
+		return true, true
+	}
+	for _, total := range []*float64{res.CargoTotal, res.DestTotal} {
+		if total != nil && *total >= 1 {
+			return true, true
+		}
+	}
+	return false, true
+}
+
+// freightLoadUnconfirmed parks a contract whose load could not be confirmed
+// instead of handing it straight back. The package is usually ABOARD — what
+// failed is the confirmation, not the transfer — and a return forfeits a
+// delivery that would have counted toward carrier tier, which is precisely what
+// stalled the probationary fleet. Parking keeps the contract held so the next
+// pass's reconcile carries it to its destination; freightLoadMaxParks stops a
+// genuinely uncarriable contract from pinning the worker forever.
+//
+// Without run state there is nowhere to count, so we do NOT park: an uncounted
+// park could never end. That path keeps the pre-2026-07-27 return behavior.
+func freightLoadUnconfirmed(ctx context.Context, deps MissionDeps, c *serverapi.ShipmentContract, cand *freightCand, item, why string, out io.Writer) freightStep {
+	if parks, counted := deps.State.noteLoadPark(c.ID); counted && parks <= freightLoadMaxParks {
+		fmt.Fprintf(out, "freight: load of %s unconfirmed (%s); parking %d/%d — it may already be aboard, and the next pass re-checks before flying it\n", //nolint:errcheck
+			item, why, parks, freightLoadMaxParks)
+		return freightStepStuck
+	}
+	fmt.Fprintf(out, "freight: package %s did not load after %d parks (%s); returning contract\n", item, freightLoadMaxParks, why) //nolint:errcheck
+	return freightReturn(ctx, deps, out, *c, cand, "returned_infeasible", "package did not load into cargo after withdraw")
 }
 
 // freightDeliverDueHere delivers every held contract whose destination is

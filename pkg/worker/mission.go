@@ -96,11 +96,33 @@ type missionRunState struct {
 	// (bounded — the probationary gate and fast advancement keep it small).
 	// Positive-net accepts never touch it. Read via bootstrapSpent().
 	bootstrapLoss float64
+	// loadParks counts, per contract ID, how many passes have parked on an
+	// unconfirmed package load. Bounds freightLoadUnconfirmed so a contract we
+	// genuinely cannot carry is eventually handed back instead of pinning the
+	// worker. In-memory and per-worker; a fresh session starts every contract
+	// at zero, which is the forgiving direction.
+	loadParks map[string]int
 	// lastLoggedTier is the carrier tier last written to the log this session.
 	// logTierIfChanged prints the tier the first time it is seen and again on
 	// any change (a promotion), giving the tagged log an authoritative
 	// per-worker tier without logging it every freight pass.
 	lastLoggedTier string
+}
+
+// noteLoadPark counts one parked pass for a contract whose package load could
+// not be confirmed, returning the running total. counted=false on a nil
+// receiver (State is optional): with nowhere to count, the caller must not
+// park, because an uncounted park would never terminate.
+func (s *missionRunState) noteLoadPark(contractID string) (int, bool) {
+	if s == nil {
+		return 0, false
+	}
+	if s.loadParks == nil {
+		s.loadParks = make(map[string]int)
+	}
+	s.loadParks[contractID]++
+
+	return s.loadParks[contractID], true
 }
 
 // addHeldFreight remembers (or refreshes) a contract we are carrying. No-op
