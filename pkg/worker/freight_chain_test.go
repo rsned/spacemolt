@@ -82,3 +82,59 @@ func TestChainFeasibleAfterDetourChargesTheRoundTrip(t *testing.T) {
 		t.Fatalf("an affordable detour must not be refused: %s", reason)
 	}
 }
+
+// --- v0.549.x late-delivery semantics ---------------------------------------
+//
+// Blowing DeadlineTick now only forfeits the speed bonus/reward; the package
+// stays deliverable until RecoveryDeadlineTick for a capped fee. So the
+// feasibility gate — whose only job is deciding whether to hand a package
+// back — must measure against the RECOVERY deadline.
+
+func TestChainFeasibleMeasuresRecoveryDeadlineNotRewardDeadline(t *testing.T) {
+	// Reward deadline already blown, recovery deadline comfortably clear.
+	// Nothing here should be returned: it is merely late, not undeliverable.
+	stops := []chainStop{{ContractID: "late", Hops: 3, DeadlineTick: 1150, RecoveryDeadlineTick: 4000}}
+	if ok, reason := chainFeasible(stops, 1200); !ok {
+		t.Fatalf("a merely-late contract must stay feasible, got infeasible: %s", reason)
+	}
+}
+
+func TestChainFeasibleFailsPastRecoveryDeadline(t *testing.T) {
+	// Past the recovery deadline the package really is undeliverable.
+	stops := []chainStop{{ContractID: "dead", Hops: 3, DeadlineTick: 1150, RecoveryDeadlineTick: 1210}}
+	if ok, _ := chainFeasible(stops, 1200); ok {
+		t.Fatal("a contract past its recovery deadline must report infeasible")
+	}
+}
+
+func TestChainFeasibleFallsBackToDeadlineWithoutRecovery(t *testing.T) {
+	// Pre-v0.549 contracts (and board candidates) carry no recovery deadline;
+	// the reward deadline remains the only bound we have.
+	stops := []chainStop{{ContractID: "old", Hops: 3, DeadlineTick: 1210}}
+	if ok, _ := chainFeasible(stops, 1200); ok {
+		t.Fatal("with no recovery deadline the reward deadline must still bind")
+	}
+}
+
+func TestWorstReturnableStopIgnoresMerelyLateContract(t *testing.T) {
+	// A contract past its reward deadline but inside recovery must never be
+	// nominated for return — delivering late beats handing it back.
+	stops := []chainStop{{ContractID: "late", Hops: 3, DeadlineTick: 1150, RecoveryDeadlineTick: 4000}}
+	if _, found := freightWorstReturnableStop(stops, 1200, nil); found {
+		t.Fatal("merely-late contract nominated for return")
+	}
+}
+
+func TestWorstReturnableStopNominatesPastRecovery(t *testing.T) {
+	stops := []chainStop{
+		{ContractID: "healthy", Hops: 1, DeadlineTick: 9000, RecoveryDeadlineTick: 9000},
+		{ContractID: "dead", Hops: 3, DeadlineTick: 1150, RecoveryDeadlineTick: 1205},
+	}
+	got, found := freightWorstReturnableStop(stops, 1200, nil)
+	if !found {
+		t.Fatal("contract past recovery deadline not nominated")
+	}
+	if got.ContractID != "dead" {
+		t.Fatalf("nominated %s, want dead", got.ContractID)
+	}
+}

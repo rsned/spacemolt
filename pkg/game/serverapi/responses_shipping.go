@@ -17,6 +17,14 @@ type ShipmentActor struct {
 // TargetTick), not wall-clock. Status: posted|in_transit|delivered|returned|
 // breached|defaulted|canceled. RiskBand / carrier tier:
 // probationary|licensed|trusted|prime (+ unpriced for risk_band).
+//
+// Two deadlines, and the difference decides whether a package is worth handing
+// back (gameserver v0.549.x): DeadlineTick is the REWARD cutoff — past it the
+// payout and speed bonus are forfeit — while RecoveryDeadlineTick is when the
+// package stops being deliverable at all. Between the two, delivery still
+// settles the contract for a capped late fee with no tier demotion, which the
+// server documents as always better than defaulting. Treat DeadlineTick as a
+// bonus target and RecoveryDeadlineTick as the real point of no return.
 type ShipmentContract struct {
 	ID                      string         `json:"id"`
 	PackageID               string         `json:"package_id"`
@@ -38,6 +46,7 @@ type ShipmentContract struct {
 	SettledAt               string         `json:"settled_at,omitempty"`
 	TargetTick              int64          `json:"target_tick,omitempty"`
 	DeadlineTick            int64          `json:"deadline_tick,omitempty"`
+	RecoveryDeadlineTick    int64          `json:"recovery_deadline_tick,omitempty"`
 	BaseReward              int64          `json:"base_reward"`
 	MaxSpeedBonus           int64          `json:"max_speed_bonus"`
 	ServiceFee              int64          `json:"service_fee"`

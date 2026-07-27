@@ -12,11 +12,30 @@ import (
 // chainStop is one destination in a (prospective) delivery chain, priced
 // from the CURRENT dock. DeadlineTick 0 means "not known yet" — a board
 // candidate whose deadline the server only sets at accept time.
+//
+// RecoveryDeadlineTick is the tick past which the package can no longer be
+// delivered at all. DeadlineTick, by contrast, only ends the reward: from
+// v0.549.x a late delivery still settles for a capped fee with no tier
+// demotion. Feasibility therefore prices the recovery deadline, while ordering
+// still chases DeadlineTick because the speed bonus is real money.
 type chainStop struct {
-	ContractID   string
-	DestBaseID   string
-	Hops         int
-	DeadlineTick int64
+	ContractID           string
+	DestBaseID           string
+	Hops                 int
+	DeadlineTick         int64
+	RecoveryDeadlineTick int64
+}
+
+// deliverableUntil is the last tick at which this stop can still be delivered
+// — the recovery deadline when the server gave us one, else the reward
+// deadline. Pre-v0.549 contracts and board candidates carry no recovery
+// deadline, and for those the reward deadline is the only bound we have, so
+// the fallback preserves the old (conservative) behaviour exactly.
+func (s chainStop) deliverableUntil() int64 {
+	if s.RecoveryDeadlineTick > 0 {
+		return s.RecoveryDeadlineTick
+	}
+	return s.DeadlineTick
 }
 
 // chainOrder returns the visiting order the feasibility bound assumes:
@@ -54,10 +73,13 @@ func chainCumulative(ordered []chainStop) []int {
 	return cum
 }
 
-// chainFeasible reports whether every stop with a known deadline clears the
-// worst-case bound at its chain position. Stops with DeadlineTick <= 0 are
-// skipped: freightAccept re-runs this with the server-assigned deadline the
-// moment it exists.
+// chainFeasible reports whether every stop with a known deadline can still be
+// DELIVERED within the worst-case bound at its chain position — see
+// chainStop.deliverableUntil. It is deliberately not a check for on-time
+// delivery: missing the reward deadline costs the payout, missing the recovery
+// deadline costs the package, and only the second is worth a return. Stops with
+// no known deadline at all are skipped: freightAccept re-runs this with the
+// server-assigned deadline the moment it exists.
 func chainFeasible(stops []chainStop, nowTick int64) (bool, string) {
 	return chainFeasibleAfterDetour(stops, nowTick, 0)
 }
@@ -76,17 +98,18 @@ func chainFeasibleAfterDetour(stops []chainStop, nowTick int64, detourHops int) 
 	ordered := chainOrder(stops)
 	cum := chainCumulative(ordered)
 	for i, s := range ordered {
-		if s.DeadlineTick <= 0 {
+		limit := s.deliverableUntil()
+		if limit <= 0 {
 			continue
 		}
 		needed := float64(2*detourHops+cum[i]) * freightTicksPerHop * freightDeadlineSlack
-		if float64(s.DeadlineTick-nowTick) < needed {
+		if float64(limit-nowTick) < needed {
 			if detourHops > 0 {
-				return false, fmt.Sprintf("a %d-hop detour leaves %s at position %d needing %.0f ticks, has %d",
-					detourHops, s.ContractID, i+1, needed, s.DeadlineTick-nowTick)
+				return false, fmt.Sprintf("a %d-hop detour leaves %s at position %d needing %.0f ticks to stay deliverable, has %d",
+					detourHops, s.ContractID, i+1, needed, limit-nowTick)
 			}
-			return false, fmt.Sprintf("chain bound: %s at position %d needs %.0f ticks, has %d",
-				s.ContractID, i+1, needed, s.DeadlineTick-nowTick)
+			return false, fmt.Sprintf("chain bound: %s at position %d needs %.0f ticks to stay deliverable, has %d",
+				s.ContractID, i+1, needed, limit-nowTick)
 		}
 	}
 	return true, ""

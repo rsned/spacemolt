@@ -448,7 +448,7 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, hel
 	// held chain, not solo — its deadline exists only now.
 	withNew := make([]chainStop, 0, len(held)+1)
 	withNew = append(withNew, held...)
-	withNew = append(withNew, chainStop{ContractID: c.ID, DestBaseID: c.DestinationBaseID, Hops: hops, DeadlineTick: c.DeadlineTick})
+	withNew = append(withNew, chainStop{ContractID: c.ID, DestBaseID: c.DestinationBaseID, Hops: hops, DeadlineTick: c.DeadlineTick, RecoveryDeadlineTick: c.RecoveryDeadlineTick})
 	if c.DeadlineTick <= 0 {
 		// Fail closed on a missing deadline, as v1's freightDeadlineOK did.
 		fmt.Fprintf(out, "freight: %s infeasible (contract carries no deadline_tick); returning\n", id) //nolint:errcheck
@@ -458,7 +458,7 @@ func freightAccept(ctx context.Context, deps MissionDeps, cand *freightCand, hel
 		fmt.Fprintf(out, "freight: %s infeasible (%s); returning\n", id, reason) //nolint:errcheck
 		return nil, freightReturn(ctx, deps, out, c, cand, "returned_infeasible", reason)
 	}
-	fmt.Fprintf(out, "freight: accepted %s to %s (deadline tick %d)\n", id, c.DestinationBaseID, c.DeadlineTick) //nolint:errcheck
+	fmt.Fprintf(out, "freight: accepted %s to %s (reward deadline tick %d, deliverable until %d)\n", id, c.DestinationBaseID, c.DeadlineTick, withNew[len(withNew)-1].deliverableUntil()) //nolint:errcheck
 	// Remember the held contract in cross-pass memory: the board read never
 	// shows our own in_transit contracts, so this is what reconcile resumes
 	// from if the trip is interrupted mid-session.
@@ -744,7 +744,7 @@ func freightChainStops(ctx context.Context, deps MissionDeps, hopsTo func(string
 				fmt.Fprintf(out, "freight: no route to %s for held %s from here; pricing leg at 0\n", c.DestinationBaseID, c.ID) //nolint:errcheck
 			}
 		}
-		stops = append(stops, chainStop{ContractID: c.ID, DestBaseID: c.DestinationBaseID, Hops: hops, DeadlineTick: c.DeadlineTick})
+		stops = append(stops, chainStop{ContractID: c.ID, DestBaseID: c.DestinationBaseID, Hops: hops, DeadlineTick: c.DeadlineTick, RecoveryDeadlineTick: c.RecoveryDeadlineTick})
 	}
 	return stops
 }
@@ -1034,10 +1034,11 @@ func freightWorstReturnableStop(stops []chainStop, nowTick int64, skip map[strin
 	var worst chainStop
 	worstSlack, found := 0.0, false
 	for i, s := range ordered {
-		if s.DeadlineTick <= 0 || skip[s.ContractID] {
+		limit := s.deliverableUntil()
+		if limit <= 0 || skip[s.ContractID] {
 			continue
 		}
-		slack := float64(s.DeadlineTick-nowTick) - float64(cum[i])*freightTicksPerHop*freightDeadlineSlack
+		slack := float64(limit-nowTick) - float64(cum[i])*freightTicksPerHop*freightDeadlineSlack
 		if slack < 0 && slack < worstSlack {
 			worst, worstSlack, found = s, slack, true
 		}
