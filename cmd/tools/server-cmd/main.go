@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -196,6 +197,21 @@ done:
 
 // parseValue attempts to parse a string as a number or boolean,
 // falling back to string.
+// parseValue converts a --payload value to the JSON type the server expects,
+// falling back to the raw string.
+//
+// Numeric conversion MUST consume the whole string. The previous float branch
+// used fmt.Sscanf("%f"), which parses a PREFIX and reports no error — so a hex
+// identifier like "158222749cdf759839e4cacd4f943691" was silently truncated at
+// the first non-digit and sent as the number 158222749. Every id beginning with
+// a digit was mangled that way ("720dfdc8..." -> 720, "9b61991d..." -> 9), and
+// the server then failed to find a wreck that did exist, reporting a very
+// misleading "not_found". strconv.Parse* reject any trailing garbage, so ids
+// stay strings.
+//
+// Residual sharp edge: an identifier composed ENTIRELY of digits is still sent
+// as a number. Nothing in the payload tells us which keys are ids, so that
+// ambiguity is inherent to key=value on the command line.
 func parseValue(s string) any {
 	// Boolean
 	switch strings.ToLower(s) {
@@ -205,15 +221,13 @@ func parseValue(s string) any {
 		return false
 	}
 
-	// Integer
-	var i int64
-	if _, err := fmt.Sscanf(s, "%d", &i); err == nil && fmt.Sprintf("%d", i) == s {
+	// Integer — full-string only.
+	if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 		return i
 	}
 
-	// Float
-	var f float64
-	if _, err := fmt.Sscanf(s, "%f", &f); err == nil {
+	// Float — full-string only.
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
 		return f
 	}
 
