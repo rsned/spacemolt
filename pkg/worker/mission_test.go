@@ -431,6 +431,38 @@ func TestMissionsDryPassesReposition(t *testing.T) {
 	}
 }
 
+// A pinned worker must NOT tour. Roaming silently decides a category-enabled
+// worker's economics: the smuggling canaries were found idling at board-less
+// POIs while the couriers they were enabled for sat unposted-to-them elsewhere.
+// With HomeStation set, a dry pass parks at the pin instead of hopping the pool.
+func TestMissionsPinnedWorkerParksInsteadOfTouring(t *testing.T) {
+	fc := &fakeClient{state: missionState(true, 5000, 0), raw: map[string][]byte{
+		"missions":        boardJSON(t),
+		"active_missions": activeJSON(t),
+	}}
+	fc.state.Ship.DockedAtBase = "grand_exchange_station"
+	deps := missionDeps(fc, &fakeMissionStore{}, missionKB())
+	deps.State = &missionRunState{}
+	deps.HomeStation = "grand_exchange_station"
+	deps.nearbyStations = func(ctx context.Context, limit int) ([]stationHop, error) {
+		t.Fatal("a pinned worker must never consult the reposition pool")
+		return nil, nil
+	}
+	var navTo []string
+	deps.nav = func(ctx context.Context, system, poi string) error {
+		navTo = append(navTo, system+"/"+poi)
+		return nil
+	}
+	for range 3 {
+		if err := Missions(context.Background(), deps); err != nil {
+			t.Fatalf("Missions: %v", err)
+		}
+	}
+	if len(navTo) != 0 {
+		t.Fatalf("a pinned worker already at its station must not move, got %v", navTo)
+	}
+}
+
 // TestMissionsParksAfterFullDryCircuit drives a permanently dry board through
 // a full reposition circuit (2-station pool): after both hops come up dry the
 // worker must PARK — no further nav — instead of burning fuel forever

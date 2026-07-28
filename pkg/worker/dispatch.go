@@ -28,7 +28,7 @@ type WorkerDispatch struct {
 	Market  *market.Collector
 	Out     io.Writer
 	AgentID string      // claim owner for opportunity-claiming roles (e.g. hauler)
-	Station string      // home station POI id, used by the assist role
+	Station string      // home base id: pins the assist and missionrunner roles
 	Rescue  RescueQueue // shared stranded-worker rescue queue, used by the assist role
 	// AgentsDir is where agent credential files live (<AgentsDir>/<agent-id>/
 	// credentials.json), used by Deliver to resolve a gift recipient's agent
@@ -264,6 +264,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return Missions(ctx, MissionDeps{
 			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
 			Treasury: d.treasury, FuelPrices: d.Market, State: d.mission,
+			HomeStation:        d.Station,
 			Categories:         d.MissionCategories,
 			EnableFreight:      d.EnableFreight,
 			FreightMaxPackages: d.FreightMaxPackages,

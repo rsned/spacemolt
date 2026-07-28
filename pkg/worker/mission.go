@@ -298,6 +298,17 @@ type MissionDeps struct {
 	// State carries the cross-pass dry-streak/reposition memory (nil disables
 	// repositioning — tests that don't care simply omit it).
 	State *missionRunState
+	// HomeStation pins this worker to one base id: a dry pass returns here
+	// instead of touring nearby boards. Empty (the default) keeps the roaming
+	// behavior every worker had before.
+	//
+	// Roaming quietly decides a worker's economics. The 2026-07-26 smuggling
+	// canaries were configured with a `station` that only the assist role read,
+	// so they toured: engineer-1 was found idling in Dheneb at a board-less POI
+	// while the courier it was enabled for sat unseen on the Grand Exchange
+	// board. A worker enabled for one category has to be where that category is
+	// posted.
+	HomeStation string
 	// nav navigates to (system, poi); nil -> real Autopilot. Injected for tests,
 	// mirroring WorkerDispatch.ensureHomeNav.
 	nav func(ctx context.Context, system, poi string) error
@@ -1057,6 +1068,23 @@ func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error 
 	deps.State.dry++
 	if deps.State.dry < missionDryPassLimit {
 		return nil
+	}
+	// Pinned worker: its assigned board IS the assignment, so a dry pass waits
+	// there rather than touring. Only a mission trip or freight leg should ever
+	// carry it away, and then it comes straight back.
+	if deps.HomeStation != "" {
+		st := deps.Client.GetState()
+		if st != nil && st.Ship.DockedAtBase == deps.HomeStation {
+			deps.State.dry = 0
+			deps.State.parkedUntil = missionNow(deps).Add(missionParkWindow)
+			fmt.Fprintf(out, "missions: %d dry passes at pinned station %s; parking for %s\n", missionDryPassLimit, deps.HomeStation, missionParkWindow) //nolint:errcheck
+
+			return nil
+		}
+		deps.State.dry = 0
+		fmt.Fprintf(out, "missions: %d dry passes; returning to pinned station %s\n", missionDryPassLimit, deps.HomeStation) //nolint:errcheck
+
+		return missionNavToBase(ctx, deps, deps.HomeStation)
 	}
 	hops, err := deps.nearbyStations(ctx, missionRepositionPool)
 	if err != nil || len(hops) == 0 {
