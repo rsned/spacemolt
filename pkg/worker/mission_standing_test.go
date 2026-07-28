@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
 // The pirate BASELINE, not reputation, is the durable record that chain-2
@@ -40,5 +41,35 @@ func TestSmugglingUnlockedReadsBaselineNotReputation(t *testing.T) {
 		if got := smugglingUnlocked(tc.state); got != tc.want {
 			t.Errorf("%s: smugglingUnlocked = %v, want %v", tc.name, got, tc.want)
 		}
+	}
+}
+
+// The XP total is what a climbing worker's trip line leads with, so it must
+// survive the shapes a board actually produces: several missions batched to one
+// destination, entries with no rewards block at all, and multi-skill awards.
+func TestTripSkillXPTotalsAcrossTheBatch(t *testing.T) {
+	withXP := func(m map[string]int) missionCandidate {
+		return missionCandidate{Entry: serverapi.MissionBoardEntry{
+			Rewards: &serverapi.MissionRewards{Credits: 2000, SkillXP: m},
+		}}
+	}
+	trip := []missionCandidate{
+		withXP(map[string]int{"smuggling": 250}),
+		withXP(map[string]int{"smuggling": 250}),
+		{Entry: serverapi.MissionBoardEntry{}},                                     // no rewards block
+		{Entry: serverapi.MissionBoardEntry{Rewards: &serverapi.MissionRewards{}}}, // rewards, no XP
+		withXP(map[string]int{"smuggling": 75, "nebula_attunement": 35}),
+	}
+	if got := tripSkillXP(trip); got != 610 {
+		t.Errorf("tripSkillXP = %d, want 610 (250+250+75+35)", got)
+	}
+	if got := tripSkillXP(nil); got != 0 {
+		t.Errorf("tripSkillXP(nil) = %d, want 0", got)
+	}
+	// A credits-only trip must fall through to the plain line, not the XP one.
+	if got := tripSkillXP([]missionCandidate{{Entry: serverapi.MissionBoardEntry{
+		Rewards: &serverapi.MissionRewards{Credits: 5000},
+	}}}); got != 0 {
+		t.Errorf("credits-only trip reported %d XP, want 0", got)
 	}
 }
