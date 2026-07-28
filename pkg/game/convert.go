@@ -253,6 +253,14 @@ func PlayerFromAPI(ext serverapi.Player) Player {
 		}
 	}
 
+	var standings map[string]EmpireStanding
+	if len(ext.Standings) > 0 {
+		standings = make(map[string]EmpireStanding, len(ext.Standings))
+		for k, v := range ext.Standings {
+			standings[k] = EmpireStanding(v)
+		}
+	}
+
 	return Player{
 		ID:             ext.ID,
 		Username:       ext.Username,
@@ -263,6 +271,7 @@ func PlayerFromAPI(ext serverapi.Player) Player {
 		CurrentShipID:  ext.CurrentShipID,
 		HomeBase:       ext.HomeBase,
 		DockedAtBase:   ext.DockedAtBase,
+		Standings:      standings,
 		FactionID:      ext.FactionID,
 		FactionRank:    ext.FactionRank,
 		StatusMessage:  ext.StatusMessage,

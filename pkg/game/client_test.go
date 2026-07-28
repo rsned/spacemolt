@@ -842,3 +842,36 @@ func TestMergeSystemData_EmpirePreservedOnSameSystemPartialUpdate(t *testing.T) 
 		t.Errorf("after same-system partial update omitting empire, Empire = %q, want %q (preserved)", got, "crimson")
 	}
 }
+
+// Standings ride only on a FULL player payload. Many responses carry a partial
+// one, and `c.state.Player = player` would replace a populated standings map
+// with nil — silently erasing the pirate baseline that gates stronghold access
+// and selects a mission worker's smuggling policy. Same failure shape as the
+// Skills merge this sits beside.
+func TestParsePlayerData_PartialPayloadKeepsStandings(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.SetDebugLogging(false)
+
+	client.parsePlayerData(map[string]any{"player": map[string]any{
+		"id": "p1", "username": "testuser", "credits": float64(1000),
+		"standings": map[string]any{
+			"pirates":  map[string]any{"reputation": float64(10), "baseline": float64(10)},
+			"solarian": map[string]any{"reputation": float64(20), "baseline": float64(20)},
+		},
+	}})
+	if got := client.GetState().Player.Standings["pirates"].Baseline; got != 10 {
+		t.Fatalf("pirate baseline after full payload = %d, want 10", got)
+	}
+
+	// A later partial payload (credits only) must not wipe it.
+	client.parsePlayerData(map[string]any{"player": map[string]any{
+		"id": "p1", "username": "testuser", "credits": float64(1234),
+	}})
+	st := client.GetState()
+	if st.Credits != 1234 {
+		t.Errorf("credits should still update from the partial payload, got %v", st.Credits)
+	}
+	if got := st.Player.Standings["pirates"].Baseline; got != 10 {
+		t.Errorf("pirate baseline after partial payload = %d, want 10 preserved", got)
+	}
+}

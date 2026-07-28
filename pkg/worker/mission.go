@@ -995,7 +995,19 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// One shared destination system (SelectMissionSet guarantees it). Transit,
 	// then complete each mission at its own base within that system.
 	dest := trip[0].DestSystem
-	fmt.Fprintf(out, "missions: running %d mission(s) to %s (%d jumps, est net %.0f)\n", len(trip), dest, trip[0].Jumps, tripNet(trip)) //nolint:errcheck
+	// A smuggling run taken while still climbing is bought for XP, and its
+	// advertised credits are NOT what arrives: reward is docked the later the
+	// delivery lands, and a delivery past expiry pays ZERO (observed: two
+	// couriers accepted on the same tick, same route, same 2000 advertised —
+	// one paid 2000, the other 0). Reporting a confident "est net" for those
+	// is reporting money that may never come, so say what is actually being
+	// bought and mark the credit figure as the unreliable half.
+	if xp := tripSkillXP(trip); xp > 0 && !smugglingUnlocked(deps.Client.GetState()) {
+		fmt.Fprintf(out, "missions: running %d mission(s) to %s (%d jumps, +%d XP; credits est %.0f but a late delivery may pay 0)\n", //nolint:errcheck
+			len(trip), dest, trip[0].Jumps, xp, tripNet(trip))
+	} else {
+		fmt.Fprintf(out, "missions: running %d mission(s) to %s (%d jumps, est net %.0f)\n", len(trip), dest, trip[0].Jumps, tripNet(trip)) //nolint:errcheck
+	}
 	for i, c := range trip {
 		if nerr := deps.nav(ctx, dest, c.DestBaseID); nerr != nil {
 			fmt.Fprintf(out, "missions: transit to %s failed: %v; %d mission(s) left held for next pass\n", c.DestBaseID, nerr, len(trip)-i) //nolint:errcheck
@@ -1168,6 +1180,24 @@ func tripNet(trip []missionCandidate) float64 {
 	for _, c := range trip {
 		total += c.Net
 	}
+	return total
+}
+
+// tripSkillXP totals the skill XP a trip is expected to award. Unlike credits,
+// XP appears to survive a late delivery — engineer-1 climbed smuggling L2 to L5
+// across runs that included a zero-credit one — so for a worker still buying
+// levels this, not the credit net, is the figure worth printing.
+func tripSkillXP(trip []missionCandidate) int {
+	total := 0
+	for _, c := range trip {
+		if c.Entry.Rewards == nil {
+			continue
+		}
+		for _, xp := range c.Entry.Rewards.SkillXP {
+			total += xp
+		}
+	}
+
 	return total
 }
 
@@ -1511,6 +1541,10 @@ func missionRecord(ctx context.Context, deps MissionDeps, out io.Writer, c missi
 		AcceptedTick:   acceptedTick,
 		FinishedTick:   missionTick(deps),
 		CreatedAt:      rfc(now),
+		// The board's expires_in_ticks as it stood when this was accepted.
+		// Paired with (FinishedTick-AcceptedTick) it is what makes the
+		// reward-vs-lateness question answerable at all.
+		ExpiryBudgetTicks: int64(c.Entry.ExpiresInTicks),
 	}
 	if err := deps.Market.RecordMissionResult(ctx, r); err != nil {
 		fmt.Fprintf(out, "missions: record result %s: %v\n", c.Entry.MissionID, err) //nolint:errcheck

@@ -139,6 +139,16 @@ type ModuleDefinition struct {
 }
 
 // Player represents a player in the game as returned by the server.
+// EmpireStanding is one faction's standing block. reputation floats above
+// baseline from missions and decays back toward it when idle; baseline is the
+// decay target, so raising the BASELINE is what makes an unlock permanent.
+type EmpireStanding struct {
+	Reputation        int    `json:"reputation"`
+	Baseline          int    `json:"baseline"`
+	OutstandingBounty int    `json:"outstanding_bounty"`
+	JailedUntil       string `json:"jailed_until,omitempty"`
+}
+
 type Player struct {
 	ID                string                      `json:"id"`
 	Username          string                      `json:"username"`
@@ -149,6 +159,7 @@ type Player struct {
 	CurrentShipID     string                      `json:"current_ship_id"`
 	HomeBase          string                      `json:"home_base"`
 	DockedAtBase      string                      `json:"docked_at_base"`
+	Standings         map[string]EmpireStanding   `json:"standings,omitempty"`
 	FactionID         string                      `json:"faction_id,omitempty"`
 	FactionRank       string                      `json:"faction_rank,omitempty"`
 	StatusMessage     string                      `json:"status_message,omitempty"`

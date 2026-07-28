@@ -2944,6 +2944,7 @@ func (c *Client) parsePlayerData(payload map[string]any) {
 	// disappear and re-appear, which would fire spurious XP-change callbacks.
 	preservedSkills := c.state.Player.Skills
 	preservedSkillXP := c.state.SkillXP
+	preservedStandings := c.state.Player.Standings
 
 	c.state.Player = player
 
@@ -2961,6 +2962,13 @@ func (c *Client) parsePlayerData(payload map[string]any) {
 				c.state.Player.Skills[k] = oldSkill
 			}
 		}
+	}
+
+	// Standings ride only on a FULL player payload; a partial one decodes them
+	// as nil and would wipe a durable unlock signal (the pirate baseline that
+	// gates stronghold access). Same shape as the Skills merge above.
+	if c.state.Player.Standings == nil && preservedStandings != nil {
+		c.state.Player.Standings = preservedStandings
 	}
 
 	// Sync derived state fields from player data

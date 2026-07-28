@@ -238,10 +238,10 @@ type ItemPricePoint struct {
 // floor is not real demand, the low-side mirror of the not-for-sale sentinel.
 type ReferenceAsk struct {
 	ItemID   string  `json:"item_id"`
-	BestAsk  float64 `json:"best_ask"`        // cheapest sentinel-filtered current ask
-	Depth    float64 `json:"depth"`           // total tradeable sell quantity at latest capture
-	Stations int     `json:"stations"`        // number of stations currently offering
-	AtAsk    float64 `json:"at_ask"`          // quantity available at exactly BestAsk
+	BestAsk  float64 `json:"best_ask"` // cheapest sentinel-filtered current ask
+	Depth    float64 `json:"depth"`    // total tradeable sell quantity at latest capture
+	Stations int     `json:"stations"` // number of stations currently offering
+	AtAsk    float64 `json:"at_ask"`   // quantity available at exactly BestAsk
 }
 
 // StationCaptures summarizes one station's capture history for health checks.
@@ -326,7 +326,14 @@ type MissionResult struct {
 	FinishedAt     string  `json:"finished_at"`
 	AcceptedTick   int64   `json:"accepted_tick"`
 	FinishedTick   int64   `json:"finished_tick"`
-	CreatedAt      string  `json:"created_at"`
+	// ExpiryBudgetTicks is expires_in_ticks as the board showed it at accept.
+	// (FinishedTick-AcceptedTick)/ExpiryBudgetTicks is the fraction of the
+	// window a delivery consumed — the candidate explanation for why an
+	// advertised reward sometimes arrives in full and sometimes not at all.
+	// 0 means unknown (pre-instrumentation rows, or a board entry with no
+	// finite expiry).
+	ExpiryBudgetTicks int64  `json:"expiry_budget_ticks"`
+	CreatedAt         string `json:"created_at"`
 }
 
 // FreightResult is one settled shipping contract's real outcome, the carrier

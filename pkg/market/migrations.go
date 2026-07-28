@@ -37,6 +37,15 @@ func runMigrations(db *sql.DB) error {
 	if err := ensureColumn(db, "mission_results", "reason", "TEXT DEFAULT ''"); err != nil {
 		return err
 	}
+	// expiry_budget_ticks: the mission's expires_in_ticks AT ACCEPT. Without it
+	// a result row cannot answer whether a delivery landed inside its window,
+	// which is the open question about reward: two couriers accepted on the
+	// same tick for the same route and the same advertised 2000 paid 2000 and
+	// 0. Budgets vary per instance (330-1409 on one route), so elapsed alone
+	// explains nothing — the ratio elapsed/budget is the thing to test.
+	if err := ensureColumn(db, "mission_results", "expiry_budget_ticks", "INTEGER DEFAULT 0"); err != nil {
+		return err
+	}
 	return nil
 }
 

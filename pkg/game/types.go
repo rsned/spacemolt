@@ -27,6 +27,14 @@ type StorageUpdateEvent struct {
 //   - logged_in (in payload.player)
 //   - state_update (in payload.player)
 //   - get_status (in payload.player)
+// EmpireStanding is one faction's standing block.
+type EmpireStanding struct {
+	Reputation        int    `json:"reputation"`
+	Baseline          int    `json:"baseline"`
+	OutstandingBounty int    `json:"outstanding_bounty"`
+	JailedUntil       string `json:"jailed_until,omitempty"`
+}
+
 type Player struct {
 	ID                string                 `json:"id"`
 	Username          string                 `json:"username"`
@@ -37,6 +45,12 @@ type Player struct {
 	CurrentShipID     string                 `json:"current_ship_id"`
 	HomeBase          string                 `json:"home_base"`
 	DockedAtBase      string                 `json:"docked_at_base"`
+	// Standings is per-faction reputation, keyed by empire/faction id (e.g.
+	// "pirates", "solarian"). reputation drifts back toward baseline when
+	// idle, so BASELINE is the durable signal: chain-2's an_introduction
+	// raises the pirate baseline from the -30 default to 10, and that is what
+	// makes stronghold docking permanent.
+	Standings         map[string]EmpireStanding `json:"standings,omitempty"`
 	FactionID         string                 `json:"faction_id,omitempty"`
 	FactionRank       string                 `json:"faction_rank,omitempty"`
 	FactionTag        string                 `json:"faction_tag,omitempty"` // readable faction tag (e.g. "YSMT"); not in player payload, captured from faction_info
