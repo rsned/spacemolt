@@ -26,13 +26,19 @@ workers:
   # (insurance voided) and only these two workers are opted in. Chosen for the
   # biggest fuel reserves in the fleet, since the mission distance cap is now
   # lifted and the chain-1 route to smuggling L2 is a 17-jump cross-border run.
-  # PINNED to grand_exchange_station 2026-07-27. Roaming was the silent killer:
-  # engineer-1 was found idling in Dheneb at a non-station POI while a 1338-tick
-  # red_mist courier sat unseen on the Grand Exchange board. Capital systems
-  # (Haven, Sol) carry the most smuggling work, and grand_exchange is Haven's.
-  # Unpin once the canary has proven the climb; the roaming default is fine for
-  # workers that are not chasing one category.
-  - { agent_id: engineer-1, role: missionrunner, station: grand_exchange_station, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 6 }
+  # Pinned to grand_exchange_station 2026-07-27 to stop the roaming that hid a
+  # 1338-tick red_mist courier while it idled at a board-less Dheneb POI.
+  # REPINNED to treasure_cache_trading_post 2026-07-28: the canary has proven the
+  # climb (smuggling L5), so the pin's job changes from "see couriers" to "reach
+  # the chain giver". `an_introduction` — the pirate BASELINE unlock (-30 -> 10,
+  # permanent stronghold docking) — is offered only by Dara Kesh at treasure_cache,
+  # confirmed by its chain neighbours: across_the_line (chain_next=an_introduction)
+  # and supply_run both sit at this base and nowhere else.
+  # NOTE the runner cannot yet ACCEPT it: an_introduction carries TWO deliver_item
+  # objectives and deliverShape() takes len(Objectives)==1 only, so it skips as
+  # "not a plain deliver mission". The pin puts engineer-1 in position; the accept
+  # still needs multi-objective support or a manual play_as run.
+  - { agent_id: engineer-1, role: missionrunner, station: treasure_cache_trading_post, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
