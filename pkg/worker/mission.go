@@ -1074,7 +1074,9 @@ func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error 
 	// carry it away, and then it comes straight back.
 	if deps.HomeStation != "" {
 		st := deps.Client.GetState()
-		if st != nil && st.Ship.DockedAtBase == deps.HomeStation {
+		// docked_at_base rides on the PLAYER object; the ship payload has no
+		// such field, so reading it off the ship silently never matches.
+		if st != nil && st.Doc && st.Player.DockedAtBase == deps.HomeStation {
 			deps.State.dry = 0
 			deps.State.parkedUntil = missionNow(deps).Add(missionParkWindow)
 			fmt.Fprintf(out, "missions: %d dry passes at pinned station %s; parking for %s\n", missionDryPassLimit, deps.HomeStation, missionParkWindow) //nolint:errcheck

@@ -440,7 +440,11 @@ func TestMissionsPinnedWorkerParksInsteadOfTouring(t *testing.T) {
 		"missions":        boardJSON(t),
 		"active_missions": activeJSON(t),
 	}}
-	fc.state.Ship.DockedAtBase = "grand_exchange_station"
+	// Mirror the real payload: the server puts docked_at_base on the player and
+	// never on the ship. Setting it on the ship makes this test pass against
+	// code that can never match in production.
+	fc.state.Doc = true
+	fc.state.Player.DockedAtBase = "grand_exchange_station"
 	deps := missionDeps(fc, &fakeMissionStore{}, missionKB())
 	deps.State = &missionRunState{}
 	deps.HomeStation = "grand_exchange_station"
