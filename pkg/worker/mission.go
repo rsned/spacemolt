@@ -1084,7 +1084,11 @@ func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error 
 			return nil
 		}
 		deps.State.dry = 0
-		fmt.Fprintf(out, "missions: %d dry passes; returning to pinned station %s\n", missionDryPassLimit, deps.HomeStation) //nolint:errcheck
+		at := ""
+		if st != nil {
+			at = st.Player.DockedAtBase
+		}
+		fmt.Fprintf(out, "missions: %d dry passes; returning to pinned station %s (at %q)\n", missionDryPassLimit, deps.HomeStation, at) //nolint:errcheck
 
 		return missionNavToBase(ctx, deps, deps.HomeStation)
 	}

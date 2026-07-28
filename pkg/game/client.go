@@ -3778,13 +3778,24 @@ func (c *Client) parseActionResult(payload map[string]any) {
 		c.state.Doc = true
 		c.state.Traveling = false
 		c.state.TravelProgress = nil
+		// The docked base id lives on the player object, and only a full player
+		// payload carries it — a partial one decodes it as "" and clobbers what
+		// we had. dock's own reply names the base, so record it here: callers
+		// that key off DockedAtBase (handoff passes, station pins) otherwise sit
+		// idle believing they are docked nowhere.
+		if base, ok := result["base"].(map[string]any); ok {
+			if id, ok := base["id"].(string); ok && id != "" {
+				c.state.Player.DockedAtBase = id
+			}
+		}
 		if story, ok := result["story"].(string); ok {
 			c.state.LastDockStory = story
 		}
-		c.debugLogger.Printf("Action result: docked")
+		c.debugLogger.Printf("Action result: docked at %s", c.state.Player.DockedAtBase)
 
 	case "undock":
 		c.state.Doc = false
+		c.state.Player.DockedAtBase = ""
 		c.debugLogger.Printf("Action result: undocked")
 
 	case "refuel":

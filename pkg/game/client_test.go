@@ -729,6 +729,41 @@ func TestParseActionResult_CloakTogglesState(t *testing.T) {
 	}
 }
 
+// TestParseActionResult_DockRecordsBase verifies that docking records WHERE we
+// docked, not just that we are docked. docked_at_base only ever arrives on a
+// full player payload, so a worker that logs in undocked and then docks used to
+// sit at a station with DockedAtBase == "". Everything keyed off that id —
+// handoff passes, mission station pins — then silently did nothing.
+func TestParseActionResult_DockRecordsBase(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.SetDebugLogging(false)
+
+	client.parseActionResult(map[string]any{
+		"command": "dock",
+		"tick":    float64(1460001),
+		"result": map[string]any{
+			"action": "dock",
+			"base": map[string]any{
+				"id":        "grand_exchange_station",
+				"name":      "Grand Exchange Station",
+				"poi_id":    "grand_exchange",
+				"system_id": "haven",
+			},
+		},
+	})
+	if st := client.GetState(); !st.Doc || st.Player.DockedAtBase != "grand_exchange_station" {
+		t.Fatalf("after dock want doc=true base=grand_exchange_station, got doc=%t base=%q", st.Doc, st.Player.DockedAtBase)
+	}
+
+	client.parseActionResult(map[string]any{
+		"command": "undock",
+		"result":  map[string]any{"action": "undock"},
+	})
+	if st := client.GetState(); st.Doc || st.Player.DockedAtBase != "" {
+		t.Errorf("after undock want doc=false base empty, got doc=%t base=%q", st.Doc, st.Player.DockedAtBase)
+	}
+}
+
 // TestMergeSystemData_EmpireDoesNotBleedAcrossSystems guards against
 // get_system's "empire" field (regional space affiliation) persisting on
 // c.state.System.Empire after the ship moves to a system that omits it.
