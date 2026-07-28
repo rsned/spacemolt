@@ -34,7 +34,10 @@ const (
 	// out mid-route). A finite expiry must cover a base margin plus a per-jump
 	// travel allowance. Ticks are ~10s wall.
 	missionMinExpiryTicks = 180 // 30 min base margin
-	missionTicksPerJump   = 12  // ~2 min/jump allowance (jump + transit + dock)
+	// missionMaxJumpTicks is the slowest jump the game can produce, used when
+	// the ship's speed is unknown so an unknown hull is never priced
+	// optimistically. See missionJumpTicks.
+	missionMaxJumpTicks = 6
 	// missionSmugglingMinExpiryTicks replaces the base margin for smuggling.
 	// The 180-tick margin is travel-blind, and black-market jobs board AT the
 	// station the worker is already docked at — six of them were refused for
@@ -220,7 +223,28 @@ func effectiveMissionFloor(smuggling bool, spent, budget float64) float64 {
 	return missionMinNet
 }
 
-func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64, allowSmuggling bool, fuelShare int, floor float64) (missionCandidate, string) {
+// missionJumpTicks is the game's jump time for a hull:
+//
+//	jumpTicks = max(1, 7 - shipSpeed)
+//
+// (spacemolt.com/docs/guides/fuel). A speed-6 hull jumps in 1 tick, a speed-1
+// hull in 6 — so 6 is the slowest jump that can physically exist. The gate
+// previously charged a flat 12 ticks per jump for every ship, i.e. double the
+// worst case, and refused couriers a fast hull had ample runway for: one was
+// declined at "197 ticks available < 198 needed for 14 jumps" that a speed-6
+// hull crosses in 14.
+//
+// A non-positive speed means we have no ship data; fall back to the slowest
+// jump rather than guess in the optimistic direction.
+func missionJumpTicks(speed float64) int {
+	if speed <= 0 {
+		return missionMaxJumpTicks
+	}
+
+	return max(1, missionMaxJumpTicks+1-int(speed))
+}
+
+func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64, allowSmuggling bool, fuelShare int, floor float64, jumpTicks int) (missionCandidate, string) {
 	item, qty, destBase, destSystem, ok := deliverShape(e, allowSmuggling)
 	if !ok {
 		return missionCandidate{}, "not a plain deliver mission"
@@ -250,9 +274,9 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 	if smuggling {
 		minExpiry = missionSmugglingMinExpiryTicks
 	}
-	if e.ExpiresInTicks > 0 && e.ExpiresInTicks < minExpiry+jumps*missionTicksPerJump {
-		return missionCandidate{}, fmt.Sprintf("expires in %d ticks (< %d needed for %d jumps)",
-			e.ExpiresInTicks, minExpiry+jumps*missionTicksPerJump, jumps)
+	if e.ExpiresInTicks > 0 && e.ExpiresInTicks < minExpiry+jumps*jumpTicks {
+		return missionCandidate{}, fmt.Sprintf("expires in %d ticks (< %d needed for %d jumps at %d ticks/jump)",
+			e.ExpiresInTicks, minExpiry+jumps*jumpTicks, jumps, jumpTicks)
 	}
 	reward := 0.0
 	if e.Rewards != nil {

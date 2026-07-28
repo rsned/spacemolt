@@ -698,6 +698,10 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			}
 		}
 	}
+	// Jump time is a property of THIS hull, not a fleet-wide constant: a
+	// speed-6 courier crosses 14 jumps in 14 ticks where a heavy hauler needs
+	// 84. Priced once per pass — the ship cannot change mid-board.
+	jumpTicks := missionJumpTicks(shipSpeed(deps.Client))
 	for _, e := range board {
 		if deps.State.wasAttempted(e.MissionID) {
 			if deps.State.shouldLogSkip(e.MissionID, "already attempted") {
@@ -709,13 +713,13 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		var reason string
 		switch {
 		case e.Type == missionTypeExploration && exploreEnabled:
-			c, reason = buildExploreCandidate(e, current, explorePair, fuelCostFor)
+			c, reason = buildExploreCandidate(e, current, explorePair, fuelCostFor, jumpTicks)
 		case e.Type == missionTypeSmuggling && smugglingEnabled:
 			_, _, _, destSystem, _ := deliverShape(e, true)
 			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, true, smugglingCohort[destSystem],
-				effectiveMissionFloor(true, deps.State.smugglingSpent(), missionSmugglingXPBudget))
+				effectiveMissionFloor(true, deps.State.smugglingSpent(), missionSmugglingXPBudget), jumpTicks)
 		case e.Type == missionTypeDelivery && deliveryEnabled:
-			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, false, 1, missionMinNet)
+			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, false, 1, missionMinNet, jumpTicks)
 		default:
 			continue // category not allowlisted for this worker
 		}
@@ -1058,6 +1062,20 @@ func missionRecoverToStation(ctx context.Context, deps MissionDeps, out io.Write
 // consecutive one, the worker repositions to the next nearby station
 // (rotating cursor) instead of camping a dry board forever. Nil State (no
 // cross-pass memory) just idles.
+// shipSpeed reports the current ship's effective speed, or 0 when no ship data
+// is cached. The server sends it on the ship object as `speed`.
+func shipSpeed(c game.GameClient) float64 {
+	if c == nil {
+		return 0
+	}
+	st := c.GetState()
+	if st == nil {
+		return 0
+	}
+
+	return st.Ship.Speed
+}
+
 func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error {
 	if deps.State == nil {
 		return nil

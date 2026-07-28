@@ -190,7 +190,7 @@ func exploreTour(current string, legs []missionLeg, dist func(a, b string) int) 
 // buildExploreCandidate gates and prices one exploration board entry. dist is
 // a pairwise jump-distance function over {current} ∪ leg systems. A non-empty
 // reason means the entry was filtered (and why, for the worker log).
-func buildExploreCandidate(e serverapi.MissionBoardEntry, current string, dist func(a, b string) int, fuelCostFor func(jumps int) float64) (missionCandidate, string) {
+func buildExploreCandidate(e serverapi.MissionBoardEntry, current string, dist func(a, b string) int, fuelCostFor func(jumps int) float64, jumpTicks int) (missionCandidate, string) {
 	legs, ok := exploreShape(e)
 	if !ok {
 		return missionCandidate{}, "not a pure-navigation exploration mission"
@@ -205,9 +205,9 @@ func buildExploreCandidate(e serverapi.MissionBoardEntry, current string, dist f
 	if jumps > missionExploreMaxJumps {
 		return missionCandidate{}, fmt.Sprintf("tour is %d jumps (cap %d)", jumps, missionExploreMaxJumps)
 	}
-	if e.ExpiresInTicks > 0 && e.ExpiresInTicks < missionMinExpiryTicks+jumps*missionTicksPerJump {
-		return missionCandidate{}, fmt.Sprintf("expires in %d ticks (< %d needed for %d jumps)",
-			e.ExpiresInTicks, missionMinExpiryTicks+jumps*missionTicksPerJump, jumps)
+	if e.ExpiresInTicks > 0 && e.ExpiresInTicks < missionMinExpiryTicks+jumps*jumpTicks {
+		return missionCandidate{}, fmt.Sprintf("expires in %d ticks (< %d needed for %d jumps at %d ticks/jump)",
+			e.ExpiresInTicks, missionMinExpiryTicks+jumps*jumpTicks, jumps, jumpTicks)
 	}
 	reward := 0.0
 	if e.Rewards != nil {

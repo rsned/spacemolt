@@ -6,6 +6,74 @@ import (
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
+// missionTicksPerJumpTest is the per-jump allowance these cases were written
+// against, back when it was a fleet-wide constant. Kept as a literal so the
+// existing expiry expectations still mean what they meant; jump ticks are now
+// derived from ship speed (see TestMissionJumpTicks).
+const missionTicksPerJumpTest = 12
+
+// TestMissionJumpTicks pins the game's documented jump-time formula,
+// jumpTicks = max(1, 7-speed) (spacemolt.com/docs/guides/fuel). The gate used a
+// flat 12 for every hull — double the slowest jump that can exist — which is
+// what refused a 14-jump courier at "197 available < 198 needed" that a fast
+// hull crosses in 14 ticks.
+func TestMissionJumpTicks(t *testing.T) {
+	for _, tc := range []struct {
+		speed float64
+		want  int
+	}{
+		{6, 1}, // fastest hulls jump in a single tick
+		{5, 2},
+		{3, 4},
+		{2, 5},
+		{1, 6},  // slowest jump the game can produce
+		{9, 1},  // never below the 1-tick floor
+		{0, 6},  // no ship data: assume the slowest, never the optimistic end
+		{-1, 6}, //nolint:mnd // same, for a nonsense reading
+	} {
+		if got := missionJumpTicks(tc.speed); got != tc.want {
+			t.Errorf("missionJumpTicks(%v) = %d, want %d", tc.speed, got, tc.want)
+		}
+	}
+}
+
+// The courier that motivated the change: 14 jumps with 197 ticks left, refused
+// live at the flat 12 ticks/jump (30+168=198, short by one). Under the real
+// formula even the SLOWEST legal hull needs only 30+84=114 — so the constant,
+// not the mission and not the ship, was the entire reason it was declined.
+func TestSmugglingCourierRefusedOnlyByTheFlatJumpAllowance(t *testing.T) {
+	dist := map[string]int{"sol": 14}
+	ask := func(string) (float64, bool) { return 0, false }
+	noFuel := func(int) float64 { return 0 }
+	courier := func(expiry int) serverapi.MissionBoardEntry {
+		e := boardEntry("courier", "hot_cell", 5, "confederacy_central_command", "sol", 300, expiry)
+		e.Type = "smuggling"
+		e.ProvidedItems = map[string]int{"hot_cell": 5} // couriers supply the goods
+		e.Rewards.SkillXP = map[string]int{"smuggling": 100}
+
+		return e
+	}
+
+	if _, reason := buildMissionCandidate(courier(197), dist, ask, noFuel, true, 1, missionSmugglingXPFloor, missionTicksPerJumpTest); reason == "" {
+		t.Fatal("the flat 12-tick allowance is what refused this run live; the case no longer reproduces")
+	}
+	for _, speed := range []float64{1, 6} {
+		if _, reason := buildMissionCandidate(courier(197), dist, ask, noFuel, true, 1, missionSmugglingXPFloor, missionJumpTicks(speed)); reason != "" {
+			t.Errorf("speed %v needs %d ticks for 14 jumps, well inside 197; got %q",
+				speed, missionSmugglingMinExpiryTicks+14*missionJumpTicks(speed), reason)
+		}
+	}
+
+	// Speed still has to matter where the margin is genuinely tight: 100 ticks
+	// covers 14 jumps at 1 tick each (44) but not at 6 (114).
+	if _, reason := buildMissionCandidate(courier(100), dist, ask, noFuel, true, 1, missionSmugglingXPFloor, missionJumpTicks(1)); reason == "" {
+		t.Error("a 6-tick/jump hull cannot make 14 jumps in 100 ticks; must be refused")
+	}
+	if _, reason := buildMissionCandidate(courier(100), dist, ask, noFuel, true, 1, missionSmugglingXPFloor, missionJumpTicks(6)); reason != "" {
+		t.Errorf("a speed-6 hull crosses 14 jumps in 14 ticks; must be accepted, got %q", reason)
+	}
+}
+
 // boardEntry builds a deliver-shaped mission (real wire shape: no
 // requirements block, single deliver_item objective): deliver qty of item to
 // destBase (in destSystem), paying reward credits, expiring in expiry ticks
@@ -32,7 +100,7 @@ func TestBuildMissionCandidate(t *testing.T) {
 	noFuel := func(jumps int) float64 { return 0 }
 
 	t.Run("deliver mission prices and routes", func(t *testing.T) {
-		c, reason := buildMissionCandidate(boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0), dist, ask, noFuel, false, 1, missionMinNet)
+		c, reason := buildMissionCandidate(boardEntry("m1", "steel", 20, "sol_station", "sol", 3000, 0), dist, ask, noFuel, false, 1, missionMinNet, missionTicksPerJumpTest)
 		if reason != "" {
 			t.Fatalf("rejected: %s", reason)
 		}
@@ -47,7 +115,7 @@ func TestBuildMissionCandidate(t *testing.T) {
 	t.Run("provided items reduce buy quantity", func(t *testing.T) {
 		e := boardEntry("m2", "steel", 20, "sol_station", "sol", 3000, 0)
 		e.ProvidedItems = map[string]int{"steel": 20}
-		c, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet)
+		c, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet, missionTicksPerJumpTest)
 		if reason != "" {
 			t.Fatalf("rejected: %s", reason)
 		}
@@ -62,7 +130,7 @@ func TestBuildMissionCandidate(t *testing.T) {
 			Rewards:    &serverapi.MissionRewards{Credits: 5000},
 			Objectives: []serverapi.MissionObjective{{Type: "kill_creature", Quantity: 3}},
 		}
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("kill mission must be rejected")
 		}
 	})
@@ -78,10 +146,10 @@ func TestBuildMissionCandidate(t *testing.T) {
 		// run we would have to source is separately (and correctly) refused,
 		// so provide the items to keep this test about the TYPE gate.
 		e.ProvidedItems = map[string]int{"steel": 20}
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("smuggling must be rejected when the category is not enabled")
 		}
-		if c, reason := buildMissionCandidate(e, dist, ask, noFuel, true, 1, missionMinNet); reason != "" {
+		if c, reason := buildMissionCandidate(e, dist, ask, noFuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason != "" {
 			t.Fatalf("smuggling must be accepted once enabled, got %q (%+v)", reason, c)
 		}
 	})
@@ -95,12 +163,12 @@ func TestBuildMissionCandidate(t *testing.T) {
 		e.Type = "smuggling"
 		e.ProvidedItems = map[string]int{"steel": 5} // couriers supply the goods
 		e.Warnings = []string{"contraband cargo", "insurance voided"}
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true, 1, missionMinNet); reason != "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason != "" {
 			t.Fatalf("an enabled smuggling mission must tolerate its own warnings, got %q", reason)
 		}
 		d := boardEntry("m3e", "steel", 20, "sol_station", "sol", 3000, 0)
 		d.Warnings = []string{"insurance voided"}
-		if _, reason := buildMissionCandidate(d, dist, ask, noFuel, true, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(d, dist, ask, noFuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("a DELIVERY mission with warnings must still be rejected even on a smuggling-enabled worker")
 		}
 	})
@@ -114,7 +182,7 @@ func TestBuildMissionCandidate(t *testing.T) {
 				{Type: "deliver_item", ItemID: "steel", Quantity: 10, TargetBaseID: "haven_station", SystemID: "haven"},
 			},
 		}
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("multi-leg (two deliver_item objectives) mission must be rejected")
 		}
 	})
@@ -122,35 +190,35 @@ func TestBuildMissionCandidate(t *testing.T) {
 	t.Run("module-gated mission rejected", func(t *testing.T) {
 		e := boardEntry("m4", "steel", 20, "sol_station", "sol", 3000, 0)
 		e.RequiredModules = []string{"smuggler_hold"}
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("module-gated mission must be rejected")
 		}
 	})
 
 	t.Run("tight expiry rejected", func(t *testing.T) {
 		e := boardEntry("m5", "steel", 20, "sol_station", "sol", 3000, 30)
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("30-tick expiry must be rejected (arbitrage-expiry lesson)")
 		}
 	})
 
 	t.Run("unpriceable item rejected", func(t *testing.T) {
 		e := boardEntry("m6", "unobtainium", 5, "sol_station", "sol", 3000, 0)
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("no reference ask + buy needed must be rejected")
 		}
 	})
 
 	t.Run("unreachable destination rejected", func(t *testing.T) {
 		e := boardEntry("m7", "steel", 20, "far_station", "far_system", 3000, 0)
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("destination missing from dist map must be rejected")
 		}
 	})
 
 	t.Run("negative net rejected", func(t *testing.T) {
 		e := boardEntry("m8", "steel", 100, "sol_station", "sol", 500, 0) // cost 2000 > reward 500
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("negative-net mission must be rejected")
 		}
 	})
@@ -158,7 +226,7 @@ func TestBuildMissionCandidate(t *testing.T) {
 	t.Run("mission with warnings rejected", func(t *testing.T) {
 		e := boardEntry("m9", "steel", 20, "sol_station", "sol", 3000, 0)
 		e.Warnings = []string{"contraband: insurance voided"}
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, false, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("deliver-shaped mission carrying warnings must be rejected")
 		}
 	})
@@ -326,7 +394,7 @@ func TestSmugglingGate(t *testing.T) {
 		// 10 jumps of fuel against a 1400 cr reward: -1600 on credits alone.
 		// 175 XP is most of the 252 this worker needs for the chain-2 unlock.
 		e := smugglingRun("s1", 5, 1400, 900, 175, "far")
-		c, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true, 1, missionMinNet)
+		c, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true, 1, missionMinNet, missionTicksPerJumpTest)
 		if reason != "" {
 			t.Fatalf("XP-rich courier rejected: %s", reason)
 		}
@@ -341,11 +409,11 @@ func TestSmugglingGate(t *testing.T) {
 	// relaxed floor exists to let a worker buy levels with credits it has.
 	t.Run("the XP floor takes a courier the normal floor rejects", func(t *testing.T) {
 		e := smugglingRun("s1x", 5, 400, 900, 90, "far") // ~-2600 credit net
-		if _, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("fixture must be rejected by the NORMAL floor, or it proves nothing")
 		}
 		floor := effectiveMissionFloor(true, 0, missionSmugglingXPBudget)
-		c, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true, 1, floor)
+		c, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true, 1, floor, missionTicksPerJumpTest)
 		if reason != "" {
 			t.Fatalf("the XP floor must take this courier, got: %s", reason)
 		}
@@ -361,7 +429,7 @@ func TestSmugglingGate(t *testing.T) {
 		if floor != missionMinNet {
 			t.Fatalf("a spent budget must revert to %.0f, got %.0f", missionMinNet, floor)
 		}
-		if _, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true, 1, floor); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true, 1, floor, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("with the budget spent the courier must be rejected again")
 		}
 	})
@@ -383,7 +451,7 @@ func TestSmugglingGate(t *testing.T) {
 	t.Run("XP does not excuse an arbitrarily bad trade", func(t *testing.T) {
 		// Same 10-jump cost, but only 5 XP: not worth 3000 credits of fuel.
 		e := smugglingRun("s2", 5, 1400, 900, 5, "far")
-		if _, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, costlyFuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("an XP-poor, fuel-expensive courier must still be rejected")
 		}
 	})
@@ -394,7 +462,7 @@ func TestSmugglingGate(t *testing.T) {
 		// completed and must never be accepted. ProvidedItems is short.
 		e := smugglingRun("s3", 5, 5000, 900, 175, "haven")
 		e.ProvidedItems = map[string]int{"starshine": 2} // 3 short
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("a smuggling mission requiring us to buy contraband must be rejected")
 		}
 	})
@@ -405,7 +473,7 @@ func TestSmugglingGate(t *testing.T) {
 		e := smugglingRun("s4", 5, 5000, 900, 175, "haven")
 		e.Objectives[0].ItemID = "steel"
 		e.ProvidedItems = map[string]int{"steel": 0}
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("smuggling must reject a buy-it-yourself run even when priced")
 		}
 	})
@@ -414,12 +482,12 @@ func TestSmugglingGate(t *testing.T) {
 		// Black-market jobs board AT the current station (0 jumps). The 180-tick
 		// base margin refused six of them for runway they never needed.
 		e := smugglingRun("s5", 5, 3000, 140, 60, "haven") // haven = 0 jumps
-		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true, 1, missionMinNet); reason != "" {
+		if _, reason := buildMissionCandidate(e, dist, ask, noFuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason != "" {
 			t.Fatalf("0-jump smuggling run rejected on expiry: %s", reason)
 		}
 		// The same short window on ordinary freight is still refused.
 		d := boardEntry("s6", "steel", 5, "haven_station", "haven", 3000, 140)
-		if _, reason := buildMissionCandidate(d, dist, ask, noFuel, true, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(d, dist, ask, noFuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("delivery must keep the conservative expiry margin")
 		}
 	})
@@ -429,7 +497,7 @@ func TestSmugglingGate(t *testing.T) {
 		// loses money stays rejected even if it grants XP.
 		d := boardEntry("s7", "steel", 5, "far_station", "far", 100, 900)
 		d.Rewards.SkillXP = map[string]int{"smuggling": 175}
-		if _, reason := buildMissionCandidate(d, dist, ask, costlyFuel, true, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(d, dist, ask, costlyFuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("XP must not rescue a loss-making DELIVERY mission")
 		}
 	})
@@ -461,7 +529,7 @@ func TestSmugglingGateAgainstLiveBoard(t *testing.T) {
 		{"nerve", "nerve_burn", 3},
 		{"star", "starshine", 3},
 	} {
-		c, reason := buildMissionCandidate(courier(tc.id, tc.item, tc.qty), dist, ask, measuredFuel, true, 1, missionMinNet)
+		c, reason := buildMissionCandidate(courier(tc.id, tc.item, tc.qty), dist, ask, measuredFuel, true, 1, missionMinNet, missionTicksPerJumpTest)
 		if reason != "" {
 			t.Fatalf("live courier %s rejected: %s", tc.id, reason)
 		}
@@ -496,13 +564,13 @@ func TestSmugglingBatchFuelSharing(t *testing.T) {
 	}
 
 	t.Run("alone it is a bad trade and stays rejected", func(t *testing.T) {
-		if _, reason := buildMissionCandidate(courier("b1"), dist, ask, liveFuel, true, 1, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(courier("b1"), dist, ask, liveFuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("a lone courier paying 50 xp for ~2288 of fuel must be rejected")
 		}
 	})
 
 	t.Run("three sharing one trip are accepted", func(t *testing.T) {
-		c, reason := buildMissionCandidate(courier("b2"), dist, ask, liveFuel, true, 3, missionMinNet)
+		c, reason := buildMissionCandidate(courier("b2"), dist, ask, liveFuel, true, 3, missionMinNet, missionTicksPerJumpTest)
 		if reason != "" {
 			t.Fatalf("batched courier rejected: %s", reason)
 		}
@@ -519,8 +587,8 @@ func TestSmugglingBatchFuelSharing(t *testing.T) {
 	t.Run("sharing cannot exceed the stack cap", func(t *testing.T) {
 		// A board offering 50 identical couriers does not make fuel free: at
 		// most MissionMaxStack of them ever ride one trip.
-		big, reasonBig := buildMissionCandidate(courier("b3"), dist, ask, liveFuel, true, 50, missionMinNet)
-		capped, reasonCap := buildMissionCandidate(courier("b4"), dist, ask, liveFuel, true, MissionMaxStack, missionMinNet)
+		big, reasonBig := buildMissionCandidate(courier("b3"), dist, ask, liveFuel, true, 50, missionMinNet, missionTicksPerJumpTest)
+		capped, reasonCap := buildMissionCandidate(courier("b4"), dist, ask, liveFuel, true, MissionMaxStack, missionMinNet, missionTicksPerJumpTest)
 		if reasonBig != reasonCap {
 			t.Fatalf("share beyond the stack cap changed the verdict: %q vs %q", reasonBig, reasonCap)
 		}
@@ -534,7 +602,7 @@ func TestSmugglingBatchFuelSharing(t *testing.T) {
 		// stays rejected however many siblings share its destination.
 		d := boardEntry("b5", "steel", 3, "frontier_station", "frontier", 300, 900)
 		d.ProvidedItems = map[string]int{"steel": 3}
-		if _, reason := buildMissionCandidate(d, dist, ask, liveFuel, true, 3, missionMinNet); reason == "" {
+		if _, reason := buildMissionCandidate(d, dist, ask, liveFuel, true, 3, missionMinNet, missionTicksPerJumpTest); reason == "" {
 			t.Fatal("delivery must not get the smuggling batch discount")
 		}
 	})

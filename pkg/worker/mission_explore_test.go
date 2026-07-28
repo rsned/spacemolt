@@ -104,11 +104,11 @@ func TestBuildExploreCandidateNetPerJumpGate(t *testing.T) {
 
 	// 900 cr over 4 jumps = 225/jump: clears missionMinNet (500) but not the
 	// per-jump floor — the "Local Sector Survey" trap shape.
-	if _, reason := buildExploreCandidate(exploreEntry("trap", 900, visitObj("far")), "haven", dist, noFuel); reason == "" {
+	if _, reason := buildExploreCandidate(exploreEntry("trap", 900, visitObj("far")), "haven", dist, noFuel, missionTicksPerJumpTest); reason == "" {
 		t.Fatal("sub-floor per-jump mission must be rejected")
 	}
 	// 4000 over 4 jumps = 1000/jump: accepted.
-	c, reason := buildExploreCandidate(exploreEntry("good", 4000, visitObj("far")), "haven", dist, noFuel)
+	c, reason := buildExploreCandidate(exploreEntry("good", 4000, visitObj("far")), "haven", dist, noFuel, missionTicksPerJumpTest)
 	if reason != "" {
 		t.Fatalf("good candidate rejected: %s", reason)
 	}
