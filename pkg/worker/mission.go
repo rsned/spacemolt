@@ -96,6 +96,12 @@ type missionRunState struct {
 	// (bounded — the probationary gate and fast advancement keep it small).
 	// Positive-net accepts never touch it. Read via bootstrapSpent().
 	bootstrapLoss float64
+	// smugglingLoss is the cumulative CREDIT loss this worker has eaten on
+	// smuggling runs taken below missionMinNet to buy skill XP. Bounds the
+	// relaxed floor via effectiveMissionFloor. In-memory and per-worker: a
+	// restart forgives it, which is the forgiving direction for a canary whose
+	// job is to reach the next level. Profitable runs never touch it.
+	smugglingLoss float64
 	// loadParks counts, per contract ID, how many passes have parked on an
 	// unconfirmed package load. Bounds freightLoadUnconfirmed so a contract we
 	// genuinely cannot carry is eventually handed back instead of pinning the
@@ -107,6 +113,27 @@ type missionRunState struct {
 	// any change (a promotion), giving the tagged log an authoritative
 	// per-worker tier without logging it every freight pass.
 	lastLoggedTier string
+}
+
+// smugglingSpent is the cumulative loss eaten buying smuggling XP. 0 on a nil
+// receiver, which keeps the relaxed floor available rather than silently
+// reverting a stateless caller to missionMinNet.
+func (s *missionRunState) smugglingSpent() float64 {
+	if s == nil {
+		return 0
+	}
+
+	return s.smugglingLoss
+}
+
+// noteSmugglingLoss books the loss on a smuggling run accepted below the normal
+// floor. Only losses count — a profitable courier costs no budget, so a worker
+// that finds paying runs can climb indefinitely. No-op on a nil receiver.
+func (s *missionRunState) noteSmugglingLoss(net float64) {
+	if s == nil || net >= 0 {
+		return
+	}
+	s.smugglingLoss += -net
 }
 
 // noteLoadPark counts one parked pass for a contract whose package load could
@@ -674,9 +701,10 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			c, reason = buildExploreCandidate(e, current, explorePair, fuelCostFor)
 		case e.Type == missionTypeSmuggling && smugglingEnabled:
 			_, _, _, destSystem, _ := deliverShape(e, true)
-			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, true, smugglingCohort[destSystem])
+			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, true, smugglingCohort[destSystem],
+				effectiveMissionFloor(true, deps.State.smugglingSpent(), missionSmugglingXPBudget))
 		case e.Type == missionTypeDelivery && deliveryEnabled:
-			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, false, 1)
+			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, false, 1, missionMinNet)
 		default:
 			continue // category not allowlisted for this worker
 		}
@@ -858,6 +886,14 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		if aerr := deps.Client.AcceptMission(ctx, c.Entry.MissionID); aerr != nil {
 			fmt.Fprintf(out, "missions: accept %s failed: %v\n", c.Entry.MissionID, aerr) //nolint:errcheck
 			continue
+		}
+		// Book the XP purchase only once the server has actually granted the
+		// run: a rejected accept (skill_required, gone, taken) buys nothing and
+		// must not consume budget.
+		if c.Entry.Type == missionTypeSmuggling && c.Net < 0 {
+			deps.State.noteSmugglingLoss(c.Net)
+			fmt.Fprintf(out, "missions: smuggling %s taken at net %.0f for XP; budget spent %.0f/%.0f\n", //nolint:errcheck
+				c.Entry.MissionID, c.Net, deps.State.smugglingSpent(), missionSmugglingXPBudget)
 		}
 		accepted = append(accepted, c)
 	}

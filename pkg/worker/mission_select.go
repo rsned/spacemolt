@@ -59,6 +59,20 @@ const (
 	// rate a 175-XP courier survives a 2000 cr loss while a 5-XP one does not,
 	// so the gate still discriminates rather than waving the category through.
 	missionSmugglingXPCreditValue = 25.0
+	// missionSmugglingXPFloor is the net a smuggling courier may lose while a
+	// worker is buying its way up the skill. Couriers price out at -680 to
+	// -2312 on the boards we have watched, so the normal 500 floor rejects
+	// EVERY one — which is why the 2026-07-26 canaries made zero accepts and
+	// produced no evidence either way about the worker binary. Levels are the
+	// point: L3 unlocks chain 2 and L5 chain 3, both permanent routing wins.
+	missionSmugglingXPFloor = -2500.0
+	// missionSmugglingXPBudget caps the cumulative smuggling LOSS one worker
+	// eats at the relaxed floor before it reverts to missionMinNet. Sized from
+	// live numbers: couriers pay 75-100 XP for ~2000-2300 cr, so a level costs
+	// roughly 6500-7000 cr and this buys 3-4 of them. Per-worker and in-memory,
+	// so a restart forgives it — the forgiving direction for a canary whose
+	// whole job is to reach the next level.
+	missionSmugglingXPBudget = 25000.0
 	// missionBuyBudgetFraction of current credits may be spent acquiring
 	// mission cargo across the whole stacked set — never bet the full wallet.
 	missionBuyBudgetFraction = 0.8
@@ -193,7 +207,20 @@ func deliverShape(e serverapi.MissionBoardEntry, allowSmuggling bool) (item stri
 // bill rejects a collectively profitable batch before stacking ever sees it.
 // It affects the gate only; recorded economics stay at full cost. Ignored for
 // non-smuggling entries.
-func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64, allowSmuggling bool, fuelShare int) (missionCandidate, string) {
+// effectiveMissionFloor is the net a candidate must clear. Smuggling relaxes to
+// missionSmugglingXPFloor while the worker's XP-buying budget holds, because the
+// XP — not the credits — is the reason the run is worth taking; every other
+// category, and a smuggling worker that has spent its budget, uses missionMinNet.
+// Pure: the caller supplies what has been spent so far.
+func effectiveMissionFloor(smuggling bool, spent, budget float64) float64 {
+	if smuggling && spent < budget {
+		return missionSmugglingXPFloor
+	}
+
+	return missionMinNet
+}
+
+func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64, allowSmuggling bool, fuelShare int, floor float64) (missionCandidate, string) {
 	item, qty, destBase, destSystem, ok := deliverShape(e, allowSmuggling)
 	if !ok {
 		return missionCandidate{}, "not a plain deliver mission"
@@ -273,11 +300,11 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 			}
 		}
 	}
-	if gateNet < missionMinNet {
+	if gateNet < floor {
 		if smuggling && gateNet != net {
-			return missionCandidate{}, fmt.Sprintf("net %.0f (+XP = %.0f) below floor %.0f", net, gateNet, missionMinNet)
+			return missionCandidate{}, fmt.Sprintf("net %.0f (+XP = %.0f) below floor %.0f", net, gateNet, floor)
 		}
-		return missionCandidate{}, fmt.Sprintf("net %.0f below floor %.0f", net, missionMinNet)
+		return missionCandidate{}, fmt.Sprintf("net %.0f below floor %.0f", net, floor)
 	}
 	return missionCandidate{
 		Entry: e, ItemID: item, Qty: qty, BuyQty: buyQty,

@@ -26,7 +26,13 @@ workers:
   # (insurance voided) and only these two workers are opted in. Chosen for the
   # biggest fuel reserves in the fleet, since the mission distance cap is now
   # lifted and the chain-1 route to smuggling L2 is a 17-jump cross-border run.
-  - { agent_id: engineer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 6 }
+  # PINNED to grand_exchange_station 2026-07-27. Roaming was the silent killer:
+  # engineer-1 was found idling in Dheneb at a non-station POI while a 1338-tick
+  # red_mist courier sat unseen on the Grand Exchange board. Capital systems
+  # (Haven, Sol) carry the most smuggling work, and grand_exchange is Haven's.
+  # Unpin once the canary has proven the climb; the roaming default is fine for
+  # workers that are not chasing one category.
+  - { agent_id: engineer-1, role: missionrunner, station: grand_exchange_station, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
@@ -59,8 +65,9 @@ workers:
   - { agent_id: explorer-9, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 1 }
   - { agent_id: explorer-10, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 1 }
   - { agent_id: explorer-11, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 2 }
-  # SMUGGLING CANARY 2 of 2 — see engineer-1 above.
-  - { agent_id: explorer-12, role: missionrunner, station: "", mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 4 }
+  # SMUGGLING CANARY 2 of 2 — see engineer-1 above. Pinned alongside it: this one
+  # had drifted to Alpha Centauri and logged ZERO smuggling sightings there.
+  - { agent_id: explorer-12, role: missionrunner, station: grand_exchange_station, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 4 }
   - { agent_id: fighter-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
