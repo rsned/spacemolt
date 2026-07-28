@@ -72,6 +72,8 @@ interface Snapshot {
   stale_fleets: string[] | null;
   removed?: Record<string, string[]>;
   overminds?: Record<string, OvermindInfo>;
+  current_overmind?: string;
+  current_worker?: string;
 }
 
 interface Delta {
@@ -104,6 +106,11 @@ export interface FleetStream {
   /** Fleet label -> overmind build identity. Carried only on the "snapshot"
    * keyframe (like `removed`); persists across deltas until the next snapshot. */
   overminds: Record<string, OvermindInfo>;
+  /** Newest build seen for each binary. The two roll out independently, so
+   * they are reported separately rather than as one "current". Snapshot-only,
+   * like `overminds`. */
+  currentOvermind: string;
+  currentWorker: string;
   /** Moves from the most recent delta — consumed by the map for animation. */
   moves: AgentMove[];
   connected: boolean;
@@ -125,7 +132,8 @@ function route(onMap: Map<string, AgentState>, offMap: Map<string, AgentState>, 
 export function useFleetStream(streamURL = '/api/overmind/stream'): FleetStream {
   const [state, setState] = useState<FleetStream>({
     agents: new Map(), offMap: [], accounting: null,
-    staleFleets: [], removed: {}, overminds: {}, moves: [], connected: false,
+    staleFleets: [], removed: {}, overminds: {},
+    currentOvermind: '', currentWorker: '', moves: [], connected: false,
   });
   const agentsRef = useRef(new Map<string, AgentState>());
   const offMapRef = useRef(new Map<string, AgentState>());
@@ -144,6 +152,8 @@ export function useFleetStream(streamURL = '/api/overmind/stream'): FleetStream 
         ...s, agents: new Map(onMap), offMap: [...offMap.values()],
         staleFleets: snap.stale_fleets ?? [], removed: snap.removed ?? {},
         overminds: snap.overminds ?? {},
+        currentOvermind: snap.current_overmind ?? '',
+        currentWorker: snap.current_worker ?? '',
         moves: [], connected: true,
       }));
     });

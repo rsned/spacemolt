@@ -218,3 +218,52 @@ func TestReadSnapshotClassifiesVersionTiers(t *testing.T) {
 		t.Fatalf("haul FleetTier = %q, want red", ov.FleetTier)
 	}
 }
+
+// The two binaries roll out independently, so a merged "current" hides the
+// common case this dashboard exists to surface: a fleet whose overmind is
+// current while its workers are stale. Each must be reported on its own newest
+// build, chosen by build time rather than by SemVer ordering.
+func TestSnapshotReportsCurrentOvermindAndWorkerSeparately(t *testing.T) {
+	g, err := LoadGalaxy(context.Background(), fixtureKB(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	now := time.Date(2026, 7, 27, 20, 0, 0, 0, time.UTC)
+	fresh := now.Add(-5 * time.Second).Format(time.RFC3339)
+	write := func(file, ovVer, ovAt, wVer, wAt string) {
+		t.Helper()
+		sf := balances.StatusFile{
+			CapturedAt:      fresh,
+			OvermindVersion: ovVer,
+			OvermindBuiltAt: ovAt,
+			Workers: []balances.LiveRecord{{
+				AgentID: "a-1", System: "Sol", Seen: true, Healthy: true,
+				Version: wVer, BuiltAt: wAt,
+			}},
+		}
+		b, err := json.Marshal(sf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, file+"-status.json"), b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The overmind moved on; the workers did not. The newest WORKER build is
+	// older than the newest overmind build, so a build-time merge across both
+	// would report the overmind's version for both fields.
+	write("fleet", "v0.2.7", "2026-07-27T19:00:00Z", "v0.2.5", "2026-07-20T10:00:00Z")
+	write("mission-learn", "v0.2.6", "2026-07-26T19:00:00Z", "v0.2.6", "2026-07-26T19:00:00Z")
+
+	s, err := ReadSnapshot(dir, g, now, time.Minute)
+	if err != nil {
+		t.Fatalf("ReadSnapshot: %v", err)
+	}
+	if s.CurrentOvermind != "v0.2.7" {
+		t.Errorf("CurrentOvermind = %q, want v0.2.7", s.CurrentOvermind)
+	}
+	if s.CurrentWorker != "v0.2.6" {
+		t.Errorf("CurrentWorker = %q, want v0.2.6 (newest WORKER build, not newest build overall)", s.CurrentWorker)
+	}
+}

@@ -74,6 +74,8 @@ export function OvermindPage() {
         agentCount={stream.agents.size}
         staleFleets={stream.staleFleets}
         connected={stream.connected}
+        currentOvermind={stream.currentOvermind}
+        currentWorker={stream.currentWorker}
       />
       <div className="flex-1 flex min-h-0">
         <div className="flex-1 min-w-0 relative flex flex-col" id="ov-map-slot">

@@ -1,4 +1,5 @@
 import type { Accounting } from '../../lib/useFleetStream';
+import { shortVersion } from '../../lib/version';
 
 function cr(n: number): string {
   return Math.round(n).toLocaleString();
@@ -13,11 +14,17 @@ function Stat({ label, value, warn, title }: { label: string; value: string; war
   );
 }
 
-export function AccountingStrip({ accounting, agentCount, staleFleets, connected }: {
+export function AccountingStrip({ accounting, agentCount, staleFleets, connected,
+  currentOvermind, currentWorker }: {
   accounting: Accounting | null;
   agentCount: number;
   staleFleets: string[];
   connected: boolean;
+  /** Newest build seen for each binary — the reference every fleet badge is
+   * coloured against. Shown here so "what is current?" is answerable without
+   * expanding a fleet and eyeballing which green pill wins. */
+  currentOvermind: string;
+  currentWorker: string;
 }) {
   const a = accounting;
   return (
@@ -37,6 +44,13 @@ export function AccountingStrip({ accounting, agentCount, staleFleets, connected
       <div className="flex-1" />
       {staleFleets.length > 0 && (
         <div className="px-3 text-xs text-amber-500">stale: {staleFleets.join(' ')}</div>
+      )}
+      {(currentOvermind || currentWorker) && (
+        <div className="px-3 text-[10px] font-mono leading-tight text-[#8a8570] text-right"
+          title={`newest build seen — overmind ${currentOvermind || '—'}, worker ${currentWorker || '—'}`}>
+          <div>ov {shortVersion(currentOvermind) || '—'}</div>
+          <div>w {shortVersion(currentWorker) || '—'}</div>
+        </div>
       )}
       <div className={`px-4 text-xs ${connected ? 'text-emerald-500' : 'text-red-500'}`}>
         {connected ? '● live' : '○ reconnecting'}

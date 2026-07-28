@@ -84,22 +84,35 @@ export function FleetRail({
                 {isCollapsed ? '▸' : '▾'} {fleet} <span className="text-[#8a8570]">{list.length}</span>
                 <span className={`ml-1 ${worstUnhealthy ? 'text-red-500' : 'text-emerald-500'}`}>◉</span>
               </span>
+              {/* Build strings live on the line below, where their width
+                  cannot push the credits column around — a dirty tag used to
+                  render a badge several times the width of a clean one. Only
+                  the fleet-tier colour stays up here, as a fixed-width mark. */}
               <span className="flex items-center gap-1 shrink-0">
-                {ov?.version && (
-                  <span
-                    className="px-1 text-[9px] font-mono rounded-sm border whitespace-nowrap"
-                    style={{ color: TIER_COLORS[fleetTier], borderColor: TIER_COLORS[fleetTier] }}
-                    title={`overmind ${ov.version}${ov.commit ? ` (${ov.commit})` : ''}${ov.modified ? ' *' : ''}`}
-                  >
-                    {shortVersion(ov.version)}{ov.modified ? ' *' : ''}
-                  </span>
-                )}
+                <span style={{ color: TIER_COLORS[fleetTier] }} title={`worst build tier in fleet: ${fleetTier}`}>◆</span>
                 <span className="font-mono text-[#8a8570] whitespace-nowrap">₡ {Math.round(credits).toLocaleString()}</span>
               </span>
             </button>
-            {!isCollapsed && vGroups.length > 0 && (
-              <div className="flex flex-wrap gap-x-2 gap-y-0.5 px-1 pb-1 text-[9px] font-mono">
-                {vGroups.map((g) => (
+            {/* Build line, always visible — collapsed fleets are exactly the
+                ones whose drift goes unnoticed. Leads with the overmind's own
+                build, then the majority worker build; the minority builds only
+                matter once you have opened the fleet, so they stay behind the
+                expand. */}
+            {(ov?.version || vGroups.length > 0) && (
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1 pb-1 text-[9px] font-mono">
+                {ov?.version && (
+                  <span className="whitespace-nowrap" style={{ color: TIER_COLORS[ov.tier ?? 'red'] }}
+                    title={`overmind ${ov.version}${ov.commit ? ` (${ov.commit})` : ''}`}>
+                    ov {shortVersion(ov.version)}{ov.modified ? '*' : ''}
+                  </span>
+                )}
+                {vGroups.length > 0 && (
+                  <span className="whitespace-nowrap" style={{ color: TIER_COLORS[vGroups[0].tier] }}
+                    title={`majority worker build: ${vGroups[0].version} (${vGroups[0].count} of ${list.length})`}>
+                    w {shortVersion(vGroups[0].version)}{vGroups[0].modified ? '*' : ''} ×{vGroups[0].count}
+                  </span>
+                )}
+                {!isCollapsed && vGroups.slice(1).map((g) => (
                   <span key={g.version} style={{ color: TIER_COLORS[g.tier] }}
                     className="whitespace-nowrap" title={g.version}>
                     {shortVersion(g.version)}{g.modified ? '*' : ''} ×{g.count}

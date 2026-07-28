@@ -83,6 +83,12 @@ type Snapshot struct {
 	StaleFleets []string                `json:"stale_fleets"`        // labels; missing/old/corrupt
 	Removed     map[string][]string     `json:"removed,omitempty"`   // fleet label -> override-removed agent ids
 	Overminds   map[string]OvermindInfo `json:"overminds,omitempty"` // fleet label -> overmind build
+	// CurrentOvermind/CurrentWorker are the newest build seen for each binary,
+	// picked by build time. Reported separately because they roll out
+	// independently — a fleet can be running a current overmind and stale
+	// workers, and a single merged "current" hides exactly that.
+	CurrentOvermind string `json:"current_overmind,omitempty"`
+	CurrentWorker   string `json:"current_worker,omitempty"`
 }
 
 // ReadSnapshot reads every fleet status file under dir and merges them.
@@ -91,7 +97,7 @@ type Snapshot struct {
 // data completeness is ours.
 func ReadSnapshot(dir string, g *Galaxy, now time.Time, staleAfter time.Duration) (*Snapshot, error) {
 	s := &Snapshot{CapturedAt: map[string]string{}, Overminds: map[string]OvermindInfo{}}
-	var samples []buildSample
+	var samples, ovSamples, wSamples []buildSample
 	for _, f := range Fleets {
 		path := filepath.Join(dir, f.File+"-status.json")
 		b, err := os.ReadFile(path)
@@ -110,11 +116,13 @@ func ReadSnapshot(dir string, g *Galaxy, now time.Time, staleAfter time.Duration
 			CodeDirty: sf.OvermindCodeDirty, Modified: sf.OvermindModified,
 		}
 		samples = append(samples, buildSample{Version: sf.OvermindVersion, BuiltAt: sf.OvermindBuiltAt})
+		ovSamples = append(ovSamples, buildSample{Version: sf.OvermindVersion, BuiltAt: sf.OvermindBuiltAt})
 		if ts, err := time.Parse(time.RFC3339, sf.CapturedAt); err != nil || now.Sub(ts) > staleAfter {
 			s.StaleFleets = append(s.StaleFleets, f.Label)
 		}
 		for _, w := range sf.Workers {
 			samples = append(samples, buildSample{Version: w.Version, BuiltAt: w.BuiltAt})
+			wSamples = append(wSamples, buildSample{Version: w.Version, BuiltAt: w.BuiltAt})
 			a := AgentState{
 				Fleet: f.Label, AgentID: w.AgentID, Role: w.Role,
 				SystemName: w.System, POI: w.POI, Docked: w.Docked,
@@ -144,6 +152,8 @@ func ReadSnapshot(dir string, g *Galaxy, now time.Time, staleAfter time.Duration
 		}
 	}
 	current := currentVersion(samples)
+	s.CurrentOvermind = currentVersion(ovSamples)
+	s.CurrentWorker = currentVersion(wSamples)
 	for i := range s.Agents {
 		s.Agents[i].Tier = Classify(s.Agents[i].Version, s.Agents[i].CodeDirty, current)
 	}
