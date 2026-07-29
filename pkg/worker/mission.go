@@ -1193,9 +1193,13 @@ func tripSkillXP(trip []missionCandidate) int {
 		if c.Entry.Rewards == nil {
 			continue
 		}
-		for _, xp := range c.Entry.Rewards.SkillXP {
-			total += xp
-		}
+		// SMUGGLING ONLY. This total is what switches the trip line to the
+		// "taken for XP, the credits may pay 0" framing, and that framing is a
+		// claim about the smuggling climb specifically. Summing every skill made
+		// it fire for runs that buy nothing toward it: unmarked_cargo pays
+		// navigation 20 + trading 25 and was advertised as "+45 XP" on a level-0
+		// smuggling canary, which read as progress that was not happening.
+		total += c.Entry.Rewards.SkillXP[skillSmuggling]
 	}
 
 	return total

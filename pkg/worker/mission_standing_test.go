@@ -60,8 +60,11 @@ func TestTripSkillXPTotalsAcrossTheBatch(t *testing.T) {
 		{Entry: serverapi.MissionBoardEntry{Rewards: &serverapi.MissionRewards{}}}, // rewards, no XP
 		withXP(map[string]int{"smuggling": 75, "nebula_attunement": 35}),
 	}
-	if got := tripSkillXP(trip); got != 610 {
-		t.Errorf("tripSkillXP = %d, want 610 (250+250+75+35)", got)
+	// SMUGGLING ONLY. This total decides whether the trip is framed as bought
+	// for XP, and that framing is a claim about the smuggling climb — the 35
+	// nebula_attunement buys nothing toward it.
+	if got := tripSkillXP(trip); got != 575 {
+		t.Errorf("tripSkillXP = %d, want 575 (250+250+75; nebula_attunement excluded)", got)
 	}
 	if got := tripSkillXP(nil); got != 0 {
 		t.Errorf("tripSkillXP(nil) = %d, want 0", got)
@@ -71,5 +74,11 @@ func TestTripSkillXPTotalsAcrossTheBatch(t *testing.T) {
 		Rewards: &serverapi.MissionRewards{Credits: 5000},
 	}}}); got != 0 {
 		t.Errorf("credits-only trip reported %d XP, want 0", got)
+	}
+	// The live mis-framing: unmarked_cargo pays navigation+trading and NO
+	// smuggling, yet was advertised as "+45 XP" on a level-0 smuggling canary,
+	// which is what sent me chasing a bootstrap path that does not exist.
+	if got := tripSkillXP([]missionCandidate{withXP(map[string]int{"navigation": 20, "trading": 25})}); got != 0 {
+		t.Errorf("a trip with no smuggling XP reported %d, want 0", got)
 	}
 }
