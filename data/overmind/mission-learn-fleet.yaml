@@ -41,18 +41,17 @@ workers:
   - { agent_id: engineer-1, role: missionrunner, station: treasure_cache_trading_post, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
-  # SMUGGLING CANARY 3 (2026-07-29) — the repeatability test. engineer-1 proved
-  # the route to the pirate-baseline unlock end to end, but it started at
-  # smuggling L2, so the climb from ZERO has never been run: this canary tests
-  # it from a standing start. Picked for runway, not convenience — engineer-1
-  # burned ~11k credits/night climbing, and explorer-12 (the nominal canary 2)
-  # holds only ~16k against the 25k XP-loss budget, so it would go broke first.
-  # engineer-5 has ~700k and 935 cargo (the chain needs 15).
-  # Route: a_word_in_private (dock_at_base, +50 XP -> L1) -> no_questions_asked
-  # -> across_the_line -> couriers to L3 -> an_introduction -> baseline -30 -> 10.
-  # All anchored at treasure_cache_trading_post; a_word_in_private also boards
-  # at 12 other stations, so the pin is what guarantees it sees the giver.
-  - { agent_id: engineer-5, role: missionrunner, station: treasure_cache_trading_post, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 6 }
+  # engineer-5 was briefly pinned here as smuggling canary 3 on 2026-07-29 and
+  # STRANDED ITSELF reaching the pin: its recovery dock landed at Hex Star, a POI
+  # that sells no fuel, the refuel failed `no_fuel_source` (the server reports it
+  # as "insufficient credits" even with 702k), and the worker departed on the
+  # 16-jump route anyway with 135 fuel against its own 128 estimate. The estimate
+  # is optimistic — fuel scales with hull and distance, not a flat 8/jump — so it
+  # ran dry at Alula, a star with no station. Reverted to roaming; the canary
+  # moved to explorer-12, which is 3 jumps from the giver instead of 16.
+  # LESSON: pick a canary for REACHABILITY and FUEL, not for credits — money you
+  # cannot spend where you are standing buys nothing.
+  - { agent_id: engineer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-6, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-7, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   - { agent_id: engineer-8, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
@@ -84,7 +83,16 @@ workers:
   - { agent_id: explorer-11, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 2 }
   # SMUGGLING CANARY 2 of 2 — see engineer-1 above. Pinned alongside it: this one
   # had drifted to Alpha Centauri and logged ZERO smuggling sightings there.
-  - { agent_id: explorer-12, role: missionrunner, station: grand_exchange_station, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 4 }
+  # REPINNED to the chain giver 2026-07-29 as the from-zero canary. engineer-1
+  # proved the route to the pirate-baseline unlock but started at smuggling L2,
+  # so the climb from level 0 has never been run. explorer-12 is L0 and, more to
+  # the point, sits 3 jumps from treasure_cache with 275 fuel — the constraint
+  # that actually strands a canary is reachability, not the wallet (see the
+  # engineer-5 note above). Its thin credits only bite in the later courier
+  # grind, which is observable before it matters.
+  # Route: a_word_in_private (dock_at_base, +50 XP -> L1) -> no_questions_asked
+  # -> across_the_line -> couriers to L3 -> an_introduction -> baseline -30 -> 10.
+  - { agent_id: explorer-12, role: missionrunner, station: treasure_cache_trading_post, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 4 }
   - { agent_id: fighter-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
   - { agent_id: fighter-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
