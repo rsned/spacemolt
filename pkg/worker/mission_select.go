@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -84,9 +85,15 @@ const (
 // missionCandidate is a deliver-shaped board entry with derived routing and
 // economics, ready for stacking.
 type missionCandidate struct {
-	Entry      serverapi.MissionBoardEntry
+	Entry serverapi.MissionBoardEntry
+	// Items is the authoritative deliverable list, one entry per distinct item
+	// (objectives for the same item are merged). ItemID/Qty/BuyQty below are the
+	// aggregate view every existing consumer reads: for a single-item mission
+	// they are that item verbatim, and for a multi-item one Qty/BuyQty are the
+	// totals and ItemID is a joined label.
+	Items      []missionDeliverable
 	ItemID     string
-	Qty        int // units to deliver
+	Qty        int // total units to deliver, across every objective
 	BuyQty     int // units we must acquire (Qty minus provided)
 	DestBaseID string
 	DestSystem string
@@ -114,8 +121,11 @@ type missionCandidate struct {
 //
 // Primary match: active.TemplateID == candidate's board MissionID — the
 // server stamps the template id it was accepted from onto the new instance.
-// Fallback (TemplateID missing/mismatched): Title plus the single objective's
-// item/quantity/target-base tuple, mirroring missionResume's shape check.
+// Fallback (TemplateID missing/mismatched): Title plus the mission's WHOLE
+// item/quantity set and target base (see activeMatchesItems), mirroring
+// missionResume's shape check. Matching on one leg would never resolve a
+// multi-item mission, and an unresolved candidate is dropped without an
+// abandon — it would sit on the books with no id to release it.
 // Each active is consumed by at most one candidate (first match wins) so two
 // identically-titled board entries never resolve to the same instance.
 // Unresolved candidates get ActiveID == "" — callers must drop them without
@@ -133,11 +143,10 @@ func resolveActiveMissionIDs(accepted []missionCandidate, actives []serverapi.Ac
 		}
 		if idx < 0 {
 			for j, a := range actives {
-				if used[j] || a.Title != c.Entry.Title || len(a.Objectives) != 1 {
+				if used[j] || a.Title != c.Entry.Title {
 					continue
 				}
-				o := a.Objectives[0]
-				if o.ItemID == c.ItemID && o.Required == c.Qty && o.TargetBase == c.DestBaseID {
+				if activeMatchesItems(a, c.deliverables(), c.DestBaseID) {
 					idx = j
 					break
 				}
@@ -178,24 +187,201 @@ func missionDeliverType(t string, allowSmuggling bool) bool {
 	return t == missionTypeDelivery || (allowSmuggling && t == missionTypeSmuggling)
 }
 
+// deliverables is the candidate's item list, falling back to the aggregate
+// single-item view when Items is unset. Candidates built by hand — rather than
+// through buildMissionCandidate or heldDeliveryShape — fill only ItemID/Qty,
+// and silently returning nothing for them would stop them ever resolving to
+// their active instance, stranding a mission with no id to abandon it by.
+func (c missionCandidate) deliverables() []missionDeliverable {
+	if len(c.Items) > 0 {
+		return c.Items
+	}
+	if c.ItemID == "" {
+		return nil
+	}
+
+	return []missionDeliverable{{ItemID: c.ItemID, Qty: c.Qty, BuyQty: c.BuyQty}}
+}
+
+// activeMatchesItems reports whether an active mission delivers exactly the
+// goods, quantities and destination a candidate was built for. Objectives are
+// merged by item id first — the same merge deliverShape applies to the board —
+// so a mission listing one good across two objectives still matches, and a
+// multi-item mission matches on its whole set rather than on a single leg.
+func activeMatchesItems(a serverapi.ActiveMission, items []missionDeliverable, destBase string) bool {
+	if len(a.Objectives) == 0 || len(items) == 0 {
+		return false
+	}
+	want := make(map[string]int, len(items))
+	for _, it := range items {
+		want[it.ItemID] = it.Qty
+	}
+	got := make(map[string]int, len(a.Objectives))
+	for _, o := range a.Objectives {
+		if o.TargetBase != destBase {
+			return false
+		}
+		got[o.ItemID] += o.Required
+	}
+
+	return maps.Equal(want, got)
+}
+
+// missionDeliverable is one good a delivery candidate hands over at its
+// destination. Ordinary board deliveries carry exactly one; the smuggling
+// chain's `an_introduction` carries two to the same base.
+type missionDeliverable struct {
+	ItemID string
+	Qty    int // units the mission requires delivered
+	BuyQty int // units we must acquire (Qty minus what the mission provides)
+}
+
 // deliverShape extracts the runnable core of a board entry. The server sends
 // no requirements block (openapi: additionalProperties=false) — deliver
-// details live in objectives. ok=false for anything but a single-leg
-// deliver_item mission (multi-leg chains and compound objectives are
-// v1-rejected), or when a module gate is present.
+// details live in objectives.
+//
+// Every objective must be a well-formed deliver_item and they must all target
+// ONE base: the delivery executor flies a single destination, so a split
+// mission would strand half its cargo. Multi-leg and non-deliver objectives
+// stay rejected.
+//
+// A non-empty reason means the entry is not runnable, and says why — the
+// reasons are distinct because they land in the worker's skip log, where a
+// single catch-all message hid a runnable chain mission behind the same text
+// as a wrong-type one.
 //
 // allowSmuggling widens the type gate to contraband couriers. It is a
 // parameter rather than a package rule so the gate stays inside this pure
 // function: a caller that forgets to pass it gets the safe answer.
-func deliverShape(e serverapi.MissionBoardEntry, allowSmuggling bool) (item string, qty int, destBase, destSystem string, ok bool) {
-	if !missionDeliverType(e.Type, allowSmuggling) || len(e.RequiredModules) > 0 || len(e.Objectives) != 1 {
-		return "", 0, "", "", false
+func deliverShape(e serverapi.MissionBoardEntry, allowSmuggling bool) (items []missionDeliverable, destBase, destSystem, reason string) {
+	if !missionDeliverType(e.Type, allowSmuggling) {
+		return nil, "", "", fmt.Sprintf("not a delivery-type mission (type %q)", e.Type)
 	}
-	o := e.Objectives[0]
-	if o.Type != missionObjectiveDeliver || o.ItemID == "" || o.Quantity <= 0 || o.TargetBaseID == "" || o.SystemID == "" {
-		return "", 0, "", "", false
+	if len(e.RequiredModules) > 0 {
+		return nil, "", "", fmt.Sprintf("requires module(s): %s", strings.Join(e.RequiredModules, ", "))
 	}
-	return o.ItemID, o.Quantity, o.TargetBaseID, o.SystemID, true
+	if len(e.Objectives) == 0 {
+		return nil, "", "", "mission carries no objectives"
+	}
+	// Objectives are merged by item id, because provided_items is a POOL keyed
+	// by item: subtracting the grant per objective would double-count it and
+	// invent a purchase the mission already covers.
+	order := make([]string, 0, len(e.Objectives))
+	qty := make(map[string]int, len(e.Objectives))
+	for i, o := range e.Objectives {
+		if o.Type != missionObjectiveDeliver || o.ItemID == "" || o.Quantity <= 0 || o.TargetBaseID == "" || o.SystemID == "" {
+			return nil, "", "", fmt.Sprintf("objective %d of %d is not a well-formed deliver_item", i+1, len(e.Objectives))
+		}
+		if destBase == "" {
+			destBase, destSystem = o.TargetBaseID, o.SystemID
+		} else if o.TargetBaseID != destBase {
+			return nil, "", "", fmt.Sprintf("objectives split across %s and %s; multi-destination delivery unsupported", destBase, o.TargetBaseID)
+		}
+		if _, seen := qty[o.ItemID]; !seen {
+			order = append(order, o.ItemID)
+		}
+		qty[o.ItemID] += o.Quantity
+	}
+	items = make([]missionDeliverable, 0, len(order))
+	for _, id := range order {
+		items = append(items, missionDeliverable{ItemID: id, Qty: qty[id]})
+	}
+
+	return items, destBase, destSystem, ""
+}
+
+// heldDelivery is the outstanding state of an ACTIVE delivery mission — the
+// resume-path analogue of deliverShape.
+type heldDelivery struct {
+	Items          []missionDeliverable // units STILL owed, per distinct item
+	TotalRemaining int
+	DestBase       string
+	DestSystem     string
+	Covered        bool    // every objective is complete or already satisfiable
+	ShortItem      string  // first item we cannot cover (only when !Covered)
+	ShortAboard    float64 // what we hold of it
+	ShortNeed      int     // what it still needs
+}
+
+// heldDeliveryShape summarises an active mission's delivery objectives. ok is
+// false for anything that is not an all-deliver_item mission to a single base;
+// those are left alone for manual handling rather than resumed or abandoned.
+//
+// aboard reports units of an item in the hold. An objective can be satisfied
+// with nothing aboard — storage at the target base counts, and the wire reports
+// it as in_storage — so a Completed objective owes nothing regardless of cargo.
+// Coverage is judged per item AFTER merging, so two objectives for the same
+// good are checked against one hold rather than twice against the same units.
+func heldDeliveryShape(m serverapi.ActiveMission, aboard func(itemID string) float64) (heldDelivery, bool) {
+	if len(m.Objectives) == 0 {
+		return heldDelivery{}, false
+	}
+	h := heldDelivery{Covered: true}
+	order := make([]string, 0, len(m.Objectives))
+	rem := make(map[string]int, len(m.Objectives))
+	for _, o := range m.Objectives {
+		if o.Type != missionObjectiveDeliver || o.ItemID == "" {
+			return heldDelivery{}, false
+		}
+		if h.DestBase == "" {
+			h.DestBase, h.DestSystem = o.TargetBase, o.SystemID
+		} else if o.TargetBase != h.DestBase {
+			return heldDelivery{}, false
+		}
+		remaining := max(o.Required-o.Current, 0)
+		if o.Completed {
+			remaining = 0
+		}
+		if _, seen := rem[o.ItemID]; !seen {
+			order = append(order, o.ItemID)
+		}
+		rem[o.ItemID] += remaining
+	}
+	h.Items = make([]missionDeliverable, 0, len(order))
+	for _, id := range order {
+		h.Items = append(h.Items, missionDeliverable{ItemID: id, Qty: rem[id]})
+		h.TotalRemaining += rem[id]
+	}
+	for _, it := range h.Items {
+		if it.Qty == 0 {
+			continue
+		}
+		if have := aboard(it.ItemID); have < float64(it.Qty) {
+			h.Covered = false
+			h.ShortItem, h.ShortAboard, h.ShortNeed = it.ItemID, have, it.Qty
+
+			break
+		}
+	}
+
+	return h, true
+}
+
+// missionItemLabel is the single-item view that the acquisition, cargo and
+// telemetry paths still read off the candidate. A multi-item mission gets a
+// joined label for logs and the mission_results row; those missions carry
+// BuyQty 0 (see buildMissionCandidate), so no sourcing code ever parses it back
+// into an item id.
+func missionItemLabel(items []missionDeliverable) string {
+	if len(items) == 1 {
+		return items[0].ItemID
+	}
+	ids := make([]string, len(items))
+	for i, it := range items {
+		ids[i] = it.ItemID
+	}
+
+	return strings.Join(ids, "+")
+}
+
+// missionCarriesPassage reports whether a candidate is a linked CHAIN mission,
+// which the server grants one-time passage for (that is how `an_introduction`
+// reaches Voss Redoubt while pirate standing is still hostile). chain_next is
+// the board's own marker: procedural couriers leave it empty and every chain
+// leg sets it. Used only to permit a stronghold DESTINATION — never a
+// stronghold on the way there.
+func missionCarriesPassage(e serverapi.MissionBoardEntry) bool {
+	return e.ChainNext != ""
 }
 
 // buildMissionCandidate prices and routes one board entry. dist maps system id
@@ -244,10 +430,11 @@ func missionJumpTicks(speed float64) int {
 	return max(1, missionMaxJumpTicks+1-int(speed))
 }
 
+
 func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64, allowSmuggling bool, fuelShare int, floor float64, jumpTicks int) (missionCandidate, string) {
-	item, qty, destBase, destSystem, ok := deliverShape(e, allowSmuggling)
-	if !ok {
-		return missionCandidate{}, "not a plain deliver mission"
+	items, destBase, destSystem, shapeReason := deliverShape(e, allowSmuggling)
+	if shapeReason != "" {
+		return missionCandidate{}, shapeReason
 	}
 	// Deliver-shaped missions can carry warnings (e.g. contraband, insurance
 	// voided); uninsured idle accounts must never run these by accident.
@@ -282,26 +469,40 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 	if e.Rewards != nil {
 		reward = float64(e.Rewards.Credits)
 	}
-	buyQty := max(qty-e.ProvidedItems[item], 0)
-	// Smuggling comes in two shapes: the goods are handed over on accept, or the
-	// mission tells you to source them yourself. The second is UNCOMPLETABLE —
-	// contraband has no sell orders on any market — so a short ProvidedItems is
-	// a hard reject, not an economics question.
-	//
-	// This deliberately does not lean on the refAsk lookup failing to catch it.
-	// That happens to work today (an unpriceable item is rejected below) but it
-	// is incidental: one stale ask for a contraband item would let a run through
-	// that the worker can then never finish.
-	if smuggling && buyQty > 0 {
-		return missionCandidate{}, fmt.Sprintf("smuggling run must source %d x %s itself; contraband is not sold on the market", buyQty, item)
-	}
+	totalQty, totalBuy := 0, 0
 	itemCost := 0.0
-	if buyQty > 0 {
-		ask, priced := refAsk(item)
-		if !priced || ask <= 0 {
-			return missionCandidate{}, fmt.Sprintf("no reference ask for %s", item)
+	for i := range items {
+		items[i].BuyQty = max(items[i].Qty-e.ProvidedItems[items[i].ItemID], 0)
+		totalQty += items[i].Qty
+		totalBuy += items[i].BuyQty
+		// Smuggling comes in two shapes: the goods are handed over on accept, or
+		// the mission tells you to source them yourself. The second is
+		// UNCOMPLETABLE — contraband has no sell orders on any market — so a
+		// short ProvidedItems is a hard reject, not an economics question.
+		//
+		// This deliberately does not lean on the refAsk lookup failing to catch
+		// it. That happens to work today (an unpriceable item is rejected below)
+		// but it is incidental: one stale ask for a contraband item would let a
+		// run through that the worker can then never finish.
+		if smuggling && items[i].BuyQty > 0 {
+			return missionCandidate{}, fmt.Sprintf("smuggling run must source %d x %s itself; contraband is not sold on the market", items[i].BuyQty, items[i].ItemID)
 		}
-		itemCost = float64(buyQty) * ask
+		if items[i].BuyQty > 0 {
+			ask, priced := refAsk(items[i].ItemID)
+			if !priced || ask <= 0 {
+				return missionCandidate{}, fmt.Sprintf("no reference ask for %s", items[i].ItemID)
+			}
+			itemCost += float64(items[i].BuyQty) * ask
+		}
+	}
+	// Multi-item SOURCING is deliberately out of scope. The acquisition path
+	// prices ONE ask ladder per candidate and recovers the unit cost as
+	// ItemCost/BuyQty, so a mission buying two different goods would mis-price
+	// both. Multi-item missions are supported only when the mission provides
+	// the goods — which is exactly how the smuggling chain ships them — so
+	// nothing needs sourcing. Refused explicitly rather than half-run.
+	if len(items) > 1 && totalBuy > 0 {
+		return missionCandidate{}, fmt.Sprintf("multi-objective delivery would need to source %d unit(s); only fully provided multi-item missions are supported", totalBuy)
 	}
 	fuelCost := fuelCostFor(jumps)
 	net := reward - itemCost - fuelCost
@@ -331,7 +532,8 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 		return missionCandidate{}, fmt.Sprintf("net %.0f below floor %.0f", net, floor)
 	}
 	return missionCandidate{
-		Entry: e, ItemID: item, Qty: qty, BuyQty: buyQty,
+		Entry: e, Items: items,
+		ItemID: missionItemLabel(items), Qty: totalQty, BuyQty: totalBuy,
 		DestBaseID: destBase, DestSystem: destSystem,
 		Reward: reward, ItemCost: itemCost, FuelCost: fuelCost, Net: net, Jumps: jumps,
 	}, ""

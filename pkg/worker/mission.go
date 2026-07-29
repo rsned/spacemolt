@@ -649,7 +649,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		// Shape-only pass to collect routing targets: pass the widest gate so a
 		// smuggling destination gets a distance entry. Whether the worker may
 		// actually take it is decided by the category switch below, not here.
-		if _, _, _, destSys, shaped := deliverShape(e, true); shaped {
+		if _, _, destSys, reason := deliverShape(e, true); reason == "" {
 			targets = append(targets, destSys)
 		}
 	}
@@ -693,7 +693,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			if e.Type != missionTypeSmuggling {
 				continue
 			}
-			if _, _, _, destSystem, ok := deliverShape(e, true); ok {
+			if _, _, destSystem, reason := deliverShape(e, true); reason == "" {
 				smugglingCohort[destSystem]++
 			}
 		}
@@ -715,7 +715,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		case e.Type == missionTypeExploration && exploreEnabled:
 			c, reason = buildExploreCandidate(e, current, explorePair, fuelCostFor, jumpTicks)
 		case e.Type == missionTypeSmuggling && smugglingEnabled:
-			_, _, _, destSystem, _ := deliverShape(e, true)
+			_, _, destSystem, _ := deliverShape(e, true)
 			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, true, smugglingCohort[destSystem],
 				effectiveMissionFloor(true, deps.State.smugglingSpent(), missionSmugglingXPBudget), jumpTicks)
 		case e.Type == missionTypeDelivery && deliveryEnabled:
@@ -1228,7 +1228,11 @@ func missionReadBoard(ctx context.Context, deps MissionDeps, out io.Writer) ([]s
 // without a populated graph. A lookup error, or either endpoint empty/equal,
 // is treated as clear so a graph gap never blocks a mission run — the
 // endpoint guard (strongholds[dest] in the caller) remains the backstop.
-func missionRouteClear(pathOf func(from, to string, weighted bool) (galaxy.Route, error), strongholds map[string]bool, from, to string) bool {
+// allowDest exempts the destination itself from the check, for a chain mission
+// that carries its own one-time passage there (see missionCarriesPassage). The
+// road is still checked: passage covers where you are going, not what you fly
+// through on the way.
+func missionRouteClear(pathOf func(from, to string, weighted bool) (galaxy.Route, error), strongholds map[string]bool, from, to string, allowDest bool) bool {
 	if from == "" || to == "" || from == to {
 		return true
 	}
@@ -1237,6 +1241,9 @@ func missionRouteClear(pathOf func(from, to string, weighted bool) (galaxy.Route
 		return true // no path / unknown system — do not block on a lookup failure
 	}
 	for _, sys := range route.Path {
+		if allowDest && sys == to {
+			continue
+		}
 		if strongholds[sys] {
 			return false
 		}
@@ -1312,50 +1319,56 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 		// operator revokes the category mid-run the mission is left alone
 		// rather than abandoned: it stays on the books for manual handling,
 		// which is the same treatment any other unrecognised active gets.
-		if !missionDeliverType(m.Type, missionCategoryEnabled(deps, missionTypeSmuggling)) || len(m.Objectives) != 1 {
-			continue // non-single-leg-delivery active mission: leave it alone (manual/other origin)
+		if !missionDeliverType(m.Type, missionCategoryEnabled(deps, missionTypeSmuggling)) {
+			continue // not a delivery-type active: leave it alone (manual/other origin)
 		}
-		o := m.Objectives[0]
-		if o.Type != missionObjectiveDeliver {
-			continue // not a deliver objective: leave it alone (manual/other origin)
+		resumeState := deps.Client.GetState()
+		h, shaped := heldDeliveryShape(m, func(itemID string) float64 { return cargoQty(resumeState, itemID) })
+		if !shaped {
+			continue // not an all-deliver, single-destination active: leave it alone
 		}
-		remaining := o.Required - o.Current
-		aboard := cargoQty(deps.Client.GetState(), o.ItemID)
 		held := missionCandidate{
 			Entry: serverapi.MissionBoardEntry{
 				MissionID: m.MissionID, TemplateID: m.TemplateID, Type: m.Type, Title: m.Title,
+				ChainNext: m.ChainNext,
 			},
 			// m.MissionID is already the server's real active-mission id
 			// (this list comes straight from get_active_missions), so no
 			// resolution step is needed here — unlike a freshly accepted trip.
 			ActiveID: m.MissionID,
-			ItemID:   o.ItemID, Qty: max(remaining, 0), DestBaseID: o.TargetBase,
+			Items:    h.Items,
+			ItemID:   missionItemLabel(h.Items), Qty: h.TotalRemaining, DestBaseID: h.DestBase,
 		}
 		// An objective can be satisfied with no cargo aboard: storage at the
 		// target base counts toward delivery (the actives wire reports it as
 		// "in_storage"). A completed/covered objective still needs an explicit
 		// complete_mission at the target base to claim the reward.
-		if o.Completed || remaining <= 0 || aboard >= float64(remaining) {
+		if h.Covered {
 			// Deliverable: the objective already carries the destination system;
 			// fall back to FindRoute only when it's missing (defensive — the
 			// live wire always populates it for deliver_item).
-			destSys := o.SystemID
+			destSys := h.DestSystem
 			if destSys == "" {
-				route, rerr := deps.Client.FindRoute(ctx, o.TargetBase)
+				route, rerr := deps.Client.FindRoute(ctx, h.DestBase)
 				destSys = current
 				if rerr == nil && len(route) > 0 {
 					destSys = route[len(route)-1].SystemID
 				}
 			}
-			if strongholds[destSys] {
-				fmt.Fprintf(out, "missions: abandoning held %s (%s): destination %s is a pirate stronghold\n", m.MissionID, m.Title, destSys) //nolint:errcheck
-				missionAbandon(ctx, deps, out, held, "", rfc(missionNow(deps)), missionTick(deps), "stronghold_destination")
-				acted = true
+			if strongholds[destSys] && !missionCarriesPassage(held.Entry) {
+				// Do NOT abandon. A chain mission carries its own passage, and
+				// get_active_missions is not confirmed to echo chain_next, so an
+				// empty marker here means UNKNOWN, not "no passage". Flying on that
+				// assumption risks the ship; abandoning on it destroys the one
+				// mission that grants stronghold access. Holding costs a mission
+				// slot and keeps both doors open.
+				fmt.Fprintf(out, "missions: holding %s (%s): destination %s is a pirate stronghold and no chain passage is visible; left for manual handling\n", m.MissionID, m.Title, destSys) //nolint:errcheck
+
 				continue
 			}
-			fmt.Fprintf(out, "missions: resuming held %s (%s) -> %s\n", m.MissionID, m.Title, o.TargetBase) //nolint:errcheck
+			fmt.Fprintf(out, "missions: resuming held %s (%s) -> %s\n", m.MissionID, m.Title, h.DestBase) //nolint:errcheck
 			publishActivity(deps.SetActivity, "Mission "+m.Title)
-			if nerr := deps.nav(ctx, destSys, o.TargetBase); nerr != nil {
+			if nerr := deps.nav(ctx, destSys, h.DestBase); nerr != nil {
 				fmt.Fprintf(out, "missions: resume transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
 				return true
 			}
@@ -1365,7 +1378,7 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 			}
 			missionComplete(ctx, deps, out, held, "", rfc(missionNow(deps)), missionTick(deps))
 		} else {
-			fmt.Fprintf(out, "missions: abandoning held %s (%s): cargo %s %.0f/%d\n", m.MissionID, m.Title, o.ItemID, aboard, remaining) //nolint:errcheck
+			fmt.Fprintf(out, "missions: abandoning held %s (%s): cargo %s %.0f/%d\n", m.MissionID, m.Title, h.ShortItem, h.ShortAboard, h.ShortNeed) //nolint:errcheck
 			missionAbandon(ctx, deps, out, held, "", rfc(missionNow(deps)), missionTick(deps), "cargo_lost")
 		}
 		acted = true

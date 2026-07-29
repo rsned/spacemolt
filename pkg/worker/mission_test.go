@@ -299,7 +299,7 @@ func TestMissionRouteClear(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := missionRouteClear(pathOf, strongholds, tt.from, tt.to); got != tt.wantClear {
+			if got := missionRouteClear(pathOf, strongholds, tt.from, tt.to, false); got != tt.wantClear {
 				t.Errorf("missionRouteClear(%s->%s) = %v, want %v", tt.from, tt.to, got, tt.wantClear)
 			}
 		})

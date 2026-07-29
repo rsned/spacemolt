@@ -345,12 +345,22 @@ func missionStrongholdHop(strongholds map[string]bool, galGraph *galaxy.GalaxyGr
 			hops[i] = l.SystemID
 		}
 	}
+	// A chain mission is granted one-time passage to its OWN destination — that
+	// is how an_introduction reaches Voss Redoubt while pirate standing is
+	// still hostile, and a blanket refusal permanently blocks the single
+	// mission that grants stronghold access. The exemption is deliberately
+	// narrow: only the final hop, only for a chain-marked entry. Procedural
+	// couriers, and any stronghold merely on the route, stay refused — this
+	// guard exists because a worker was destroyed flying to one.
+	passage := missionCarriesPassage(c.Entry)
 	at := current
-	for _, h := range hops {
-		if strongholds[h] {
+	for i, h := range hops {
+		final := i == len(hops)-1
+		exempt := passage && final
+		if strongholds[h] && !exempt {
 			return h, false
 		}
-		if galGraph != nil && !missionRouteClear(galGraph.FindPath, strongholds, at, h) {
+		if galGraph != nil && !missionRouteClear(galGraph.FindPath, strongholds, at, h, exempt) {
 			return "route to " + h, false
 		}
 		at = h

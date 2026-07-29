@@ -1131,6 +1131,10 @@ type ActiveMission struct {
 	IssuingBase    string                   `json:"issuing_base,omitempty"`
 	AcceptedAt     string                   `json:"accepted_at,omitempty"`
 	ExpiresInTicks int                      `json:"expires_in_ticks,omitempty"`
+	// ChainNext mirrors the board entry's marker for a linked chain mission.
+	// The board is known to populate it; whether get_active_missions does is
+	// unverified, so resume treats an empty value as "unknown", not "no".
+	ChainNext string `json:"chain_next,omitempty"`
 	Requirements   *MissionRequirements     `json:"requirements,omitempty"`
 	Rewards        *MissionRewards          `json:"rewards,omitempty"`
 	Objectives     []ActiveMissionObjective `json:"objectives,omitempty"`
