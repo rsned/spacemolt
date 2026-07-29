@@ -900,6 +900,13 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	for _, c := range set {
 		if aerr := deps.Client.AcceptMission(ctx, c.Entry.MissionID); aerr != nil {
 			fmt.Fprintf(out, "missions: accept %s failed: %v\n", c.Entry.MissionID, aerr) //nolint:errcheck
+			// Record the attempt. A refusal is durable for this session
+			// (skill_required, gone, taken), and without this the next pass
+			// re-prices and re-accepts the same entry: three level-0 canaries
+			// re-accepted one L1-gated courier every ~10s indefinitely, because
+			// dropping the candidate from the trip is not the same as
+			// remembering that the server said no.
+			deps.State.markAttempted(c.Entry.MissionID)
 			continue
 		}
 		// Book the XP purchase only once the server has actually granted the

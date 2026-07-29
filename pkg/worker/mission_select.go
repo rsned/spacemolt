@@ -538,10 +538,22 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 			// fuel free, because at most MissionMaxStack ride one trip.
 			gateNet += fuelCost - fuelCost/float64(share)
 		}
-		if e.Rewards != nil {
-			if xp := e.Rewards.SkillXP[skillSmuggling]; xp > 0 {
-				gateNet += float64(xp) * missionSmugglingXPCreditValue
-			}
+	}
+	// The XP credit keys on what the mission PAYS, not on how the server typed
+	// it. a_word_in_private is typed "delivery" and awards 50 smuggling XP;
+	// keying this on the type discarded that XP and refused the run over a
+	// 7-credit shortfall, which left three level-0 canaries with nothing
+	// acceptable on the only board that offers the chain.
+	//
+	// For anything not typed smuggling the credit may only rescue a mission that
+	// ALREADY turns a credit profit. Negative-net XP purchases are budgeted on
+	// the smuggling branch alone (see noteSmugglingLoss in mission.go); a
+	// delivery never reaches that accounting, so letting 1250 credits of XP
+	// credit drag a loss over the floor would spend real money on XP with
+	// nothing tracking the spend.
+	if e.Rewards != nil && (smuggling || net >= 0) {
+		if xp := e.Rewards.SkillXP[skillSmuggling]; xp > 0 {
+			gateNet += float64(xp) * missionSmugglingXPCreditValue
 		}
 	}
 	if gateNet < floor {
