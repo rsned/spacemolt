@@ -252,6 +252,56 @@ func TestHeldCompletedObjectiveNeedsNoCargo(t *testing.T) {
 	}
 }
 
+// a_word_in_private is the ONLY smuggling XP a level-0 agent can earn: every
+// smuggling-typed mission needs level 1 already, so this delivery-typed visit
+// is the whole bootstrap. Its single objective is dock_at_base with no item,
+// which deliverShape refused — leaving a fresh agent unable to start the chain
+// at all. Offered at 13 bases including treasure_cache_trading_post.
+func TestDockAtBaseBootstrapIsRunnable(t *testing.T) {
+	e := serverapi.MissionBoardEntry{
+		MissionID: "a_word_in_private", TemplateID: "a_word_in_private",
+		Type: "delivery", Title: "A Word in Private",
+		ExpiresInTicks: 5000,
+		Rewards:        &serverapi.MissionRewards{Credits: 500, SkillXP: map[string]int{"smuggling": 50}},
+		Objectives: []serverapi.MissionObjective{{
+			Type: "dock_at_base", TargetBaseID: "treasure_cache_trading_post", SystemID: "treasure_cache",
+		}},
+	}
+
+	c, reason := buildMissionCandidate(e, map[string]int{"treasure_cache": 3}, func(string) (float64, bool) { return 0, false }, func(int) float64 { return 0 }, false, 1, missionMinNet, 6)
+	if reason != "" {
+		t.Fatalf("the level-0 bootstrap mission was refused: %s", reason)
+	}
+	// Nothing is carried, so it must not consume cargo budget or claim to.
+	if len(c.Items) != 0 || c.Qty != 0 || c.BuyQty != 0 || c.ItemCost != 0 {
+		t.Errorf("items/qty/buy/cost = %d/%d/%d/%.0f, want all zero for a visit", len(c.Items), c.Qty, c.BuyQty, c.ItemCost)
+	}
+	if c.DestBaseID != "treasure_cache_trading_post" || c.DestSystem != "treasure_cache" {
+		t.Errorf("destination = %s/%s, want treasure_cache_trading_post/treasure_cache", c.DestBaseID, c.DestSystem)
+	}
+}
+
+// A held visit owes nothing, so it is deliverable the moment it is accepted —
+// it must never be abandoned as "cargo_lost" for carrying no cargo.
+func TestHeldDockAtBaseOwesNothing(t *testing.T) {
+	m := serverapi.ActiveMission{
+		MissionID: "abc", Type: "delivery", Title: "A Word in Private",
+		Objectives: []serverapi.ActiveMissionObjective{{
+			Type: "dock_at_base", TargetBase: "treasure_cache_trading_post", SystemID: "treasure_cache",
+		}},
+	}
+	h, ok := heldDeliveryShape(m, func(string) float64 { return 0 })
+	if !ok {
+		t.Fatal("a held dock_at_base mission was not recognised")
+	}
+	if !h.Covered {
+		t.Errorf("Covered = false for a visit that owes nothing (short %s)", h.ShortItem)
+	}
+	if h.DestBase != "treasure_cache_trading_post" {
+		t.Errorf("DestBase = %s, want treasure_cache_trading_post", h.DestBase)
+	}
+}
+
 func contains(s, sub string) bool {
 	for i := 0; i+len(sub) <= len(s); i++ {
 		if s[i:i+len(sub)] == sub {

@@ -209,7 +209,7 @@ func (c missionCandidate) deliverables() []missionDeliverable {
 // so a mission listing one good across two objectives still matches, and a
 // multi-item mission matches on its whole set rather than on a single leg.
 func activeMatchesItems(a serverapi.ActiveMission, items []missionDeliverable, destBase string) bool {
-	if len(a.Objectives) == 0 || len(items) == 0 {
+	if len(a.Objectives) == 0 {
 		return false
 	}
 	want := make(map[string]int, len(items))
@@ -220,6 +220,11 @@ func activeMatchesItems(a serverapi.ActiveMission, items []missionDeliverable, d
 	for _, o := range a.Objectives {
 		if o.TargetBase != destBase {
 			return false
+		}
+		// A dock_at_base objective carries nothing. Folding it in would add an
+		// empty-item key and stop a visit mission ever matching itself.
+		if o.Type == missionObjectiveDock {
+			continue
 		}
 		got[o.ItemID] += o.Required
 	}
@@ -269,13 +274,23 @@ func deliverShape(e serverapi.MissionBoardEntry, allowSmuggling bool) (items []m
 	order := make([]string, 0, len(e.Objectives))
 	qty := make(map[string]int, len(e.Objectives))
 	for i, o := range e.Objectives {
-		if o.Type != missionObjectiveDeliver || o.ItemID == "" || o.Quantity <= 0 || o.TargetBaseID == "" || o.SystemID == "" {
-			return nil, "", "", fmt.Sprintf("objective %d of %d is not a well-formed deliver_item", i+1, len(e.Objectives))
+		// dock_at_base is a delivery that carries nothing: go there, dock, claim.
+		// It matters far beyond its 500 credits — `a_word_in_private` is shaped
+		// this way and is the ONLY smuggling XP a level-0 agent can earn, since
+		// every smuggling-TYPED mission already requires level 1. Refusing it
+		// left a fresh agent unable to begin the chain at all.
+		isDock := o.Type == missionObjectiveDock
+		isDeliver := o.Type == missionObjectiveDeliver && o.ItemID != "" && o.Quantity > 0
+		if (!isDock && !isDeliver) || o.TargetBaseID == "" || o.SystemID == "" {
+			return nil, "", "", fmt.Sprintf("objective %d of %d is neither a well-formed deliver_item nor dock_at_base", i+1, len(e.Objectives))
 		}
 		if destBase == "" {
 			destBase, destSystem = o.TargetBaseID, o.SystemID
 		} else if o.TargetBaseID != destBase {
 			return nil, "", "", fmt.Sprintf("objectives split across %s and %s; multi-destination delivery unsupported", destBase, o.TargetBaseID)
+		}
+		if isDock {
+			continue // nothing to carry; the dock itself is the objective
 		}
 		if _, seen := qty[o.ItemID]; !seen {
 			order = append(order, o.ItemID)
@@ -320,13 +335,17 @@ func heldDeliveryShape(m serverapi.ActiveMission, aboard func(itemID string) flo
 	order := make([]string, 0, len(m.Objectives))
 	rem := make(map[string]int, len(m.Objectives))
 	for _, o := range m.Objectives {
-		if o.Type != missionObjectiveDeliver || o.ItemID == "" {
+		isDock := o.Type == missionObjectiveDock
+		if !isDock && (o.Type != missionObjectiveDeliver || o.ItemID == "") {
 			return heldDelivery{}, false
 		}
 		if h.DestBase == "" {
 			h.DestBase, h.DestSystem = o.TargetBase, o.SystemID
 		} else if o.TargetBase != h.DestBase {
 			return heldDelivery{}, false
+		}
+		if isDock {
+			continue // owes no cargo; docking there is the whole objective
 		}
 		remaining := max(o.Required-o.Current, 0)
 		if o.Completed {
