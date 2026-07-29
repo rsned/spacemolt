@@ -70,8 +70,15 @@ workers:
   # explorer-11 dirk 210 -> 2, explorer-12 empirica 495 -> 4.
   # Wave 4 (same day): explorer-6 threshold 265 -> 2. ALL 12 explorers now carry
   # freight; none remain parked in mission-learn-overrides.json.
-  - { agent_id: explorer-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 4 }
-  - { agent_id: explorer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 3 }
+  # SMUGGLING CANARY 4 (2026-07-29). THIN-WALLET replication of explorer-12's
+  # from-zero run: 15,135 credits is within a rounding error of the 15,953 that
+  # explorer-12 started chain 1 on, so if this one starves where that one did not,
+  # the difference is not the wallet. 1 jump from the giver, 420 cargo.
+  - { agent_id: explorer-1, role: missionrunner, station: treasure_cache_trading_post, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 4 }
+  # SMUGGLING CANARY 5 (2026-07-29). MID-WALLET arm: 133,308 credits, 340 cargo,
+  # 1 jump out. Sits between explorer-1's 15k and fighter-2's 1.55M so the three
+  # new arms bracket the credit axis at one jump-distance.
+  - { agent_id: explorer-2, role: missionrunner, station: treasure_cache_trading_post, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 3 }
   - { agent_id: explorer-3, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 9 }
   - { agent_id: explorer-4, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 4 }
   - { agent_id: explorer-5, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 3 }
@@ -94,7 +101,13 @@ workers:
   # -> across_the_line -> couriers to L3 -> an_introduction -> baseline -30 -> 10.
   - { agent_id: explorer-12, role: missionrunner, station: treasure_cache_trading_post, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 4 }
   - { agent_id: fighter-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
-  - { agent_id: fighter-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true }
+  # SMUGGLING CANARY 3 (2026-07-29) — the ZERO-RISK arm, and the one to read first.
+  # It was ALREADY docked at treasure_cache_trading_post when the canary set was
+  # chosen (0 jumps) with 1,545,295 credits, so it cannot repeat engineer-5's
+  # strand: there is no journey to the pin to get wrong. Any failure here is a
+  # failure of the CHAIN, not of routing or runway — which is exactly what makes
+  # it the control against explorer-1 (15k, 1 jump) and explorer-2 (133k, 1 jump).
+  - { agent_id: fighter-2, role: missionrunner, station: treasure_cache_trading_post, mission_categories: [delivery, exploration, smuggling], enable_freight: true }
   - { agent_id: fighter-3, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   # fighter-4 re-added 2026-07-19 after manual operator rescue completed (returned home,
   # sold off cargo, recovered). Joins fully-supervised on the next fleet restart.
