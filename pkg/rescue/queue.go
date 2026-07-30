@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"syscall"
 	"time"
 )
@@ -43,6 +44,30 @@ type Record struct {
 	Error          string  `json:"error,omitempty"`
 	RequestedAt    string  `json:"requested_at"`
 	UpdatedAt      string  `json:"updated_at"`
+
+	// PendingSince is when the record last entered pending — stamped by
+	// Enqueue and by any transition back into pending. The claim election
+	// widens by how long a rescue has gone UNCLAIMED, which is not how long
+	// ago it was filed: reading RequestedAt made a days-old record pass every
+	// assister's gate at every rank, disabling nearest-home ranking entirely
+	// (live 2026-07-29: a Nexus Prime rescue went to the Krynn assister, 20
+	// jumps out, while the Nexus Prime one sat idle at the strand system).
+	// Empty on records written before this field existed; readers fall back to
+	// RequestedAt.
+	PendingSince string `json:"pending_since,omitempty"`
+	// Attempts counts rescues that got as far as a claim and then failed. A
+	// failure re-queues rather than terminating (see FailedBy), so this is the
+	// bound that stops an unrescuable record cycling forever.
+	Attempts int `json:"attempts,omitempty"`
+	// FailedBy lists assisters that have already failed this record, so the
+	// re-queue goes to a DIFFERENT one instead of the same agent immediately
+	// re-winning the election it just lost.
+	FailedBy []string `json:"failed_by,omitempty"`
+}
+
+// HasFailed reports whether agentID has already failed this record.
+func (r Record) HasFailed(agentID string) bool {
+	return slices.Contains(r.FailedBy, agentID)
 }
 
 // Queue is a handle on the shared queue file. Safe for concurrent use across
@@ -83,7 +108,7 @@ func (q *Queue) Enqueue(rec Record) (bool, error) {
 		}
 		ts := q.now().UTC().Format(time.RFC3339)
 		rec.Status = StatusPending
-		rec.RequestedAt, rec.UpdatedAt = ts, ts
+		rec.RequestedAt, rec.UpdatedAt, rec.PendingSince = ts, ts, ts
 		inserted = true
 		return append(recs, rec), true, nil
 	})
@@ -92,6 +117,12 @@ func (q *Queue) Enqueue(rec Record) (bool, error) {
 
 // Transition moves the agent's record from → to (compare-and-set; false when
 // the record is absent or not in from), applying mutate to the record first.
+//
+// Entering pending re-stamps PendingSince, so a released or re-queued rescue
+// restarts the election's takeover clock instead of inheriting the age it had
+// accumulated before someone claimed it. Stamping here rather than at each
+// call site is deliberate: every route back into pending gets it, including
+// ones added later.
 func (q *Queue) Transition(agentID string, from, to Status, mutate func(*Record)) (bool, error) {
 	moved := false
 	err := q.withLock(func(recs []Record) ([]Record, bool, error) {
@@ -102,8 +133,12 @@ func (q *Queue) Transition(agentID string, from, to Status, mutate func(*Record)
 			if mutate != nil {
 				mutate(&recs[i])
 			}
+			ts := q.now().UTC().Format(time.RFC3339)
 			recs[i].Status = to
-			recs[i].UpdatedAt = q.now().UTC().Format(time.RFC3339)
+			recs[i].UpdatedAt = ts
+			if to == StatusPending {
+				recs[i].PendingSince = ts
+			}
 			moved = true
 			return recs, true, nil
 		}

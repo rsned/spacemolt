@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"strings"
+	"sync"
 
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/overmind/supervisor"
@@ -52,6 +54,31 @@ func makeOnQuarantine(ctx context.Context, logger *log.Logger, queue *rescue.Que
 			logger.Printf("rescue: queued %s (%s @ %s/%s, %d fuel)", w.AgentID, reason, rec.System, rec.POI, rec.RescueFuel)
 		}
 	}
+}
+
+// warnedExhausted tracks agents we have already warned about, so a terminal
+// record does not reprint on every status tick. Guarded because pollRescues
+// and the boot restore can both reach it.
+var (
+	warnedExhaustedMu sync.Mutex
+	warnedExhausted   = map[string]bool{}
+)
+
+// warnRescueExhausted prints the operator-action line for a rescue that has
+// run out of assisters, once per agent per process. The worker stays
+// quarantined and nothing retries, so this log is the only signal that a
+// worker is permanently out of the fleet.
+func warnRescueExhausted(logger *log.Logger, rec rescue.Record) {
+	warnedExhaustedMu.Lock()
+	defer warnedExhaustedMu.Unlock()
+	if warnedExhausted[rec.AgentID] {
+		return
+	}
+	warnedExhausted[rec.AgentID] = true
+	logger.Printf("rescue: ALERT %s is UNRESCUABLE after %d attempts by [%s] and stays quarantined "+
+		"— operator action needed. last error: %s. Check the strandee's LIVE position first: a stale "+
+		"record POI sends every rescuer to the wrong place.",
+		rec.AgentID, rec.Attempts, strings.Join(rec.FailedBy, ","), rec.Error)
 }
 
 // restoreQuarantine runs once at boot, before the supervisor launches anyone:
@@ -107,6 +134,14 @@ func pollRescues(logger *log.Logger, sup *supervisor.Supervisor, queue *rescue.Q
 			// Operator deleted the record: treat as manually resolved.
 			logger.Printf("rescue: no record for quarantined %s; releasing", w.AgentID)
 			sup.ReleaseQuarantine(w.AgentID)
+			continue
+		}
+		if rec.Fleet == fleetName && rec.Status == rescue.StatusFailed {
+			// Terminal: every assister has had a turn (see RescueMaxAttempts).
+			// Nothing will retry, and the worker stays quarantined — which is a
+			// silent hole unless we say so. Once per process per agent, so the
+			// status tick does not spam.
+			warnRescueExhausted(logger, rec)
 			continue
 		}
 		if rec.Fleet == fleetName && rec.Status == rescue.StatusDone {

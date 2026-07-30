@@ -698,7 +698,7 @@ func shuttleDeliver(ctx context.Context, deps ShuttleDeps, out io.Writer, c shut
 	// Passengers bound here have now auto-delivered. Contribute the treasury's cut
 	// of the booked fare to the shared fund.
 	depositProfitShare(ctx, deps.Client, out, float64(bookedFare))
-	if err := deps.Client.Refuel(ctx); err != nil {
+	if err := RefuelAndSync(ctx, deps.Client, out, "shuttle"); err != nil {
 		fmt.Fprintf(out, "shuttle: refuel at %s failed: %v\n", c.station, err) //nolint:errcheck
 	}
 	fmt.Fprintf(out, "shuttle: delivered to %s; ready for next run\n", c.sysName) //nolint:errcheck

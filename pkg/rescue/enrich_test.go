@@ -86,9 +86,44 @@ func TestTransferQuantity(t *testing.T) {
 		{"zero hops home reserves buffer only", 100, 0, 100, 0, 95},
 	}
 	for _, tc := range cases {
-		if got := TransferQuantity(tc.strandeeMax, tc.strandeeFuel, tc.rescuerFuel, tc.hops); got != tc.want {
+		// perJump 0 selects the flat FuelPerJump fallback, which is what these
+		// cases were computed against.
+		if got := TransferQuantity(tc.strandeeMax, tc.strandeeFuel, tc.rescuerFuel, tc.hops, 0); got != tc.want {
 			t.Errorf("%s: TransferQuantity(%d,%d,%d,%d) = %d, want %d",
 				tc.name, tc.strandeeMax, tc.strandeeFuel, tc.rescuerFuel, tc.hops, got, tc.want)
 		}
+	}
+}
+
+// The flat FuelPerJump=5 over-reserves for a small hull, and that is not
+// academic: assist-krynn burns ~3/jump, flew 20 hops to a strandee, reserved
+// 5*20+5 = 105 of its 110 remaining fuel for the trip home, concluded it had
+// nothing to spare and abandoned the rescue. With the measured rate the same
+// trip reserves 65 and the rescue goes ahead.
+func TestTransferQuantityUsesMeasuredRateNotTheFlatConstant(t *testing.T) {
+	const (
+		strandeeMax, strandeeFuel = 100, 0
+		rescuerFuel, hopsHome     = 110, 20
+		measuredPerJump           = 3
+	)
+	if got := TransferQuantity(strandeeMax, strandeeFuel, rescuerFuel, hopsHome, 0); got != 5 {
+		t.Fatalf("flat-rate baseline: got %d, want 5 (110 - (5*20+5))", got)
+	}
+	want := rescuerFuel - (measuredPerJump*hopsHome + FuelBuffer) // 110 - 65 = 45
+	if got := TransferQuantity(strandeeMax, strandeeFuel, rescuerFuel, hopsHome, measuredPerJump); got != want {
+		t.Errorf("measured rate: TransferQuantity(...,%d) = %d, want %d", measuredPerJump, got, want)
+	}
+}
+
+// A large hull burns far MORE than the flat 5, so the constant under-reserves
+// and the rescuer gives away fuel it needs to get home — creating the next
+// rescue. The measured rate must be able to drive spare down to zero.
+func TestTransferQuantityUnderReserveForLargeHullIsCorrected(t *testing.T) {
+	const rescuerFuel, hopsHome, measuredPerJump = 100, 6, 16
+	if got := TransferQuantity(500, 0, rescuerFuel, hopsHome, 0); got != 65 {
+		t.Fatalf("flat-rate baseline: got %d, want 65 (100 - (5*6+5)) — it would strand the rescuer", got)
+	}
+	if got := TransferQuantity(500, 0, rescuerFuel, hopsHome, measuredPerJump); got != 0 {
+		t.Errorf("measured rate: got %d, want 0 (100 - (16*6+5) clamps) so the caller declines", got)
 	}
 }

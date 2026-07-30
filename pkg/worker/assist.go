@@ -23,6 +23,20 @@ import (
 // full-tank assists idled at home).
 const assistTakeoverInterval = 5 * time.Minute
 
+// RescueMaxAttempts is how many claimed-then-failed tries a record gets before
+// it goes terminal and waits for an operator. Sized to let each assist agent
+// have one turn (there are five), so a failure caused by one rescuer's state —
+// an empty tank, a missing module, a bad route — is retried by the others
+// before anyone concludes the record itself is the problem.
+const RescueMaxAttempts = 5
+
+// rescueRetryAfter is how long an assister that failed a record stays barred
+// from re-claiming it. Long enough that every other assister's takeover rank
+// unlocks first (so the retry really does go to someone else), but finite so a
+// record cannot strand between "everyone live has failed it" and the terminal
+// attempt count.
+const rescueRetryAfter = RescueMaxAttempts * assistTakeoverInterval
+
 // assistHomes maps each fixed-capital assist agent to its home system id.
 // The claim election in assistElect relies on every agent being able to
 // compute all five home distances locally (these four plus the mobile homes
@@ -138,6 +152,21 @@ func claimNearestPending(ctx context.Context, deps AssistDeps, recs []rescue.Rec
 		if r.Status != rescue.StatusPending {
 			continue
 		}
+		if r.HasFailed(deps.AgentID) && assistPendingAge(r, time.Now()) < rescueRetryAfter {
+			// We already tried this one and failed. A failure re-queues the
+			// record so a DIFFERENT assister gets a turn; without this skip the
+			// agent that just failed is usually still rank 0 and would
+			// immediately re-win the election, retrying forever.
+			//
+			// The skip expires, though, and must: with fewer live assisters
+			// than RescueMaxAttempts, a permanent skip means every live agent
+			// ends up in FailedBy, nobody can claim, and the record sits
+			// pending forever without ever reaching the terminal alert. It also
+			// gives transient failures a second chance — the first attempt on
+			// this record died to a six-minute DNS outage, not to anything
+			// about the record.
+			continue
+		}
 		if r.SystemID == "" {
 			// Silent-forever otherwise: the operator must fill in system_id by
 			// hand (enqueue-time resolution failed). Log once per pass so it is
@@ -208,11 +237,26 @@ func assistElect(agentID string, homes map[string]string, strandSystemID string,
 	return age >= time.Duration(rank)*assistTakeoverInterval
 }
 
-// assistPendingAge is how long the record has been waiting since it was
-// filed. An unparsable timestamp counts as infinitely old — a suboptimal
-// claimant beats a silent stall on a hand-edited record.
+// assistPendingAge is how long the record has been waiting UNCLAIMED, which is
+// what the takeover ladder is widening on — not how long ago it was filed.
+// PendingSince is re-stamped every time the record enters pending; RequestedAt
+// is the fallback for records written before that field existed.
+//
+// Reading RequestedAt was a live bug: a two-day-old record satisfied
+// `age >= rank*assistTakeoverInterval` for EVERY rank, so nearest-home ranking
+// was defeated outright and whichever assister polled first won. A Nexus Prime
+// rescue went to the Krynn assister (20 jumps) while the Nexus Prime one sat
+// idle in the strand system, and a Sol rescue went to Starfall's assister
+// while Sol's own sat docked at the strandee's exact POI.
+//
+// An unparsable timestamp counts as infinitely old — a suboptimal claimant
+// beats a silent stall on a hand-edited record.
 func assistPendingAge(rec rescue.Record, now time.Time) time.Duration {
-	t, err := time.Parse(time.RFC3339, rec.RequestedAt)
+	stamp := rec.PendingSince
+	if stamp == "" {
+		stamp = rec.RequestedAt
+	}
+	t, err := time.Parse(time.RFC3339, stamp)
 	if err != nil {
 		return 1 << 62
 	}
@@ -220,11 +264,39 @@ func assistPendingAge(rec rescue.Record, now time.Time) time.Duration {
 }
 
 func runRescue(ctx context.Context, deps AssistDeps, rec rescue.Record) error {
+	// fail re-queues the rescue for a different assister rather than killing it.
+	// A terminal `failed` record is a deadlock: pollRescues releases quarantine
+	// only on `done` (or on the record being deleted), and a quarantined worker
+	// has no process, so it can never rescue itself — failed means stranded
+	// forever. Live 2026-07-29: two workers sat quarantined for one and two days
+	// on records that failed once, back when no assister had a refueling pump.
+	//
+	// Only after RescueMaxAttempts distinct tries does the record go terminal,
+	// which is the signal that the cause is not the assister (a missing module,
+	// a bounty, a stale POI) and needs an operator.
 	fail := func(stage string, err error) error {
 		fmt.Fprintf(deps.Out, "assist: rescue %s failed at %s: %v\n", rec.AgentID, stage, err) //nolint:errcheck
-		if _, terr := deps.Queue.Transition(rec.AgentID, rescue.StatusClaimed, rescue.StatusFailed,
-			func(r *rescue.Record) { r.Error = stage + ": " + err.Error() }); terr != nil {
-			fmt.Fprintf(deps.Out, "assist: mark failed %s: %v\n", rec.AgentID, terr) //nolint:errcheck
+		next, attempts := rescue.StatusPending, rec.Attempts+1
+		if attempts >= RescueMaxAttempts {
+			next = rescue.StatusFailed
+		}
+		if _, terr := deps.Queue.Transition(rec.AgentID, rescue.StatusClaimed, next,
+			func(r *rescue.Record) {
+				r.Error = stage + ": " + err.Error()
+				r.Attempts = attempts
+				r.ClaimedBy = ""
+				if !r.HasFailed(deps.AgentID) {
+					r.FailedBy = append(r.FailedBy, deps.AgentID)
+				}
+			}); terr != nil {
+			fmt.Fprintf(deps.Out, "assist: mark %s %s: %v\n", next, rec.AgentID, terr) //nolint:errcheck
+		}
+		if next == rescue.StatusFailed {
+			fmt.Fprintf(deps.Out, "assist: rescue %s GIVING UP after %d attempts (%s); operator needed\n", //nolint:errcheck
+				rec.AgentID, attempts, strings.Join(append(rec.FailedBy, deps.AgentID), ","))
+		} else {
+			fmt.Fprintf(deps.Out, "assist: rescue %s re-queued for another assister (attempt %d/%d)\n", //nolint:errcheck
+				rec.AgentID, attempts, RescueMaxAttempts)
 		}
 		return assistEnsureHome(ctx, deps)
 	}
@@ -285,6 +357,11 @@ func rescuerHome(ctx context.Context, deps AssistDeps) (string, bool) {
 // (rescue.TransferQuantity). Falls back to the record's enqueue-time
 // RescueFuel estimate when live state, the KB, or the home route is
 // unavailable, so a transfer is never blocked on missing data.
+//
+// The home reserve is priced at this ship's MEASURED per-jump burn, not the
+// flat rescue.FuelPerJump: the flat 5 made a rescuer that burns ~2.85/jump
+// reserve 105 fuel for a 20-hop trip home, decide it had nothing to spare, and
+// abandon the rescue it had just flown 20 jumps to reach.
 func rescueFuelQty(ctx context.Context, deps AssistDeps, rec rescue.Record) int {
 	st := deps.Client.GetState()
 	if st == nil || deps.KB == nil {
@@ -304,7 +381,12 @@ func rescueFuelQty(ctx context.Context, deps AssistDeps, rec rescue.Record) int 
 	if !ok || hops >= navigation.RouteInf {
 		return rec.RescueFuel
 	}
-	return rescue.TransferQuantity(int(rec.MaxFuel), int(rec.Fuel), int(st.Fuel), hops)
+	// We are standing at the strandee, so probe the route we actually have to
+	// fly back; haulFuelPerJump prefers the server's own fuel_per_jump and
+	// falls back to the ship-class formula. 0 means "unknown", which
+	// TransferQuantity turns back into the flat constant.
+	perJump := haulFuelPerJump(ctx, deps.Client, deps.HomeStation)
+	return rescue.TransferQuantity(int(rec.MaxFuel), int(rec.Fuel), int(st.Fuel), hops, perJump)
 }
 
 // assistEnsureHome parks the rescuer docked at its home capital with a full
@@ -349,7 +431,10 @@ func assistEnsureHome(ctx context.Context, deps AssistDeps) error {
 		fmt.Fprintf(deps.Out, "assist: dock home: %v\n", err) //nolint:errcheck
 		return nil
 	}
-	if err := deps.Client.Refuel(ctx); err != nil {
+	// Sync after refuelling: a rescuer that thinks its tank is still empty
+	// declines every rescue it wins (rescueFuelQty sees the stale fuel and
+	// returns 0), which is silent and indistinguishable from having no work.
+	if err := RefuelAndSync(ctx, deps.Client, deps.Out, "assist"); err != nil {
 		fmt.Fprintf(deps.Out, "assist: home refuel: %v\n", err) //nolint:errcheck
 	}
 	return nil

@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"testing"
@@ -99,10 +100,60 @@ func TestAssistPendingAge(t *testing.T) {
 	now := time.Date(2026, 7, 4, 20, 0, 0, 0, time.UTC)
 	rec := rescue.Record{RequestedAt: "2026-07-04T19:50:00Z"}
 	if got := assistPendingAge(rec, now); got != 10*time.Minute {
-		t.Errorf("age = %v, want 10m", got)
+		t.Errorf("age = %v, want 10m (RequestedAt is the fallback for old records)", got)
 	}
 	if got := assistPendingAge(rescue.Record{RequestedAt: "garbage"}, now); got < 100*24*time.Hour {
 		t.Errorf("unparsable timestamp must count as very old, got %v", got)
+	}
+}
+
+// The ladder widens on how long a rescue has gone UNCLAIMED. Measuring from
+// RequestedAt meant a days-old record cleared every rank's gate at once, which
+// disabled nearest-home ranking outright: a Nexus Prime rescue went to the
+// Krynn assister 20 jumps away while the Nexus Prime one idled in the strand
+// system, and a Sol rescue went to Starfall's while Sol's sat docked at the
+// strandee's own POI.
+func TestAssistPendingAgePrefersPendingSinceOverRequestedAt(t *testing.T) {
+	now := time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)
+	rec := rescue.Record{
+		RequestedAt:  "2026-07-27T14:49:26Z", // filed two days ago
+		PendingSince: "2026-07-29T20:58:00Z", // re-queued two minutes ago
+	}
+	if got := assistPendingAge(rec, now); got != 2*time.Minute {
+		t.Errorf("age = %v, want 2m — the takeover clock runs from PendingSince", got)
+	}
+}
+
+// End-to-end regression for the live misroute: the two functions composed.
+// With the strandee at m2, assist-b (h2, 1 hop) is rank 0 and assist-a (h1,
+// 3 hops) is rank 1. A record filed days ago but re-queued moments ago must be
+// claimable ONLY by assist-b; reading the filing time instead let assist-a
+// claim it too, and whoever polled first won.
+func TestStaleRequestedAtNoLongerWidensTheElection(t *testing.T) {
+	graph := assistTestGraph()
+	homes := map[string]string{"assist-a": "h1", "assist-b": "h2"}
+	now := time.Date(2026, 7, 29, 21, 0, 0, 0, time.UTC)
+	rec := rescue.Record{
+		RequestedAt:  "2026-07-27T14:49:26Z",
+		PendingSince: "2026-07-29T20:58:00Z",
+	}
+
+	age := assistPendingAge(rec, now)
+	if !assistElect("assist-b", homes, "m2", graph, age) {
+		t.Error("the nearest assister must still claim immediately")
+	}
+	if assistElect("assist-a", homes, "m2", graph, age) {
+		t.Error("the far assister must wait its rank out on a freshly re-queued record")
+	}
+
+	// Guard the premise: with the old (filing-time) age the far agent WOULD
+	// have claimed, so this test fails if the fix is reverted.
+	filed, err := time.Parse(time.RFC3339, rec.RequestedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !assistElect("assist-a", homes, "m2", graph, now.Sub(filed)) {
+		t.Error("premise broken: a days-old age should clear every rank's gate")
 	}
 }
 
@@ -374,7 +425,12 @@ func TestAssistReleasesWhenCannotSpare(t *testing.T) {
 	}
 }
 
-func TestAssistFailureMarksFailed(t *testing.T) {
+// A failed rescue must RE-QUEUE, not terminate. A terminal record is a
+// deadlock: quarantine is released only on `done`, and a quarantined worker has
+// no process to rescue itself, so `failed` on the first try means stranded
+// forever (live 2026-07-29: two workers sat quarantined for one and two days
+// each on records that failed once).
+func TestAssistFailureRequeuesForAnotherAssister(t *testing.T) {
 	q := &fakeRescueQueue{recs: []rescue.Record{{
 		AgentID: "trader-8", TargetUsername: "Big Jim", SystemID: "strand",
 		POI: "strand_star", RescueFuel: 15,
@@ -390,7 +446,117 @@ func TestAssistFailureMarksFailed(t *testing.T) {
 	if err := Assist(context.Background(), deps); err != nil {
 		t.Fatal(err)
 	}
-	if q.recs[0].Status != rescue.StatusFailed || q.recs[0].Error == "" {
-		t.Fatalf("failed rescue must mark record failed with error, got %+v", q.recs[0])
+	got := q.recs[0]
+	if got.Status != rescue.StatusPending {
+		t.Errorf("status = %s, want pending so another assister retries", got.Status)
+	}
+	if got.Error == "" {
+		t.Error("the failure reason must be recorded even though we retry")
+	}
+	if got.ClaimedBy != "" {
+		t.Errorf("ClaimedBy = %q, want cleared so the record is claimable", got.ClaimedBy)
+	}
+	if got.Attempts != 1 {
+		t.Errorf("Attempts = %d, want 1", got.Attempts)
+	}
+	if !got.HasFailed("assist-a") {
+		t.Errorf("FailedBy = %v, want it to record assist-a", got.FailedBy)
+	}
+}
+
+// The agent that just failed must not immediately re-win the election it is
+// usually rank 0 for — otherwise the re-queue is an infinite retry loop rather
+// than a handover.
+func TestAssistDoesNotReclaimARecordItAlreadyFailed(t *testing.T) {
+	q := &fakeRescueQueue{recs: []rescue.Record{{
+		AgentID: "trader-8", TargetUsername: "Big Jim", SystemID: "strand",
+		POI: "strand_star", RescueFuel: 15, Status: rescue.StatusPending,
+		FailedBy: []string{"assist-a"}, Attempts: 1,
+		// Freshly re-queued, so assist-a's bar is still in force.
+		PendingSince: time.Now().UTC().Format(time.RFC3339),
+	}}}
+	client := &fakeClient{state: &game.State{}}
+	deps := AssistDeps{
+		Client: client, Queue: q, Out: io.Discard,
+		AgentID: "assist-a", HomeStation: "h1_station",
+		Navigate: func(ctx context.Context, system, poi string) error { return nil },
+	}
+	if err := Assist(context.Background(), deps); err != nil {
+		t.Fatal(err)
+	}
+	if q.recs[0].Status != rescue.StatusPending || q.recs[0].ClaimedBy != "" {
+		t.Fatalf("record must stay pending and unclaimed, got %+v", q.recs[0])
+	}
+	if len(client.refuelShipCalls) != 0 {
+		t.Fatalf("must not attempt a rescue it already failed, got %+v", client.refuelShipCalls)
+	}
+}
+
+// The bar on a previous failer must expire. With fewer live assisters than
+// RescueMaxAttempts, a permanent bar means every live agent lands in FailedBy,
+// nobody can claim, and the record sits pending forever — never rescued and
+// never escalated to the operator either.
+func TestAssistRetriesItsOwnFailureAfterTheBarExpires(t *testing.T) {
+	ctx := context.Background()
+	// Only nexus_prime reaches the strandee, so assist-nexus is the sole
+	// eligible claimant — the "everyone live has already failed it" case.
+	kb := knowledge.NewMemoryKB()
+	if err := kb.RememberSystem(ctx, knowledge.System{
+		ID:          "nexus_prime",
+		Connections: []knowledge.SystemConnection{{SystemID: "strand"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	q := &fakeRescueQueue{recs: []rescue.Record{{
+		AgentID: "trader-8", TargetUsername: "Big Jim", SystemID: "strand",
+		POI: "strand_star", RescueFuel: 15, Fuel: 0, MaxFuel: 200,
+		Status: rescue.StatusPending, FailedBy: []string{"assist-nexus"}, Attempts: 1,
+		PendingSince: time.Now().Add(-2 * rescueRetryAfter).UTC().Format(time.RFC3339),
+	}}}
+	client := &fakeClient{state: &game.State{Fuel: 120, MaxFuel: 120}}
+	deps := AssistDeps{
+		Client: client, KB: kb, Queue: q, Out: io.Discard,
+		AgentID: "assist-nexus", HomeStation: "the_core",
+		Navigate: func(ctx context.Context, system, poi string) error { return nil },
+	}
+	if err := Assist(ctx, deps); err != nil {
+		t.Fatal(err)
+	}
+	if len(client.refuelShipCalls) != 1 {
+		t.Fatalf("after the bar expires the only eligible assister must retry, got %+v", client.refuelShipCalls)
+	}
+	if q.recs[0].Status != rescue.StatusDone {
+		t.Errorf("status = %s, want done", q.recs[0].Status)
+	}
+}
+
+// Retrying forever is its own failure mode, so once every assister has had a
+// turn the record goes terminal and waits for an operator.
+func TestAssistGivesUpAfterMaxAttempts(t *testing.T) {
+	prior := make([]string, 0, RescueMaxAttempts-1)
+	for i := range RescueMaxAttempts - 1 {
+		prior = append(prior, fmt.Sprintf("assist-prior-%d", i))
+	}
+	q := &fakeRescueQueue{recs: []rescue.Record{{
+		AgentID: "trader-8", TargetUsername: "Big Jim", SystemID: "strand",
+		POI: "strand_star", RescueFuel: 15,
+		Status: rescue.StatusClaimed, ClaimedBy: "assist-a",
+		Attempts: RescueMaxAttempts - 1, FailedBy: prior,
+	}}}
+	client := &fakeClient{state: &game.State{}}
+	client.refuelShipErr = errors.New("target not found")
+	deps := AssistDeps{
+		Client: client, Queue: q, Out: io.Discard,
+		AgentID: "assist-a", HomeStation: "h1_station",
+		Navigate: func(ctx context.Context, system, poi string) error { return nil },
+	}
+	if err := Assist(context.Background(), deps); err != nil {
+		t.Fatal(err)
+	}
+	if q.recs[0].Status != rescue.StatusFailed {
+		t.Fatalf("status = %s, want failed after %d attempts", q.recs[0].Status, RescueMaxAttempts)
+	}
+	if q.recs[0].Attempts != RescueMaxAttempts {
+		t.Errorf("Attempts = %d, want %d", q.recs[0].Attempts, RescueMaxAttempts)
 	}
 }

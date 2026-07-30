@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestQueueLifecycle(t *testing.T) {
@@ -49,6 +50,85 @@ func TestQueueLifecycle(t *testing.T) {
 	}
 	if recs, _ := q.List(); len(recs) != 0 {
 		t.Fatalf("queue should be empty, got %v", recs)
+	}
+}
+
+// The takeover election widens on how long a rescue has gone UNCLAIMED, so
+// every route back into pending must restart that clock. Stamping it inside
+// Transition (rather than at each call site) is what makes that hold for
+// routes added later.
+func TestPendingSinceIsRestampedOnEveryEntryIntoPending(t *testing.T) {
+	q := NewQueue(filepath.Join(t.TempDir(), "queue.json"))
+	clock := time.Date(2026, 7, 29, 12, 0, 0, 0, time.UTC)
+	q.now = func() time.Time { return clock }
+
+	if _, err := q.Enqueue(Record{AgentID: "random-9"}); err != nil {
+		t.Fatal(err)
+	}
+	recs, _ := q.List()
+	filed := recs[0].PendingSince
+	if filed == "" {
+		t.Fatal("Enqueue must stamp PendingSince")
+	}
+	if recs[0].RequestedAt != filed {
+		t.Fatalf("at enqueue the two stamps agree: %q vs %q", recs[0].RequestedAt, filed)
+	}
+
+	// Two days later the record is claimed, then released back to pending.
+	clock = clock.Add(48 * time.Hour)
+	if ok, _ := q.Transition("random-9", StatusPending, StatusClaimed, nil); !ok {
+		t.Fatal("claim failed")
+	}
+	if ok, _ := q.Transition("random-9", StatusClaimed, StatusPending, nil); !ok {
+		t.Fatal("release failed")
+	}
+
+	recs, _ = q.List()
+	if recs[0].PendingSince == filed {
+		t.Error("re-entering pending must restart the takeover clock, not inherit the filing time")
+	}
+	if recs[0].RequestedAt != filed {
+		t.Errorf("RequestedAt is the filing time and must NOT move: %q, want %q", recs[0].RequestedAt, filed)
+	}
+	if want := clock.UTC().Format(time.RFC3339); recs[0].PendingSince != want {
+		t.Errorf("PendingSince = %q, want %q", recs[0].PendingSince, want)
+	}
+}
+
+// Leaving pending must not touch the stamp — otherwise a claim would reset the
+// ladder for whoever the claim is later released to.
+func TestPendingSinceUnchangedWhenLeavingPending(t *testing.T) {
+	q := NewQueue(filepath.Join(t.TempDir(), "queue.json"))
+	clock := time.Date(2026, 7, 29, 12, 0, 0, 0, time.UTC)
+	q.now = func() time.Time { return clock }
+	if _, err := q.Enqueue(Record{AgentID: "random-1"}); err != nil {
+		t.Fatal(err)
+	}
+	recs, _ := q.List()
+	before := recs[0].PendingSince
+
+	clock = clock.Add(time.Hour)
+	if ok, _ := q.Transition("random-1", StatusPending, StatusClaimed, nil); !ok {
+		t.Fatal("claim failed")
+	}
+	recs, _ = q.List()
+	if recs[0].PendingSince != before {
+		t.Errorf("claiming must not restamp PendingSince: %q, want %q", recs[0].PendingSince, before)
+	}
+}
+
+func TestHasFailedTracksPerAssister(t *testing.T) {
+	rec := Record{FailedBy: []string{"assist-krynn", "assist-haven"}}
+	for _, id := range []string{"assist-krynn", "assist-haven"} {
+		if !rec.HasFailed(id) {
+			t.Errorf("HasFailed(%q) = false, want true", id)
+		}
+	}
+	if rec.HasFailed("assist-nexus") {
+		t.Error("HasFailed must be false for an assister that has not tried")
+	}
+	if (Record{}).HasFailed("anyone") {
+		t.Error("a fresh record has no failures")
 	}
 }
 

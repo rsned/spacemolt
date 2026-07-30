@@ -14,6 +14,12 @@ import (
 // Rescue-fuel sizing (spec: 5 per jump to the nearest station + one jump's
 // slack for the intra-system leg; floor 10; fallback when routing fails).
 const (
+	// FuelPerJump is the LAST-RESORT per-jump burn, used only when the real
+	// rate is unknown. Actual burn is hull-dependent — ceil(scale^1.5 * speed)
+	// — so this flat value is wrong for every ship, over-reserving for small
+	// hulls and under-reserving badly for large ones. Callers that hold a live
+	// client must pass the measured rate instead; see haulFuelPerJump, which
+	// prefers the server's own fuel_per_jump from a find_route probe.
 	FuelPerJump  = 5
 	FuelBuffer   = 5
 	FuelMin      = 10
@@ -31,22 +37,23 @@ func fuelForHops(hops int) int {
 // TransferQuantity sizes a rescue fuel transfer at refuel time: fill the
 // strandee's remaining tank capacity, but never give away more than the
 // rescuer can spare after reserving fuel to fly home (hopsHome jumps at
-// FuelPerJump each, plus FuelBuffer). Both terms clamp at zero, so a rescuer
+// perJump each, plus FuelBuffer). Both terms clamp at zero, so a rescuer
 // that cannot cover its own trip home returns 0 — the caller then declines the
 // transfer rather than stranding itself.
-func TransferQuantity(strandeeMaxFuel, strandeeFuel, rescuerFuel, hopsHome int) int {
-	need := strandeeMaxFuel - strandeeFuel
-	if need < 0 {
-		need = 0
+//
+// perJump is the rescuer's measured per-jump burn; <= 0 falls back to the flat
+// FuelPerJump. Passing the real rate matters: with the flat 5, a rescuer that
+// actually burns ~2.85/jump reserved 105 fuel for a 20-hop trip home where ~62
+// was needed, concluded it had "nothing to spare", and abandoned the rescue
+// after flying the whole way (live 2026-07-29, assist-krynn). The same flat
+// value under-reserves for a large hull, which strands the rescuer instead.
+func TransferQuantity(strandeeMaxFuel, strandeeFuel, rescuerFuel, hopsHome, perJump int) int {
+	if perJump <= 0 {
+		perJump = FuelPerJump
 	}
-	spare := rescuerFuel - (FuelPerJump*hopsHome + FuelBuffer)
-	if spare < 0 {
-		spare = 0
-	}
-	if need < spare {
-		return need
-	}
-	return spare
+	need := max(strandeeMaxFuel-strandeeFuel, 0)
+	spare := max(rescuerFuel-(perJump*hopsHome+FuelBuffer), 0)
+	return min(need, spare)
 }
 
 // ResolveUsername reads the agent's in-game username from

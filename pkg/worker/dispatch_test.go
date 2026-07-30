@@ -30,6 +30,11 @@ type fakeClient struct {
 
 	refuelShipCalls []refuelShipCall // records of RefuelShip(target, quantity) calls
 	refuelShipErr   error            // when set, RefuelShip returns it instead of recording success
+	refuelErr       error            // when set, Refuel returns it instead of recording success
+	// refuelFuel, when > 0, is the fuel the *server* now holds after a refuel.
+	// The fake applies it to state only on GetStatus, mirroring the real client:
+	// State.Fuel is a cache that a refuel alone does not update.
+	refuelFuel float64
 
 	acceptErr      error   // when set, AcceptMission returns it instead of recording success
 	buyErr         error   // when set, Buy returns it instead of recording success
@@ -96,6 +101,9 @@ func (f *fakeClient) CreateSellOrder(ctx context.Context, payload map[string]any
 }
 func (f *fakeClient) Refuel(ctx context.Context) error {
 	f.calls = append(f.calls, "refuel")
+	if f.refuelErr != nil {
+		return f.refuelErr
+	}
 	f.fuelLow = false // a successful refuel clears the fuel shortage
 	return nil
 }
@@ -120,6 +128,12 @@ func (f *fakeClient) Travel(ctx context.Context, poi string) (*game.TravelResult
 }
 func (f *fakeClient) GetStatus(ctx context.Context) error {
 	f.calls = append(f.calls, "get_status")
+	// Re-reading state is what publishes a server-side fuel change into the
+	// cache; nothing else does.
+	if f.refuelFuel > 0 && f.state != nil {
+		f.state.Fuel = f.refuelFuel
+		f.state.Ship.Fuel = f.refuelFuel
+	}
 	return nil
 }
 func (f *fakeClient) GetSystem(ctx context.Context) error {
