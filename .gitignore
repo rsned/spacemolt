@@ -164,6 +164,7 @@ server_docs/*.json
 ##############################
 docs/*.md
 !docs/USAGE.md
+!docs/COLD_START.md
 
 
 # LLM files

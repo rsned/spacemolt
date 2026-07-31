@@ -1,0 +1,347 @@
+# Cold Start — bringing the fleets up from fully stopped
+
+How to restart everything after a host reboot, a crash, or a deliberate full stop.
+
+Last proven end-to-end: **2026-07-30**, recovering from a ~6h total outage — 109 workers up,
+0 restarts, all on one commit. Every number in the Checkpoints section comes from that run.
+
+**Read this in order.** The order is the point: the fleets have a dependency chain
+(marketbots feed `market.db` → the scanner reads it → haulers route on what the scanner
+found), and two of the steps will actively break the others if run early.
+
+---
+
+## 0. Preflight
+
+Run all of these before launching anything.
+
+**a. Confirm nothing is still alive.** Scan `/proc`, not `pgrep -f` — `pgrep` matches the
+command line of the shell running the scan and reports itself.
+
+```bash
+for d in /proc/[0-9]*; do c=$(tr '\0' ' ' < $d/cmdline 2>/dev/null); \
+  case "$c" in *overmind*|*bin/worker*|*arbitrage-scanner*|*market-prune*) \
+  echo "$(basename $d) ${c:0:100}";; esac; done
+```
+
+**b. Confirm it was a hard stop, and how long ago.** The last timestamp in each
+`data/overmind/*-overmind.log` is the moment of death. If every log ends at the same second
+with no `shutdown complete` banner, the processes were killed rather than drained — expect
+in-flight work (jumps, freight, transits) to have been interrupted mid-action.
+
+**The gap length matters**: if it exceeds the prune retain window (4h), see step 5.
+
+**c. Remove stale sockets.** `net.Listen("unix")` fails on a leftover socket file, so a
+relaunch silently dies without this.
+
+```bash
+rm -f data/overmind/{haul,mb,shuttle,assist,craft,mission-learn}.sock
+```
+
+**d. Check the rescue queue.**
+
+```bash
+cat data/overmind/rescue-queue.json     # `[]` is what you want
+```
+
+Any record whose status is not `done` causes `restoreQuarantine` to hold that worker out of
+the fleet at boot — **silently, with no log line**. The tell afterwards is a worker showing
+`0.0% no restarts=0` with zero spawn/connect lines. Restarting the fleet never fixes it;
+re-arm or clear the record first (see the rescue-pipeline notes for the flock protocol).
+
+**e. Confirm the binaries are the build you think they are.**
+
+```bash
+ls -la bin/overmind bin/worker && git log -1 --format=%H
+```
+
+If they predate HEAD, rebuild before launching — a cold start is the cheapest possible moment
+to roll a new binary, since nothing has to be drained.
+
+---
+
+## 1. Dashboards first
+
+They are read-only observers of the status files, so they are safe to start before anything
+exists to observe, and having them up means you can watch the rest of the sequence land.
+
+```bash
+go build -o bin/overmind-dashboard ./cmd/overmind-dashboard
+go build -o bin/overmind-status    ./cmd/tools/overmind-status
+
+setsid nohup ./bin/overmind-dashboard \
+  >> data/overmind/ovdash.log 2>&1 < /dev/null &                      # :8091
+
+setsid nohup ./bin/overmind-status --addr ":8087" --refresh 300 \
+  >> data/overmind/overmind-status.log 2>&1 < /dev/null &             # :8087
+```
+
+- `overmind-dashboard` needs a built `frontend/dist`; it logs `505 systems loaded, serving on :8091`.
+- `overmind-status` logs the sources it found: `[Haul, Marketbots, Shuttle, Assist, Craft, Missions]`.
+- **Do not use `scripts/start-overmind-status.sh` right after a build.** Its singleton guard is
+  `pgrep -f bin/overmind-status`, which also matches a concurrent `go build -o bin/overmind-status`,
+  so it refuses to start and blames a process that is really the compiler.
+
+**Checkpoint:** both return HTTP 200.
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8091/
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8087/
+```
+
+---
+
+## 2. The arbitrage scanner
+
+No game logins, so it costs nothing to start early — and the haul fleet earns **nothing**
+without it. It is unsupervised: no overmind restarts it and nothing alerts when it dies.
+
+```bash
+setsid nohup ./bin/arbitrage-scanner watch --interval 10m --offset 3m \
+  --market-db-path data/market.db \
+  >> data/overmind/arbitrage-scanner.log 2>&1 < /dev/null &
+```
+
+The binary's own defaults (`30m`/`5m`) are **not** the live cadence — pass both flags
+explicitly. If in doubt about the current cadence, read the `watch:` banner the scanner prints
+at startup in its own log rather than trusting any note.
+
+Its first scan or two may fail with `SQLITE_BUSY` if the marketbots are mid-burst; it says
+`(will retry at next boundary)` and recovers on its own. Persistent failure is step 5's trap.
+
+---
+
+## 3. The fleets, sequenced
+
+**The constraint is login pacing, and it is the single easiest way to ruin a cold start.**
+The per-IP `/login` limiter tolerates roughly 10 logins/minute. Exceed it and the overwhelming
+failure mode is silent: the first N workers log in, the rest fail, and **the overmind does not
+retry them** — they sit at `restarts=0` with no connect lines, and the fleet is stuck at a
+fraction of its roster until you notice.
+
+`--stagger 10s` paces one fleet to ~6 logins/min. That means **one fleet at a time**: two
+staggering concurrently is 12/min and back over the line. Leave ~60s between launches so the
+stagger windows do not overlap.
+
+Launch in this order — marketbots first, because everything downstream needs the market data
+they produce.
+
+### 3a. Marketbots (35) — ~6 min
+
+```bash
+setsid nohup ./bin/overmind --fleet data/overmind/mb-fleet.yaml --socket data/overmind/mb.sock \
+  --worker-bin bin/worker --status-file data/overmind/mb-status.json \
+  --history-file data/overmind/mb-history.jsonl --market-db-path data/market.db --stagger 10s \
+  >> data/overmind/mb-overmind.log 2>&1 < /dev/null &
+```
+
+### 3b. Assist (5) and shuttle (1)
+
+Assist is the fuel-rescue fleet — bring it up early so it is available if anything strands.
+
+```bash
+setsid nohup ./bin/overmind --socket data/overmind/assist.sock --fleet data/overmind/assist-fleet.yaml \
+  --status-file data/overmind/assist-status.json --history-file data/overmind/assist-history.jsonl \
+  --stagger 10s >> data/overmind/assist-overmind.log 2>&1 < /dev/null &
+
+setsid nohup ./bin/overmind --socket data/overmind/shuttle.sock --fleet data/overmind/shuttle-fleet.yaml \
+  --status-file data/overmind/shuttle-status.json --history-file data/overmind/shuttle-history.jsonl \
+  >> data/overmind/shuttle-overmind.log 2>&1 < /dev/null &
+```
+
+### 3c. Craft (9)
+
+`--plan-queue` is required or the plan runner stays silently disabled.
+
+```bash
+setsid nohup ./bin/overmind --socket data/overmind/craft.sock --fleet data/overmind/craft-fleet.yaml \
+  --status-file data/overmind/craft-status.json --history-file data/overmind/craft-history.jsonl \
+  --plan-queue data/overmind/craft-queue --stagger 10s \
+  >> data/overmind/craft-overmind.log 2>&1 < /dev/null &
+```
+
+Expect the banner `plan runner enabled: queue=… state=… roster=9 managed=35`. No banner means
+no runner.
+
+### 3d. Mission-learn (38 of 42) — ~6.5 min
+
+```bash
+setsid nohup ./bin/overmind --socket data/overmind/mission-learn.sock \
+  --fleet data/overmind/mission-learn-fleet.yaml \
+  --worker-bin bin/worker --market-db-path data/market.db \
+  --status-file data/overmind/mission-learn-status.json \
+  --history-file data/overmind/mission-learn-history.jsonl --stagger 10s \
+  >> data/overmind/mission-learn-overmind.log 2>&1 < /dev/null &
+```
+
+The roster is 42 but the launched count is lower — `mission-learn-overrides.json` holds a
+`removed` list (4 entries as of 2026-07-30). A short fleet is not necessarily a fault; check
+the sidecar before investigating.
+
+---
+
+## 4. Haul — last, and gated
+
+**Do not launch haul on the same pass as the others.** Haulers route on the arbitrage pool,
+and the pool is only as good as the market data underneath it. Coming up on a stale pool means
+21 workers burning fuel chasing opportunities that no longer exist.
+
+Wait for **both** gates:
+
+1. **A marketbot capture cycle has landed.** `update_market` is scheduled `ten_minutely`, so
+   this is a ≤10 minute wait once the fleet is healthy.
+
+   ```bash
+   sqlite3 data/market.db "select strftime('%H:%M',datetime(captured_at,'localtime')) m,
+     count(*) rows, count(distinct station_id) st from market_orders
+     where captured_at > datetime('now','-40 minutes') group by m order by m;"
+   ```
+
+   Healthy: ~18k rows across ~29–34 stations, repeating every 10 minutes.
+
+2. **The scanner has scanned against that data.**
+
+   ```bash
+   grep "^scan @" data/overmind/arbitrage-scanner.log | tail -3
+   sqlite3 data/market.db "select count(*) from arbitrage_opportunities where status='available';"
+   ```
+
+   Healthy: ~98 available. ~30 means the pool is starved and haul will idle.
+
+Then:
+
+```bash
+setsid nohup ./bin/overmind --socket data/overmind/haul.sock \
+  --fleet data/overmind/haul-fleet.yaml --stagger 10s \
+  >> data/overmind/haul-overmind.log 2>&1 < /dev/null &
+```
+
+Haul uses the **default** status/history files (`fleet-status.json`, `fleet-history.jsonl`) —
+do not pass overrides.
+
+`--stagger 10s` is mandatory here regardless of pacing arithmetic: 21 workers is the fleet that
+originally tripped the login limiter.
+
+**Checkpoint:** within seconds of the first worker connecting you should see it claim work —
+`haul: opp NNNNN <item>: buy N @<station> -> sell @<station>`. That single line proves the whole
+chain (marketbots → market.db → scanner → pool → hauler) is live.
+
+---
+
+## 5. `market-prune` — last of all, and staged after downtime
+
+> **This step caused the only real incident of the 2026-07-30 cold start. Read it before running it.**
+
+The prune deletes `market_orders` rows older than `--retain`. In steady state that is a small
+incremental slice every 30 minutes and it is harmless.
+
+**After an outage longer than the retain window, it is not.** If the fleets were down for 6h and
+the retain window is 4h, then *every row in the table* is older than the window, and the routine
+restart becomes an unbatched `DELETE` of the entire table.
+
+Observed on 2026-07-30 against a 20.4M-row table: ~10 minutes at 96% CPU, 64.5 GB written, WAL
+inflated to 50 GB, and the write lock held throughout. Downstream, **all 35 marketbots failed
+every `update_market`** — 144 × `database is locked (5) (SQLITE_BUSY)` across 45 scheduled fires,
+with **zero rows landing** — and the scanner's first two scans died the same way.
+
+**The diagnostic tell:** `market-prune` logs *nothing at all* while it runs — it only logs on
+completion. So a silent prune process combined with `SQLITE_BUSY` everywhere else is the
+signature. Confirm by watching its `wchar` climb into the tens of GB:
+
+```bash
+cat /proc/<prune-pid>/io | head -4
+```
+
+`kill -TERM` on the prune frees the lock immediately; SQLite rolls the transaction back cleanly
+and captures resume within seconds.
+
+**Safe procedure after a long outage — stage the retain window** so each pass deletes a
+survivable slice instead of the whole table. Run each to completion, with the fleets up:
+
+```bash
+./bin/market-prune --db-path data/market.db --retain 24h    # one-shot (no --interval)
+./bin/market-prune --db-path data/market.db --retain 12h
+./bin/market-prune --db-path data/market.db --retain 8h
+```
+
+Then start the resident daemon at the normal window:
+
+```bash
+setsid nohup ./bin/market-prune --db-path data/market.db --retain 4h --interval 30m \
+  >> data/overmind/market-prune.log 2>&1 < /dev/null &
+```
+
+**Never use `--vacuum` to clear a backlog**, and never on a live fleet: VACUUM needs an exclusive
+lock, meaning every overmind and all ~109 workers stopped. For a genuinely huge backlog the fast
+technique is a fresh-DB rebuild-and-swap, not DELETE+VACUUM.
+
+**Watch the WAL.** `data/market.db-wal` sat at 50 GB against a 19.9 GB database after the
+incident. With a large fleet holding readers open continuously, a TRUNCATE checkpoint may never
+get its exclusive moment, so the WAL does not shrink on its own.
+
+```bash
+ls -la data/market.db data/market.db-wal && df -h /home/robert | tail -1
+```
+
+---
+
+## Checkpoints
+
+Every overmind writes a status file with the same shape. This is the fastest whole-system read:
+
+```bash
+python3 -c "
+import json
+for f in ['fleet','mb','assist','shuttle','craft','mission-learn']:
+    d=json.load(open(f'data/overmind/{f}-status.json')); ws=d['workers']
+    print(f'{f:14} {len(ws):3d} workers  {sum(1 for w in ws if w.get(\"healthy\")):3d} healthy  '
+          f'restarts={sum(w.get(\"restarts\",0) for w in ws)}  {d.get(\"overmind_commit\")}')
+"
+```
+
+Healthy full system, 2026-07-30 (`fleet` = haul):
+
+| fleet | workers | notes |
+|---|---:|---|
+| haul | 21 | default status/history files |
+| marketbots | 35 | |
+| mission-learn | 38 | roster 42 − 4 in the overrides sidecar |
+| craft | 9 | plan runner banner required |
+| assist | 5 | all should be home-docked with full tanks |
+| shuttle | 1 | |
+| **total** | **109** | **restarts=0, one shared `overmind_commit`** |
+
+Data-layer health:
+
+| check | healthy value |
+|---|---|
+| stations captured, last 15 min | 34 of 35 |
+| rows per 10-minute capture | ~18,000 |
+| `arbitrage_opportunities` available | ~98 (30 = starved) |
+| `SQLITE_BUSY` in the mb log | 0 after the first minute |
+
+---
+
+## Traps specific to a cold start
+
+**Workers re-orient themselves — mostly.** On connect they backfill missed scheduled work
+(`⏰ backfilling N missed scheduled task(s)`) and re-read live state, so stale cached positions
+correct themselves: `dock` → `Already docked` → `refuel` is the normal, healthy sequence, not an
+error. What does *not* self-correct is anything recorded in a queue file while the fleet was
+down — most importantly a rescue record's POI, which is a snapshot and goes stale.
+
+**Ships may have moved while you were down.** A drifting undocked ship gets auto-docked by the
+Galactic Salvage Authority for a fee (`salvage.ship_recovered`), so an agent can come back up at
+a station nobody routed it to. Trust `get_status` → `player.current_poi`, never a stored record.
+
+**In-flight freight resumes only from disk.** There is no server-side listing of active
+contracts; each agent's `data/agents/<id>/freight-held.json` is the only resume source. Do not
+delete these during cleanup.
+
+**`data/agents/*/schedule.json` churns constantly** — every worker rewrites `last_run`. This is
+normal noise. Stage files explicitly when committing; never `git add -A` from the repo root.
+
+**Do not infer the market cadence from the `⏰ [scheduled hourly]` log lines.** Those belong to
+`kb_update`, `facilities`, and `capture_fuel`. `update_market` has its own `ten_minutely` entry
+in the schedule, and it is the one that matters for haul. Read
+`data/agents/<marketbot>/schedule.json` to confirm.
