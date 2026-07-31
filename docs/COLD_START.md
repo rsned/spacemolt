@@ -192,12 +192,20 @@ Wait for **both** gates:
    this is a ≤10 minute wait once the fleet is healthy.
 
    ```bash
-   sqlite3 data/market.db "select strftime('%H:%M',datetime(captured_at,'localtime')) m,
+   sqlite3 data/market.db "select strftime('%H:%M',captured_at) m,
      count(*) rows, count(distinct station_id) st from market_orders
-     where captured_at > datetime('now','-40 minutes') group by m order by m;"
+     where captured_at > strftime('%Y-%m-%dT%H:%M:%SZ','now','-40 minutes')
+     group by m order by m;"
    ```
 
    Healthy: ~18k rows across ~29–34 stations, repeating every 10 minutes.
+
+   **Compare `captured_at` against `strftime('%Y-%m-%dT%H:%M:%SZ',…)`, never `datetime(…)`.**
+   The column is ISO-8601 (`2026-07-31T16:04:01Z`) while `datetime()` emits a space-separated
+   form (`2026-07-31 16:04:01`), and `'T' > ' '` in a string compare — so a `datetime()` bound
+   silently matches *every row of the day* and any window you ask for looks healthy. Times are
+   stored in UTC; use `strftime('%H:%M', captured_at)` to read them, and add `'localtime'` only
+   for display.
 
 2. **The scanner has scanned against that data.**
 
@@ -333,7 +341,7 @@ Data-layer health:
 
 | check | healthy value |
 |---|---|
-| stations captured, last 15 min | 34 of 35 |
+| stations captured, last 15 min (see the format warning above) | 34 of 35, ~490k rows |
 | rows per 10-minute capture | ~18,000 |
 | `arbitrage_opportunities` available | ~98 (30 = starved) |
 | `SQLITE_BUSY` in the mb log | 0 after the first minute |
