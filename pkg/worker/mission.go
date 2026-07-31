@@ -1413,6 +1413,9 @@ func missionComplete(ctx context.Context, deps MissionDeps, out io.Writer, c mis
 	_ = deps.sleep(ctx, game.SleepTick) // settle: let the complete_mission action_result land in the raw JSON store
 	earned, source := missionCreditsEarned(deps, c, before)
 	fmt.Fprintf(out, "missions: completed %s (%s): +%.0f cr (expected %.0f) [source: %s]\n", c.Entry.MissionID, c.Entry.Title, earned, c.Reward, source) //nolint:errcheck
+	if earned < c.Reward {
+		missionLogShortfall(deps, out, c, earned, acceptedTick)
+	}
 	missionRecord(ctx, deps, out, c, fromBase, acceptedAt, acceptedTick, earned, "completed", "")
 }
 
@@ -1440,6 +1443,49 @@ func missionCreditsEarned(deps MissionDeps, c missionCandidate, before float64) 
 		return delta, "delta" // stale frame from a previous complete_mission call
 	}
 	return float64(res.CreditsEarned), "action_result"
+}
+
+// missionShortfallRawLimit bounds the server payload echoed by
+// missionLogShortfall. Big enough for the whole complete_mission result body
+// as the server sends it today; a cap only so an unexpectedly large frame
+// cannot flood a fleet log.
+const missionShortfallRawLimit = 1024
+
+// missionLogShortfall records everything needed to file a reward-shortfall
+// bug against the server, on the pass where the shortfall happens.
+//
+// Smuggling couriers were observed (2026-07-31) paying 0-85% of the reward
+// the board advertised, and NOT for any reason our own tables can express:
+// payouts were not multiples of reward/qty (so not partial delivery), varied
+// per agent for the SAME mission id at the SAME elapsed time, and ran
+// opposite to lateness — one mission paid every agent in full at 11-15% of
+// its tick budget while another paid 0.6-45% at 5-6%. The discriminating
+// information only exists in the server's own reply, whose `message` field
+// missionCreditsEarned parses and drops.
+//
+// So this echoes the complete_mission result body VERBATIM rather than
+// picking fields out of it: the fields that would explain the reduction are
+// by definition ones we have not modelled yet, and a decoded struct would
+// silently zero them. The tick context is logged alongside because a report
+// has to be able to show the run was, or was not, late.
+func missionLogShortfall(deps MissionDeps, out io.Writer, c missionCandidate, earned float64, acceptedTick int64) {
+	raw := unwrapActionResult(deps.Client.GetRawJSON("complete_mission"))
+	if len(raw) > missionShortfallRawLimit {
+		raw = append(raw[:missionShortfallRawLimit:missionShortfallRawLimit], "…(truncated)"...)
+	}
+	if len(raw) == 0 {
+		raw = []byte("(no complete_mission payload stored)")
+	}
+	var pct float64
+	if c.Reward > 0 {
+		pct = earned * 100 / c.Reward
+	}
+	finishedTick := missionTick(deps)
+	fmt.Fprintf(out, //nolint:errcheck
+		"missions: reward shortfall %s (%s): paid %.0f of %.0f (%.1f%%) type=%s item=%s qty=%d jumps=%d tick=%d->%d elapsed=%d budget=%d server=%s\n",
+		c.Entry.MissionID, c.Entry.Title, earned, c.Reward, pct,
+		c.Entry.Type, c.ItemID, c.Qty, c.Jumps,
+		acceptedTick, finishedTick, finishedTick-acceptedTick, c.Entry.ExpiresInTicks, raw)
 }
 
 // missionAbandon abandons c (using its resolved ActiveID) and records the

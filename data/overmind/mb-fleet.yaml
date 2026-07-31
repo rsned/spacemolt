@@ -4,6 +4,7 @@
 # gliese_581, gsc_0008, sheratan, xamidimura, zaniah.
 workers:
   - { agent_id: marketbot_001, role: resident, station: "" }  # added 2026-07-11: resident at Hex Star (dheneb, player station); dheneb has a belt
+  - { agent_id: marketbot_002, role: resident, station: "" }  # added 2026-07-31: resident at The Obsidian Well (arneb, player station); arneb has belt + gas + ice
   - { agent_id: marketbot_alpha_centauri, role: resident_ice, station: "" }
   - { agent_id: marketbot_blood_forge, role: resident, station: "" }
   - { agent_id: marketbot_cargo_lanes, role: resident_gas, station: "" }

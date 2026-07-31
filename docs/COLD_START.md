@@ -255,14 +255,32 @@ cat /proc/<prune-pid>/io | head -4
 `kill -TERM` on the prune frees the lock immediately; SQLite rolls the transaction back cleanly
 and captures resume within seconds.
 
-**Safe procedure after a long outage — stage the retain window** so each pass deletes a
-survivable slice instead of the whole table. Run each to completion, with the fleets up:
+**Staging the retain window does NOT work** — tried 2026-07-31 and it cannot produce a small
+enough slice. `market_orders.bucket_utc` is **hour-granular**, so a sub-hour cutoff
+(`--retain 16h30m`) deletes nothing at all, and the smallest slice the flag can express is one
+whole hour bucket — 4.4-4.7M rows in normal traffic. That still does not finish inside two
+minutes and still locks out the fleet while it runs.
+
+**Use batched deletes instead**: many small transactions, so the marketbots' existing retries
+absorb the contention rather than failing outright. Measured on 2026-07-31 — 50k rows per
+transaction takes ~3.5s, clears ~12k rows/sec, and produced **zero** `SQLITE_BUSY` across a
+26.6M-row cleanup with all 36 marketbots writing:
 
 ```bash
-./bin/market-prune --db-path data/market.db --retain 24h    # one-shot (no --interval)
-./bin/market-prune --db-path data/market.db --retain 12h
-./bin/market-prune --db-path data/market.db --retain 8h
+CUTOFF="2026-07-31T05:00:00Z"   # keep everything at/after this bucket
+while :; do
+  n=$(sqlite3 data/market.db "PRAGMA busy_timeout=15000;
+      delete from market_orders
+       where rowid in (select rowid from market_orders where bucket_utc < '$CUTOFF' limit 50000);
+      select changes();" | tail -1)
+  [ -z "$n" ] && { sleep 10; continue; }   # locked: back off, don't exit
+  [ "$n" -eq 0 ] && break
+  sleep 1.5                                 # duty cycle: leave the lock free between batches
+done
 ```
+
+Once the backlog is gone, the resident daemon's incremental 30-minute slices are small enough
+that the flag-driven path is fine again.
 
 Then start the resident daemon at the normal window:
 
