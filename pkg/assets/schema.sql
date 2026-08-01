@@ -63,3 +63,32 @@ CREATE TABLE IF NOT EXISTS agent_standings (
     PRIMARY KEY (player_id, faction)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_standings_faction ON agent_standings(faction, baseline);
+
+-- NO foreign key on class_id: see the header note. Also no agent_storage_ships
+-- table — list_ships already reports every owned hull AND its location, and
+-- OwnedShip is a strict superset of StorageShip, so view_storage's ships array
+-- is a cross-check rather than a second source.
+CREATE TABLE IF NOT EXISTS agent_hulls (
+    player_id        TEXT NOT NULL,
+    ship_id          TEXT NOT NULL,
+    class_id         TEXT NOT NULL DEFAULT '',
+    class_name       TEXT NOT NULL DEFAULT '',
+    is_active        INTEGER NOT NULL DEFAULT 0,
+    hull_current     INTEGER NOT NULL DEFAULT 0,
+    hull_max         INTEGER NOT NULL DEFAULT 0,
+    hull_raw         TEXT NOT NULL DEFAULT '',
+    fuel_current     INTEGER NOT NULL DEFAULT 0,
+    fuel_max         INTEGER NOT NULL DEFAULT 0,
+    fuel_raw         TEXT NOT NULL DEFAULT '',
+    cargo_used       INTEGER NOT NULL DEFAULT 0,
+    location         TEXT NOT NULL DEFAULT '',
+    location_base_id TEXT NOT NULL DEFAULT '',
+    modules          INTEGER NOT NULL DEFAULT 0,
+    listing_id       TEXT NOT NULL DEFAULT '',
+    listing_price    INTEGER NOT NULL DEFAULT 0,
+    listing_base_id  TEXT NOT NULL DEFAULT '',
+    captured_at      TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (player_id, ship_id)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_hulls_base ON agent_hulls(location_base_id);
+CREATE INDEX IF NOT EXISTS idx_agent_hulls_class ON agent_hulls(class_id);
