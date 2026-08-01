@@ -276,6 +276,48 @@ func TestCaptureProfileHullsSurviveListShipsFailure(t *testing.T) {
 	}
 }
 
+// TestCaptureProfileHullsSurviveEmptyRawCache is the third leg, and the one
+// that catches the real defect: ListShips returns nil, but no body ever landed
+// in the raw cache (reconnect churn, or an ack-only await returning before the
+// payload arrives). That is indistinguishable from a zero-ship fleet unless
+// HullsFrom reports ok — and since an agent can never own zero ships (a
+// destroyed last hull respawns a Tier 0 starter), an empty cache is the ONLY
+// way this path is reached in practice. Gating on decode success alone wipes
+// agent_hulls here.
+func TestCaptureProfileHullsSurviveEmptyRawCache(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	c := newFakeClient()
+
+	if err := CaptureProfile(ctx, c, st, "engineer-3", now); err != nil {
+		t.Fatalf("seed CaptureProfile: %v", err)
+	}
+	var seeded int
+	if err := st.DB().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM agent_hulls WHERE player_id='abc123'`).Scan(&seeded); err != nil {
+		t.Fatalf("seeded count: %v", err)
+	}
+	if seeded == 0 {
+		t.Fatalf("seed did not write any hulls, cannot test survival")
+	}
+
+	// Second capture: ListShips succeeds, but nothing reached the raw cache.
+	delete(c.raw, "owned_ships")
+	if err := CaptureProfile(ctx, c, st, "engineer-3", now); err != nil {
+		t.Fatalf("second CaptureProfile: %v", err)
+	}
+
+	var n int
+	if err := st.DB().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM agent_hulls WHERE player_id='abc123'`).Scan(&n); err != nil {
+		t.Fatalf("hulls after empty cache: %v", err)
+	}
+	if n != seeded {
+		t.Errorf("agent_hulls rows = %d, want %d (an empty raw cache must not wipe captured hulls)", n, seeded)
+	}
+}
+
 // TestCaptureProfileFailedGetStatusWritesNothing pins the counterpart to
 // TestCaptureProfileCallsGetStatusExplicitly: a GetStatus error must leave
 // EVERY table untouched, not just skip the call. GetStatus is synchronous, so

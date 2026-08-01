@@ -98,16 +98,18 @@ func CaptureProfile(ctx context.Context, client game.GameClient, st *Store, agen
 		}
 	}
 
-	// Hulls: gate the write on whether the call and decode succeeded, NOT on
-	// how many hulls came back. A ListShips error or an undecodable body
-	// leaves agent_hulls untouched, same as carrier above. But a clean call
-	// that legitimately reports zero owned ships must still replace the set
-	// - otherwise a sold last ship leaves a stale, phantom hull (including a
-	// stale is_active row) that Task 6's activeHull() would keep reading as
-	// capability forever.
+	// Hulls: gate the write on whether a body was actually decoded, exactly as
+	// carrier above. A ListShips error, an empty raw cache (reconnect churn, or
+	// an ack-only await returning before the payload lands) or an undecodable
+	// body all leave agent_hulls untouched. A clean decode replaces the whole
+	// set even if it came back empty, so a set that really did shrink cannot
+	// leave a phantom is_active row behind for activeHull() to read as
+	// capability forever. Zero owned ships is not reachable in this game — a
+	// destroyed last hull respawns a Tier 0 starter — which is precisely why
+	// "empty" must mean "not captured" rather than "fleet gone".
 	var hulls []Hull
 	if err := client.ListShips(ctx); err == nil {
-		if hs, derr := HullsFrom(client.GetRawJSON("owned_ships")); derr == nil {
+		if hs, ok, derr := HullsFrom(client.GetRawJSON("owned_ships")); derr == nil && ok {
 			hulls = hs
 			if err := st.ReplaceHulls(ctx, playerID, hs, now); err != nil {
 				return err

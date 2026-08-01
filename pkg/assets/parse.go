@@ -31,15 +31,24 @@ func ParseCurrentMax(s string) (cur, max int, ok bool) {
 }
 
 // HullsFrom decodes a raw list_ships body (cache key "owned_ships") into hull
-// rows. An empty body yields no hulls and no error: a missing cache entry means
-// "nothing captured this pass", which must never fail the pass.
-func HullsFrom(raw []byte) ([]Hull, error) {
+// rows. The bool reports whether a body was actually decoded, mirroring
+// CarrierFrom: an empty body yields no hulls, no error and ok=false, because a
+// missing cache entry means "nothing captured this pass", which must never
+// fail the pass.
+//
+// The flag exists because the caller cannot otherwise distinguish an empty
+// cache from a fleet of zero, and the two demand opposite writes. In this game
+// an agent can never own zero ships — you must always hold at least one, and a
+// destroyed last hull respawns you in a Tier 0 starter — so an empty slice
+// with ok=false is always a stale cache. Treating it as a real result would
+// wipe agent_hulls on reconnect churn.
+func HullsFrom(raw []byte) ([]Hull, bool, error) {
 	if len(raw) == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
 	var resp serverapi.ListShipsResponse
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		return nil, fmt.Errorf("assets: decode list_ships: %w", err)
+		return nil, false, fmt.Errorf("assets: decode list_ships: %w", err)
 	}
 	out := make([]Hull, 0, len(resp.Ships))
 	for _, s := range resp.Ships {
@@ -63,7 +72,7 @@ func HullsFrom(raw []byte) ([]Hull, error) {
 		out = append(out, h)
 	}
 
-	return out, nil
+	return out, true, nil
 }
 
 // CarrierFrom decodes a raw shipping action=profile body (cache key

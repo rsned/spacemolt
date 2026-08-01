@@ -42,9 +42,12 @@ func TestHullsFromGoldenPayload(t *testing.T) {
 	   "location_base_id":"grand_exchange_station","modules":2,
 	   "ship_id":"67ef4a3e25dc336829d7d3e25736fe61"}]}`)
 
-	hulls, err := HullsFrom(raw)
+	hulls, ok, err := HullsFrom(raw)
 	if err != nil {
 		t.Fatalf("HullsFrom: %v", err)
+	}
+	if !ok {
+		t.Fatal("HullsFrom(payload) ok = false, want true")
 	}
 	if len(hulls) != 2 {
 		t.Fatalf("got %d hulls, want 2", len(hulls))
@@ -85,11 +88,35 @@ func TestHullsFromGoldenPayload(t *testing.T) {
 	}
 }
 
-// TestHullsFromEmptyIsNotAnError pins that an absent cache entry yields no
-// hulls and no error: capture must degrade to "nothing this pass", never fail.
-func TestHullsFromEmptyIsNotAnError(t *testing.T) {
-	hulls, err := HullsFrom(nil)
+// TestHullsFromEmptyIsNotCaptured pins that an absent cache entry yields no
+// hulls and no error, and reports ok=false: capture must degrade to "nothing
+// this pass", never fail. The ok flag is load-bearing — an agent can never own
+// zero ships (a destroyed last hull respawns a Tier 0 starter), so an empty
+// decode means the cache was empty, not that the fleet is gone. Without the
+// flag the caller cannot tell those apart and would wipe agent_hulls.
+func TestHullsFromEmptyIsNotCaptured(t *testing.T) {
+	hulls, ok, err := HullsFrom(nil)
 	if err != nil || len(hulls) != 0 {
 		t.Fatalf("HullsFrom(nil) = %v, %v; want empty, nil", hulls, err)
+	}
+	if ok {
+		t.Error("HullsFrom(nil) ok = true, want false (nothing captured)")
+	}
+}
+
+// TestHullsFromEmptyShipListIsCaptured pins the other side of the flag: a
+// well-formed body that reports zero ships IS a capture (ok=true). The game
+// makes this unreachable today, but conflating it with "no cache entry" is
+// what made the wipe path possible in the first place.
+func TestHullsFromEmptyShipListIsCaptured(t *testing.T) {
+	hulls, ok, err := HullsFrom([]byte(`{"action":"list_ships","count":0,"ships":[]}`))
+	if err != nil {
+		t.Fatalf("HullsFrom: %v", err)
+	}
+	if !ok {
+		t.Error("ok = false, want true: a clean decode is a capture")
+	}
+	if len(hulls) != 0 {
+		t.Errorf("got %d hulls, want 0", len(hulls))
 	}
 }
