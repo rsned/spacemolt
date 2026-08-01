@@ -1342,6 +1342,16 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 			Entry: serverapi.MissionBoardEntry{
 				MissionID: m.MissionID, TemplateID: m.TemplateID, Type: m.Type, Title: m.Title,
 				ChainNext: m.ChainNext,
+				// Rewards and ExpiresInTicks are carried too: get_active_missions
+				// reports both, and dropping them made every RESUMED mission
+				// record expected_reward=0 and expiry_budget_ticks=0. That cost
+				// more than bad bookkeeping — the economics gate scores
+				// net = reward - costs, so a resumed mission looked like a pure
+				// loss, and missionLogShortfall keys on earned < reward, which is
+				// unreachable at reward 0. Eleven such rows collected 10,000
+				// credits against a recorded expectation of zero (2026-07-31).
+				Rewards:        m.Rewards,
+				ExpiresInTicks: m.ExpiresInTicks,
 			},
 			// m.MissionID is already the server's real active-mission id
 			// (this list comes straight from get_active_missions), so no
@@ -1349,6 +1359,9 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 			ActiveID: m.MissionID,
 			Items:    h.Items,
 			ItemID:   missionItemLabel(h.Items), Qty: h.TotalRemaining, DestBaseID: h.DestBase,
+			// missionRecord reports c.Reward, not c.Entry.Rewards — carrying the
+			// entry alone would leave the recorded expectation at 0.
+			Reward: missionActiveReward(m),
 		}
 		// An objective can be satisfied with no cargo aboard: storage at the
 		// target base counts toward delivery (the actives wire reports it as
@@ -1445,11 +1458,25 @@ func missionCreditsEarned(deps MissionDeps, c missionCandidate, before float64) 
 	return float64(res.CreditsEarned), "action_result"
 }
 
+// missionActiveReward is the credit reward an active (resumed) mission
+// advertises, or 0 when the server omits the block.
+func missionActiveReward(m serverapi.ActiveMission) float64 {
+	if m.Rewards == nil {
+		return 0
+	}
+	return float64(m.Rewards.Credits)
+}
+
 // missionShortfallRawLimit bounds the server payload echoed by
-// missionLogShortfall. Big enough for the whole complete_mission result body
-// as the server sends it today; a cap only so an unexpectedly large frame
-// cannot flood a fleet log.
-const missionShortfallRawLimit = 1024
+// missionLogShortfall. A cap only so an unexpectedly large frame cannot flood
+// a fleet log — NOT a budget to economise on.
+//
+// It was 1024 for exactly one deploy, and the first live shortfall truncated
+// mid-mission_id: everything after it, including skill_xp_gained,
+// items_received and the community_* fields, was cut. Those trailing fields
+// are the ones that might explain a reduction the `message` does not, so a
+// cap that severs them defeats the diagnostic's whole purpose.
+const missionShortfallRawLimit = 4096
 
 // missionLogShortfall records everything needed to file a reward-shortfall
 // bug against the server, on the pass where the shortfall happens.
