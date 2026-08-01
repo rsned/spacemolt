@@ -49,3 +49,29 @@ type StandingRow struct {
 	OutstandingBounty int
 	JailedUntil       string
 }
+
+// Hull is one owned ship from list_ships. ListShips reports EVERY owned ship
+// and its location, and serverapi.OwnedShip is a strict superset of
+// StorageShip, so one free call replaces a per-base ship sweep.
+//
+// HullRaw/FuelRaw retain the server's "current/max" strings so a format change
+// shows up as a mismatch rather than as silent zeros.
+type Hull struct {
+	ShipID         string
+	ClassID        string
+	ClassName      string
+	IsActive       bool
+	HullCurrent    int
+	HullMax        int
+	HullRaw        string
+	FuelCurrent    int
+	FuelMax        int
+	FuelRaw        string
+	CargoUsed      int
+	Location       string
+	LocationBaseID string
+	Modules        int
+	ListingID      string
+	ListingPrice   int64
+	ListingBaseID  string
+}
