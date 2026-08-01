@@ -54,8 +54,17 @@ func TestHullsFromGoldenPayload(t *testing.T) {
 	if h.ShipID != "74aeb79e64d9a12f682a2ee6daad79e4" || h.ClassID != "survey_vessel" {
 		t.Errorf("hull[0] identity = %q/%q", h.ShipID, h.ClassID)
 	}
+	if h.ClassName != "Survey Vessel" {
+		t.Errorf("hull[0] class name = %q, want %q", h.ClassName, "Survey Vessel")
+	}
+	if h.HullCurrent != 340 || h.HullMax != 340 || h.HullRaw != "340/340" {
+		t.Errorf("hull[0] hull = %d/%d raw=%q", h.HullCurrent, h.HullMax, h.HullRaw)
+	}
 	if h.FuelCurrent != 1020 || h.FuelMax != 1020 || h.FuelRaw != "1020/1020" {
 		t.Errorf("hull[0] fuel = %d/%d raw=%q", h.FuelCurrent, h.FuelMax, h.FuelRaw)
+	}
+	if h.CargoUsed != 0 {
+		t.Errorf("hull[0] cargo used = %d, want 0", h.CargoUsed)
 	}
 	if h.LocationBaseID != "grand_exchange_station" || h.Modules != 3 {
 		t.Errorf("hull[0] base=%q modules=%d", h.LocationBaseID, h.Modules)
@@ -65,6 +74,9 @@ func TestHullsFromGoldenPayload(t *testing.T) {
 	}
 
 	h = hulls[1]
+	if h.HullCurrent != 180 || h.HullMax != 180 || h.HullRaw != "180/180" {
+		t.Errorf("hull[1] hull = %d/%d raw=%q", h.HullCurrent, h.HullMax, h.HullRaw)
+	}
 	if h.FuelCurrent != 150 || h.FuelMax != 200 {
 		t.Errorf("hull[1] fuel = %d/%d, want 150/200", h.FuelCurrent, h.FuelMax)
 	}
