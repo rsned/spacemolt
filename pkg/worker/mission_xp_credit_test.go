@@ -43,7 +43,7 @@ func TestDeliveryTypedMissionPayingSmugglingXPGetsTheXPCredit(t *testing.T) {
 	noAsk := func(string) (float64, bool) { return 0, false }
 	fuel := func(jumps int) float64 { return 7 } // explorer-1's live cost: net 493
 
-	c, reason := buildMissionCandidate(aWordInPrivate(), dist, noAsk, fuel, false, 1, missionMinNet, missionTicksPerJumpTest)
+	c, reason := buildMissionCandidate(aWordInPrivate(), dist, noAsk, fuel, false, 1, missionMinNet, missionTicksPerJumpTest, 1)
 	if reason != "" {
 		t.Fatalf("a delivery paying 50 smuggling XP must clear the floor, got: %s", reason)
 	}
@@ -67,7 +67,7 @@ func TestXPCreditCannotRescueALossMakingDelivery(t *testing.T) {
 	noAsk := func(string) (float64, bool) { return 0, false }
 	fuel := func(jumps int) float64 { return 900 } // net -750; -750 + 1250 == the floor exactly
 
-	_, reason := buildMissionCandidate(e, dist, noAsk, fuel, false, 1, missionMinNet, missionTicksPerJumpTest)
+	_, reason := buildMissionCandidate(e, dist, noAsk, fuel, false, 1, missionMinNet, missionTicksPerJumpTest, 1)
 	if reason == "" {
 		t.Fatal("a loss-making delivery must stay rejected: the XP credit is not a budgeted loss path")
 	}
@@ -82,7 +82,7 @@ func TestSmugglingTypedMissionKeepsItsXPCredit(t *testing.T) {
 	noAsk := func(string) (float64, bool) { return 0, false }
 	fuel := func(jumps int) float64 { return 7 }
 
-	if _, reason := buildMissionCandidate(e, dist, noAsk, fuel, true, 1, missionMinNet, missionTicksPerJumpTest); reason != "" {
+	if _, reason := buildMissionCandidate(e, dist, noAsk, fuel, true, 1, missionMinNet, missionTicksPerJumpTest, 1); reason != "" {
 		t.Fatalf("smuggling-typed entry must still clear the floor on XP: %s", reason)
 	}
 }
@@ -97,7 +97,7 @@ func TestDeliveryWithoutSmugglingXPStillHitsTheFloor(t *testing.T) {
 	noAsk := func(string) (float64, bool) { return 0, false }
 	fuel := func(jumps int) float64 { return 7 }
 
-	_, reason := buildMissionCandidate(e, dist, noAsk, fuel, false, 1, missionMinNet, missionTicksPerJumpTest)
+	_, reason := buildMissionCandidate(e, dist, noAsk, fuel, false, 1, missionMinNet, missionTicksPerJumpTest, 1)
 	if reason == "" {
 		t.Fatal("a marginal delivery paying no smuggling XP must still be refused")
 	}

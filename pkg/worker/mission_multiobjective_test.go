@@ -34,7 +34,7 @@ func TestChainMissionWithTwoObjectivesIsRunnable(t *testing.T) {
 	noAsk := func(string) (float64, bool) { return 0, false }
 	noFuel := func(int) float64 { return 0 }
 
-	c, reason := buildMissionCandidate(anIntroduction(), dist, noAsk, noFuel, true, 1, missionSmugglingXPFloor, 6)
+	c, reason := buildMissionCandidate(anIntroduction(), dist, noAsk, noFuel, true, 1, missionSmugglingXPFloor, 6, 1)
 	if reason != "" {
 		t.Fatalf("an_introduction refused: %s", reason)
 	}
@@ -63,7 +63,7 @@ func TestSplitDestinationDeliveryIsRefused(t *testing.T) {
 	e.Objectives[1].TargetBaseID = "sable_port"
 	e.Objectives[1].SystemID = "kaus"
 
-	_, reason := buildMissionCandidate(e, map[string]int{"alhena": 4, "kaus": 5}, func(string) (float64, bool) { return 0, false }, func(int) float64 { return 0 }, true, 1, missionSmugglingXPFloor, 6)
+	_, reason := buildMissionCandidate(e, map[string]int{"alhena": 4, "kaus": 5}, func(string) (float64, bool) { return 0, false }, func(int) float64 { return 0 }, true, 1, missionSmugglingXPFloor, 6, 1)
 	if reason == "" {
 		t.Fatal("a two-destination delivery was accepted; the executor can only reach one base")
 	}
@@ -84,7 +84,7 @@ func TestRepeatedItemObjectivesMergeBeforeSubtractingProvided(t *testing.T) {
 	}
 	e.ProvidedItems = map[string]int{"starshine": 10}
 
-	c, reason := buildMissionCandidate(e, map[string]int{"alhena": 4}, func(string) (float64, bool) { return 0, false }, func(int) float64 { return 0 }, true, 1, missionSmugglingXPFloor, 6)
+	c, reason := buildMissionCandidate(e, map[string]int{"alhena": 4}, func(string) (float64, bool) { return 0, false }, func(int) float64 { return 0 }, true, 1, missionSmugglingXPFloor, 6, 1)
 	if reason != "" {
 		t.Fatalf("refused a fully provided mission: %s", reason)
 	}
@@ -104,7 +104,7 @@ func TestMultiItemMissionNeedingAPurchaseIsRefused(t *testing.T) {
 	e.Type = "delivery" // sidestep the smuggling contraband rule to reach the sourcing rule
 	e.ProvidedItems = map[string]int{"starshine": 10} // nerve_burn NOT provided
 
-	_, reason := buildMissionCandidate(e, map[string]int{"alhena": 4}, func(string) (float64, bool) { return 5, true }, func(int) float64 { return 0 }, true, 1, missionMinNet, 6)
+	_, reason := buildMissionCandidate(e, map[string]int{"alhena": 4}, func(string) (float64, bool) { return 5, true }, func(int) float64 { return 0 }, true, 1, missionMinNet, 6, 1)
 	if reason == "" {
 		t.Fatal("a multi-item mission requiring a purchase was accepted; sourcing is single-item only")
 	}
@@ -117,7 +117,7 @@ func TestMultiItemMissionNeedingAPurchaseIsRefused(t *testing.T) {
 // move the economics of the fleet's ordinary deliveries.
 func TestSingleObjectiveCandidateIsUnchanged(t *testing.T) {
 	e := boardEntry("d1", "steel", 4, "sol_central", "sol", 1000, 400)
-	c, reason := buildMissionCandidate(e, map[string]int{"sol": 2}, func(string) (float64, bool) { return 20, true }, func(int) float64 { return 10 }, false, 1, missionMinNet, 6)
+	c, reason := buildMissionCandidate(e, map[string]int{"sol": 2}, func(string) (float64, bool) { return 20, true }, func(int) float64 { return 10 }, false, 1, missionMinNet, 6, 1)
 	if reason != "" {
 		t.Fatalf("plain delivery refused: %s", reason)
 	}
@@ -268,7 +268,7 @@ func TestDockAtBaseBootstrapIsRunnable(t *testing.T) {
 		}},
 	}
 
-	c, reason := buildMissionCandidate(e, map[string]int{"treasure_cache": 3}, func(string) (float64, bool) { return 0, false }, func(int) float64 { return 0 }, false, 1, missionMinNet, 6)
+	c, reason := buildMissionCandidate(e, map[string]int{"treasure_cache": 3}, func(string) (float64, bool) { return 0, false }, func(int) float64 { return 0 }, false, 1, missionMinNet, 6, 1)
 	if reason != "" {
 		t.Fatalf("the level-0 bootstrap mission was refused: %s", reason)
 	}

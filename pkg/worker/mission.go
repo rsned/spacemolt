@@ -47,6 +47,10 @@ const (
 // (result telemetry + item pricing for the cost gate).
 type MissionStore interface {
 	RecordMissionResult(ctx context.Context, r market.MissionResult) error
+	// MissionPayoutRatio reports realized/advertised credits over recent
+	// completions, so the gate can price a reward at what the empire is
+	// actually paying rather than at face value.
+	MissionPayoutRatio(ctx context.Context, window time.Duration) (float64, int, error)
 	GetReferenceAsk(ctx context.Context, itemID string) (market.ReferenceAsk, bool, error)
 	// GetReferencePrice returns a robust "cheap" cross-station reference
 	// (20th-percentile over lookback), used as the surge-ceiling basis for
@@ -702,6 +706,17 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// speed-6 courier crosses 14 jumps in 14 ticks where a heavy hauler needs
 	// 84. Priced once per pass — the ship cannot change mid-board.
 	jumpTicks := missionJumpTicks(shipSpeed(deps.Client))
+	// What the empire is actually paying per advertised credit, priced once per
+	// pass. Falls back to 1 (face value) on error or too few samples, which is
+	// also how the gate re-probes for a recovery — see MissionPayoutRatio.
+	payoutRatio, ratioSamples, rerr := deps.Market.MissionPayoutRatio(ctx, missionPayoutRatioWindow)
+	if rerr != nil {
+		fmt.Fprintf(out, "missions: payout ratio unavailable (%v); pricing at face value\n", rerr) //nolint:errcheck
+		payoutRatio = 1
+	}
+	if payoutRatio < 1 && deps.State.shouldLogSkip("payout-ratio", fmt.Sprintf("%.2f", payoutRatio)) {
+		fmt.Fprintf(out, "missions: empire paying %.0f%% of advertised (%d recent completions); rewards priced accordingly\n", payoutRatio*100, ratioSamples) //nolint:errcheck
+	}
 	for _, e := range board {
 		if deps.State.wasAttempted(e.MissionID) {
 			if deps.State.shouldLogSkip(e.MissionID, "already attempted") {
@@ -716,10 +731,18 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			c, reason = buildExploreCandidate(e, current, explorePair, fuelCostFor, jumpTicks)
 		case e.Type == missionTypeSmuggling && smugglingEnabled:
 			_, _, destSystem, _ := deliverShape(e, true)
+			// A sub-L3 agent is buying XP, which the empire still pays in
+			// full, so it prices smuggling at face value and is bounded by
+			// missionSmugglingXPBudget instead. At L3+ there is nothing left
+			// to buy and it is held to realized economics like everything else.
+			smugRatio := payoutRatio
+			if smugglingBuyingXP(deps.Client.GetState()) {
+				smugRatio = 1
+			}
 			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, true, smugglingCohort[destSystem],
-				effectiveMissionFloor(true, deps.State.smugglingSpent(), missionSmugglingXPBudget), jumpTicks)
+				effectiveMissionFloor(true, deps.State.smugglingSpent(), missionSmugglingXPBudget), jumpTicks, smugRatio)
 		case e.Type == missionTypeDelivery && deliveryEnabled:
-			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, false, 1, missionMinNet, jumpTicks)
+			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, false, 1, missionMinNet, jumpTicks, payoutRatio)
 		default:
 			continue // category not allowlisted for this worker
 		}

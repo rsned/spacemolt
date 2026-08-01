@@ -5,6 +5,7 @@ import (
 	"maps"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/navigation"
@@ -77,6 +78,12 @@ const (
 	// so a restart forgives it — the forgiving direction for a canary whose
 	// whole job is to reach the next level.
 	missionSmugglingXPBudget = 25000.0
+	// missionPayoutRatioWindow is how far back the realized-payout sample
+	// reaches. Long enough to survive a quiet fleet (a few hours of no
+	// completions must not empty the window and snap the gate back to face
+	// value), short enough to notice the empire refilling its treasury within
+	// a day rather than averaging a recovery away against a week of drought.
+	missionPayoutRatioWindow = 24 * time.Hour
 	// missionBuyBudgetFraction of current credits may be spent acquiring
 	// mission cargo across the whole stacked set — never bet the full wallet.
 	missionBuyBudgetFraction = 0.8
@@ -450,7 +457,7 @@ func missionJumpTicks(speed float64) int {
 }
 
 
-func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64, allowSmuggling bool, fuelShare int, floor float64, jumpTicks int) (missionCandidate, string) {
+func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64, allowSmuggling bool, fuelShare int, floor float64, jumpTicks int, payoutRatio float64) (missionCandidate, string) {
 	items, destBase, destSystem, shapeReason := deliverShape(e, allowSmuggling)
 	if shapeReason != "" {
 		return missionCandidate{}, shapeReason
@@ -524,7 +531,13 @@ func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, r
 		return missionCandidate{}, fmt.Sprintf("multi-objective delivery would need to source %d unit(s); only fully provided multi-item missions are supported", totalBuy)
 	}
 	fuelCost := fuelCostFor(jumps)
-	net := reward - itemCost - fuelCost
+	// The gate scores what the empire will ACTUALLY pay: advertised rewards have
+	// been settling well under face value since the treasury stopped being
+	// replenished (see Collector.MissionPayoutRatio). c.Reward deliberately keeps
+	// the ADVERTISED figure — mission_results.expected_reward is the input the
+	// ratio is computed from, so discounting it there would feed the ratio back
+	// into itself and spiral.
+	net := reward*payoutRatio - itemCost - fuelCost
 	// Net stays the CREDIT number at FULL trip cost — it is what gets recorded
 	// and reported, and it must not be flattered by either adjustment below.
 	// The gate, for smuggling only, judges two things the credit net misses:

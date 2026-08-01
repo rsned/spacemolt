@@ -36,3 +36,33 @@ func smugglingUnlocked(st *game.State) bool {
 
 	return ok && s.Baseline >= pirateUnlockBaseline
 }
+
+// smugglingXPExemptLevel is the smuggling level at which an agent stops being
+// treated as "buying XP" and starts being held to normal economics.
+//
+// Below it the agent's whole purpose is to reach L3, which is what unlocks the
+// chain-2 reputation mission; credits are incidental and a run that loses money
+// is still a run that bought a level. At or above it there is nothing left to
+// buy, so smuggling is judged on realized economics like every other category.
+const smugglingXPExemptLevel = 3
+
+// smugglingBuyingXP reports whether this agent should still ignore realized
+// payout economics on smuggling runs.
+//
+// The empire treasury ran dry on 2026-07-23 and mission credits decayed to
+// ~37% of advertised (server-side, confirmed by the operator: new money
+// generation was disabled). Realized-ratio gating discounts advertised rewards
+// so the fleet stops flying 27-jump runs for IOUs — but a sub-L3 agent must
+// keep flying them anyway, because XP is still paid in FULL and the level is
+// the objective. Their credit spend is bounded separately by
+// missionSmugglingXPBudget, not by the ratio.
+//
+// Unknown skills (no full player payload yet) read as still-climbing, matching
+// smugglingUnlocked's forgiving default.
+func smugglingBuyingXP(st *game.State) bool {
+	if st == nil || st.Player.Skills == nil {
+		return true
+	}
+
+	return st.Player.Skills[skillSmuggling].Level < smugglingXPExemptLevel
+}

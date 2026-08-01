@@ -44,6 +44,8 @@ func (f *fakeClient) AbandonMission(ctx context.Context, id string) error {
 
 // fakeMissionStore records results and serves reference asks.
 type fakeMissionStore struct {
+	payoutRatio   float64
+	payoutSamples int
 	asks      map[string]float64
 	refPrices map[string]float64
 	results   []market.MissionResult
@@ -73,6 +75,20 @@ type fakeFreightStore struct {
 	// outcomes maps contract ID -> last recorded outcome, letting chain-run
 	// tests assert per-contract terminal state without scanning results.
 	outcomes map[string]string
+}
+
+// MissionPayoutRatio: tests price rewards at face value unless a case sets
+// payoutRatio explicitly, so existing expectations are unaffected.
+func (s *fakeMissionStore) MissionPayoutRatio(ctx context.Context, window time.Duration) (float64, int, error) {
+	if s.payoutRatio == 0 {
+		return 1, 0, nil
+	}
+
+	return s.payoutRatio, s.payoutSamples, nil
+}
+
+func (s *fakeFreightStore) MissionPayoutRatio(ctx context.Context, window time.Duration) (float64, int, error) {
+	return 1, 0, nil
 }
 
 func (s *fakeFreightStore) RecordFreightResult(ctx context.Context, r market.FreightResult) error {
