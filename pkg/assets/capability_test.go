@@ -2,6 +2,7 @@ package assets
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 )
@@ -88,6 +89,21 @@ func TestEvaluateCoversEveryRegisteredRule(t *testing.T) {
 	caps := Evaluate(snapWith(3, 10, "licensed", 0))
 	if len(caps) != len(Rules()) {
 		t.Fatalf("Evaluate returned %d rows, want %d (one per rule)", len(caps), len(Rules()))
+	}
+}
+
+// TestEvaluateReturnsSortedOrder pins that Evaluate's output is sorted by
+// capability name. Every other assertion in this file goes through the
+// order-insensitive capsByName helper, so without this test a regression
+// dropping the sort in Evaluate would pass silently.
+func TestEvaluateReturnsSortedOrder(t *testing.T) {
+	caps := Evaluate(snapWith(3, 10, "licensed", 0))
+	names := make([]string, len(caps))
+	for i, c := range caps {
+		names[i] = c.Capability
+	}
+	if !sort.StringsAreSorted(names) {
+		t.Errorf("Evaluate returned unsorted capability names: %v", names)
 	}
 }
 

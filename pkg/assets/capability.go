@@ -18,8 +18,20 @@ const (
 	pirateFactionID = "pirates"   // pkg/worker/mission_standing.go
 	smugglingLevel3 = 3           // pkg/worker: smugglingXPExemptLevel
 	strongholdBase  = 10          // pkg/worker: smugglingUnlocked baseline
-	haulMinCredits  = 20000       // buying power for an arbitrage leg
 )
+
+// haulMinCredits is a pkg/assets-only screening heuristic, NOT mirrored from
+// pkg/worker: pkg/worker has no flat credit floor for haul at all. It gates
+// haul per-opportunity on margin instead — haulMinMargin (0.03),
+// haulMinNetProfit (1000.0), and haulSmallHoldNetProfit (250.0) in
+// pkg/worker/haul.go, evaluated by haulGate/netProfitFloor against live
+// price and cargo capacity. That can't be reduced to one flat credit number,
+// so this rule uses a cheap standalone proxy (enough buying power to attempt
+// an arbitrage leg) instead. An agent above this floor can still be refused
+// by haulGate on margin grounds; the ledger does not attempt to predict
+// that — consistent with agent_capability being a screening filter whose
+// worker-side gate stays authoritative at accept time.
+const haulMinCredits = 20000
 
 // pkg/worker's freightPackageFootprint (100) is deliberately NOT mirrored yet:
 // the v1 freight rule has no ship-class capacity to compare it against, and an
