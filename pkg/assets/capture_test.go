@@ -192,3 +192,86 @@ func TestCaptureProfileNilStoreIsANoOp(t *testing.T) {
 		t.Errorf("nil store must be a no-op, got %v", err)
 	}
 }
+
+// TestCaptureProfileClearsHullsOnLegitimateEmptyFleet pins that a clean
+// ListShips call reporting zero owned ships actually clears agent_hulls,
+// not merely skips the write. Gating the write on len(hulls) > 0 instead of
+// on call/decode success would leave a sold last ship's hull row behind
+// forever — including a stale is_active row — letting Task 6's
+// activeHull() keep reporting haul/freight/mission_delivery as eligible on
+// phantom capacity.
+func TestCaptureProfileClearsHullsOnLegitimateEmptyFleet(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	c := newFakeClient()
+
+	// Seed: first capture writes at least one hull.
+	if err := CaptureProfile(ctx, c, st, "engineer-3", now); err != nil {
+		t.Fatalf("seed CaptureProfile: %v", err)
+	}
+	var seeded int
+	if err := st.DB().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM agent_hulls WHERE player_id='abc123'`).Scan(&seeded); err != nil {
+		t.Fatalf("seeded count: %v", err)
+	}
+	if seeded == 0 {
+		t.Fatalf("seed did not write any hulls, cannot test clearing")
+	}
+
+	// Second capture: ListShips succeeds, but the agent now legitimately owns
+	// zero ships.
+	c.raw["owned_ships"] = []byte(`{"action":"list_ships","ships":[]}`)
+	if err := CaptureProfile(ctx, c, st, "engineer-3", now); err != nil {
+		t.Fatalf("second CaptureProfile: %v", err)
+	}
+
+	var n int
+	if err := st.DB().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM agent_hulls WHERE player_id='abc123'`).Scan(&n); err != nil {
+		t.Fatalf("hulls after clearing: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("agent_hulls rows = %d, want 0 (stale hull not cleared on a legitimately empty fleet)", n)
+	}
+}
+
+// TestCaptureProfileHullsSurviveListShipsFailure is the complementary case:
+// a ListShips error must leave previously captured hulls untouched, not
+// clear them. Without this test, a "fix" that clears agent_hulls on ANY
+// ListShips outcome (including failure) would also pass the sibling test
+// above.
+func TestCaptureProfileHullsSurviveListShipsFailure(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	c := newFakeClient()
+
+	// Seed: first capture writes at least one hull.
+	if err := CaptureProfile(ctx, c, st, "engineer-3", now); err != nil {
+		t.Fatalf("seed CaptureProfile: %v", err)
+	}
+	var seeded int
+	if err := st.DB().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM agent_hulls WHERE player_id='abc123'`).Scan(&seeded); err != nil {
+		t.Fatalf("seeded count: %v", err)
+	}
+	if seeded == 0 {
+		t.Fatalf("seed did not write any hulls, cannot test survival")
+	}
+
+	// Second capture: ListShips fails outright.
+	c.shipsErr = errors.New("boom")
+	if err := CaptureProfile(ctx, c, st, "engineer-3", now); err != nil {
+		t.Fatalf("second CaptureProfile must not fail on a ListShips error: %v", err)
+	}
+
+	var n int
+	if err := st.DB().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM agent_hulls WHERE player_id='abc123'`).Scan(&n); err != nil {
+		t.Fatalf("hulls after failure: %v", err)
+	}
+	if n != seeded {
+		t.Errorf("agent_hulls rows = %d, want %d (previously captured hulls must survive a failed ListShips)", n, seeded)
+	}
+}

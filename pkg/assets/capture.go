@@ -90,9 +90,16 @@ func CaptureProfile(ctx context.Context, client game.GameClient, st *Store, agen
 		}
 	}
 
+	// Hulls: gate the write on whether the call and decode succeeded, NOT on
+	// how many hulls came back. A ListShips error or an undecodable body
+	// leaves agent_hulls untouched, same as carrier above. But a clean call
+	// that legitimately reports zero owned ships must still replace the set
+	// - otherwise a sold last ship leaves a stale, phantom hull (including a
+	// stale is_active row) that Task 6's activeHull() would keep reading as
+	// capability forever.
 	var hulls []Hull
 	if err := client.ListShips(ctx); err == nil {
-		if hs, derr := HullsFrom(client.GetRawJSON("owned_ships")); derr == nil && len(hs) > 0 {
+		if hs, derr := HullsFrom(client.GetRawJSON("owned_ships")); derr == nil {
 			hulls = hs
 			if err := st.ReplaceHulls(ctx, playerID, hs, now); err != nil {
 				return err
