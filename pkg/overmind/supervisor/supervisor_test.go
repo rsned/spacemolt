@@ -465,7 +465,7 @@ func TestDefaultSpawnFreightArgs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spawn := DefaultSpawn("true", "")
+			spawn := DefaultSpawn("true", "", "")
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			cmd, err := spawn(ctx, tt.spec, "/tmp/does-not-matter.sock")
@@ -488,7 +488,7 @@ func TestDefaultSpawnFreightArgs(t *testing.T) {
 
 	// The pair check needs its own case since it inspects flag+value adjacency.
 	t.Run("cap of 3 forwards the paired flag and value", func(t *testing.T) {
-		spawn := DefaultSpawn("true", "")
+		spawn := DefaultSpawn("true", "", "")
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		cmd, err := spawn(ctx, WorkerSpec{AgentID: "canary", EnableFreight: true, FreightMaxPackages: 3}, "/tmp/does-not-matter.sock")
@@ -507,7 +507,7 @@ func TestDefaultSpawnFreightArgs(t *testing.T) {
 // explicitly set DisableFreightBootstrap; the default-on case must forward no
 // flag at all, relying on the worker's own CLI default.
 func TestDefaultSpawnFreightBootstrapDisable(t *testing.T) {
-	spawn := DefaultSpawn("true", "")
+	spawn := DefaultSpawn("true", "", "")
 
 	t.Run("bootstrap on by default: no disable flag", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -532,6 +532,42 @@ func TestDefaultSpawnFreightBootstrapDisable(t *testing.T) {
 		_ = cmd.Wait()
 		if !hasArg(cmd.Args, "--freight-bootstrap=false") {
 			t.Errorf("DisableFreightBootstrap must emit --freight-bootstrap=false: %v", cmd.Args)
+		}
+	})
+}
+
+// TestDefaultSpawnAssetsDBPath mirrors handoffQueuePath's forwarding
+// behavior exactly: an empty path forwards nothing (leaving the worker's own
+// --assets-db-path default of "" in effect, which disables asset capture),
+// and a non-empty path is forwarded verbatim as --assets-db-path. Without
+// this, no spawn path can ever pass the flag, and the rollout runbook's
+// "add --assets-db-path to a single worker" step is impossible.
+func TestDefaultSpawnAssetsDBPath(t *testing.T) {
+	t.Run("empty path: flag absent", func(t *testing.T) {
+		spawn := DefaultSpawn("true", "", "")
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		cmd, err := spawn(ctx, WorkerSpec{AgentID: "canary"}, "/tmp/does-not-matter.sock")
+		if err != nil {
+			t.Fatalf("spawn: %v", err)
+		}
+		_ = cmd.Wait()
+		if hasArg(cmd.Args, "--assets-db-path") {
+			t.Errorf("args %v must not contain --assets-db-path when unset", cmd.Args)
+		}
+	})
+
+	t.Run("non-empty path: forwarded verbatim", func(t *testing.T) {
+		spawn := DefaultSpawn("true", "", "data/assets.db")
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		cmd, err := spawn(ctx, WorkerSpec{AgentID: "canary"}, "/tmp/does-not-matter.sock")
+		if err != nil {
+			t.Fatalf("spawn: %v", err)
+		}
+		_ = cmd.Wait()
+		if !hasArgPair(cmd.Args, "--assets-db-path", "data/assets.db") {
+			t.Errorf("args %v missing --assets-db-path data/assets.db", cmd.Args)
 		}
 	})
 }

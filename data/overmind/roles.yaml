@@ -28,6 +28,7 @@ roles:
       - { every: hourly, command: "update_market" }
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
+      - { every: hourly, command: "capture_profile" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_gas); see resident note
   resident_ice:
     schedule:
@@ -36,6 +37,7 @@ roles:
       - { every: hourly, command: "update_market" }
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
+      - { every: hourly, command: "capture_profile" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_ice); see resident note
   explorer:
     schedule:

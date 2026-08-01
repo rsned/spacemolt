@@ -275,3 +275,42 @@ func TestCaptureProfileHullsSurviveListShipsFailure(t *testing.T) {
 		t.Errorf("agent_hulls rows = %d, want %d (previously captured hulls must survive a failed ListShips)", n, seeded)
 	}
 }
+
+// TestCaptureProfileFailedGetStatusWritesNothing pins the counterpart to
+// TestCaptureProfileCallsGetStatusExplicitly: a GetStatus error must leave
+// EVERY table untouched, not just skip the call. GetStatus is synchronous, so
+// on failure GetState() still returns the previously cached Player (ID intact
+// from login) — without this guard, CaptureProfile would happily write
+// agent_profile, agent_skills and agent_standings under a fresh captured_at
+// on data of arbitrary age, which is exactly the "capture looks fine" failure
+// the whole ledger exists to make visible.
+func TestCaptureProfileFailedGetStatusWritesNothing(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	c := newFakeClient()
+	c.statusErr = errors.New("boom")
+
+	if err := CaptureProfile(ctx, c, st, "engineer-3", now); err != nil {
+		t.Fatalf("CaptureProfile must not fail on a GetStatus error: %v", err)
+	}
+
+	for _, q := range []struct {
+		name string
+		sql  string
+	}{
+		{"agent_profile", `SELECT COUNT(*) FROM agent_profile WHERE player_id='abc123'`},
+		{"agent_skills", `SELECT COUNT(*) FROM agent_skills WHERE player_id='abc123'`},
+		{"agent_standings", `SELECT COUNT(*) FROM agent_standings WHERE player_id='abc123'`},
+		{"agent_carrier", `SELECT COUNT(*) FROM agent_carrier WHERE player_id='abc123'`},
+		{"agent_hulls", `SELECT COUNT(*) FROM agent_hulls WHERE player_id='abc123'`},
+	} {
+		var n int
+		if err := st.DB().QueryRowContext(ctx, q.sql).Scan(&n); err != nil {
+			t.Fatalf("%s: %v", q.name, err)
+		}
+		if n != 0 {
+			t.Errorf("%s: %d rows written on a failed GetStatus, want 0 (stale data must not be recorded under a fresh timestamp)", q.name, n)
+		}
+	}
+}

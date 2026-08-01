@@ -47,6 +47,7 @@ func main() {
 	planQueuePath := flag.String("plan-queue", "", "Path to the craft-plan dispatch queue dir (empty disables the plan runner)")
 	planStateDir := flag.String("plan-state-dir", "data/overmind/craft-plans", "Directory for persisted craft-plan run state")
 	handoffQueuePath := flag.String("handoff-queue", "data/overmind/handoff-queue.json", "Shared crafting-brain stock handoff queue file (forwarded to every spawned worker when non-empty; consumed by the plan runner only when --plan-queue is set)")
+	assetsDBPath := flag.String("assets-db-path", "", "Agent asset ledger DB path, forwarded to every spawned worker as --assets-db-path when non-empty (empty disables asset capture fleet-wide)")
 	holdersRosterPath := flag.String("holders-roster", "data/overmind/mb-fleet.yaml", "Fleet roster YAML for marketbot stock holders (the plan runner's Managed set; required when --plan-queue is set)")
 	overridesPath := flag.String("overrides-file", "", "Membership overrides sidecar (default: <socket dir>/<fleet>-overrides.json)")
 	flag.Parse()
@@ -84,7 +85,7 @@ func main() {
 		logger.Fatalf("new server: %v", err)
 	}
 
-	sup := supervisor.NewSupervisor(srv, fleet, specs, supervisor.DefaultSpawn(*workerBin, *handoffQueuePath), logger)
+	sup := supervisor.NewSupervisor(srv, fleet, specs, supervisor.DefaultSpawn(*workerBin, *handoffQueuePath, *assetsDBPath), logger)
 	sup.StaggerInterval = *stagger
 	sup.RestartBatch = *restartBatch
 	srv.SetAdminHook(makeAdminHook(rs, sup, *overridesPath, logger))

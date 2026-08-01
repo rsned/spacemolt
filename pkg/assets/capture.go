@@ -23,8 +23,16 @@ func CaptureProfile(ctx context.Context, client game.GameClient, st *Store, agen
 	// GetStatus must be called explicitly rather than trusting ambient state:
 	// Standings ride only on a FULL player payload, and the client preserves
 	// the previous map when a partial one arrives. Skipping this call would
-	// persist arbitrarily stale standings under a fresh timestamp.
-	_ = client.GetStatus(ctx)
+	// persist arbitrarily stale standings under a fresh timestamp. GetStatus
+	// is synchronous, so a failure here means GetState() would still return
+	// the previously cached Player (ID intact from login): recording that
+	// under captured_at=now would be indistinguishable from a fresh capture,
+	// which is the exact failure this ledger exists to catch. Bail out like
+	// every other source failure and leave every table at its previous
+	// captured_at.
+	if err := client.GetStatus(ctx); err != nil {
+		return nil //nolint:nilerr // a source failure must never fail the capture pass; every table keeps its previous captured_at
+	}
 
 	state := client.GetState()
 	if state == nil || state.Player.ID == "" {

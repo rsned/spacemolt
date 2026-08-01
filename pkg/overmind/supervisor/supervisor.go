@@ -22,8 +22,10 @@ type SpawnFunc func(ctx context.Context, spec WorkerSpec, socket string) (*exec.
 // --handoff-queue so marketbot/craftsman workers share the same crafting-brain
 // stock handoff queue file the overmind itself uses. An empty path forwards
 // nothing, leaving the worker's own --handoff-queue default (disabled) in
-// effect.
-func DefaultSpawn(workerBin, handoffQueuePath string) SpawnFunc {
+// effect. assetsDBPath follows the identical shape: forwarded as
+// --assets-db-path when non-empty, otherwise omitted, leaving the worker's
+// own default ("", asset capture disabled) in effect.
+func DefaultSpawn(workerBin, handoffQueuePath, assetsDBPath string) SpawnFunc {
 	return func(ctx context.Context, spec WorkerSpec, socket string) (*exec.Cmd, error) {
 		args := []string{
 			"--agent", spec.AgentID,
@@ -33,6 +35,9 @@ func DefaultSpawn(workerBin, handoffQueuePath string) SpawnFunc {
 		}
 		if handoffQueuePath != "" {
 			args = append(args, "--handoff-queue", handoffQueuePath)
+		}
+		if assetsDBPath != "" {
+			args = append(args, "--assets-db-path", assetsDBPath)
 		}
 		if len(spec.MissionCategories) > 0 {
 			args = append(args, "--mission-categories", strings.Join(spec.MissionCategories, ","))
