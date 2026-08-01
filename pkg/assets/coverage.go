@@ -35,8 +35,16 @@ func Coverage(ctx context.Context, db *sql.DB, now time.Time, staleAfter time.Du
 		row := CoverageRow{Source: table}
 		var oldest sql.NullString
 		// #nosec G201 -- table comes from the fixed coverageSources list, never user input.
+		//
+		// Stale counts DISTINCT agents, not rows: agent_skills and
+		// agent_hulls carry many rows per agent, and COUNT(DISTINCT
+		// CASE WHEN ... THEN player_id END) drops NULLs (COUNT(DISTINCT
+		// ...) never counts a NULL), so a fresh agent's rows never
+		// contribute. Getting this wrong (e.g. SUM of a per-row CASE)
+		// overstates the alarm by however many rows the stale agent
+		// happens to have.
 		q := fmt.Sprintf(`SELECT COUNT(DISTINCT player_id), MIN(captured_at),
-			COALESCE(SUM(CASE WHEN captured_at < ? THEN 1 ELSE 0 END), 0) FROM %s`, table)
+			COUNT(DISTINCT CASE WHEN captured_at < ? THEN player_id END) FROM %s`, table)
 		if err := db.QueryRowContext(ctx, q, cutoff).Scan(&row.Agents, &oldest, &row.Stale); err != nil {
 			return nil, fmt.Errorf("assets: coverage %s: %w", table, err)
 		}
