@@ -1,0 +1,127 @@
+package assets
+
+import (
+	"context"
+	"testing"
+	"time"
+)
+
+// snapWith builds a snapshot with one active hull of the given cargo capacity
+// proxy (cargo_used is not capacity; the active hull's presence is what the
+// v1 rules key on) plus the given skills and standings.
+func snapWith(smuggling int, pirateBaseline int, tier string, debt int64) AgentSnapshot {
+	return AgentSnapshot{
+		Profile: Profile{PlayerID: "abc123", Credits: 100000},
+		Skills:  map[string]SkillRow{"smuggling": {Skill: "smuggling", Level: smuggling}},
+		Standings: map[string]StandingRow{
+			"pirates": {Faction: "pirates", Baseline: pirateBaseline},
+		},
+		Carrier:      Carrier{Tier: tier, OutstandingDebt: debt},
+		CarrierKnown: tier != "",
+		Hulls:        []Hull{{ShipID: "s1", IsActive: true, FuelCurrent: 400, FuelMax: 400}},
+	}
+}
+
+// TestSmugglingEligibilityBoundary pins the L3 threshold, mirroring
+// pkg/worker's smugglingXPExemptLevel. Level 3 unlocks the chain-2 reputation
+// mission, which is the whole point of the climb.
+func TestSmugglingEligibilityBoundary(t *testing.T) {
+	for _, tc := range []struct {
+		level int
+		want  bool
+	}{{0, false}, {2, false}, {3, true}, {7, true}} {
+		caps := capsByName(Evaluate(snapWith(tc.level, -30, "licensed", 0)))
+		got := caps["smuggling"]
+		if got.Eligible != tc.want {
+			t.Errorf("smuggling level %d: eligible = %v, want %v (reason %q)",
+				tc.level, got.Eligible, tc.want, got.BlockingReason)
+		}
+		if !tc.want && got.BlockingReason == "" {
+			t.Errorf("smuggling level %d: ineligible must carry a blocking reason", tc.level)
+		}
+	}
+}
+
+// TestStrongholdAccessUsesBaselineNotReputation pins that the gate reads
+// baseline. Reputation floats above baseline and decays back, so gating on it
+// would report eligible during the float and flip back later.
+func TestStrongholdAccessUsesBaselineNotReputation(t *testing.T) {
+	// Baseline 9 with a high floating reputation must still be ineligible.
+	s := snapWith(3, 9, "licensed", 0)
+	st := s.Standings["pirates"]
+	st.Reputation = 95
+	s.Standings["pirates"] = st
+	if got := capsByName(Evaluate(s))["stronghold_access"]; got.Eligible {
+		t.Error("baseline 9 with reputation 95 must be ineligible")
+	}
+
+	if got := capsByName(Evaluate(snapWith(3, 10, "licensed", 0)))["stronghold_access"]; !got.Eligible {
+		t.Errorf("baseline 10 must be eligible, reason=%q", got.BlockingReason)
+	}
+}
+
+// TestFreightBlockedByDebt pins that outstanding debt blocks freight and says
+// so, since debt is the thing that silently stops contract acceptance.
+func TestFreightBlockedByDebt(t *testing.T) {
+	got := capsByName(Evaluate(snapWith(3, 10, "licensed", 4200)))["freight"]
+	if got.Eligible {
+		t.Error("outstanding debt must block freight")
+	}
+	if got.BlockingReason == "" {
+		t.Error("debt block must carry a reason")
+	}
+}
+
+// TestUnknownCarrierIsIneligibleNotEligible pins the safe direction: an agent
+// whose carrier profile has never been captured is NOT freight-eligible. The
+// screening filter must not invent capability from missing data.
+func TestUnknownCarrierIsIneligibleNotEligible(t *testing.T) {
+	s := snapWith(3, 10, "", 0)
+	if got := capsByName(Evaluate(s))["freight"]; got.Eligible {
+		t.Error("uncaptured carrier profile must not read as freight-eligible")
+	}
+}
+
+// TestEvaluateCoversEveryRegisteredRule pins that Evaluate emits one row per
+// registered capability, so a new rule cannot silently produce no output.
+func TestEvaluateCoversEveryRegisteredRule(t *testing.T) {
+	caps := Evaluate(snapWith(3, 10, "licensed", 0))
+	if len(caps) != len(Rules()) {
+		t.Fatalf("Evaluate returned %d rows, want %d (one per rule)", len(caps), len(Rules()))
+	}
+}
+
+// TestReplaceCapabilitiesIsAWholeSetSwap pins that a capability that stops
+// being emitted disappears from the table.
+func TestReplaceCapabilitiesIsAWholeSetSwap(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+
+	first := []Capability{{Capability: "haul", Eligible: true}, {Capability: "freight", Eligible: false, BlockingReason: "debt"}}
+	if err := st.ReplaceCapabilities(ctx, "abc123", first, now); err != nil {
+		t.Fatalf("first: %v", err)
+	}
+	if err := st.ReplaceCapabilities(ctx, "abc123", first[:1], now.Add(time.Hour)); err != nil {
+		t.Fatalf("second: %v", err)
+	}
+
+	var n int
+	if err := st.DB().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM agent_capability WHERE player_id = ?`, "abc123").Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("agent_capability rows = %d, want 1", n)
+	}
+}
+
+// capsByName indexes an Evaluate result for assertion.
+func capsByName(caps []Capability) map[string]Capability {
+	m := make(map[string]Capability, len(caps))
+	for _, c := range caps {
+		m[c.Capability] = c
+	}
+
+	return m
+}

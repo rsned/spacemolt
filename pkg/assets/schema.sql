@@ -124,3 +124,20 @@ CREATE TABLE IF NOT EXISTS agent_carrier (
     captured_at                     TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_agent_carrier_tier ON agent_carrier(tier);
+
+-- Derived, never hand-written: materialised by pkg/assets rules on every
+-- capture. A TABLE rather than a SQL view because the rules live in Go;
+-- expressing them in SQL too would fork the definitions and let them drift.
+--
+-- This is a SCREENING FILTER, not a promise. The workers' own gates
+-- (buildMissionCandidate, freightCandidate, haulGate) are per-pass and
+-- live-priced and remain authoritative at accept time.
+CREATE TABLE IF NOT EXISTS agent_capability (
+    player_id       TEXT NOT NULL,
+    capability      TEXT NOT NULL,
+    eligible        INTEGER NOT NULL DEFAULT 0,
+    blocking_reason TEXT NOT NULL DEFAULT '',
+    as_of           TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (player_id, capability)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_capability_lookup ON agent_capability(capability, eligible);
