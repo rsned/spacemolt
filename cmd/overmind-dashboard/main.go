@@ -15,19 +15,21 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/assets"
 	"github.com/rsned/spacemolt/pkg/ovdash"
 )
 
 const (
-	snapshotEvery  = 2 * time.Second
-	accountEvery   = 30 * time.Second
-	keyframeEvery  = 60 * time.Second
-	staleAfter     = 60 * time.Second
-	earningsWindow = 24 * time.Hour
+	snapshotEvery    = 2 * time.Second
+	accountEvery     = 30 * time.Second
+	keyframeEvery    = 60 * time.Second
+	staleAfter       = 60 * time.Second
+	earningsWindow   = 24 * time.Hour
+	assetsStaleAfter = 24 * time.Hour
 )
 
 type serverConfig struct {
-	KBPath, MarketPath, StatusDir, DistDir string
+	KBPath, MarketPath, StatusDir, DistDir, AssetsPath string
 }
 
 type server struct {
@@ -38,6 +40,10 @@ type server struct {
 	mu   sync.RWMutex
 	snap *ovdash.Snapshot
 	acct ovdash.Accounting
+	// assetCoverage is the last-good asset-ledger freshness read, merged
+	// into each new snapshot under mu (see refresh) so a concurrent HTTP
+	// read of s.snap never races the periodic refresh that updates it.
+	assetCoverage []assets.CoverageRow
 	// lastAcct is only ever written by refresh(), which is called
 	// exclusively from the single run() goroutine (plus once synchronously
 	// at startup before that goroutine is launched) — so it needs no lock.
@@ -64,6 +70,10 @@ func (s *server) refresh(ctx context.Context, now time.Time) {
 	}
 	s.mu.Lock()
 	prev := s.snap
+	// AssetCoverage is refreshed on its own accountEvery cadence below;
+	// merge the last-good read in here, under the same lock that publishes
+	// s.snap, so a concurrent HTTP reader of s.snap never races the write.
+	snap.AssetCoverage = s.assetCoverage
 	s.snap = snap
 	s.mu.Unlock()
 
@@ -86,6 +96,18 @@ func (s *server) refresh(ctx context.Context, now time.Time) {
 			s.acct = acct
 			s.mu.Unlock()
 			s.hub.Broadcast("accounting", acct)
+		}
+		// Only s.assetCoverage is updated here, never s.snap's fields in
+		// place: once published, a *Snapshot is read by HTTP handlers
+		// without holding mu for the marshal, so it must never be mutated
+		// after publish. The fresh reading is picked up on the next
+		// refresh's publish, a few seconds later at most.
+		if coverage, err := ovdash.LoadAssetCoverage(ctx, s.cfg.AssetsPath, now, assetsStaleAfter); err != nil {
+			log.Printf("asset coverage: %v", err) // keep last-good
+		} else {
+			s.mu.Lock()
+			s.assetCoverage = coverage
+			s.mu.Unlock()
 		}
 		s.lastAcct = now
 	}
@@ -173,12 +195,15 @@ func main() {
 	marketDB := flag.String("market-db", "data/market.db", "market DB path (read-only)")
 	statusDir := flag.String("status-dir", "data/overmind", "overmind status-file directory")
 	dist := flag.String("dist", "frontend/dist", "built frontend directory")
+	assetsDB := flag.String("assets-db", "data/assets.db", "agent asset-ledger DB path (read-only; missing file is fine)")
 	flag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	srv, err := newServer(ctx, serverConfig{KBPath: *kb, MarketPath: *marketDB, StatusDir: *statusDir, DistDir: *dist})
+	srv, err := newServer(ctx, serverConfig{
+		KBPath: *kb, MarketPath: *marketDB, StatusDir: *statusDir, DistDir: *dist, AssetsPath: *assetsDB,
+	})
 	if err != nil {
 		log.Fatalf("overmind-dashboard: %v", err)
 	}

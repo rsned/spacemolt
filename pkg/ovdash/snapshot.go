@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/assets"
 	"github.com/rsned/spacemolt/pkg/overmind/balances"
 	"github.com/rsned/spacemolt/pkg/overmind/supervisor"
 )
@@ -89,6 +90,9 @@ type Snapshot struct {
 	// workers, and a single merged "current" hides exactly that.
 	CurrentOvermind string `json:"current_overmind,omitempty"`
 	CurrentWorker   string `json:"current_worker,omitempty"`
+	// AssetCoverage is per-source freshness of the agent asset ledger. Empty
+	// when the ledger is not deployed.
+	AssetCoverage []assets.CoverageRow `json:"asset_coverage,omitempty"`
 }
 
 // ReadSnapshot reads every fleet status file under dir and merges them.
