@@ -71,6 +71,46 @@ func TestReplaceSkillsIsScopedToOneAgent(t *testing.T) {
 	}
 }
 
+// TestReplaceSkillsRollsBackOnInsertFailure pins the point of replaceSet: a
+// mid-insert failure must not leave an agent's row set empty or partially
+// replaced. It forces a failure by passing two rows with the same Skill,
+// which collide on the (player_id, skill) primary key on the second INSERT,
+// and asserts the pre-existing rows survive untouched — the DELETE must be
+// rolled back along with the failed insert, not left applied.
+func TestReplaceSkillsRollsBackOnInsertFailure(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+
+	good := []SkillRow{{Skill: "smuggling", Level: 2, XP: 40}, {Skill: "trading", Level: 5, XP: 10}}
+	if err := st.ReplaceSkills(ctx, "abc123", good, now); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	colliding := []SkillRow{{Skill: "mining", Level: 1}, {Skill: "mining", Level: 9}}
+	if err := st.ReplaceSkills(ctx, "abc123", colliding, now.Add(time.Hour)); err == nil {
+		t.Fatal("ReplaceSkills with colliding rows: want error, got nil")
+	}
+
+	var n int
+	if err := st.DB().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM agent_skills WHERE player_id = ?`, "abc123").Scan(&n); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("agent_skills rows = %d, want 2 (failed replace must not touch the original set)", n)
+	}
+	var level int
+	if err := st.DB().QueryRowContext(ctx,
+		`SELECT level FROM agent_skills WHERE player_id = ? AND skill = ?`,
+		"abc123", "smuggling").Scan(&level); err != nil {
+		t.Fatalf("read smuggling: %v", err)
+	}
+	if level != 2 {
+		t.Errorf("smuggling level = %d, want 2 (unchanged from before the failed replace)", level)
+	}
+}
+
 // TestReplaceStandingsKeepsBaseline pins that baseline survives the round trip.
 // Baseline, not reputation, is the durable signal: reputation floats above it
 // from missions and decays back toward it, so stronghold access is
