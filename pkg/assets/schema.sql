@@ -92,3 +92,35 @@ CREATE TABLE IF NOT EXISTS agent_hulls (
 );
 CREATE INDEX IF NOT EXISTS idx_agent_hulls_base ON agent_hulls(location_base_id);
 CREATE INDEX IF NOT EXISTS idx_agent_hulls_class ON agent_hulls(class_id);
+
+-- CarrierProfile + CarrierCapacity + CarrierTierProgress flattened into one
+-- row. The remaining_* columns are what make "who is still in probation and
+-- how far off are they" a query instead of a worker-log sweep.
+CREATE TABLE IF NOT EXISTS agent_carrier (
+    player_id                       TEXT PRIMARY KEY,
+    tier                            TEXT NOT NULL DEFAULT '',
+    successful_deliveries           INTEGER NOT NULL DEFAULT 0,
+    delivered_value                 INTEGER NOT NULL DEFAULT 0,
+    priority_deliveries             INTEGER NOT NULL DEFAULT 0,
+    returns                         INTEGER NOT NULL DEFAULT 0,
+    breaches                        INTEGER NOT NULL DEFAULT 0,
+    defaults                        INTEGER NOT NULL DEFAULT 0,
+    active_contracts                INTEGER NOT NULL DEFAULT 0,
+    active_liability                INTEGER NOT NULL DEFAULT 0,
+    outstanding_debt                INTEGER NOT NULL DEFAULT 0,
+    debt_blocks_acceptance          INTEGER NOT NULL DEFAULT 0,
+    next_tier                       TEXT NOT NULL DEFAULT '',
+    at_maximum_tier                 INTEGER NOT NULL DEFAULT 0,
+    required_successful_deliveries  INTEGER NOT NULL DEFAULT 0,
+    remaining_successful_deliveries INTEGER NOT NULL DEFAULT 0,
+    required_delivered_value        INTEGER NOT NULL DEFAULT 0,
+    remaining_delivered_value       INTEGER NOT NULL DEFAULT 0,
+    active_contract_limit           INTEGER NOT NULL DEFAULT 0,
+    active_contracts_unlimited      INTEGER NOT NULL DEFAULT 0,
+    aggregate_liability_limit       INTEGER NOT NULL DEFAULT 0,
+    remaining_aggregate_liability   INTEGER NOT NULL DEFAULT 0,
+    single_package_liability_limit  INTEGER NOT NULL DEFAULT 0,
+    liability_unlimited             INTEGER NOT NULL DEFAULT 0,
+    captured_at                     TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_agent_carrier_tier ON agent_carrier(tier);

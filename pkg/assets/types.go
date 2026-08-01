@@ -75,3 +75,31 @@ type Hull struct {
 	ListingPrice   int64
 	ListingBaseID  string
 }
+
+// Carrier is the freight carrier standing: CarrierProfile, CarrierCapacity and
+// CarrierTierProgress flattened. Remaining* is progress toward the next tier.
+type Carrier struct {
+	Tier                          string
+	SuccessfulDeliveries          int
+	DeliveredValue                int64
+	PriorityDeliveries            int
+	Returns                       int
+	Breaches                      int
+	Defaults                      int
+	ActiveContracts               int
+	ActiveLiability               int64
+	OutstandingDebt               int64
+	DebtBlocksAcceptance          bool
+	NextTier                      string
+	AtMaximumTier                 bool
+	RequiredSuccessfulDeliveries  int
+	RemainingSuccessfulDeliveries int
+	RequiredDeliveredValue        int64
+	RemainingDeliveredValue       int64
+	ActiveContractLimit           int
+	ActiveContractsUnlimited      bool
+	AggregateLiabilityLimit       int64
+	RemainingAggregateLiability   int64
+	SinglePackageLiabilityLimit   int64
+	LiabilityUnlimited            bool
+}
