@@ -64,7 +64,7 @@ func newFakeClient() *fakeClient {
 				 "hull":"180/180","fuel":"150/200","location_base_id":"grand_exchange_station"}]}`),
 			"shipping_profile": []byte(`{"action":"profile",
 				"profile":{"tier":"licensed","successful_deliveries":6},
-				"tier_progress":{"current_tier":"licensed","next_tier":"trusted"}}`),
+				"progression":{"current_tier":"licensed","next_tier":"trusted"}}`),
 		},
 	}
 }
@@ -98,6 +98,21 @@ func TestCaptureProfileWritesEverySource(t *testing.T) {
 		if n == 0 {
 			t.Errorf("%s: no rows written", q.name)
 		}
+	}
+
+	// Pin that the carrier row actually decoded the progression block, not
+	// just a zeroed struct: an all-zero CarrierTierProgress decodes cleanly
+	// from a mis-keyed fixture with no error, which is exactly the trap this
+	// plan has already been bitten by twice (see task-7-report.md). next_tier
+	// only has a non-empty value if "progression" was the key read.
+	var nextTier string
+	if err := st.DB().QueryRowContext(ctx,
+		`SELECT next_tier FROM agent_carrier WHERE player_id='abc123'`).
+		Scan(&nextTier); err != nil {
+		t.Fatalf("next_tier: %v", err)
+	}
+	if nextTier != "trusted" {
+		t.Errorf("next_tier = %q, want %q (progression block not decoded)", nextTier, "trusted")
 	}
 
 	// Capabilities derived from the above: smuggling L3 and pirate baseline 10

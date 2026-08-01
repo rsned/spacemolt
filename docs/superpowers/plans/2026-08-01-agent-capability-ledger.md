@@ -2093,7 +2093,7 @@ func newFakeClient() *fakeClient {
 				 "hull":"180/180","fuel":"150/200","location_base_id":"grand_exchange_station"}]}`),
 			"shipping_profile": []byte(`{"action":"profile",
 				"profile":{"tier":"licensed","successful_deliveries":6},
-				"tier_progress":{"current_tier":"licensed","next_tier":"trusted"}}`),
+				"progression":{"current_tier":"licensed","next_tier":"trusted"}}`),
 		},
 	}
 }
