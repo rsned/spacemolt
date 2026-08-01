@@ -23,6 +23,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/assets"
 	"github.com/rsned/spacemolt/pkg/buildinfo"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/handoff"
@@ -78,6 +79,7 @@ func main() {
 	rolesPath := flag.String("roles", filepath.Join("data", "overmind", "roles.yaml"), "Path to roles config")
 	kbPath := flag.String("kb-path", filepath.Join("data", "spacemolt-knowledge.db"), "Path to shared knowledge base")
 	marketDBPath := flag.String("market-db-path", filepath.Join("data", "market.db"), "Path to market collector database")
+	assetsDBPath := flag.String("assets-db-path", "", "path to the agent asset ledger (data/assets.db); empty disables asset capture")
 	rescueQueuePath := flag.String("rescue-queue", filepath.Join("data", "overmind", "rescue-queue.json"), "Shared stranded-worker rescue queue file")
 	handoffQueuePath := flag.String("handoff-queue", "", "Shared crafting-brain stock handoff queue file (empty disables handoff fulfillment)")
 	missionCategories := flag.String("mission-categories", "", "Comma-separated mission-board categories for the missions role (empty = delivery only; learning pool: delivery,exploration)")
@@ -338,6 +340,23 @@ func main() {
 			defer func() { _ = mktColl.Close() }()
 		}
 
+		// ── Step 6b3: Open asset ledger (best-effort) ────────────────────────
+		var assetStore *assets.Store
+		if *assetsDBPath != "" {
+			cfg := assets.DefaultConfig()
+			cfg.DBPath = *assetsDBPath
+			var assetsErr error
+			assetStore, assetsErr = assets.Open(cfg)
+			if assetsErr != nil {
+				// Non-fatal: a worker that cannot open the asset ledger must still
+				// do its paying job.
+				logger.Printf("warning: open assets DB %s: %v (asset capture disabled)", *assetsDBPath, assetsErr)
+				assetStore = nil
+			} else {
+				defer func() { _ = assetStore.Close() }()
+			}
+		}
+
 		// ── Step 6c: Standing behavior ───────────────────────────────────────
 		roles, rolesErr := worker.LoadRoles(*rolesPath)
 		if rolesErr != nil {
@@ -348,6 +367,7 @@ func main() {
 			dispatch := worker.NewWorkerDispatch(client, kb, mc, logOut)
 			dispatch.AgentID = *agentID
 			dispatch.Station = *station
+			dispatch.Assets = assetStore
 			dispatch.SetActivitySink(&activity)
 			dispatch.Rescue = rescue.NewQueue(*rescueQueuePath)
 			if *missionCategories != "" {

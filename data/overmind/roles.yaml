@@ -14,6 +14,7 @@ roles:
       - { every: hourly, command: "update_market" }
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
+      - { every: hourly, command: "capture_profile" }
     idle: resident_market
     idle_params:
       N: "20"
@@ -42,6 +43,8 @@ roles:
     idle: explore
   miner: {}
   hauler:
+    schedule:
+      - { every: hourly, command: "capture_profile" }
     idle: haul
   shuttle:
     idle: shuttle
@@ -51,11 +54,13 @@ roles:
     schedule:
       - { every: hourly, command: "update_market" }
       - { every: hourly, command: "facilities" }
+      - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "kb_update" }
     idle: idle_market
   missionrunner:
     schedule:
       - { every: hourly, command: "update_market" }
       - { every: hourly, command: "capture_fuel" }
+      - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "kb_update" }
     idle: missions

@@ -610,3 +610,24 @@ func TestDispatchMissionsCommand(t *testing.T) {
 		t.Fatalf("missions without market collector must no-op, got %v", err)
 	}
 }
+
+// TestCaptureProfileIsSupported pins that capture_profile is in the curated
+// worker vocabulary. roles_test.go enforces that every command named in
+// data/overmind/roles.yaml appears in the supported map, so a schedule line
+// without this entry fails the build.
+func TestCaptureProfileIsSupported(t *testing.T) {
+	d := &WorkerDispatch{}
+	if !d.Supports("capture_profile") {
+		t.Error("capture_profile must be in the supported command set")
+	}
+}
+
+// TestCaptureProfileWithoutStoreIsANoOp pins that a worker launched without
+// --assets-db-path runs the command harmlessly rather than erroring every
+// scheduled pass.
+func TestCaptureProfileWithoutStoreIsANoOp(t *testing.T) {
+	d := &WorkerDispatch{Client: &fakeClient{state: &game.State{}}, Out: io.Discard}
+	if err := d.Run(context.Background(), []string{"capture_profile"}); err != nil {
+		t.Errorf("capture_profile without a store must be a no-op, got %v", err)
+	}
+}

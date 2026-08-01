@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/assets"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -23,9 +24,13 @@ import (
 // which case tracking commands degrade to a no-op capture (movement/mining still
 // work).
 type WorkerDispatch struct {
-	Client  game.GameClient
-	KB      knowledge.Base
-	Market  *market.Collector
+	Client game.GameClient
+	KB     knowledge.Base
+	Market *market.Collector
+	// Assets is the agent asset + capability ledger (data/assets.db). Nil
+	// disables capture entirely: asset capture is strictly less important than
+	// any paying activity and must never be a new way for a pass to fail.
+	Assets  *assets.Store
 	Out     io.Writer
 	AgentID string      // claim owner for opportunity-claiming roles (e.g. hauler)
 	Station string      // home base id: pins the assist and missionrunner roles
@@ -170,7 +175,7 @@ var supported = map[string]bool{
 	"mine": true, "mine_qty": true, "deliver": true, "buy_directed": true, "craft_node": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
-	"update_market": true, "capture_fuel": true,
+	"update_market": true, "capture_fuel": true, "capture_profile": true,
 	"get_status": true, "get_system": true, "get_cargo": true,
 }
 
@@ -384,6 +389,9 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			return err
 		}
 		return market.CaptureFuelFromClient(ctx, d.Client, d.Market, d.AgentID)
+	case "capture_profile":
+		// Nil store = capture disabled; not an error. See the Assets field.
+		return assets.CaptureProfile(ctx, d.Client, d.Assets, d.AgentID, time.Now())
 	default:
 		return fmt.Errorf("worker dispatch: unsupported command %q", cmd)
 	}

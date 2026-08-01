@@ -32,6 +32,7 @@ import (
 	"github.com/peterh/liner"
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/agent"
+	"github.com/rsned/spacemolt/pkg/assets"
 	"github.com/rsned/spacemolt/pkg/faction"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -74,6 +75,11 @@ var globalFactionBackfiller *faction.FactionBackfiller
 // the flag was empty or the open failed.
 var globalMarketCollector *market.Collector
 
+// globalAssets is the agent asset + capability ledger used by the
+// capture_profile command. Constructed once at startup from the
+// --assets-db-path flag; nil if the flag was empty or the open failed.
+var globalAssets *assets.Store
+
 // Output format for server responses.
 type outputFormat string
 
@@ -90,6 +96,7 @@ func main() {
 	registryURL := flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
 	dbPath := flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite knowledge base (enables update_* commands)")
 	marketDBPath := flag.String("market-db-path", "data/market.db", "Path to the separate market database")
+	assetsDBPath := flag.String("assets-db-path", "", "path to the agent asset ledger (data/assets.db); empty disables asset capture")
 	intelDir := flag.String("intel-dir", "data/intel", "Base directory for per-POI get_poi intel dumps (<intel-dir>/<system_id>/<system_id>___<poi_id>.json); empty to disable")
 	xpTracking := flag.Bool("xp-tracking", true, "Enable XP observation tracking to the knowledge base")
 	transport := flag.String("transport", "ws", "Game transport: 'ws' (WebSocket, default) or 'mcp' (MCP over HTTP)")
@@ -244,6 +251,19 @@ func main() {
 		} else {
 			globalMarketCollector = mc
 			logger.Printf("Market database loaded: %s", *marketDBPath)
+		}
+	}
+
+	// Initialize the asset ledger once from --assets-db-path flag.
+	if *assetsDBPath != "" {
+		cfg := assets.DefaultConfig()
+		cfg.DBPath = *assetsDBPath
+		store, err := assets.Open(cfg)
+		if err != nil {
+			logger.Printf("Warning: failed to open assets db at %s: %v", *assetsDBPath, err)
+		} else {
+			globalAssets = store
+			logger.Printf("Asset ledger loaded: %s", *assetsDBPath)
 		}
 	}
 
@@ -8528,6 +8548,14 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return kbUpdateMissions(client, ctx)
 	case "update_all":
 		return kbUpdateAll(client, ctx)
+	case "capture_profile":
+		if globalAssets == nil {
+			fmt.Println("capture_profile: no assets DB configured (use --assets-db-path)")
+
+			return nil
+		}
+
+		return assets.CaptureProfile(ctx, client, globalAssets, globalAgentID, time.Now())
 	case "update_faction_data", "update_faction":
 		return kbUpdateFaction(client, ctx)
 	case "seen_factions":
@@ -9547,6 +9575,7 @@ func printHelp() {
 	fmt.Println("  update_facilities         - Save facility details to KB (must be docked)")
 	fmt.Println("  update_missions           - Save mission board templates to KB")
 	fmt.Println("  update_all                - Run all update commands for current location")
+	fmt.Println("  capture_profile           - Capture this agent's profile, skills, standings, carrier tier and hulls")
 	fmt.Println("  update_faction_data       - Save faction data to KB (must be in a faction)")
 	fmt.Println("  seen_factions [--seed]    - List factions seen on other agents; --seed backfills them into the factions table")
 	fmt.Println("  passenger [<id>] [--empire X] - Browse the stored passenger catalog (Name (id), Empire, Bio); <id> shows full detail")
