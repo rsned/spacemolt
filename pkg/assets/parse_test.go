@@ -31,7 +31,11 @@ func TestParseCurrentMax(t *testing.T) {
 // fuel strings are retained alongside the parsed ints so a server-side format
 // change surfaces as a mismatch instead of silent zeros.
 func TestHullsFromGoldenPayload(t *testing.T) {
-	raw := []byte(`{"action":"list_ships","count":2,"active_ship_id":"aaa",
+	// Live wrapper shape, verified against databot 2026-08-01: active_ship_class
+	// / active_ship_id / count / ships, and NO "action" field. An earlier
+	// version of this fixture invented one, which is what let the unreachable
+	// "owned_ships" cache key go unnoticed.
+	raw := []byte(`{"active_ship_class":"survey_vessel","count":2,"active_ship_id":"aaa",
 	 "ships":[
 	  {"class_id":"survey_vessel","class_name":"Survey Vessel","fuel":"1020/1020",
 	   "hull":"340/340","is_active":false,"location":"stored at Grand Exchange Station",
@@ -109,7 +113,7 @@ func TestHullsFromEmptyIsNotCaptured(t *testing.T) {
 // makes this unreachable today, but conflating it with "no cache entry" is
 // what made the wipe path possible in the first place.
 func TestHullsFromEmptyShipListIsCaptured(t *testing.T) {
-	hulls, ok, err := HullsFrom([]byte(`{"action":"list_ships","count":0,"ships":[]}`))
+	hulls, ok, err := HullsFrom([]byte(`{"active_ship_id":"aaa","count":0,"ships":[]}`))
 	if err != nil {
 		t.Fatalf("HullsFrom: %v", err)
 	}

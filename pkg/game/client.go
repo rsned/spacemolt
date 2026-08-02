@@ -4508,7 +4508,17 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			shouldStore = true
 		}
 		if _, hasShips := resp.Payload["ships"]; hasShips {
-			if storeKey == "" {
+			// An owned-fleet listing (list_ships) carries NO "action" field —
+			// verified live 2026-08-01 — so the action-based switch above never
+			// reaches its case "list_ships", and "owned_ships" was unreachable
+			// from the day it was added. active_ship_id is the discriminator:
+			// only a listing of ships you own names the active hull. Store
+			// under BOTH keys, because cmd/auto-trader and
+			// cmd/tools/daily-summary read the generic "ships".
+			if _, hasActive := resp.Payload["active_ship_id"]; hasActive && storeKey == "" {
+				storeKey = "owned_ships"
+				extraKeys = append(extraKeys, "ships")
+			} else if storeKey == "" {
 				storeKey = "ships"
 			}
 			shouldStore = true
