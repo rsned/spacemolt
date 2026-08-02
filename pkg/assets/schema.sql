@@ -21,6 +21,23 @@ CREATE INDEX IF NOT EXISTS idx_agents_agent_id ON agents(agent_id);
 -- cadences (carrier profile is two free queries; a storage sweep is N calls),
 -- and one agent-level timestamp would make a 20-minute-old skill level and a
 -- 6-day-old holding indistinguishable.
+-- STATION IDS ARE DUAL-NAMED. Every station can appear under a base id or a
+-- poi id, and for 15 of them the two differ: the five empire capitals
+-- (confederacy_central_command = sol_central, central_nexus = the_core,
+-- frontier_station = mobile_capital, grand_exchange_station = grand_exchange,
+-- crimson_war_citadel = war_citadel) are legacy names the server kept live and
+-- uses interchangeably, the seven pirate strongholds carry a mechanical
+-- "_station" suffix, and three player bases are hex-id pairs.
+--
+-- This table stores BOTH forms: home_base and docked_at_base are base ids,
+-- current_poi is a poi id. agent_hulls.location_base_id is a base id.
+--
+-- So any reader joining these columns against pois.id silently drops all five
+-- capitals and all seven pirate strongholds. There are no FKs here by design,
+-- so nothing will error -- it will just under-report. The authoritative map is
+-- bases(id, poi_id) in spacemolt-knowledge.db; resolve through it rather than
+-- stripping "_station", which only covers the pirate cases and none of the
+-- genuine renames. Verified against databot 2026-08-01.
 CREATE TABLE IF NOT EXISTS agent_profile (
     player_id      TEXT PRIMARY KEY,
     username       TEXT NOT NULL DEFAULT '',
