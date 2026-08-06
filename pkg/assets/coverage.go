@@ -36,8 +36,24 @@ func coverageKeyColumn(table string) string {
 	return "player_id"
 }
 
+// CoverageCadence is how often each source is expected to refresh, keyed by
+// table name. Coverage uses 2x a source's cadence as its stale cutoff -- this
+// MUST match the alarm rule in the dashboard panel exactly (cadence * 2 in
+// frontend/src/components/overmind/AssetCoveragePanel.tsx's CADENCE_HOURS),
+// or the panel's red highlight and its "how many agents" stale count disagree
+// about the same row. Keep the two maps in sync if either changes.
+var CoverageCadence = map[string]time.Duration{
+	"agent_profile":   time.Hour,
+	"agent_carrier":   time.Hour,
+	"agent_hulls":     time.Hour,
+	"agent_skills":    time.Hour,
+	"agent_storage":   24 * time.Hour,
+	"faction_storage": 24 * time.Hour,
+}
+
 // Coverage reports how many agents each source knows about and how many of
-// those are older than staleAfter.
+// those are stale. A source listed in CoverageCadence is considered stale
+// past 2x its cadence; any other source falls back to staleAfter.
 //
 // This exists because every previous unsupervised capture job here died
 // silently. Capture rides the supervised worker schedule rather than a new
@@ -47,12 +63,18 @@ func Coverage(ctx context.Context, db *sql.DB, now time.Time, staleAfter time.Du
 	if db == nil {
 		return nil, nil
 	}
-	cutoff := rfc3339(now.Add(-staleAfter))
 	out := make([]CoverageRow, 0, len(coverageSources))
 	for _, table := range coverageSources {
 		row := CoverageRow{Source: table}
 		var oldest sql.NullString
 		key := coverageKeyColumn(table)
+
+		staleFor := staleAfter
+		if cadence, ok := CoverageCadence[table]; ok {
+			staleFor = 2 * cadence
+		}
+		cutoff := rfc3339(now.Add(-staleFor))
+
 		// #nosec G201 -- table and key come from the fixed coverageSources list
 		// (via coverageKeyColumn), never user input.
 		//

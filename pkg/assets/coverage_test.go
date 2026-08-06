@@ -150,6 +150,41 @@ func TestCoverageCountsDistinctAgentsNotRows(t *testing.T) {
 	}
 }
 
+// TestCoverageStaleUsesPerSourceCadenceNotGlobalThreshold pins the fix for the
+// I3 review finding: the dashboard panel highlights an hourly source (e.g.
+// agent_profile) red once it passes 2x its 1h cadence, but Coverage was
+// computing `stale` against one global 24h threshold for every source. That
+// let a row read red with a `stale` column claiming 0 for up to 22 more
+// hours -- exactly the gap an operator relies on `stale` to report. An age of
+// 10 hours falls squarely in that gap: well past the hourly source's 2h stale
+// cutoff, but nowhere near the old global 24h one.
+func TestCoverageStaleUsesPerSourceCadenceNotGlobalThreshold(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+	age10h := now.Add(-10 * time.Hour)
+
+	if err := st.UpsertProfile(ctx, Profile{PlayerID: "p1", CapturedAt: age10h}); err != nil {
+		t.Fatalf("seed profile: %v", err)
+	}
+
+	// Global staleAfter is still 24h, matching what the dashboard passes --
+	// the fix must override it for sources listed in CoverageCadence.
+	rows, err := Coverage(ctx, st.DB(), now, 24*time.Hour)
+	if err != nil {
+		t.Fatalf("Coverage: %v", err)
+	}
+	by := map[string]CoverageRow{}
+	for _, r := range rows {
+		by[r.Source] = r
+	}
+
+	if got := by["agent_profile"]; got.Stale != 1 {
+		t.Errorf("agent_profile stale = %d, want 1 -- a 10h-old row is past the hourly source's 2h cadence cutoff, "+
+			"even though it is nowhere near the 24h global threshold", got.Stale)
+	}
+}
+
 // TestCoverageIncludesStorageAndFaction pins the new sources into the
 // dashboard's freshness report. A capture that nothing watches is the failure
 // mode this ledger was built to avoid -- daily-summary went silent for 25 days.

@@ -2,6 +2,9 @@ import type { AssetCoverageRow } from '../../lib/useFleetStream';
 
 // Per-source cadences, in hours. A source is flagged once it exceeds 2x its
 // cadence: one missed boundary is churn, two is a stall worth looking at.
+// MUST match pkg/assets/coverage.go's CoverageCadence -- that map drives the
+// `stale` column's own 2x-cadence cutoff, and the two have to agree or a red
+// row and a `stale` count of 0 can both be "correct" for the same row.
 const CADENCE_HOURS: Record<string, number> = {
   agent_profile: 1,
   agent_carrier: 1,
