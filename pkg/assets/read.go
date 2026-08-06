@@ -148,3 +148,43 @@ func (s *Store) LoadHulls(ctx context.Context, playerID string, r BaseResolver) 
 
 	return out, at, len(out) > 0, nil
 }
+
+// NewBaseResolver builds a resolver from a bases(id, poi_id) table. The caller
+// supplies an ALREADY-OPEN handle -- normally spacemolt-knowledge.db, which
+// pkg/worker and play_as both hold anyway -- so this package never opens, imports
+// or depends on that database. assets.db stays independently rebuildable.
+//
+// The map is tiny (43 rows live, 15 differing) so it loads once into memory.
+// Rows with an empty poi_id are skipped: those are bases whose two id forms are
+// identical.
+func NewBaseResolver(ctx context.Context, db *sql.DB) (BaseResolver, error) {
+	if db == nil {
+		return nil, nil //nolint:nilnil // a nil resolver is the documented "leave ids alone" mode
+	}
+	rows, err := db.QueryContext(ctx,
+		`SELECT id, poi_id FROM bases WHERE poi_id IS NOT NULL AND poi_id <> '' AND poi_id <> id`)
+	if err != nil {
+		return nil, fmt.Errorf("assets: load base aliases: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	alias := make(map[string]string, 16)
+	for rows.Next() {
+		var id, poiID string
+		if err := rows.Scan(&id, &poiID); err != nil {
+			return nil, fmt.Errorf("assets: scan base alias: %w", err)
+		}
+		alias[id] = poiID
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("assets: iterate base aliases: %w", err)
+	}
+
+	return func(baseID string) string {
+		if poiID, ok := alias[baseID]; ok {
+			return poiID
+		}
+
+		return baseID
+	}, nil
+}
