@@ -66,6 +66,13 @@ export interface Accounting {
 
 export interface AgentMove { agent: AgentState; from_system_id: string }
 
+export interface AssetCoverageRow {
+  source: string;
+  agents: number;
+  oldest: string;
+  stale: number;
+}
+
 interface Snapshot {
   agents: AgentState[] | null;
   off_map: AgentState[] | null;
@@ -74,6 +81,7 @@ interface Snapshot {
   overminds?: Record<string, OvermindInfo>;
   current_overmind?: string;
   current_worker?: string;
+  asset_coverage?: AssetCoverageRow[];
 }
 
 interface Delta {
@@ -111,6 +119,10 @@ export interface FleetStream {
    * like `overminds`. */
   currentOvermind: string;
   currentWorker: string;
+  /** Per-source freshness of the agent asset ledger. Snapshot-only, like
+   * `overminds`: coverage only ever arrives on a full snapshot, and persists
+   * across deltas until the next one. Empty when the ledger isn't deployed. */
+  assetCoverage: AssetCoverageRow[];
   /** Moves from the most recent delta — consumed by the map for animation. */
   moves: AgentMove[];
   connected: boolean;
@@ -133,7 +145,7 @@ export function useFleetStream(streamURL = '/api/overmind/stream'): FleetStream 
   const [state, setState] = useState<FleetStream>({
     agents: new Map(), offMap: [], accounting: null,
     staleFleets: [], removed: {}, overminds: {},
-    currentOvermind: '', currentWorker: '', moves: [], connected: false,
+    currentOvermind: '', currentWorker: '', assetCoverage: [], moves: [], connected: false,
   });
   const agentsRef = useRef(new Map<string, AgentState>());
   const offMapRef = useRef(new Map<string, AgentState>());
@@ -154,6 +166,7 @@ export function useFleetStream(streamURL = '/api/overmind/stream'): FleetStream 
         overminds: snap.overminds ?? {},
         currentOvermind: snap.current_overmind ?? '',
         currentWorker: snap.current_worker ?? '',
+        assetCoverage: snap.asset_coverage ?? [],
         moves: [], connected: true,
       }));
     });

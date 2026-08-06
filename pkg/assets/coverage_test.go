@@ -55,7 +55,10 @@ func TestCoverageCountsStalePerSource(t *testing.T) {
 // self-referential and would not catch a bug that shrinks coverageSources
 // itself, since the "expected" side would shrink right along with it.
 func TestCoverageOnEmptyDBIsNotAnError(t *testing.T) {
-	wantSources := []string{"agent_profile", "agent_carrier", "agent_hulls", "agent_skills"}
+	wantSources := []string{
+		"agent_profile", "agent_carrier", "agent_hulls", "agent_skills",
+		"agent_storage", "faction_storage",
+	}
 
 	st := openTestStore(t)
 	rows, err := Coverage(context.Background(), st.DB(),
@@ -144,5 +147,28 @@ func TestCoverageCountsDistinctAgentsNotRows(t *testing.T) {
 	if got := by["agent_hulls"]; got.Agents != 2 || got.Stale != 1 {
 		t.Errorf("agent_hulls = %d agents (want 2, i.e. distinct, not the 4 rows written) / "+
 			"%d stale (want 1 agent, not the 3 stale rows from multi-1)", got.Agents, got.Stale)
+	}
+}
+
+// TestCoverageIncludesStorageAndFaction pins the new sources into the
+// dashboard's freshness report. A capture that nothing watches is the failure
+// mode this ledger was built to avoid -- daily-summary went silent for 25 days.
+func TestCoverageIncludesStorageAndFaction(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+
+	rows, err := Coverage(ctx, st.DB(), now, 48*time.Hour)
+	if err != nil {
+		t.Fatalf("Coverage: %v", err)
+	}
+	seen := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		seen[r.Source] = true
+	}
+	for _, want := range []string{"agent_storage", "faction_storage"} {
+		if !seen[want] {
+			t.Errorf("Coverage is missing source %q", want)
+		}
 	}
 }

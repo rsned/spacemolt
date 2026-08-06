@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -16,7 +17,24 @@ type CoverageRow struct {
 }
 
 // coverageSources are the tables Coverage reports on, in display order.
-var coverageSources = []string{"agent_profile", "agent_carrier", "agent_hulls", "agent_skills"}
+//
+// faction_storage is keyed on faction_id rather than player_id, so its "agents"
+// column counts FACTIONS. The panel labels it accordingly -- the alternative,
+// leaving it out, would let a stalled faction capture go unnoticed, which is
+// exactly the silence this query exists to break.
+var coverageSources = []string{
+	"agent_profile", "agent_carrier", "agent_hulls", "agent_skills",
+	"agent_storage", "faction_storage",
+}
+
+// coverageKeyColumn is the identity column each source is counted by.
+func coverageKeyColumn(table string) string {
+	if strings.HasPrefix(table, "faction_") {
+		return "faction_id"
+	}
+
+	return "player_id"
+}
 
 // Coverage reports how many agents each source knows about and how many of
 // those are older than staleAfter.
@@ -34,17 +52,19 @@ func Coverage(ctx context.Context, db *sql.DB, now time.Time, staleAfter time.Du
 	for _, table := range coverageSources {
 		row := CoverageRow{Source: table}
 		var oldest sql.NullString
-		// #nosec G201 -- table comes from the fixed coverageSources list, never user input.
+		key := coverageKeyColumn(table)
+		// #nosec G201 -- table and key come from the fixed coverageSources list
+		// (via coverageKeyColumn), never user input.
 		//
 		// Stale counts DISTINCT agents, not rows: agent_skills and
 		// agent_hulls carry many rows per agent, and COUNT(DISTINCT
-		// CASE WHEN ... THEN player_id END) drops NULLs (COUNT(DISTINCT
+		// CASE WHEN ... THEN key END) drops NULLs (COUNT(DISTINCT
 		// ...) never counts a NULL), so a fresh agent's rows never
 		// contribute. Getting this wrong (e.g. SUM of a per-row CASE)
 		// overstates the alarm by however many rows the stale agent
 		// happens to have.
-		q := fmt.Sprintf(`SELECT COUNT(DISTINCT player_id), MIN(captured_at),
-			COUNT(DISTINCT CASE WHEN captured_at < ? THEN player_id END) FROM %s`, table)
+		q := fmt.Sprintf(`SELECT COUNT(DISTINCT %[1]s), MIN(captured_at),
+			COUNT(DISTINCT CASE WHEN captured_at < ? THEN %[1]s END) FROM %[2]s`, key, table)
 		if err := db.QueryRowContext(ctx, q, cutoff).Scan(&row.Agents, &oldest, &row.Stale); err != nil {
 			return nil, fmt.Errorf("assets: coverage %s: %w", table, err)
 		}

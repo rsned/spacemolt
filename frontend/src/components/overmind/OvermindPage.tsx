@@ -4,6 +4,7 @@ import { useGalaxyMap } from '../../lib/useGalaxyMap';
 import { FLEETS, useFleetStream, type AgentState } from '../../lib/useFleetStream';
 import { removeAgent, readdAgent } from '../../lib/fleetAdmin';
 import { AccountingStrip } from './AccountingStrip';
+import { AssetCoveragePanel } from './AssetCoveragePanel';
 import { FleetRail } from './FleetRail';
 import { FleetOverlay } from './FleetOverlay';
 import { SystemView } from './SystemView';
@@ -77,6 +78,7 @@ export function OvermindPage() {
         currentOvermind={stream.currentOvermind}
         currentWorker={stream.currentWorker}
       />
+      <AssetCoveragePanel coverage={stream.assetCoverage} />
       <div className="flex-1 flex min-h-0">
         <div className="flex-1 min-w-0 relative flex flex-col" id="ov-map-slot">
           {/* Fleet layer toggles + off-map tray, in normal document flow above the
