@@ -3223,15 +3223,17 @@ export function AssetCoveragePanel({ coverage }: { coverage: AssetCoverageRow[] 
   }
 
   return (
-    <section className="asset-coverage">
-      <h3>Asset ledger freshness</h3>
-      <table>
+    <section className="bg-[#11100c] border-b border-[#2a2618] py-2">
+      <div className="px-4 text-[#d4a017] font-bold tracking-widest text-sm">
+        ASSET LEDGER FRESHNESS
+      </div>
+      <table className="w-full text-xs font-mono mt-1">
         <thead>
-          <tr>
-            <th>source</th>
-            <th>known</th>
-            <th>stale</th>
-            <th>oldest</th>
+          <tr className="text-[10px] uppercase tracking-widest text-[#8a8570]">
+            <th className="text-left px-4 font-normal">source</th>
+            <th className="text-right px-4 font-normal">known</th>
+            <th className="text-right px-4 font-normal">stale</th>
+            <th className="text-right px-4 font-normal">oldest</th>
           </tr>
         </thead>
         <tbody>
@@ -3241,13 +3243,13 @@ export function AssetCoveragePanel({ coverage }: { coverage: AssetCoverageRow[] 
             const alarm = row.stale > 0 || (age !== null && age > cadence * 2);
 
             return (
-              <tr key={row.source} className={alarm ? 'stale' : undefined}>
-                <td>{row.source}</td>
-                <td>
+              <tr key={row.source} className={alarm ? 'text-red-400' : 'text-[#d4a017]'}>
+                <td className="text-left px-4">{row.source}</td>
+                <td className="text-right px-4">
                   {row.agents} {COUNT_LABEL[row.source] ?? 'agents'}
                 </td>
-                <td>{row.stale}</td>
-                <td>{age === null ? '—' : `${age.toFixed(1)}h`}</td>
+                <td className="text-right px-4">{row.stale}</td>
+                <td className="text-right px-4">{age === null ? '—' : `${age.toFixed(1)}h`}</td>
               </tr>
             );
           })}
@@ -3258,8 +3260,11 @@ export function AssetCoveragePanel({ coverage }: { coverage: AssetCoverageRow[] 
 }
 ```
 
-Match the styling approach of the sibling components — if `AccountingStrip.tsx` uses CSS modules
-or inline styles rather than plain class names, follow that instead of introducing a new pattern.
+**Styling note (verified 2026-08-06):** this codebase styles with **Tailwind utility classes**, not
+CSS modules or semantic class names — see `AccountingStrip.tsx`, which uses the same dark amber
+palette reproduced above (`bg-[#11100c]` panel, `border-[#2a2618]` rules, `text-[#d4a017]` values,
+`text-[#8a8570]` labels, `text-red-400` for alarm). Match it; do not introduce a new styling
+pattern or a stylesheet.
 
 - [ ] **Step 7: Render it**
 
@@ -3272,9 +3277,16 @@ In `frontend/src/components/overmind/OvermindPage.tsx`, import the panel and ren
 
 - [ ] **Step 8: Build the frontend**
 
-Run:
+**`frontend/node_modules` does not exist in this worktree** (it is gitignored, so it is per-worktree
+and the main checkout's copy is not shared). Install first, once:
+
 ```bash
-cd frontend && npm run build
+cd frontend && npm install
+```
+
+Then:
+```bash
+npm run build          # tsc -b && vite build
 ```
 Expected: no TypeScript errors. A type error here is the point of the exercise — the `Snapshot`
 interface genuinely lacked `asset_coverage` before this task.
