@@ -700,33 +700,31 @@ func TestCaptureProfileFallsBackToStoredHulls(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
 
-	// Pass 1: everything captures cleanly.
-	c := newCaptureFake()
-	c.raw["owned_ships"] = []byte(`{"active_ship_id":"s1","count":1,"ships":[` +
-		`{"ship_id":"s1","class_id":"hauler","is_active":true,"hull":"100/100","fuel":"50/50"}]}`)
+	// Pass 1: everything captures cleanly. newFakeClient() already seeds
+	// raw["owned_ships"] with one active hull, so no setup is needed here.
+	c := newFakeClient()
 	if err := CaptureProfile(ctx, c, st, "agent-x", now); err != nil {
 		t.Fatalf("pass 1: %v", err)
 	}
-	if got := capabilityEligible(t, st, "p1", "mission_delivery"); !got {
+	if got := capabilityEligible(t, st, "abc123", "mission_delivery"); !got {
 		t.Fatalf("pass 1 mission_delivery must be eligible")
 	}
 
 	// Pass 2: ListShips fails. The stored hull set must still carry the verdict.
-	c.listShipsErr = errors.New("connection reset")
+	c.shipsErr = errors.New("connection reset")
 	if err := CaptureProfile(ctx, c, st, "agent-x", now.Add(time.Hour)); err != nil {
 		t.Fatalf("pass 2: %v", err)
 	}
-	if got := capabilityEligible(t, st, "p1", "mission_delivery"); !got {
+	if got := capabilityEligible(t, st, "abc123", "mission_delivery"); !got {
 		t.Errorf("pass 2 mission_delivery flipped to ineligible on a transient ListShips failure")
 	}
-	if reason := capabilityReason(t, st, "p1", "mission_delivery"); reason != "" {
+	if reason := capabilityReason(t, st, "abc123", "mission_delivery"); reason != "" {
 		t.Errorf("an eligible verdict must carry no blocking reason, got %q", reason)
 	}
 }
 ```
 
-Add two readback helpers to the same file (if `capabilityEligible` already exists from slices 1–4,
-reuse it and add only what is missing):
+Add both readback helpers to the same file — **neither exists yet**, verified 2026-08-06:
 
 ```go
 func capabilityEligible(t *testing.T, st *Store, playerID, capability string) bool {
@@ -754,9 +752,12 @@ func capabilityReason(t *testing.T, st *Store, playerID, capability string) stri
 }
 ```
 
-The fake needs a `listShipsErr` field. Extend the existing `captureFake` in `capture_test.go`:
-its `ListShips` method returns `f.listShipsErr` when non-nil, otherwise nil. Match whatever the
-existing fake is named — do not introduce a second fake.
+**No new fake and no new field are needed.** `pkg/assets/capture_test.go:15` already defines
+`fakeClient` (embedding `game.GameClient`, so unused methods panic if called) with exactly the
+knobs this test needs — `shipsErr`, `shippingErr`, `statusErr`, `raw`, `calls` — and the
+constructor `newFakeClient()` at `:46` seeds `state.Player.ID = "abc123"`, credits 15135,
+smuggling level 3, pirate baseline 10, plus valid `raw["owned_ships"]` and
+`raw["shipping_profile"]` payloads. Use that fake as-is. Do NOT introduce a second fake.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
