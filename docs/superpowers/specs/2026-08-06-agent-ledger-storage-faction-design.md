@@ -223,3 +223,60 @@ worktree, run from the main repo with a scratch db, off-fleet agents
 Faction ship garages (shape unverified, none built), module/fitting capture,
 `spread:` jitter, unclaimed gifts, assignment. The worker's own gate remains
 authoritative; this ledger screens, it does not promise.
+
+---
+
+## Known limitations as built (2026-08-06, from the final whole-branch review)
+
+These survived review deliberately. None blocks merge; all are real, and each is
+recorded here rather than in a scratch file so the next reader finds them.
+
+**`faction_storage.fuel_reserve` is only reliable for the captor's own dock.**
+This is the sharpest one, and it dents a headline deliverable. The `view_storage`
+hint enumerates bases **with items**, so a faction base holding a stocked fuel
+bunker and no items is invisible to it — never swept, never observed, and
+therefore deleted by the whole-set writer on every pass. The seed-base union
+rescues exactly one base: the one the designated captor happens to be docked at.
+The same applies to agent bases holding only credits, which makes
+`agent_storage.credits` similarly reliable only for the seed base.
+
+There is no cheap fix from the current wire surface: `FactionInfoResponse.OwnedBases`
+is an `int` count, not a list, so there is nothing to union against. Closing this
+needs a base-enumerating call the client does not have. **Do not read these two
+columns as fleet-wide coverage.**
+
+**A persistently failing per-base query is invisible to the coverage panel.**
+When one base's `ViewStorageAt` fails, its previously stored rows are carried
+forward — but `ReplaceStorage` stamps every row it writes with `now`, and
+`StorageBase` carries no per-base `CapturedAt` to preserve. So a base that has
+failed every day for a month reads as "captured minutes ago" forever, and the
+coverage query can never flag it. The parent spec's promise that partial capture
+is "recorded honestly" does not hold on this one path. Fixing it needs a per-base
+`CapturedAt` on the struct plus preservation in the writer.
+
+**The coverage panel will latch red once any agent is retired.** The alarm is
+`stale > 0 || age > cadence*2`. Nothing prunes rows for agents that leave the
+fleet, and a retired agent's frozen row satisfies *both* terms permanently — so
+the first retirement turns the panel red for every source that agent has rows in,
+and it never recovers. Note this carefully: an earlier draft of this note blamed
+only `oldest`, and a fix addressing only `oldest` would not work, because `stale`
+latches on the same rows. The fix belongs in `pkg/ovdash`, which already has the
+fleet roster, rather than in `pkg/assets`, which deliberately has no such
+dependency. This matters more than it looks: the panel is also the stated
+mitigation for the captor-liveness caveat below, so it must be fixed first or that
+mitigation is meaningless.
+
+**Captor liveness is not monitored.** A faction's designated captor is the
+lowest `player_id` among members with a fresh *profile*. Freshness proxies "this
+worker's `CaptureProfile` is running", not "its `CaptureFaction` is succeeding".
+A captor whose faction capture silently fails while its profile keeps refreshing
+stalls that faction's ledger indefinitely, and no other member steps in.
+
+**One narrow duplicate-fetch hole remains in the sweep.** The skip-if-observed
+guard tests the *requested* base id while a successful fetch marks the *response's*.
+Under a persistent id-form mismatch combined with a hint that lists the same base
+twice, the base is fetched twice and appended twice, violating the primary key and
+erroring that capture. Both preconditions are unobserved in the wild, and this is
+strictly better than the pre-fix state (which had no guard at all). Test coverage
+for the id-form fix is also asymmetric: it exists for storage, not for faction, and
+no test constructs a successful response whose `base_id` differs from the request.
