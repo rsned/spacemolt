@@ -124,3 +124,110 @@ func TestHullsFromEmptyShipListIsCaptured(t *testing.T) {
 		t.Errorf("got %d hulls, want 0", len(hulls))
 	}
 }
+
+// TestParseStorageHintLive drives the parser from payloads captured off live
+// agents on 2026-08-06. Composed fixtures are what let owned_ships stay dead
+// under a green suite; every string here came off the wire.
+func TestParseStorageHintLive(t *testing.T) {
+	tests := []struct {
+		name      string
+		hint      string
+		wantOK    bool
+		wantBases []string
+		wantTotal float64
+	}{
+		{
+			name:      "docked with holdings (databot)",
+			hint:      "920 items in storage at confederacy_central_command",
+			wantOK:    true,
+			wantBases: []string{"confederacy_central_command"},
+			wantTotal: 920,
+		},
+		{
+			name:      "comma-grouped total (prophet-1)",
+			hint:      "2,268 items in storage at central_nexus",
+			wantOK:    true,
+			wantBases: []string{"central_nexus"},
+			wantTotal: 2268,
+		},
+		{
+			// craftsman-1, the fleet's heaviest holder: 20 bases, no truncation.
+			name: "multi-base (craftsman-1)",
+			hint: "2,764,074 items in storage at cargo_lanes_freight_depot, central_nexus, " +
+				"confederacy_central_command, crix_stronghold_station, dross_citadel_station, " +
+				"frontier_station, gold_run_extraction_hub, grand_exchange_station, " +
+				"kael_arsenal_station, market_prime_exchange, mera_sanctum_station, " +
+				"nyx_nexus_station, sable_port_station, thane_keep_station, " +
+				"the_experiment_research_station, the_rampart_checkpoint, " +
+				"traders_rest_resort_station, treasure_cache_trading_post, " +
+				"unknown_edge_waystation, voss_redoubt_station",
+			wantOK: true,
+			wantBases: []string{
+				"cargo_lanes_freight_depot", "central_nexus", "confederacy_central_command",
+				"crix_stronghold_station", "dross_citadel_station", "frontier_station",
+				"gold_run_extraction_hub", "grand_exchange_station", "kael_arsenal_station",
+				"market_prime_exchange", "mera_sanctum_station", "nyx_nexus_station",
+				"sable_port_station", "thane_keep_station", "the_experiment_research_station",
+				"the_rampart_checkpoint", "traders_rest_resort_station",
+				"treasure_cache_trading_post", "unknown_edge_waystation", "voss_redoubt_station",
+			},
+			wantTotal: 2764074,
+		},
+		{
+			name:      "nothing anywhere (random-clark)",
+			hint:      "No items in storage at any station.",
+			wantOK:    true,
+			wantBases: nil,
+			wantTotal: 0,
+		},
+		{
+			name:   "empty hint",
+			hint:   "",
+			wantOK: false,
+		},
+		{
+			name:   "unrecognised prose",
+			hint:   "storage is temporarily unavailable",
+			wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := ParseStorageHint(tt.hint)
+			if ok != tt.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
+			}
+			if !ok {
+				return
+			}
+			if len(got.Bases) != len(tt.wantBases) {
+				t.Fatalf("bases = %v, want %v", got.Bases, tt.wantBases)
+			}
+			for i := range tt.wantBases {
+				if got.Bases[i] != tt.wantBases[i] {
+					t.Errorf("bases[%d] = %q, want %q", i, got.Bases[i], tt.wantBases[i])
+				}
+			}
+			if got.Total != tt.wantTotal {
+				t.Errorf("total = %v, want %v", got.Total, tt.wantTotal)
+			}
+		})
+	}
+}
+
+// TestParseStorageHintSentinelIsNotABase pins the single nastiest case. The
+// server says "No items in storage at any station." when an agent holds
+// nothing. Cutting on " in storage at " leaves the tail "any station.", which a
+// naive parser turns into a base id and then QUERIES -- and worse, a non-empty
+// base list suppresses the "everything went to zero" deletion, so the ledger
+// would keep reporting stock the agent has already sold.
+func TestParseStorageHintSentinelIsNotABase(t *testing.T) {
+	got, ok := ParseStorageHint("No items in storage at any station.")
+	if !ok {
+		t.Fatal("the empty sentinel must parse successfully, not fail open")
+	}
+	if len(got.Bases) != 0 {
+		t.Errorf("bases = %v, want empty (an 'any station.' entry is a parser bug)", got.Bases)
+	}
+}

@@ -118,3 +118,85 @@ func CarrierFrom(raw []byte) (Carrier, bool, error) {
 		LiabilityUnlimited:            capy.LiabilityUnlimited,
 	}, true, nil
 }
+
+// hintSeparator is the fixed phrase between the item total and the base list in
+// view_storage's prose hint.
+const hintSeparator = " in storage at "
+
+// hintEmptySentinel is what the server sends when an agent holds nothing
+// anywhere. It matches the general shape, so it MUST be recognised before the
+// generic split: the tail "any station." would otherwise become a base id, get
+// queried, and -- far worse -- make the base list non-empty, suppressing the
+// deletion that should have cleared the agent's stale holdings.
+const hintEmptySentinel = "No items in storage at any station."
+
+// StorageHint is the parsed form of view_storage's hint.
+//
+// Total is the item count across ALL listed bases, verified against live data:
+// databot's "920 items" equals the exact sum of its ten item quantities. That
+// makes it a truncation detector -- if a sweep's sum falls short of Total,
+// bases were omitted from the hint.
+type StorageHint struct {
+	Bases    []string
+	Total    float64
+	HasTotal bool
+}
+
+// ParseStorageHint reads the prose hint into a base list.
+//
+// ok=false means "unparseable" and callers MUST NOT delete anything on it: an
+// empty sweep is indistinguishable from "sold everything" and would erase real
+// holdings. ok=true with no bases is the genuine "holds nothing" answer.
+//
+// The hint is agent-global, not per-base: a query against a station where the
+// agent holds nothing still returns the full list (verified 2026-08-06 against
+// databot at grand_exchange_station). So one call from anywhere is enough.
+func ParseStorageHint(hint string) (StorageHint, bool) {
+	h := strings.TrimSpace(hint)
+	if h == "" {
+		return StorageHint{}, false
+	}
+	if h == hintEmptySentinel {
+		return StorageHint{}, true
+	}
+	// Cut on the separator FIRST. The total is comma-grouped ("2,720,379"), so
+	// splitting the whole string on ", " would shred the number into fake bases.
+	head, tail, found := strings.Cut(h, hintSeparator)
+	if !found || strings.TrimSpace(tail) == "" {
+		return StorageHint{}, false
+	}
+
+	out := StorageHint{}
+	if total, ok := parseGroupedCount(head); ok {
+		out.Total, out.HasTotal = total, true
+	}
+
+	for _, part := range strings.Split(tail, ",") {
+		base := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(part), "."))
+		if base == "" {
+			continue
+		}
+		out.Bases = append(out.Bases, base)
+	}
+	if len(out.Bases) == 0 {
+		return StorageHint{}, false
+	}
+
+	return out, true
+}
+
+// parseGroupedCount reads the leading "2,720,379 items" style count. A missing
+// or unreadable count is not fatal -- it only disables the truncation
+// cross-check, and the base list is the load-bearing part.
+func parseGroupedCount(head string) (float64, bool) {
+	fields := strings.Fields(head)
+	if len(fields) == 0 {
+		return 0, false
+	}
+	n, err := strconv.ParseFloat(strings.ReplaceAll(fields[0], ",", ""), 64)
+	if err != nil {
+		return 0, false
+	}
+
+	return n, true
+}
