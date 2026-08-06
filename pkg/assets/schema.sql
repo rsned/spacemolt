@@ -158,3 +158,36 @@ CREATE TABLE IF NOT EXISTS agent_capability (
     PRIMARY KEY (player_id, capability)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_capability_lookup ON agent_capability(capability, eligible);
+
+-- Per-base storage holdings. base_id is the WIRE value (base-id form, e.g.
+-- confederacy_central_command), never normalised at write time: keeping it
+-- verbatim is what lets a capture be diffed field-for-field against the raw
+-- frame. Readers resolve through assets.BaseResolver -- see the dual-named
+-- station note above agent_profile.
+--
+-- Discovered from view_storage's prose hint, which enumerates every base
+-- holding items and is AGENT-GLOBAL: one call from anywhere returns the full
+-- list, even when queried against a base with no holdings.
+CREATE TABLE IF NOT EXISTS agent_storage (
+    player_id   TEXT NOT NULL,
+    base_id     TEXT NOT NULL,
+    credits     INTEGER NOT NULL DEFAULT 0,
+    captured_at TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (player_id, base_id)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_storage_base ON agent_storage(base_id);
+
+-- quantity is REAL, not INTEGER. CargoItem.Quantity is float64 on the wire and
+-- bill_of_materials already made the INTEGER mistake, where an INTEGER column
+-- silently ceils fractional quantities.
+CREATE TABLE IF NOT EXISTS agent_storage_items (
+    player_id   TEXT NOT NULL,
+    base_id     TEXT NOT NULL,
+    item_id     TEXT NOT NULL,
+    name        TEXT NOT NULL DEFAULT '',
+    quantity    REAL NOT NULL DEFAULT 0,
+    size        INTEGER NOT NULL DEFAULT 0,
+    captured_at TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (player_id, base_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_storage_items_item ON agent_storage_items(item_id);

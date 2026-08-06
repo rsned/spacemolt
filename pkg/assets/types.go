@@ -103,3 +103,20 @@ type Carrier struct {
 	SinglePackageLiabilityLimit   int64
 	LiabilityUnlimited            bool
 }
+
+// StorageItem is one line of a base's storage manifest. Quantity is float64
+// because CargoItem.Quantity is float64 on the wire.
+type StorageItem struct {
+	ItemID   string
+	Name     string
+	Quantity float64
+	Size     int
+}
+
+// StorageBase is one agent's holdings at one base. Credits is often absent from
+// the payload (omitted when zero), which decodes to 0 -- correct either way.
+type StorageBase struct {
+	BaseID  string
+	Credits int
+	Items   []StorageItem
+}

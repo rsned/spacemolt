@@ -200,3 +200,28 @@ func parseGroupedCount(head string) (float64, bool) {
 
 	return n, true
 }
+
+// StorageFrom decodes a raw view_storage body (cache key "storage" -- NOT
+// "view_storage"; see the key table in the plan) into one base's holdings plus
+// the agent-global hint.
+//
+// ok=false for an empty body means "nothing captured this pass" and must never
+// be treated as "holds nothing": the caller distinguishes the two, because for
+// storage -- unlike hulls -- zero really is reachable.
+func StorageFrom(raw []byte) (StorageBase, string, bool, error) {
+	if len(raw) == 0 {
+		return StorageBase{}, "", false, nil
+	}
+	var resp serverapi.ViewStorageResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return StorageBase{}, "", false, fmt.Errorf("assets: decode view_storage: %w", err)
+	}
+	out := StorageBase{BaseID: resp.BaseID, Credits: resp.Credits}
+	for _, it := range resp.Items {
+		out.Items = append(out.Items, StorageItem{
+			ItemID: it.ItemID, Name: it.Name, Quantity: it.Quantity, Size: it.Size,
+		})
+	}
+
+	return out, resp.Hint, true, nil
+}
