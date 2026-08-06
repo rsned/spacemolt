@@ -191,3 +191,44 @@ CREATE TABLE IF NOT EXISTS agent_storage_items (
     PRIMARY KEY (player_id, base_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_storage_items_item ON agent_storage_items(item_id);
+
+-- Faction assets get their OWN tables rather than a holder_type discriminator
+-- on the agent ones: player_id and faction_id are different id spaces, faction
+-- storage carries fuel-bunker columns agents do not have, and no reader can
+-- forget a WHERE holder_type filter that does not exist.
+CREATE TABLE IF NOT EXISTS faction_profile (
+    faction_id   TEXT PRIMARY KEY,
+    name         TEXT NOT NULL DEFAULT '',
+    tag          TEXT NOT NULL DEFAULT '',
+    leader_id    TEXT NOT NULL DEFAULT '',
+    treasury     INTEGER NOT NULL DEFAULT 0,
+    member_count INTEGER NOT NULL DEFAULT 0,
+    owned_bases  INTEGER NOT NULL DEFAULT 0,
+    captured_at  TEXT NOT NULL DEFAULT ''
+);
+
+-- fuel_reserve/fuel_capacity are the faction's bunker at that base. They ride
+-- the view_faction_storage response, so they are columns here rather than a
+-- separate faction_fuel_bunkers table.
+CREATE TABLE IF NOT EXISTS faction_storage (
+    faction_id    TEXT NOT NULL,
+    base_id       TEXT NOT NULL,
+    credits       INTEGER NOT NULL DEFAULT 0,
+    fuel_reserve  INTEGER NOT NULL DEFAULT 0,
+    fuel_capacity INTEGER NOT NULL DEFAULT 0,
+    captured_at   TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (faction_id, base_id)
+);
+CREATE INDEX IF NOT EXISTS idx_faction_storage_base ON faction_storage(base_id);
+
+CREATE TABLE IF NOT EXISTS faction_storage_items (
+    faction_id  TEXT NOT NULL,
+    base_id     TEXT NOT NULL,
+    item_id     TEXT NOT NULL,
+    name        TEXT NOT NULL DEFAULT '',
+    quantity    REAL NOT NULL DEFAULT 0,
+    size        INTEGER NOT NULL DEFAULT 0,
+    captured_at TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (faction_id, base_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_faction_storage_items_item ON faction_storage_items(item_id);

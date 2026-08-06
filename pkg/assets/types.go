@@ -120,3 +120,24 @@ type StorageBase struct {
 	Credits int
 	Items   []StorageItem
 }
+
+// FactionProfile is the scalar half of faction_info: one row per faction.
+type FactionProfile struct {
+	FactionID   string
+	Name        string
+	Tag         string
+	LeaderID    string
+	Treasury    int
+	MemberCount int
+	OwnedBases  int
+}
+
+// FactionStorageBase is one faction's shared holdings at one base, including
+// its fuel bunker there.
+type FactionStorageBase struct {
+	BaseID       string
+	Credits      int
+	FuelReserve  int
+	FuelCapacity int
+	Items        []StorageItem
+}

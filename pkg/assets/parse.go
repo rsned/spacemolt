@@ -225,3 +225,53 @@ func StorageFrom(raw []byte) (StorageBase, string, bool, error) {
 
 	return out, resp.Hint, true, nil
 }
+
+// FactionProfileFrom decodes a raw faction_info body (cache key "faction_info").
+func FactionProfileFrom(raw []byte) (FactionProfile, bool, error) {
+	if len(raw) == 0 {
+		return FactionProfile{}, false, nil
+	}
+	var resp serverapi.FactionInfoResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return FactionProfile{}, false, fmt.Errorf("assets: decode faction_info: %w", err)
+	}
+	if resp.ID == "" {
+		return FactionProfile{}, false, nil
+	}
+
+	return FactionProfile{
+		FactionID:   resp.ID,
+		Name:        resp.Name,
+		Tag:         strings.TrimSpace(resp.Tag), // the server pads tags to a fixed width
+		LeaderID:    resp.LeaderID,
+		Treasury:    resp.Treasury,
+		MemberCount: resp.MemberCount,
+		OwnedBases:  resp.OwnedBases,
+	}, true, nil
+}
+
+// FactionStorageFrom decodes a raw view_faction_storage body (cache key
+// "faction_storage" -- the classifier routes a storage-shaped payload there
+// whenever faction_id is present).
+func FactionStorageFrom(raw []byte) (FactionStorageBase, string, bool, error) {
+	if len(raw) == 0 {
+		return FactionStorageBase{}, "", false, nil
+	}
+	var resp serverapi.ViewFactionStorageResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return FactionStorageBase{}, "", false, fmt.Errorf("assets: decode view_faction_storage: %w", err)
+	}
+	out := FactionStorageBase{
+		BaseID:       resp.BaseID,
+		Credits:      resp.Credits,
+		FuelReserve:  resp.FactionFuelReserve,
+		FuelCapacity: resp.FactionFuelCapacity,
+	}
+	for _, it := range resp.Items {
+		out.Items = append(out.Items, StorageItem{
+			ItemID: it.ItemID, Name: it.Name, Quantity: it.Quantity, Size: it.Size,
+		})
+	}
+
+	return out, resp.Hint, true, nil
+}
