@@ -191,6 +191,60 @@ func TestCaptureStorageKeepsBasesThatFailedMidSweep(t *testing.T) {
 	}
 }
 
+// TestCaptureStorageCarryForwardKeyedConsistently pins the fix for the I2
+// review finding: observed must be keyed the same way on every path through
+// the sweep loop, or a carried-forward base and a duplicate hint entry for it
+// can either vanish (carry-forward lookup misses on the next pass) or get
+// appended twice (violating the agent_storage primary key and failing the
+// whole capture). The hint here names base_b TWICE and its query fails both
+// times it would be attempted -- the fix must fetch it only once, carry the
+// stored rows forward under the same id it looked storedByBase up with, and
+// must not re-attempt or re-append it on the second hint entry.
+func TestCaptureStorageCarryForwardKeyedConsistently(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+
+	if err := st.ReplaceStorage(ctx, "p1", []StorageBase{
+		{BaseID: "base_b", Items: []StorageItem{{ItemID: "y", Quantity: 10}}},
+	}, now); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	f := newStorageFake("p1", "base_a")
+	f.frames[""] = []byte(`{"base_id":"base_a","hint":"15 items in storage at base_a, base_b, base_b",` +
+		`"items":[{"item_id":"x","quantity":5}]}`)
+	f.failFor["base_b"] = errors.New("timeout")
+
+	if err := CaptureStorage(ctx, f, st, "agent-x", now.Add(time.Hour)); err != nil {
+		t.Fatalf("CaptureStorage: %v", err)
+	}
+
+	baseBFetches := 0
+	for _, c := range f.calls {
+		if c == "base_b" {
+			baseBFetches++
+		}
+	}
+	if baseBFetches != 1 {
+		t.Errorf("base_b was fetched %d times, want 1 -- the second hint entry must be skipped as already observed",
+			baseBFetches)
+	}
+
+	bases, _, err := st.LoadStorage(ctx, "p1", nil)
+	if err != nil {
+		t.Fatalf("LoadStorage: %v", err)
+	}
+	if len(bases) != 2 {
+		t.Fatalf("bases = %d, want 2 (base_a + base_b carried forward exactly once): %+v", len(bases), bases)
+	}
+	for _, b := range bases {
+		if b.BaseID == "base_b" && len(b.Items) != 1 {
+			t.Errorf("base_b items = %d, want 1 carried forward", len(b.Items))
+		}
+	}
+}
+
 // TestCaptureStorageKeepsSeedBaseAbsentFromHint pins the data-loss path found in
 // review. The hint enumerates bases with ITEMS, so a base holding only credits is
 // legitimately absent from it. Without the seed-base union the agent's docked

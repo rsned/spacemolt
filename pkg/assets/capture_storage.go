@@ -74,6 +74,9 @@ func CaptureStorage(ctx context.Context, client game.GameClient, st *Store, agen
 	final := make([]StorageBase, 0, len(sweep))
 	observed := make(map[string]bool, len(sweep))
 	for _, baseID := range sweep {
+		if observed[baseID] {
+			continue // the hint named this base more than once
+		}
 		if baseID == seed.base.BaseID {
 			final = append(final, seed.base)
 			observed[baseID] = true
@@ -84,7 +87,9 @@ func CaptureStorage(ctx context.Context, client game.GameClient, st *Store, agen
 		got, ok := fetchStorage(ctx, client, baseID)
 		if !ok {
 			// Carry the stored rows forward: a failed query is not evidence of
-			// an empty base.
+			// an empty base. storedByBase is keyed by the response form the
+			// previous capture wrote, and a hit here means baseID IS that
+			// form, so marking observed under baseID stays consistent.
 			if prev, had := storedByBase[baseID]; had {
 				final = append(final, prev)
 				observed[baseID] = true
@@ -93,8 +98,19 @@ func CaptureStorage(ctx context.Context, client game.GameClient, st *Store, agen
 
 			continue
 		}
+		// Station ids are dual-named in this game (base id vs poi id form).
+		// observed and final must key on the RESPONSE's base id, matching
+		// storedByBase and the seed-union check below -- keying on the
+		// requested baseID instead lets a form mismatch either delete this
+		// base (carry-forward lookup misses next pass) or duplicate it
+		// (the seed union re-appends it), the same class of bug that hit
+		// browse_ships and owned_ships.
+		if got.base.BaseID != baseID {
+			log.Printf("assets: %s: storage base id form mismatch: requested %q, response named %q",
+				agentID, baseID, got.base.BaseID)
+		}
 		final = append(final, got.base)
-		observed[baseID] = true
+		observed[got.base.BaseID] = true
 	}
 
 	// The seed response is live data already in hand. The hint enumerates bases

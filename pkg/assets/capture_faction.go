@@ -126,6 +126,9 @@ func CaptureFaction(ctx context.Context, client game.GameClient, st *Store, agen
 	final := make([]FactionStorageBase, 0, len(sweep))
 	observed := make(map[string]bool, len(sweep))
 	for _, baseID := range sweep {
+		if observed[baseID] {
+			continue // the hint named this base more than once
+		}
 		if baseID == seed.base.BaseID {
 			final = append(final, seed.base)
 			observed[baseID] = true
@@ -135,6 +138,9 @@ func CaptureFaction(ctx context.Context, client game.GameClient, st *Store, agen
 		time.Sleep(game.SleepQuick)
 		got, ok := fetchFactionStorage(ctx, client, baseID)
 		if !ok {
+			// storedByBase is keyed by the response form the previous
+			// capture wrote, and a hit here means baseID IS that form, so
+			// marking observed under baseID stays consistent.
 			if prev, had := storedByBase[baseID]; had {
 				final = append(final, prev)
 				observed[baseID] = true
@@ -144,8 +150,16 @@ func CaptureFaction(ctx context.Context, client game.GameClient, st *Store, agen
 
 			continue
 		}
+		// See the mirrored comment in capture_storage.go: observed and final
+		// must key on the RESPONSE's base id, matching storedByBase and the
+		// seed-union check below, or a dual-named station form mismatch can
+		// silently delete or duplicate this base.
+		if got.base.BaseID != baseID {
+			log.Printf("assets: %s: faction storage base id form mismatch: requested %q, response named %q",
+				agentID, baseID, got.base.BaseID)
+		}
 		final = append(final, got.base)
-		observed[baseID] = true
+		observed[got.base.BaseID] = true
 	}
 
 	// Same seed-base rule as CaptureStorage, and it bites harder here: faction
