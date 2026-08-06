@@ -191,6 +191,83 @@ func TestCaptureStorageKeepsBasesThatFailedMidSweep(t *testing.T) {
 	}
 }
 
+// TestCaptureStorageKeepsSeedBaseAbsentFromHint pins the data-loss path found in
+// review. The hint enumerates bases with ITEMS, so a base holding only credits is
+// legitimately absent from it. Without the seed-base union the agent's docked
+// base is never swept, never observed, and gets DELETED -- while its decoded
+// contents sit in the seed response we already have in hand.
+func TestCaptureStorageKeepsSeedBaseAbsentFromHint(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+
+	if err := st.ReplaceStorage(ctx, "p1", []StorageBase{{BaseID: "base_c", Credits: 500}}, now); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	f := newStorageFake("p1", "base_c")
+	// Docked at a credits-only base; the hint names only the item-holding bases.
+	f.frames[""] = []byte(`{"base_id":"base_c","credits":500,"items":[],` +
+		`"hint":"15 items in storage at base_a, base_b"}`)
+	f.frames["base_a"] = []byte(`{"base_id":"base_a","items":[{"item_id":"x","quantity":5}]}`)
+	f.frames["base_b"] = []byte(`{"base_id":"base_b","items":[{"item_id":"y","quantity":10}]}`)
+
+	if err := CaptureStorage(ctx, f, st, "agent-x", now.Add(time.Hour)); err != nil {
+		t.Fatalf("CaptureStorage: %v", err)
+	}
+
+	bases, _, err := st.LoadStorage(ctx, "p1", nil)
+	if err != nil {
+		t.Fatalf("LoadStorage: %v", err)
+	}
+	var found *StorageBase
+	for i := range bases {
+		if bases[i].BaseID == "base_c" {
+			found = &bases[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("base_c was deleted despite its 500 credits arriving in the seed response; bases = %v", bases)
+	}
+	if found.Credits != 500 {
+		t.Errorf("base_c credits = %d, want 500", found.Credits)
+	}
+}
+
+// TestCaptureStorageClearsEmptiedSeedBase pins the other side: a seed base that
+// genuinely holds nothing must still be deletable, or "I sold everything at my
+// home station" would never converge to zero.
+func TestCaptureStorageClearsEmptiedSeedBase(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+
+	if err := st.ReplaceStorage(ctx, "p1", []StorageBase{
+		{BaseID: "base_c", Items: []StorageItem{{ItemID: "x", Quantity: 5}}},
+	}, now); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	f := newStorageFake("p1", "base_c")
+	f.frames[""] = []byte(`{"base_id":"base_c","credits":0,"items":[],` +
+		`"hint":"10 items in storage at base_a"}`)
+	f.frames["base_a"] = []byte(`{"base_id":"base_a","items":[{"item_id":"y","quantity":10}]}`)
+
+	if err := CaptureStorage(ctx, f, st, "agent-x", now.Add(time.Hour)); err != nil {
+		t.Fatalf("CaptureStorage: %v", err)
+	}
+
+	bases, _, err := st.LoadStorage(ctx, "p1", nil)
+	if err != nil {
+		t.Fatalf("LoadStorage: %v", err)
+	}
+	for _, b := range bases {
+		if b.BaseID == "base_c" {
+			t.Errorf("an emptied seed base must still be deleted, got %+v", b)
+		}
+	}
+}
+
 // TestCaptureStorageUndockedSeedsWithHomeBase pins that an undocked agent still
 // captures. view_storage without a station_id returns not_docked, so the seed
 // call must supply one.
@@ -209,5 +286,61 @@ func TestCaptureStorageUndockedSeedsWithHomeBase(t *testing.T) {
 	}
 	if len(f.calls) == 0 || f.calls[0] != "base_a" {
 		t.Errorf("seed call = %v, want the first call to target base_a", f.calls)
+	}
+}
+
+// TestCaptureStorageNilStoreOrClientIsANoOp pins that an unconfigured store or
+// client disables capture rather than erroring — assets must never be a new
+// way for a worker pass to fail. Mirrors CaptureProfile's precedent.
+func TestCaptureStorageNilStoreOrClientIsANoOp(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+
+	t.Run("nil store", func(t *testing.T) {
+		f := newStorageFake("p1", "base_a")
+		if err := CaptureStorage(ctx, f, nil, "agent-x", now); err != nil {
+			t.Errorf("nil store must be a no-op, got %v", err)
+		}
+	})
+
+	t.Run("nil client", func(t *testing.T) {
+		st := openTestStore(t)
+		if err := CaptureStorage(ctx, nil, st, "agent-x", now); err != nil {
+			t.Errorf("nil client must be a no-op, got %v", err)
+		}
+	})
+}
+
+// TestCaptureStorageFailedGetStatusWritesNothing pins that a GetStatus error
+// leaves the store untouched rather than writing under a fresh captured_at on
+// data of arbitrary age. Mirrors CaptureProfile's precedent.
+func TestCaptureStorageFailedGetStatusWritesNothing(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+
+	seed := []StorageBase{{BaseID: "base_a", Items: []StorageItem{{ItemID: "x", Quantity: 5}}}}
+	if err := st.ReplaceStorage(ctx, "p1", seed, now); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	f := newStorageFake("p1", "base_a")
+	f.statusErr = errors.New("boom")
+	f.frames[""] = []byte(`{"base_id":"base_a","hint":"15 items in storage at base_a, base_b",` +
+		`"items":[{"item_id":"z","quantity":99}]}`)
+
+	if err := CaptureStorage(ctx, f, st, "agent-x", now.Add(time.Hour)); err != nil {
+		t.Fatalf("CaptureStorage must not fail on a GetStatus error: %v", err)
+	}
+	if len(f.calls) != 0 {
+		t.Errorf("calls = %v, want none -- a GetStatus failure must stop before any view_storage call", f.calls)
+	}
+
+	bases, _, err := st.LoadStorage(ctx, "p1", nil)
+	if err != nil {
+		t.Fatalf("LoadStorage: %v", err)
+	}
+	if len(bases) != 1 || len(bases[0].Items) != 1 || bases[0].Items[0].ItemID != "x" {
+		t.Errorf("bases = %+v, want the original seed untouched", bases)
 	}
 }

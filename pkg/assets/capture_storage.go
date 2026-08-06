@@ -97,6 +97,19 @@ func CaptureStorage(ctx context.Context, client game.GameClient, st *Store, agen
 		observed[baseID] = true
 	}
 
+	// The seed response is live data already in hand. The hint enumerates bases
+	// with ITEMS, so a base holding only credits (or only a parked ship) is
+	// legitimately absent from it -- and without this, such a base is never
+	// swept and gets DELETED while we are looking straight at its contents.
+	// Directly-observed data outranks a base list parsed from prose.
+	//
+	// Guarded on non-empty so a genuinely emptied dock still converges to zero:
+	// "I sold everything at my home station" must still clear the row.
+	if !observed[seed.base.BaseID] && (len(seed.base.Items) > 0 || seed.base.Credits > 0) {
+		final = append(final, seed.base)
+		observed[seed.base.BaseID] = true
+	}
+
 	if !allowBaseDeletion {
 		for _, b := range stored {
 			if !observed[b.BaseID] {
