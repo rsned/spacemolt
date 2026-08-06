@@ -2732,18 +2732,22 @@ func (s *Store) IsFactionCaptor(ctx context.Context, playerID, factionID string,
 		return false, nil
 	}
 	cutoff := rfc3339(now.Add(-factionCaptorFreshness))
-	var lowest string
+	// MIN() over zero matching rows returns ONE row containing SQL NULL -- not
+	// sql.ErrNoRows -- so this must scan into a NullString. Scanning NULL into a
+	// plain string fails with "converting NULL to string is unsupported", which
+	// would turn a cold ledger into an error instead of a bootstrap.
+	var lowest sql.NullString
 	err := s.db.QueryRowContext(ctx, `
 		SELECT MIN(player_id) FROM agent_profile
 		 WHERE faction_id = ? AND captured_at >= ?`, factionID, cutoff).Scan(&lowest)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return false, fmt.Errorf("assets: faction captor %s: %w", factionID, err)
 	}
-	if lowest == "" {
+	if !lowest.Valid || lowest.String == "" {
 		return true, nil // cold ledger: bootstrap
 	}
 
-	return lowest == playerID, nil
+	return lowest.String == playerID, nil
 }
 
 // CaptureFaction records the agent's faction treasury and shared storage.
@@ -2879,10 +2883,10 @@ func fetchFactionStorage(ctx context.Context, client game.GameClient, stationID 
 }
 ```
 
-`MIN(player_id)` over zero rows returns one row containing SQL NULL, not `ErrNoRows`. Scanning
-NULL into a `string` errors, so if the test for a cold ledger fails with a scan error, change
-`lowest` to `sql.NullString` and test `lowest.String == ""`. Verify which behaviour the driver
-gives and keep the code matching it.
+The `sql.NullString` above is not defensive styling — it is required. `MIN()` over zero matching
+rows returns one row holding SQL NULL rather than `sql.ErrNoRows`, and scanning NULL into a plain
+`string` fails with "converting NULL to string is unsupported". With a plain string, the
+cold-ledger bootstrap test fails on a scan error rather than returning `true`.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
