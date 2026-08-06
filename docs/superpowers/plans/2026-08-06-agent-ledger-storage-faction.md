@@ -2771,6 +2771,50 @@ func TestIsFactionCaptorBootstrapsWhenLedgerIsCold(t *testing.T) {
 	}
 }
 
+// TestCaptureFactionKeepsSeedBaseAbsentFromHint pins the faction-side version of
+// the seed-base data-loss path found in Task 7's review. A faction base holding
+// only a FUEL BUNKER and no items is absent from an item-counting hint, so
+// without the seed-base union its bunker row is deleted while the reserve sits
+// in the seed response.
+func TestCaptureFactionKeepsSeedBaseAbsentFromHint(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+
+	if err := st.ReplaceFactionStorage(ctx, "fac1", []FactionStorageBase{
+		{BaseID: "base_c", FuelReserve: 4200, FuelCapacity: 50000},
+	}, now); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	f := newFactionFake("p1", "fac1", "base_c")
+	f.raw["faction_info"] = []byte(`{"id":"fac1","name":"Iron Compact","treasury":1000}`)
+	f.frames[""] = []byte(`{"faction_id":"fac1","base_id":"base_c","items":[],` +
+		`"faction_fuel_reserve":4200,"faction_fuel_capacity":50000,` +
+		`"hint":"9 items in storage at base_a"}`)
+	f.frames["base_a"] = []byte(`{"faction_id":"fac1","base_id":"base_a",` +
+		`"items":[{"item_id":"iron_ore","quantity":9}]}`)
+
+	if err := CaptureFaction(ctx, f, st, "agent-x", now.Add(time.Hour)); err != nil {
+		t.Fatalf("CaptureFaction: %v", err)
+	}
+
+	bases, _, err := st.LoadFactionStorage(ctx, "fac1", nil)
+	if err != nil {
+		t.Fatalf("LoadFactionStorage: %v", err)
+	}
+	for _, b := range bases {
+		if b.BaseID == "base_c" {
+			if b.FuelReserve != 4200 {
+				t.Errorf("base_c fuel_reserve = %d, want 4200", b.FuelReserve)
+			}
+
+			return
+		}
+	}
+	t.Fatalf("base_c was deleted despite its 4200-unit fuel bunker arriving in the seed response; bases = %v", bases)
+}
+
 // TestCaptureFactionSkipsNonMembers pins that an agent with no faction does
 // nothing at all -- most of the fleet is unaffiliated and must not spend calls.
 func TestCaptureFactionSkipsNonMembers(t *testing.T) {
@@ -2788,10 +2832,13 @@ func TestCaptureFactionSkipsNonMembers(t *testing.T) {
 }
 ```
 
-Build `newFactionFake` on the same pattern as `storageFake` from Task 7: embed
-`game.GameClient`, override `GetStatus`, `GetState`, `FactionInfo`, `ViewFactionStorage`,
-`ViewFactionStorageAt`, and `GetRawJSON` (serving keys `"faction_info"` and `"faction_storage"`),
-and count `factionInfoCalls`.
+Build `newFactionFake(playerID, factionID, dockedAt string)` on the same pattern as `storageFake`
+from Task 7: embed `game.GameClient`; override `GetStatus`, `GetState`, `FactionInfo`,
+`ViewFactionStorage`, `ViewFactionStorageAt`; and serve `GetRawJSON` from two sources — a
+`raw map[string][]byte` for the `"faction_info"` key, and the per-station `frames` map for the
+`"faction_storage"` key (mirroring how `storageFake` returns the most recent frame). Count
+`factionInfoCalls`. `GetState` must return a `*game.State` whose `Player.ID`, `Player.FactionID`
+and `Player.DockedAtBase` come from the constructor arguments.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -2952,6 +2999,18 @@ func CaptureFaction(ctx context.Context, client game.GameClient, st *Store, agen
 		final = append(final, got.base)
 		observed[baseID] = true
 	}
+
+	// Same seed-base rule as CaptureStorage, and it bites harder here: faction
+	// storage carries a FUEL BUNKER (fuel_reserve/fuel_capacity) alongside items
+	// and credits, so a base holding only a fuel reserve is entirely ordinary
+	// and is absent from an item-counting hint. Without this the faction's
+	// bunker row is deleted while its contents sit in the seed response.
+	if !observed[seed.base.BaseID] &&
+		(len(seed.base.Items) > 0 || seed.base.Credits > 0 || seed.base.FuelReserve > 0) {
+		final = append(final, seed.base)
+		observed[seed.base.BaseID] = true
+	}
+
 	if !allowBaseDeletion {
 		for _, b := range stored {
 			if !observed[b.BaseID] {
