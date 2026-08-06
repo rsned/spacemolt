@@ -8,6 +8,16 @@ import (
 	"time"
 )
 
+// staleNote renders " (hulls stale 3h0m0s)" for a reason string, or "" when the
+// data came from this pass.
+func staleNote(source string, age time.Duration) string {
+	if age <= 0 {
+		return ""
+	}
+
+	return fmt.Sprintf(" (%s stale %s)", source, age.Round(time.Minute))
+}
+
 // Thresholds mirrored from pkg/worker. They are redeclared rather than
 // imported because pkg/worker will import pkg/assets, and the reverse edge
 // would be a cycle. The divergence is deliberate and documented in the spec:
@@ -39,14 +49,20 @@ const haulMinCredits = 20000
 // follow-on item 3.
 
 // AgentSnapshot is everything the rules see. CarrierKnown distinguishes "no
-// debt" from "never captured" — missing data must never read as capability.
+// debt" from "never captured" -- missing data must never read as capability.
+//
+// CarrierAge/HullsAge are non-zero when the value came from storage rather than
+// from this pass. Rules never silently trust old data; they visibly trust it,
+// by appending the age to the blocking reason.
 type AgentSnapshot struct {
 	Profile      Profile
 	Skills       map[string]SkillRow
 	Standings    map[string]StandingRow
 	Carrier      Carrier
 	CarrierKnown bool
+	CarrierAge   time.Duration
 	Hulls        []Hull
+	HullsAge     time.Duration
 }
 
 // activeHull returns the agent's currently flown hull.
@@ -77,7 +93,8 @@ func Rules() map[string]func(AgentSnapshot) (bool, string) {
 				return false, "no active hull captured"
 			}
 			if s.Profile.Credits < haulMinCredits {
-				return false, fmt.Sprintf("credits %.0f < %d", s.Profile.Credits, haulMinCredits)
+				return false, fmt.Sprintf("credits %.0f < %d%s",
+					s.Profile.Credits, haulMinCredits, staleNote("hulls", s.HullsAge))
 			}
 
 			return true, ""
@@ -87,7 +104,8 @@ func Rules() map[string]func(AgentSnapshot) (bool, string) {
 				return false, "carrier profile not captured"
 			}
 			if s.Carrier.DebtBlocksAcceptance || s.Carrier.OutstandingDebt > 0 {
-				return false, fmt.Sprintf("outstanding_debt %d", s.Carrier.OutstandingDebt)
+				return false, fmt.Sprintf("outstanding_debt %d%s",
+					s.Carrier.OutstandingDebt, staleNote("carrier", s.CarrierAge))
 			}
 			if _, ok := s.activeHull(); !ok {
 				return false, "no active hull captured"

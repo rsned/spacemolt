@@ -83,11 +83,14 @@ func CaptureProfile(ctx context.Context, client game.GameClient, st *Store, agen
 	}
 
 	// Carrier: a failed call or an undecodable body leaves agent_carrier
-	// untouched. Writing a zero row instead would read as a debt-free
-	// probationary carrier, which is worse than no data.
+	// untouched AND falls back to the stored row, so a transient failure cannot
+	// recompute eligibility as if the agent had never been captured. This is
+	// what makes CarrierKnown's documented meaning ("no debt" vs "never
+	// captured") actually true.
 	var (
 		carrier      Carrier
 		carrierKnown bool
+		carrierAge   time.Duration
 	)
 	if err := client.ShippingProfile(ctx); err == nil {
 		if c, ok, derr := CarrierFrom(client.GetRawJSON("shipping_profile")); derr == nil && ok {
@@ -97,23 +100,33 @@ func CaptureProfile(ctx context.Context, client game.GameClient, st *Store, agen
 			}
 		}
 	}
+	if !carrierKnown {
+		if c, at, ok, err := st.LoadCarrier(ctx, playerID); err == nil && ok {
+			carrier, carrierKnown = c, true
+			carrierAge = now.Sub(at)
+		}
+	}
 
-	// Hulls: gate the write on whether a body was actually decoded, exactly as
-	// carrier above. A ListShips error, an empty raw cache (reconnect churn, or
-	// an ack-only await returning before the payload lands) or an undecodable
-	// body all leave agent_hulls untouched. A clean decode replaces the whole
-	// set even if it came back empty, so a set that really did shrink cannot
-	// leave a phantom is_active row behind for activeHull() to read as
-	// capability forever. Zero owned ships is not reachable in this game — a
-	// destroyed last hull respawns a Tier 0 starter — which is precisely why
-	// "empty" must mean "not captured" rather than "fleet gone".
-	var hulls []Hull
+	// Hulls: same fallback. An empty decode still means "not captured" (an agent
+	// can never own zero ships -- a destroyed last hull respawns a Tier 0
+	// starter), so the stored set is the honest answer, not an empty fleet.
+	var (
+		hulls    []Hull
+		hullsOK  bool
+		hullsAge time.Duration
+	)
 	if err := client.ListShips(ctx); err == nil {
 		if hs, ok, derr := HullsFrom(client.GetRawJSON("owned_ships")); derr == nil && ok {
-			hulls = hs
+			hulls, hullsOK = hs, true
 			if err := st.ReplaceHulls(ctx, playerID, hs, now); err != nil {
 				return err
 			}
+		}
+	}
+	if !hullsOK {
+		if hs, at, ok, err := st.LoadHulls(ctx, playerID, nil); err == nil && ok {
+			hulls = hs
+			hullsAge = now.Sub(at)
 		}
 	}
 
@@ -123,6 +136,8 @@ func CaptureProfile(ctx context.Context, client game.GameClient, st *Store, agen
 		Standings:    standingMap,
 		Carrier:      carrier,
 		CarrierKnown: carrierKnown,
+		CarrierAge:   carrierAge,
 		Hulls:        hulls,
+		HullsAge:     hullsAge,
 	}), now)
 }

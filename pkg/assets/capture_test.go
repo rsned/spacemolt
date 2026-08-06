@@ -356,3 +356,60 @@ func TestCaptureProfileFailedGetStatusWritesNothing(t *testing.T) {
 		}
 	}
 }
+
+func capabilityEligible(t *testing.T, st *Store, playerID, capability string) bool {
+	t.Helper()
+	var eligible bool
+	if err := st.DB().QueryRow(
+		`SELECT eligible FROM agent_capability WHERE player_id=? AND capability=?`,
+		playerID, capability).Scan(&eligible); err != nil {
+		t.Fatalf("read capability %s: %v", capability, err)
+	}
+
+	return eligible
+}
+
+func capabilityReason(t *testing.T, st *Store, playerID, capability string) string {
+	t.Helper()
+	var reason string
+	if err := st.DB().QueryRow(
+		`SELECT blocking_reason FROM agent_capability WHERE player_id=? AND capability=?`,
+		playerID, capability).Scan(&reason); err != nil {
+		t.Fatalf("read reason %s: %v", capability, err)
+	}
+
+	return reason
+}
+
+// TestCaptureProfileFallsBackToStoredHulls pins the flapping fix: a transient
+// ListShips failure on a later pass must not recompute capabilities as if the
+// agent had never been captured. Before this, one dropped frame flipped haul,
+// freight and mission_delivery to ineligible with "no active hull captured"
+// while a perfectly good hull set sat in agent_hulls.
+func TestCaptureProfileFallsBackToStoredHulls(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+
+	// Pass 1: everything captures cleanly. newFakeClient() already seeds
+	// raw["owned_ships"] with one active hull, so no setup is needed here.
+	c := newFakeClient()
+	if err := CaptureProfile(ctx, c, st, "agent-x", now); err != nil {
+		t.Fatalf("pass 1: %v", err)
+	}
+	if got := capabilityEligible(t, st, "abc123", "mission_delivery"); !got {
+		t.Fatalf("pass 1 mission_delivery must be eligible")
+	}
+
+	// Pass 2: ListShips fails. The stored hull set must still carry the verdict.
+	c.shipsErr = errors.New("connection reset")
+	if err := CaptureProfile(ctx, c, st, "agent-x", now.Add(time.Hour)); err != nil {
+		t.Fatalf("pass 2: %v", err)
+	}
+	if got := capabilityEligible(t, st, "abc123", "mission_delivery"); !got {
+		t.Errorf("pass 2 mission_delivery flipped to ineligible on a transient ListShips failure")
+	}
+	if reason := capabilityReason(t, st, "abc123", "mission_delivery"); reason != "" {
+		t.Errorf("an eligible verdict must carry no blocking reason, got %q", reason)
+	}
+}
