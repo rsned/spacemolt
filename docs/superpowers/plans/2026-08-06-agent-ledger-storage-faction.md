@@ -147,12 +147,17 @@ Note: there is **no `credits` field** in this payload — storage credits are om
 
 **D. Single remote base** — `prophet-1`: `"hint":"2,268 items in storage at central_nexus"`
 
-**E. Multi-base** — transcribed from a live `craftsman-1` payload during the 2026-08-01 design
-pass. **Re-verify in Task 4 before trusting the ellipsis is the server's and not the transcriber's:**
+**E. Multi-base** — captured live from `craftsman-1` on 2026-08-06 (Task 4 canary). **The hint
+does NOT truncate**: all 20 bases are listed in full, alphabetically, with no ellipsis. The `...`
+in the 2026-08-01 design doc was the transcriber's elision, not the server's.
 
 ```
-"hint":"2,720,379 items in storage at cargo_lanes_freight_depot, central_nexus, confederacy_central_command, ... voss_redoubt_station"
+"hint":"2,764,074 items in storage at cargo_lanes_freight_depot, central_nexus, confederacy_central_command, crix_stronghold_station, dross_citadel_station, frontier_station, gold_run_extraction_hub, grand_exchange_station, kael_arsenal_station, market_prime_exchange, mera_sanctum_station, nyx_nexus_station, sable_port_station, thane_keep_station, the_experiment_research_station, the_rampart_checkpoint, traders_rest_resort_station, treasure_cache_trading_post, unknown_edge_waystation, voss_redoubt_station"
 ```
+
+Of those 20 bases, **only 8 resolve against `pois.id`** — a naive join drops 12 of 20 (60%), and
+19 of the 20 exist in `bases.id`. That is the alias trap measured on real storage data, and it is
+why Tasks 1–2 build the resolver.
 
 ### What the live captures prove about the hint
 
@@ -929,9 +934,15 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-### Task 4: Canary — the multi-base hint
+### Task 4: Canary — the multi-base hint — ✅ DONE 2026-08-06
 
-**Files:** none (verification only; findings go in the commit message of Task 5).
+**Outcome: the hint does NOT truncate.** `craftsman-1` returned all 20 bases in full (payload E
+above, now verbatim). No freeze was needed — craftsman-1 sits in `mission-learn-overrides.json`'s
+`removed` list, is absent from the live status file, and has no worker process. Of its 20 storage
+bases only 8 resolve against `pois.id`, so a naive join drops 60% — the resolver in Tasks 1–2 is
+load-bearing, not defensive. The steps below are retained as the reproduction recipe.
+
+**Files:** none (verification only).
 
 The single unresolved wire question. Payloads A–D were captured live on 2026-08-06 and are
 authoritative. Payload **E** (multi-base) was transcribed during the 2026-08-01 design pass and
@@ -1045,11 +1056,27 @@ func TestParseStorageHintLive(t *testing.T) {
 			wantTotal: 2268,
 		},
 		{
-			name:      "multi-base",
-			hint:      "12,500 items in storage at cargo_lanes_freight_depot, central_nexus, voss_redoubt_station",
-			wantOK:    true,
-			wantBases: []string{"cargo_lanes_freight_depot", "central_nexus", "voss_redoubt_station"},
-			wantTotal: 12500,
+			// craftsman-1, the fleet's heaviest holder: 20 bases, no truncation.
+			name: "multi-base (craftsman-1)",
+			hint: "2,764,074 items in storage at cargo_lanes_freight_depot, central_nexus, " +
+				"confederacy_central_command, crix_stronghold_station, dross_citadel_station, " +
+				"frontier_station, gold_run_extraction_hub, grand_exchange_station, " +
+				"kael_arsenal_station, market_prime_exchange, mera_sanctum_station, " +
+				"nyx_nexus_station, sable_port_station, thane_keep_station, " +
+				"the_experiment_research_station, the_rampart_checkpoint, " +
+				"traders_rest_resort_station, treasure_cache_trading_post, " +
+				"unknown_edge_waystation, voss_redoubt_station",
+			wantOK: true,
+			wantBases: []string{
+				"cargo_lanes_freight_depot", "central_nexus", "confederacy_central_command",
+				"crix_stronghold_station", "dross_citadel_station", "frontier_station",
+				"gold_run_extraction_hub", "grand_exchange_station", "kael_arsenal_station",
+				"market_prime_exchange", "mera_sanctum_station", "nyx_nexus_station",
+				"sable_port_station", "thane_keep_station", "the_experiment_research_station",
+				"the_rampart_checkpoint", "traders_rest_resort_station",
+				"treasure_cache_trading_post", "unknown_edge_waystation", "voss_redoubt_station",
+			},
+			wantTotal: 2764074,
 		},
 		{
 			name:      "nothing anywhere (random-clark)",
