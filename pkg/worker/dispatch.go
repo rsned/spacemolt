@@ -176,6 +176,7 @@ var supported = map[string]bool{
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
+	"capture_storage": true, "capture_faction": true,
 	"get_status": true, "get_system": true, "get_cargo": true,
 }
 
@@ -392,6 +393,10 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 	case "capture_profile":
 		// Nil store = capture disabled; not an error. See the Assets field.
 		return assets.CaptureProfile(ctx, d.Client, d.Assets, d.AgentID, time.Now())
+	case "capture_storage":
+		return assets.CaptureStorage(ctx, d.Client, d.Assets, d.AgentID, time.Now())
+	case "capture_faction":
+		return assets.CaptureFaction(ctx, d.Client, d.Assets, d.AgentID, time.Now())
 	default:
 		return fmt.Errorf("worker dispatch: unsupported command %q", cmd)
 	}

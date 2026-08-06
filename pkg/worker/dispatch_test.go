@@ -631,3 +631,28 @@ func TestCaptureProfileWithoutStoreIsANoOp(t *testing.T) {
 		t.Errorf("capture_profile without a store must be a no-op, got %v", err)
 	}
 }
+
+// TestCaptureStorageAndFactionAreSupported pins both new commands into the
+// curated vocabulary. roles_test.go requires every command named in
+// data/overmind/roles.yaml to appear here, so a schedule line without a map
+// entry fails the build.
+func TestCaptureStorageAndFactionAreSupported(t *testing.T) {
+	d := &WorkerDispatch{}
+	for _, cmd := range []string{"capture_storage", "capture_faction"} {
+		if !d.Supports(cmd) {
+			t.Errorf("%s must be in the supported command set", cmd)
+		}
+	}
+}
+
+// TestCaptureStorageWithoutStoreIsANoOp pins that a worker launched without
+// --assets-db-path runs the command harmlessly rather than erroring every
+// scheduled pass.
+func TestCaptureStorageWithoutStoreIsANoOp(t *testing.T) {
+	d := &WorkerDispatch{Client: &fakeClient{state: &game.State{}}, Out: io.Discard}
+	for _, cmd := range []string{"capture_storage", "capture_faction"} {
+		if err := d.Run(context.Background(), []string{cmd}); err != nil {
+			t.Errorf("%s without a store must be a no-op, got %v", cmd, err)
+		}
+	}
+}

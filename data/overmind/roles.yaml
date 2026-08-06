@@ -15,6 +15,8 @@ roles:
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
       - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
     idle: resident_market
     idle_params:
       N: "20"
@@ -29,6 +31,8 @@ roles:
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
       - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_gas); see resident note
   resident_ice:
     schedule:
@@ -38,6 +42,8 @@ roles:
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
       - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_ice); see resident note
   explorer:
     schedule:
@@ -47,6 +53,8 @@ roles:
   hauler:
     schedule:
       - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
     idle: haul
   shuttle:
     idle: shuttle
@@ -58,6 +66,8 @@ roles:
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "kb_update" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
     idle: idle_market
   missionrunner:
     schedule:
@@ -65,4 +75,6 @@ roles:
       - { every: hourly, command: "capture_fuel" }
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "kb_update" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
     idle: missions

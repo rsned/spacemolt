@@ -8556,6 +8556,22 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 
 		return assets.CaptureProfile(ctx, client, globalAssets, globalAgentID, time.Now())
+	case "capture_storage":
+		if globalAssets == nil {
+			fmt.Println("capture_storage: no assets DB configured (use --assets-db-path)")
+
+			return nil
+		}
+
+		return assets.CaptureStorage(ctx, client, globalAssets, globalAgentID, time.Now())
+	case "capture_faction":
+		if globalAssets == nil {
+			fmt.Println("capture_faction: no assets DB configured (use --assets-db-path)")
+
+			return nil
+		}
+
+		return assets.CaptureFaction(ctx, client, globalAssets, globalAgentID, time.Now())
 	case "update_faction_data", "update_faction":
 		return kbUpdateFaction(client, ctx)
 	case "seen_factions":
@@ -9576,6 +9592,8 @@ func printHelp() {
 	fmt.Println("  update_missions           - Save mission board templates to KB")
 	fmt.Println("  update_all                - Run all update commands for current location")
 	fmt.Println("  capture_profile           - Capture this agent's profile, skills, standings, carrier tier and hulls")
+	fmt.Println("  capture_storage           - Capture this agent's storage holdings at every base")
+	fmt.Println("  capture_faction           - Capture the agent's faction treasury and shared storage")
 	fmt.Println("  update_faction_data       - Save faction data to KB (must be in a faction)")
 	fmt.Println("  seen_factions [--seed]    - List factions seen on other agents; --seed backfills them into the factions table")
 	fmt.Println("  passenger [<id>] [--empire X] - Browse the stored passenger catalog (Name (id), Empire, Bio); <id> shows full detail")
