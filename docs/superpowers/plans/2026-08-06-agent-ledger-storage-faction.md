@@ -1682,8 +1682,17 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
   ```go
   func CaptureStorage(ctx context.Context, client game.GameClient, st *Store, agentID string, now time.Time) error
   ```
-  Same contract as `CaptureProfile`: nil store or nil client is a silent no-op, source failures
-  never propagate, only store-write failures return an error.
+  Same contract as `CaptureProfile` with one deliberate difference: nil store or nil client is a
+  silent no-op, and **game source** failures never propagate — but a **`LoadStorage` failure DOES
+  return an error** rather than being swallowed.
+
+  That asymmetry is a safety requirement, not an oversight. `stored` is the carry-forward set that
+  every deletion defense depends on. Swallowing a read failure would leave `stored` empty, and an
+  empty `stored` combined with an unparseable hint yields an empty sweep, an empty union, and a
+  `ReplaceStorage` call that **deletes every row the agent has** — turning a transient SQLite
+  `SQLITE_BUSY` into total data loss. Returning the error means "no capture this pass, nothing
+  written", which is the correct degradation. `CaptureProfile` can afford to swallow its `Load*`
+  errors because nothing it does is a whole-set delete.
 
 **The algorithm**, stated once so the steps below are unambiguous:
 
@@ -1696,9 +1705,15 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 5. For each base in the sweep set: reuse the seed response if it is that base, else
    `ViewStorageAt(base)` with `game.SleepQuick` between calls. A per-base failure carries that
    base's **stored** rows forward and excludes it from deletion.
-6. If `allowBaseDeletion` is false, union the stored bases that were not observed back in.
-7. Cross-check: if the hint had a total and the swept sum is short, log loudly.
-8. One `ReplaceStorage` with the final set.
+6. **Union the seed's own base back in if the hint never named it and it holds something.**
+   The hint enumerates bases with **items**, so a base holding only credits (or only a parked
+   ship) is legitimately absent from it — and that base would otherwise be swept-past and
+   deleted while we are holding its decoded contents. Directly-observed data outranks a base
+   list parsed from prose. Guard on non-empty (`items` or `credits`) so a genuinely emptied
+   dock still converges to zero.
+7. If `allowBaseDeletion` is false, union the stored bases that were not observed back in.
+8. Cross-check: if the hint had a total and the swept sum is short, log loudly.
+9. One `ReplaceStorage` with the final set.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1898,6 +1913,83 @@ func TestCaptureStorageKeepsBasesThatFailedMidSweep(t *testing.T) {
 	}
 }
 
+// TestCaptureStorageKeepsSeedBaseAbsentFromHint pins the data-loss path found in
+// review. The hint enumerates bases with ITEMS, so a base holding only credits is
+// legitimately absent from it. Without the seed-base union the agent's docked
+// base is never swept, never observed, and gets DELETED -- while its decoded
+// contents sit in the seed response we already have in hand.
+func TestCaptureStorageKeepsSeedBaseAbsentFromHint(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+
+	if err := st.ReplaceStorage(ctx, "p1", []StorageBase{{BaseID: "base_c", Credits: 500}}, now); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	f := newStorageFake("p1", "base_c")
+	// Docked at a credits-only base; the hint names only the item-holding bases.
+	f.frames[""] = []byte(`{"base_id":"base_c","credits":500,"items":[],` +
+		`"hint":"15 items in storage at base_a, base_b"}`)
+	f.frames["base_a"] = []byte(`{"base_id":"base_a","items":[{"item_id":"x","quantity":5}]}`)
+	f.frames["base_b"] = []byte(`{"base_id":"base_b","items":[{"item_id":"y","quantity":10}]}`)
+
+	if err := CaptureStorage(ctx, f, st, "agent-x", now.Add(time.Hour)); err != nil {
+		t.Fatalf("CaptureStorage: %v", err)
+	}
+
+	bases, _, err := st.LoadStorage(ctx, "p1", nil)
+	if err != nil {
+		t.Fatalf("LoadStorage: %v", err)
+	}
+	var found *StorageBase
+	for i := range bases {
+		if bases[i].BaseID == "base_c" {
+			found = &bases[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("base_c was deleted despite its 500 credits arriving in the seed response; bases = %v", bases)
+	}
+	if found.Credits != 500 {
+		t.Errorf("base_c credits = %d, want 500", found.Credits)
+	}
+}
+
+// TestCaptureStorageClearsEmptiedSeedBase pins the other side: a seed base that
+// genuinely holds nothing must still be deletable, or "I sold everything at my
+// home station" would never converge to zero.
+func TestCaptureStorageClearsEmptiedSeedBase(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
+
+	if err := st.ReplaceStorage(ctx, "p1", []StorageBase{
+		{BaseID: "base_c", Items: []StorageItem{{ItemID: "x", Quantity: 5}}},
+	}, now); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	f := newStorageFake("p1", "base_c")
+	f.frames[""] = []byte(`{"base_id":"base_c","credits":0,"items":[],` +
+		`"hint":"10 items in storage at base_a"}`)
+	f.frames["base_a"] = []byte(`{"base_id":"base_a","items":[{"item_id":"y","quantity":10}]}`)
+
+	if err := CaptureStorage(ctx, f, st, "agent-x", now.Add(time.Hour)); err != nil {
+		t.Fatalf("CaptureStorage: %v", err)
+	}
+
+	bases, _, err := st.LoadStorage(ctx, "p1", nil)
+	if err != nil {
+		t.Fatalf("LoadStorage: %v", err)
+	}
+	for _, b := range bases {
+		if b.BaseID == "base_c" {
+			t.Errorf("an emptied seed base must still be deleted, got %+v", b)
+		}
+	}
+}
+
 // TestCaptureStorageUndockedSeedsWithHomeBase pins that an undocked agent still
 // captures. view_storage without a station_id returns not_docked, so the seed
 // call must supply one.
@@ -2031,6 +2123,19 @@ func CaptureStorage(ctx context.Context, client game.GameClient, st *Store, agen
 		}
 		final = append(final, got.base)
 		observed[baseID] = true
+	}
+
+	// The seed response is live data already in hand. The hint enumerates bases
+	// with ITEMS, so a base holding only credits (or only a parked ship) is
+	// legitimately absent from it -- and without this, such a base is never
+	// swept and gets DELETED while we are looking straight at its contents.
+	// Directly-observed data outranks a base list parsed from prose.
+	//
+	// Guarded on non-empty so a genuinely emptied dock still converges to zero:
+	// "I sold everything at my home station" must still clear the row.
+	if !observed[seed.base.BaseID] && (len(seed.base.Items) > 0 || seed.base.Credits > 0) {
+		final = append(final, seed.base)
+		observed[seed.base.BaseID] = true
 	}
 
 	if !allowBaseDeletion {
