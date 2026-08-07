@@ -389,6 +389,9 @@ func main() {
 				logger.Printf("warning: load scheduler: %v", schedErr)
 			}
 			var execMu sync.Mutex
+			// One payer for the whole standing session: it announces an unpayable
+			// debt once rather than on every idle pass.
+			debtPayer := worker.NewDebtPayer(client, logOut, filepath.Join("data", "agents"), *agentID)
 			go func() {
 				deps := worker.StandingDeps{
 					Runner:     dispatch,
@@ -409,9 +412,7 @@ func main() {
 						}
 						return t
 					},
-					PayDebts: func(c context.Context) {
-						worker.PayRescueDebt(c, client, logOut, filepath.Join("data", "agents"), *agentID)
-					},
+					PayDebts: debtPayer.Pay,
 					OnTaskResult: func(taskID string, err error) {
 						kind := "task_done"
 						detail := taskID
