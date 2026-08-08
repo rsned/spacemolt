@@ -4030,14 +4030,33 @@ type nearbyPirate struct {
 	Tier string `json:"tier,omitempty"`
 }
 
+// nearbyCreature is a parsed wildlife creature from a get_nearby response.
+//
+// Field names are taken from a live payload (craftsman-1 at commerce_fields,
+// 2026-08-08) rather than guessed: the server sends `in_combat` and `role`, NOT
+// `is_aggressive` or `status`. CreatureID is the value the hunt command takes,
+// so it is rendered in full even though it is long — a truncated id cannot be
+// copied into a hunt.
+type nearbyCreature struct {
+	CreatureID string `json:"creature_id"`
+	Name       string `json:"name,omitempty"`
+	Species    string `json:"species,omitempty"`
+	Role       string `json:"role,omitempty"`
+	Hull       int    `json:"hull"`
+	MaxHull    int    `json:"max_hull"`
+	InCombat   bool   `json:"in_combat,omitempty"`
+}
+
 // formatNearby formats a get_nearby response as a table.
 func formatNearby(raw []byte) string {
 	var resp struct {
-		POIID       string         `json:"poi_id"`
-		Count       int            `json:"count"`
-		PirateCount int            `json:"pirate_count"`
-		Nearby      []nearbyPlayer `json:"nearby"`
-		Pirates     []nearbyPirate `json:"pirates"`
+		POIID         string           `json:"poi_id"`
+		Count         int              `json:"count"`
+		PirateCount   int              `json:"pirate_count"`
+		CreatureCount int              `json:"creature_count"`
+		Nearby        []nearbyPlayer   `json:"nearby"`
+		Pirates       []nearbyPirate   `json:"pirates"`
+		Creatures     []nearbyCreature `json:"creatures"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -4058,7 +4077,37 @@ func formatNearby(raw []byte) string {
 		fmt.Fprintf(&b, "  %s (%s)\n", p.Name, tier)
 	}
 
+	writeCreatureTable(&b, resp.CreatureCount, resp.Creatures)
+
 	return b.String()
+}
+
+// writeCreatureTable renders the wildlife at this POI. The creature id is the
+// argument `hunt` takes, so it is printed in full rather than truncated.
+func writeCreatureTable(b *strings.Builder, count int, creatures []nearbyCreature) {
+	// Fall back to the slice length: a server that sends creatures without a
+	// count should still report the right number.
+	if count == 0 {
+		count = len(creatures)
+	}
+	fmt.Fprintf(b, "\nCreatures:  %d\n", count)
+	for _, c := range creatures {
+		name := c.Name
+		if name == "" {
+			name = c.Species
+		}
+		desc := name
+		if c.Species != "" && c.Species != name {
+			desc = fmt.Sprintf("%s (%s)", name, c.Species)
+		}
+		if c.Role != "" {
+			desc += " " + c.Role
+		}
+		if c.InCombat {
+			desc += " [in combat]"
+		}
+		fmt.Fprintf(b, "  %-38s %4d/%-4d  %s\n", desc, c.Hull, c.MaxHull, c.CreatureID)
+	}
 }
 
 // formatTravel formats a travel response with online players at the destination.
