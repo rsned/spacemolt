@@ -181,6 +181,33 @@ func TestParseStorageHintLive(t *testing.T) {
 			wantTotal: 0,
 		},
 		{
+			// Captured off craftsman-1 on 2026-08-07, verbatim. The faction hint
+			// differs from the agent hint in two ways that both broke the parser:
+			// the separator reads "in faction storage at", and an instruction is
+			// appended straight after the last base id with no delimiter.
+			name: "faction storage with trailing fuel-bunker prose (craftsman-1)",
+			hint: "178,357 items in faction storage at grand_exchange_station, " +
+				"voss_redoubt_station Fuel bunker here: deposit fuel from your ship's " +
+				"tank with storage deposit target=faction item_id=fuel.",
+			wantOK:    true,
+			wantBases: []string{"grand_exchange_station", "voss_redoubt_station"},
+			wantTotal: 178357,
+		},
+		{
+			name:      "faction storage, nothing anywhere",
+			hint:      "No items in faction storage at any station.",
+			wantOK:    true,
+			wantBases: nil,
+			wantTotal: 0,
+		},
+		{
+			// Prose alone, with no base ids at all, must fail rather than record
+			// words as bases -- ok=false is what suppresses deletion upstream.
+			name:   "separator present but the tail is pure prose",
+			hint:   "0 items in faction storage at no station you can reach right now.",
+			wantOK: false,
+		},
+		{
 			name:   "empty hint",
 			hint:   "",
 			wantOK: false,
@@ -223,11 +250,41 @@ func TestParseStorageHintLive(t *testing.T) {
 // base list suppresses the "everything went to zero" deletion, so the ledger
 // would keep reporting stock the agent has already sold.
 func TestParseStorageHintSentinelIsNotABase(t *testing.T) {
-	got, ok := ParseStorageHint("No items in storage at any station.")
-	if !ok {
-		t.Fatal("the empty sentinel must parse successfully, not fail open")
+	for _, sentinel := range []string{
+		"No items in storage at any station.",
+		"No items in faction storage at any station.",
+	} {
+		got, ok := ParseStorageHint(sentinel)
+		if !ok {
+			t.Fatalf("%q: the empty sentinel must parse successfully, not fail open", sentinel)
+		}
+		if len(got.Bases) != 0 {
+			t.Errorf("%q: bases = %v, want empty (an 'any station.' entry is a parser bug)", sentinel, got.Bases)
+		}
 	}
-	if len(got.Bases) != 0 {
-		t.Errorf("bases = %v, want empty (an 'any station.' entry is a parser bug)", got.Bases)
+}
+
+// TestLooksLikeBaseIDRejectsProse is the second line of defence behind the
+// exact-match sentinels above. If the server ever reworks that wording, the
+// sentinel stops matching and the generic split runs on prose instead -- and
+// every word in that prose is lowercase, so a charset-only check would record
+// "any" or "no" as a base. A phantom base is worse than a missed one: it gets
+// queried, and it makes the base list non-empty, which suppresses the deletion
+// that should have cleared the agent's stale holdings.
+func TestLooksLikeBaseIDRejectsProse(t *testing.T) {
+	for _, want := range []string{
+		"grand_exchange_station", "central_nexus", "ramens_rest", // real, named
+		"59b102279f508c17831e557d3df6ad88", // real, opaque (one of three)
+	} {
+		if !looksLikeBaseID(want) {
+			t.Errorf("looksLikeBaseID(%q) = false, want true (this is a real base id)", want)
+		}
+	}
+	for _, reject := range []string{
+		"any", "no", "station", "Fuel", "here:", "deposit", "", "target=faction",
+	} {
+		if looksLikeBaseID(reject) {
+			t.Errorf("looksLikeBaseID(%q) = true, want false (prose must never become a base)", reject)
+		}
 	}
 }

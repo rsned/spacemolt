@@ -119,16 +119,60 @@ func CarrierFrom(raw []byte) (Carrier, bool, error) {
 	}, true, nil
 }
 
-// hintSeparator is the fixed phrase between the item total and the base list in
-// view_storage's prose hint.
-const hintSeparator = " in storage at "
+// hintSeparators are the phrases between the item total and the base list.
+// view_storage says "in storage at"; view_faction_storage says "in faction
+// storage at" (observed live 2026-08-07 against craftsman-1). Neither string
+// contains the other, so the search order does not matter.
+var hintSeparators = []string{" in faction storage at ", " in storage at "}
 
-// hintEmptySentinel is what the server sends when an agent holds nothing
-// anywhere. It matches the general shape, so it MUST be recognised before the
-// generic split: the tail "any station." would otherwise become a base id, get
-// queried, and -- far worse -- make the base list non-empty, suppressing the
-// deletion that should have cleared the agent's stale holdings.
-const hintEmptySentinel = "No items in storage at any station."
+// hintEmptySentinels are what the server sends when nothing is held anywhere.
+// They match the general shape, so they MUST be recognised before the generic
+// split: the tail "any station." would otherwise become a base id, get queried,
+// and -- far worse -- make the base list non-empty, suppressing the deletion
+// that should have cleared the stale holdings.
+var hintEmptySentinels = []string{
+	"No items in storage at any station.",
+	"No items in faction storage at any station.",
+}
+
+// cutHint splits a hint on whichever separator it carries.
+func cutHint(h string) (head, tail string, found bool) {
+	for _, sep := range hintSeparators {
+		if head, tail, found = strings.Cut(h, sep); found {
+			return head, tail, true
+		}
+	}
+
+	return "", "", false
+}
+
+// opaqueBaseIDLen is the length of the unnamed bases' hex ids.
+const opaqueBaseIDLen = 32
+
+// looksLikeBaseID reports whether s has the shape of a base id.
+//
+// This is what stops trailing prose becoming a base, and the bar has to be
+// higher than "lowercase word": the hint prose is itself lowercase, so a
+// charset check alone would happily record "any" (from the "no items ... at any
+// station." sentinel) or "no" as bases. A phantom base is worse than a missed
+// one -- it gets queried, and a non-empty list suppresses the deletion that
+// should have cleared stale holdings.
+//
+// Checked against all 43 bases in the knowledge base on 2026-08-07: every id is
+// [a-z0-9_]+, every named one contains an underscore, and the only three
+// without are bare 32-char hex ids.
+func looksLikeBaseID(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '_' {
+			return false
+		}
+	}
+
+	return strings.Contains(s, "_") || len(s) == opaqueBaseIDLen
+}
 
 // StorageHint is the parsed form of view_storage's hint.
 //
@@ -156,12 +200,14 @@ func ParseStorageHint(hint string) (StorageHint, bool) {
 	if h == "" {
 		return StorageHint{}, false
 	}
-	if h == hintEmptySentinel {
-		return StorageHint{}, true
+	for _, sentinel := range hintEmptySentinels {
+		if h == sentinel {
+			return StorageHint{}, true
+		}
 	}
 	// Cut on the separator FIRST. The total is comma-grouped ("2,720,379"), so
 	// splitting the whole string on ", " would shred the number into fake bases.
-	head, tail, found := strings.Cut(h, hintSeparator)
+	head, tail, found := cutHint(h)
 	if !found || strings.TrimSpace(tail) == "" {
 		return StorageHint{}, false
 	}
@@ -172,9 +218,16 @@ func ParseStorageHint(hint string) (StorageHint, bool) {
 	}
 
 	for _, part := range strings.Split(tail, ",") {
-		base := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(part), "."))
-		if base == "" {
+		part = strings.TrimSpace(part)
+		if part == "" {
 			continue
+		}
+		// A base id never contains whitespace, and any prose the server appends
+		// runs to the end of the hint, so the first non-base-shaped token ends
+		// the list.
+		base := strings.TrimSuffix(strings.Fields(part)[0], ".")
+		if !looksLikeBaseID(base) {
+			break
 		}
 		out.Bases = append(out.Bases, base)
 	}
