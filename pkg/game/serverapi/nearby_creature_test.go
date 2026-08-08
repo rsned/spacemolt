@@ -39,6 +39,12 @@ func TestGetNearbyDecodesCreatures(t *testing.T) {
 	if c.Hull != 40 || c.MaxHull != 40 {
 		t.Errorf("hull = %d/%d, want 40/40", c.Hull, c.MaxHull)
 	}
+	if c.Name != "Belt-Grazer" {
+		t.Errorf("Name = %q, want Belt-Grazer", c.Name)
+	}
+	if c.Status != "grazing" {
+		t.Errorf("Status = %q, want grazing", c.Status)
+	}
 	if c.IsAggressive {
 		t.Error("belt-grazers are passive; IsAggressive must decode false")
 	}

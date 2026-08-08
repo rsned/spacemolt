@@ -160,16 +160,16 @@ type GetCargoResponse struct {
 
 // GetNearbyResponse wraps the response from get_nearby command.
 type GetNearbyResponse struct {
-	Action           string          `json:"action,omitempty"`
-	Nearby           []NearbyPlayer  `json:"nearby"`
-	Pirates          []NearbyPirate  `json:"pirates,omitempty"`
+	Action           string           `json:"action,omitempty"`
+	Nearby           []NearbyPlayer   `json:"nearby"`
+	Pirates          []NearbyPirate   `json:"pirates,omitempty"`
 	Creatures        []NearbyCreature `json:"creatures,omitempty"`
-	Count            int             `json:"count"`
-	PirateCount      int             `json:"pirate_count,omitempty"`
-	POIID            string          `json:"poi_id,omitempty"`
-	EmpireNPCCount   int             `json:"empire_npc_count,omitempty"`
-	EmpireNPCs       json.RawMessage `json:"empire_npcs,omitempty"`
-	OfflineCollapsed int             `json:"offline_collapsed,omitempty"`
+	Count            int              `json:"count"`
+	PirateCount      int              `json:"pirate_count,omitempty"`
+	POIID            string           `json:"poi_id,omitempty"`
+	EmpireNPCCount   int              `json:"empire_npc_count,omitempty"`
+	EmpireNPCs       json.RawMessage  `json:"empire_npcs,omitempty"`
+	OfflineCollapsed int              `json:"offline_collapsed,omitempty"`
 }
 
 // GetBattleStatusResponse wraps the response from get_battle_status command.
