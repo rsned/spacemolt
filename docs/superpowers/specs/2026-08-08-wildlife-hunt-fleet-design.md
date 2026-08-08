@@ -70,9 +70,38 @@ and 1 mining laser.** That single fact sets the floor: the fleet's worst case is
 a free armed hull plus the travel time to get back to a belt. Insurance paying
 credits rather than a ship does not matter when the replacement is free.
 
-So the policy is **cheap disposable hulls with a rebuy budget**, with the
-understanding that the floor beneath the budget is free. A Tier-0 with one pulse
-laser is sufficient for difficulty-1 passive grazers.
+> 🔴 **The roster's hulls are LEGACY and cannot be re-bought. This invalidates
+> the disposable-hull policy.**
+>
+> `get_ship` reports `"legacy": true` on the Prospector, and the operator
+> confirms every mining hull the roster owns is legacy — Drillship, Deeprock
+> Harvester, Excavator, Prospector. These classes no longer exist in game. A
+> destroyed hull is not replaced at market price; it is replaced by an *inferior
+> current-tier* ship, and for some there is no equivalent at any tier. The
+> Deeprock Harvester carries 5–6 mining laser slots, which no current tier 1, 2
+> or 3 mining hull offers.
+>
+> So a loss is a **permanent downgrade of an irreplaceable asset**, not a 2,500cr
+> rebuy. "Cheap disposable hulls with a rebuy budget" was chosen on the
+> assumption that losses were cheap and a free armed Tier-0 caught the fall.
+> Neither holds.
+>
+> **This needs an explicit operator decision before the plan is written.** The
+> options, and their consequences:
+>
+> - **Strict no-loss.** Flee early and abandon missions rather than risk a hull.
+>   Slower, and some hunts will be aborted, but nothing irreplaceable is spent.
+>   Difficulty-1 passive grazers should never threaten a hull anyway, so the cost
+>   of this policy is near zero at the starting gate and rises only as gates lift.
+> - **Sacrificial hull.** Buy a *current-tier* combat ship for hunting and leave
+>   the legacy mining hulls docked at Frontier Station. Costs credits up front
+>   against a roster holding ~77k, but makes losses genuinely affordable and
+>   keeps the legacy fleet intact.
+> - **Accept the risk** on the explicit understanding that a loss is permanent.
+>
+> Strict no-loss is the recommendation for the first iteration: it costs almost
+> nothing at difficulty 1, and it can be relaxed later once the flee threshold is
+> known to work.
 
 > ⚠️ **Unresolved: is the respawn Tier-0 armed?** The operator states the free
 > replacement arrives with 1 pulse laser and 1 mining laser. But the Prospector
