@@ -163,6 +163,7 @@ type GetNearbyResponse struct {
 	Action           string          `json:"action,omitempty"`
 	Nearby           []NearbyPlayer  `json:"nearby"`
 	Pirates          []NearbyPirate  `json:"pirates,omitempty"`
+	Creatures        []NearbyCreature `json:"creatures,omitempty"`
 	Count            int             `json:"count"`
 	PirateCount      int             `json:"pirate_count,omitempty"`
 	POIID            string          `json:"poi_id,omitempty"`

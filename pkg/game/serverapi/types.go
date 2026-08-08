@@ -1051,6 +1051,23 @@ type NearbyPirate struct {
 	Status    string `json:"status,omitempty"`
 }
 
+// NearbyCreature is one wildlife creature from get_nearby's "creatures" list.
+// CreatureID is what the hunt command takes as its target.
+//
+// Wildlife never dogpile: engaging one creature does not pull in the rest of
+// the herd, which is what makes difficulty-1 hunting safe.
+type NearbyCreature struct {
+	CreatureID   string `json:"creature_id"`
+	Species      string `json:"species,omitempty"`
+	Name         string `json:"name,omitempty"`
+	Hull         int    `json:"hull"`
+	MaxHull      int    `json:"max_hull"`
+	Shield       int    `json:"shield,omitempty"`
+	MaxShield    int    `json:"max_shield,omitempty"`
+	IsAggressive bool   `json:"is_aggressive,omitempty"`
+	Status       string `json:"status,omitempty"`
+}
+
 // StationHealth represents the condition of a station.
 type StationHealth struct {
 	Condition         string `json:"condition"`
