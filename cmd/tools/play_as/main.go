@@ -6601,6 +6601,70 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.EstimatePurchase(ctx, strings.ToLower(parts[1]), qty)
 		}, ctx, 2*time.Second, cmd, format)
 
+	// shipping is the operator's window onto freight. pay_debt matters most:
+	// workers deliberately never settle their own freight debt (a systematic
+	// breach bug must not be able to buy back its ability to keep breaching),
+	// so an outstanding debt blocks every future accept until a human clears it
+	// from here.
+	case "shipping":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: shipping <profile|list|get|track|pay_debt> [args]\n" +
+				"  shipping profile              carrier tier, capacity, outstanding debt\n" +
+				"  shipping list [sort]          contracts posted at this station\n" +
+				"  shipping get <shipment-id>    one contract in detail\n" +
+				"  shipping track <shipment-id> [limit]\n" +
+				"  shipping pay_debt [amount]    omit amount to settle the full balance")
+		}
+		switch strings.ToLower(parts[1]) {
+		case "profile":
+			return simpleCommand(client, client.ShippingProfile, ctx, 3*time.Second, cmd, format)
+		case "list":
+			sort := ""
+			if len(parts) > 2 {
+				sort = parts[2]
+			}
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.ShippingList(ctx, sort)
+			}, ctx, 3*time.Second, cmd, format)
+		case "get":
+			if len(parts) < 3 {
+				return fmt.Errorf("usage: shipping get <shipment-id>")
+			}
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.ShippingGet(ctx, parts[2])
+			}, ctx, 3*time.Second, cmd, format)
+		case "track":
+			if len(parts) < 3 {
+				return fmt.Errorf("usage: shipping track <shipment-id> [limit]")
+			}
+			limit := 0
+			if len(parts) > 3 {
+				n, err := strconv.Atoi(parts[3])
+				if err != nil {
+					return fmt.Errorf("invalid limit: %w", err)
+				}
+				limit = n
+			}
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.ShippingTrack(ctx, parts[2], limit)
+			}, ctx, 3*time.Second, cmd, format)
+		case "pay_debt":
+			// amount <= 0 pays the whole balance, which is the usual intent.
+			var amount int64
+			if len(parts) > 2 {
+				n, err := strconv.ParseInt(parts[2], 10, 64)
+				if err != nil {
+					return fmt.Errorf("invalid amount: %w", err)
+				}
+				amount = n
+			}
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.ShippingPayDebt(ctx, amount)
+			}, ctx, 3*time.Second, cmd, format)
+		default:
+			return fmt.Errorf("unknown shipping action %q (profile, list, get, track, pay_debt)", parts[1])
+		}
+
 	case "list_ship_for_sale":
 		if len(parts) < 3 {
 			return fmt.Errorf("usage: list_ship_for_sale <ship-id> <price>")
