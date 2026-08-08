@@ -145,3 +145,44 @@ func TestCommaInt(t *testing.T) {
 		}
 	}
 }
+
+// TestFormatGetStatusWideUsername pins the dashboard against double-width
+// names. random-8 and random-9 are literally named "🤓" and "🤘" — one rune,
+// two terminal cells each — so rune-count padding overflowed the 80-column box
+// by one column per emoji and broke the border alignment.
+func TestFormatGetStatusWideUsername(t *testing.T) {
+	for _, name := range []string{"🤓", "🤘", "🚀🚀 Rocket Bot", "Arthur 'Artificer' Artis"} {
+		payload := strings.Replace(sampleStatusPayload,
+			`"username":"Arthur 'Artificer' Artis"`, `"username":"`+name+`"`, 1)
+		out := formatGetStatus([]byte(payload))
+		if out == "" {
+			t.Fatalf("%q: formatGetStatus returned empty", name)
+		}
+		for line := range strings.Lines(out) {
+			l := strings.TrimRight(line, "\n")
+			if w := runewidth.StringWidth(l); w > 80 {
+				t.Errorf("%q: line is %d cells (%d runes): %q", name, w, len([]rune(l)), l)
+			}
+		}
+	}
+}
+
+// TestTruncateCountsCells pins the helper directly: a truncated string must be
+// exactly the requested number of CELLS, even when the cut lands on a
+// double-width rune and one cell has to be padded back.
+func TestTruncateCountsCells(t *testing.T) {
+	for _, tc := range []struct {
+		in    string
+		width int
+	}{
+		{"plain ascii label", 8},
+		{"🤓🤓🤓🤓🤓", 5},
+		{"🤓a🤓a🤓a", 7},
+		{"exact", 5},
+	} {
+		got := truncate(tc.in, tc.width)
+		if w := runewidth.StringWidth(got); w > tc.width {
+			t.Errorf("truncate(%q, %d) = %q, %d cells — must not exceed width", tc.in, tc.width, got, w)
+		}
+	}
+}

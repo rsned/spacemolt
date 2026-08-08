@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"unicode/utf8"
+
+	"github.com/mattn/go-runewidth"
 )
 
 // statusPayload is the get_status "player" object as it actually arrives on the
@@ -211,7 +212,7 @@ func boxLines(title string, width int, body []string) []string {
 	lines := make([]string, 0, len(body)+2)
 
 	prefix := "┌─ " + title + " "
-	fill := max(width-utf8.RuneCountInString(prefix)-1, 0) // -1 for the closing ┐
+	fill := max(width-runewidth.StringWidth(prefix)-1, 0) // -1 for the closing ┐
 	lines = append(lines, prefix+strings.Repeat("─", fill)+"┐")
 	for _, row := range body {
 		lines = append(lines, "│ "+padTrunc(row, inner)+" │")
@@ -250,10 +251,10 @@ func statusField(label, value string, width int) string {
 
 // statusKV lays out "label … value" with the value right-aligned within width.
 func statusKV(label, value string, width int) string {
-	gap := width - utf8.RuneCountInString(label) - utf8.RuneCountInString(value)
+	gap := width - runewidth.StringWidth(label) - runewidth.StringWidth(value)
 	if gap < 1 {
 		// Truncate the label so the value always stays flush right.
-		label = truncate(label, width-utf8.RuneCountInString(value)-1)
+		label = truncate(label, width-runewidth.StringWidth(value)-1)
 		gap = 1
 	}
 	return label + strings.Repeat(" ", gap) + value
@@ -335,10 +336,10 @@ func fmtPlaytime(sec int64) string {
 	return fmt.Sprintf("%dh %dm", hours, mins)
 }
 
-// padTrunc pads s with trailing spaces to exactly width runes, or truncates it
-// (with an ellipsis) if it is longer.
+// padTrunc pads s with trailing spaces to exactly width DISPLAY CELLS, or
+// truncates it (with an ellipsis) if it is longer.
 func padTrunc(s string, width int) string {
-	n := utf8.RuneCountInString(s)
+	n := runewidth.StringWidth(s)
 	if n == width {
 		return s
 	}
@@ -348,14 +349,37 @@ func padTrunc(s string, width int) string {
 	return truncate(s, width)
 }
 
-// truncate shortens s to width runes, ending with "…" when anything was cut.
+// truncate shortens s to width display cells, ending with "…" when anything
+// was cut. The result is always exactly width cells wide.
+//
+// Everything here counts CELLS, not runes: an emoji is one rune but occupies
+// two columns, so rune-based arithmetic overflows the box by one column per
+// wide character. Usernames are operator-chosen and have carried emoji, so
+// this is a live case, not a hypothetical.
 func truncate(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	if utf8.RuneCountInString(s) <= width {
+	if runewidth.StringWidth(s) <= width {
 		return s
 	}
-	r := []rune(s)
-	return string(r[:width-1]) + "…"
+	// Reserve one cell for the ellipsis, then take runes while they still fit.
+	var b strings.Builder
+	used, budget := 0, width-1
+	for _, r := range s {
+		w := runewidth.RuneWidth(r)
+		if used+w > budget {
+			break
+		}
+		b.WriteRune(r)
+		used += w
+	}
+	// Stopping before a double-width rune can leave a cell short; pad so the
+	// column still lines up.
+	out := b.String() + "…"
+	if pad := width - runewidth.StringWidth(out); pad > 0 {
+		out += strings.Repeat(" ", pad)
+	}
+
+	return out
 }
