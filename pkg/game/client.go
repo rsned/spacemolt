@@ -4727,7 +4727,10 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		if storeKey == "faction_info" {
 			isMember, _ := resp.Payload["is_member"].(bool)
 			tag, _ := resp.Payload["tag"].(string)
-			tag = strings.TrimSpace(tag) // server pads tags to a fixed width
+			// Tags are a fixed 4 chars, so short names arrive padded (" DB ").
+			// Trimming is for display and loses the canonical form; never compare
+			// a trimmed tag against a server value.
+			tag = strings.TrimSpace(tag)
 			if isMember || tag != "" {
 				id, _ := resp.Payload["id"].(string)
 				c.mu.Lock()

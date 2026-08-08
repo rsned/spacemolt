@@ -293,9 +293,14 @@ func FactionProfileFrom(raw []byte) (FactionProfile, bool, error) {
 	}
 
 	return FactionProfile{
-		FactionID:   resp.ID,
-		Name:        resp.Name,
-		Tag:         strings.TrimSpace(resp.Tag), // the server pads tags to a fixed width
+		FactionID: resp.ID,
+		Name:      resp.Name,
+		// Faction tags are exactly 4 characters, so a shorter name is padded to
+		// fit -- Data Bots ships as " DB ". Trimming is therefore LOSSY: "DB" is
+		// not a legal tag and will not round-trip to the server's value. It is
+		// done anyway, and consistently (pkg/game/client.go, pkg/ovstatus), so
+		// every display agrees; faction_id, not the tag, is the join key.
+		Tag:         strings.TrimSpace(resp.Tag),
 		LeaderID:    resp.LeaderID,
 		Treasury:    resp.Treasury,
 		MemberCount: resp.MemberCount,
