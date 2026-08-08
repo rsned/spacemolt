@@ -97,11 +97,29 @@ func TestHuntAdmissibleRejectsNonCombat(t *testing.T) {
 }
 
 // A board entry with no kill objective is not huntable even if it is combat.
+//
+// The mission id must be one the wildlife allowlist ACCEPTS, and the difficulty
+// must be under the cap, or an earlier gate refuses the entry first and this
+// test proves nothing. An earlier version used the id "odd", which is not on the
+// allowlist: gate 2 rejected it before the kill-objective check ran, so deleting
+// that check left this test green.
 func TestHuntAdmissibleNeedsAKillObjective(t *testing.T) {
-	e := combatEntry("odd", 1)
+	e := combatEntry("grazer_cull", 1) // on the allowlist, under the cap
 	e.Objectives = []serverapi.MissionObjective{{Type: "dock_at_base"}}
-	if ok, _ := huntAdmissible(e, 1, true); ok {
+
+	// Sanity: with a kill objective this entry IS admissible, so anything the
+	// assertion below catches is the missing objective and nothing else.
+	if ok, reason := huntAdmissible(combatEntry("grazer_cull", 1), 1, true); !ok {
+		t.Fatalf("fixture is wrong: grazer_cull should be admissible, got %q", reason)
+	}
+
+	ok, reason := huntAdmissible(e, 1, true)
+	if ok {
 		t.Error("combat mission with no kill objective must be refused")
+	}
+	if !strings.Contains(reason, "kill_creature") {
+		t.Errorf("refused for %q; the reason must name the missing kill objective, "+
+			"or another gate is doing the work", reason)
 	}
 }
 
