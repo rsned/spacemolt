@@ -1,18 +1,19 @@
 import type { AssetCoverageRow } from '../../lib/useFleetStream';
 
-// Per-source cadences, in hours. A source is flagged once it exceeds 2x its
-// cadence: one missed boundary is churn, two is a stall worth looking at.
-// MUST match pkg/assets/coverage.go's CoverageCadence -- that map drives the
-// `stale` column's own 2x-cadence cutoff, and the two have to agree or a red
-// row and a `stale` count of 0 can both be "correct" for the same row.
-const CADENCE_HOURS: Record<string, number> = {
-  agent_profile: 1,
-  agent_carrier: 1,
-  agent_hulls: 1,
-  agent_skills: 1,
-  agent_storage: 24,
-  faction_storage: 24,
-};
+// Share of an source's agents that must be stale before the row reads as a
+// stall rather than a straggler.
+//
+// Severity comes from `stale` alone, which pkg/assets/coverage.go computes
+// per-agent against 2x each source's cadence. The panel deliberately does NOT
+// re-derive staleness from `oldest`: that column is a MIN across every agent,
+// so a single agent nobody captures pins it forever and paints the row red
+// while the other 85 refresh on time -- exactly what craftsman-1 (no worker
+// runs it, so it only captures when someone runs play_as by hand) did on
+// 2026-08-08, showing "14.7h" on four rows that were 85/86 fresh.
+//
+// Dropping that clause also removes the duty to keep a cadence map in sync
+// with the Go one.
+const STALL_SHARE = 0.1;
 
 // faction_storage is keyed on faction_id, so its count is factions, not agents.
 const COUNT_LABEL: Record<string, string> = {
@@ -50,17 +51,25 @@ export function AssetCoveragePanel({ coverage }: { coverage: AssetCoverageRow[] 
         </thead>
         <tbody>
           {coverage.map((row) => {
-            const cadence = CADENCE_HOURS[row.source] ?? 24;
             const age = ageHours(row.oldest);
-            const alarm = row.stale > 0 || (age !== null && age > cadence * 2);
+            const share = row.agents > 0 ? row.stale / row.agents : 0;
+            // Three states, so a straggler is visible without crying stall.
+            const tone =
+              row.stale === 0
+                ? 'text-[#d4a017]'
+                : share >= STALL_SHARE
+                  ? 'text-red-400'
+                  : 'text-orange-400';
 
             return (
-              <tr key={row.source} className={alarm ? 'text-red-400' : 'text-[#d4a017]'}>
+              <tr key={row.source} className={tone}>
                 <td className="text-left px-4">{row.source}</td>
                 <td className="text-right px-4">
                   {row.agents} {COUNT_LABEL[row.source] ?? 'agents'}
                 </td>
-                <td className="text-right px-4">{row.stale}</td>
+                <td className="text-right px-4">
+                  {row.stale > 0 ? `${row.stale}/${row.agents}` : '0'}
+                </td>
                 <td className="text-right px-4">{age === null ? '—' : `${age.toFixed(1)}h`}</td>
               </tr>
             );

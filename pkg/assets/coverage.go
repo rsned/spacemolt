@@ -37,11 +37,14 @@ func coverageKeyColumn(table string) string {
 }
 
 // CoverageCadence is how often each source is expected to refresh, keyed by
-// table name. Coverage uses 2x a source's cadence as its stale cutoff -- this
-// MUST match the alarm rule in the dashboard panel exactly (cadence * 2 in
-// frontend/src/components/overmind/AssetCoveragePanel.tsx's CADENCE_HOURS),
-// or the panel's red highlight and its "how many agents" stale count disagree
-// about the same row. Keep the two maps in sync if either changes.
+// table name. Coverage uses 2x a source's cadence as its stale cutoff, which
+// is why a 15h-old agent_storage row is healthy while a 15h-old agent_profile
+// row is not: the same age is well inside a daily source's window and 15x an
+// hourly one's.
+//
+// This is the single definition of stale. The dashboard panel colours rows
+// from the Stale count alone and no longer keeps its own cadence map, so
+// changing a cadence here needs no matching frontend edit.
 var CoverageCadence = map[string]time.Duration{
 	"agent_profile":   time.Hour,
 	"agent_carrier":   time.Hour,
