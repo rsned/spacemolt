@@ -194,6 +194,18 @@ func TestParseStorageHintLive(t *testing.T) {
 			wantTotal: 178357,
 		},
 		{
+			// Data Bots, captured live 2026-08-08. The second faction's wording,
+			// and the one that shows the fuel-bunker sentence in the CRFT case
+			// above is CONDITIONAL -- DB has no bunker at this base, so nothing
+			// is appended. A parser that special-cased that trailer would break
+			// here.
+			name:      "faction storage, single base, no trailing prose (Data Bots)",
+			hint:      "50 items in faction storage at confederacy_central_command",
+			wantOK:    true,
+			wantBases: []string{"confederacy_central_command"},
+			wantTotal: 50,
+		},
+		{
 			name:      "faction storage, nothing anywhere",
 			hint:      "No items in faction storage at any station.",
 			wantOK:    true,
