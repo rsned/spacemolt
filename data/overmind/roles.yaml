@@ -48,8 +48,18 @@ roles:
   explorer:
     schedule:
       - { every: hourly, command: "update_market" }
+      - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
     idle: explore
-  miner: {}
+  # The asset captures are the only schedule a miner carries: everything else a
+  # miner does is idle-loop work, but the ledger is meant to cover every agent,
+  # and a role with no schedule block is invisible to it.
+  miner:
+    schedule:
+      - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
   hauler:
     schedule:
       - { every: hourly, command: "capture_profile" }
@@ -57,8 +67,16 @@ roles:
       - { every: daily, command: "capture_faction" }
     idle: haul
   shuttle:
+    schedule:
+      - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
     idle: shuttle
   assist:
+    schedule:
+      - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
     idle: assist
   craftsman:
     schedule:
