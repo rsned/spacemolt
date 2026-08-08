@@ -99,10 +99,15 @@ credits rather than a ship does not matter when the replacement is free.
 >   keeps the legacy fleet intact.
 > - **Accept the risk** on the explicit understanding that a loss is permanent.
 >
-> **DECIDED: hunt only in the Prospectors.** The legacy Drillships, Deeprock
-> Harvester and Excavator stay docked at Frontier Station and are never risked.
-> The Prospector is the least valuable legacy hull, and — critically — its
-> replacement is nearly its equal:
+> **DECIDED: hunt in the Prospectors; losses are acceptable.**
+>
+> The legacy Drillships, Deeprock Harvester and Excavator stay docked at Frontier
+> Station and are never risked — those are the genuinely irreplaceable hulls, the
+> Deeprock especially with 5–6 mining laser slots that no current-tier ship
+> offers.
+>
+> **The Prospector is different: it was the free starter, so losing one costs
+> nothing.** Its replacement is nearly its equal and arrives armed:
 >
 > | | `prospector` (legacy, owned) | `prospect` (current, free on loss) |
 > |---|---:|---:|
@@ -113,12 +118,17 @@ credits rather than a ship does not matter when the replacement is free.
 > | Weapon slots | 1 | 1 |
 > | Ships armed | **no** | **yes** (`pulse_laser_i`) |
 >
-> Losing a Prospector costs 5 hull, 1 armor and 1 speed, and gains 50 cargo and a
-> free pulse laser. That is an acceptable downgrade, which is what makes hunting
-> in Prospectors safe while the irreplaceable mining hulls stay out of it.
+> So the fit-out is: **buy one `pulse_laser_i` (2,500cr) for each of pirate-7..10**
+> — pirate-6's is already fitted — and accept losses. A destroyed Prospector
+> returns as an armed `prospect`, which hands the laser back for free and adds 50
+> cargo, at the cost of 5 hull, 1 armor and 1 speed.
 >
-> The flee threshold still applies — a cheap loss is not a free one, and the
-> legacy hull is still gone for good.
+> Total outlay: **~10,000cr**, once. There is no rebuy budget to manage, because
+> after the first loss the replacements arm themselves.
+>
+> A flee threshold is still worth having — an aborted hunt beats a pointless
+> death, and a destroyed ship costs travel time back to a belt — but it is a
+> convenience rather than a safeguard.
 
 > ✅ **Resolved: the respawn Tier-0 IS armed.** The current starter is
 > **`prospect`** — not the legacy `prospector` the roster owns — and its
