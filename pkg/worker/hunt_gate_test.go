@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -51,10 +52,22 @@ func TestHuntAdmissibleRefusesLeviathanOnAnyReward(t *testing.T) {
 	if ok, _ := huntAdmissible(e, 2, true); ok {
 		t.Fatal("a difficulty-6 mission must be refused no matter how large the reward")
 	}
-	// And at every cap this iteration will ever use.
+
+	// wildlifeOnly=false is what makes this test mean anything. leviathan_bounty
+	// is ALSO outside the wildlife allowlist, so with gate 2 on it is refused
+	// twice over and the assertion above passes even if the difficulty check is
+	// deleted entirely — proven by removing that branch, which left this test
+	// green. Lifting gate 2 leaves the difficulty cap as the only thing standing
+	// between the fleet and a boss that fights to the death.
 	for capLevel := range 3 {
-		if ok, _ := huntAdmissible(e, capLevel, true); ok {
-			t.Errorf("cap %d admitted the leviathan", capLevel)
+		ok, reason := huntAdmissible(e, capLevel, false)
+		if ok {
+			t.Errorf("cap %d admitted the leviathan with gate 2 lifted — "+
+				"the difficulty cap is not doing its job", capLevel)
+		}
+		if !strings.Contains(reason, "difficulty") {
+			t.Errorf("cap %d refused for %q; the reason must name difficulty, "+
+				"or some other gate is silently doing the work", capLevel, reason)
 		}
 	}
 }
