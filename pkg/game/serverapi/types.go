@@ -1054,18 +1054,23 @@ type NearbyPirate struct {
 // NearbyCreature is one wildlife creature from get_nearby's "creatures" list.
 // CreatureID is what the hunt command takes as its target.
 //
+// Fields are taken from a live payload (craftsman-1 at commerce_fields,
+// 2026-08-08), NOT from the spec, which guessed wrong: the server sends
+// in_combat and role, never is_aggressive or status. Shield/max_shield are
+// absent from every creature observed so far and are deliberately NOT modelled
+// — add them when a shielded species is actually seen, rather than carrying
+// fields that can only ever decode to zero.
+//
 // Wildlife never dogpile: engaging one creature does not pull in the rest of
 // the herd, which is what makes difficulty-1 hunting safe.
 type NearbyCreature struct {
-	CreatureID   string `json:"creature_id"`
-	Species      string `json:"species,omitempty"`
-	Name         string `json:"name,omitempty"`
-	Hull         int    `json:"hull"`
-	MaxHull      int    `json:"max_hull"`
-	Shield       int    `json:"shield,omitempty"`
-	MaxShield    int    `json:"max_shield,omitempty"`
-	IsAggressive bool   `json:"is_aggressive,omitempty"`
-	Status       string `json:"status,omitempty"`
+	CreatureID string `json:"creature_id"`
+	Species    string `json:"species,omitempty"`
+	Name       string `json:"name,omitempty"`
+	Role       string `json:"role,omitempty"`
+	Hull       int    `json:"hull"`
+	MaxHull    int    `json:"max_hull"`
+	InCombat   bool   `json:"in_combat,omitempty"`
 }
 
 // StationHealth represents the condition of a station.
@@ -1138,24 +1143,24 @@ type MissionRequirements struct {
 
 // ActiveMission represents a mission the player has accepted.
 type ActiveMission struct {
-	MissionID      string                   `json:"mission_id"`
-	TemplateID     string                   `json:"template_id,omitempty"`
-	Type           string                   `json:"type"`
-	Title          string                   `json:"title"`
-	Description    string                   `json:"description,omitempty"`
-	Difficulty     int                      `json:"difficulty,omitempty"`
-	Giver          MissionGiver             `json:"giver,omitempty"`
-	IssuingBase    string                   `json:"issuing_base,omitempty"`
-	AcceptedAt     string                   `json:"accepted_at,omitempty"`
-	ExpiresInTicks int                      `json:"expires_in_ticks,omitempty"`
+	MissionID      string       `json:"mission_id"`
+	TemplateID     string       `json:"template_id,omitempty"`
+	Type           string       `json:"type"`
+	Title          string       `json:"title"`
+	Description    string       `json:"description,omitempty"`
+	Difficulty     int          `json:"difficulty,omitempty"`
+	Giver          MissionGiver `json:"giver,omitempty"`
+	IssuingBase    string       `json:"issuing_base,omitempty"`
+	AcceptedAt     string       `json:"accepted_at,omitempty"`
+	ExpiresInTicks int          `json:"expires_in_ticks,omitempty"`
 	// ChainNext mirrors the board entry's marker for a linked chain mission.
 	// The board is known to populate it; whether get_active_missions does is
 	// unverified, so resume treats an empty value as "unknown", not "no".
-	ChainNext string `json:"chain_next,omitempty"`
-	Requirements   *MissionRequirements     `json:"requirements,omitempty"`
-	Rewards        *MissionRewards          `json:"rewards,omitempty"`
-	Objectives     []ActiveMissionObjective `json:"objectives,omitempty"`
-	Progress       *ActiveMissionProgress   `json:"progress,omitempty"`
+	ChainNext    string                   `json:"chain_next,omitempty"`
+	Requirements *MissionRequirements     `json:"requirements,omitempty"`
+	Rewards      *MissionRewards          `json:"rewards,omitempty"`
+	Objectives   []ActiveMissionObjective `json:"objectives,omitempty"`
+	Progress     *ActiveMissionProgress   `json:"progress,omitempty"`
 }
 
 // ActiveMissionObjective extends MissionObjective with progress tracking.
