@@ -274,6 +274,16 @@ func (m *MCPGameClient) Attack(ctx context.Context, targetID string) error {
 	return m.updateStateFromResult(result)
 }
 
+func (m *MCPGameClient) Hunt(ctx context.Context, creatureID string) error {
+	result, err := m.callTool(ctx, "hunt", map[string]any{
+		"target_id": creatureID,
+	})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 func (m *MCPGameClient) Cloak(ctx context.Context, enable bool) error {
 	result, err := m.callTool(ctx, "cloak", map[string]any{
 		"enable": enable,

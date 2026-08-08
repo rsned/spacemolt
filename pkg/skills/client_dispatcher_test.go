@@ -467,6 +467,7 @@ func (m *mockGameClient) Mine(ctx context.Context) error                        
 func (m *mockGameClient) Scan(ctx context.Context) error                                  { return nil }
 func (m *mockGameClient) ScanTarget(ctx context.Context, targetID string) error           { return nil }
 func (m *mockGameClient) Attack(ctx context.Context, targetID string) error               { return nil }
+func (m *mockGameClient) Hunt(ctx context.Context, creatureID string) error               { return nil }
 func (m *mockGameClient) Cloak(ctx context.Context, enable bool) error                    { return nil }
 func (m *mockGameClient) Sell(ctx context.Context, itemID string, quantity float64) error { return nil }
 func (m *mockGameClient) SellAllBulk(ctx context.Context, reservedItems []string) error   { return nil }

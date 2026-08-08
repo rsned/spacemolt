@@ -32,6 +32,9 @@ type GameClient interface {
 
 	// Combat
 	Attack(ctx context.Context, targetID string) error
+	// Hunt engages a wildlife creature by its creature_id from get_nearby.
+	// Equivalent to Attack on a creature id. Wildlife never dogpile.
+	Hunt(ctx context.Context, creatureID string) error
 	Cloak(ctx context.Context, enable bool) error
 	Battle(ctx context.Context, action string, payload map[string]any) error
 	GetBattleStatus(ctx context.Context) error

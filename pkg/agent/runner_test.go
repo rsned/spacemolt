@@ -143,6 +143,10 @@ func (m *mockGameClient) Attack(ctx context.Context, targetID string) error {
 	m.actionsRecorded = append(m.actionsRecorded, "attack:"+targetID)
 	return nil
 }
+func (m *mockGameClient) Hunt(ctx context.Context, creatureID string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "hunt:"+creatureID)
+	return nil
+}
 func (m *mockGameClient) Cloak(ctx context.Context, enable bool) error {
 	m.actionsRecorded = append(m.actionsRecorded, "cloak")
 	return nil

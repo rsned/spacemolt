@@ -76,6 +76,23 @@ func (c *Client) SelfDestruct(ctx context.Context) error {
 	return err
 }
 
+// Hunt engages the wildlife creature with the given creature_id (from
+// get_nearby's creatures list). Equivalent to Attack on a creature id.
+// Hunting resolves on a later tick; the immediate reply only acknowledges
+// the command.
+func (c *Client) Hunt(ctx context.Context, creatureID string) error {
+	msg := protocol.Message{
+		Type:      "hunt",
+		Payload:   map[string]any{"target_id": creatureID},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return err
+}
+
 // Cloak toggles the cloaking device. Pass true to enable, false to disable.
 func (c *Client) Cloak(ctx context.Context, enable bool) error {
 	msg := protocol.Message{
