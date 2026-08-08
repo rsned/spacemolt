@@ -110,20 +110,39 @@ Drillship and Excavator, are stored there. That makes Frontier Station the
 natural home base: fitting, rebuys and post-loss recovery all happen in one
 place, and hunting belts should be chosen for proximity to it.
 
-**The stored Prospector is the free Tier-0, and it arrives armed.** Verified via
-`get_ship` on pirate-6's: `tier: 0`, `starter_ship: true`, `price: 0`,
-`weapon_slots: 1`, `utility_slots: 2`, `defense_slots: 1`, hull 100, shield 50,
-armor 5, speed 2 — carrying **Mining Laser I** (utility) *and* **Pulse Laser I**
-(weapon: damage 10, energy, reach 3, cooldown 1). CPU 4/12 and power 10/25 used,
-so there is headroom to fit more.
+**The stored Prospector is the free Tier-0, and it has exactly one weapon slot.**
+Verified via `get_ship` on pirate-6's: `tier: 0`, `starter_ship: true`,
+`price: 0`, `weapon_slots: 1`, `utility_slots: 2`, `defense_slots: 1`, hull 100,
+shield 50, armor 5, speed 2. CPU 4/12 and power 10/25 used, so there is headroom.
 
-So the fleet may need **no outfitting spend at all** to attempt difficulty-1
-grazers: a Tier-0 Prospector with a Pulse Laser I is already a weapon-bearing
-hull. Confirm the other four match pirate-6 before relying on it — only its
-Prospector has been inspected directly.
+**Only pirate-6 is armed, and the operator armed it.** The class
+`default_modules` is `["mining_laser_i"]` — a mining laser and nothing else. The
+Pulse Laser I on pirate-6's Prospector was fitted by hand. **The other four
+Prospectors carry a mining laser only and cannot fight.**
 
-Credits are thin (6,661–24,657, ~77k across the roster), which is another reason
-to start with what is already fitted rather than buying.
+So the fleet needs four weapons bought, not zero:
+
+| Item | Cost | Requires | Note |
+|---|---:|---|---|
+| `pulse_laser_i` | 2,500 | **nothing** | damage 10, energy, reach 3, cooldown 1 |
+| `pulse_laser_ii` | 6,900 | weapons 2 | the first upgrade the chain unlocks |
+| `focused_beam_i` | 8,700 | weapons 3 | bypasses shields |
+| `pulse_laser_iii` | 13,000 | weapons 4 | |
+
+**`pulse_laser_i` is the only laser in the catalog with no skill requirement**, so
+at weapons 0 it is the roster's sole option — the decision makes itself. Arming
+four agents is **~10,000cr** at base value against ~77k held across the roster,
+which is affordable but not trivial: pirate-10 holds 6,661 and can cover one fit
+with room to spare.
+
+The upgrade ladder is then driven by weapons XP, which is what the fleet exists
+to earn — `pulse_laser_ii` at weapons 2 is the first rung.
+
+**Open question for the plan: does the Drillship have a weapon slot?** All five
+agents are flying Drillships (hull 140) and would be switching *down* to a
+Prospector (hull 100). If the Drillship has a weapon slot, arming it in place is
+strictly better — more hull, and no ship-switch step. The local `ship_classes`
+table is empty, so this needs a live `get_ship` or a catalog refresh to answer.
 
 **Weapon choice: lasers only.** Energy weapons need no ammunition and no
 reloading, so a hunt loop never has to break off to resupply. The catalog does
