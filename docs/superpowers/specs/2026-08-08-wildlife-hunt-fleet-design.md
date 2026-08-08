@@ -84,14 +84,62 @@ switching into one.** Checked against the asset ledger on 2026-08-08, across all
   weapons — a legacy of the agents that once ran `auto-miner` to sell ore.
 - No agent is sitting on a spare combat fit.
 
-So a hunt agent needs a combat hull *bought and fitted*, not selected from
-storage. The free Tier-0 is what catches it after a loss, which is why the
-downside stays bounded — but it is not the starting point.
+### The roster is already armed — verified 2026-08-08
 
-**pirate-6..10 are not in the ledger** (no worker runs them, so nothing
-captures). Their hulls, loadouts, and credits are unknown. Establishing that is
-step 0 of the rollout, and it is cheap: one `play_as` session per agent with
-`--assets-db-path`, running `capture_profile`.
+Step 0 ran: all five of pirate-6..10 were captured via `play_as
+--assets-db-path`. The result changed the outfitting plan.
+
+| Agent | Credits | Active hull | Stored | Weapons skill |
+|---|---:|---|---|---:|
+| pirate-6 | 13,227 | Drillship (fuel **0/130**) | Prospector | 0 |
+| pirate-7 | 17,013 | Deeprock Harvester | Drillship, Excavator, Prospector | 0 |
+| pirate-8 | 15,329 | Drillship | Prospector | 0 |
+| pirate-9 | 24,657 | Drillship | Prospector | 0 |
+| pirate-10 | 6,661 | Drillship | Prospector | 0 |
+
+Three facts follow.
+
+**They are miners, not pirates.** Top skills are piloting, deep_core_mining and
+mining; **weapons is 0 across the whole roster**. The brigand personalities are
+aspirational — the `auto-miner` era is what actually shaped them. Weapons 0 is
+not a problem: First Hunt exists precisely for pilots at weapons 0, so the
+roster is the chain's intended audience.
+
+**Every spare sits at Frontier Station.** All five Prospectors, plus pirate-7's
+Drillship and Excavator, are stored there. That makes Frontier Station the
+natural home base: fitting, rebuys and post-loss recovery all happen in one
+place, and hunting belts should be chosen for proximity to it.
+
+**The stored Prospector is the free Tier-0, and it arrives armed.** Verified via
+`get_ship` on pirate-6's: `tier: 0`, `starter_ship: true`, `price: 0`,
+`weapon_slots: 1`, `utility_slots: 2`, `defense_slots: 1`, hull 100, shield 50,
+armor 5, speed 2 — carrying **Mining Laser I** (utility) *and* **Pulse Laser I**
+(weapon: damage 10, energy, reach 3, cooldown 1). CPU 4/12 and power 10/25 used,
+so there is headroom to fit more.
+
+So the fleet may need **no outfitting spend at all** to attempt difficulty-1
+grazers: a Tier-0 Prospector with a Pulse Laser I is already a weapon-bearing
+hull. Confirm the other four match pirate-6 before relying on it — only its
+Prospector has been inspected directly.
+
+Credits are thin (6,661–24,657, ~77k across the roster), which is another reason
+to start with what is already fitted rather than buying.
+
+**Weapon choice: lasers only.** Energy weapons need no ammunition and no
+reloading, so a hunt loop never has to break off to resupply. The catalog does
+carry ammo-fed weapons — `neural_disruptor` pairs with
+`neural_disruption_charge_pack` — and picking one would add a consumable
+dependency, a resupply trip between hunts, and a new failure mode (out of ammo
+mid-fight) for no benefit at this tier. The Prospector's single weapon slot
+holds a Pulse Laser I; keep it that way, and upgrade along the laser line.
+
+> ⚠️ **`agent_hulls.modules` cannot tell you whether a hull is armed.**
+> `OwnedShip.Modules` is an opaque `int` from `list_ships`, and it reported **1**
+> for a Prospector carrying **2** modules — most likely counting non-default
+> fittings only, since `default_modules` for the class is `["mining_laser_i"]`.
+> Judging armament from that field says "unarmed" for a ship with a laser in its
+> weapon slot. Use `get_ship` for loadout truth. Capturing real module detail is
+> a worthwhile ledger extension and a prerequisite for any targeting logic.
 
 Two safety rules regardless:
 
@@ -229,9 +277,11 @@ missions that stranded fighter-4.
 
 Deliberately incremental, because the failure mode is losing ships:
 
-0. **Capture pirate-6..10.** One `play_as --assets-db-path` session each,
-   running `capture_profile`, to learn what hulls, loadouts, and credits the
-   roster actually has. Costs nothing and may change the outfitting plan.
+0. ~~Capture pirate-6..10.~~ **DONE 2026-08-08** — all five captured with
+   profile, storage and faction. It did change the plan: the roster is at
+   weapons 0 in mining hulls, every spare is a Tier-0 Prospector at Frontier
+   Station, and those Prospectors already carry a Pulse Laser I. Refuel
+   pirate-6 first (0/130).
 1. Decode `creatures`; land the client gaps. Inert.
 2. Build the hunt executor and its tests. Inert — nothing dispatches it.
 3. **Canary: one agent, one `first_hunt_belt_grazers`, run by hand via
