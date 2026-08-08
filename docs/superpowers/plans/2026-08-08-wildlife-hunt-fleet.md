@@ -200,11 +200,20 @@ asserted through the WebSocket test server in
 `pkg/game/client_integration_test.go`, which inspects `msg.Payload[...]` on the
 server side. Read that file and follow its pattern.
 
-`Hunt` is a three-line wrapper over `c.Send`, so if wiring the integration
-server for it costs more than it proves, it is acceptable to skip the send test
-and rely on Task 4's executor tests plus the compile-time interface check. State
-which you chose in the commit message. **Do not invent a harness that does not
-exist.**
+`Hunt` is a three-line wrapper over `c.Send`. If wiring the integration server
+for it costs more than it proves, the substitute is **not** "no test": add a
+compile-time assertion that both clients satisfy the interface, which is the
+failure this task can actually regress (a mock or a client missing the method).
+
+```go
+var (
+	_ game.GameClient = (*Client)(nil)
+	_ game.GameClient = (*MCPGameClient)(nil)
+)
+```
+
+State in the commit message which route you took. **Do not invent a harness that
+does not exist**, and do not commit a test that asserts nothing.
 
 - [ ] **Step 2: Run it to confirm it fails**
 
@@ -651,7 +660,10 @@ Create `pkg/worker/hunt.go` implementing this sequence:
 5. Loop until the count is met: pick a creature (prefer `IsAggressive == false`), `Hunt(creatureID)`, then poll `GetBattleStatus` until the fight resolves. **`get_battle_status` is a free query with no tick cost**, so polling it is cheap.
 6. Before each new engagement, check hull fraction against `FleeAtHull`; if below, issue `Battle(ctx, "stance", {"stance": "flee"})`, log, and return nil.
 7. When the count is met, complete the mission through the existing completion path.
-8. Loot the carcass wreck if the salvage helpers make it a one-liner; otherwise leave a TODO and do not block on it.
+8. **Do not loot the carcass.** Killing a creature drops a carcass wreck
+   carrying carapace and biogas, and the existing salvage commands handle
+   wrecks — but it is out of scope here and listed under Deferred. Do not leave
+   a TODO in the code for it; the plan is the record.
 
 Constants:
 
@@ -836,4 +848,7 @@ Recorded so they are not rediscovered as novel:
 - **Graduating to bigger hulls.** Drillship has 1 weapon / 2 defense / 3 utility slots; Deeprock Harvester has 2 / 3 / 6. Both out-slot the Prospector's 1 / 1 / 2, so they are the upgrade path once weapons skill justifies risking a legacy hull.
 - **Module detail in the ledger.** `agent_hulls.modules` is an opaque count that under-reports; it cannot tell you whether a hull is armed. Real loadout capture is a prerequisite for any targeting logic.
 - **`get_battle_log` mining** — per-tick hit/crit rolls, resist percentages and damage breakdown, for any battle including other players'. The richest combat signal available, and untouched here.
+- **Looting carcass wrecks.** A kill drops a carcass carrying carapace and
+  biogas, and the salvage commands already handle wrecks. Secondary value, left
+  out of the first iteration to keep the executor to one job.
 - **Lifting gate 2** for `pirate_bounty` / `convoy_defense`, and raising gate 1 past 2.
