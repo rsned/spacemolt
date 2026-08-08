@@ -10,17 +10,32 @@ import (
 // snapWith builds a snapshot with one active hull of the given cargo capacity
 // proxy (cargo_used is not capacity; the active hull's presence is what the
 // v1 rules key on) plus the given skills and standings.
+//
+// Standings carry one row per pirate stronghold, which is what the server
+// actually sends. The retired generic "pirates" key must NOT appear here: this
+// fixture used it, so every stronghold_access test passed against a lookup that
+// returns nothing on live data.
 func snapWith(smuggling int, pirateBaseline int, tier string, debt int64) AgentSnapshot {
+	standings := make(map[string]StandingRow, len(pirateStrongholds))
+	for _, name := range pirateStrongholds {
+		standings[name] = StandingRow{Faction: name, Baseline: pirateBaseline}
+	}
+
 	return AgentSnapshot{
-		Profile: Profile{PlayerID: "abc123", Credits: 100000},
-		Skills:  map[string]SkillRow{"smuggling": {Skill: "smuggling", Level: smuggling}},
-		Standings: map[string]StandingRow{
-			"pirates": {Faction: "pirates", Baseline: pirateBaseline},
-		},
+		Profile:      Profile{PlayerID: "abc123", Credits: 100000},
+		Skills:       map[string]SkillRow{"smuggling": {Skill: "smuggling", Level: smuggling}},
+		Standings:    standings,
 		Carrier:      Carrier{Tier: tier, OutstandingDebt: debt},
 		CarrierKnown: tier != "",
 		Hulls:        []Hull{{ShipID: "s1", IsActive: true, FuelCurrent: 400, FuelMax: 400}},
 	}
+}
+
+// pirateStrongholds is the nine keys the server sends, per the standings
+// description in server_docs/openapi.json.
+var pirateStrongholds = []string{
+	"pirate_crix", "pirate_dross", "pirate_kael", "pirate_korr", "pirate_mera",
+	"pirate_nyx", "pirate_sable", "pirate_thane", "pirate_voss",
 }
 
 // TestSmugglingEligibilityBoundary pins the L3 threshold, mirroring
@@ -49,15 +64,73 @@ func TestSmugglingEligibilityBoundary(t *testing.T) {
 func TestStrongholdAccessUsesBaselineNotReputation(t *testing.T) {
 	// Baseline 9 with a high floating reputation must still be ineligible.
 	s := snapWith(3, 9, "licensed", 0)
-	st := s.Standings["pirates"]
-	st.Reputation = 95
-	s.Standings["pirates"] = st
+	for _, name := range pirateStrongholds {
+		st := s.Standings[name]
+		st.Reputation = 95
+		s.Standings[name] = st
+	}
 	if got := capsByName(Evaluate(s))["stronghold_access"]; got.Eligible {
 		t.Error("baseline 9 with reputation 95 must be ineligible")
 	}
 
 	if got := capsByName(Evaluate(snapWith(3, 10, "licensed", 0)))["stronghold_access"]; !got.Eligible {
 		t.Errorf("baseline 10 must be eligible, reason=%q", got.BlockingReason)
+	}
+}
+
+// TestStrongholdAccessLiveStandings replays craftsman-1's real standings, the
+// payload that exposed the bug: nine strongholds at baseline 10 / reputation
+// 16-17, reported as "baseline 0, needs 10" because the rule looked up the
+// retired generic "pirates" key. The operator runs faction production lines
+// inside a stronghold, so ineligible was plainly wrong.
+func TestStrongholdAccessLiveStandings(t *testing.T) {
+	live := map[string]StandingRow{
+		"crimson":  {Faction: "crimson", Baseline: 10, Reputation: 10},
+		"nebula":   {Faction: "nebula", Baseline: 20, Reputation: 24},
+		"outerrim": {Faction: "outerrim", Baseline: 10, Reputation: 10},
+		"solarian": {Faction: "solarian", Baseline: 10, Reputation: 10},
+		"voidborn": {Faction: "voidborn", Baseline: 10, Reputation: 10},
+	}
+	for i, name := range pirateStrongholds {
+		live[name] = StandingRow{Faction: name, Baseline: 10, Reputation: 16 + i%2}
+	}
+	s := snapWith(3, 10, "licensed", 0)
+	s.Standings = live
+
+	got := capsByName(Evaluate(s))["stronghold_access"]
+	if !got.Eligible {
+		t.Errorf("live standings must be eligible, got reason %q", got.BlockingReason)
+	}
+}
+
+// TestStrongholdAccessAnyStrongholdCounts pins the per-crew semantics: each
+// stronghold keeps its own books, so one crew that will have you IS access,
+// even when the other eight will not.
+func TestStrongholdAccessAnyStrongholdCounts(t *testing.T) {
+	s := snapWith(3, 2, "licensed", 0) // all nine hostile
+	if got := capsByName(Evaluate(s))["stronghold_access"]; got.Eligible {
+		t.Error("baseline 2 everywhere must be ineligible")
+	} else if got.BlockingReason == "" {
+		t.Error("ineligible must carry a blocking reason naming the best stronghold")
+	}
+
+	s.Standings["pirate_voss"] = StandingRow{Faction: "pirate_voss", Baseline: strongholdBase}
+	if got := capsByName(Evaluate(s))["stronghold_access"]; !got.Eligible {
+		t.Errorf("one welcoming stronghold is access, reason=%q", got.BlockingReason)
+	}
+}
+
+// TestStrongholdAccessNoStandings distinguishes "nobody will have you" from
+// "we have never seen a pirate standing", which are different problems.
+func TestStrongholdAccessNoStandings(t *testing.T) {
+	s := snapWith(3, 10, "licensed", 0)
+	s.Standings = map[string]StandingRow{"nebula": {Faction: "nebula", Baseline: 20}}
+	got := capsByName(Evaluate(s))["stronghold_access"]
+	if got.Eligible {
+		t.Error("no pirate standings must not read as access")
+	}
+	if got.BlockingReason != "no pirate stronghold standings" {
+		t.Errorf("reason = %q, want it to say the standings are missing", got.BlockingReason)
 	}
 }
 

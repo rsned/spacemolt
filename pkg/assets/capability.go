@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -25,9 +26,21 @@ func staleNote(source string, age time.Duration) string {
 // authoritative at accept time.
 const (
 	skillSmuggling  = "smuggling" // pkg/worker/mission_select.go
-	pirateFactionID = "pirates"   // pkg/worker/mission_standing.go
 	smugglingLevel3 = 3           // pkg/worker: smugglingXPExemptLevel
 	strongholdBase  = 10          // pkg/worker: smugglingUnlocked baseline
+
+	// pirateStrongholdPrefix keys the nine per-stronghold standings.
+	//
+	// There is deliberately no "pirates" constant any more. The server used to
+	// send a single generic "pirates" standing and now sends one per stronghold
+	// (pirate_voss, pirate_kael, pirate_thane, pirate_mera, pirate_dross,
+	// pirate_crix, pirate_sable, pirate_nyx, pirate_korr) because "each
+	// stronghold keeps its own books" -- attacking one crew leaves the others'
+	// opinion of you unchanged. Looking up the retired key returned a zero
+	// value, so a leader with reputation 16-17 at all nine strongholds was
+	// reported as "baseline 0, needs 10" and locked out of a capability it
+	// plainly had (caught live against craftsman-1, 2026-08-07).
+	pirateStrongholdPrefix = "pirate_"
 )
 
 // haulMinCredits is a pkg/assets-only screening heuristic, NOT mirrored from
@@ -133,10 +146,31 @@ func Rules() map[string]func(AgentSnapshot) (bool, string) {
 
 			return true, ""
 		},
+		// Eligible when ANY stronghold will have you: access is per-crew, so one
+		// welcoming stronghold is access. Which one is not recorded here --
+		// agent_standings already holds all nine reputations, so the detail is
+		// a join away and this stays a screening flag.
 		"stronghold_access": func(s AgentSnapshot) (bool, string) {
-			base := s.Standings[pirateFactionID].Baseline
-			if base < strongholdBase {
-				return false, fmt.Sprintf("baseline %d, needs %d", base, strongholdBase)
+			names := make([]string, 0, len(s.Standings))
+			for name := range s.Standings {
+				names = append(names, name)
+			}
+			sort.Strings(names) // deterministic blocking reason on a tie
+			bestName, bestBase, found := "", 0, false
+			for _, name := range names {
+				if !strings.HasPrefix(name, pirateStrongholdPrefix) {
+					continue
+				}
+				base := s.Standings[name].Baseline
+				if !found || base > bestBase {
+					bestName, bestBase, found = name, base, true
+				}
+			}
+			if !found {
+				return false, "no pirate stronghold standings"
+			}
+			if bestBase < strongholdBase {
+				return false, fmt.Sprintf("best %s baseline %d, needs %d", bestName, bestBase, strongholdBase)
 			}
 
 			return true, ""
