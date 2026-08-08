@@ -53,7 +53,15 @@ The client cannot see wildlife at all today. `GetNearbyResponse` models `Nearby`
 - Test: `pkg/game/serverapi/nearby_creature_test.go` (new)
 
 **Interfaces:**
-- Produces: `serverapi.NearbyCreature{CreatureID, Species, Name, Hull, MaxHull, Shield, MaxShield, IsAggressive, Status string/int}` and `GetNearbyResponse.Creatures []NearbyCreature`. Task 4 reads both.
+- Produces: `serverapi.NearbyCreature{CreatureID, Species, Name, Role, Hull, MaxHull, InCombat}`, plus `GetNearbyResponse.Creatures []NearbyCreature` and `.CreatureCount int`. Task 4 reads both.
+
+> ⚠️ **CORRECTED after this task shipped (commit `d0068ab2`).** The code block
+> below in Step 1/Step 3 is the ORIGINAL, and it is WRONG: it was written from a
+> fabricated payload. The server sends `in_combat` and `role`, never
+> `is_aggressive` or `status`, and no observed creature has shield fields. The
+> committed type matches a live capture
+> (`.superpowers/sdd/2026-08-08-wildlife-hunt-fleet/REAL-creature-payload.json`).
+> Read the committed code, not the block below.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -657,7 +665,16 @@ Create `pkg/worker/hunt.go` implementing this sequence:
 2. Read the mission board. For each entry, `huntAdmissible(e, maxDifficulty, wildlifeOnly)`; log every refusal with its reason. Accept the first admissible one.
 3. `huntKillQuantity(e)` is the target count.
 4. `GetNearby`; if `Creatures` is empty, log and return nil — an empty belt is normal.
-5. Loop until the count is met: pick a creature (prefer `IsAggressive == false`), `Hunt(creatureID)`, then poll `GetBattleStatus` until the fight resolves. **`get_battle_status` is a free query with no tick cost**, so polling it is cheap.
+5. Loop until the count is met: pick a creature, `Hunt(creatureID)`, then poll `GetBattleStatus` until the fight resolves. **`get_battle_status` is a free query with no tick cost**, so polling it is cheap.
+
+   **Quarry selection: skip creatures where `InCombat` is true**, and prefer
+   full-hull ones. Do NOT look for a field named `IsAggressive` — an earlier
+   revision of this plan invented it, and it does not exist on the wire. A
+   selector keyed on it would read false for every creature and happily engage
+   anything, including something already in a fight.
+
+   The species is the real threat signal, and it is gated upstream by the
+   mission allowlist rather than inspected here.
 6. Before each new engagement, check hull fraction against `FleeAtHull`; if below, issue `Battle(ctx, "stance", {"stance": "flee"})`, log, and return nil.
 7. When the count is met, complete the mission through the existing completion path.
 8. **Do not loot the carcass.** Killing a creature drops a carcass wreck
