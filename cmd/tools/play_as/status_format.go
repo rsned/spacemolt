@@ -72,8 +72,14 @@ type statusPayload struct {
 }
 
 // Column geometry for an 80-column terminal: a full-width header box on top,
-// then a tall Stats box on the left beside a stack of Reputation / Skills /
-// Missions boxes on the right.
+// then a Stats / Missions stack on the left beside a Reputation / Skills stack
+// on the right.
+//
+// Missions sits on the left because reputation is no longer a short list: the
+// server keeps a separate standing per pirate stronghold on top of the five
+// empires, so the Reputation box grew from 6 rows to 14 and pushed the right
+// column well past the left. Missions is a fixed 4 rows, which makes it the
+// obvious counterweight to move.
 const (
 	statusTopW   = 80
 	statusLeftW  = 39
@@ -116,7 +122,7 @@ func formatGetStatus(raw []byte) string {
 		statusField("Ship", ship, hInner),
 	})
 
-	// --- left column: Stats ---
+	// --- left column: Stats, then Missions ---
 	st := p.Stats
 	lInner := statusLeftW - 4
 	statRows := []string{
@@ -149,9 +155,21 @@ func formatGetStatus(raw []byte) string {
 		statusKV("Customs evaded", commaInt(st.CustomsEvaded), lInner),
 		statusKV("Time played", fmtPlaytime(st.TimePlayed), lInner),
 	}
-	left := boxLines("Stats", statusLeftW, statRows)
+	stats := boxLines("Stats", statusLeftW, statRows)
 
-	// --- right column: Reputation / Skills / Missions ---
+	missions := boxLines("Missions", statusLeftW, []string{
+		statusKV("Completed", commaInt(st.MissionsCompleted), lInner),
+		statusKV("Accepted", commaInt(st.MissionsAccepted), lInner),
+		statusKV("Abandoned", commaInt(st.MissionsAbandoned), lInner),
+		statusKV("Hidden revealed", commaInt(int64(len(p.RevealedPOIs))), lInner),
+	})
+
+	left := make([]string, 0, len(stats)+len(missions)+1)
+	left = append(left, stats...)
+	left = append(left, "")
+	left = append(left, missions...)
+
+	// --- right column: Reputation / Skills ---
 	rInner := statusRightW - 4
 
 	repRows := make([]string, 0, len(p.Standings))
@@ -171,19 +189,10 @@ func formatGetStatus(raw []byte) string {
 	}
 	skills := boxLines("Skills", statusRightW, skillRows)
 
-	missions := boxLines("Missions", statusRightW, []string{
-		statusKV("Completed", commaInt(st.MissionsCompleted), rInner),
-		statusKV("Accepted", commaInt(st.MissionsAccepted), rInner),
-		statusKV("Abandoned", commaInt(st.MissionsAbandoned), rInner),
-		statusKV("Hidden revealed", commaInt(int64(len(p.RevealedPOIs))), rInner),
-	})
-
-	right := make([]string, 0, len(rep)+len(skills)+len(missions)+2)
+	right := make([]string, 0, len(rep)+len(skills)+1)
 	right = append(right, rep...)
 	right = append(right, "")
 	right = append(right, skills...)
-	right = append(right, "")
-	right = append(right, missions...)
 
 	var b strings.Builder
 	for _, line := range header {
@@ -225,9 +234,9 @@ func sideBySide(left, right []string) string {
 		if i < len(right) {
 			r = right[i]
 		}
-		b.WriteString(padRight(l, statusLeftW))
-		b.WriteString(strings.Repeat(" ", statusGap))
-		b.WriteString(r)
+		// TrimRight keeps rows past the end of the right column from trailing
+		// the left column's padding into empty space.
+		b.WriteString(strings.TrimRight(padRight(l, statusLeftW)+strings.Repeat(" ", statusGap)+r, " "))
 		b.WriteByte('\n')
 	}
 	return b.String()
