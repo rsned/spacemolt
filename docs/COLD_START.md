@@ -350,6 +350,13 @@ Data-layer health:
 
 ## Traps specific to a cold start
 
+**Status files survive the outage and lie until overwritten.** Every `*-status.json` still
+holds the last pre-outage snapshot (full roster, all healthy), and a freshly launched overmind
+takes a little while to overwrite it. Any script that waits on `len(workers)` to detect spawn
+completion passes **instantly** against the stale file (observed 2026-08-05: a mission-learn
+waiter saw "38 workers" from the Aug 2 file while the new fleet was at 1). Check
+`overmind_commit` — or the file's mtime — matches the relaunch before trusting worker counts.
+
 **Workers re-orient themselves — mostly.** On connect they backfill missed scheduled work
 (`⏰ backfilling N missed scheduled task(s)`) and re-read live state, so stale cached positions
 correct themselves: `dock` → `Already docked` → `refuel` is the normal, healthy sequence, not an
