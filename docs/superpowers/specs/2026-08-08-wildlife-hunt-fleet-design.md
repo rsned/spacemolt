@@ -71,8 +71,18 @@ a free armed hull plus the travel time to get back to a belt. Insurance paying
 credits rather than a ship does not matter when the replacement is free.
 
 So the policy is **cheap disposable hulls with a rebuy budget**, with the
-understanding that the floor beneath the budget is free and already armed. A
-Tier-0 with one pulse laser is sufficient for difficulty-1 passive grazers.
+understanding that the floor beneath the budget is free. A Tier-0 with one pulse
+laser is sufficient for difficulty-1 passive grazers.
+
+> ⚠️ **Unresolved: is the respawn Tier-0 armed?** The operator states the free
+> replacement arrives with 1 pulse laser and 1 mining laser. But the Prospector
+> class `default_modules` is `["mining_laser_i"]` alone, and of the five stored
+> Prospectors only pirate-6's carries a pulse laser — fitted by hand. Both can be
+> true if the *respawn grant* differs from the class default, which would be a
+> sensible way to give a destroyed pilot a fighting chance. It matters: if the
+> respawn hull is unarmed, every loss costs another 2,500cr to re-arm and the
+> "free floor" is not free. Settle it by observing an actual destruction, or by
+> asking; do not assume.
 
 **The Tier-0 is a respawn hull, not a stored asset — do not plan around
 switching into one.** Checked against the asset ledger on 2026-08-08, across all
@@ -84,7 +94,7 @@ switching into one.** Checked against the asset ledger on 2026-08-08, across all
   weapons — a legacy of the agents that once ran `auto-miner` to sell ore.
 - No agent is sitting on a spare combat fit.
 
-### The roster is already armed — verified 2026-08-08
+### The roster as captured — verified 2026-08-08
 
 Step 0 ran: all five of pirate-6..10 were captured via `play_as
 --assets-db-path`. The result changed the outfitting plan.
