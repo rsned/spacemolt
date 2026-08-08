@@ -179,7 +179,35 @@ table (weapons 40 + xenobiology 60 + tactics 20) — *and repeatable*, so it wou
 be chosen not once but forever. Every reward signal points at the boss that
 kills you.
 
-**Hard cap: difficulty ≤ 2.** That admits exactly the useful ramp:
+**Two gates, not one.** A single difficulty number cannot express what is
+actually wanted, because difficulty 2 holds two different kinds of mission: the
+three repeatable wildlife culls (passive quarry, safe) *and* `pirate_bounty` /
+`convoy_defense`, which shoot back. Separating them takes a second gate.
+
+**Gate 1 — difficulty cap, starts at 1.** A constant, raised deliberately as
+weapons level climbs. It starts at **1** so the fleet proves itself on passive
+grazers before anything harder, and moves to 2 once hunts complete reliably and
+weapons XP is confirmed to move. It is never derived from a reward score.
+
+**Gate 2 — wildlife only.** `pirate_bounty` and `convoy_defense` are excluded
+regardless of difficulty, until the operator lifts it explicitly. This is what
+lets gate 1 rise to 2 and admit the three repeatable culls *without* also
+admitting the two missions that fight back.
+
+⚠️ **A difficulty-1 cap leaves exactly one mission, and it is not repeatable.**
+`first_hunt_belt_grazers` is the only difficulty-1 combat mission known. Once
+each agent completes it, the fleet has no work until gate 1 rises to 2. That is
+acceptable for a canary but not a steady state, so gate 1 rising is part of the
+rollout, not an afterthought.
+
+⚠️ **The chain's second mission is unknown.** `first_hunt_belt_grazers` chains to
+`cracking_the_shell`, which has **never been seen on a board** and is absent from
+the knowledge base — difficulty unknown. If it is difficulty 2, a cap of 1 stalls
+the chain immediately. Capture it when it first appears and record its
+difficulty; the plan should treat an accepted chain continuation as exempt from
+gate 1, or the curriculum cannot proceed past its first step.
+
+The full admissible set once gate 1 reaches 2 and gate 2 still holds:
 
 | Mission | Diff | Credits | Skill XP | Repeatable |
 |---|---:|---:|---|---|
@@ -194,9 +222,10 @@ Everything at difficulty 4 and above is excluded by the cap, including the
 leviathan. The cap is a constant, raised deliberately as weapons level climbs —
 never derived from a reward score.
 
-`pirate_bounty` and `convoy_defense` fight back, unlike the grazers. They are in
-scope per the operator's decision, but the flee threshold is what makes that
-safe, and the rollout below reaches them only after wildlife is proven.
+`pirate_bounty` and `convoy_defense` are held out by gate 2 for now — the
+operator's call, "till things are working and skilled". They stay excluded until
+wildlife hunting is reliable and the roster has real weapons levels, at which
+point lifting gate 2 is a one-line change.
 
 ## Why XP is the payload, not credits
 
@@ -306,11 +335,16 @@ Deliberately incremental, because the failure mode is losing ships:
 3. **Canary: one agent, one `first_hunt_belt_grazers`, run by hand via
    `play_as`.** Passive quarry, difficulty 1, one agent, observed live. This is
    where the real mechanics get learned and the design meets the server.
-4. Stand up the `hunt` fleet with **two** of pirate-6..10, difficulty capped at
-   1, chain missions only.
-5. Raise the cap to 2 for the repeatable culls once weapons XP is confirmed to
-   move. Grow to all five.
-6. `pirate_bounty` and `convoy_defense` last — they shoot back.
+4. Stand up the `hunt` fleet with **two** of pirate-6..10, gate 1 at difficulty
+   1, gate 2 (wildlife only) on. Note this admits exactly one non-repeatable
+   mission per agent — enough to prove the loop, not to sustain it.
+5. **Raise gate 1 to 2** once hunts complete reliably and weapons XP is
+   confirmed to move. This is what unlocks the three repeatable culls and gives
+   the fleet steady work. Grow to all five agents.
+6. Record `cracking_the_shell` when it first appears; if the chain needs a
+   difficulty above gate 1, exempt accepted chain continuations.
+7. Lift gate 2 for `pirate_bounty` / `convoy_defense` last, and only on an
+   explicit decision — they shoot back, and the roster starts at weapons 0.
 
 Success signal: weapons XP rising across the roster, hull losses at or near
 zero, and a growing body of `get_battle_log` data to learn from.
