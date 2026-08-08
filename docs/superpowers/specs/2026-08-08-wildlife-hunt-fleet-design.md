@@ -99,19 +99,32 @@ credits rather than a ship does not matter when the replacement is free.
 >   keeps the legacy fleet intact.
 > - **Accept the risk** on the explicit understanding that a loss is permanent.
 >
-> Strict no-loss is the recommendation for the first iteration: it costs almost
-> nothing at difficulty 1, and it can be relaxed later once the flee threshold is
-> known to work.
+> **DECIDED: hunt only in the Prospectors.** The legacy Drillships, Deeprock
+> Harvester and Excavator stay docked at Frontier Station and are never risked.
+> The Prospector is the least valuable legacy hull, and — critically — its
+> replacement is nearly its equal:
+>
+> | | `prospector` (legacy, owned) | `prospect` (current, free on loss) |
+> |---|---:|---:|
+> | Hull | 100 | 95 |
+> | Armor | 5 | 4 |
+> | Speed | 2 | 1 |
+> | Cargo | 50 | **100** |
+> | Weapon slots | 1 | 1 |
+> | Ships armed | **no** | **yes** (`pulse_laser_i`) |
+>
+> Losing a Prospector costs 5 hull, 1 armor and 1 speed, and gains 50 cargo and a
+> free pulse laser. That is an acceptable downgrade, which is what makes hunting
+> in Prospectors safe while the irreplaceable mining hulls stay out of it.
+>
+> The flee threshold still applies — a cheap loss is not a free one, and the
+> legacy hull is still gone for good.
 
-> ⚠️ **Unresolved: is the respawn Tier-0 armed?** The operator states the free
-> replacement arrives with 1 pulse laser and 1 mining laser. But the Prospector
-> class `default_modules` is `["mining_laser_i"]` alone, and of the five stored
-> Prospectors only pirate-6's carries a pulse laser — fitted by hand. Both can be
-> true if the *respawn grant* differs from the class default, which would be a
-> sensible way to give a destroyed pilot a fighting chance. It matters: if the
-> respawn hull is unarmed, every loss costs another 2,500cr to re-arm and the
-> "free floor" is not free. Settle it by observing an actual destruction, or by
-> asking; do not assume.
+> ✅ **Resolved: the respawn Tier-0 IS armed.** The current starter is
+> **`prospect`** — not the legacy `prospector` the roster owns — and its
+> `default_modules` is `["mining_laser_i", "pulse_laser_i"]`. Confirmed against
+> `data/game-api/latest/catalog_ships.json`. So a destroyed hull is replaced by a
+> functional armed ship at no cost.
 
 **The Tier-0 is a respawn hull, not a stored asset — do not plan around
 switching into one.** Checked against the asset ledger on 2026-08-08, across all
