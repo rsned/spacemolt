@@ -123,6 +123,15 @@ fraction of its roster until you notice.
 staggering concurrently is 12/min and back over the line. Leave ~60s between launches so the
 stagger windows do not overlap.
 
+Every fleet carries `--assets-db-path data/assets.db`. The overmind forwards it to each worker
+it spawns, which is what turns on the scheduled `capture_profile` / `capture_storage` /
+`capture_faction` passes. **Omitting it fails silently**: the captures still fire on schedule
+and still log `⏰ [scheduled hourly] capture_profile`, but a nil store makes each one a no-op,
+so the ledger stays empty while the logs look healthy. The file is created on first write — a
+missing `data/assets.db` is not something to pre-create. Confirm it took with
+`ASSET LEDGER FRESHNESS` on :8091, or `agents` counts in
+`/api/overmind/agents` → `asset_coverage`.
+
 Launch in this order — marketbots first, because everything downstream needs the market data
 they produce.
 
@@ -131,7 +140,8 @@ they produce.
 ```bash
 setsid nohup ./bin/overmind --fleet data/overmind/mb-fleet.yaml --socket data/overmind/mb.sock \
   --worker-bin bin/worker --status-file data/overmind/mb-status.json \
-  --history-file data/overmind/mb-history.jsonl --market-db-path data/market.db --stagger 10s \
+  --history-file data/overmind/mb-history.jsonl --market-db-path data/market.db \
+  --assets-db-path data/assets.db --stagger 10s \
   >> data/overmind/mb-overmind.log 2>&1 < /dev/null &
 ```
 
@@ -142,10 +152,11 @@ Assist is the fuel-rescue fleet — bring it up early so it is available if anyt
 ```bash
 setsid nohup ./bin/overmind --socket data/overmind/assist.sock --fleet data/overmind/assist-fleet.yaml \
   --status-file data/overmind/assist-status.json --history-file data/overmind/assist-history.jsonl \
-  --stagger 10s >> data/overmind/assist-overmind.log 2>&1 < /dev/null &
+  --assets-db-path data/assets.db --stagger 10s >> data/overmind/assist-overmind.log 2>&1 < /dev/null &
 
 setsid nohup ./bin/overmind --socket data/overmind/shuttle.sock --fleet data/overmind/shuttle-fleet.yaml \
   --status-file data/overmind/shuttle-status.json --history-file data/overmind/shuttle-history.jsonl \
+  --assets-db-path data/assets.db \
   >> data/overmind/shuttle-overmind.log 2>&1 < /dev/null &
 ```
 
@@ -156,7 +167,7 @@ setsid nohup ./bin/overmind --socket data/overmind/shuttle.sock --fleet data/ove
 ```bash
 setsid nohup ./bin/overmind --socket data/overmind/craft.sock --fleet data/overmind/craft-fleet.yaml \
   --status-file data/overmind/craft-status.json --history-file data/overmind/craft-history.jsonl \
-  --plan-queue data/overmind/craft-queue --stagger 10s \
+  --plan-queue data/overmind/craft-queue --assets-db-path data/assets.db --stagger 10s \
   >> data/overmind/craft-overmind.log 2>&1 < /dev/null &
 ```
 
@@ -170,7 +181,8 @@ setsid nohup ./bin/overmind --socket data/overmind/mission-learn.sock \
   --fleet data/overmind/mission-learn-fleet.yaml \
   --worker-bin bin/worker --market-db-path data/market.db \
   --status-file data/overmind/mission-learn-status.json \
-  --history-file data/overmind/mission-learn-history.jsonl --stagger 10s \
+  --history-file data/overmind/mission-learn-history.jsonl \
+  --assets-db-path data/assets.db --stagger 10s \
   >> data/overmind/mission-learn-overmind.log 2>&1 < /dev/null &
 ```
 
@@ -220,7 +232,7 @@ Then:
 
 ```bash
 setsid nohup ./bin/overmind --socket data/overmind/haul.sock \
-  --fleet data/overmind/haul-fleet.yaml --stagger 10s \
+  --fleet data/overmind/haul-fleet.yaml --assets-db-path data/assets.db --stagger 10s \
   >> data/overmind/haul-overmind.log 2>&1 < /dev/null &
 ```
 
