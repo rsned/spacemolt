@@ -379,7 +379,47 @@ option and still yields a net −1/tick.
 > *effect* is ungated — a module might install and then underperform, or the
 > lenience might be a server bug that gets fixed. Fit one `shield_recharger_ii`
 > on one agent and confirm `get_ship` reports the raised `shield_recharge`
-> before committing 37,500cr.
+> before committing credits.
+
+### ✅ Nothing needs buying — craftsman-1 already holds the modules
+
+craftsman-1's storage at grand_exchange_station carries the defense modules
+outright, so the fit-out cost is a transfer, not a purchase:
+
+| Module | Held | Effect |
+|---|---:|---|
+| `shield_booster_iv` | **150** | +200 shield |
+| `shield_booster_iii` | 43 | +100 shield |
+| `shield_booster_ii` | 66 | +50 shield |
+| `shield_booster_i` | 202 | +25 shield |
+| `shield_recharger_ii` | **1** | +5 recharge |
+| `shield_recharger_i` | 1 | +2 recharge |
+| `kinetic_shield_hardener` | 2 | 25% kinetic resist |
+| `adaptive_shield_i` / `iii` | 26 / 2 | adaptive resist |
+
+Both candidate fits clear the Prospect's 13 CPU / 26 power:
+
+| Fit (weapon + defense + utility) | CPU | Power | Shield | Recharge | vs 4/tick |
+|---|---:|---:|---:|---:|---|
+| `pulse_laser_i` + `shield_booster_iv` + `mining_laser_i` | 12/13 | 25/26 | **250** | 1 | −3/tick → ~83 ticks |
+| `pulse_laser_i` + `shield_recharger_ii` + `mining_laser_i` | 7/13 | 18/26 | 50 | **6** | **+2/tick → never falls** |
+
+**Recommended allocation, costing nothing:** the single `shield_recharger_ii`
+goes to one agent, where it makes belt-grazers literally unable to reach hull;
+the other four take `shield_booster_iv` and its 250-point pool, which absorbs
+~83 ticks of grazer fire — far more than the ~10-tick engagements observed. The
+`shield_booster_iv` fit is tight at 12/13 CPU and 25/26 power, so **dropping
+`mining_laser_i` frees 2 CPU and 5 power** on a fleet that never mines, and is
+worth doing for the headroom alone.
+
+`adaptive_shield_iii` (+200 shield *and* 35% resist) is strictly better than the
+booster but needs 12 CPU against the Prospect's 13, leaving nothing for a
+weapon. It is the right module for a tier-1 hull later, not for a Prospect.
+
+> The two `kinetic_shield_hardener` are now installable (see the retraction
+> above) and kinetic is exactly what belt-grazers deal — but with 250 shield or
+> a recharge of 6 already making hull unreachable, resistance has nothing left
+> to protect. Hold them for a quarry that out-damages the shield.
 
 `kinetic_hull_hardener` is the one to revisit first anyway once `armor: 2`
 exists — at 740cr it is the cheapest defense module in the catalog, and 30% off
