@@ -3814,13 +3814,31 @@ func (c *Client) parseActionResult(payload map[string]any) {
 		c.debugLogger.Printf("Action result: undocked")
 
 	case "refuel":
-		if fuel, ok := result["fuel"].(float64); ok {
-			c.state.Fuel = fuel
-			c.state.Ship.Fuel = fuel
+		// `fuel` is the number of units ADDED, not the new tank total: the
+		// reply pairs it with `cost`, and play_as's formatter has always
+		// printed it as "N units". Assigning it as the total made a full tank
+		// read as nearly empty — a station top-up of 56 into a 240 tank left
+		// the cache at 56/240 (captured live 2026-08-09). That is not merely
+		// cosmetic; a low-fuel gate reading this sees an empty tank right
+		// after a successful refuel.
+		//
+		// `fuel_now` is the authoritative total when the server sends it, so
+		// it wins over the delta arithmetic rather than being applied after.
+		if fuelMax, ok := result["fuel_max"].(float64); ok && fuelMax > 0 {
+			c.state.Ship.MaxFuel = fuelMax
 		}
 		if fuelNow, ok := result["fuel_now"].(float64); ok {
 			c.state.Fuel = fuelNow
 			c.state.Ship.Fuel = fuelNow
+		} else if added, ok := result["fuel"].(float64); ok {
+			total := c.state.Ship.Fuel + added
+			// Topping up never overfills. Without a known tank size there is
+			// nothing to clamp against, and inventing one would be worse.
+			if capacity := c.state.Ship.MaxFuel; capacity > 0 && total > capacity {
+				total = capacity
+			}
+			c.state.Fuel = total
+			c.state.Ship.Fuel = total
 		}
 		c.debugLogger.Printf("Action result: refueled to %.0f", c.state.Fuel)
 

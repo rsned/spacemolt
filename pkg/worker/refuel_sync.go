@@ -23,6 +23,18 @@ import (
 // reported fuel 2/95 for over two minutes across three status captures, until
 // a reconnect forced a fresh read.
 //
+// UPDATE 2026-08-09: the staleness account above was the wrong diagnosis of
+// that incident. The refuel reply DID arrive and DID carry fuel — but `fuel`
+// there is the number of units ADDED, and parseActionResult wrote it in as the
+// new total. 1530-1522 = 8 credits at ~4cr/unit is 2 units added, which is
+// exactly the "2/95" that was reported: the cache was not stale, it was
+// wrong. Root cause fixed in pkg/game (client.go, case "refuel").
+//
+// This function is kept as defence in depth — a re-read is still the cheapest
+// way to be certain after a mutation — but it is no longer load-bearing, and
+// the extra get_status per refuel could be dropped if the round trip ever
+// matters.
+//
 // Best-effort by design: a failed refresh is not a failed refuel, so the
 // refuel's own error is the only one returned. Autopilot's station-refuel
 // paths already do this inline and are left as they are.
