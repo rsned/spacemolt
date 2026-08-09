@@ -86,7 +86,18 @@ func (c *Client) Hunt(ctx context.Context, creatureID string) error {
 		Payload:   map[string]any{"target_id": creatureID},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	// Same two-frame shape as attack, and the same trap: `ok {pending:true}`
+	// then `ok {action:"hunt",...}`, never an action_result. Under the default
+	// terminateOnAction neither frame is terminal, the real one is dropped
+	// against a full ackCh, and the out-of-reach action_errors that follow
+	// each re-arm the deadline to SleepJumpMaxWait.
+	//
+	// Found by the canary: pirate-6 engaging a Belt-Grazer sat for five
+	// minutes emitting "your weapons can't reach" once a tick before the
+	// command timed out. The hunt executor calls this before its fight loop
+	// begins, so the block lands in front of every engagement.
+	h, err := c.Submit(ctx, msg,
+		WithTerminator(terminateOnActionOrOK), WithTimeout(SleepTick*3))
 	if err == nil {
 		_, err = c.await(ctx, h)
 	}

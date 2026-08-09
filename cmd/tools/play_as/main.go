@@ -6457,6 +6457,21 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.Attack(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
 
+	// hunt engages WILDLIFE, and it is a different command from attack: the
+	// hunt executor engages with Hunt(), so a canary driven with attack would
+	// be exercising a path the fleet never takes. The pre-flight asks for
+	// first_hunt_belt_grazers to be run by hand through play_as, which was not
+	// possible without this.
+	//
+	// Creature ids come from get_nearby and look like crt_<hex>.
+	case "hunt":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: hunt <creature-id>   (crt_… ids come from `get_nearby`)")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.Hunt(ctx, parts[1])
+		}, ctx, game.SleepTick*3, cmd, format)
+
 	case "cloak":
 		enable := len(parts) >= 2 && (parts[1] == "on" || parts[1] == "true" || parts[1] == "1")
 		return simpleCommand(client, func(ctx context.Context) error {
