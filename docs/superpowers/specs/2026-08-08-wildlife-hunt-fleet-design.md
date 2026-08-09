@@ -214,6 +214,60 @@ dependency, a resupply trip between hunts, and a new failure mode (out of ammo
 mid-fight) for no benefit at this tier. The Prospector's single weapon slot
 holds a Pulse Laser I; keep it that way, and upgrade along the laser line.
 
+### The defense slot is worth more than the weapon upgrade
+
+The Prospect's single defense slot is the highest-leverage fitting decision the
+fleet makes, because of the asymmetry live play established: **shields
+regenerate, hull does not.** Hull is repaired only by docking at a station or by
+a Combat Support ship with a repair kit, so every point of hull lost is a debt
+carried until the next dock. Shields come back for free — a live ship observed
+at 35/50 mid-session was back at 50/50 shortly after disengaging.
+
+So the defense slot's job is to make the *renewable* buffer outlast the fight.
+Captured numbers: a Prospect reports `max_shield 50`, `shield_recharge 1`,
+`max_hull 95`; a Belt-Grazer deals **4 kinetic per tick**. Shields therefore
+drain at a net 3/tick and the 50-point pool covers roughly 17 ticks of fire.
+
+The four defense modules with no skill requirement, against that 4/tick attacker:
+
+| Module | Cost | Effect | CPU/Pwr | Ticks of fire absorbed |
+|---|---:|---|---|---:|
+| *(empty)* | — | shield 50, recharge 1 | — | ~17 |
+| **`shield_recharger_i`** | **1,300** | **`shield_recharge_bonus: 2` → recharge 3** | 2/5 | **~50** |
+| `shield_booster_i` | 1,700 | `shield_bonus: 25` → shield 75 | 2/4 | ~25 |
+| `hull_reinforcement_i` | 880 | `hull_bonus: 25` → hull 120, cargo −5 | 1/0 | ~17 |
+| `armor_plate_i` | 490 | armor +5, **`speed_penalty: 1`** | 1/0 | ~17 |
+
+**`shield_recharger_i` wins, and it is not close.** Tripling recharge cuts the
+net drain from 3/tick to 1/tick, which roughly triples sustain — twice what the
+larger shield pool buys, for 400cr less. It compounds twice over: the
+between-engagement shield-recovery wait also shrinks threefold, so passes finish
+faster, and against any quarry dealing 3/tick or less the ship stops losing
+shield at all. Both cost and fit are trivial: 1,300cr each (6,500 for five)
+against a Prospect's 8 spare CPU and 15 spare power.
+
+`armor_plate_i` should be avoided outright despite being cheapest: `speed_penalty
+1` on a speed-2 hull raises `jumpTicks = max(1, 7−speed)` from 5 to 6, taxing
+every jump the fleet makes for +5 armor. `hull_reinforcement_i` is the fallback
+if shield recharge turns out not to apply during combat — it raises the
+non-renewable pool by 25 for 880cr — but it treats the symptom rather than the
+mechanism.
+
+> ⚠️ **Unverified: whether `shield_recharge` ticks during combat or only out of
+> it.** The whole table above assumes in-combat regeneration. A live check
+> — watch `shield` across consecutive `battle_damage` ticks — settles it, and
+> flips the recommendation to `shield_booster_i` if regeneration pauses in
+> battle. Worth doing before buying five.
+
+**Damage-typed defenses exist and wildlife has a damage type.** Belt-grazers
+deal `kinetic`; our Pulse Laser II deals `energy`. The catalog carries resistance
+modules, including the `adaptive_shield` line (`adaptive_resistance_10/20/35`),
+so a kinetic-resist fit is theoretically the specialist answer for wildlife.
+None is affordable or reachable yet — `adaptive_shield_i` costs 21,000cr and
+needs `shields: 4` — so this is a later-tier note, not a purchase. Record the
+quarry's damage type as it is observed; the fleet will eventually want to fit
+against the type it actually faces rather than generically.
+
 > ⚠️ **`agent_hulls.modules` cannot tell you whether a hull is armed.**
 > `OwnedShip.Modules` is an opaque `int` from `list_ships`, and it reported **1**
 > for a Prospector carrying **2** modules — most likely counting non-default
