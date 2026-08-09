@@ -259,14 +259,41 @@ mechanism.
 > flips the recommendation to `shield_booster_i` if regeneration pauses in
 > battle. Worth doing before buying five.
 
-**Damage-typed defenses exist and wildlife has a damage type.** Belt-grazers
-deal `kinetic`; our Pulse Laser II deals `energy`. The catalog carries resistance
-modules, including the `adaptive_shield` line (`adaptive_resistance_10/20/35`),
-so a kinetic-resist fit is theoretically the specialist answer for wildlife.
-None is affordable or reachable yet — `adaptive_shield_i` costs 21,000cr and
-needs `shields: 4` — so this is a later-tier note, not a purchase. Record the
-quarry's damage type as it is observed; the fleet will eventually want to fit
-against the type it actually faces rather than generically.
+**Damage-typed defenses exist, are cheap, and still lose to the recharger.**
+Belt-grazers deal `kinetic`, so the typed counters are the obvious specialist
+answer. They are far more affordable than the `adaptive_shield` line
+(`adaptive_shield_i` is 21,000cr at `shields: 4`):
+
+| Module | Cost | Effect | Requires | Ticks of grazer fire absorbed |
+|---|---:|---|---|---:|
+| **`shield_recharger_i`** | **1,300** | recharge 1 → 3 | **nothing** | **~50** |
+| `kinetic_shield_hardener` | 3,800 | `kinetic: 25` resist → 3/tick | `shields: 2` | ~25 |
+| `kinetic_hull_hardener` | 740 | `kinetic: 30` resist, hull only | `armor: 2` | ~17, then hull lasts ~43% longer |
+
+The recharger still wins on the arithmetic — 25% off incoming damage takes the
+net drain from 3/tick to 2/tick, while tripling recharge takes it to 1/tick, so
+the hardener buys half as much sustain for nearly three times the price.
+
+**And the skill gate decides it outright.** Both hardeners require `armor: 2` or
+`shields: 2`. `shield_recharger_i` requires nothing — the same property that
+made `pulse_laser_i` the only possible weapon for this roster. The fleet is
+miners whose recorded top skills are piloting, deep_core_mining and mining, with
+weapons at 0; armor and shields are almost certainly 0 as well, though the local
+`player_skills` table is empty so this needs a live `get_skills` to confirm.
+Until then the hardeners cannot be assumed buyable.
+
+`kinetic_hull_hardener` is the one to revisit first anyway once `armor: 2`
+exists — at 740cr it is the cheapest defense module in the catalog, and 30% off
+kinetic damage protects the *non-renewable* pool, which is the resource that
+actually costs a station visit. It is complementary to the recharger rather than
+competing: the recharger keeps shields up, the hull hardener limits the damage
+of the fights where shields fall anyway. But the Prospect has **one** defense
+slot, so it is one or the other until a bigger hull.
+
+Record each quarry's damage type as observed. A fleet that later meets thermal
+or explosive wildlife wants `thermal_hull_hardener` (580cr) or
+`explosive_hull_hardener` (640cr) rather than a generic fit — the typed modules
+are cheap precisely because they are narrow.
 
 > ⚠️ **`agent_hulls.modules` cannot tell you whether a hull is armed.**
 > `OwnedShip.Modules` is an opaque `int` from `list_ships`, and it reported **1**
