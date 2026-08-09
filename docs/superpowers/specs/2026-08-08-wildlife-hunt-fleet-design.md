@@ -323,21 +323,58 @@ for band 3's crewed design, later.
 
 The one genuinely new behaviour. Per the server docs, the loop is:
 
-1. **Find a herd.** `get_nearby` at an asteroid belt returns a `creatures` list.
-   Herds gather where ore is still *rich*, so a mined-thin belt is the wrong
-   target — `poi_resources` depletion data already tells us which belts are rich.
+1. **Find a herd.** `get_nearby` at a wildlife-bearing POI returns a
+   `creatures` list. Not only asteroid belts: captures put creatures at a gas
+   plume (`market_prime_gas_plume`), a cryobelt (`gold_run_cryobelt`) and an
+   asteroid belt (`commerce_fields`), in different systems — so POI selection
+   reads the KB `pois.type` values rather than hardcoding one type. Herds
+   gather where ore is still *rich*, so a mined-thin belt is the wrong target —
+   `poi_resources` depletion data already tells us which belts are rich.
    `survey_system` reports what lives in a system.
+
+   **The board and the quarry are in different places.** A mission board
+   exists only at a station; no creature does. A pass therefore has two legs —
+   dock and take the mission, then undock and travel to a wildlife POI — and
+   an executor that reads the board and calls `get_nearby` at one POI fails
+   whichever place it happens to be standing.
 2. **Engage one creature.** `hunt <creature_id>`, or equivalently `attack` on a
    creature id. **Wildlife never dogpile** — attacking one grazer does not pull
    in the rest of the herd. This is the property that makes difficulty-1 hunting
    genuinely safe, and it must be relied on explicitly rather than assumed.
-3. **Fight.** Zone/stance tactical combat via `battle`, polling
-   `get_battle_status` (a free query, no tick cost). The flee threshold lives
-   here.
+3. **Fight, and keep closing the range.** Zone/stance tactical combat via
+   `battle`, polling `get_battle_status` (a free query, no tick cost). The flee
+   threshold lives here.
+
+   A battle opens with both sides in zone `outer`, and firing from there is
+   refused outright — `{"code":"out_of_range","message":"Your weapons can't
+   reach the enemy at this range — 'advance' to close the distance."}`. Since
+   the fleet's whole armament is short-range lasers, `battle advance` is not
+   an optimisation; nothing lands without it.
+
+   **Advance is a per-tick obligation, not an opening move.** Low-level
+   wildlife flees and reopens the gap mid-fight, so the loop has to re-read
+   the zone every tick and re-close as the quarry runs. That makes the
+   engagement a control loop rather than a passive wait, and it needs a
+   genuine no-progress give-up — quarry hull not dropping, or zone not
+   improving across N ticks — or a worker will spend a whole pass chasing one
+   grazer it cannot catch. A fleeing quarry should be abandoned for the next
+   creature, disengaging first rather than calling `hunt` again mid-battle.
+
+   `pkg/spar` already implements this loop (`runPolicyLoop`, `BuildView`,
+   `battleOver`, `NewAggressor`, the `outer/mid/inner/engaged` zone ladder)
+   and is unit-tested; the hunt executor drives combat through it rather than
+   hand-rolling a second one.
 4. **Repeat to the objective count**, e.g. "Hunt 3 Belt-Grazers".
-5. **Loot the carcass.** Killing a creature drops a carcass wreck carrying
-   carapace and biogas. Secondary value, and the existing salvage commands
-   already handle wrecks.
+5. **Loot the carcass.** Killing a creature drops a carcass wreck. The
+   executor matches its own kill by `victim_id` against the creature id it
+   engaged — `killer_id` cannot distinguish this pass's second kill from its
+   first, and another hunter's wreck at the same belt matches a `type`-only
+   filter. The wreck expires 30 minutes after the kill, so loot per-kill
+   rather than batching at the end of a twelve-engagement pass.
+
+   The wreck doubles as the **kill receipt**: no wreck bearing our
+   `victim_id` means the creature is not confirmed dead, and the objective
+   count must not advance on an assumption.
 
 ### Client gaps this exposes
 
@@ -354,6 +391,30 @@ Two, both small and both required before any of the above runs:
 `get_battle_status` lists every combatant with `kind`
 (player/pirate/police/drone/creature/station) and `is_npc`, which is how the
 executor distinguishes its quarry from anything else that wanders in.
+
+> **Correction — that sentence is not wire-verified, and two of the three
+> fields are not reachable today.** Written from the API docs, not a capture.
+> What review established against the actual code:
+>
+> - `serverapi.BattleParticipant.Kind` exists but is **silently dropped by the
+>   parser** — `parseBattleStatusData` copies the other ten fields and omits
+>   it, so `game.BattleParticipant` has no `Kind` at all. Wiring it through is
+>   one line in each place, if quarry discrimination is wanted.
+> - `is_npc` is **not on this response**. It exists only on
+>   `ActiveBattleParticipant`, which comes from `get_system`. No capture
+>   confirms `get_battle_status` carries it.
+> - `your_zone` is attested only on the `battle_update` **push** event, which
+>   is logged and never stored in `State`. It must not be added to the status
+>   response on the strength of that capture.
+>
+> What does work today is `BattleParticipant.Zone`, self-matched by
+> `PlayerID == state.Player.ID`. Separately, the `battle_status` raw-JSON key
+> is written only from an `action` switch, so a reply that omits `action`
+> leaves it silently empty — the same key-drift class already recorded for
+> `browse_ships`/`owned_ships`, and it needs a shape-based fallback.
+>
+> The general rule this cost us twice on this branch: a field named in the API
+> docs is a hypothesis until a capture or a struct proves it.
 
 ## Objective tracking
 
