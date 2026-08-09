@@ -107,12 +107,37 @@ func huntRequiredSpecies(e serverapi.MissionBoardEntry) (species, source string)
 // to attempt over the difficulty cap: continuation mission id -> the completed
 // predecessor that unlocked it.
 //
-// Evidence is the agent's own completed-mission history, and nothing weaker.
-// Seeing a mission on a board, or accepting one, is not evidence — an
-// exemption that fired on those would admit an unearned difficulty-2 mission,
-// which is the single outcome the cap exists to prevent. Every failure path
-// here therefore returns an EMPTY map, so the gate falls closed to the plain
-// difficulty rule.
+// Evidence is the agent's own completions, and nothing weaker. Seeing a mission
+// on a board, or accepting one, is not evidence — an exemption that fired on
+// those would admit an unearned difficulty-2 mission, which is the single
+// outcome the cap exists to prevent. Every failure path returns an EMPTY map,
+// so the gate falls closed to the plain difficulty rule.
+//
+// There are two sources, and their standing is not equal:
+//
+//   - PRIMARY: this agent's own record of completion replies, written as each
+//     mission was finished (hunt_chain.go). The server names the continuation
+//     in the reply to the complete_mission that earned it, so that frame is
+//     first-hand, correlated evidence which cannot exist without a completion.
+//   - SECONDARY: the completed-missions listing below, kept because it costs
+//     one query and would cover a server that populates the list. It is the
+//     weaker source: no capture proves the shape, and the storage key it reads
+//     is shape-gated.
+//
+// The primary source wins. The list only contributes continuations the record
+// does not already hold.
+func huntEarnedContinuations(ctx context.Context, deps HuntDeps, out io.Writer) map[string]string {
+	earned := huntRecordedContinuations(deps, out)
+	for next, predecessor := range huntListedContinuations(ctx, deps, out) {
+		if _, have := earned[next]; !have {
+			earned[next] = predecessor
+		}
+	}
+	return earned
+}
+
+// huntListedContinuations is the secondary source: the agent's completed-mission
+// listing, read once per pass and treated as empty on any failure.
 //
 // The evidence is a POSITIVE per-entry marker, completion_time, and not the
 // container the entries arrived in. That matters because the raw store keys
@@ -130,24 +155,25 @@ func huntRequiredSpecies(e serverapi.MissionBoardEntry) (species, source string)
 //     completion_time. No field name here is invented, but no capture proves
 //     the server sends them on THIS command either.
 //   - Whether a completed entry carries chain_next at all is unverified. If it
-//     does not, this map is always empty and the exemption never fires — the
-//     chain stalls, visibly, rather than opening a hole.
-func huntEarnedContinuations(ctx context.Context, deps HuntDeps, out io.Writer) map[string]string {
+//     does not, this map is always empty — which no longer stalls the chain,
+//     because the completion-reply record above is the source that actually
+//     fires.
+func huntListedContinuations(ctx context.Context, deps HuntDeps, out io.Writer) map[string]string {
 	earned := map[string]string{}
 	if err := deps.Client.CompletedMissions(ctx); err != nil {
-		fmt.Fprintf(out, "hunt: completed_missions: %v; chain continuations stay gated\n", err) //nolint:errcheck
+		fmt.Fprintf(out, "hunt: completed_missions: %v; no continuations from the listing\n", err) //nolint:errcheck
 		return earned
 	}
 	raw := deps.Client.GetRawJSON("completed_missions")
 	if len(raw) == 0 {
-		fmt.Fprintln(out, "hunt: completed_missions returned no data; chain continuations stay gated") //nolint:errcheck
+		fmt.Fprintln(out, "hunt: completed_missions returned no data; no continuations from the listing") //nolint:errcheck
 		return earned
 	}
 	var resp struct {
 		Missions []serverapi.ViewCompletedMissionResponse `json:"missions"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		fmt.Fprintf(out, "hunt: parse completed missions: %v; chain continuations stay gated\n", err) //nolint:errcheck
+		fmt.Fprintf(out, "hunt: parse completed missions: %v; no continuations from the listing\n", err) //nolint:errcheck
 		return earned
 	}
 	for _, m := range resp.Missions {

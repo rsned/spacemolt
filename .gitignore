@@ -186,3 +186,6 @@ cmd/debug/enqueue-rescue/
 # Runtime lock files (flock guards, never versioned)
 data/overmind/*.lock
 data/overmind/**/*.lock
+
+# Hunt fleet per-agent chain records (runtime state)
+data/agents/*/hunt-chain.json

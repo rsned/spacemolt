@@ -44,6 +44,18 @@ const (
 	// wreck that is not ours: same type, same killer_id, different victim_id.
 	// That is exactly the case killer_id and type cannot tell apart.
 	huntRealWreckDecoy = `{"cargo":[{"item_id":"crystallized_biogas","quantity":1,"size":1}],"created_at":"2026-08-09T00:36:03.106837197Z","expire_tick":1565698,"expires_at":"2026-08-09T01:06:03.106837197Z","id":"78f7f0cb82e4f4ab27376594c319c73a","killer_id":"a50924913cef881c5e4d14257589d9ba","killer_name":"Arthur 'Artificer' Artis","modules":[],"poi_id":"gold_run_cryobelt","salvage_value":5,"ship_class":"","system_id":"gold_run","type":"creature","victim_id":"crt_1504baf945ab8e7faff70e1f4c7d146c","victim_name":"Frost-Moth"}`
+
+	// huntRealCompleteMissionReply is the complete_mission frame captured when
+	// craftsman-1 finished first_hunt_belt_grazers, verbatim from
+	// REAL-complete-mission-chain.json. It is the only frame that has ever been
+	// seen to name a chain continuation.
+	//
+	// Two properties of it are load-bearing and neither is hand-composed: the
+	// body nests under "result" (an action_result wrapper, the shape that has
+	// already made two decoders in this repo fail as empty rather than as an
+	// error), and chain_next sits INSIDE that wrapper next to the mission_id
+	// that ties it to the completion.
+	huntRealCompleteMissionReply = `{"command":"complete_mission","result":{"chain_next":"cracking_the_shell","credits_earned":1000,"message":"Three grazers down and not a scratch on you. That's the basics — find the herd, target, fire, finish. You've earned your first real combat experience. Come back and I'll show you something with a shell.","mission_id":"2d7b0ccb273d52969445dba3d17305cc","skill_xp_gained":{"weapons":50,"xenobiology":15},"title":"First Hunt: Belt-Grazers"},"tick":1566336}`
 )
 
 // The fixture ship is the operator's live Prospect, verbatim from get_ship:
@@ -90,11 +102,21 @@ type huntFakeOpts struct {
 	// looks like. Without it the list is empty until an accept lands, as on a
 	// real server.
 	heldAtStart bool
-	// completed is the agent's completed-mission history, the only evidence
-	// that earns a chain continuation past the difficulty cap. nil means the
+	// completed is the agent's completed-mission history, the SECONDARY
+	// evidence for a chain continuation past the difficulty cap. nil means the
 	// server answered with no history at all, which must NOT read as an
 	// exemption.
 	completed []serverapi.ViewCompletedMissionResponse
+	// The completion-reply variants. By default a completed mission answers
+	// with the captured chain frame, re-keyed to the mission actually
+	// completed. noCompleteReply models a server whose action_result never
+	// lands; chainSuppressed models a terminal chain step, where the field is
+	// simply absent; completeStale leaves the capture's own mission_id in
+	// place, which is what a leftover frame from an EARLIER completion looks
+	// like in the raw store.
+	noCompleteReply bool
+	chainSuppressed bool
+	completeStale   bool
 	// objectiveStuck freezes the server's kill_creature counter at zero while
 	// carcasses still appear — the live failure where a pass kills the wrong
 	// species cleanly and the mission never advances.
@@ -173,6 +195,11 @@ type huntFake struct {
 	// heals: these tests assert on the CALL, since the executor logs and
 	// continues either way and takes no decision from the outcome.
 	repairErr error
+
+	// agentsDir is a per-test temp directory standing in for data/agents, so
+	// the chain record a completing pass writes lands somewhere disposable
+	// instead of in the repo.
+	agentsDir string
 
 	quarryID   string
 	battle     serverapi.GetBattleStatusResponse
@@ -286,7 +313,7 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 			"active_missions": activeJSON(t),
 		},
 	}
-	return &huntFake{fakeClient: f, opts: opts, actives: actives}
+	return &huntFake{fakeClient: f, opts: opts, actives: actives, agentsDir: t.TempDir()}
 }
 
 // GetActiveMissions re-serves the active list with the server's kill_creature
@@ -337,7 +364,7 @@ func (f *huntFake) GetActiveMissions(ctx context.Context) error {
 // the worker's system so the station->belt leg can run for real.
 func huntDeps(c *huntFake, out io.Writer) HuntDeps {
 	return HuntDeps{
-		Client: c, KB: huntKB(), Out: out, AgentID: "pirate-6",
+		Client: c, KB: huntKB(), Out: out, AgentID: "pirate-6", AgentsDir: c.agentsDir,
 		MaxDifficulty: 1, WildlifeOnly: huntBool(true),
 		sleep:     func(context.Context, time.Duration) error { return nil },
 		tickSleep: time.Nanosecond,
@@ -440,6 +467,39 @@ func (f *huntFake) CompletedMissions(ctx context.Context) error {
 		return err
 	}
 	f.raw["completed_missions"] = b
+	return nil
+}
+
+// CompleteMission answers the way the live server did: the captured
+// action_result frame, with the mission_id re-keyed to the mission this call
+// actually completed. Only the identifier is edited — the wrapper, the field
+// names and chain_next are the capture's own.
+func (f *huntFake) CompleteMission(ctx context.Context, id string) error {
+	if err := f.fakeClient.CompleteMission(ctx, id); err != nil {
+		return err
+	}
+	if f.opts.noCompleteReply {
+		return nil
+	}
+	var frame map[string]any
+	if err := json.Unmarshal([]byte(huntRealCompleteMissionReply), &frame); err != nil {
+		return err
+	}
+	result, ok := frame["result"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("captured complete_mission frame has no result wrapper")
+	}
+	if !f.opts.completeStale {
+		result["mission_id"] = id
+	}
+	if f.opts.chainSuppressed {
+		delete(result, "chain_next")
+	}
+	b, err := json.Marshal(frame)
+	if err != nil {
+		return err
+	}
+	f.raw["complete_mission"] = b
 	return nil
 }
 

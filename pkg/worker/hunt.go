@@ -188,6 +188,11 @@ type HuntDeps struct {
 	KB      knowledge.Base
 	Out     io.Writer // nil -> io.Discard
 	AgentID string
+	// AgentsDir is where per-agent state lives (<AgentsDir>/<AgentID>/...),
+	// empty -> DefaultAgentsDir. The hunt fleet keeps one file there: the
+	// chain continuations it has earned (hunt_chain.go). With no AgentID
+	// nothing is written or read, and the difficulty cap simply applies.
+	AgentsDir string
 	// NowFn returns the current wall-clock time (nil -> time.Now); injected
 	// for deterministic tests, mirroring Haul/Missions' Now field.
 	NowFn func() time.Time
@@ -468,7 +473,17 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	fmt.Fprintf(out, "hunt: %s objective met (%d/%d); completing\n", job.boardID, kills, target) //nolint:errcheck
 	if err := deps.Client.CompleteMission(ctx, job.activeID); err != nil {
 		fmt.Fprintf(out, "hunt: complete %s failed: %v; held for next pass\n", job.activeID, err) //nolint:errcheck
+		return nil
 	}
+	// The completion reply is the ONLY frame that names this mission's chain
+	// continuation, and it is tick-deferred: the immediate return is an ack and
+	// the body lands later as an action_result. Settle for a tick before
+	// reading it, exactly as missionComplete does for credits_earned.
+	if err := deps.sleep(ctx, game.SleepTick); err != nil {
+		fmt.Fprintf(out, "hunt: interrupted before reading the completion reply: %v\n", err) //nolint:errcheck
+		return nil
+	}
+	huntRecordChainNext(deps, out, job)
 	return nil
 }
 
@@ -853,13 +868,21 @@ func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly boo
 // command at a place the worker is already standing. A mid-pass return to a
 // station, and the Combat Support repair-kit path, are deliberately NOT built.
 //
-// A repair that fails is logged and swallowed, matching the neighbouring
-// executors: it may cost credits the agent does not have, or the station may
-// not offer the service, and neither is a reason to throw away a pass that can
-// still hunt. The call is given its own deadline so a slow or unacknowledged
-// reply cannot park a worker at the dock — GameClient.Repair waits on the
-// default terminator, whose behaviour against a real repair reply is
-// UNVERIFIED (the same shape recently hung Attack for five minutes).
+// The price is operator-confirmed at 1 credit per unit of hull, docked only.
+// That makes the cost knowable before the call — MaxHull-Hull credits, at most
+// ~95cr on the live Prospect — and it is what justifies a top-up threshold as
+// high as huntRepairAtHull: a frequent small repair is a rounding error against
+// a 1,000cr mission, so there is nothing to economise on and NO credit check
+// here. Only the ratio matters, never a fixed number of credits, so a bigger
+// hull costs proportionally more without changing the rule.
+//
+// A repair that fails is still logged and swallowed, matching the neighbouring
+// executors: a broke agent can be refused, and that is not a reason to throw
+// away a pass that can still hunt. The call is given its own deadline so a slow
+// or unacknowledged reply cannot park a worker at the dock — GameClient.Repair
+// waits on the default terminator, whose behaviour against a real repair reply
+// is UNVERIFIED (the same shape recently hung Attack for five minutes). Cost
+// and protocol are separate questions; only the first is settled.
 func huntRepairAtDock(ctx context.Context, deps HuntDeps, out io.Writer, who string, st *game.State) {
 	if st == nil || st.Ship.MaxHull <= 0 || st.Ship.Hull/st.Ship.MaxHull >= huntRepairAtHull {
 		return
