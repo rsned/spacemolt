@@ -200,8 +200,17 @@ func ParseStorageHint(hint string) (StorageHint, bool) {
 	if h == "" {
 		return StorageHint{}, false
 	}
+	// Suffix, not equality: a faction with no lockbox gets the sentinel behind
+	// a build-one preamble ("Your faction does not have a storage facility at
+	// this station. Use facility action 'faction_build' ... No items in faction
+	// storage at any station." — explorer-6, 2026-08-08). An equality check
+	// missed that and logged the whole hint as unparseable, which left "holds
+	// nothing anywhere" indistinguishable from "could not read it".
+	//
+	// Safe to widen: the sentinel asserts emptiness, so a hint ending in it
+	// cannot also be listing holdings.
 	for _, sentinel := range hintEmptySentinels {
-		if h == sentinel {
+		if strings.HasSuffix(h, sentinel) {
 			return StorageHint{}, true
 		}
 	}

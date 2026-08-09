@@ -1107,6 +1107,63 @@ func formatGetDrone(raw []byte) string {
 	return b.String()
 }
 
+// locResource is one entry of get_location's resources array — the per-POI ore
+// data. get_poi was retired server-side (2026-06-24) and `poi` transparently
+// runs get_location, so this is the only place a POI's ore is reported.
+type locResource struct {
+	ItemID         string  `json:"item_id"`
+	ItemName       string  `json:"item_name,omitempty"`
+	Richness       float64 `json:"richness"`
+	Remaining      float64 `json:"remaining"`
+	SupportedPower float64 `json:"supported_power,omitempty"`
+}
+
+// writeResourceTable renders a POI's ore, richest first. Richness and remaining
+// are the two numbers that decide whether a belt is worth working — the wildlife
+// board says quarry gathers where ore is rich and the belt un-worked, and the
+// same pair drives mining site selection.
+//
+// Emits nothing at all for a POI with no resources: a station legitimately has
+// none, and a bare heading reads as a rendering failure.
+func writeResourceTable(b *strings.Builder, res []locResource) {
+	if len(res) == 0 {
+		return
+	}
+	rows := slices.Clone(res)
+	slices.SortStableFunc(rows, func(x, y locResource) int {
+		return cmp.Compare(y.Richness, x.Richness)
+	})
+
+	nameW, idW := len("Resource"), len("ID")
+	for _, r := range rows {
+		nameW = max(nameW, runewidth.StringWidth(r.displayName()))
+		idW = max(idW, runewidth.StringWidth(r.ItemID))
+	}
+
+	fmt.Fprintf(b, "\nResources: %d\n", len(rows))
+	fmt.Fprintf(b, "  %-*s  %-*s  %5s  %12s  %8s\n",
+		nameW, "Resource", idW, "ID", "Rich", "Remaining", "Power")
+	fmt.Fprintf(b, "  %s\n", strings.Repeat("-", nameW+idW+33))
+	for _, r := range rows {
+		power := ""
+		if r.SupportedPower > 0 {
+			power = trimFloat(r.SupportedPower)
+		}
+		fmt.Fprintf(b, "  %-*s  %-*s  %5s  %12s  %8s\n",
+			nameW, r.displayName(), idW, r.ItemID,
+			trimFloat(r.Richness), trimFloat(r.Remaining), power)
+	}
+}
+
+// displayName falls back to the id so a resource the server sends without an
+// item_name still renders a row rather than an empty cell.
+func (r locResource) displayName() string {
+	if r.ItemName != "" {
+		return r.ItemName
+	}
+	return r.ItemID
+}
+
 // formatGetLocation renders a get_location response: a compact header (POI,
 // system, security, connections), nearby counts, and tables for the nearby
 // players / empire NPCs (reusing writePlayerTable for the player table since
@@ -1133,7 +1190,7 @@ func formatGetLocation(raw []byte) string {
 		Empire           string            `json:"empire"`
 		Security         string            `json:"security_status"`
 		Connections      []string          `json:"connections"`
-		Resources        []json.RawMessage `json:"resources"`
+		Resources        []locResource     `json:"resources"`
 		PlayerCount      int               `json:"nearby_player_count"`
 		NPCCount         int               `json:"nearby_empire_npc_count"`
 		PirateCount      int               `json:"nearby_pirate_count"`
@@ -1180,9 +1237,7 @@ func formatGetLocation(raw []byte) string {
 	if len(l.Connections) > 0 {
 		fmt.Fprintf(&b, "Connect:  %s\n", strings.Join(l.Connections, ", "))
 	}
-	if len(l.Resources) > 0 {
-		fmt.Fprintf(&b, "Resources: %d listed\n", len(l.Resources))
-	}
+	writeResourceTable(&b, l.Resources)
 
 	fmt.Fprintf(&b, "\nNearby: %d player(s), %d empire NPC(s), %d pirate(s)",
 		l.PlayerCount, l.NPCCount, l.PirateCount)
@@ -4030,14 +4085,33 @@ type nearbyPirate struct {
 	Tier string `json:"tier,omitempty"`
 }
 
+// nearbyCreature is a parsed wildlife creature from a get_nearby response.
+//
+// Field names are taken from a live payload (craftsman-1 at commerce_fields,
+// 2026-08-08) rather than guessed: the server sends `in_combat` and `role`, NOT
+// `is_aggressive` or `status`. CreatureID is the value the hunt command takes,
+// so it is rendered in full even though it is long — a truncated id cannot be
+// copied into a hunt.
+type nearbyCreature struct {
+	CreatureID string `json:"creature_id"`
+	Name       string `json:"name,omitempty"`
+	Species    string `json:"species,omitempty"`
+	Role       string `json:"role,omitempty"`
+	Hull       int    `json:"hull"`
+	MaxHull    int    `json:"max_hull"`
+	InCombat   bool   `json:"in_combat,omitempty"`
+}
+
 // formatNearby formats a get_nearby response as a table.
 func formatNearby(raw []byte) string {
 	var resp struct {
-		POIID       string         `json:"poi_id"`
-		Count       int            `json:"count"`
-		PirateCount int            `json:"pirate_count"`
-		Nearby      []nearbyPlayer `json:"nearby"`
-		Pirates     []nearbyPirate `json:"pirates"`
+		POIID         string           `json:"poi_id"`
+		Count         int              `json:"count"`
+		PirateCount   int              `json:"pirate_count"`
+		CreatureCount int              `json:"creature_count"`
+		Nearby        []nearbyPlayer   `json:"nearby"`
+		Pirates       []nearbyPirate   `json:"pirates"`
+		Creatures     []nearbyCreature `json:"creatures"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -4058,7 +4132,37 @@ func formatNearby(raw []byte) string {
 		fmt.Fprintf(&b, "  %s (%s)\n", p.Name, tier)
 	}
 
+	writeCreatureTable(&b, resp.CreatureCount, resp.Creatures)
+
 	return b.String()
+}
+
+// writeCreatureTable renders the wildlife at this POI. The creature id is the
+// argument `hunt` takes, so it is printed in full rather than truncated.
+func writeCreatureTable(b *strings.Builder, count int, creatures []nearbyCreature) {
+	// Fall back to the slice length: a server that sends creatures without a
+	// count should still report the right number.
+	if count == 0 {
+		count = len(creatures)
+	}
+	fmt.Fprintf(b, "\nCreatures:  %d\n", count)
+	for _, c := range creatures {
+		name := c.Name
+		if name == "" {
+			name = c.Species
+		}
+		desc := name
+		if c.Species != "" && c.Species != name {
+			desc = fmt.Sprintf("%s (%s)", name, c.Species)
+		}
+		if c.Role != "" {
+			desc += " " + c.Role
+		}
+		if c.InCombat {
+			desc += " [in combat]"
+		}
+		fmt.Fprintf(b, "  %-38s %4d/%-4d  %s\n", desc, c.Hull, c.MaxHull, c.CreatureID)
+	}
 }
 
 // formatTravel formats a travel response with online players at the destination.
@@ -6392,11 +6496,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, battleWait, cmd, format)
 
 	case "reload":
-		if len(parts) < 3 {
-			return fmt.Errorf("usage: reload <weapon-instance-id> <ammo-item-id>")
+		// Accepts both the positional and the --flag form; see reloadArgs.
+		weaponID, ammoID, err := reloadArgs(parts)
+		if err != nil {
+			return err
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.Reload(ctx, parts[1], strings.ToLower(parts[2]))
+			return client.Reload(ctx, weaponID, ammoID)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "distress_signal":
@@ -6608,7 +6714,21 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// from here.
 	case "shipping":
 		if len(parts) < 2 {
-			return fmt.Errorf("usage: shipping <profile|list|get|track|pay_debt> [args]\n" +
+			return fmt.Errorf("usage: shipping <accept|deliver|quote|post|profile|list|get|track|pay_debt> [args]\n" +
+				"  shipping accept <shipment-id> [--carrier player|faction]\n" +
+				"      the package lands in your STORAGE AT ORIGIN, not your hold:\n" +
+				"      withdraw_items it before you fly, or you arrive empty\n" +
+				"  shipping deliver <shipment-id>  settle it, docked at the destination\n" +
+				"  shipping return <shipment-id>   hand it back at origin (costs, but no breach)\n" +
+				"  shipping quote <package-id> <dest-base-id>   estimated_reward for a run this long\n" +
+				"  shipping active [--eligible_as ...]          YOUR outstanding contracts\n" +
+				"  shipping cancel <shipment-id>                only while still posted\n" +
+				"  shipping post  <package-id> <dest-base-id> --base_reward N   post the contract\n" +
+				"      optional: --service_level standard|priority --insured true --speed_bonus N\n" +
+				"                --shipper player|faction --max_total_cost N\n" +
+				"                --recipient_type player|faction|station --recipient_id ID\n" +
+				"                (omit both recipient flags and it comes back to YOU)\n" +
+				"      the package must already be sealed: craft pack_package (--file=<json>)\n" +
 				"  shipping profile              carrier tier, capacity, outstanding debt\n" +
 				"  shipping list [sort]          contracts posted at this station\n" +
 				"  shipping get <shipment-id>    one contract in detail\n" +
@@ -6616,6 +6736,20 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				"  shipping pay_debt [amount]    omit amount to settle the full balance")
 		}
 		switch strings.ToLower(parts[1]) {
+		case "quote", "post", "active", "cancel":
+			// The shipper side: posting cargo for someone else to haul. Kept in
+			// shipping_post.go behind a one-method interface so the payload
+			// shaping is unit-testable without a full GameClient.
+			return simpleCommand(client, func(ctx context.Context) error {
+				return shipperCommand(ctx, client, parts)
+			}, ctx, 3*time.Second, cmd, format)
+		case "accept", "deliver", "return":
+			// The carrier side. These are tick-deferred (shippingMutations), so
+			// the real body arrives in a later action_result frame — allow more
+			// than the reads' 3s.
+			return simpleCommand(client, func(ctx context.Context) error {
+				return carrierCommand(ctx, client, parts)
+			}, ctx, game.SleepTick*2, cmd, format)
 		case "profile":
 			return simpleCommand(client, client.ShippingProfile, ctx, 3*time.Second, cmd, format)
 		case "list":
@@ -6662,7 +6796,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				return client.ShippingPayDebt(ctx, amount)
 			}, ctx, 3*time.Second, cmd, format)
 		default:
-			return fmt.Errorf("unknown shipping action %q (profile, list, get, track, pay_debt)", parts[1])
+			return fmt.Errorf("unknown shipping action %q (accept, deliver, return, quote, post, active, cancel, profile, list, get, track, pay_debt)", parts[1])
 		}
 
 	case "list_ship_for_sale":
