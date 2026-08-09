@@ -12,18 +12,18 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
-// battleClient is the minimal client surface the per-combatant loop needs. Both
+// BattleClient is the minimal client surface the per-combatant loop needs. Both
 // *game.Client (via game.GameClient) and the test fake satisfy it.
-type battleClient interface {
+type BattleClient interface {
 	GetBattleStatus(ctx context.Context) error
 	Battle(ctx context.Context, action string, payload map[string]any) error
 	GetState() *game.State
 }
 
-// battleOver reports whether a battle has ended: nil/absent state, we are no
+// BattleOver reports whether a battle has ended: nil/absent state, we are no
 // longer a participant, or one or fewer sides still have a living (HullPct>0)
 // participant.
-func battleOver(b *game.BattleState) bool {
+func BattleOver(b *game.BattleState) bool {
 	if b == nil || !b.IsParticipant {
 		return true
 	}
@@ -36,10 +36,14 @@ func battleOver(b *game.BattleState) bool {
 	return len(living) <= 1
 }
 
-// runPolicyLoop drives one combatant: each tick it refreshes battle status,
+// RunPolicyLoop drives one combatant: each tick it refreshes battle status,
 // stops when the battle is over, otherwise applies its policy. tickSleep is the
 // pause between iterations (game.SleepTick in production; tiny in tests).
-func runPolicyLoop(ctx context.Context, bc battleClient, selfID string, p Policy, tickSleep time.Duration) error {
+//
+// It also returns when the policy answers ActionStop, which is how a policy
+// that tracks its own budget or has decided to break off ends the fight on its
+// own terms.
+func RunPolicyLoop(ctx context.Context, bc BattleClient, selfID string, p Policy, tickSleep time.Duration) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -49,13 +53,20 @@ func runPolicyLoop(ctx context.Context, bc battleClient, selfID string, p Policy
 		if err := bc.GetBattleStatus(ctx); err != nil {
 			return fmt.Errorf("get_battle_status: %w", err)
 		}
-		b := bc.GetState().BattleState
-		if battleOver(b) {
+		st := bc.GetState()
+		if st == nil {
+			return nil // no cached state: nothing to drive against
+		}
+		b := st.BattleState
+		if BattleOver(b) {
 			return nil
 		}
 		if v, ok := BuildView(b, selfID); ok {
 			act := p.Decide(v)
-			if act.Kind == "battle" {
+			switch act.Kind {
+			case ActionStop:
+				return nil
+			case ActionBattle:
 				if err := bc.Battle(ctx, act.BattleAction, act.Payload); err != nil {
 					return fmt.Errorf("battle %s: %w", act.BattleAction, err)
 				}
@@ -157,7 +168,7 @@ func (m *Match) Run(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := runPolicyLoop(loopCtx, c.Client, c.PlayerID(), c.Policy, game.SleepTick); err != nil && !errors.Is(err, context.Canceled) {
+			if err := RunPolicyLoop(loopCtx, c.Client, c.PlayerID(), c.Policy, game.SleepTick); err != nil && !errors.Is(err, context.Canceled) {
 				m.Logger.Printf("%s policy loop ended: %v", c.Username, err)
 			}
 		}()
@@ -179,7 +190,7 @@ func (m *Match) Run(ctx context.Context) error {
 }
 
 // fleeBot issues a best-effort flee stance so a bot disengages on shutdown.
-func fleeBot(ctx context.Context, bc battleClient) error {
+func fleeBot(ctx context.Context, bc BattleClient) error {
 	return bc.Battle(ctx, "stance", map[string]any{"stance": "flee"})
 }
 
@@ -233,7 +244,7 @@ func (m *Match) waitForBattle(ctx context.Context, c *Combatant) error {
 		default:
 		}
 		_ = c.Client.GetBattleStatus(ctx)
-		if !battleOver(c.Client.GetState().BattleState) {
+		if !BattleOver(c.Client.GetState().BattleState) {
 			return nil
 		}
 		time.Sleep(game.SleepTick)

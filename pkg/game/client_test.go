@@ -697,6 +697,65 @@ func TestGetBattleStatus_ClearsInBattleWhenNotParticipant(t *testing.T) {
 	}
 }
 
+// A get_battle_status reply that omits "action" must still land. Both the
+// BattleState parse and the raw store used to be reachable only through the
+// action switch, which is the failure already recorded on
+// browse_ships/owned_ships: one live reply without the field and every
+// consumer sees an empty battle picture, which reads as "the fight is over".
+func TestGetBattleStatus_DetectedByShapeWithoutAction(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.state.Player.ID = "me-123"
+
+	client.recvFrame(protocol.Response{
+		Type: protocol.TypeOK,
+		Payload: map[string]any{
+			"battle_id":      "b7",
+			"system_id":      "ross_128",
+			"is_participant": true,
+			"participants": []any{
+				map[string]any{"player_id": "me-123", "side_id": "1", "zone": "outer", "hull_pct": float64(90)},
+				map[string]any{"player_id": "beast", "side_id": "2", "zone": "outer", "hull_pct": float64(100)},
+			},
+		},
+	})
+
+	st := client.GetState()
+	if st.BattleState == nil {
+		t.Fatal("BattleState nil; an action-less get_battle_status reply must still be parsed")
+	}
+	if st.BattleState.BattleID != "b7" || len(st.BattleState.Participants) != 2 {
+		t.Fatalf("unexpected BattleState: %+v", st.BattleState)
+	}
+	if !st.InBattle {
+		t.Error("want InBattle true")
+	}
+	if len(client.GetRawJSON("battle_status")) == 0 {
+		t.Error(`GetRawJSON("battle_status") empty; the raw store must be reachable by shape too`)
+	}
+}
+
+// Once the fight ends the server answers with a bare "not a participant".
+// Returning early on that reply left the last live snapshot in place, so a
+// loop polling for the battle to end never saw it end.
+func TestGetBattleStatus_BareNotParticipantResolvesTheBattle(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.state.InBattle = true
+	client.state.BattleState = &BattleState{BattleID: "b7", IsParticipant: true}
+
+	client.recvFrame(protocol.Response{
+		Type:    protocol.TypeOK,
+		Payload: map[string]any{"action": "get_battle_status", "is_participant": false},
+	})
+
+	st := client.GetState()
+	if st.InBattle {
+		t.Error("want InBattle false")
+	}
+	if st.BattleState != nil && st.BattleState.IsParticipant {
+		t.Error("want the cached battle picture marked resolved, not left live")
+	}
+}
+
 // TestParseActionResult_CloakTogglesState verifies that a cloak action_result
 // (which omits the "action" field and keys off command + an enabled flag)
 // updates the cached Player.IsCloaked rather than being logged as unhandled.

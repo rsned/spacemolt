@@ -2410,8 +2410,14 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.parseChatHistoryData(resp.Payload)
 		}
 		// get_battle_status returns type "ok" with action "get_battle_status"
-		// and participants/sides/battle_id in payload.
-		if action, ok := resp.Payload["action"].(string); ok && action == "get_battle_status" {
+		// and participants/sides/battle_id in payload. Detect it by shape too
+		// (is_participant, which no other modelled reply carries): gating the
+		// only writer of State.BattleState on "action" alone leaves the battle
+		// picture empty whenever a live reply omits that field, and an empty
+		// picture reads as "the fight is over".
+		action, _ := resp.Payload["action"].(string)
+		_, hasIsParticipant := resp.Payload["is_participant"]
+		if action == "get_battle_status" || hasIsParticipant {
 			c.parseBattleStatusData(resp.Payload)
 		}
 
@@ -3168,6 +3174,17 @@ func (c *Client) parseBattleStatusData(payload map[string]any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if resp.BattleID == "" && len(parts) == 0 {
+		// A bare "you are not in a battle" reply is what the server sends once
+		// the fight is over. Returning here without touching anything left the
+		// previous battle picture in place, so a loop polling for the fight to
+		// end never saw it end — it kept reading the last live snapshot. Clear
+		// the participation flags instead; there is nothing else to update.
+		if !resp.IsParticipant {
+			c.state.InBattle = false
+			if c.state.BattleState != nil {
+				c.state.BattleState.IsParticipant = false
+			}
+		}
 		return
 	}
 	c.state.BattleState = &BattleState{
@@ -4662,6 +4679,19 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				}
 				shouldStore = true
 			}
+		}
+		// Store get_battle_status by SHAPE as well as by action (the action
+		// case further down). A store key reachable only through the action
+		// switch is silently dead whenever a live reply omits "action" — the
+		// failure already recorded on browse_ships/owned_ships — and a hunt or
+		// battle loop reading an empty "battle_status" concludes the fight is
+		// over before it has begun. is_participant is unique to this reply
+		// among the modelled responses, so its presence identifies it.
+		if _, hasIsParticipant := resp.Payload["is_participant"]; hasIsParticipant {
+			if storeKey == "" {
+				storeKey = "battle_status"
+			}
+			shouldStore = true
 		}
 		// Store wrecks
 		if _, hasWrecks := resp.Payload["wrecks"]; hasWrecks {

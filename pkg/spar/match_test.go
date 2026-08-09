@@ -43,17 +43,17 @@ func TestBattleOver(t *testing.T) {
 		{PlayerID: "me", SideID: "1", HullPct: 50},
 		{PlayerID: "foe", SideID: "2", HullPct: 30},
 	}}
-	if battleOver(twoSides) {
+	if BattleOver(twoSides) {
 		t.Fatal("two living sides: battle should NOT be over")
 	}
 	oneSide := &game.BattleState{IsParticipant: true, Participants: []game.BattleParticipant{
 		{PlayerID: "me", SideID: "1", HullPct: 50},
 		{PlayerID: "foe", SideID: "2", HullPct: 0},
 	}}
-	if !battleOver(oneSide) {
+	if !BattleOver(oneSide) {
 		t.Fatal("one living side: battle should be over")
 	}
-	if !battleOver(nil) {
+	if !BattleOver(nil) {
 		t.Fatal("nil battle state: should be over")
 	}
 }
@@ -69,9 +69,9 @@ func TestRunPolicyLoop_DispatchesThenStops(t *testing.T) {
 	}}
 	f := &fakeBattleClient{states: []*game.BattleState{inBattle, over}}
 
-	err := runPolicyLoop(context.Background(), f, "me", NewRetreater(), time.Millisecond)
+	err := RunPolicyLoop(context.Background(), f, "me", NewRetreater(), time.Millisecond)
 	if err != nil {
-		t.Fatalf("runPolicyLoop error: %v", err)
+		t.Fatalf("RunPolicyLoop error: %v", err)
 	}
 	if len(f.actions) != 1 || f.actions[0] != "stance:flee" {
 		t.Fatalf("actions = %v, want [stance:flee]", f.actions)
