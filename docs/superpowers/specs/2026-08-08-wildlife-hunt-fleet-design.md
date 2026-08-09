@@ -337,10 +337,30 @@ The one genuinely new behaviour. Per the server docs, the loop is:
    dock and take the mission, then undock and travel to a wildlife POI — and
    an executor that reads the board and calls `get_nearby` at one POI fails
    whichever place it happens to be standing.
-2. **Engage one creature.** `hunt <creature_id>`, or equivalently `attack` on a
-   creature id. **Wildlife never dogpile** — attacking one grazer does not pull
-   in the rest of the herd. This is the property that makes difficulty-1 hunting
-   genuinely safe, and it must be relied on explicitly rather than assumed.
+2. **Engage one creature — and only a harmless one.** `hunt <creature_id>`, or
+   equivalently `attack` on a creature id. **Wildlife never dogpile** —
+   attacking one grazer does not pull in the rest of the herd. This is the
+   property that makes difficulty-1 hunting genuinely safe, and it must be
+   relied on explicitly rather than assumed.
+
+   **`role` decides what is safe to engage, and it is not optional.** A single
+   live `get_nearby` list held eight creatures: seven `grazer`s from 45 to 220
+   hull, and a `Tempest-Eel` — `role: predator`, 280 hull — standing among
+   them. A quarry picker that sorts on hull and ignores `role` will engage the
+   predator with a starter Prospect and one pulse laser, which voids the
+   entire safety case for a difficulty-1 fleet. Filter on `role`: engage
+   grazers and scavengers, never a predator while `wildlifeOnly` is in force,
+   and log the refusal naming the role. `role` is also visible mid-fight — the
+   quarry's `ship_name` in the battle payload is its role.
+
+   Filter on `role`, never on a species allowlist. Eight species appeared in
+   that one list (`pilot_whale`, `bell_jelly`, `hollow_pilgrim`, `rime_grazer`,
+   `pressblister`, `tempest_eel`, `drift_ray`, `sift_ray`) and they vary by POI
+   and system; `role` is the stable classifier.
+
+   Prefer the *weakest* eligible quarry, not the healthiest. A 45-hull
+   Bell-Jelly and a 220-hull Pilot-Whale pay the same objective credit for
+   very different fights.
 3. **Fight, and keep closing the range.** Zone/stance tactical combat via
    `battle`, polling `get_battle_status` (a free query, no tick cost). The flee
    threshold lives here.
@@ -407,29 +427,64 @@ Two, both small and both required before any of the above runs:
 (player/pirate/police/drone/creature/station) and `is_npc`, which is how the
 executor distinguishes its quarry from anything else that wanders in.
 
-> **Correction — that sentence is not wire-verified, and two of the three
-> fields are not reachable today.** Written from the API docs, not a capture.
-> What review established against the actual code:
+> **That sentence is correct about the wire. The Go structs are what fall
+> short.** A `get_battle_status` reply captured 2026-08-08 carries
+> `"is_npc": true` and `"kind": "creature"` on the quarry, exactly as claimed.
+>
+> An earlier revision of this note asserted `is_npc` was "not on this
+> response" and lived only on `get_system`'s `ActiveBattleParticipant`. That
+> was wrong. It was reasoning from the Go struct's missing field back to the
+> wire, which is the same mistake in the opposite direction as the one that
+> put fabricated field names into `NearbyCreature` — inferring the server from
+> our code instead of from a capture. Left visible rather than quietly edited,
+> because being burned twice in opposite directions is the useful lesson: only
+> a capture settles what the server sends.
+>
+> What is genuinely missing is on our side:
 >
 > - `serverapi.BattleParticipant.Kind` exists but is **silently dropped by the
 >   parser** — `parseBattleStatusData` copies the other ten fields and omits
->   it, so `game.BattleParticipant` has no `Kind` at all. Wiring it through is
->   one line in each place, if quarry discrimination is wanted.
-> - `is_npc` is **not on this response**. It exists only on
->   `ActiveBattleParticipant`, which comes from `get_system`. No capture
->   confirms `get_battle_status` carries it.
-> - `your_zone` is attested only on the `battle_update` **push** event, which
->   is logged and never stored in `State`. It must not be added to the status
->   response on the strength of that capture.
+>   it, so `game.BattleParticipant` has no `Kind`.
+> - `serverapi.BattleParticipant.IsNPC` does not exist, though the wire sends
+>   it.
+> - The whole `combat_state` block is **unmodelled** (see below).
 >
-> What does work today is `BattleParticipant.Zone`, self-matched by
-> `PlayerID == state.Player.ID`. Separately, the `battle_status` raw-JSON key
-> is written only from an `action` switch, so a reply that omits `action`
-> leaves it silently empty — the same key-drift class already recorded for
-> `browse_ships`/`owned_ships`, and it needs a shape-based fallback.
->
-> The general rule this cost us twice on this branch: a field named in the API
-> docs is a hypothesis until a capture or a struct proves it.
+> Separately and confirmed: the reply carries **no `action` key at all**, and
+> the client writes the raw `battle_status` key only from inside an `action`
+> switch. So that key is never populated for this command and
+> `GetRawJSON("battle_status")` returns empty in production — the same
+> key-drift class already recorded for `browse_ships`/`owned_ships`, but here
+> confirmed rather than suspected. A shape-based fallback keyed on
+> `battle_id` + `participants` is required, not optional.
+
+### Range is numeric, and `combat_state` is where it lives
+
+The captured reply carries a `combat_state` block that no struct models:
+
+```json
+{"can_escape": true, "effective_speed": 1, "em_disrupted": false,
+ "flee_counter": 0, "flee_required": 3, "max_weapon_reach": 3,
+ "warp_disrupted": false, "webbed": false}
+```
+
+with a `zone_distance` on each participant (6, against a `max_weapon_reach`
+of 3). **In range means `zone_distance <= max_weapon_reach`** — a number, not
+a label. The `outer`/`inner` zone string is a coarse name over that distance,
+so the fight loop measures progress on `zone_distance` and treats the zone
+label as cosmetic. This also disposes of the "are the rungs contiguous"
+worry: a number needs no ladder. `max_weapon_reach` is read from the wire
+every poll and never hardcoded, since it must vary with the fitted weapon.
+
+`flee_counter` / `flee_required` quantify the escape: **fleeing takes three
+counts.** An executor that issues a flee stance and returns immediately
+abandons its ship three ticks into an escape it never confirms, while still a
+participant and still under fire. The abort path polls until the escape
+completes or the battle ends, with advancing disabled. `can_escape` reports
+whether escape is possible at all.
+
+`auto_pilot` is per-participant — our own ship's state, not a battle-wide
+flag. Whether it can be overridden by an explicit stance is still unproven,
+so the flee gate must not be assumed to win against it.
 
 ## Objective tracking
 
