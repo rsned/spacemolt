@@ -1571,17 +1571,35 @@ func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string
 	if err := graph.BuildFromDB(ctx, kb); err != nil {
 		return "", "", ""
 	}
-	near, err := galaxy.FindNearestByPOIType(ctx, kb, graph, from, poiType, huntPOISearchLimit)
-	if err != nil {
-		return "", "", ""
-	}
 	for _, requirePoliced := range []bool{true, false} {
-		for _, cand := range near {
-			// FindNearest leaves NearestResult.POIs nil for POI-type lookups,
-			// so the POI id has to come back out of the KB.
-			poi, reason, ok := huntGroundIn(ctx, kb, cand.SystemID, poiType, requirePoliced, exclude)
-			if ok {
-				return cand.SystemID, poi, reason
+		// Qualify FIRST, then rank by distance. Asking the galaxy for the
+		// nearest systems that merely CONTAIN a belt spends the search limit
+		// on candidates the rule then throws away: measured from void_gate —
+		// frontier_station, where both hunt agents live — the first qualifying
+		// belt system is rank 66 of 322 by jump distance, against a limit of
+		// 25. Every one of the nearer 25 has a station. The pass found no
+		// hunting ground at all, and belts get no relaxed-policing retry to
+		// save them.
+		//
+		// galaxy.queryAccessibleStations already works this way for stations,
+		// filtering targets by public access before FindNearest ever sees
+		// them; the belt rule needs the same treatment. The rule stays here in
+		// hunt.go rather than moving into pkg/galaxy, which has no business
+		// knowing what a grazer eats.
+		targets := huntQualifyingSystems(ctx, kb, poiType, requirePoliced, exclude)
+		if len(targets) > 0 {
+			// Nearest QUALIFYING still wins — this is a cheaper way to ask the
+			// same question, not a switch to richest-anywhere.
+			near, err := graph.FindNearest(from, targets, huntPOISearchLimit)
+			if err == nil {
+				for _, cand := range near {
+					// FindNearest leaves NearestResult.POIs nil for POI-type
+					// lookups, so the POI id has to come back out of the KB.
+					poi, reason, ok := huntGroundIn(ctx, kb, cand.SystemID, poiType, requirePoliced, exclude)
+					if ok {
+						return cand.SystemID, poi, reason
+					}
+				}
 			}
 		}
 		if poiType == huntPOITypeBelt {
@@ -1589,6 +1607,26 @@ func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string
 		}
 	}
 	return "", "", ""
+}
+
+// huntQualifyingSystems returns every system that is already a hunting ground
+// for poiType, so the distance search ranks candidates that can actually be
+// used. It is the whole galaxy's worth of KB reads once per pass, which is the
+// same order of work the old path did on its 25 candidates and is paid once
+// per journey rather than per tick.
+func huntQualifyingSystems(ctx context.Context, kb knowledge.Base, poiType string, requirePoliced bool, exclude []string) []string {
+	systems, err := kb.GetSystems(ctx)
+	if err != nil {
+		return nil
+	}
+	targets := make([]string, 0, len(systems))
+	for _, sys := range systems {
+		if _, _, ok := huntGroundIn(ctx, kb, sys.ID, poiType, requirePoliced, exclude); ok {
+			targets = append(targets, sys.ID)
+		}
+	}
+
+	return targets
 }
 
 // huntLocalWildlifePOI returns the id of a POI in systemID whose type can hold
