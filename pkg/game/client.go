@@ -1432,7 +1432,14 @@ func (c *Client) Attack(ctx context.Context, targetID string) error {
 		Payload:   map[string]any{"target_id": targetID, "weapon_idx": 0},
 		Timestamp: time.Now().UnixMilli(),
 	}
-	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	// attack resolves with a plain OK on the following tick, never an
+	// action_result: first `ok {pending:true}`, then `ok {action:"attack",...}`.
+	// Under the default terminateOnAction neither counts as terminal, so the
+	// real frame is dropped against the full ackCh and its pendingCh ping
+	// re-arms the deadline to SleepJumpMaxWait — a five-minute block. Same
+	// shape as the battle subactions, so the same terminator applies.
+	h, err := c.Submit(ctx, msg,
+		WithTerminator(terminateOnActionOrOK), WithTimeout(SleepTick*3))
 	if err == nil {
 		_, err = c.await(ctx, h)
 	}
