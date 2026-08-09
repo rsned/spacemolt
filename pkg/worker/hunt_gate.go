@@ -1,7 +1,10 @@
 package worker
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
@@ -37,6 +40,11 @@ var huntWildlifeMissions = map[string]bool{
 	"grazer_cull":             true,
 	"ice_field_thinning":      true,
 	"nebula_drift_hunt":       true,
+	// cracking_the_shell is the captured chain continuation of first_hunt:
+	// difficulty 2, "Hunt 3 Slag-Tortoises at an asteroid belt", chaining on to
+	// ghosts_in_the_cloud. Wildlife, so gate 2 admits it; difficulty 2, so it
+	// passes gate 1 only as an earned continuation (see huntAdmissible).
+	"cracking_the_shell": true,
 }
 
 // huntMissionSpecies maps a wildlife mission to the ONE species the server
@@ -65,6 +73,14 @@ var huntMissionSpecies = map[string]string{
 	"grazer_cull":             "belt_grazer",
 	"ice_field_thinning":      "rime_grazer",
 	"nebula_drift_hunt":       "sift_ray",
+	// From the captured cracking_the_shell payload: "Hunt 3 Slag-Tortoises at
+	// an asteroid belt". slag_tortoise is confirmed live (90 hull, role
+	// grazer) and shares the iron belts with belt_grazer, so the belt rule
+	// covers it unchanged.
+	"cracking_the_shell": "slag_tortoise",
+	// ghosts_in_the_cloud is cracking_the_shell's chain_next and is
+	// deliberately ABSENT: never seen on a board, quarry unknown, difficulty
+	// unknown. Nothing goes in this table on speculation.
 }
 
 // huntRequiredSpecies resolves the species a mission's kills must be, and says
@@ -87,24 +103,89 @@ func huntRequiredSpecies(e serverapi.MissionBoardEntry) (species, source string)
 	return "", "unscoped"
 }
 
+// huntEarnedContinuations returns the missions this agent has EARNED the right
+// to attempt over the difficulty cap: continuation mission id -> the completed
+// predecessor that unlocked it.
+//
+// Evidence is the agent's own completed-mission history, and nothing weaker.
+// Seeing a mission on a board, or accepting one, is not evidence — an
+// exemption that fired on those would admit an unearned difficulty-2 mission,
+// which is the single outcome the cap exists to prevent. Every failure path
+// here therefore returns an EMPTY map, so the gate falls closed to the plain
+// difficulty rule.
+//
+// Two caveats a reader must know:
+//
+//   - The completed_missions reply is not modelled. Its entries are decoded
+//     through serverapi.ActiveMission because that struct already carries the
+//     four field names involved (mission_id, template_id, title, chain_next);
+//     no field name here is invented, but no capture proves the server sends
+//     them on THIS command either.
+//   - Whether a completed entry carries chain_next at all is unverified. If it
+//     does not, this map is always empty and the exemption never fires — the
+//     chain stalls, visibly, rather than opening a hole.
+func huntEarnedContinuations(ctx context.Context, deps HuntDeps, out io.Writer) map[string]string {
+	earned := map[string]string{}
+	if err := deps.Client.CompletedMissions(ctx); err != nil {
+		fmt.Fprintf(out, "hunt: completed_missions: %v; chain continuations stay gated\n", err) //nolint:errcheck
+		return earned
+	}
+	raw := deps.Client.GetRawJSON("completed_missions")
+	if len(raw) == 0 {
+		fmt.Fprintln(out, "hunt: completed_missions returned no data; chain continuations stay gated") //nolint:errcheck
+		return earned
+	}
+	var resp struct {
+		Missions []serverapi.ActiveMission `json:"missions"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		fmt.Fprintf(out, "hunt: parse completed missions: %v; chain continuations stay gated\n", err) //nolint:errcheck
+		return earned
+	}
+	for _, m := range resp.Missions {
+		if m.ChainNext == "" {
+			continue
+		}
+		predecessor := m.MissionID
+		if m.TemplateID != "" {
+			predecessor = m.TemplateID
+		}
+		earned[m.ChainNext] = predecessor
+	}
+	return earned
+}
+
 // huntAdmissible reports whether the hunt fleet may accept this board entry.
 // A non-empty reason explains every refusal, so a skipped mission is never
-// silent.
-func huntAdmissible(e serverapi.MissionBoardEntry, maxDifficulty int, wildlifeOnly bool) (bool, string) {
+// silent. waived names the completed predecessor when the difficulty cap was
+// waived for a chain continuation, so an admitted exemption is never silent
+// either.
+//
+// The two gates stay INDEPENDENT. The chain exemption waives gate 1 (the
+// difficulty cap) and nothing else: a chain that ever continues into a
+// non-wildlife mission is still refused by gate 2, whatever it was earned by.
+func huntAdmissible(e serverapi.MissionBoardEntry, maxDifficulty int, wildlifeOnly bool, earned map[string]string) (ok bool, reason, waived string) {
 	if e.Type != missionTypeCombat {
-		return false, fmt.Sprintf("not a combat mission (type %q)", e.Type)
+		return false, fmt.Sprintf("not a combat mission (type %q)", e.Type), ""
 	}
 	if e.Difficulty > maxDifficulty {
-		return false, fmt.Sprintf("difficulty %d over cap %d", e.Difficulty, maxDifficulty)
+		predecessor := earned[e.MissionID]
+		if predecessor == "" && e.TemplateID != "" {
+			predecessor = earned[e.TemplateID]
+		}
+		if predecessor == "" {
+			return false, fmt.Sprintf("difficulty %d over cap %d", e.Difficulty, maxDifficulty), ""
+		}
+		waived = predecessor
 	}
 	if wildlifeOnly && !huntWildlifeMissions[e.MissionID] {
-		return false, fmt.Sprintf("%s is not a wildlife mission and wildlife-only is set", e.MissionID)
+		return false, fmt.Sprintf("%s is not a wildlife mission and wildlife-only is set", e.MissionID), ""
 	}
 	if huntKillQuantity(e) == 0 {
-		return false, "no kill_creature objective"
+		return false, "no kill_creature objective", ""
 	}
 
-	return true, ""
+	return true, "", waived
 }
 
 // huntKillQuantity totals the creatures this mission asks to be killed.

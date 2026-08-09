@@ -85,6 +85,11 @@ type huntFakeOpts struct {
 	// entry with a hex-ish id); noActive models the accept not having landed.
 	activeMissions []serverapi.ActiveMission
 	noActive       bool
+	// completed is the agent's completed-mission history, the only evidence
+	// that earns a chain continuation past the difficulty cap. nil means the
+	// server answered with no history at all, which must NOT read as an
+	// exemption.
+	completed []serverapi.ActiveMission
 	// objectiveStuck freezes the server's kill_creature counter at zero while
 	// carcasses still appear — the live failure where a pass kills the wrong
 	// species cleanly and the mission never advances.
@@ -219,7 +224,7 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 		})
 	}
 	nearbyRaw, err := json.Marshal(serverapi.GetNearbyResponse{
-		Creatures: creatures, CreatureCount: len(creatures), POIID: "commerce_fields",
+		Creatures: creatures, CreatureCount: len(creatures), POIID: "pollux_outer_belt",
 	})
 	if err != nil {
 		t.Fatalf("marshal nearby fixture: %v", err)
@@ -321,13 +326,41 @@ func huntDeps(c *huntFake, out io.Writer) HuntDeps {
 
 func huntBool(b bool) *bool { return &b }
 
+// huntKB is a two-system galaxy shaped by the belt rule rather than by
+// convenience: the board station sits in one system, and the belt the pass is
+// meant to hunt sits in another that is policed, station-less and iron-bearing.
+//
+// The station's own system is deliberately NOT a valid hunting ground — it has
+// a station, so its belts are worked out by anyone who wants iron. A pass that
+// hunts belt_grazers therefore always leaves the system it read the board in,
+// which is the rule working, and a fixture that put the belt beside the station
+// would quietly stop testing it.
+//
+// Names are the operator's live ones: pollux_outer_belt in pollux, iron
+// richness 40 with 30,000 left.
 func huntKB() knowledge.Base {
 	kb := knowledge.NewMemoryKB()
 	ctx := context.Background()
-	_ = kb.RememberSystem(ctx, knowledge.System{ID: "test_system", Name: "Test"})
+	// NOTE: the connection has to ride on the System, not on
+	// RememberConnection — MemoryKB.GetConnections reads systems[].Connections
+	// and never sees what RememberConnection stored, so a graph built the
+	// obvious way comes out empty and every cross-system search silently finds
+	// nothing.
+	_ = kb.RememberSystem(ctx, knowledge.System{
+		ID: "test_system", Name: "Test", PoliceLevel: 55, LastVisitedTick: 1,
+		Connections: []knowledge.SystemConnection{{SystemID: "pollux"}},
+	})
 	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "haven_station", SystemID: "test_system", Type: "station"})
-	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "commerce_fields", SystemID: "test_system", Type: "asteroid_belt"})
 	_ = kb.RememberBase(ctx, knowledge.SpaceBase{ID: "haven_station", POIID: "haven_station", PublicAccess: true})
+
+	_ = kb.RememberSystem(ctx, knowledge.System{
+		ID: "pollux", Name: "Pollux", PoliceLevel: 30, LastVisitedTick: 1,
+		Connections: []knowledge.SystemConnection{{SystemID: "test_system"}},
+	})
+	_ = kb.RememberPOI(ctx, knowledge.POI{
+		ID: "pollux_outer_belt", SystemID: "pollux", Type: "asteroid_belt",
+		Resources: []game.POIResource{{ResourceID: "iron_ore", Richness: 40, Remaining: 30000}},
+	})
 	return kb
 }
 
@@ -360,6 +393,26 @@ func (f *huntFake) GetStatus(ctx context.Context) error {
 	if !f.opts.shieldStuck {
 		f.state.Ship.Shield = min(f.state.Ship.MaxShield, f.state.Ship.Shield+f.state.Ship.ShieldRecharge)
 	}
+	return nil
+}
+
+// CompletedMissions answers with the fixture's history. With no history the
+// raw key stays ABSENT rather than holding an empty list, which is also what a
+// server that never populates the key looks like — the case the gate has to
+// fall closed on.
+func (f *huntFake) CompletedMissions(ctx context.Context) error {
+	f.calls = append(f.calls, "completed_missions")
+	if f.opts.completed == nil {
+		return nil
+	}
+	b, err := json.Marshal(map[string]any{
+		"missions":    f.opts.completed,
+		"total_count": len(f.opts.completed),
+	})
+	if err != nil {
+		return err
+	}
+	f.raw["completed_missions"] = b
 	return nil
 }
 
@@ -817,7 +870,7 @@ func TestHuntWarnsWhenConfirmedKillsDoNotAdvanceTheObjective(t *testing.T) {
 		t.Errorf("a pass that kills without advancing must say so, got:\n%s", log.String())
 	}
 	// The POI is the thing an operator can change, so it has to be named.
-	if !strings.Contains(log.String(), "commerce_fields") {
+	if !strings.Contains(log.String(), "pollux_outer_belt") {
 		t.Errorf("the warning must name the POI hunted, got:\n%s", log.String())
 	}
 }
@@ -1324,6 +1377,93 @@ func TestHuntGatesScaleWithTheShipsOwnPools(t *testing.T) {
 	}
 }
 
+// End to end: a pass reads the board, finds the earned continuation over its
+// cap, says so loudly, and hunts the species that mission counts.
+func TestHuntAcceptsTheEarnedChainContinuation(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board: []boardMission{
+			{id: "cracking_the_shell", difficulty: 2, quantity: 3},
+		},
+		creatures: []huntCreature{
+			{id: "tortoise", species: "slag_tortoise", role: "grazer", hull: 90},
+			{id: "belt", species: "belt_grazer", role: "grazer", hull: 60},
+		},
+		completed: []serverapi.ActiveMission{completedWith("first_hunt_belt_grazers", "cracking_the_shell")},
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !strings.Contains(log.String(), "CHAIN CONTINUATION") ||
+		!strings.Contains(log.String(), "first_hunt_belt_grazers") {
+		t.Errorf("an exemption must be loud and name what earned it, got:\n%s", log.String())
+	}
+	if !called(c, "hunt:tortoise") {
+		t.Errorf("cracking_the_shell counts slag_tortoise, calls: %v", c.calls)
+	}
+	if called(c, "hunt:belt") {
+		t.Errorf("engaged a belt_grazer for a slag_tortoise mission, calls: %v", c.calls)
+	}
+}
+
+// With no completed history the same board entry is refused, and the pass says
+// why rather than silently idling.
+func TestHuntRefusesTheContinuationWithoutTheHistory(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:     []boardMission{{id: "cracking_the_shell", difficulty: 2, quantity: 3}},
+		creatures: []huntCreature{{id: "tortoise", species: "slag_tortoise", role: "grazer", hull: 90}},
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if c.huntCalls != 0 {
+		t.Fatalf("hunt calls = %d, want 0 — nothing earned this mission", c.huntCalls)
+	}
+	if !strings.Contains(log.String(), "difficulty 2 over cap 1") {
+		t.Errorf("must refuse on the cap and say so, got:\n%s", log.String())
+	}
+	if strings.Contains(log.String(), "CHAIN CONTINUATION") {
+		t.Errorf("no exemption may be claimed without the history, got:\n%s", log.String())
+	}
+}
+
+// The executor must not assume WHICH hull it is flying. This is a Tier-3
+// pirate cruiser: 480 hull, 200 shield, recharge 4 — every stat 4-5x the
+// Prospect the rest of the suite uses.
+func TestHuntRunsOnACruiserToo(t *testing.T) {
+	const (
+		cruiserHull   = 480.0
+		cruiserShield = 200.0
+		cruiserRegen  = 4.0
+	)
+	c := newHuntFake(t, huntFakeOpts{
+		board:          []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures:      huntGrazers("c1"),
+		maxHull:        cruiserHull,
+		maxShield:      cruiserShield,
+		shipHullFrac:   0.5, // 240/480: damaged for this hull
+		shieldStart:    cruiserShield * 0.2,
+		shieldRecharge: cruiserRegen,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !called(c, "repair") {
+		t.Errorf("240/480 hull is below the repair line for THIS ship, calls: %v", c.calls)
+	}
+	if !strings.Contains(log.String(), "waiting to recover") {
+		t.Errorf("40/200 shields must be waited out, got:\n%s", log.String())
+	}
+	if got := c.state.Ship.Shield / c.state.Ship.MaxShield; got < huntShieldReadyFrac {
+		t.Errorf("engaged at %.2f of the cruiser's bar, want >= %.2f", got, huntShieldReadyFrac)
+	}
+	if c.huntCalls != 1 {
+		t.Errorf("hunt calls = %d, want 1 — the pass must still hunt on this hull", c.huntCalls)
+	}
+}
+
 // Hull does not grow back, so it is topped up at the one dock the pass already
 // stands at — before hunting, not after a near-death.
 func TestHuntRepairsAtTheBoardDock(t *testing.T) {
@@ -1419,10 +1559,10 @@ func TestHuntTravelsFromTheBoardToAWildlifePOI(t *testing.T) {
 	if !called(c, "undock") {
 		t.Errorf("must undock before leaving the board, calls: %v", c.calls)
 	}
-	if !called(c, "travel:commerce_fields") {
+	if !called(c, "travel:pollux_outer_belt") {
 		t.Errorf("must travel to the belt, calls: %v", c.calls)
 	}
-	if c.state.CurrentPOI != "commerce_fields" {
+	if c.state.CurrentPOI != "pollux_outer_belt" {
 		t.Errorf("ended at %q, want the belt", c.state.CurrentPOI)
 	}
 }
@@ -1430,16 +1570,16 @@ func TestHuntTravelsFromTheBoardToAWildlifePOI(t *testing.T) {
 // nebula_drift_hunt is on the mission allowlist and the KB holds 55 nebula
 // POIs, so a pass that accepts it has to be able to travel to one.
 func TestHuntTravelsToANebula(t *testing.T) {
-	kb := knowledge.NewMemoryKB()
 	ctx := context.Background()
-	_ = kb.RememberSystem(ctx, knowledge.System{ID: "test_system", Name: "Test"})
-	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "haven_station", SystemID: "test_system", Type: "station"})
+	// The standard galaxy PLUS a nebula, so a qualifying belt is available as
+	// the wrong answer. Without that belt this test passes even for an
+	// executor that ignores where the species lives.
+	kb := huntKB()
 	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "test_nebula", SystemID: "test_system", Type: "nebula"})
-	_ = kb.RememberBase(ctx, knowledge.SpaceBase{ID: "haven_station", POIID: "haven_station", PublicAccess: true})
 
 	c := newHuntFake(t, huntFakeOpts{
 		board:     []boardMission{{id: "nebula_drift_hunt", difficulty: 1, quantity: 1}},
-		creatures: huntGrazers("c1"),
+		creatures: []huntCreature{{id: "ray", species: "sift_ray", role: "grazer", hull: 40}},
 	})
 	deps := huntDeps(c, io.Discard)
 	deps.KB = kb
@@ -1447,7 +1587,10 @@ func TestHuntTravelsToANebula(t *testing.T) {
 		t.Fatalf("Hunt: %v", err)
 	}
 	if !called(c, "travel:test_nebula") {
-		t.Errorf("a nebula must be a reachable wildlife POI, calls: %v", c.calls)
+		t.Errorf("nebula_drift_hunt wants sift_ray, which lives in a nebula, calls: %v", c.calls)
+	}
+	if called(c, "travel:pollux_outer_belt") {
+		t.Fatalf("flew to a belt for a nebula species, calls: %v", c.calls)
 	}
 }
 
@@ -1470,6 +1613,117 @@ func TestHuntPrefersAnAsteroidBeltOverOtherWildlifePOIs(t *testing.T) {
 	for i := range 25 {
 		if got, _ := huntLocalWildlifePOI(ctx, kb, "test_system"); got != "test_belt" {
 			t.Fatalf("draw %d: chose %q, want test_belt — the belt outranks the gas cloud and the nebula", i, got)
+		}
+	}
+}
+
+// beltRuleKB builds a galaxy with the board station in test_system and ONE
+// candidate belt system, shaped by the caller so a single clause of the belt
+// rule can be broken at a time.
+func beltRuleKB(t *testing.T, police int, station bool, resource string) knowledge.Base {
+	t.Helper()
+	ctx := context.Background()
+	kb := knowledge.NewMemoryKB()
+	_ = kb.RememberSystem(ctx, knowledge.System{
+		ID: "test_system", Name: "Test", PoliceLevel: 55, LastVisitedTick: 1,
+		Connections: []knowledge.SystemConnection{{SystemID: "candidate"}},
+	})
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "haven_station", SystemID: "test_system", Type: "station"})
+	_ = kb.RememberBase(ctx, knowledge.SpaceBase{ID: "haven_station", POIID: "haven_station", PublicAccess: true})
+
+	_ = kb.RememberSystem(ctx, knowledge.System{
+		ID: "candidate", Name: "Candidate", PoliceLevel: police, LastVisitedTick: 1,
+		Connections: []knowledge.SystemConnection{{SystemID: "test_system"}},
+	})
+	_ = kb.RememberPOI(ctx, knowledge.POI{
+		ID: "candidate_belt", SystemID: "candidate", Type: "asteroid_belt",
+		Resources: []game.POIResource{{ResourceID: resource, Richness: 40, Remaining: 30000}},
+	})
+	if station {
+		_ = kb.RememberPOI(ctx, knowledge.POI{ID: "candidate_station", SystemID: "candidate", Type: "station"})
+	}
+	return kb
+}
+
+// Each clause of the belt rule is load-bearing on its own. A single
+// "picks the right belt" test would pass with three of the four deleted, so
+// each row here breaks exactly one clause and expects nothing to be found.
+func TestHuntBeltRuleClausesAreEachLoadBearing(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name     string
+		police   int
+		station  bool
+		resource string
+		want     string
+	}{
+		{"policed, station-less, iron", huntPolicedMinLevel, false, huntBeltResource, "candidate_belt"},
+		{"above the policed floor", 100, false, huntBeltResource, "candidate_belt"},
+		{"lawless", 0, false, huntBeltResource, ""},
+		{"below the policed floor", huntPolicedMinLevel - 1, false, huntBeltResource, ""},
+		{"a station in the system", huntPolicedMinLevel, true, huntBeltResource, ""},
+		{"no iron in the belt", huntPolicedMinLevel, false, "helium_ice", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			kb := beltRuleKB(t, tc.police, tc.station, tc.resource)
+			_, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt)
+			if poi != tc.want {
+				t.Fatalf("chose %q (%s), want %q", poi, why, tc.want)
+			}
+		})
+	}
+}
+
+// The belt rule NEVER relaxes to a lawless system, unlike the other grounds:
+// there, policed and station-less are the rule itself.
+func TestHuntBeltRuleDoesNotRelaxToLawless(t *testing.T) {
+	ctx := context.Background()
+	kb := beltRuleKB(t, 0, false, huntBeltResource)
+	if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt); poi != "" {
+		t.Fatalf("chose %q (%s) in a lawless system; a hunt there risks a hull that cannot be replaced", poi, why)
+	}
+	// A nebula hunt is different: nowhere policed must not mean nowhere at all.
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "candidate_nebula", SystemID: "candidate", Type: "nebula"})
+	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula"); poi != "candidate_nebula" {
+		t.Errorf("a non-belt ground must relax to unpoliced rather than strand the pass, chose %q", poi)
+	}
+}
+
+// Among qualifying belts, the fuller one wins.
+func TestHuntBeltRulePrefersTheFullerBelt(t *testing.T) {
+	ctx := context.Background()
+	kb := beltRuleKB(t, huntPolicedMinLevel, false, huntBeltResource)
+	_ = kb.RememberPOI(ctx, knowledge.POI{
+		ID: "candidate_richer", SystemID: "candidate", Type: "asteroid_belt",
+		Resources: []game.POIResource{{ResourceID: huntBeltResource, Richness: 32, Remaining: 100000}},
+	})
+	for i := range 25 {
+		if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt); poi != "candidate_richer" {
+			t.Fatalf("draw %d: chose %q (%s), want candidate_richer — 100,000 iron beats 30,000", i, poi, why)
+		}
+	}
+}
+
+// The POI type follows the mission's species, so a nebula mission is never
+// flown to a belt and a belt mission is never flown to a nebula.
+func TestHuntFliesToTheGroundItsSpeciesLivesOn(t *testing.T) {
+	ctx := context.Background()
+	kb := beltRuleKB(t, huntPolicedMinLevel, false, huntBeltResource)
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "candidate_nebula", SystemID: "candidate", Type: "nebula"})
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "candidate_ice", SystemID: "candidate", Type: "ice_field"})
+
+	for species, want := range map[string]string{
+		"belt_grazer":   "candidate_belt",
+		"slag_tortoise": "candidate_belt",
+		"sift_ray":      "candidate_nebula",
+		"rime_grazer":   "candidate_ice",
+	} {
+		poiType, ok := huntSpeciesPOIType[species]
+		if !ok {
+			t.Fatalf("%s has no ground mapped", species)
+		}
+		if _, poi, why := huntFindGround(ctx, kb, "test_system", poiType); poi != want {
+			t.Errorf("%s: chose %q (%s), want %q", species, poi, why, want)
 		}
 	}
 }
@@ -1559,7 +1813,7 @@ func TestHuntRecoversToAStationWhenUndocked(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
 		board:       []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
 		creatures:   huntGrazers("c1"),
-		startPOI:    "commerce_fields",
+		startPOI:    "pollux_outer_belt",
 		unsetDocked: true,
 	})
 	c.dockErr = errNotAStation

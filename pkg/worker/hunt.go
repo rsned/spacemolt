@@ -102,6 +102,31 @@ const (
 	// huntWreckTypeCreature is the wreck type a killed creature leaves.
 	// Corroborating only: victim_id is the identity that matters.
 	huntWreckTypeCreature = "creature"
+
+	// huntPOITypeBelt / huntPOITypeStation are KB pois.type values.
+	huntPOITypeBelt    = "asteroid_belt"
+	huntPOITypeStation = "station"
+
+	// huntBeltResource is the ore whose presence marks a grazer belt. The
+	// mission dialog states the mechanic: "Grazers gather where the iron is
+	// still rich."
+	huntBeltResource = "iron_ore"
+
+	// huntPolicedMinLevel is the systems.police_level at or above which a
+	// system counts as POLICED. The tiers are Lawless 0, Frontier 30, Low
+	// Security 55, High Security 80, Maximum Security 100 — so this admits
+	// every empire tier and excludes only Lawless, which is 404 of the known
+	// systems.
+	//
+	// This is a safety threshold before it is an economic one. A pirate ambush
+	// mid-hunt against a starter hull with one laser is a lost ship, and the
+	// hull damage that survives it does not grow back. Note the filter reads
+	// police_level and never security_status: that field is display text and
+	// is empty for some systems.
+	huntPolicedMinLevel = 30
+
+	// huntPOISearchLimit bounds the nearest-systems scan for a hunting ground.
+	huntPOISearchLimit = 25
 )
 
 // huntWildlifePOITypes are the KB pois.type values that hold wildlife, IN
@@ -121,7 +146,24 @@ const (
 // because nebula_drift_hunt is on the mission allowlist (hunt_gate.go) and the
 // KB holds 55 nebula POIs — without it, a pass that accepts that mission
 // cannot travel to where its quarry lives.
-var huntWildlifePOITypes = []string{"asteroid_belt", "gas_cloud", "ice_field", "nebula"}
+var huntWildlifePOITypes = []string{huntPOITypeBelt, "gas_cloud", "ice_field", "nebula"}
+
+// huntSpeciesPOIType says where each quarry species lives, so the POI search
+// and the species filter cannot disagree — flying to a nebula for a mission
+// that counts only belt_grazers is a guaranteed wasted pass, and forcing a
+// sift_ray mission onto a belt is the same mistake mirrored.
+//
+// Each entry is derived from the mission that wants it: first_hunt's objective
+// reads "Hunt 3 Belt-Grazers at an asteroid belt" and cracking_the_shell's
+// "Hunt 3 Slag-Tortoises at an asteroid belt"; ice_field_thinning and
+// nebula_drift_hunt name their grounds in their ids. A species that is not
+// here searches every wildlife POI type, as before.
+var huntSpeciesPOIType = map[string]string{
+	"belt_grazer":   huntPOITypeBelt,
+	"slag_tortoise": huntPOITypeBelt,
+	"rime_grazer":   "ice_field",
+	"sift_ray":      "nebula",
+}
 
 // huntQuarryRoles are the creature roles a wildlife pass may engage. `role` is
 // the stable classifier — species vary by POI and system, and one captured
@@ -298,13 +340,25 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		fmt.Fprintf(out, "hunt: parse board: %v\n", err) //nolint:errcheck
 		return nil
 	}
+	// What the agent has already COMPLETED is what lets a chain continuation
+	// over the difficulty cap through. Read once per pass, before the board is
+	// scored, and treated as empty on any failure.
+	earned := huntEarnedContinuations(ctx, deps, out)
+
 	var chosen *serverapi.MissionBoardEntry
 	for i := range board.Missions {
 		e := board.Missions[i]
-		ok, reason := huntAdmissible(e, maxDifficulty, wildlifeOnly)
+		ok, reason, waived := huntAdmissible(e, maxDifficulty, wildlifeOnly, earned)
 		if !ok {
 			fmt.Fprintf(out, "hunt: skip %s (%s): %s\n", e.MissionID, e.Title, reason) //nolint:errcheck
 			continue
+		}
+		if waived != "" {
+			// Loud on purpose: this is the fleet taking on something harder
+			// than its cap, and an invisible exemption is how a fleet ends up
+			// fighting what nobody chose for it.
+			fmt.Fprintf(out, "hunt[%s]: CHAIN CONTINUATION: admitting %s at difficulty %d over cap %d, earned by completing %s\n", //nolint:errcheck
+				who, e.MissionID, e.Difficulty, maxDifficulty, waived)
 		}
 		chosen = &e
 		break
@@ -348,7 +402,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// Step 4: travel out to a POI that can hold wildlife. The board is at a
 	// station and the quarry is not; without this leg the pass reads
 	// "no creatures at this POI" at a station forever.
-	if err := huntTravelToWildlifePOI(ctx, deps, out); err != nil {
+	if err := huntTravelToWildlifePOI(ctx, deps, out, required); err != nil {
 		fmt.Fprintf(out, "hunt: reaching a wildlife POI: %v; %s held for next pass\n", err, chosen.MissionID) //nolint:errcheck
 		return nil
 	}
@@ -1117,7 +1171,7 @@ func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, creature
 // huntTravelToWildlifePOI moves the pass from the station board out to a POI
 // that can hold wildlife (huntWildlifePOITypes), preferring one in the current
 // system and otherwise routing to the nearest system that has one.
-func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer) error {
+func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, required string) error {
 	if deps.KB == nil {
 		return fmt.Errorf("no knowledge base configured")
 	}
@@ -1127,27 +1181,26 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer) 
 	}
 	current := state.System.ID
 
-	destSystem := current
-	destPOI, why := huntLocalWildlifePOI(ctx, deps.KB, current)
-	if destPOI == "" {
-		galGraph := &galaxy.GalaxyGraph{}
-		if err := galGraph.BuildFromDB(ctx, deps.KB); err != nil {
-			return fmt.Errorf("build galaxy graph: %w", err)
+	var destSystem, destPOI, why string
+	if poiType, scoped := huntSpeciesPOIType[required]; scoped {
+		// The mission names its quarry, so the ground is determined: search
+		// only where that species lives, under the rules for that ground.
+		destSystem, destPOI, why = huntFindGround(ctx, deps.KB, current, poiType)
+		if destPOI == "" {
+			return fmt.Errorf("no %s reachable from %s that suits %s", poiType, current, required)
 		}
-		best := -1
-		for _, t := range huntWildlifePOITypes {
-			near, err := galaxy.FindNearestByPOIType(ctx, deps.KB, galGraph, current, t, 1)
-			if err != nil || len(near) == 0 {
-				continue
-			}
-			if best < 0 || near[0].Hops < best {
-				// FindNearest leaves NearestResult.POIs nil for POI-type
-				// lookups, so the POI id has to come back out of the KB.
-				poi, reason := huntLocalWildlifePOI(ctx, deps.KB, near[0].SystemID)
-				if poi == "" {
-					continue
+	} else {
+		// Unscoped: any wildlife POI will do, nearest and least-worked first,
+		// and the system we are already in is free.
+		destSystem = current
+		destPOI, why = huntLocalWildlifePOI(ctx, deps.KB, current)
+		if destPOI == "" {
+			for _, t := range huntWildlifePOITypes {
+				sys, poi, reason := huntFindGround(ctx, deps.KB, current, t)
+				if poi != "" {
+					destSystem, destPOI, why = sys, poi, reason
+					break
 				}
-				best, destSystem, destPOI, why = near[0].Hops, near[0].SystemID, poi, reason
 			}
 		}
 	}
@@ -1203,6 +1256,140 @@ func huntResourceTier(p knowledge.POI) (tier int, score float64) {
 		return huntResourcesExhausted, 0
 	}
 	return huntResourcesLive, score
+}
+
+// huntHasStation reports whether the KB knows of a station POI in systemID.
+func huntHasStation(pois []knowledge.POI) bool {
+	return slices.ContainsFunc(pois, func(p knowledge.POI) bool { return p.Type == huntPOITypeStation })
+}
+
+// huntCarriesResource reports whether a POI's KB resources include resourceID
+// with anything left in it.
+func huntCarriesResource(p knowledge.POI, resourceID string) bool {
+	return slices.ContainsFunc(p.Resources, func(r game.POIResource) bool {
+		return r.ResourceID == resourceID && r.Remaining > 0
+	})
+}
+
+// huntGroundIn picks the best POI of poiType in systemID, or reports that this
+// system is not a hunting ground at all.
+//
+// For an ASTEROID BELT the rule is the operator's, and it is predictive rather
+// than reactive:
+//
+//	a POLICED, STATION-LESS system whose belt carries iron_ore.
+//
+// Grazers gather where the iron is still rich; a belt stays rich only while
+// nobody mines it; and nobody mines iron_ore in a station-less system because
+// the round trip — travel, jump, jump, travel, and back — is not worth iron's
+// price. So the ABSENCE of a station is what predicts a rich belt, where
+// richness data can only report one after the fact. Policed is the safety half:
+// no surprise pirate attack mid-hunt, and hull lost to an ambush is permanent.
+//
+// Note what this implies for the pass: the board station's own system always
+// has a station, so a belt hunt ALWAYS leaves the system it read the board in.
+// That is the rule working, not a bug.
+//
+// For the other wildlife types the clauses do not apply — an ice field is not
+// mined for iron — and only the policed preference carries over, which the
+// caller relaxes if nothing policed is in range. Within a system, ties break on
+// remaining first and richness second: both belts qualify, take the fuller one.
+func huntGroundIn(ctx context.Context, kb knowledge.Base, systemID, poiType string, requirePoliced bool) (poiID, why string, ok bool) {
+	if requirePoliced {
+		sys, err := kb.GetSystem(ctx, systemID)
+		// An unvisited system carries a map-import police_level of 0, so it
+		// fails this test rather than being trusted — the safe direction.
+		if err != nil || sys == nil || sys.PoliceLevel < huntPolicedMinLevel {
+			return "", "", false
+		}
+	}
+	pois, err := kb.GetPOIs(ctx, systemID)
+	if err != nil {
+		return "", "", false
+	}
+	belt := poiType == huntPOITypeBelt
+	if belt && huntHasStation(pois) {
+		return "", "", false // a station here means the belt is worked out
+	}
+	var (
+		best          knowledge.POI
+		bestRemaining float64
+		bestRichness  float64
+		found         bool
+	)
+	for _, p := range pois {
+		if p.Type != poiType {
+			continue
+		}
+		if belt && !huntCarriesResource(p, huntBeltResource) {
+			continue
+		}
+		remaining, richness := huntResourceTotals(p)
+		if found && (remaining < bestRemaining || (remaining == bestRemaining && richness <= bestRichness)) {
+			continue
+		}
+		best, bestRemaining, bestRichness, found = p, remaining, richness, true
+	}
+	if !found {
+		return "", "", false
+	}
+	if belt {
+		return best.ID, fmt.Sprintf("policed station-less %s, %.0f iron left", poiType, bestRemaining), true
+	}
+	policed := "policed"
+	if !requirePoliced {
+		policed = "unpoliced"
+	}
+	return best.ID, fmt.Sprintf("%s %s", policed, poiType), true
+}
+
+// huntResourceTotals sums what a POI has left and how rich it is, over the
+// resources that still have something in them.
+func huntResourceTotals(p knowledge.POI) (remaining, richness float64) {
+	for _, r := range p.Resources {
+		if r.Remaining > 0 {
+			remaining += r.Remaining
+			richness += r.Richness
+		}
+	}
+	return remaining, richness
+}
+
+// huntFindGround walks outwards from the pass's current system for the nearest
+// system that is a hunting ground for poiType.
+//
+// Nearest-qualifying wins rather than richest-anywhere, which is a deliberate
+// departure from a global "order by remaining desc": every system that passes
+// the belt rule is predicted rich by that rule, so the remaining tonnage is a
+// tiebreak, while hops are fuel, wall-clock and one more chance to be jumped in
+// a system we did not choose.
+//
+// The policed requirement is relaxed on a second pass for non-belt grounds, so
+// a nebula hunt is not left with nowhere to go. It is NEVER relaxed for belts:
+// there, policed and station-less are the rule itself.
+func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string) (systemID, poiID, why string) {
+	graph := &galaxy.GalaxyGraph{}
+	if err := graph.BuildFromDB(ctx, kb); err != nil {
+		return "", "", ""
+	}
+	near, err := galaxy.FindNearestByPOIType(ctx, kb, graph, from, poiType, huntPOISearchLimit)
+	if err != nil {
+		return "", "", ""
+	}
+	for _, requirePoliced := range []bool{true, false} {
+		for _, cand := range near {
+			// FindNearest leaves NearestResult.POIs nil for POI-type lookups,
+			// so the POI id has to come back out of the KB.
+			poi, reason, ok := huntGroundIn(ctx, kb, cand.SystemID, poiType, requirePoliced)
+			if ok {
+				return cand.SystemID, poi, reason
+			}
+		}
+		if poiType == huntPOITypeBelt {
+			break
+		}
+	}
+	return "", "", ""
 }
 
 // huntLocalWildlifePOI returns the id of a POI in systemID whose type can hold

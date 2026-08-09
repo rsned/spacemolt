@@ -31,7 +31,7 @@ func TestHuntAdmissibleDifficultyCap(t *testing.T) {
 		{"leviathan_bounty", 6, 2, false},
 		{"smugglers_route", 7, 2, false},
 	} {
-		ok, reason := huntAdmissible(combatEntry(tc.id, tc.diff), tc.cap, true)
+		ok, reason, _ := huntAdmissible(combatEntry(tc.id, tc.diff), tc.cap, true, nil)
 		if ok != tc.admit {
 			t.Errorf("%s (diff %d, cap %d): admitted = %v, want %v (reason %q)",
 				tc.id, tc.diff, tc.cap, ok, tc.admit, reason)
@@ -49,7 +49,7 @@ func TestHuntAdmissibleDifficultyCap(t *testing.T) {
 func TestHuntAdmissibleRefusesLeviathanOnAnyReward(t *testing.T) {
 	e := combatEntry("leviathan_bounty", 6)
 	e.Rewards = &serverapi.MissionRewards{Credits: 1_000_000}
-	if ok, _ := huntAdmissible(e, 2, true); ok {
+	if ok, _, _ := huntAdmissible(e, 2, true, nil); ok {
 		t.Fatal("a difficulty-6 mission must be refused no matter how large the reward")
 	}
 
@@ -60,7 +60,7 @@ func TestHuntAdmissibleRefusesLeviathanOnAnyReward(t *testing.T) {
 	// green. Lifting gate 2 leaves the difficulty cap as the only thing standing
 	// between the fleet and a boss that fights to the death.
 	for capLevel := range 3 {
-		ok, reason := huntAdmissible(e, capLevel, false)
+		ok, reason, _ := huntAdmissible(e, capLevel, false, nil)
 		if ok {
 			t.Errorf("cap %d admitted the leviathan with gate 2 lifted — "+
 				"the difficulty cap is not doing its job", capLevel)
@@ -76,12 +76,12 @@ func TestHuntAdmissibleRefusesLeviathanOnAnyReward(t *testing.T) {
 // missions that shoot back.
 func TestHuntAdmissibleWildlifeOnly(t *testing.T) {
 	for _, id := range []string{"pirate_bounty", "convoy_defense"} {
-		if ok, reason := huntAdmissible(combatEntry(id, 2), 2, true); ok {
+		if ok, reason, _ := huntAdmissible(combatEntry(id, 2), 2, true, nil); ok {
 			t.Errorf("%s must be refused while wildlifeOnly is set", id)
 		} else if reason == "" {
 			t.Errorf("%s: refusal needs a reason", id)
 		}
-		if ok, _ := huntAdmissible(combatEntry(id, 2), 2, false); !ok {
+		if ok, _, _ := huntAdmissible(combatEntry(id, 2), 2, false, nil); !ok {
 			t.Errorf("%s must be admitted once wildlifeOnly is lifted", id)
 		}
 	}
@@ -91,7 +91,7 @@ func TestHuntAdmissibleWildlifeOnly(t *testing.T) {
 func TestHuntAdmissibleRejectsNonCombat(t *testing.T) {
 	e := combatEntry("some_delivery", 1)
 	e.Type = "delivery"
-	if ok, _ := huntAdmissible(e, 1, true); ok {
+	if ok, _, _ := huntAdmissible(e, 1, true, nil); ok {
 		t.Error("a delivery mission must not be admitted by the hunt gate")
 	}
 }
@@ -109,11 +109,11 @@ func TestHuntAdmissibleNeedsAKillObjective(t *testing.T) {
 
 	// Sanity: with a kill objective this entry IS admissible, so anything the
 	// assertion below catches is the missing objective and nothing else.
-	if ok, reason := huntAdmissible(combatEntry("grazer_cull", 1), 1, true); !ok {
+	if ok, reason, _ := huntAdmissible(combatEntry("grazer_cull", 1), 1, true, nil); !ok {
 		t.Fatalf("fixture is wrong: grazer_cull should be admissible, got %q", reason)
 	}
 
-	ok, reason := huntAdmissible(e, 1, true)
+	ok, reason, _ := huntAdmissible(e, 1, true, nil)
 	if ok {
 		t.Error("combat mission with no kill objective must be refused")
 	}
@@ -130,5 +130,67 @@ func TestHuntGateDefaults(t *testing.T) {
 	}
 	if !huntWildlifeOnlyDefault {
 		t.Error("wildlife-only must default on")
+	}
+}
+
+// completedWith builds a completed-mission history entry: the predecessor id
+// and the mission it chains to.
+func completedWith(id, chainNext string) serverapi.ActiveMission {
+	return serverapi.ActiveMission{MissionID: "hex-" + id, TemplateID: id, Title: id, ChainNext: chainNext}
+}
+
+// The chain exemption: a difficulty-2 mission is admitted only when THIS agent
+// completed the mission that chains to it.
+func TestHuntAdmitsAnEarnedChainContinuation(t *testing.T) {
+	e := combatEntry("cracking_the_shell", 2)
+	earned := map[string]string{"cracking_the_shell": "first_hunt_belt_grazers"}
+
+	ok, reason, waived := huntAdmissible(e, 1, true, earned)
+	if !ok {
+		t.Fatalf("an earned continuation must be admitted over the cap, refused: %s", reason)
+	}
+	if waived != "first_hunt_belt_grazers" {
+		t.Errorf("waived = %q, want the predecessor named so the exemption is visible", waived)
+	}
+}
+
+// The same difficulty, no earned entry: still refused. Without this the
+// exemption would be indistinguishable from raising the cap to 2.
+func TestHuntRefusesAnUnearnedMissionAtTheSameDifficulty(t *testing.T) {
+	earned := map[string]string{"cracking_the_shell": "first_hunt_belt_grazers"}
+	ok, reason, waived := huntAdmissible(combatEntry("grazer_cull", 2), 1, true, earned)
+	if ok {
+		t.Fatal("grazer_cull is not a chain continuation and must stay refused at difficulty 2")
+	}
+	if !strings.Contains(reason, "difficulty") {
+		t.Errorf("refusal reason %q must name difficulty", reason)
+	}
+	if waived != "" {
+		t.Errorf("waived = %q, want empty for a refused mission", waived)
+	}
+}
+
+// The exemption waives gate 1 ONLY. A chain that continues into something that
+// shoots back is still refused.
+func TestHuntChainExemptionCannotBypassWildlifeOnly(t *testing.T) {
+	e := combatEntry("pirate_bounty", 2)
+	earned := map[string]string{"pirate_bounty": "cracking_the_shell"}
+	ok, reason, _ := huntAdmissible(e, 1, true, earned)
+	if ok {
+		t.Fatal("an earned continuation must still pass gate 2; wildlife-only is not waivable")
+	}
+	if !strings.Contains(reason, "wildlife") {
+		t.Errorf("refusal reason %q must name the wildlife gate", reason)
+	}
+}
+
+// Evidence is completion, not sight. An empty history — which is also what a
+// server that never populates completed_missions looks like — refuses.
+func TestHuntChainExemptionNeedsCompletionNotSight(t *testing.T) {
+	e := combatEntry("cracking_the_shell", 2)
+	for _, earned := range []map[string]string{nil, {}, {"ghosts_in_the_cloud": "cracking_the_shell"}} {
+		if ok, _, _ := huntAdmissible(e, 1, true, earned); ok {
+			t.Errorf("earned=%v admitted an unearned difficulty-2 mission", earned)
+		}
 	}
 }

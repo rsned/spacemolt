@@ -4940,6 +4940,28 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				shouldStore = true
 			}
 		}
+		// Store completed mission history (from completed_missions).
+		// Content-based detection, because an action-keyed case alone is not
+		// enough: the captured get_battle_status reply carries no "action" at
+		// all, and a key that is only reachable through the action switch is
+		// silently dead for any command whose reply omits it.
+		//
+		// The shape is "missions" plus "total_count", with NEITHER the
+		// "base_id" that marks a station board nor the "max_missions" that
+		// marks the active list. Unverified against a real reply — no
+		// completed_missions capture exists — so a reader must treat an empty
+		// result as "unknown", never as "nothing completed".
+		if _, hasMissions := resp.Payload["missions"]; hasMissions {
+			_, hasTotalCount := resp.Payload["total_count"]
+			_, hasBaseID := resp.Payload["base_id"]
+			_, hasMaxMissions := resp.Payload["max_missions"]
+			if hasTotalCount && !hasBaseID && !hasMaxMissions {
+				if storeKey == "" {
+					storeKey = "completed_missions"
+				}
+				shouldStore = true
+			}
+		}
 		// Store notes data (from get_notes response)
 		// Content-based detection: has "notes" field and "total_count"
 		if _, hasNotes := resp.Payload["notes"]; hasNotes {
@@ -5018,6 +5040,11 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			case "get_active_missions":
 				if storeKey == "" {
 					storeKey = "active_missions"
+				}
+				shouldStore = true
+			case "completed_missions":
+				if storeKey == "" {
+					storeKey = "completed_missions"
 				}
 				shouldStore = true
 			case "view_storage":
