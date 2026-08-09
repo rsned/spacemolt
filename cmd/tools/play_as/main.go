@@ -6496,11 +6496,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, battleWait, cmd, format)
 
 	case "reload":
-		if len(parts) < 3 {
-			return fmt.Errorf("usage: reload <weapon-instance-id> <ammo-item-id>")
+		// Accepts both the positional and the --flag form; see reloadArgs.
+		weaponID, ammoID, err := reloadArgs(parts)
+		if err != nil {
+			return err
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.Reload(ctx, parts[1], strings.ToLower(parts[2]))
+			return client.Reload(ctx, weaponID, ammoID)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "distress_signal":
