@@ -78,6 +78,61 @@ func TestRunPolicyLoop_DispatchesThenStops(t *testing.T) {
 	}
 }
 
+// stopPolicy answers ActionStop after its first decision, and records how many
+// times it was consulted.
+type stopPolicy struct{ decisions int }
+
+func (*stopPolicy) Name() string { return "stop" }
+func (p *stopPolicy) Decide(View) Action {
+	p.decisions++
+	return Action{Kind: ActionStop}
+}
+
+// A policy that answers ActionStop must end the loop even though the battle is
+// still live. This is the ONLY exit a policy controls: BattleOver and a
+// cancelled context are both outside its reach. The wildlife hunt's disengage
+// depends on it — a fight the server reports as inescapable (can_escape=false)
+// has no other way out, so ignoring ActionStop would spin one no-op per tick
+// forever: a hung worker inside a battle.
+func TestRunPolicyLoop_StopsOnActionStop(t *testing.T) {
+	live := &game.BattleState{BattleID: "b1", IsParticipant: true, Participants: []game.BattleParticipant{
+		{PlayerID: "me", SideID: "1", Zone: "mid", HullPct: 100},
+		{PlayerID: "foe", SideID: "2", Zone: "mid", HullPct: 100},
+	}}
+	// Every poll returns the same live battle: nothing but ActionStop ends it.
+	f := &fakeBattleClient{states: []*game.BattleState{live, live, live, live}}
+	p := &stopPolicy{}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := RunPolicyLoop(ctx, f, "me", p, time.Millisecond); err != nil {
+		t.Fatalf("RunPolicyLoop error: %v", err)
+	}
+	if p.decisions != 1 {
+		t.Errorf("policy consulted %d times, want 1 — the loop must return on the first ActionStop", p.decisions)
+	}
+	if len(f.actions) != 0 {
+		t.Errorf("actions = %v, want none dispatched after a stop", f.actions)
+	}
+}
+
+// nilStateClient models a client with no cached state at all.
+type nilStateClient struct{ fakeBattleClient }
+
+func (f *nilStateClient) GetState() *game.State { return nil }
+
+// A nil State must end the loop rather than panic: there is no battle picture
+// to drive against.
+func TestRunPolicyLoop_NilStateReturns(t *testing.T) {
+	f := &nilStateClient{}
+	if err := RunPolicyLoop(context.Background(), f, "me", NewAggressor(), time.Millisecond); err != nil {
+		t.Fatalf("RunPolicyLoop error: %v", err)
+	}
+	if len(f.actions) != 0 {
+		t.Errorf("actions = %v, want none", f.actions)
+	}
+}
+
 func TestFleeBot(t *testing.T) {
 	f := &fakeBattleClient{}
 	if err := fleeBot(context.Background(), f); err != nil {

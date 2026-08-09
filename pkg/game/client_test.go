@@ -640,6 +640,13 @@ func TestJSON_RoundTrip(t *testing.T) {
 	}
 }
 
+// NOTE ON THIS FIXTURE AND THE NEXT: both are hand-composed, and neither
+// describes the wire. The live reply has no "action" key and sends side_id as
+// a NUMBER (see realBattleStatusReply below). Reading these two as a
+// description of the server is what let both of this branch's decode defects
+// survive. Their remaining value is narrow and real: they are the witness that
+// FlexID still accepts the STRING form of side_id, and that the action-based
+// detector still works. Do not add fields to them from imagination.
 func TestGetBattleStatus_PopulatesBattleState(t *testing.T) {
 	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
 	client.state.Player.ID = "me-123"
@@ -776,9 +783,13 @@ func TestGetBattleStatus_BareNotParticipantResolvesTheBattle(t *testing.T) {
 	client.state.InBattle = true
 	client.state.BattleState = &BattleState{BattleID: "b7", IsParticipant: true}
 
+	// NO "action" key. The captured live reply has none, and there is no
+	// reason to expect the end-of-battle answer to differ — so this payload
+	// exercises the one production route by which a poll loop learns the fight
+	// is over: shape detection on a bare is_participant.
 	client.recvFrame(protocol.Response{
 		Type:    protocol.TypeOK,
-		Payload: map[string]any{"action": "get_battle_status", "is_participant": false},
+		Payload: map[string]any{"is_participant": false},
 	})
 
 	st := client.GetState()
@@ -787,6 +798,52 @@ func TestGetBattleStatus_BareNotParticipantResolvesTheBattle(t *testing.T) {
 	}
 	if st.BattleState != nil && st.BattleState.IsParticipant {
 		t.Error("want the cached battle picture marked resolved, not left live")
+	}
+}
+
+// The action-based route is kept as a third detector in case the server ever
+// starts sending one; this is its only witness. Nothing observed sends it —
+// see the captured reply above.
+func TestGetBattleStatus_ActionKeyStillDetected(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	client.state.InBattle = true
+	client.state.BattleState = &BattleState{BattleID: "b7", IsParticipant: true}
+
+	client.recvFrame(protocol.Response{
+		Type:    protocol.TypeOK,
+		Payload: map[string]any{"action": "get_battle_status", "not_a_modelled_key": true},
+	})
+
+	if client.GetState().InBattle {
+		t.Error("want InBattle false")
+	}
+}
+
+// The live-battle clause (battle_id + participants) must stand on its own:
+// a reply with neither an action key nor an is_participant key still has to be
+// recognised, or an in-progress fight is invisible.
+func TestGetBattleStatus_BattleIDAndParticipantsAloneAreEnough(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	const selfID = "me-123"
+	client.state.Player.ID = selfID
+
+	client.recvFrame(protocol.Response{
+		Type: protocol.TypeOK,
+		Payload: map[string]any{
+			"battle_id": "b9",
+			"participants": []any{
+				map[string]any{"player_id": selfID, "side_id": float64(2), "hull_pct": float64(80), "zone_distance": float64(4)},
+				map[string]any{"player_id": "crt_x", "side_id": float64(1), "hull_pct": float64(100), "zone_distance": float64(4)},
+			},
+		},
+	})
+
+	st := client.GetState()
+	if st.BattleState == nil || st.BattleState.BattleID != "b9" {
+		t.Fatalf("BattleState = %+v; a battle_id+participants reply must be recognised", st.BattleState)
+	}
+	if len(client.GetRawJSON("battle_status")) == 0 {
+		t.Error(`GetRawJSON("battle_status") empty`)
 	}
 }
 

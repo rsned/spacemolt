@@ -54,12 +54,22 @@ const (
 	huntWreckTypeCreature = "creature"
 )
 
-// huntWildlifePOITypes are the KB pois.type values that hold wildlife. The
-// mission board only exists at a station, so a pass reads the board docked and
-// then travels out to one of these. Captured kills so far are at a gas cloud
-// (market_prime_gas_plume) and a cryobelt (gold_run_cryobelt), in different
-// systems — wildlife is not confined to one POI type or one system.
-var huntWildlifePOITypes = []string{"asteroid_belt", "gas_cloud", "ice_field"}
+// huntWildlifePOITypes are the KB pois.type values that hold wildlife, IN
+// PREFERENCE ORDER. The mission board only exists at a station, so a pass
+// reads the board docked and then travels out to the first of these it can
+// reach. Captured kills so far are at a gas cloud (market_prime_gas_plume) and
+// a cryobelt (gold_run_cryobelt), in different systems — wildlife is not
+// confined to one POI type or one system.
+//
+// The order is not cosmetic. The First Hunt chain asks for "Belt-Grazers" and
+// live mission progress has not moved across several kills, none of which were
+// at a belt; if kill_creature is scoped to a species that only spawns at
+// asteroid belts, a pass that flew to the nearest gas cloud could hunt all day
+// without advancing. asteroid_belt is therefore tried first. nebula is here
+// because nebula_drift_hunt is on the mission allowlist (hunt_gate.go) and the
+// KB holds 55 nebula POIs — without it, a pass that accepts that mission
+// cannot travel to where its quarry lives.
+var huntWildlifePOITypes = []string{"asteroid_belt", "gas_cloud", "ice_field", "nebula"}
 
 // huntQuarryRoles are the creature roles a wildlife pass may engage. `role` is
 // the stable classifier — species vary by POI and system, and one captured
@@ -85,8 +95,16 @@ type HuntDeps struct {
 	// MaxDifficulty caps admissible mission difficulty (0 -> huntDefaultMaxDifficulty).
 	MaxDifficulty int
 	// WildlifeOnly restricts accepted missions to the wildlife-cull allowlist
-	// (huntWildlifeMissions in hunt_gate.go).
-	WildlifeOnly bool
+	// (huntWildlifeMissions in hunt_gate.go) AND is the switch both
+	// no-predator enforcement points hang off. It is a *bool, not a bool,
+	// because it is a safety interlock rather than a preference: nil means
+	// "unset" and resolves to huntWildlifeOnlyDefault (true), so a caller who
+	// never heard of this field still gets the interlock. A plain bool cannot
+	// express "unset", and its zero value is the unsafe state — a forgotten
+	// field would silently admit a 280-hull predator as quarry.
+	//
+	// Set it to a pointer to false to deliberately opt out.
+	WildlifeOnly *bool
 	// FleeAtHull is the hull fraction below which the pass retreats rather
 	// than engaging another creature (0 -> huntDefaultFleeHull).
 	FleeAtHull float64
@@ -98,6 +116,14 @@ type HuntDeps struct {
 	// action per server tick). Injected as ~0 by tests for the same reason as
 	// sleep: a multi-tick chase would otherwise cost the suite minutes.
 	tickSleep time.Duration
+}
+
+// huntWildlifeOnly resolves the wildlife-only interlock: unset means on.
+func huntWildlifeOnly(deps HuntDeps) bool {
+	if deps.WildlifeOnly == nil {
+		return huntWildlifeOnlyDefault
+	}
+	return *deps.WildlifeOnly
 }
 
 // huntNow returns the current time via deps.NowFn, or time.Now if unset.
@@ -163,6 +189,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	if fleeAtHull <= 0 {
 		fleeAtHull = huntDefaultFleeHull
 	}
+	wildlifeOnly := huntWildlifeOnly(deps)
 	who := deps.AgentID
 	if who == "" {
 		who = "hunt"
@@ -217,7 +244,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	var chosen *serverapi.MissionBoardEntry
 	for i := range board.Missions {
 		e := board.Missions[i]
-		ok, reason := huntAdmissible(e, maxDifficulty, deps.WildlifeOnly)
+		ok, reason := huntAdmissible(e, maxDifficulty, wildlifeOnly)
 		if !ok {
 			fmt.Fprintf(out, "hunt: skip %s (%s): %s\n", e.MissionID, e.Title, reason) //nolint:errcheck
 			continue
@@ -276,7 +303,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// Steps 6-7: hunt until the objective is met, the engagement cap is hit,
 	// the pool of huntable creatures runs out, or the hull drops below the
 	// flee threshold.
-	quarry := huntAdmissibleQuarry(nearby.Creatures, deps.WildlifeOnly, out)
+	quarry := huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, out)
 	if len(quarry) == 0 {
 		fmt.Fprintf(out, "hunt: nothing huntable among %d creature(s) at this POI; %s held for next pass\n", len(nearby.Creatures), chosen.MissionID) //nolint:errcheck
 		return nil
@@ -306,6 +333,17 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 					fmt.Fprintf(out, "hunt: flee stance failed: %v\n", ferr) //nolint:errcheck
 				}
 			}
+			return nil
+		}
+		// Never open a second fight from inside the first. Giving up on a
+		// quarry disengages, but the disengage is bounded and one of its exits
+		// — the server answering can_escape=false — deliberately stops while
+		// we are still a participant. Calling hunt from that state is refused,
+		// and burning attempts against a refusal is worse than ending the pass
+		// and starting the next one clean.
+		if st != nil && st.InBattle {
+			fmt.Fprintf(out, "hunt: still a participant in an unresolved battle after %d/%d kill(s); %s held for next pass\n", //nolint:errcheck
+				kills, target, chosen.MissionID)
 			return nil
 		}
 
@@ -440,12 +478,18 @@ func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly boo
 // objective at all. Otherwise the SHORTEST FIGHT wins: the creature with the
 // least hull left to chew through.
 //
-// NOTE — this deviates from the brief, which said to prefer full-hull ones. A
-// captured belt held a 220-hull Pilot-Whale beside a 45-hull Bell-Jelly, both
-// grazers, both at full hull, both worth exactly one kill_creature tick.
-// Preferring full hull picks the longest fight for identical credit, and every
-// extra tick is more damage taken — a captured kill of a 70-hull grazer cost
-// 12 hull. Flip the comparison to revert.
+// NOTE — this deviates from the brief, which said to prefer full-hull ones,
+// and the deviation was ratified in review. The decisive evidence is on the
+// revenue side: BOTH captured carcasses — different species, different systems
+// — carry an identical single crystallized_biogas and salvage_value 5, so the
+// loot does not scale with the quarry. A bigger creature is strictly more cost
+// for identical revenue. On the cost side, a captured kill of a 70-hull grazer
+// took 8 ticks and 12 hull, so the 220-hull Pilot-Whale seen beside a 45-hull
+// Bell-Jelly is roughly three times both for the same one kill_creature tick —
+// and with a hard huntMaxEngagements and a hull abort that ends the pass,
+// ticks and damage per kill are what cap kills per pass. The brief's rule has
+// no surviving purpose either: "don't engage something already being fought"
+// is covered separately by the InCombat skip. Flip the comparison to revert.
 func huntPickQuarry(creatures []serverapi.NearbyCreature, targetID string) (serverapi.NearbyCreature, int) {
 	best := -1
 	bestHull := 0
@@ -569,10 +613,12 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 	// busy indefinitely with neither side dying.
 	dist := v.Self.ZoneDistance
 	enemyHull := huntLowestEnemyHull(v)
-	progressed := false
+	rng := huntRangeStatus(v)
+	closedThisTick := false
 	if dist > 0 && (!p.bestDistSet || dist < p.bestDist) {
-		p.bestDist, p.bestDistSet, progressed = dist, true, true
+		p.bestDist, p.bestDistSet, closedThisTick = dist, true, true
 	}
+	progressed := closedThisTick
 	if enemyHull >= 0 && (p.lowEnemyHull == 0 || enemyHull < p.lowEnemyHull) {
 		p.lowEnemyHull, progressed = enemyHull, true
 	}
@@ -582,15 +628,27 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 		p.stallTicks++
 	}
 	if p.stallTicks >= huntNoProgressTicks {
-		// The two failure modes worth telling apart in the log.
-		what := "quarry is kiting us (range closes and reopens, its hull never drops)"
-		if !huntInRange(v) {
+		// Three failure modes, and they need different reason strings because
+		// the log is the only diagnosis a live pass leaves behind. Reporting a
+		// kite when the truth is "we never closed" points the next reader in
+		// exactly the wrong direction.
+		var what string
+		switch rng {
+		case huntRangeUnknown:
+			what = fmt.Sprintf("weapon reach unknown (no combat_state on the reply); closed to distance %d and stalled there", dist)
+		case huntRangeOut:
 			what = fmt.Sprintf("quarry is outrunning us (never closed inside weapon reach; distance %d, best %d)", dist, p.bestDist)
+		case huntRangeIn:
+			what = "quarry is kiting us (range closes and reopens, its hull never drops)"
 		}
 		return p.breakOff(huntGaveUp, fmt.Sprintf("no progress for %d ticks: %s", p.stallTicks, what))
 	}
 
-	if !huntInRange(v) {
+	// Out of reach: close. Reach unknown: keep closing for as long as closing
+	// still works, then fight from wherever that left us — declaring
+	// "in range" on absent data guarantees an engagement that can never land a
+	// shot, and combat_state has exactly one capture behind it.
+	if rng == huntRangeOut || (rng == huntRangeUnknown && (closedThisTick || !p.bestDistSet)) {
 		return spar.Action{Kind: spar.ActionBattle, BattleAction: "advance"}
 	}
 	if v.Self.TargetID == "" && len(v.Enemies) > 0 && v.Enemies[0].PlayerID != "" {
@@ -602,23 +660,36 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 	return spar.Action{Kind: spar.ActionNoop}
 }
 
-// huntInRange reports whether the fitted weapons reach the quarry:
-// zone_distance <= max_weapon_reach, both read from the wire.
+// huntRangeStatus classifies the engagement range from the wire:
+// zone_distance against combat_state.max_weapon_reach, both re-read every
+// tick and neither ever hardcoded (max_weapon_reach varies with the fit).
 //
-// Either number missing means "we cannot prove we are out of range", which
-// resolves to in-range on purpose. Advancing is the only action gated on this,
-// and an out-of-range shot is refused harmlessly by the server, whereas
-// advancing forever on absent data would never land one. The give-up bound
-// covers the case where that guess is wrong.
-func huntInRange(v spar.View) bool {
+// The unknown case is kept distinct from the in-range case on purpose. Folding
+// it into "in range" is safe but yields nothing — the engagement can never
+// land a shot — and it makes the give-up reason claim the quarry kited us when
+// in truth we never closed.
+type huntRangeState int
+
+const (
+	huntRangeIn      huntRangeState = iota // weapons reach
+	huntRangeOut                           // too far to fire
+	huntRangeUnknown                       // the reply did not say
+)
+
+func huntRangeStatus(v spar.View) huntRangeState {
 	dist := v.Self.ZoneDistance
 	if dist <= 0 {
-		return true
+		// No distance reported: nothing to steer on, so let the server
+		// arbitrate an out-of-range shot rather than advancing blind.
+		return huntRangeIn
 	}
 	if v.CombatState == nil || v.CombatState.MaxWeaponReach <= 0 {
-		return true
+		return huntRangeUnknown
 	}
-	return dist <= v.CombatState.MaxWeaponReach
+	if dist <= v.CombatState.MaxWeaponReach {
+		return huntRangeIn
+	}
+	return huntRangeOut
 }
 
 // breakOff records why the fight is being abandoned and starts the disengage.
@@ -653,7 +724,7 @@ func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull flo
 		fmt.Fprintf(out, "hunt: own player id unknown; cannot drive the fight vs %s\n", creatureID) //nolint:errcheck
 		return huntBattleError
 	}
-	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: deps.WildlifeOnly}
+	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: huntWildlifeOnly(deps)}
 	if err := spar.RunPolicyLoop(ctx, deps.Client, selfID, p, deps.tickSleep); err != nil {
 		fmt.Fprintf(out, "hunt: fight vs %s ended on error after %d tick(s): %v\n", creatureID, p.ticks, err) //nolint:errcheck
 		return huntBattleError
@@ -786,17 +857,24 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer) 
 
 // huntLocalWildlifePOI returns the id of a POI in systemID whose type can hold
 // wildlife, or "" when the KB knows of none.
+//
+// Candidates are ranked by huntWildlifePOITypes' order rather than by whatever
+// order the KB happens to return rows in: an asteroid belt beats a gas cloud
+// in the same system, which matters if kill_creature turns out to be scoped to
+// a species that only spawns at one of them.
 func huntLocalWildlifePOI(ctx context.Context, kb knowledge.Base, systemID string) string {
 	pois, err := kb.GetPOIs(ctx, systemID)
 	if err != nil {
 		return ""
 	}
+	best, bestRank := "", len(huntWildlifePOITypes)
 	for _, p := range pois {
-		if slices.Contains(huntWildlifePOITypes, p.Type) {
-			return p.ID
+		rank := slices.Index(huntWildlifePOITypes, p.Type)
+		if rank >= 0 && rank < bestRank {
+			best, bestRank = p.ID, rank
 		}
 	}
-	return ""
+	return best
 }
 
 // huntRecoverToStation routes a worker that is not at a dockable station to

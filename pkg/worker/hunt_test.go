@@ -81,6 +81,10 @@ type huntFakeOpts struct {
 	neverCloses bool
 	// noWreck suppresses the carcass, so a kill can never be confirmed.
 	noWreck bool
+	// lingerInBattle keeps State.InBattle set after the fight picture goes
+	// non-participant, modelling the disengage exit that stops while the
+	// server still considers us a combatant (can_escape=false).
+	lingerInBattle bool
 	// cargoCapacity/cargoUsed size the hold for the loot clamp.
 	cargoCapacity float64
 	cargoUsed     float64
@@ -208,11 +212,13 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 func huntDeps(c *huntFake, out io.Writer) HuntDeps {
 	return HuntDeps{
 		Client: c, KB: huntKB(), Out: out, AgentID: "pirate-6",
-		MaxDifficulty: 1, WildlifeOnly: true,
+		MaxDifficulty: 1, WildlifeOnly: huntBool(true),
 		sleep:     func(context.Context, time.Duration) error { return nil },
 		tickSleep: time.Nanosecond,
 	}
 }
+
+func huntBool(b bool) *bool { return &b }
 
 func huntKB() knowledge.Base {
 	kb := knowledge.NewMemoryKB()
@@ -344,7 +350,7 @@ func (f *huntFake) inReach() bool {
 func (f *huntFake) publishBattle() {
 	if !f.battleLive {
 		f.state.BattleState = &game.BattleState{IsParticipant: false}
-		f.state.InBattle = false
+		f.state.InBattle = f.opts.lingerInBattle
 		return
 	}
 	f.state.InBattle = true
@@ -772,6 +778,40 @@ func TestHuntRefusesToEngageAPredator(t *testing.T) {
 	}
 }
 
+// The no-predator rule must survive a caller who never heard of the field.
+// This test deliberately builds HuntDeps by hand and leaves WildlifeOnly
+// unset: with a plain bool, the zero value is the UNSAFE state, and a Task 6
+// dispatch that forgot the field would silently make a 280-hull Tempest-Eel
+// admissible quarry — which the weakest-first rule would then walk into on a
+// belt that held nothing else.
+func TestHuntWildlifeOnlyDefaultsOnWhenUnset(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board: []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures: []huntCreature{
+			{id: "eel", species: "tempest_eel", role: "predator", hull: 280},
+		},
+	})
+	var log strings.Builder
+	deps := HuntDeps{
+		Client: c, KB: huntKB(), Out: &log, AgentID: "pirate-6",
+		MaxDifficulty: 1, // NOTE: WildlifeOnly deliberately not set.
+		sleep:         func(context.Context, time.Duration) error { return nil },
+		tickSleep:     time.Nanosecond,
+	}
+	if deps.WildlifeOnly != nil {
+		t.Fatal("this test is only meaningful with WildlifeOnly left unset")
+	}
+	if err := Hunt(context.Background(), deps); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if c.huntCalls != 0 {
+		t.Fatalf("engaged a predator with WildlifeOnly unset: %v", c.calls)
+	}
+	if !strings.Contains(log.String(), `role "predator" is not huntable wildlife`) {
+		t.Errorf("the interlock must be on by default and log its refusal, got:\n%s", log.String())
+	}
+}
+
 // An unknown or absent role is refused too: not hunting is the safe failure.
 func TestHuntRefusesACreatureWithNoRole(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
@@ -881,6 +921,53 @@ func TestHuntTravelsFromTheBoardToAWildlifePOI(t *testing.T) {
 	}
 	if c.state.CurrentPOI != "commerce_fields" {
 		t.Errorf("ended at %q, want the belt", c.state.CurrentPOI)
+	}
+}
+
+// nebula_drift_hunt is on the mission allowlist and the KB holds 55 nebula
+// POIs, so a pass that accepts it has to be able to travel to one.
+func TestHuntTravelsToANebula(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	ctx := context.Background()
+	_ = kb.RememberSystem(ctx, knowledge.System{ID: "test_system", Name: "Test"})
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "haven_station", SystemID: "test_system", Type: "station"})
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "test_nebula", SystemID: "test_system", Type: "nebula"})
+	_ = kb.RememberBase(ctx, knowledge.SpaceBase{ID: "haven_station", POIID: "haven_station", PublicAccess: true})
+
+	c := newHuntFake(t, huntFakeOpts{
+		board:     []boardMission{{id: "nebula_drift_hunt", difficulty: 1, quantity: 1}},
+		creatures: huntGrazers("c1"),
+	})
+	deps := huntDeps(c, io.Discard)
+	deps.KB = kb
+	if err := Hunt(ctx, deps); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !called(c, "travel:test_nebula") {
+		t.Errorf("a nebula must be a reachable wildlife POI, calls: %v", c.calls)
+	}
+}
+
+// POI choice is ranked by huntWildlifePOITypes' order, not by whatever order
+// the KB happens to return rows in — MemoryKB iterates a map, so an
+// unranked implementation picks at random. The First Hunt chain asks for
+// BELT-grazers, so flying to the gas cloud in the same system is a plausible
+// reason for live mission progress not moving.
+func TestHuntPrefersAnAsteroidBeltOverOtherWildlifePOIs(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	ctx := context.Background()
+	_ = kb.RememberSystem(ctx, knowledge.System{ID: "test_system", Name: "Test"})
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "haven_station", SystemID: "test_system", Type: "station"})
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "test_cloud", SystemID: "test_system", Type: "gas_cloud"})
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "test_nebula", SystemID: "test_system", Type: "nebula"})
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "test_belt", SystemID: "test_system", Type: "asteroid_belt"})
+
+	// Repeated because the map iteration order is what an unranked
+	// implementation would be relying on; one draw proves nothing.
+	for i := range 25 {
+		if got := huntLocalWildlifePOI(ctx, kb, "test_system"); got != "test_belt" {
+			t.Fatalf("draw %d: chose %q, want test_belt — the belt outranks the gas cloud and the nebula", i, got)
+		}
 	}
 }
 
@@ -1035,6 +1122,97 @@ func TestHuntPolicyBreaksOffFromAPredatorParticipant(t *testing.T) {
 	}
 	if p.outcome != huntFled || !strings.Contains(p.reason, "not huntable wildlife") {
 		t.Errorf("outcome=%v reason=%q, want a wildlife refusal", p.outcome, p.reason)
+	}
+}
+
+// A pass must never open a second fight from inside the first. The disengage
+// is bounded and one of its exits — the server answering can_escape=false —
+// stops while we are still a participant; calling hunt from there is refused.
+func TestHuntDoesNotEngageWhileStillInABattle(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:          []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 2}},
+		creatures:      huntGrazers("c1", "c2"),
+		lingerInBattle: true,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if c.huntCalls != 1 {
+		t.Errorf("hunt calls = %d, want 1 — the second engagement must not start while still a participant", c.huntCalls)
+	}
+	if !strings.Contains(log.String(), "still a participant in an unresolved battle") {
+		t.Errorf("must log why the pass stopped, got:\n%s", log.String())
+	}
+}
+
+// huntDecideN drives the policy n times against views built by mutate(tick),
+// returning every action.
+func huntDecideN(t *testing.T, p *huntPolicy, n int, mutate func(tick int, r *serverapi.GetBattleStatusResponse)) []spar.Action {
+	t.Helper()
+	acts := make([]spar.Action, 0, n)
+	for tick := range n {
+		acts = append(acts, p.Decide(huntView(t, func(r *serverapi.GetBattleStatusResponse) { mutate(tick, r) })))
+	}
+	return acts
+}
+
+// max_weapon_reach is read from the wire, never assumed to be the captured 3.
+// A fit that reaches 8 is already in range at distance 6 and must not advance;
+// one that reaches 1 must keep closing.
+func TestHuntPolicyReadsWeaponReachFromTheWire(t *testing.T) {
+	longReach := huntView(t, func(r *serverapi.GetBattleStatusResponse) {
+		r.CombatState.MaxWeaponReach = 8 // zone_distance stays at the captured 6
+	})
+	if act := (&huntPolicy{}).Decide(longReach); act.BattleAction == "advance" {
+		t.Errorf("reach 8 vs distance 6 is in range: got advance, want target/fire")
+	}
+	shortReach := huntView(t, func(r *serverapi.GetBattleStatusResponse) {
+		r.CombatState.MaxWeaponReach = 1
+	})
+	if act := (&huntPolicy{}).Decide(shortReach); act.BattleAction != "advance" {
+		t.Errorf("reach 1 vs distance 6: got %+v, want advance", act)
+	}
+}
+
+// With combat_state absent there is no reach to compare against. Declaring
+// "in range" would be safe but yield nothing — the engagement could never land
+// a shot. Keep closing while closing still works, then fight.
+func TestHuntPolicyKeepsClosingWhenWeaponReachIsUnknown(t *testing.T) {
+	p := &huntPolicy{}
+	// Ticks 0-2 the distance keeps falling; from tick 3 it sticks.
+	acts := huntDecideN(t, p, 5, func(tick int, r *serverapi.GetBattleStatusResponse) {
+		r.CombatState = nil
+		d := 6 - tick
+		if d < 3 {
+			d = 3
+		}
+		for i := range r.Participants {
+			r.Participants[i].ZoneDistance = d
+		}
+	})
+	for i := range 4 {
+		if acts[i].BattleAction != "advance" {
+			t.Errorf("tick %d: got %+v, want advance while the distance is still falling", i, acts[i])
+		}
+	}
+	if acts[4].BattleAction == "advance" {
+		t.Errorf("tick 4: distance stopped falling, so advancing is pointless; got %+v", acts[4])
+	}
+}
+
+// ...and it must say so. Reporting a kite when the truth is "we never knew the
+// reach" points the next reader in exactly the wrong direction.
+func TestHuntPolicyNamesUnknownReachInTheGiveUpReason(t *testing.T) {
+	p := &huntPolicy{}
+	huntDecideN(t, p, huntNoProgressTicks+2, func(_ int, r *serverapi.GetBattleStatusResponse) {
+		r.CombatState = nil // distance never moves either
+	})
+	if !strings.Contains(p.reason, "weapon reach unknown") {
+		t.Errorf("reason = %q, want it to name the absent combat_state", p.reason)
+	}
+	if strings.Contains(p.reason, "kiting") {
+		t.Errorf("reason = %q, must not blame a kite when the reach was never reported", p.reason)
 	}
 }
 

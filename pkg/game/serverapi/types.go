@@ -733,14 +733,17 @@ type ActiveBuff struct {
 // real poll. Accepting both shapes is cheaper than betting on one.
 type FlexID string
 
-// UnmarshalJSON accepts a JSON string or number (or null).
+// UnmarshalJSON accepts a JSON string or number, and never fails.
+//
+// Anything else — null, a bool, an object, an array — decodes to the empty
+// string rather than an error. That is deliberate: an error here fails the
+// WHOLE enclosing reply, which for get_battle_status blanks State.BattleState
+// and reads downstream as "the fight is over". That is the exact failure this
+// type exists to prevent, and refusing to eliminate it for shapes nobody has
+// observed yet would just leave the same trap set one step further back. A
+// side id we cannot read costs a side comparison; a reply we cannot read costs
+// the battle.
 func (f *FlexID) UnmarshalJSON(data []byte) error {
-	s := string(data)
-	if s == "null" {
-		*f = ""
-
-		return nil
-	}
 	var str string
 	if err := json.Unmarshal(data, &str); err == nil {
 		*f = FlexID(str)
@@ -753,8 +756,9 @@ func (f *FlexID) UnmarshalJSON(data []byte) error {
 
 		return nil
 	}
+	*f = ""
 
-	return fmt.Errorf("cannot unmarshal id from %s", s)
+	return nil
 }
 
 // MarshalJSON always emits the canonical string form.
