@@ -229,6 +229,16 @@ type RetreatResponse struct {
 	Message string `json:"message"`
 }
 
+// AdvanceResponse wraps the response from the advance action during combat —
+// the move that closes zone distance ("outer" toward the enemy). Short-range
+// weapons refuse to fire until it lands, answering with code out_of_range.
+// Same shape as retreat: {"action":"advance","message":"Advancing toward the
+// enemy."}
+type AdvanceResponse struct {
+	Action  string `json:"action"`
+	Message string `json:"message"`
+}
+
 // ViewMarketResponse wraps the response from view_market command.
 type ViewMarketResponse struct {
 	Action      string           `json:"action"`
@@ -2599,13 +2609,23 @@ type CaptainsLogListResponse struct {
 	TotalCount int             `json:"total_count"`
 }
 
-// AttackResponse — attack (ack frame)
+// AttackResponse — attack. Covers both frames the server sends under one
+// request_id: the immediate ack (Command/Message/Pending set, Pending=true)
+// and the terminal result that lands on the following tick (Action/Target/
+// TargetName/TargetType set, Pending absent).
 type AttackResponse struct {
 	// Kind is the v0.531.4 response discriminator: npc|player.
 	Kind    string `json:"kind,omitempty"`
 	Command string `json:"command,omitempty"`
 	Message string `json:"message"`
 	Pending bool   `json:"pending,omitempty"`
+	// Action is "attack" on the terminal frame; absent on the ack.
+	Action string `json:"action,omitempty"`
+	// Target is the id that was struck — a creature id (crt_…) for wildlife.
+	Target     string `json:"target,omitempty"`
+	TargetName string `json:"target_name,omitempty"`
+	// TargetType is creature|player|npc.
+	TargetType string `json:"target_type,omitempty"`
 }
 
 // NameShipResponse — name_ship
