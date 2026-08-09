@@ -6712,7 +6712,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// from here.
 	case "shipping":
 		if len(parts) < 2 {
-			return fmt.Errorf("usage: shipping <profile|list|get|track|pay_debt> [args]\n" +
+			return fmt.Errorf("usage: shipping <quote|post|profile|list|get|track|pay_debt> [args]\n" +
+				"  shipping quote <package-id> <dest-base-id>   estimated_reward for a run this long\n" +
+				"  shipping post  <package-id> <dest-base-id> --base_reward N   post the contract\n" +
+				"      optional: --service_level standard|priority --insured true --speed_bonus N\n" +
+				"                --shipper player|faction --max_total_cost N\n" +
+				"      the package must already be sealed: craft pack_package (--file=<json>)\n" +
 				"  shipping profile              carrier tier, capacity, outstanding debt\n" +
 				"  shipping list [sort]          contracts posted at this station\n" +
 				"  shipping get <shipment-id>    one contract in detail\n" +
@@ -6720,6 +6725,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				"  shipping pay_debt [amount]    omit amount to settle the full balance")
 		}
 		switch strings.ToLower(parts[1]) {
+		case "quote", "post":
+			// The shipper side: posting cargo for someone else to haul. Kept in
+			// shipping_post.go behind a one-method interface so the payload
+			// shaping is unit-testable without a full GameClient.
+			return simpleCommand(client, func(ctx context.Context) error {
+				return shipperCommand(ctx, client, parts)
+			}, ctx, 3*time.Second, cmd, format)
 		case "profile":
 			return simpleCommand(client, client.ShippingProfile, ctx, 3*time.Second, cmd, format)
 		case "list":
@@ -6766,7 +6778,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				return client.ShippingPayDebt(ctx, amount)
 			}, ctx, 3*time.Second, cmd, format)
 		default:
-			return fmt.Errorf("unknown shipping action %q (profile, list, get, track, pay_debt)", parts[1])
+			return fmt.Errorf("unknown shipping action %q (quote, post, profile, list, get, track, pay_debt)", parts[1])
 		}
 
 	case "list_ship_for_sale":
