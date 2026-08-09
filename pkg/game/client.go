@@ -4946,20 +4946,25 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		// all, and a key that is only reachable through the action switch is
 		// silently dead for any command whose reply omits it.
 		//
-		// The shape is "missions" plus "total_count", with NEITHER the
-		// "base_id" that marks a station board nor the "max_missions" that
-		// marks the active list. Unverified against a real reply — no
-		// completed_missions capture exists — so a reader must treat an empty
-		// result as "unknown", never as "nothing completed".
-		if _, hasMissions := resp.Payload["missions"]; hasMissions {
-			_, hasTotalCount := resp.Payload["total_count"]
-			_, hasBaseID := resp.Payload["base_id"]
-			_, hasMaxMissions := resp.Payload["max_missions"]
-			if hasTotalCount && !hasBaseID && !hasMaxMissions {
-				if storeKey == "" {
-					storeKey = "completed_missions"
+		// The discriminator is a POSITIVE marker on the entries —
+		// completion_time — and not the container's own fields. Container
+		// fields cannot tell these lists apart: the active-missions reply
+		// carries "missions" and "total_count" too, and its "max_missions" is
+		// omitempty, so one omitted field would make it indistinguishable. A
+		// consumer of this key grants a difficulty-cap exemption on what it
+		// finds here, so a merely ACCEPTED mission must never reach it.
+		//
+		// Unverified against a real reply — no completed_missions capture
+		// exists. An empty list is not stored at all, so a reader must treat
+		// an empty result as "unknown", never as "nothing completed".
+		if missions, ok := resp.Payload["missions"].([]any); ok && len(missions) > 0 {
+			if first, isObj := missions[0].(map[string]any); isObj {
+				if _, completed := first["completion_time"]; completed {
+					if storeKey == "" {
+						storeKey = "completed_missions"
+					}
+					shouldStore = true
 				}
-				shouldStore = true
 			}
 		}
 		// Store notes data (from get_notes response)

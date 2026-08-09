@@ -1025,3 +1025,72 @@ func TestParsePlayerData_PartialPayloadKeepsStandings(t *testing.T) {
 		t.Errorf("pirate baseline after partial payload = %d, want 10 preserved", got)
 	}
 }
+
+// The completed_missions raw key is reachable by SHAPE, because a reply that
+// omits "action" would otherwise never be stored — the same silent-dead-key
+// class as browse_ships. But the shape rule must not be greedy: a mission
+// board and the ACTIVE list both carry a "missions" array, and an active
+// mission carries chain_next, so if either landed under this key the hunt
+// fleet's difficulty-cap exemption could be granted for a mission that was
+// merely accepted.
+func TestStoreRawJSON_CompletedMissionsShapeIsNotGreedy(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		payload string
+		want    string // the key the payload must land under
+		notWant string
+	}{
+		{
+			name:    "completed_missions",
+			payload: `{"missions":[{"template_id":"first_hunt_belt_grazers","chain_next":"cracking_the_shell","completion_time":"2026-08-09T00:00:00Z"}],"total_count":1}`,
+			want:    "completed_missions",
+		},
+		{
+			name:    "mission board",
+			payload: `{"missions":[{"mission_id":"first_hunt_belt_grazers","type":"combat"}],"base_id":"haven_station","total_count":1}`,
+			want:    "missions",
+			notWant: "completed_missions",
+		},
+		{
+			name:    "active missions",
+			payload: `{"missions":[{"mission_id":"hex-1","template_id":"first_hunt_belt_grazers","chain_next":"cracking_the_shell"}],"total_count":1,"max_missions":5}`,
+			want:    "active_missions",
+			notWant: "completed_missions",
+		},
+		{
+			// The dangerous one: max_missions is omitempty, so the active
+			// list can arrive without it and match any container-shaped rule.
+			// Only a per-entry completion marker separates the two.
+			name:    "active missions without max_missions",
+			payload: `{"missions":[{"mission_id":"hex-1","template_id":"first_hunt_belt_grazers","chain_next":"cracking_the_shell"}],"total_count":1}`,
+			notWant: "completed_missions",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client := NewClient("wss://test.example.com", "u", "t", nil)
+			var payload map[string]any
+			if err := json.Unmarshal([]byte(tc.payload), &payload); err != nil {
+				t.Fatalf("fixture: %v", err)
+			}
+			client.recvFrame(protocol.Response{Type: protocol.TypeOK, Payload: payload})
+
+			if tc.want != "" && len(client.GetRawJSON(tc.want)) == 0 {
+				t.Errorf("GetRawJSON(%q) empty; the payload must be reachable", tc.want)
+			}
+			if tc.notWant != "" && len(client.GetRawJSON(tc.notWant)) != 0 {
+				t.Errorf("GetRawJSON(%q) non-empty; this payload must NOT be readable as completion evidence", tc.notWant)
+			}
+		})
+	}
+}
+
+// The action key alone is enough when the server does send it.
+func TestStoreRawJSON_CompletedMissionsByAction(t *testing.T) {
+	client := NewClient("wss://test.example.com", "u", "t", nil)
+	client.recvFrame(protocol.Response{Type: protocol.TypeOK, Payload: map[string]any{
+		"action": "completed_missions", "missions": []any{},
+	}})
+	if len(client.GetRawJSON("completed_missions")) == 0 {
+		t.Error(`GetRawJSON("completed_missions") empty for an action-keyed reply`)
+	}
+}

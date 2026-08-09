@@ -1,6 +1,8 @@
 package worker
 
 import (
+	"context"
+	"io"
 	"strings"
 	"testing"
 
@@ -135,8 +137,11 @@ func TestHuntGateDefaults(t *testing.T) {
 
 // completedWith builds a completed-mission history entry: the predecessor id
 // and the mission it chains to.
-func completedWith(id, chainNext string) serverapi.ActiveMission {
-	return serverapi.ActiveMission{MissionID: "hex-" + id, TemplateID: id, Title: id, ChainNext: chainNext}
+func completedWith(id, chainNext string) serverapi.ViewCompletedMissionResponse {
+	return serverapi.ViewCompletedMissionResponse{
+		TemplateID: id, Title: id, ChainNext: chainNext,
+		CompletionTime: "2026-08-09T00:00:00Z",
+	}
 }
 
 // The chain exemption: a difficulty-2 mission is admitted only when THIS agent
@@ -192,5 +197,33 @@ func TestHuntChainExemptionNeedsCompletionNotSight(t *testing.T) {
 		if ok, _, _ := huntAdmissible(e, 1, true, earned); ok {
 			t.Errorf("earned=%v admitted an unearned difficulty-2 mission", earned)
 		}
+	}
+}
+
+// The forgery F2 describes: the ACTIVE list landing under the completed key.
+// Active missions carry chain_next but never completion_time, so nothing in
+// one may buy a difficulty waiver.
+func TestHuntChainEvidenceNeedsACompletionTime(t *testing.T) {
+	ctx := context.Background()
+	c := &fakeClient{raw: map[string][]byte{}}
+	// Shaped exactly like an accepted-but-unfinished mission that chains on.
+	c.raw["completed_missions"] = []byte(
+		`{"missions":[{"template_id":"first_hunt_belt_grazers","title":"First Hunt","chain_next":"cracking_the_shell"}],"total_count":1}`)
+
+	var log strings.Builder
+	earned := huntEarnedContinuations(ctx, HuntDeps{Client: c, Out: &log}, &log)
+	if len(earned) != 0 {
+		t.Fatalf("earned = %v; an entry with no completion_time must not count", earned)
+	}
+	if !strings.Contains(log.String(), "no completion_time") {
+		t.Errorf("must say why the entry was ignored, got:\n%s", log.String())
+	}
+
+	// The same entry WITH a completion time is real evidence.
+	c.raw["completed_missions"] = []byte(
+		`{"missions":[{"template_id":"first_hunt_belt_grazers","title":"First Hunt","chain_next":"cracking_the_shell","completion_time":"2026-08-09T00:00:00Z"}],"total_count":1}`)
+	earned = huntEarnedContinuations(ctx, HuntDeps{Client: c, Out: io.Discard}, io.Discard)
+	if earned["cracking_the_shell"] != "first_hunt_belt_grazers" {
+		t.Errorf("earned = %v, want the completed predecessor credited", earned)
 	}
 }

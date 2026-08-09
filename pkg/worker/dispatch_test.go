@@ -107,6 +107,14 @@ func (f *fakeClient) Refuel(ctx context.Context) error {
 	f.fuelLow = false // a successful refuel clears the fuel shortage
 	return nil
 }
+
+// CompletedMissions is a no-op that leaves raw["completed_missions"] as the
+// test set it: the point of the tests using it is what the DECODER does with a
+// given payload, not how the payload arrived.
+func (f *fakeClient) CompletedMissions(ctx context.Context) error {
+	f.calls = append(f.calls, "completed_missions")
+	return nil
+}
 func (f *fakeClient) Repair(ctx context.Context) error {
 	f.calls = append(f.calls, "repair")
 	return nil

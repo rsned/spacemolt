@@ -85,11 +85,16 @@ type huntFakeOpts struct {
 	// entry with a hex-ish id); noActive models the accept not having landed.
 	activeMissions []serverapi.ActiveMission
 	noActive       bool
+	// heldAtStart makes the active-mission list non-empty BEFORE the pass
+	// accepts anything, which is what a mission held over from an earlier pass
+	// looks like. Without it the list is empty until an accept lands, as on a
+	// real server.
+	heldAtStart bool
 	// completed is the agent's completed-mission history, the only evidence
 	// that earns a chain continuation past the difficulty cap. nil means the
 	// server answered with no history at all, which must NOT read as an
 	// exemption.
-	completed []serverapi.ActiveMission
+	completed []serverapi.ViewCompletedMissionResponse
 	// objectiveStuck freezes the server's kill_creature counter at zero while
 	// carcasses still appear — the live failure where a pass kills the wrong
 	// species cleanly and the mission never advances.
@@ -117,6 +122,10 @@ type huntFakeOpts struct {
 	neverCloses bool
 	// noWreck suppresses the carcass, so a kill can never be confirmed.
 	noWreck bool
+	// battlePredator makes the battle picture report the quarry's role as
+	// "predator" in ship_name, while get_nearby still calls it a grazer — the
+	// disagreement only the in-fight guard can catch.
+	battlePredator bool
 	// lingerInBattle keeps State.InBattle set after the fight picture goes
 	// non-participant, modelling the disengage exit that stops while the
 	// server still considers us a combatant (can_escape=false).
@@ -157,7 +166,8 @@ type huntFake struct {
 	// get_active_missions, with the kill_creature counter recomputed from the
 	// carcasses so far — the server's count, which is not the same number as
 	// the pass's confirmed kills once objectiveStuck is set.
-	actives []serverapi.ActiveMission
+	actives  []serverapi.ActiveMission
+	accepted bool
 
 	// repairErr is what the station answers a repair with. The fake never
 	// heals: these tests assert on the CALL, since the executor logs and
@@ -273,7 +283,7 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 		raw: map[string][]byte{
 			"missions":        boardJSON(t, entries...),
 			"nearby":          nearbyRaw,
-			"active_missions": activeJSON(t, actives...),
+			"active_missions": activeJSON(t),
 		},
 	}
 	return &huntFake{fakeClient: f, opts: opts, actives: actives}
@@ -287,12 +297,22 @@ func (f *huntFake) GetActiveMissions(ctx context.Context) error {
 	if err := f.fakeClient.GetActiveMissions(ctx); err != nil {
 		return err
 	}
-	if f.actives == nil {
+	if f.actives == nil || (!f.accepted && !f.opts.heldAtStart) {
+		// Nothing accepted yet: an empty list, which is what the resume path
+		// has to read as "nothing held" rather than as an error.
+		b, err := json.Marshal(serverapi.GetActiveMissionsResponse{})
+		if err != nil {
+			return err
+		}
+		f.raw["active_missions"] = b
 		return nil
 	}
-	counted := len(f.wrecks)
+	// The server's count is whatever it already was when the pass started,
+	// plus the carcasses this pass produced. A held mission keeps its earlier
+	// progress; objectiveStuck freezes the count where it began.
+	gained := len(f.wrecks)
 	if f.opts.objectiveStuck {
-		counted = 0
+		gained = 0
 	}
 	live := make([]serverapi.ActiveMission, len(f.actives))
 	copy(live, f.actives)
@@ -300,7 +320,7 @@ func (f *huntFake) GetActiveMissions(ctx context.Context) error {
 		live[i].Objectives = slices.Clone(live[i].Objectives)
 		for j := range live[i].Objectives {
 			if live[i].Objectives[j].Type == "kill_creature" {
-				live[i].Objectives[j].Current = counted
+				live[i].Objectives[j].Current += gained
 			}
 		}
 	}
@@ -400,6 +420,13 @@ func (f *huntFake) GetStatus(ctx context.Context) error {
 // raw key stays ABSENT rather than holding an empty list, which is also what a
 // server that never populates the key looks like — the case the gate has to
 // fall closed on.
+// AcceptMission is what makes the active list non-empty, exactly as on the
+// server: before an accept there is nothing to resume.
+func (f *huntFake) AcceptMission(ctx context.Context, missionID string) error {
+	f.accepted = true
+	return f.fakeClient.AcceptMission(ctx, missionID)
+}
+
 func (f *huntFake) CompletedMissions(ctx context.Context) error {
 	f.calls = append(f.calls, "completed_missions")
 	if f.opts.completed == nil {
@@ -476,6 +503,9 @@ func (f *huntFake) Hunt(ctx context.Context, creatureID string) error {
 	// ship_name, the numeric side ids) stays exactly as the server sent it.
 	q := f.quarry()
 	q.PlayerID = creatureID
+	if f.opts.battlePredator {
+		q.ShipName = "predator"
+	}
 	f.self().TargetID = ""
 	f.self().Stance = ""
 	if f.huntCalls == 1 && f.opts.battleHullPct > 0 {
@@ -669,8 +699,13 @@ func TestHuntNoCreaturesIsNotAnError(t *testing.T) {
 	if c.huntCalls != 0 {
 		t.Error("no creatures means no hunts")
 	}
-	if !strings.Contains(log.String(), "no creatures at this POI") {
+	if !strings.Contains(log.String(), "no creatures at pollux_outer_belt") {
 		t.Errorf("must log the empty-belt outcome specifically, got:\n%s", log.String())
+	}
+	// An empty belt is a reason to look elsewhere, not to end the pass: the
+	// sweep tries other grounds before holding the mission.
+	if !strings.Contains(log.String(), "held for next pass") {
+		t.Errorf("must hold the mission after the sweep, got:\n%s", log.String())
 	}
 }
 
@@ -1033,8 +1068,11 @@ func TestHuntRefusesToEngageAPredator(t *testing.T) {
 func TestHuntWildlifeOnlyDefaultsOnWhenUnset(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
 		board: []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		// The species is the one the mission COUNTS, so the species filter
+		// cannot refuse it and only the role interlock can. With a
+		// non-matching species this test passed with the role rule deleted.
 		creatures: []huntCreature{
-			{id: "eel", species: "tempest_eel", role: "predator", hull: 280},
+			{id: "eel", species: "belt_grazer", role: "predator", hull: 280},
 		},
 	})
 	var log strings.Builder
@@ -1388,7 +1426,7 @@ func TestHuntAcceptsTheEarnedChainContinuation(t *testing.T) {
 			{id: "tortoise", species: "slag_tortoise", role: "grazer", hull: 90},
 			{id: "belt", species: "belt_grazer", role: "grazer", hull: 60},
 		},
-		completed: []serverapi.ActiveMission{completedWith("first_hunt_belt_grazers", "cracking_the_shell")},
+		completed: []serverapi.ViewCompletedMissionResponse{completedWith("first_hunt_belt_grazers", "cracking_the_shell")},
 	})
 	var log strings.Builder
 	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
@@ -1611,7 +1649,7 @@ func TestHuntPrefersAnAsteroidBeltOverOtherWildlifePOIs(t *testing.T) {
 	// Repeated because the map iteration order is what an unranked
 	// implementation would be relying on; one draw proves nothing.
 	for i := range 25 {
-		if got, _ := huntLocalWildlifePOI(ctx, kb, "test_system"); got != "test_belt" {
+		if got, _ := huntLocalWildlifePOI(ctx, kb, "test_system", nil); got != "test_belt" {
 			t.Fatalf("draw %d: chose %q, want test_belt — the belt outranks the gas cloud and the nebula", i, got)
 		}
 	}
@@ -1666,7 +1704,7 @@ func TestHuntBeltRuleClausesAreEachLoadBearing(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			kb := beltRuleKB(t, tc.police, tc.station, tc.resource)
-			_, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt)
+			_, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil)
 			if poi != tc.want {
 				t.Fatalf("chose %q (%s), want %q", poi, why, tc.want)
 			}
@@ -1679,12 +1717,12 @@ func TestHuntBeltRuleClausesAreEachLoadBearing(t *testing.T) {
 func TestHuntBeltRuleDoesNotRelaxToLawless(t *testing.T) {
 	ctx := context.Background()
 	kb := beltRuleKB(t, 0, false, huntBeltResource)
-	if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt); poi != "" {
+	if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil); poi != "" {
 		t.Fatalf("chose %q (%s) in a lawless system; a hunt there risks a hull that cannot be replaced", poi, why)
 	}
 	// A nebula hunt is different: nowhere policed must not mean nowhere at all.
 	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "candidate_nebula", SystemID: "candidate", Type: "nebula"})
-	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula"); poi != "candidate_nebula" {
+	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula", nil); poi != "candidate_nebula" {
 		t.Errorf("a non-belt ground must relax to unpoliced rather than strand the pass, chose %q", poi)
 	}
 }
@@ -1698,7 +1736,7 @@ func TestHuntBeltRulePrefersTheFullerBelt(t *testing.T) {
 		Resources: []game.POIResource{{ResourceID: huntBeltResource, Richness: 32, Remaining: 100000}},
 	})
 	for i := range 25 {
-		if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt); poi != "candidate_richer" {
+		if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil); poi != "candidate_richer" {
 			t.Fatalf("draw %d: chose %q (%s), want candidate_richer — 100,000 iron beats 30,000", i, poi, why)
 		}
 	}
@@ -1722,7 +1760,7 @@ func TestHuntFliesToTheGroundItsSpeciesLivesOn(t *testing.T) {
 		if !ok {
 			t.Fatalf("%s has no ground mapped", species)
 		}
-		if _, poi, why := huntFindGround(ctx, kb, "test_system", poiType); poi != want {
+		if _, poi, why := huntFindGround(ctx, kb, "test_system", poiType, nil); poi != want {
 			t.Errorf("%s: chose %q (%s), want %q", species, poi, why, want)
 		}
 	}
@@ -1748,7 +1786,7 @@ func TestHuntPrefersTheRichestUnworkedBelt(t *testing.T) {
 	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "unsurveyed_belt", SystemID: "test_system", Type: "asteroid_belt"})
 
 	for i := range 25 {
-		got, why := huntLocalWildlifePOI(ctx, kb, "test_system")
+		got, why := huntLocalWildlifePOI(ctx, kb, "test_system", nil)
 		if got != "rich_belt" {
 			t.Fatalf("draw %d: chose %q (%s), want rich_belt — richness*remaining is highest there", i, got, why)
 		}
@@ -1771,7 +1809,7 @@ func TestHuntSkipsAMinedOutBeltForALiveGasCloud(t *testing.T) {
 	})
 
 	for i := range 25 {
-		if got, why := huntLocalWildlifePOI(ctx, kb, "test_system"); got != "live_cloud" {
+		if got, why := huntLocalWildlifePOI(ctx, kb, "test_system", nil); got != "live_cloud" {
 			t.Fatalf("draw %d: chose %q (%s), want live_cloud — commerce_fields has remaining 0", i, got, why)
 		}
 	}
@@ -1794,10 +1832,10 @@ func TestHuntRanksUnknownRichnessBetweenRichAndExhausted(t *testing.T) {
 	_ = exhaustedKB.RememberPOI(ctx, beltWith("commerce_fields", 75, 0))
 
 	for i := range 25 {
-		if got, _ := huntLocalWildlifePOI(ctx, richKB, "test_system"); got != "rich_belt" {
+		if got, _ := huntLocalWildlifePOI(ctx, richKB, "test_system", nil); got != "rich_belt" {
 			t.Fatalf("draw %d: chose %q over a known-rich belt, want rich_belt", i, got)
 		}
-		got, why := huntLocalWildlifePOI(ctx, exhaustedKB, "test_system")
+		got, why := huntLocalWildlifePOI(ctx, exhaustedKB, "test_system", nil)
 		if got != "unsurveyed_belt" {
 			t.Fatalf("draw %d: chose %q over an unsurveyed belt, want unsurveyed_belt — a mined-out POI is worse than an unknown one", i, got)
 		}
@@ -1961,6 +1999,36 @@ func TestHuntPolicyBreaksOffFromAPredatorParticipant(t *testing.T) {
 	}
 }
 
+// F3: the SECOND enforcement point of the no-predator interlock — the one
+// inside the fight — driven through a whole pass rather than a hand-built
+// policy. get_nearby can call a creature a grazer while the battle picture
+// calls it a predator (ship_name carries the role there), and that is the case
+// only the in-fight guard catches. Mutating the wiring that hands wildlifeOnly
+// to huntPolicy left the entire suite green before this test existed.
+func TestHuntBreaksOffWhenTheBattlePictureSaysPredator(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:          []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures:      huntGrazers("c1"),
+		battlePredator: true,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if c.huntCalls != 1 {
+		t.Fatalf("hunt calls = %d, want 1 — the creature looked huntable until the fight started", c.huntCalls)
+	}
+	if !c.fled {
+		t.Fatalf("must break off from a predator, actions: %v", c.battleActions)
+	}
+	if countAction(c, "advance") != 0 {
+		t.Errorf("must not close the range on a predator, actions: %v", c.battleActions)
+	}
+	if !strings.Contains(log.String(), "not huntable wildlife") {
+		t.Errorf("must log the wildlife refusal, got:\n%s", log.String())
+	}
+}
+
 // A pass must never open a second fight from inside the first. The disengage
 // is bounded and one of its exits — the server answering can_escape=false —
 // stops while we are still a participant; calling hunt from there is refused.
@@ -2057,3 +2125,128 @@ var errNotAStation = &huntTestErr{"cannot dock here"}
 type huntTestErr struct{ s string }
 
 func (e *huntTestErr) Error() string { return e.s }
+
+// held builds the active-mission list a previous pass would have left behind:
+// accepted, partially killed, still occupying a slot.
+func heldMission(id string, current, required, difficulty int) serverapi.ActiveMission {
+	return serverapi.ActiveMission{
+		MissionID: "hex-" + id, TemplateID: id, Title: id, Type: "combat", Difficulty: difficulty,
+		Objectives: []serverapi.ActiveMissionObjective{{
+			Type: "kill_creature", Description: "cull the herd",
+			Current: current, Required: required,
+		}},
+	}
+}
+
+// F1: eleven exits say "held for next pass" and until now nothing picked one
+// back up, so a held mission kept its slot until it expired and the fleet
+// converged on idling. A pass must resume before it ever reads the board.
+func TestHuntResumesAHeldMission(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:          []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 3}},
+		creatures:      huntGrazers("c1"),
+		activeMissions: []serverapi.ActiveMission{heldMission("first_hunt_belt_grazers", 2, 3, 1)},
+		heldAtStart:    true,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !strings.Contains(log.String(), "resuming first_hunt_belt_grazers") {
+		t.Fatalf("a held mission must be resumed, got:\n%s", log.String())
+	}
+	if called(c, "accept:") {
+		t.Errorf("must not accept a second mission while holding one, calls: %v", c.calls)
+	}
+	if c.huntCalls == 0 {
+		t.Errorf("resuming must actually hunt, calls: %v", c.calls)
+	}
+	// Resume comes first, so the board is not even read.
+	if called(c, "get_missions") {
+		t.Errorf("the board must not be read while a mission is held, calls: %v", c.calls)
+	}
+}
+
+// The resumed mission carries the SERVER's kill count, so the pass hunts what
+// is left rather than starting the count again.
+func TestHuntResumeCarriesTheServersProgress(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:          []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 3}},
+		creatures:      huntGrazers("c1", "c2", "c3"),
+		activeMissions: []serverapi.ActiveMission{heldMission("first_hunt_belt_grazers", 2, 3, 1)},
+		heldAtStart:    true,
+		objectiveStuck: true, // the server's count does not move for our kills
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !strings.Contains(log.String(), "at 2/3 kill(s)") {
+		t.Errorf("the resume line must carry the server's own progress, got:\n%s", log.String())
+	}
+	// baseline 2 against a frozen counter means no advance, and the pass has
+	// to say so rather than reading its own kills as progress.
+	if !strings.Contains(log.String(), "OBJECTIVE DID NOT ADVANCE") {
+		t.Errorf("a baseline of 2 with a frozen counter is a stall, got:\n%s", log.String())
+	}
+}
+
+// Gate 2 still applies on the way back in: a category revoked mid-run leaves
+// the mission alone rather than resuming it.
+func TestHuntDoesNotResumeANonWildlifeMission(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:          []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures:      huntGrazers("c1"),
+		activeMissions: []serverapi.ActiveMission{heldMission("pirate_bounty", 0, 3, 2)},
+		heldAtStart:    true,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !strings.Contains(log.String(), "not resuming pirate_bounty") {
+		t.Errorf("must refuse to resume a non-wildlife mission, got:\n%s", log.String())
+	}
+	// Refusing to resume must not stop the pass doing its real work.
+	if !called(c, "get_missions") {
+		t.Errorf("the board must still be read, calls: %v", c.calls)
+	}
+}
+
+// A ground that holds none of the required species is not the end of the pass:
+// the sweep moves to the next one. Without it, a resumed mission would fly to
+// the same dead end every pass forever, since ground choice is deterministic.
+func TestHuntSweepsToAnotherGroundWhenTheSpeciesIsAbsent(t *testing.T) {
+	ctx := context.Background()
+	kb := huntKB()
+	// A second qualifying belt, one jump further out.
+	_ = kb.RememberSystem(ctx, knowledge.System{
+		ID: "azmidi", Name: "Azmidi", PoliceLevel: 30, LastVisitedTick: 1,
+		Connections: []knowledge.SystemConnection{{SystemID: "pollux"}},
+	})
+	_ = kb.RememberPOI(ctx, knowledge.POI{
+		ID: "unclaimed_facets_azmidi", SystemID: "azmidi", Type: "asteroid_belt",
+		Resources: []game.POIResource{{ResourceID: huntBeltResource, Richness: 34, Remaining: 100000}},
+	})
+
+	c := newHuntFake(t, huntFakeOpts{
+		board: []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		// Wrong species everywhere: what matters is that it keeps looking.
+		creatures: []huntCreature{{id: "tortoise", species: "slag_tortoise", role: "grazer", hull: 90}},
+	})
+	var log strings.Builder
+	deps := huntDeps(c, &log)
+	deps.KB = kb
+	if err := Hunt(ctx, deps); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !called(c, "travel:pollux_outer_belt") || !called(c, "travel:unclaimed_facets_azmidi") {
+		t.Fatalf("must try a second ground rather than holding at the first, calls: %v", c.calls)
+	}
+	if c.huntCalls != 0 {
+		t.Errorf("hunt calls = %d, want 0 — no ground held the required species", c.huntCalls)
+	}
+	if !strings.Contains(log.String(), "no quarry found across") {
+		t.Errorf("must say the sweep came up empty, got:\n%s", log.String())
+	}
+}

@@ -114,13 +114,21 @@ func huntRequiredSpecies(e serverapi.MissionBoardEntry) (species, source string)
 // here therefore returns an EMPTY map, so the gate falls closed to the plain
 // difficulty rule.
 //
+// The evidence is a POSITIVE per-entry marker, completion_time, and not the
+// container the entries arrived in. That matters because the raw store keys
+// completed_missions on payload SHAPE, and the active-missions reply is one
+// omitted `max_missions` away from matching it — both fields are omitempty. An
+// active mission carries no completion_time, so even if the wrong list lands
+// under this key nothing in it is credited, and the exemption cannot be forged
+// out of a mission that was merely ACCEPTED.
+//
 // Two caveats a reader must know:
 //
-//   - The completed_missions reply is not modelled. Its entries are decoded
-//     through serverapi.ActiveMission because that struct already carries the
-//     four field names involved (mission_id, template_id, title, chain_next);
-//     no field name here is invented, but no capture proves the server sends
-//     them on THIS command either.
+//   - The completed_missions list shape is not modelled. Entries are decoded
+//     through serverapi.ViewCompletedMissionResponse, the existing struct for a
+//     completed mission — it carries template_id, chain_next and
+//     completion_time. No field name here is invented, but no capture proves
+//     the server sends them on THIS command either.
 //   - Whether a completed entry carries chain_next at all is unverified. If it
 //     does not, this map is always empty and the exemption never fires — the
 //     chain stalls, visibly, rather than opening a hole.
@@ -136,21 +144,24 @@ func huntEarnedContinuations(ctx context.Context, deps HuntDeps, out io.Writer) 
 		return earned
 	}
 	var resp struct {
-		Missions []serverapi.ActiveMission `json:"missions"`
+		Missions []serverapi.ViewCompletedMissionResponse `json:"missions"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		fmt.Fprintf(out, "hunt: parse completed missions: %v; chain continuations stay gated\n", err) //nolint:errcheck
 		return earned
 	}
 	for _, m := range resp.Missions {
-		if m.ChainNext == "" {
+		if m.ChainNext == "" || m.TemplateID == "" {
 			continue
 		}
-		predecessor := m.MissionID
-		if m.TemplateID != "" {
-			predecessor = m.TemplateID
+		if m.CompletionTime == "" {
+			// No completion marker, no credit. This is the clause that stops
+			// an accepted-but-unfinished mission from buying a difficulty
+			// waiver if the active list ever lands under this key.
+			fmt.Fprintf(out, "hunt: ignoring %s as chain evidence: no completion_time\n", m.TemplateID) //nolint:errcheck
+			continue
 		}
-		earned[m.ChainNext] = predecessor
+		earned[m.ChainNext] = m.TemplateID
 	}
 	return earned
 }

@@ -127,6 +127,11 @@ const (
 
 	// huntPOISearchLimit bounds the nearest-systems scan for a hunting ground.
 	huntPOISearchLimit = 25
+
+	// huntMaxGrounds is how many hunting grounds one pass will try before
+	// giving up and holding the mission. Each failed ground costs a real
+	// journey, so this is small; the next pass sweeps again.
+	huntMaxGrounds = 3
 )
 
 // huntWildlifePOITypes are the KB pois.type values that hold wildlife, IN
@@ -324,51 +329,14 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// follows.
 	huntRepairAtDock(ctx, deps, out, who, deps.Client.GetState())
 
-	// Step 2: read the board; accept the first admissible entry, logging
-	// every refusal with its reason.
-	if err := deps.Client.GetMissions(ctx); err != nil {
-		fmt.Fprintf(out, "hunt: get_missions: %v\n", err) //nolint:errcheck
-		return nil
-	}
-	raw := deps.Client.GetRawJSON("missions")
-	if len(raw) == 0 {
-		fmt.Fprintln(out, "hunt: get_missions returned no data") //nolint:errcheck
-		return nil
-	}
-	var board serverapi.GetMissionsResponse
-	if err := json.Unmarshal(raw, &board); err != nil {
-		fmt.Fprintf(out, "hunt: parse board: %v\n", err) //nolint:errcheck
-		return nil
-	}
 	// What the agent has already COMPLETED is what lets a chain continuation
-	// over the difficulty cap through. Read once per pass, before the board is
+	// over the difficulty cap through. Read once per pass, before anything is
 	// scored, and treated as empty on any failure.
 	earned := huntEarnedContinuations(ctx, deps, out)
 
-	var chosen *serverapi.MissionBoardEntry
-	for i := range board.Missions {
-		e := board.Missions[i]
-		ok, reason, waived := huntAdmissible(e, maxDifficulty, wildlifeOnly, earned)
-		if !ok {
-			fmt.Fprintf(out, "hunt: skip %s (%s): %s\n", e.MissionID, e.Title, reason) //nolint:errcheck
-			continue
-		}
-		if waived != "" {
-			// Loud on purpose: this is the fleet taking on something harder
-			// than its cap, and an invisible exemption is how a fleet ends up
-			// fighting what nobody chose for it.
-			fmt.Fprintf(out, "hunt[%s]: CHAIN CONTINUATION: admitting %s at difficulty %d over cap %d, earned by completing %s\n", //nolint:errcheck
-				who, e.MissionID, e.Difficulty, maxDifficulty, waived)
-		}
-		chosen = &e
-		break
-	}
-	if chosen == nil {
-		fmt.Fprintln(out, "hunt: no admissible mission on the board; idling") //nolint:errcheck
-		return nil
-	}
-
-	activeID, baseline, ok := huntAcceptMission(ctx, deps, out, *chosen)
+	// Step 2: continue a mission this agent already holds, or accept a new one
+	// off the board.
+	job, ok := huntSelectJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
 	if !ok {
 		return nil
 	}
@@ -384,68 +352,23 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 			return
 		}
 		reported = true
-		huntReportObjectiveProgress(ctx, deps, out, who, activeID, baseline, kills)
+		huntReportObjectiveProgress(ctx, deps, out, who, job.activeID, job.baseline, kills)
 	}
 	defer report()
 
-	// Step 3: the counted kill_creature objective is the target, and the
-	// species that counts for it is resolved here — from the server's own
-	// target_id when it carries one, otherwise from the curated table. The
-	// objective description is logged verbatim beside it so the two can be
-	// compared by eye when a new mission appears.
-	target := huntKillQuantity(*chosen)
-	required, source := huntRequiredSpecies(*chosen)
-	_, targetDesc := huntObjectiveTarget(*chosen)
-	fmt.Fprintf(out, "hunt[%s]: accepted %s (%s) at %s; target %d kill(s), species %q (%s), desc=%q\n", //nolint:errcheck
-		who, chosen.MissionID, chosen.Title, rfc(huntNow(deps)), target, required, source, targetDesc)
+	target := job.target
 
-	// Step 4: travel out to a POI that can hold wildlife. The board is at a
-	// station and the quarry is not; without this leg the pass reads
-	// "no creatures at this POI" at a station forever.
-	if err := huntTravelToWildlifePOI(ctx, deps, out, required); err != nil {
-		fmt.Fprintf(out, "hunt: reaching a wildlife POI: %v; %s held for next pass\n", err, chosen.MissionID) //nolint:errcheck
-		return nil
-	}
-
-	// Step 5: an empty belt is a normal outcome (the herd moved, or it's
-	// already thinned out) — not an error. The mission stays accepted and is
-	// picked up again next pass.
-	if err := deps.Client.GetNearby(ctx); err != nil {
-		fmt.Fprintf(out, "hunt: get_nearby: %v\n", err) //nolint:errcheck
-		return nil
-	}
-	raw = deps.Client.GetRawJSON("nearby")
-	var nearby serverapi.GetNearbyResponse
-	if len(raw) > 0 {
-		if err := json.Unmarshal(raw, &nearby); err != nil {
-			fmt.Fprintf(out, "hunt: parse nearby: %v\n", err) //nolint:errcheck
-			return nil
-		}
-	}
-	if len(nearby.Creatures) == 0 {
-		fmt.Fprintf(out, "hunt: no creatures at this POI; %s held for next pass\n", chosen.MissionID) //nolint:errcheck
+	// Steps 4-5: travel out to a hunting ground and read what is there. The
+	// board is at a station and the quarry is not; without this leg the pass
+	// reads "no creatures at this POI" at a station forever.
+	quarry, ok := huntFindQuarry(ctx, deps, out, who, job, wildlifeOnly)
+	if !ok {
 		return nil
 	}
 
 	// Steps 6-7: hunt until the objective is met, the engagement cap is hit,
 	// the pool of huntable creatures runs out, or the hull drops below the
 	// flee threshold.
-	quarry := huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, required, out)
-	if len(quarry) == 0 {
-		// Standing in the wrong place is its own outcome, and the one an
-		// operator can act on: the mission is fine, the fleet is simply not
-		// where its quarry lives. Say it distinctly, name the species wanted
-		// and what was actually here, and issue no hunt at all — engaging the
-		// two-thirds of a grazer herd that does not count costs hull and ticks
-		// and earns nothing.
-		if required != "" {
-			fmt.Fprintf(out, "hunt[%s]: WRONG POI: %s needs %q and this POI holds %s; no engagement attempted, %s held for next pass\n", //nolint:errcheck
-				who, chosen.MissionID, required, huntSpeciesSeen(nearby.Creatures), chosen.MissionID)
-			return nil
-		}
-		fmt.Fprintf(out, "hunt: nothing huntable among %d creature(s) at this POI; %s held for next pass\n", len(nearby.Creatures), chosen.MissionID) //nolint:errcheck
-		return nil
-	}
 	for kills < target && attempts < huntMaxEngagements {
 		// The between-engagement hull gate. It reads a value that only
 		// get_status refreshes: parseBattleStatusData populates BattleState
@@ -480,7 +403,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		// and starting the next one clean.
 		if st != nil && st.InBattle {
 			fmt.Fprintf(out, "hunt: still a participant in an unresolved battle after %d/%d kill(s); %s held for next pass\n", //nolint:errcheck
-				kills, target, chosen.MissionID)
+				kills, target, job.boardID)
 			return nil
 		}
 
@@ -491,7 +414,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 
 		c, idx := huntPickQuarry(quarry)
 		if idx < 0 {
-			fmt.Fprintf(out, "hunt: no huntable creatures remain (%d/%d killed); %s held for next pass\n", kills, target, chosen.MissionID) //nolint:errcheck
+			fmt.Fprintf(out, "hunt: no huntable creatures remain (%d/%d killed); %s held for next pass\n", kills, target, job.boardID) //nolint:errcheck
 			return nil
 		}
 		quarry = slices.Delete(quarry, idx, idx+1)
@@ -524,17 +447,17 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		// refused — so hold the mission and let the next pass start clean.
 		switch outcome {
 		case huntFled:
-			fmt.Fprintf(out, "hunt: broke off at %d/%d kill(s); %s held for next pass\n", kills, target, chosen.MissionID) //nolint:errcheck
+			fmt.Fprintf(out, "hunt: broke off at %d/%d kill(s); %s held for next pass\n", kills, target, job.boardID) //nolint:errcheck
 			return nil
 		case huntBattleError:
-			fmt.Fprintf(out, "hunt: ending pass after a battle error at %d/%d kill(s); %s held for next pass\n", kills, target, chosen.MissionID) //nolint:errcheck
+			fmt.Fprintf(out, "hunt: ending pass after a battle error at %d/%d kill(s); %s held for next pass\n", kills, target, job.boardID) //nolint:errcheck
 			return nil
 		case huntResolved, huntGaveUp:
 		}
 	}
 
 	if kills < target {
-		fmt.Fprintf(out, "hunt: %s at %d/%d kill(s); held for next pass\n", chosen.MissionID, kills, target) //nolint:errcheck
+		fmt.Fprintf(out, "hunt: %s at %d/%d kill(s); held for next pass\n", job.boardID, kills, target) //nolint:errcheck
 		return nil
 	}
 
@@ -542,11 +465,214 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// before completing: a completed mission drops off the active list, and
 	// the report reads that list.
 	report()
-	fmt.Fprintf(out, "hunt: %s objective met (%d/%d); completing\n", chosen.MissionID, kills, target) //nolint:errcheck
-	if err := deps.Client.CompleteMission(ctx, activeID); err != nil {
-		fmt.Fprintf(out, "hunt: complete %s failed: %v; held for next pass\n", activeID, err) //nolint:errcheck
+	fmt.Fprintf(out, "hunt: %s objective met (%d/%d); completing\n", job.boardID, kills, target) //nolint:errcheck
+	if err := deps.Client.CompleteMission(ctx, job.activeID); err != nil {
+		fmt.Fprintf(out, "hunt: complete %s failed: %v; held for next pass\n", job.activeID, err) //nolint:errcheck
 	}
 	return nil
+}
+
+// huntJob is the one mission a pass works on, however it was obtained.
+type huntJob struct {
+	// boardID is the template-ish id the curated tables and the logs key on;
+	// activeID is the hex instance id complete_mission needs. They differ, and
+	// completing with the wrong one 404s.
+	boardID  string
+	activeID string
+	title    string
+	target   int // kills the objective asks for
+	baseline int // kills the server had already counted when this pass started
+	required string
+	resumed  bool
+}
+
+// huntSelectJob picks the mission this pass will work on: a held one first,
+// and only then a new one off the board.
+//
+// Resuming FIRST is the whole point. Eleven exits in this pass end with a
+// mission "held for next pass" — a wrong ground, a hull break-off, the
+// engagement cap — and until now nothing ever picked one back up. The mission
+// kept its active slot, its partial kill count rotted to expiry, and with a
+// five-mission allowlist the fleet converged on "no admissible mission on the
+// board; idling" while every worker still looked healthy. Missions solves this
+// the same way and for the same reason (mission.go's missionResume, run before
+// anything is accepted).
+func huntSelectJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, maxDifficulty int, wildlifeOnly bool, earned map[string]string) (huntJob, bool) {
+	if job, ok := huntResumeJob(ctx, deps, out, who, wildlifeOnly); ok {
+		return job, true
+	}
+	return huntBoardJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
+}
+
+// huntResumeJob returns an already-accepted hunt mission to continue.
+//
+// Two rules about which gates apply on the way back in:
+//
+//   - Gate 2 (wildlife-only) STILL applies. If the operator revokes the
+//     category mid-run the mission is left alone rather than resumed, which is
+//     what Missions does for smuggling and for the same reason.
+//   - Gate 1 (the difficulty cap) does NOT. The mission is already accepted and
+//     already holding a slot; refusing to touch it because it is over today's
+//     cap would recreate the exact deadlock this function exists to break. The
+//     resume line names the difficulty so an over-cap resume is visible.
+func huntResumeJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, wildlifeOnly bool) (huntJob, bool) {
+	if err := deps.Client.GetActiveMissions(ctx); err != nil {
+		fmt.Fprintf(out, "hunt: get_active_missions: %v; cannot resume this pass\n", err) //nolint:errcheck
+		return huntJob{}, false
+	}
+	raw := deps.Client.GetRawJSON("active_missions")
+	if len(raw) == 0 {
+		return huntJob{}, false
+	}
+	var resp serverapi.GetActiveMissionsResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		fmt.Fprintf(out, "hunt: parse active missions: %v; cannot resume this pass\n", err) //nolint:errcheck
+		return huntJob{}, false
+	}
+	for _, m := range resp.Missions {
+		o, ok := huntKillObjective(m)
+		if !ok || o.Completed {
+			continue
+		}
+		boardID := m.TemplateID
+		if boardID == "" {
+			boardID = m.MissionID
+		}
+		if wildlifeOnly && !huntWildlifeMissions[boardID] {
+			fmt.Fprintf(out, "hunt: not resuming %s (%s): not a wildlife mission and wildlife-only is set\n", boardID, m.Title) //nolint:errcheck
+			continue
+		}
+		target := o.Required
+		if target <= 0 {
+			target = 1
+		}
+		required, source := huntRequiredSpecies(serverapi.MissionBoardEntry{MissionID: boardID, Title: m.Title})
+		fmt.Fprintf(out, "hunt[%s]: resuming %s (%s) at %d/%d kill(s), difficulty %d, species %q (%s)\n", //nolint:errcheck
+			who, boardID, m.Title, o.Current, target, m.Difficulty, required, source)
+		return huntJob{
+			boardID: boardID, activeID: m.MissionID, title: m.Title,
+			target: target, baseline: o.Current, required: required, resumed: true,
+		}, true
+	}
+	return huntJob{}, false
+}
+
+// huntBoardJob reads the station board and accepts the first admissible entry,
+// logging every refusal with its reason.
+func huntBoardJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, maxDifficulty int, wildlifeOnly bool, earned map[string]string) (huntJob, bool) {
+	if err := deps.Client.GetMissions(ctx); err != nil {
+		fmt.Fprintf(out, "hunt: get_missions: %v\n", err) //nolint:errcheck
+		return huntJob{}, false
+	}
+	raw := deps.Client.GetRawJSON("missions")
+	if len(raw) == 0 {
+		fmt.Fprintln(out, "hunt: get_missions returned no data") //nolint:errcheck
+		return huntJob{}, false
+	}
+	var board serverapi.GetMissionsResponse
+	if err := json.Unmarshal(raw, &board); err != nil {
+		fmt.Fprintf(out, "hunt: parse board: %v\n", err) //nolint:errcheck
+		return huntJob{}, false
+	}
+	var chosen *serverapi.MissionBoardEntry
+	for i := range board.Missions {
+		e := board.Missions[i]
+		ok, reason, waived := huntAdmissible(e, maxDifficulty, wildlifeOnly, earned)
+		if !ok {
+			fmt.Fprintf(out, "hunt: skip %s (%s): %s\n", e.MissionID, e.Title, reason) //nolint:errcheck
+			continue
+		}
+		if waived != "" {
+			// Loud on purpose: this is the fleet taking on something harder
+			// than its cap, and an invisible exemption is how a fleet ends up
+			// fighting what nobody chose for it.
+			fmt.Fprintf(out, "hunt[%s]: CHAIN CONTINUATION: admitting %s at difficulty %d over cap %d, earned by completing %s\n", //nolint:errcheck
+				who, e.MissionID, e.Difficulty, maxDifficulty, waived)
+		}
+		chosen = &e
+		break
+	}
+	if chosen == nil {
+		fmt.Fprintln(out, "hunt: no admissible mission on the board; idling") //nolint:errcheck
+		return huntJob{}, false
+	}
+	activeID, baseline, ok := huntAcceptMission(ctx, deps, out, *chosen)
+	if !ok {
+		return huntJob{}, false
+	}
+	target := huntKillQuantity(*chosen)
+	required, source := huntRequiredSpecies(*chosen)
+	_, targetDesc := huntObjectiveTarget(*chosen)
+	fmt.Fprintf(out, "hunt[%s]: accepted %s (%s) at %s; target %d kill(s), species %q (%s), desc=%q\n", //nolint:errcheck
+		who, chosen.MissionID, chosen.Title, rfc(huntNow(deps)), target, required, source, targetDesc)
+	return huntJob{
+		boardID: chosen.MissionID, activeID: activeID, title: chosen.Title,
+		target: target, baseline: baseline, required: required,
+	}, true
+}
+
+// huntFindQuarry travels to a hunting ground and reads what is there, moving
+// on to the NEXT ground when the one it reached holds none of the required
+// species.
+//
+// The sweep is what keeps a resumed mission from re-flying into the same dead
+// end every pass. Ground selection is deterministic given the KB, so without
+// it a mission whose nearest qualifying belt happens to hold the wrong species
+// would be resumed, flown to that belt, refused, and held — forever. Excluding
+// the grounds already tried turns that into a search.
+//
+// It is bounded by huntMaxGrounds because each failed ground costs a real
+// journey. If every ground in the sweep is wrong the mission is held again,
+// and the next pass re-runs the sweep: the fleet keeps looking rather than
+// giving up, and the WRONG POI lines say where it has been. AbandonMission is
+// deliberately NOT called — first_hunt_belt_grazers is a chain mission and
+// what abandoning does to a chain is unknown, which is a worse risk than a
+// mission that keeps being retried.
+func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, wildlifeOnly bool) ([]serverapi.NearbyCreature, bool) {
+	var tried []string
+	for range huntMaxGrounds {
+		poi, err := huntTravelToWildlifePOI(ctx, deps, out, job.required, tried)
+		if err != nil {
+			if len(tried) > 0 {
+				break // the sweep ran out of grounds; report it as a sweep
+			}
+			fmt.Fprintf(out, "hunt: reaching a wildlife POI: %v; %s held for next pass\n", err, job.boardID) //nolint:errcheck
+			return nil, false
+		}
+		tried = append(tried, poi)
+
+		if err := deps.Client.GetNearby(ctx); err != nil {
+			fmt.Fprintf(out, "hunt: get_nearby: %v\n", err) //nolint:errcheck
+			return nil, false
+		}
+		var nearby serverapi.GetNearbyResponse
+		if raw := deps.Client.GetRawJSON("nearby"); len(raw) > 0 {
+			if err := json.Unmarshal(raw, &nearby); err != nil {
+				fmt.Fprintf(out, "hunt: parse nearby: %v\n", err) //nolint:errcheck
+				return nil, false
+			}
+		}
+		if quarry := huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out); len(quarry) > 0 {
+			return quarry, true
+		}
+		// Standing in the wrong place is its own outcome, and the one an
+		// operator can act on: the mission is fine, the fleet is simply not
+		// where its quarry lives. Say it distinctly, naming the species wanted
+		// and what was actually there, and engage nothing — killing the
+		// two-thirds of a grazer herd that does not count costs hull and ticks
+		// and earns nothing.
+		switch {
+		case len(nearby.Creatures) == 0:
+			fmt.Fprintf(out, "hunt: no creatures at %s; trying another ground\n", poi) //nolint:errcheck
+		case job.required != "":
+			fmt.Fprintf(out, "hunt[%s]: WRONG POI: %s needs %q and %s holds %s; no engagement attempted\n", //nolint:errcheck
+				who, job.boardID, job.required, poi, huntSpeciesSeen(nearby.Creatures))
+		default:
+			fmt.Fprintf(out, "hunt: nothing huntable among %d creature(s) at %s\n", len(nearby.Creatures), poi) //nolint:errcheck
+		}
+	}
+	fmt.Fprintf(out, "hunt: no quarry found across %d ground(s) %v; %s held for next pass\n", len(tried), tried, job.boardID) //nolint:errcheck
+	return nil, false
 }
 
 // huntObjectiveTarget returns the first kill_creature objective's target id and
@@ -1171,13 +1297,13 @@ func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, creature
 // huntTravelToWildlifePOI moves the pass from the station board out to a POI
 // that can hold wildlife (huntWildlifePOITypes), preferring one in the current
 // system and otherwise routing to the nearest system that has one.
-func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, required string) error {
+func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, required string, exclude []string) (string, error) {
 	if deps.KB == nil {
-		return fmt.Errorf("no knowledge base configured")
+		return "", fmt.Errorf("no knowledge base configured")
 	}
 	state := deps.Client.GetState()
 	if state == nil {
-		return fmt.Errorf("no cached state")
+		return "", fmt.Errorf("no cached state")
 	}
 	current := state.System.ID
 
@@ -1185,18 +1311,18 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 	if poiType, scoped := huntSpeciesPOIType[required]; scoped {
 		// The mission names its quarry, so the ground is determined: search
 		// only where that species lives, under the rules for that ground.
-		destSystem, destPOI, why = huntFindGround(ctx, deps.KB, current, poiType)
+		destSystem, destPOI, why = huntFindGround(ctx, deps.KB, current, poiType, exclude)
 		if destPOI == "" {
-			return fmt.Errorf("no %s reachable from %s that suits %s", poiType, current, required)
+			return "", fmt.Errorf("no %s reachable from %s that suits %s", poiType, current, required)
 		}
 	} else {
 		// Unscoped: any wildlife POI will do, nearest and least-worked first,
 		// and the system we are already in is free.
 		destSystem = current
-		destPOI, why = huntLocalWildlifePOI(ctx, deps.KB, current)
+		destPOI, why = huntLocalWildlifePOI(ctx, deps.KB, current, exclude)
 		if destPOI == "" {
 			for _, t := range huntWildlifePOITypes {
-				sys, poi, reason := huntFindGround(ctx, deps.KB, current, t)
+				sys, poi, reason := huntFindGround(ctx, deps.KB, current, t, exclude)
 				if poi != "" {
 					destSystem, destPOI, why = sys, poi, reason
 					break
@@ -1205,21 +1331,21 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 		}
 	}
 	if destPOI == "" {
-		return fmt.Errorf("no known wildlife POI reachable from %s", current)
+		return "", fmt.Errorf("no known wildlife POI reachable from %s", current)
 	}
 	if state.CurrentPOI == destPOI && !state.Doc {
-		return nil // already parked on the quarry's doorstep
+		return destPOI, nil // already parked on the quarry's doorstep
 	}
 	if state.Doc {
 		if err := deps.Client.Undock(ctx); err != nil {
-			return fmt.Errorf("undock: %w", err)
+			return "", fmt.Errorf("undock: %w", err)
 		}
 	}
 	fmt.Fprintf(out, "hunt: heading to %s/%s (%s) to find wildlife\n", destSystem, destPOI, why) //nolint:errcheck
 	if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out}, destSystem, destPOI); err != nil {
-		return fmt.Errorf("transit to %s: %w", destPOI, err)
+		return "", fmt.Errorf("transit to %s: %w", destPOI, err)
 	}
-	return nil
+	return destPOI, nil
 }
 
 // huntResourceTier classes a candidate POI by what the KB knows about its
@@ -1294,7 +1420,7 @@ func huntCarriesResource(p knowledge.POI, resourceID string) bool {
 // mined for iron — and only the policed preference carries over, which the
 // caller relaxes if nothing policed is in range. Within a system, ties break on
 // remaining first and richness second: both belts qualify, take the fuller one.
-func huntGroundIn(ctx context.Context, kb knowledge.Base, systemID, poiType string, requirePoliced bool) (poiID, why string, ok bool) {
+func huntGroundIn(ctx context.Context, kb knowledge.Base, systemID, poiType string, requirePoliced bool, exclude []string) (poiID, why string, ok bool) {
 	if requirePoliced {
 		sys, err := kb.GetSystem(ctx, systemID)
 		// An unvisited system carries a map-import police_level of 0, so it
@@ -1318,7 +1444,7 @@ func huntGroundIn(ctx context.Context, kb knowledge.Base, systemID, poiType stri
 		found         bool
 	)
 	for _, p := range pois {
-		if p.Type != poiType {
+		if p.Type != poiType || slices.Contains(exclude, p.ID) {
 			continue
 		}
 		if belt && !huntCarriesResource(p, huntBeltResource) {
@@ -1367,7 +1493,7 @@ func huntResourceTotals(p knowledge.POI) (remaining, richness float64) {
 // The policed requirement is relaxed on a second pass for non-belt grounds, so
 // a nebula hunt is not left with nowhere to go. It is NEVER relaxed for belts:
 // there, policed and station-less are the rule itself.
-func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string) (systemID, poiID, why string) {
+func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string, exclude []string) (systemID, poiID, why string) {
 	graph := &galaxy.GalaxyGraph{}
 	if err := graph.BuildFromDB(ctx, kb); err != nil {
 		return "", "", ""
@@ -1380,7 +1506,7 @@ func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string
 		for _, cand := range near {
 			// FindNearest leaves NearestResult.POIs nil for POI-type lookups,
 			// so the POI id has to come back out of the KB.
-			poi, reason, ok := huntGroundIn(ctx, kb, cand.SystemID, poiType, requirePoliced)
+			poi, reason, ok := huntGroundIn(ctx, kb, cand.SystemID, poiType, requirePoliced, exclude)
 			if ok {
 				return cand.SystemID, poi, reason
 			}
@@ -1412,7 +1538,7 @@ func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string
 // with nothing left in it, which is what "when no belt qualifies, fall back to
 // the other types" means in practice. Nothing here hard-fails on missing
 // poi_resources rows — that is what the unknown tier is for.
-func huntLocalWildlifePOI(ctx context.Context, kb knowledge.Base, systemID string) (poiID, why string) {
+func huntLocalWildlifePOI(ctx context.Context, kb knowledge.Base, systemID string, exclude []string) (poiID, why string) {
 	pois, err := kb.GetPOIs(ctx, systemID)
 	if err != nil {
 		return "", ""
@@ -1426,7 +1552,7 @@ func huntLocalWildlifePOI(ctx context.Context, kb knowledge.Base, systemID strin
 	)
 	for _, p := range pois {
 		rank := slices.Index(huntWildlifePOITypes, p.Type)
-		if rank < 0 {
+		if rank < 0 || slices.Contains(exclude, p.ID) {
 			continue
 		}
 		tier, score := huntResourceTier(p)
