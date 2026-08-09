@@ -21,9 +21,10 @@
 # PRE-FLIGHT, by hand, before this fleet is launched:
 #   1. Refuel pirate-6 — its active Drillship was last seen at 0/130 and cannot
 #      move. Confirm before assuming: the reading is from 2026-08-08.
-#   2. Arm pirate-9's Prospector. The operator holds defensive modules in
-#      storage, so check `view_storage` before buying a pulse_laser_i (2,500cr)
-#      — the brief's buy step predates the storage ledger.
+#   2. DONE 2026-08-09: all five of pirate-6..10 are fitted with a
+#      pulse_laser_i. The plan budgeted ~10,000cr to arm four of them; the
+#      whole roster is armed, so the pool can grow past two without a
+#      further weapons purchase when the operator chooses to.
 #   3. Switch both agents into their Prospectors. The Drillships, Deeprock
 #      Harvester and Excavator stay docked: they out-slot the Prospector but are
 #      legacy hulls, and losing one costs more than this fleet earns.

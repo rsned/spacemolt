@@ -177,6 +177,12 @@ Verified via `get_ship` on pirate-6's: `tier: 0`, `starter_ship: true`,
 `price: 0`, `weapon_slots: 1`, `utility_slots: 2`, `defense_slots: 1`, hull 100,
 shield 50, armor 5, speed 2. CPU 4/12 and power 10/25 used, so there is headroom.
 
+> ✅ **RESOLVED 2026-08-09: all five of pirate-6..10 now carry a
+> `pulse_laser_i`.** The costing below is history, not a to-do. It also lifts a
+> constraint on the rollout: the fleet yaml starts with two agents because two
+> is the right *risk* posture for a first run, not because the other three were
+> unarmed. Growing the pool no longer needs a weapons purchase.
+
 **Only pirate-6 is armed, and the operator armed it.** The class
 `default_modules` is `["mining_laser_i"]` — a mining laser and nothing else. The
 Pulse Laser I on pirate-6's Prospector was fitted by hand. **The other four
