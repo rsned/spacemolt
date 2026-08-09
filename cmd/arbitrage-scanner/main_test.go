@@ -13,7 +13,7 @@ func TestParseScanArgsDefaults(t *testing.T) {
 	if cfg.dbPath != "data/market.db" {
 		t.Errorf("dbPath = %q", cfg.dbPath)
 	}
-	if cfg.opts.MinProfit != 1000 || cfg.opts.MinPrice != 10 || cfg.opts.MinQuantity != 1 {
+	if cfg.opts.MinProfit != 5000 || cfg.opts.MinPrice != 10 || cfg.opts.MinQuantity != 1 {
 		t.Errorf("defaults = profit %v price %v qty %v", cfg.opts.MinProfit, cfg.opts.MinPrice, cfg.opts.MinQuantity)
 	}
 	if cfg.opts.ExpiresIn != 6*time.Hour {

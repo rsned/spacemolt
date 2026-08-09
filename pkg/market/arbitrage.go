@@ -96,7 +96,18 @@ type arbCandidate struct {
 // are advisory.
 func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanResult, error) {
 	if opts.MinProfit == 0 {
-		opts.MinProfit = 1000
+		// Raised 1000 -> 5000 on 2026-08-09. At 1000 the fleet spent 45% of its
+		// runs and 52% of ALL its jumps on trades returning 7% of the profit —
+		// driftkale at 2,293 and sunspindle at 1,550 — while the 25k+ band
+		// earned 62% of profit on 15% of the jumps. A hauler on a junk run is
+		// not available when a fat opportunity appears, so the floor is really
+		// buying back fleet mobility.
+		//
+		// 5000 keeps 31-39% of discovered opportunities (5,449 on the day it
+		// was set, 91 of 149 then available), which is far more than 21 haulers
+		// can work — measured before changing it, because a floor that starves
+		// the pool costs more than the junk did.
+		opts.MinProfit = 5000
 	}
 	if opts.MinPrice == 0 {
 		opts.MinPrice = 10
