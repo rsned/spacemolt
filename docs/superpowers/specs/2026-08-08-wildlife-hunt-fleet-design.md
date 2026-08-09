@@ -214,6 +214,70 @@ dependency, a resupply trip between hunts, and a new failure mode (out of ammo
 mid-fight) for no benefit at this tier. The Prospector's single weapon slot
 holds a Pulse Laser I; keep it that way, and upgrade along the laser line.
 
+### Buying a warship: checked, and the free Prospect still wins
+
+Pirate strongholds sell real combat hulls, so the obvious question is whether
+the fleet should buy out of the starter tier. It should not — the numbers say
+so twice over.
+
+**The good ship is out of reach.** `eviction_notice` (Tier-3 pirate cruiser,
+hull 480, shield 200, recharge 4, **five** weapon mounts, two defense slots) is
+sold at Mera Sanctum Station in zaniah for **145,476cr**. The entire hunt roster
+holds ~76,900cr across all five agents, so the fleet cannot afford *one* between
+them. It is a superb hunting platform — at `shield_recharge: 4` against a
+belt-grazer's 4/tick its net shield drain is exactly zero, meaning it cannot be
+worn down by the quarry at all — and it is simply not purchasable at this
+bankroll. Revisit only if the fleet ever holds ~150k spare.
+
+**Tier-1 Combat hulls are plentiful and buyable in empire space** — thirteen in
+the catalog, none with a `piloting_required`. Ranked by what this fleet actually
+runs on (shield pool and recharge, since shields are renewable and hull is a
+debt that needs a station):
+
+| | `prospect` free | **`paradox`** 96,399 | `underwriter` 70,151 | `axiom` 77,476 | `levy` 23,400 |
+|---|---:|---:|---:|---:|---:|
+| Faction | — | voidborn | nebula | solarian | crimson |
+| Hull | 95 | 60 | 130 | 120 | 103 |
+| **Shield** | 50 | **130** | 70 | 75 | **7** |
+| **Shield recharge** | 1 | **4** | 2 | 2 | 1 |
+| Armor | 4 | 2 | 6 | 7 | 6 |
+| Weapon slots | 1 | 2 | 2 | 2 | 2 |
+| **Defense slots** | 1 | **2** | 1 | 1 | 1 |
+
+**`paradox` is the fleet's eventual ship, and the reason is `shield_recharge:
+4`.** Against a belt-grazer's 4 kinetic per tick that is a net shield drain of
+*exactly zero* — the same immunity the 145k cruiser buys, on a 96k hull. Its
+130-point pool and two defense slots are secondary to that. Most striking, its
+`default_modules` are `["pulse_laser_i", "pulse_laser_i", "shield_booster_i",
+"shield_recharger_i"]` — two ammo-free lasers plus **both** shield modules,
+which is precisely the fit derived independently above. It arrives configured
+for this job.
+
+`underwriter` is the cheapest credible alternative at 70,151 and stays in empire
+space (nebula), trading half the recharge for double the hull. `axiom` ships a
+`focused_beam_i`, which **bypasses shields** — of specific interest against
+`cracking_the_shell`'s armoured slag-tortoises, though armour and shields are
+different mechanics and this needs checking rather than assuming.
+
+Avoid the cheap end for a reason the model makes obvious. `levy` (23,400) has a
+**shield of 7**, so essentially every point of incoming damage goes to hull and
+every pass ends in a repair trip; `lawn_dart` (15,804) has **no defense slot at
+all** and cannot fit a recharger. Both cost real credits *and* forfeit the
+free-replacement property, converting a loss from "free armed hull plus travel
+time" into a rebuy.
+
+**Conclusion for now: stay in Prospectors and spend on modules.** Not because
+the tier-1 hulls are bad — `paradox` is clearly better — but because the roster
+holds ~76,900cr across all five agents and the cheapest credible hull is 70,151
+for *one*. ~10,000cr arms all five with `pulse_laser_i` and 6,500cr more fits
+five `shield_recharger_i`: 16,500cr to equip the entire fleet, against 70k for a
+single ship four of them still could not fly.
+
+**Revisit at ~100k per agent.** `paradox` is the target, and the trigger is
+bankroll, not doctrine. Note the fleet's own earnings are the path there:
+`cracking_the_shell` pays 1,500cr and the repeatable difficulty-2 wildlife
+missions pay 1,200–1,300 each.
+
 ### The defense slot is worth more than the weapon upgrade
 
 The Prospect's single defense slot is the highest-leverage fitting decision the
