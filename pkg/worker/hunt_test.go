@@ -77,6 +77,11 @@ type huntFakeOpts struct {
 	// battleHullPct is our own hull percentage the battle picture reports
 	// during the FIRST fight. 0 means full hull throughout.
 	battleHullPct int
+	// shieldMax/shieldStart size the shield bar the between-engagement gate
+	// reads, and shieldRegen is how much one get_status recovers. A zero
+	// shieldMax leaves the ship unshielded, which is how every other test in
+	// this file runs — the gate is inert then, by design.
+	shieldMax, shieldStart, shieldRegen float64
 	// shipHullFrac is the hull fraction get_status reports from the start of
 	// the pass (the between-engagement gate reads Ship.Hull, which only
 	// get_status refreshes). 0 means full.
@@ -169,7 +174,10 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 	for _, c := range opts.creatures {
 		species := c.species
 		if species == "" {
-			species = "ash_scarab"
+			// The species first_hunt_belt_grazers actually counts. Anything
+			// else is refused by the species filter, so a fixture that wants
+			// a fight has to be the real quarry.
+			species = "belt_grazer"
 		}
 		role := c.role
 		if role == "" {
@@ -208,6 +216,7 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 			Doc:        !opts.unsetDocked,
 			Ship: game.Ship{
 				Hull: 100, MaxHull: 100,
+				Shield: opts.shieldStart, MaxShield: opts.shieldMax,
 				CargoCapacity: capacity, CargoUsed: opts.cargoUsed,
 			},
 		},
@@ -299,6 +308,11 @@ func (f *huntFake) GetStatus(ctx context.Context) error {
 	}
 	if f.opts.shipHullFrac > 0 {
 		f.state.Ship.Hull = f.opts.shipHullFrac * f.state.Ship.MaxHull
+	}
+	// Shields recover between queries, which is the whole reason the wait gate
+	// exists. shieldRegen 0 models a ship that is not recovering at all.
+	if f.opts.shieldMax > 0 {
+		f.state.Ship.Shield = min(f.opts.shieldMax, f.state.Ship.Shield+f.opts.shieldRegen)
 	}
 	return nil
 }
@@ -885,7 +899,7 @@ func TestHuntRefusesToEngageAPredator(t *testing.T) {
 		board: []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
 		creatures: []huntCreature{
 			{id: "eel", species: "tempest_eel", role: "predator", hull: 280},
-			{id: "jelly", species: "bell_jelly", role: "grazer", hull: 45},
+			{id: "jelly", species: "belt_grazer", role: "grazer", hull: 45},
 		},
 	})
 	var log strings.Builder
@@ -950,8 +964,8 @@ func TestHuntRefusesACreatureWithNoRole(t *testing.T) {
 	if c.huntCalls != 0 {
 		t.Errorf("hunt calls = %d, want 0 for an unrecognised role", c.huntCalls)
 	}
-	if !strings.Contains(log.String(), "nothing huntable") {
-		t.Errorf("must log that the belt held nothing huntable, got:\n%s", log.String())
+	if !strings.Contains(log.String(), `role "leviathan" is not huntable wildlife`) {
+		t.Errorf("must log the refusal naming the role, got:\n%s", log.String())
 	}
 }
 
@@ -960,9 +974,11 @@ func TestHuntRefusesACreatureWithNoRole(t *testing.T) {
 func TestHuntPicksTheShortestFight(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
 		board: []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		// Same species — the mission counts both — so nothing but hull can
+		// decide the pick.
 		creatures: []huntCreature{
-			{id: "whale", species: "pilot_whale", hull: 220},
-			{id: "jelly", species: "bell_jelly", hull: 45},
+			{id: "whale", species: "belt_grazer", hull: 220},
+			{id: "jelly", species: "belt_grazer", hull: 45},
 		},
 	})
 	if err := Hunt(context.Background(), huntDeps(c, io.Discard)); err != nil {
@@ -973,21 +989,112 @@ func TestHuntPicksTheShortestFight(t *testing.T) {
 	}
 }
 
-// When the objective names its quarry, that species wins over a shorter fight:
-// killing the wrong species may not advance the objective at all.
-func TestHuntPrefersTheObjectiveSpecies(t *testing.T) {
+// huntMixedBelt is the operator's real belt, verbatim: three grazer species
+// side by side, of which only belt_grazer counts for first_hunt_belt_grazers.
+//
+// The decoys are chosen by the server, not by me, and they are exactly the
+// ones that defeat a lazy filter: all three share the ROLE, and two of the
+// three share the target's HULL. A rule keyed on either passes this fixture
+// while engaging the wrong creature two times out of three.
+func huntMixedBelt() []huntCreature {
+	return []huntCreature{
+		{id: "tortoise", species: "slag_tortoise", role: "grazer", hull: 90},
+		{id: "patina", species: "patina_grazer", role: "grazer", hull: 60},
+		{id: "belt", species: "belt_grazer", role: "grazer", hull: 60},
+	}
+}
+
+// Species — not role — decides mission credit, so the species filter is hard.
+func TestHuntEngagesOnlyTheMissionSpeciesOnAMixedBelt(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
-		board: []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1, targetID: "belt_grazer"}},
-		creatures: []huntCreature{
-			{id: "scarab", species: "ash_scarab", role: "scavenger", hull: 20},
-			{id: "grazer", species: "belt_grazer", hull: 70},
-		},
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures: huntMixedBelt(),
 	})
-	if err := Hunt(context.Background(), huntDeps(c, io.Discard)); err != nil {
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
 		t.Fatalf("Hunt: %v", err)
 	}
-	if !called(c, "hunt:grazer") || called(c, "hunt:scarab") {
-		t.Errorf("want only the objective's species engaged, calls: %v", c.calls)
+	if !called(c, "hunt:belt") {
+		t.Errorf("the belt_grazer must be engaged, calls: %v", c.calls)
+	}
+	if called(c, "hunt:tortoise") || called(c, "hunt:patina") {
+		t.Fatalf("engaged a species that earns nothing, calls: %v", c.calls)
+	}
+	// The refusal has to name both sides, or an operator cannot tell a
+	// wrong-species belt from an empty one.
+	if !strings.Contains(log.String(), `species "patina_grazer" does not count for this mission, which needs "belt_grazer"`) {
+		t.Errorf("must log the refusal naming seen and required species, got:\n%s", log.String())
+	}
+}
+
+// A belt with none of the required species is the wrong-place case: no
+// engagement at all, and a log line an operator can act on.
+func TestHuntIssuesNoEngagementWhenTheRequiredSpeciesIsAbsent(t *testing.T) {
+	belt := huntMixedBelt()
+	belt = slices.DeleteFunc(belt, func(c huntCreature) bool { return c.species == "belt_grazer" })
+	c := newHuntFake(t, huntFakeOpts{
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 3}},
+		creatures: belt,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if c.huntCalls != 0 {
+		t.Fatalf("hunt calls = %d, want 0 — engaging here earns nothing and costs hull: %v", c.huntCalls, c.calls)
+	}
+	if !strings.Contains(log.String(), "WRONG POI") ||
+		!strings.Contains(log.String(), `needs "belt_grazer"`) ||
+		!strings.Contains(log.String(), "slag_tortoise, patina_grazer") {
+		t.Errorf("must name the species wanted and what was actually here, got:\n%s", log.String())
+	}
+}
+
+// The server's own answer outranks our curated table. The table is a stopgap
+// for missions that omit target_id, not a competing opinion.
+func TestHuntObjectiveTargetIDBeatsTheCuratedTable(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1, targetID: "patina_grazer"}},
+		creatures: huntMixedBelt(),
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !called(c, "hunt:patina") {
+		t.Errorf("the objective's own target_id must win, calls: %v", c.calls)
+	}
+	if called(c, "hunt:belt") {
+		t.Fatalf("engaged the table's species over the server's, calls: %v", c.calls)
+	}
+	if !strings.Contains(log.String(), `species "patina_grazer" (objective target_id)`) {
+		t.Errorf("the accept line must say where the species came from, got:\n%s", log.String())
+	}
+}
+
+// A wildlife mission nobody has curated still hunts: the table narrows, it
+// never widens, and refusing everything would be the worse failure. Reachable
+// only with wildlife-only off, since the board gate admits nothing else.
+func TestHuntUnmappedMissionHuntsAnyEligibleQuarry(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:     []boardMission{{id: "tide_pool_thinning", difficulty: 1, quantity: 1}},
+		creatures: huntMixedBelt(),
+	})
+	var log strings.Builder
+	deps := huntDeps(c, &log)
+	deps.WildlifeOnly = huntBool(false)
+	if err := Hunt(context.Background(), deps); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if c.huntCalls == 0 {
+		t.Fatalf("an unmapped wildlife mission must still hunt, log:\n%s", log.String())
+	}
+	// Unscoped falls back to the shortest fight, and 60 beats 90.
+	if called(c, "hunt:tortoise") {
+		t.Errorf("want the weakest quarry engaged, calls: %v", c.calls)
+	}
+	if !strings.Contains(log.String(), `species "" (unscoped)`) {
+		t.Errorf("the accept line must say the mission is unscoped, got:\n%s", log.String())
 	}
 }
 
@@ -1004,8 +1111,79 @@ func TestHuntLogsTheObjectiveTarget(t *testing.T) {
 	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
 		t.Fatalf("Hunt: %v", err)
 	}
-	if !strings.Contains(log.String(), `target_id="belt_grazer"`) || !strings.Contains(log.String(), `desc="cull the herd"`) {
+	if !strings.Contains(log.String(), `species "belt_grazer" (objective target_id)`) || !strings.Contains(log.String(), `desc="cull the herd"`) {
 		t.Errorf("must log the objective target verbatim, got:\n%s", log.String())
+	}
+}
+
+// Shields absorb before hull and grow back on their own, so a depleted bar is
+// worth waiting out rather than spending hull on.
+func TestHuntWaitsForShieldsBeforeEngaging(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:       []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures:   huntGrazers("c1"),
+		shieldMax:   50,
+		shieldStart: 5,
+		shieldRegen: 3,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !strings.Contains(log.String(), "waiting to recover") {
+		t.Errorf("a flat shield bar must be waited out, got:\n%s", log.String())
+	}
+	if !strings.Contains(log.String(), "shields back to") {
+		t.Errorf("must say the wait ended on recovery, got:\n%s", log.String())
+	}
+	// Waiting is a delay, not a refusal: the engagement still happens.
+	if c.huntCalls != 1 {
+		t.Errorf("hunt calls = %d, want 1 after the wait, calls: %v", c.huntCalls, c.calls)
+	}
+	if got := c.state.Ship.Shield / c.state.Ship.MaxShield; got < huntShieldReadyFrac {
+		t.Errorf("engaged at shields %.2f, want >= %.2f", got, huntShieldReadyFrac)
+	}
+}
+
+// A ship whose shields are NOT coming back must not sit in the wait for the
+// full bound. The rate is measured, never assumed, so "no rise" is the signal.
+func TestHuntStopsWaitingWhenShieldsDoNotRecover(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:       []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures:   huntGrazers("c1"),
+		shieldMax:   50,
+		shieldStart: 5,
+		shieldRegen: 0,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !strings.Contains(log.String(), "stopped recovering") {
+		t.Errorf("must give up the wait once the bar stops rising, got:\n%s", log.String())
+	}
+	if strings.Contains(log.String(), "after 20 ticks") {
+		t.Errorf("must not burn the full bound on a bar that is not moving, got:\n%s", log.String())
+	}
+	if c.huntCalls != 1 {
+		t.Errorf("hunt calls = %d, want 1 — an under-shielded engagement is a cost, not a refusal", c.huntCalls)
+	}
+}
+
+// A full bar is not waited on at all.
+func TestHuntDoesNotWaitOnHealthyShields(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:       []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures:   huntGrazers("c1"),
+		shieldMax:   50,
+		shieldStart: 50,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if strings.Contains(log.String(), "waiting to recover") {
+		t.Errorf("full shields must not wait, got:\n%s", log.String())
 	}
 }
 

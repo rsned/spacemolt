@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
@@ -45,6 +46,28 @@ const (
 	// fight, still in range and still being shot.
 	huntDisengageTicks = 8
 
+	// huntShieldReadyFrac is the shield fraction the pass wants before opening
+	// the NEXT engagement. Shields are renewable and hull is not — incoming
+	// damage lands on shields first (a captured battle_update shows shield 96%
+	// beside hull 100% after taking fire), and shields regenerate between
+	// fights while nothing in this executor repairs hull. So the cheap way to
+	// keep hull off the table is to arrive at each fight with a full-enough
+	// bar, not to fight until the hull gate fires.
+	//
+	// The arithmetic, on the operator's numbers: a Belt-Grazer deals 4/tick
+	// and shields regenerate ~1/tick, so a fight drains ~3/tick net; a kill
+	// takes ~4 ticks in reach, so ~12-15 shield per engagement. Half of a
+	// Prospect's 50-point bar is 25 — comfortably more than one engagement,
+	// so a pass that waits at this line never exposes hull to a difficulty-1
+	// quarry. Raising it costs wall-clock for no gain; lowering it starts
+	// spending hull.
+	huntShieldReadyFrac = 0.5
+	// huntShieldWaitTicks bounds that wait. At the observed ~1/tick this
+	// recovers 40% of a Prospect's bar, enough to climb from nearly flat to
+	// past the threshold; the wait also ends early the moment the shield stops
+	// rising, so a ship that cannot regenerate does not sit here.
+	huntShieldWaitTicks = 20
+
 	// huntStanceFlee / huntStanceFire are the battle stances this pass uses.
 	huntStanceFlee = "flee"
 	huntStanceFire = "fire"
@@ -62,11 +85,12 @@ const (
 // a cryobelt (gold_run_cryobelt), in different systems — wildlife is not
 // confined to one POI type or one system.
 //
-// The order is not cosmetic. The First Hunt chain asks for "Belt-Grazers" and
-// live mission progress has not moved across several kills, none of which were
-// at a belt; if kill_creature is scoped to a species that only spawns at
-// asteroid belts, a pass that flew to the nearest gas cloud could hunt all day
-// without advancing. asteroid_belt is therefore tried first. nebula is here
+// The order is not cosmetic, and the reason is now settled rather than
+// suspected: kill_creature IS scoped to a species (huntMissionSpecies), and a
+// species lives where it lives. The First Hunt chain wants belt_grazer, which
+// is a belt animal, so a pass that flew to the nearest gas cloud would hunt
+// all day without advancing — which is exactly what the operator observed.
+// asteroid_belt is therefore tried first. nebula is here
 // because nebula_drift_hunt is on the mission allowlist (hunt_gate.go) and the
 // KB holds 55 nebula POIs — without it, a pass that accepts that mission
 // cannot travel to where its quarry lives.
@@ -278,15 +302,16 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	}
 	defer report()
 
-	// Step 3: the counted kill_creature objective is the target. Log the
-	// objective's target_id and description verbatim: whether the server
-	// scopes kill_creature progress by species is not answerable from any
-	// captured payload, and this line is what makes the next live pass answer
-	// it.
+	// Step 3: the counted kill_creature objective is the target, and the
+	// species that counts for it is resolved here — from the server's own
+	// target_id when it carries one, otherwise from the curated table. The
+	// objective description is logged verbatim beside it so the two can be
+	// compared by eye when a new mission appears.
 	target := huntKillQuantity(*chosen)
-	targetID, targetDesc := huntObjectiveTarget(*chosen)
-	fmt.Fprintf(out, "hunt[%s]: accepted %s (%s) at %s; target %d kill(s), objective target_id=%q desc=%q\n", //nolint:errcheck
-		who, chosen.MissionID, chosen.Title, rfc(huntNow(deps)), target, targetID, targetDesc)
+	required, source := huntRequiredSpecies(*chosen)
+	_, targetDesc := huntObjectiveTarget(*chosen)
+	fmt.Fprintf(out, "hunt[%s]: accepted %s (%s) at %s; target %d kill(s), species %q (%s), desc=%q\n", //nolint:errcheck
+		who, chosen.MissionID, chosen.Title, rfc(huntNow(deps)), target, required, source, targetDesc)
 
 	// Step 4: travel out to a POI that can hold wildlife. The board is at a
 	// station and the quarry is not; without this leg the pass reads
@@ -319,8 +344,19 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// Steps 6-7: hunt until the objective is met, the engagement cap is hit,
 	// the pool of huntable creatures runs out, or the hull drops below the
 	// flee threshold.
-	quarry := huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, out)
+	quarry := huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, required, out)
 	if len(quarry) == 0 {
+		// Standing in the wrong place is its own outcome, and the one an
+		// operator can act on: the mission is fine, the fleet is simply not
+		// where its quarry lives. Say it distinctly, name the species wanted
+		// and what was actually here, and issue no hunt at all — engaging the
+		// two-thirds of a grazer herd that does not count costs hull and ticks
+		// and earns nothing.
+		if required != "" {
+			fmt.Fprintf(out, "hunt[%s]: WRONG POI: %s needs %q and this POI holds %s; no engagement attempted, %s held for next pass\n", //nolint:errcheck
+				who, chosen.MissionID, required, huntSpeciesSeen(nearby.Creatures), chosen.MissionID)
+			return nil
+		}
 		fmt.Fprintf(out, "hunt: nothing huntable among %d creature(s) at this POI; %s held for next pass\n", len(nearby.Creatures), chosen.MissionID) //nolint:errcheck
 		return nil
 	}
@@ -362,7 +398,12 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 			return nil
 		}
 
-		c, idx := huntPickQuarry(quarry, targetID)
+		// Shields absorb first and grow back; hull does neither. Waiting here
+		// is what keeps the whole engagement budget spendable — it costs
+		// wall-clock and nothing else.
+		huntWaitForShields(ctx, deps, out, who, st)
+
+		c, idx := huntPickQuarry(quarry)
 		if idx < 0 {
 			fmt.Fprintf(out, "hunt: no huntable creatures remain (%d/%d killed); %s held for next pass\n", kills, target, chosen.MissionID) //nolint:errcheck
 			return nil
@@ -563,11 +604,19 @@ func huntReportObjectiveProgress(ctx context.Context, deps HuntDeps, out io.Writ
 
 // huntAdmissibleQuarry filters a get_nearby creature list down to what this
 // pass may engage, logging every refusal with its reason exactly as
-// huntAdmissible does for the board. Two rules: never pile onto a fight
+// huntAdmissible does for the board. Three rules: never pile onto a fight
 // already underway (InCombat — there is no field named IsAggressive on the
-// wire, see hunt_gate.go), and, while wildlife-only is in force, never engage
-// anything whose role is not in huntQuarryRoles.
-func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly bool, out io.Writer) []serverapi.NearbyCreature {
+// wire, see hunt_gate.go); while wildlife-only is in force, never engage
+// anything whose role is not in huntQuarryRoles; and when the mission is
+// scoped to a species, engage nothing else.
+//
+// The species rule is a HARD filter, not a preference. Role cannot stand in
+// for it: at one captured belt, slag_tortoise, patina_grazer and belt_grazer
+// were all role "grazer" and only belt_grazer counted, so a role-only filter
+// engages two wrong targets for every right one — each costing hull, ticks and
+// an attempts slot, and earning nothing. required is empty for a mission
+// nobody has scoped, and then this rule does not apply at all.
+func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly bool, required string, out io.Writer) []serverapi.NearbyCreature {
 	keep := make([]serverapi.NearbyCreature, 0, len(creatures))
 	for _, c := range creatures {
 		switch {
@@ -575,6 +624,8 @@ func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly boo
 			fmt.Fprintf(out, "hunt: skip %s (%s): already in combat\n", c.CreatureID, c.Species) //nolint:errcheck
 		case wildlifeOnly && !huntQuarryRoles[c.Role]:
 			fmt.Fprintf(out, "hunt: skip %s (%s): role %q is not huntable wildlife\n", c.CreatureID, c.Species, c.Role) //nolint:errcheck
+		case required != "" && c.Species != required && c.CreatureID != required:
+			fmt.Fprintf(out, "hunt: skip %s: species %q does not count for this mission, which needs %q\n", c.CreatureID, c.Species, required) //nolint:errcheck
 		default:
 			keep = append(keep, c)
 		}
@@ -582,17 +633,89 @@ func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly boo
 	return keep
 }
 
-// huntPickQuarry selects the next creature to engage from an already-filtered
-// pool. When the objective names a target, creatures matching it by species or
-// creature id win outright — killing the wrong species may not advance the
-// objective at all. Otherwise the SHORTEST FIGHT wins: the creature with the
-// least hull left to chew through.
+// huntWaitForShields holds the pass between engagements until the shield bar
+// is back above huntShieldReadyFrac. It returns nothing: the caller re-reads
+// get_status at the top of the next iteration anyway, and handing back a state
+// that is one tick stale by the time it is used would be worse than nothing.
 //
-// In practice the match branch never fires: no known wildlife mission carries
-// a target id (see huntObjectiveTarget), so targetID is empty and the shortest
-// fight decides every pick. Species scoping is a server-side rule this code
-// cannot see, and the lever that actually acts on it is POI choice — see
-// huntLocalWildlifePOI.
+// It reads Ship.Shield from get_status, NOT shield_pct from the battle
+// picture: shield_pct is a battle participant field and there is no battle in
+// progress here. get_status is the only source between fights, and it is the
+// same free query the hull gate above already spends.
+//
+// The recovery rate is MEASURED, never computed. The operator reports ~1/tick,
+// the wire carries a shield_recharge field, and neither is trusted here: the
+// loop simply waits for the number to rise and gives up the moment it stops,
+// the same rule that governs max_weapon_reach. Waiting is bounded, and a wait
+// that ends without full recovery still engages — an under-shielded engagement
+// is a cost, not a hazard, and the hull gate is what makes it safe.
+func huntWaitForShields(ctx context.Context, deps HuntDeps, out io.Writer, who string, st *game.State) {
+	if st == nil || st.Ship.MaxShield <= 0 || st.Ship.Shield/st.Ship.MaxShield >= huntShieldReadyFrac {
+		return
+	}
+	cur := st
+	// The previous reading is kept as a NUMBER, not as the state it came from:
+	// Client.GetState hands back a deep copy, but a caller that returns the
+	// same struct twice would make a pointer comparison read every tick as
+	// "no recovery" and defeat the wait.
+	last := cur.Ship.Shield
+	fmt.Fprintf(out, "hunt[%s]: shields %.0f%% (want %.0f%%); waiting to recover before the next engagement\n", //nolint:errcheck
+		who, cur.Ship.Shield/cur.Ship.MaxShield*100, huntShieldReadyFrac*100)
+	for range huntShieldWaitTicks {
+		if err := deps.sleep(ctx, game.SleepTick); err != nil {
+			return
+		}
+		if err := deps.Client.GetStatus(ctx); err != nil {
+			fmt.Fprintf(out, "hunt: get_status while waiting on shields: %v\n", err) //nolint:errcheck
+			return
+		}
+		next := deps.Client.GetState()
+		if next == nil || next.Ship.MaxShield <= 0 {
+			return
+		}
+		if next.Ship.Shield <= last {
+			fmt.Fprintf(out, "hunt[%s]: shields stopped recovering at %.0f%%; engaging as-is\n", //nolint:errcheck
+				who, next.Ship.Shield/next.Ship.MaxShield*100)
+			return
+		}
+		last, cur = next.Ship.Shield, next
+		if cur.Ship.Shield/cur.Ship.MaxShield >= huntShieldReadyFrac {
+			fmt.Fprintf(out, "hunt[%s]: shields back to %.0f%%; engaging\n", who, cur.Ship.Shield/cur.Ship.MaxShield*100) //nolint:errcheck
+			return
+		}
+	}
+	fmt.Fprintf(out, "hunt[%s]: shields only %.0f%% after %d ticks; engaging as-is\n", //nolint:errcheck
+		who, cur.Ship.Shield/cur.Ship.MaxShield*100, huntShieldWaitTicks)
+}
+
+// huntSpeciesSeen lists the distinct species in a get_nearby creature list, for
+// the log line that tells an operator what the POI actually holds.
+func huntSpeciesSeen(creatures []serverapi.NearbyCreature) string {
+	seen := make([]string, 0, len(creatures))
+	for _, c := range creatures {
+		s := c.Species
+		if s == "" {
+			s = c.CreatureID
+		}
+		if !slices.Contains(seen, s) {
+			seen = append(seen, s)
+		}
+	}
+	if len(seen) == 0 {
+		return "nothing"
+	}
+	return strings.Join(seen, ", ")
+}
+
+// huntPickQuarry selects the next creature to engage from an already-filtered
+// pool: the SHORTEST FIGHT wins, the creature with the least hull left to chew
+// through.
+//
+// Species is NOT considered here. It is a hard filter applied upstream in
+// huntAdmissibleQuarry, so everything in this pool already counts for the
+// mission and there is nothing left to prefer. Keeping the rule in one place
+// is the point — a filter plus a preference over the same field is two places
+// to get it wrong.
 //
 // NOTE — this deviates from the brief, which said to prefer full-hull ones,
 // and the deviation was ratified in review. The decisive evidence is on the
@@ -606,21 +729,13 @@ func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly boo
 // ticks and damage per kill are what cap kills per pass. The brief's rule has
 // no surviving purpose either: "don't engage something already being fought"
 // is covered separately by the InCombat skip. Flip the comparison to revert.
-func huntPickQuarry(creatures []serverapi.NearbyCreature, targetID string) (serverapi.NearbyCreature, int) {
+func huntPickQuarry(creatures []serverapi.NearbyCreature) (serverapi.NearbyCreature, int) {
 	best := -1
 	bestHull := 0
-	bestMatch := false
 	for i, c := range creatures {
-		match := targetID != "" && (c.Species == targetID || c.CreatureID == targetID)
-		switch {
-		case match && !bestMatch:
-			// First objective match seen: it outranks any other candidate.
-		case match == bestMatch && (best < 0 || c.Hull < bestHull):
-			// Same class of candidate, shorter fight.
-		default:
+		if best >= 0 && c.Hull >= bestHull {
 			continue
 		}
-		bestMatch = match
 		bestHull = c.Hull
 		best = i
 	}
