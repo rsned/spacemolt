@@ -1107,6 +1107,63 @@ func formatGetDrone(raw []byte) string {
 	return b.String()
 }
 
+// locResource is one entry of get_location's resources array — the per-POI ore
+// data. get_poi was retired server-side (2026-06-24) and `poi` transparently
+// runs get_location, so this is the only place a POI's ore is reported.
+type locResource struct {
+	ItemID         string  `json:"item_id"`
+	ItemName       string  `json:"item_name,omitempty"`
+	Richness       float64 `json:"richness"`
+	Remaining      float64 `json:"remaining"`
+	SupportedPower float64 `json:"supported_power,omitempty"`
+}
+
+// writeResourceTable renders a POI's ore, richest first. Richness and remaining
+// are the two numbers that decide whether a belt is worth working — the wildlife
+// board says quarry gathers where ore is rich and the belt un-worked, and the
+// same pair drives mining site selection.
+//
+// Emits nothing at all for a POI with no resources: a station legitimately has
+// none, and a bare heading reads as a rendering failure.
+func writeResourceTable(b *strings.Builder, res []locResource) {
+	if len(res) == 0 {
+		return
+	}
+	rows := slices.Clone(res)
+	slices.SortStableFunc(rows, func(x, y locResource) int {
+		return cmp.Compare(y.Richness, x.Richness)
+	})
+
+	nameW, idW := len("Resource"), len("ID")
+	for _, r := range rows {
+		nameW = max(nameW, runewidth.StringWidth(r.displayName()))
+		idW = max(idW, runewidth.StringWidth(r.ItemID))
+	}
+
+	fmt.Fprintf(b, "\nResources: %d\n", len(rows))
+	fmt.Fprintf(b, "  %-*s  %-*s  %5s  %12s  %8s\n",
+		nameW, "Resource", idW, "ID", "Rich", "Remaining", "Power")
+	fmt.Fprintf(b, "  %s\n", strings.Repeat("-", nameW+idW+33))
+	for _, r := range rows {
+		power := ""
+		if r.SupportedPower > 0 {
+			power = trimFloat(r.SupportedPower)
+		}
+		fmt.Fprintf(b, "  %-*s  %-*s  %5s  %12s  %8s\n",
+			nameW, r.displayName(), idW, r.ItemID,
+			trimFloat(r.Richness), trimFloat(r.Remaining), power)
+	}
+}
+
+// displayName falls back to the id so a resource the server sends without an
+// item_name still renders a row rather than an empty cell.
+func (r locResource) displayName() string {
+	if r.ItemName != "" {
+		return r.ItemName
+	}
+	return r.ItemID
+}
+
 // formatGetLocation renders a get_location response: a compact header (POI,
 // system, security, connections), nearby counts, and tables for the nearby
 // players / empire NPCs (reusing writePlayerTable for the player table since
@@ -1133,7 +1190,7 @@ func formatGetLocation(raw []byte) string {
 		Empire           string            `json:"empire"`
 		Security         string            `json:"security_status"`
 		Connections      []string          `json:"connections"`
-		Resources        []json.RawMessage `json:"resources"`
+		Resources        []locResource     `json:"resources"`
 		PlayerCount      int               `json:"nearby_player_count"`
 		NPCCount         int               `json:"nearby_empire_npc_count"`
 		PirateCount      int               `json:"nearby_pirate_count"`
@@ -1180,9 +1237,7 @@ func formatGetLocation(raw []byte) string {
 	if len(l.Connections) > 0 {
 		fmt.Fprintf(&b, "Connect:  %s\n", strings.Join(l.Connections, ", "))
 	}
-	if len(l.Resources) > 0 {
-		fmt.Fprintf(&b, "Resources: %d listed\n", len(l.Resources))
-	}
+	writeResourceTable(&b, l.Resources)
 
 	fmt.Fprintf(&b, "\nNearby: %d player(s), %d empire NPC(s), %d pirate(s)",
 		l.PlayerCount, l.NPCCount, l.PirateCount)
