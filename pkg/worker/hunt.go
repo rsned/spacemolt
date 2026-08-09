@@ -56,8 +56,9 @@ const (
 
 // huntWildlifePOITypes are the KB pois.type values that hold wildlife, IN
 // PREFERENCE ORDER. The mission board only exists at a station, so a pass
-// reads the board docked and then travels out to the first of these it can
-// reach. Captured kills so far are at a gas cloud (market_prime_gas_plume) and
+// reads the board docked and then travels out to the best of these it can
+// reach — best by resource tier first and this order second, see
+// huntLocalWildlifePOI. Captured kills so far are at a gas cloud (market_prime_gas_plume) and
 // a cryobelt (gold_run_cryobelt), in different systems — wildlife is not
 // confined to one POI type or one system.
 //
@@ -257,10 +258,25 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		return nil
 	}
 
-	activeID, ok := huntAcceptMission(ctx, deps, out, *chosen)
+	activeID, baseline, ok := huntAcceptMission(ctx, deps, out, *chosen)
 	if !ok {
 		return nil
 	}
+
+	// Whatever ends the pass — the objective met, the cap, a flee, an error —
+	// report what the server counted, once. Deferred rather than repeated at
+	// each exit because the exits that matter most for this signal are the
+	// unhappy ones.
+	kills, attempts := 0, 0
+	reported := false
+	report := func() {
+		if reported {
+			return
+		}
+		reported = true
+		huntReportObjectiveProgress(ctx, deps, out, who, activeID, baseline, kills)
+	}
+	defer report()
 
 	// Step 3: the counted kill_creature objective is the target. Log the
 	// objective's target_id and description verbatim: whether the server
@@ -308,7 +324,6 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		fmt.Fprintf(out, "hunt: nothing huntable among %d creature(s) at this POI; %s held for next pass\n", len(nearby.Creatures), chosen.MissionID) //nolint:errcheck
 		return nil
 	}
-	kills, attempts := 0, 0
 	for kills < target && attempts < huntMaxEngagements {
 		// The between-engagement hull gate. It reads a value that only
 		// get_status refreshes: parseBattleStatusData populates BattleState
@@ -396,7 +411,10 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		return nil
 	}
 
-	// Step 8: objective met — complete through the mission path.
+	// Step 8: objective met — complete through the mission path. Report
+	// before completing: a completed mission drops off the active list, and
+	// the report reads that list.
+	report()
 	fmt.Fprintf(out, "hunt: %s objective met (%d/%d); completing\n", chosen.MissionID, kills, target) //nolint:errcheck
 	if err := deps.Client.CompleteMission(ctx, activeID); err != nil {
 		fmt.Fprintf(out, "hunt: complete %s failed: %v; held for next pass\n", activeID, err) //nolint:errcheck
@@ -406,6 +424,22 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 
 // huntObjectiveTarget returns the first kill_creature objective's target id and
 // description, for the accept log line.
+//
+// NO OBSERVED WILDLIFE MISSION CARRIES A TARGET ID. The operator's raw board
+// capture gives the whole objective as
+// {"description":"Hunt 3 Belt-Grazers at an asteroid belt","quantity":3,"type":"kill_creature"}
+// — no target_id, item_id, species or system_id — and the KB's
+// mission_objectives rows agree, for first_hunt, grazer_cull and
+// nebula_drift_hunt alike. targetID is therefore empty in production today and
+// everything keyed off it is inert. It stays because it costs nothing and a
+// later mission may populate the field.
+//
+// The description is NOT a substitute. It is prose written for a human, and a
+// parser over it is precisely the fragile inference this branch has already
+// been burned by twice. Species scoping is enforced server-side; the pass logs
+// the description verbatim so an operator can read it, and hunts eligible
+// wildlife. huntReportObjectiveProgress is what catches the case where that
+// turns out not to count.
 func huntObjectiveTarget(e serverapi.MissionBoardEntry) (targetID, description string) {
 	for _, o := range e.Objectives {
 		if o.Type == objectiveKillCreature {
@@ -424,15 +458,17 @@ func huntObjectiveTarget(e serverapi.MissionBoardEntry) (targetID, description s
 // first. An id that still cannot be resolved is held rather than guessed —
 // completing with the board id is documented to 404, which would throw away
 // the whole hunt at the last step. ok=false means the pass must end.
-func huntAcceptMission(ctx context.Context, deps HuntDeps, out io.Writer, e serverapi.MissionBoardEntry) (activeID string, ok bool) {
+// baseline is the server's own kill count for the resolved mission at accept
+// time, which a resumed instance can start above zero.
+func huntAcceptMission(ctx context.Context, deps HuntDeps, out io.Writer, e serverapi.MissionBoardEntry) (activeID string, baseline int, ok bool) {
 	if err := deps.Client.AcceptMission(ctx, e.MissionID); err != nil {
 		fmt.Fprintf(out, "hunt: accept %s failed: %v\n", e.MissionID, err) //nolint:errcheck
-		return "", false
+		return "", 0, false
 	}
 	_ = deps.sleep(ctx, game.SleepTick)
 	if err := deps.Client.GetActiveMissions(ctx); err != nil {
 		fmt.Fprintf(out, "hunt: accept %s: get_active_missions: %v; id unresolved, held for next pass\n", e.MissionID, err) //nolint:errcheck
-		return "", false
+		return "", 0, false
 	}
 	raw := deps.Client.GetRawJSON("active_missions")
 	if len(raw) > 0 {
@@ -442,13 +478,87 @@ func huntAcceptMission(ctx context.Context, deps HuntDeps, out io.Writer, e serv
 		} else {
 			for _, m := range resp.Missions {
 				if m.TemplateID == e.MissionID || m.Title == e.Title {
-					return m.MissionID, true
+					o, _ := huntKillObjective(m)
+					return m.MissionID, o.Current, true
 				}
 			}
 		}
 	}
 	fmt.Fprintf(out, "hunt: accept %s (%s): could not resolve active mission id; held for next pass (no completion attempted — the board id 404s)\n", e.MissionID, e.Title) //nolint:errcheck
-	return "", false
+	return "", 0, false
+}
+
+// huntKillObjective returns the server's own progress on m's kill_creature
+// objective. ok=false when the mission carries no such objective.
+func huntKillObjective(m serverapi.ActiveMission) (progress serverapi.ActiveMissionObjective, ok bool) {
+	for _, o := range m.Objectives {
+		if o.Type == objectiveKillCreature {
+			return o, true
+		}
+	}
+	return serverapi.ActiveMissionObjective{}, false
+}
+
+// huntObjectiveProgress re-reads what the SERVER counts for activeID, which is
+// a different number from the carcasses this pass confirmed: the server scopes
+// kill_creature to a species it never names in any machine-readable field, so
+// a kill we are certain of may still count for nothing.
+func huntObjectiveProgress(ctx context.Context, deps HuntDeps, activeID string) (o serverapi.ActiveMissionObjective, err error) {
+	if err := deps.Client.GetActiveMissions(ctx); err != nil {
+		return o, fmt.Errorf("get_active_missions: %w", err)
+	}
+	raw := deps.Client.GetRawJSON("active_missions")
+	if len(raw) == 0 {
+		return o, fmt.Errorf("get_active_missions returned no data")
+	}
+	var resp serverapi.GetActiveMissionsResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return o, fmt.Errorf("parse active missions: %w", err)
+	}
+	for _, m := range resp.Missions {
+		if m.MissionID != activeID {
+			continue
+		}
+		o, ok := huntKillObjective(m)
+		if !ok {
+			return o, fmt.Errorf("mission %s carries no %s objective", activeID, objectiveKillCreature)
+		}
+		return o, nil
+	}
+	return o, fmt.Errorf("mission %s is no longer in the active list", activeID)
+}
+
+// huntReportObjectiveProgress closes every pass that landed at least one
+// confirmed kill by saying what the server made of them.
+//
+// This is the fleet's only warning for the failure the operator has now
+// confirmed live: no wildlife mission carries a machine-readable target, the
+// species scoping is enforced server-side, and so a pass standing at the wrong
+// POI kills the wrong creatures cleanly and forever. huntMaxEngagements bounds
+// each pass, but nothing bounds the number of passes — without this line a
+// worker looks perfectly healthy while making no progress at all. Say it once,
+// loudly, naming the POI, because the POI is the thing an operator can change.
+func huntReportObjectiveProgress(ctx context.Context, deps HuntDeps, out io.Writer, who, missionID string, baseline, kills int) {
+	if kills == 0 {
+		return
+	}
+	poi := "an unknown POI"
+	if st := deps.Client.GetState(); st != nil && st.CurrentPOI != "" {
+		poi = st.CurrentPOI
+	}
+	o, err := huntObjectiveProgress(ctx, deps, missionID)
+	if err != nil {
+		fmt.Fprintf(out, "hunt[%s]: could not read %s objective progress after %d confirmed kill(s) at %s: %v\n", //nolint:errcheck
+			who, missionID, kills, poi, err)
+		return
+	}
+	if o.Current > baseline {
+		fmt.Fprintf(out, "hunt[%s]: %s objective at %d/%d after %d confirmed kill(s) at %s\n", //nolint:errcheck
+			who, missionID, o.Current, o.Required, kills, poi)
+		return
+	}
+	fmt.Fprintf(out, "hunt[%s]: OBJECTIVE DID NOT ADVANCE: %d confirmed kill(s) at %s left %s on %d/%d — the wildlife at this POI does not count for this mission; move the pass or drop it\n", //nolint:errcheck
+		who, kills, poi, missionID, o.Current, o.Required)
 }
 
 // huntAdmissibleQuarry filters a get_nearby creature list down to what this
@@ -477,6 +587,12 @@ func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly boo
 // creature id win outright — killing the wrong species may not advance the
 // objective at all. Otherwise the SHORTEST FIGHT wins: the creature with the
 // least hull left to chew through.
+//
+// In practice the match branch never fires: no known wildlife mission carries
+// a target id (see huntObjectiveTarget), so targetID is empty and the shortest
+// fight decides every pick. Species scoping is a server-side rule this code
+// cannot see, and the lever that actually acts on it is POI choice — see
+// huntLocalWildlifePOI.
 //
 // NOTE — this deviates from the brief, which said to prefer full-hull ones,
 // and the deviation was ratified in review. The decisive evidence is on the
@@ -814,7 +930,8 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer) 
 	}
 	current := state.System.ID
 
-	destSystem, destPOI := current, huntLocalWildlifePOI(ctx, deps.KB, current)
+	destSystem := current
+	destPOI, why := huntLocalWildlifePOI(ctx, deps.KB, current)
 	if destPOI == "" {
 		galGraph := &galaxy.GalaxyGraph{}
 		if err := galGraph.BuildFromDB(ctx, deps.KB); err != nil {
@@ -829,11 +946,11 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer) 
 			if best < 0 || near[0].Hops < best {
 				// FindNearest leaves NearestResult.POIs nil for POI-type
 				// lookups, so the POI id has to come back out of the KB.
-				poi := huntLocalWildlifePOI(ctx, deps.KB, near[0].SystemID)
+				poi, reason := huntLocalWildlifePOI(ctx, deps.KB, near[0].SystemID)
 				if poi == "" {
 					continue
 				}
-				best, destSystem, destPOI = near[0].Hops, near[0].SystemID, poi
+				best, destSystem, destPOI, why = near[0].Hops, near[0].SystemID, poi, reason
 			}
 		}
 	}
@@ -848,33 +965,105 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer) 
 			return fmt.Errorf("undock: %w", err)
 		}
 	}
-	fmt.Fprintf(out, "hunt: heading to %s/%s to find wildlife\n", destSystem, destPOI) //nolint:errcheck
+	fmt.Fprintf(out, "hunt: heading to %s/%s (%s) to find wildlife\n", destSystem, destPOI, why) //nolint:errcheck
 	if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out}, destSystem, destPOI); err != nil {
 		return fmt.Errorf("transit to %s: %w", destPOI, err)
 	}
 	return nil
 }
 
-// huntLocalWildlifePOI returns the id of a POI in systemID whose type can hold
-// wildlife, or "" when the KB knows of none.
+// huntResourceTier classes a candidate POI by what the KB knows about its
+// resources. Lower is better. Unknown sits BETWEEN rich and exhausted: a POI
+// nobody has surveyed may well be un-worked, so it must not be ranked with the
+// ones we know are stripped, and must not outrank one we know is rich.
 //
-// Candidates are ranked by huntWildlifePOITypes' order rather than by whatever
-// order the KB happens to return rows in: an asteroid belt beats a gas cloud
-// in the same system, which matters if kill_creature turns out to be scoped to
-// a species that only spawns at one of them.
-func huntLocalWildlifePOI(ctx context.Context, kb knowledge.Base, systemID string) string {
-	pois, err := kb.GetPOIs(ctx, systemID)
-	if err != nil {
-		return ""
+// score is the tie-break within a tier: richness * remaining summed over the
+// live resources, so "rich AND un-worked" beats rich-but-thin and thick-but-poor
+// alike. Both factors come off poi_resources unchanged; no scale is assumed
+// beyond the two being comparable across rows of the same table.
+const (
+	huntResourcesLive = iota
+	huntResourcesUnknown
+	huntResourcesExhausted
+)
+
+// huntResourceTierNames label the tiers in the travel log line, so an operator
+// reading "gas_cloud, mined out" knows the pass had nothing better to fly to.
+var huntResourceTierNames = [...]string{"un-worked", "richness unknown", "mined out"}
+
+func huntResourceTier(p knowledge.POI) (tier int, score float64) {
+	if len(p.Resources) == 0 {
+		return huntResourcesUnknown, 0
 	}
-	best, bestRank := "", len(huntWildlifePOITypes)
-	for _, p := range pois {
-		rank := slices.Index(huntWildlifePOITypes, p.Type)
-		if rank >= 0 && rank < bestRank {
-			best, bestRank = p.ID, rank
+	live := false
+	for _, r := range p.Resources {
+		if r.Remaining > 0 {
+			live = true
+			score += r.Richness * r.Remaining
 		}
 	}
-	return best
+	if !live {
+		return huntResourcesExhausted, 0
+	}
+	return huntResourcesLive, score
+}
+
+// huntLocalWildlifePOI returns the id of a POI in systemID whose type can hold
+// wildlife, or "" when the KB knows of none. why is a short human-readable
+// account of why that one won, for the travel log.
+//
+// Ranking, in order:
+//
+//  1. Resource tier. The mission dialog states the mechanic outright —
+//     "Grazers gather where the iron is still rich, so a quiet, un-worked belt
+//     holds far more than a busy, mined-out one" — so a stripped POI is the
+//     last place to go looking. commerce_fields is the live example: richness
+//     75, remaining 0, and the operator's capture there found scavengers
+//     instead of grazers.
+//  2. huntWildlifePOITypes' order, so an asteroid belt beats a gas cloud among
+//     equally-worked candidates.
+//  3. richness * remaining, highest first.
+//
+// Tier leads type deliberately: a rich gas cloud is a better bet than a belt
+// with nothing left in it, which is what "when no belt qualifies, fall back to
+// the other types" means in practice. Nothing here hard-fails on missing
+// poi_resources rows — that is what the unknown tier is for.
+func huntLocalWildlifePOI(ctx context.Context, kb knowledge.Base, systemID string) (poiID, why string) {
+	pois, err := kb.GetPOIs(ctx, systemID)
+	if err != nil {
+		return "", ""
+	}
+	var (
+		best      string
+		bestType  = len(huntWildlifePOITypes)
+		bestTier  int
+		bestScore float64
+		bestName  string
+	)
+	for _, p := range pois {
+		rank := slices.Index(huntWildlifePOITypes, p.Type)
+		if rank < 0 {
+			continue
+		}
+		tier, score := huntResourceTier(p)
+		better := best == ""
+		switch {
+		case best == "":
+		case tier != bestTier:
+			better = tier < bestTier
+		case rank != bestType:
+			better = rank < bestType
+		default:
+			better = score > bestScore
+		}
+		if better {
+			best, bestType, bestTier, bestScore, bestName = p.ID, rank, tier, score, p.Type
+		}
+	}
+	if best == "" {
+		return "", ""
+	}
+	return best, fmt.Sprintf("%s, %s", bestName, huntResourceTierNames[bestTier])
 }
 
 // huntRecoverToStation routes a worker that is not at a dockable station to

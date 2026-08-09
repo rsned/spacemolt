@@ -337,11 +337,42 @@ The one genuinely new behaviour. Per the server docs, the loop is:
    dock and take the mission, then undock and travel to a wildlife POI — and
    an executor that reads the board and calls `get_nearby` at one POI fails
    whichever place it happens to be standing.
-2. **Engage one creature — and only a harmless one.** `hunt <creature_id>`, or
-   equivalently `attack` on a creature id. **Wildlife never dogpile** —
-   attacking one grazer does not pull in the rest of the herd. This is the
-   property that makes difficulty-1 hunting genuinely safe, and it must be
-   relied on explicitly rather than assumed.
+2. **Engage one creature — the right species, and the least dangerous one.**
+   `hunt <creature_id>`, or equivalently `attack` on a creature id. **Wildlife
+   never dogpile** — attacking one grazer does not pull in the rest of the
+   herd. This is the property that makes difficulty-1 hunting genuinely safe,
+   and it must be relied on explicitly rather than assumed.
+
+   > **Retracted: grazers are not harmless.** Both the mission text ("slow,
+   > iron-plated filter-feeders that won't fight back") and this document's
+   > own earlier rationale ("the perfect quarry to learn your guns on") are
+   > flavour, not mechanics. **Belt-grazers shoot back** — captured
+   > `battle_damage`: `Belt-Grazer -> us, kinetic, 4 damage, weapons_fired
+   > ["Belt-Grazer (natural)"]`. The `role` filter still earns its place by
+   > keeping the fleet off predators, but "grazer therefore safe" is gone. The
+   > hull-abort gate is safety-critical, not defensive polish.
+
+   **Species, not role, decides mission credit.** One captured belt held three
+   grazer species at once — `slag_tortoise` (90 hull), `patina_grazer` (60)
+   and `belt_grazer` (60) — and only the last counts for a Belt-Grazer
+   mission. Two of the three decoys share the target's role *and* its hull, so
+   nothing but the species id distinguishes them. Every wildlife objective is
+   scoped this way:
+
+   | Mission | Objective text | Species |
+   |---|---|---|
+   | `first_hunt_belt_grazers` | Hunt 3 Belt-Grazers at an asteroid belt | `belt_grazer` |
+   | `grazer_cull` | Hunt 8 Belt-Grazers | `belt_grazer` |
+   | `ice_field_thinning` | Hunt 6 Rime-Grazers | `rime_grazer` |
+   | `nebula_drift_hunt` | Hunt 6 Sift-Rays | `sift_ray` |
+
+   The objective carries **no machine-readable target** — no `target_id`, no
+   `item_id`, only prose and a quantity. So the executor holds a small curated
+   `mission_id → species` table rather than parsing the description, and a
+   server-supplied `TargetID` outranks the table whenever one appears. A POI
+   holding none of the required species is the "wrong place" case: log it
+   naming what was needed against what was present, and end the pass rather
+   than burning engagements on decoys.
 
    **`role` decides what is safe to engage, and it is not optional.** A single
    live `get_nearby` list held eight creatures: seven `grazer`s from 45 to 220

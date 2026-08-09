@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -69,6 +70,10 @@ type huntFakeOpts struct {
 	// entry with a hex-ish id); noActive models the accept not having landed.
 	activeMissions []serverapi.ActiveMission
 	noActive       bool
+	// objectiveStuck freezes the server's kill_creature counter at zero while
+	// carcasses still appear — the live failure where a pass kills the wrong
+	// species cleanly and the mission never advances.
+	objectiveStuck bool
 	// battleHullPct is our own hull percentage the battle picture reports
 	// during the FIRST fight. 0 means full hull throughout.
 	battleHullPct int
@@ -117,6 +122,12 @@ type huntFake struct {
 	lootCalls     []string
 	salvageCalls  []string
 
+	// actives is the active-mission list the fake re-serves on every
+	// get_active_missions, with the kill_creature counter recomputed from the
+	// carcasses so far — the server's count, which is not the same number as
+	// the pass's confirmed kills once objectiveStuck is set.
+	actives []serverapi.ActiveMission
+
 	quarryID   string
 	battle     serverapi.GetBattleStatusResponse
 	battleLive bool
@@ -142,6 +153,9 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 		})
 		actives = append(actives, serverapi.ActiveMission{
 			MissionID: "hex-" + m.id, TemplateID: m.id, Title: m.id, Type: "combat",
+			Objectives: []serverapi.ActiveMissionObjective{{
+				Type: "kill_creature", Description: "cull the herd", Required: m.quantity,
+			}},
 		})
 	}
 	if opts.activeMissions != nil {
@@ -203,7 +217,40 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 			"active_missions": activeJSON(t, actives...),
 		},
 	}
-	return &huntFake{fakeClient: f, opts: opts}
+	return &huntFake{fakeClient: f, opts: opts, actives: actives}
+}
+
+// GetActiveMissions re-serves the active list with the server's kill_creature
+// counter set from the carcasses this fight has produced. The executor reads
+// this number, not its own; objectiveStuck holds it at zero to model the live
+// case where confirmed kills do not count for the accepted mission.
+func (f *huntFake) GetActiveMissions(ctx context.Context) error {
+	if err := f.fakeClient.GetActiveMissions(ctx); err != nil {
+		return err
+	}
+	if f.actives == nil {
+		return nil
+	}
+	counted := len(f.wrecks)
+	if f.opts.objectiveStuck {
+		counted = 0
+	}
+	live := make([]serverapi.ActiveMission, len(f.actives))
+	copy(live, f.actives)
+	for i := range live {
+		live[i].Objectives = slices.Clone(live[i].Objectives)
+		for j := range live[i].Objectives {
+			if live[i].Objectives[j].Type == "kill_creature" {
+				live[i].Objectives[j].Current = counted
+			}
+		}
+	}
+	b, err := json.Marshal(serverapi.GetActiveMissionsResponse{Missions: live, TotalCount: len(live)})
+	if err != nil {
+		return err
+	}
+	f.raw["active_missions"] = b
+	return nil
 }
 
 // huntDeps builds the deps every test uses: zero-delay sleeps so a multi-tick
@@ -684,6 +731,84 @@ func TestHuntWithoutACarcassCountsNoKill(t *testing.T) {
 	}
 }
 
+// The failure the operator confirmed live: the pass kills cleanly, the
+// carcasses are real, and the server's counter never moves because the mission
+// is scoped to a species that does not live here. Nothing else in the pass
+// looks wrong, so the log line is the entire signal.
+func TestHuntWarnsWhenConfirmedKillsDoNotAdvanceTheObjective(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:          []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 2}},
+		creatures:      huntGrazers("c1"),
+		objectiveStuck: true,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !strings.Contains(log.String(), "OBJECTIVE DID NOT ADVANCE") {
+		t.Errorf("a pass that kills without advancing must say so, got:\n%s", log.String())
+	}
+	// The POI is the thing an operator can change, so it has to be named.
+	if !strings.Contains(log.String(), "commerce_fields") {
+		t.Errorf("the warning must name the POI hunted, got:\n%s", log.String())
+	}
+}
+
+// The same report on the happy path states the server's own count, so the two
+// numbers can be compared in a log without guessing which one moved.
+func TestHuntReportsServerObjectiveProgress(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures: huntGrazers("c1"),
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !strings.Contains(log.String(), "objective at 1/1 after 1 confirmed kill(s)") {
+		t.Errorf("want the server's own count reported, got:\n%s", log.String())
+	}
+	if strings.Contains(log.String(), "OBJECTIVE DID NOT ADVANCE") {
+		t.Errorf("an advancing objective must not be reported as stuck, got:\n%s", log.String())
+	}
+	// The read has to happen BEFORE the completion, not after: completing
+	// takes the mission off the active list the report reads.
+	if lastCall(c, "get_active_missions") > firstCall(c, "complete:") {
+		t.Errorf("progress must be read before complete_mission, calls: %v", c.calls)
+	}
+}
+
+func firstCall(f *huntFake, prefix string) int {
+	return slices.IndexFunc(f.calls, func(s string) bool { return strings.HasPrefix(s, prefix) })
+}
+
+func lastCall(f *huntFake, prefix string) int {
+	last := -1
+	for i, s := range f.calls {
+		if strings.HasPrefix(s, prefix) {
+			last = i
+		}
+	}
+	return last
+}
+
+// A pass that confirmed nothing has nothing to compare, and must not spend a
+// query saying so.
+func TestHuntDoesNotReportProgressWithoutAConfirmedKill(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures: huntGrazers("c1"),
+		noWreck:   true,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if strings.Contains(log.String(), "OBJECTIVE DID NOT ADVANCE") || strings.Contains(log.String(), "objective at ") {
+		t.Errorf("no confirmed kill means no progress report, got:\n%s", log.String())
+	}
+}
+
 // Completion uses the RESOLVED (hex) active-mission id: complete_mission with
 // a board id 404s with mission_not_found.
 func TestHuntCompletesWithTheResolvedMissionID(t *testing.T) {
@@ -965,8 +1090,87 @@ func TestHuntPrefersAnAsteroidBeltOverOtherWildlifePOIs(t *testing.T) {
 	// Repeated because the map iteration order is what an unranked
 	// implementation would be relying on; one draw proves nothing.
 	for i := range 25 {
-		if got := huntLocalWildlifePOI(ctx, kb, "test_system"); got != "test_belt" {
+		if got, _ := huntLocalWildlifePOI(ctx, kb, "test_system"); got != "test_belt" {
 			t.Fatalf("draw %d: chose %q, want test_belt — the belt outranks the gas cloud and the nebula", i, got)
+		}
+	}
+}
+
+// beltWith is one asteroid belt carrying a single iron seam.
+func beltWith(id string, richness, remaining float64) knowledge.POI {
+	return knowledge.POI{
+		ID: id, SystemID: "test_system", Type: "asteroid_belt",
+		Resources: []game.POIResource{{ResourceID: "iron_ore", Richness: richness, Remaining: remaining}},
+	}
+}
+
+// "Grazers gather where the iron is still rich" — among belts, the rich
+// un-worked one wins, and a mined-out one loses to a belt nobody has surveyed.
+func TestHuntPrefersTheRichestUnworkedBelt(t *testing.T) {
+	ctx := context.Background()
+	kb := knowledge.NewMemoryKB()
+	_ = kb.RememberSystem(ctx, knowledge.System{ID: "test_system", Name: "Test"})
+	_ = kb.RememberPOI(ctx, beltWith("commerce_fields", 75, 0)) // richness 75, mined out
+	_ = kb.RememberPOI(ctx, beltWith("thin_belt", 20, 1000))
+	_ = kb.RememberPOI(ctx, beltWith("rich_belt", 90, 1000))
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "unsurveyed_belt", SystemID: "test_system", Type: "asteroid_belt"})
+
+	for i := range 25 {
+		got, why := huntLocalWildlifePOI(ctx, kb, "test_system")
+		if got != "rich_belt" {
+			t.Fatalf("draw %d: chose %q (%s), want rich_belt — richness*remaining is highest there", i, got, why)
+		}
+		if !strings.Contains(why, "un-worked") {
+			t.Fatalf("draw %d: reason %q must say the belt is un-worked", i, why)
+		}
+	}
+}
+
+// A belt with nothing left in it is the last place to hunt: an un-worked gas
+// cloud beats it, which is what "when no belt qualifies" means in practice.
+func TestHuntSkipsAMinedOutBeltForALiveGasCloud(t *testing.T) {
+	ctx := context.Background()
+	kb := knowledge.NewMemoryKB()
+	_ = kb.RememberSystem(ctx, knowledge.System{ID: "test_system", Name: "Test"})
+	_ = kb.RememberPOI(ctx, beltWith("commerce_fields", 75, 0))
+	_ = kb.RememberPOI(ctx, knowledge.POI{
+		ID: "live_cloud", SystemID: "test_system", Type: "gas_cloud",
+		Resources: []game.POIResource{{ResourceID: "helium", Richness: 30, Remaining: 500}},
+	})
+
+	for i := range 25 {
+		if got, why := huntLocalWildlifePOI(ctx, kb, "test_system"); got != "live_cloud" {
+			t.Fatalf("draw %d: chose %q (%s), want live_cloud — commerce_fields has remaining 0", i, got, why)
+		}
+	}
+}
+
+// Unknown richness sits BETWEEN known-rich and known-exhausted: a surveyed
+// live belt beats it, and it beats a stripped one.
+func TestHuntRanksUnknownRichnessBetweenRichAndExhausted(t *testing.T) {
+	ctx := context.Background()
+	unknown := knowledge.POI{ID: "unsurveyed_belt", SystemID: "test_system", Type: "asteroid_belt"}
+
+	richKB := knowledge.NewMemoryKB()
+	_ = richKB.RememberSystem(ctx, knowledge.System{ID: "test_system"})
+	_ = richKB.RememberPOI(ctx, unknown)
+	_ = richKB.RememberPOI(ctx, beltWith("rich_belt", 90, 1000))
+
+	exhaustedKB := knowledge.NewMemoryKB()
+	_ = exhaustedKB.RememberSystem(ctx, knowledge.System{ID: "test_system"})
+	_ = exhaustedKB.RememberPOI(ctx, unknown)
+	_ = exhaustedKB.RememberPOI(ctx, beltWith("commerce_fields", 75, 0))
+
+	for i := range 25 {
+		if got, _ := huntLocalWildlifePOI(ctx, richKB, "test_system"); got != "rich_belt" {
+			t.Fatalf("draw %d: chose %q over a known-rich belt, want rich_belt", i, got)
+		}
+		got, why := huntLocalWildlifePOI(ctx, exhaustedKB, "test_system")
+		if got != "unsurveyed_belt" {
+			t.Fatalf("draw %d: chose %q over an unsurveyed belt, want unsurveyed_belt — a mined-out POI is worse than an unknown one", i, got)
+		}
+		if !strings.Contains(why, "unknown") {
+			t.Fatalf("draw %d: reason %q must say the richness is unknown", i, why)
 		}
 	}
 }
