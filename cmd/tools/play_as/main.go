@@ -6714,7 +6714,12 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// from here.
 	case "shipping":
 		if len(parts) < 2 {
-			return fmt.Errorf("usage: shipping <quote|post|profile|list|get|track|pay_debt> [args]\n" +
+			return fmt.Errorf("usage: shipping <accept|deliver|quote|post|profile|list|get|track|pay_debt> [args]\n" +
+				"  shipping accept <shipment-id> [--carrier player|faction]\n" +
+				"      the package lands in your STORAGE AT ORIGIN, not your hold:\n" +
+				"      withdraw_items it before you fly, or you arrive empty\n" +
+				"  shipping deliver <shipment-id>  settle it, docked at the destination\n" +
+				"  shipping return <shipment-id>   hand it back at origin (costs, but no breach)\n" +
 				"  shipping quote <package-id> <dest-base-id>   estimated_reward for a run this long\n" +
 				"  shipping active [--eligible_as ...]          YOUR outstanding contracts\n" +
 				"  shipping cancel <shipment-id>                only while still posted\n" +
@@ -6738,6 +6743,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return simpleCommand(client, func(ctx context.Context) error {
 				return shipperCommand(ctx, client, parts)
 			}, ctx, 3*time.Second, cmd, format)
+		case "accept", "deliver", "return":
+			// The carrier side. These are tick-deferred (shippingMutations), so
+			// the real body arrives in a later action_result frame — allow more
+			// than the reads' 3s.
+			return simpleCommand(client, func(ctx context.Context) error {
+				return carrierCommand(ctx, client, parts)
+			}, ctx, game.SleepTick*2, cmd, format)
 		case "profile":
 			return simpleCommand(client, client.ShippingProfile, ctx, 3*time.Second, cmd, format)
 		case "list":
@@ -6784,7 +6796,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				return client.ShippingPayDebt(ctx, amount)
 			}, ctx, 3*time.Second, cmd, format)
 		default:
-			return fmt.Errorf("unknown shipping action %q (quote, post, active, cancel, profile, list, get, track, pay_debt)", parts[1])
+			return fmt.Errorf("unknown shipping action %q (accept, deliver, return, quote, post, active, cancel, profile, list, get, track, pay_debt)", parts[1])
 		}
 
 	case "list_ship_for_sale":
