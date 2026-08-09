@@ -300,3 +300,56 @@ func TestLooksLikeBaseIDRejectsProse(t *testing.T) {
 		}
 	}
 }
+
+// liveNoLockboxHint is the REAL hint a faction with no storage facility gets,
+// captured from explorer-6 (Explorers Guild / XPLR) on 2026-08-08. The known
+// empty sentinel is in there, but as a SUFFIX behind a build-a-lockbox
+// preamble — so an equality check on the sentinel misses it and the whole hint
+// is logged as unparseable.
+//
+// The observable damage was in the ledger: XPLR captured a faction PROFILE and
+// zero faction_storage rows, so "this faction holds nothing anywhere" was
+// indistinguishable from "we failed to read it".
+const liveNoLockboxHint = "Your faction does not have a storage facility at this station. " +
+	"Use facility action 'faction_build' with facility_type='faction_lockbox' to build one. " +
+	"No items in faction storage at any station."
+
+func TestParseStorageHintNoLockboxIsEmptyNotUnparseable(t *testing.T) {
+	got, ok := ParseStorageHint(liveNoLockboxHint)
+	if !ok {
+		t.Fatal("a faction with no lockbox must parse as EMPTY, not as unparseable — " +
+			"falling through logs a warning and leaves 'holds nothing' " +
+			"indistinguishable from 'could not read'")
+	}
+	if len(got.Bases) != 0 {
+		t.Errorf("Bases = %v, want none — the preamble must not become a base id", got.Bases)
+	}
+}
+
+// The bare sentinels must keep working; the suffix match is a widening, not a
+// replacement.
+func TestParseStorageHintBareSentinelsStillEmpty(t *testing.T) {
+	for _, h := range []string{
+		"No items in storage at any station.",
+		"No items in faction storage at any station.",
+	} {
+		if got, ok := ParseStorageHint(h); !ok || len(got.Bases) != 0 {
+			t.Errorf("%q: ok=%v bases=%v, want ok with no bases", h, ok, got.Bases)
+		}
+	}
+}
+
+// A hint that genuinely lists holdings must NOT be swallowed by the suffix
+// match. Without this, widening the empty check could silently discard a real
+// base list — the failure mode is invisible because an empty result looks
+// exactly like a legitimately empty faction.
+func TestParseStorageHintRealHoldingsAreNotTreatedAsEmpty(t *testing.T) {
+	const h = "2,720,379 units in faction storage at grand_exchange_station, voss_redoubt_station."
+	got, ok := ParseStorageHint(h)
+	if !ok {
+		t.Fatalf("a real holdings hint must parse: %q", h)
+	}
+	if len(got.Bases) == 0 {
+		t.Errorf("Bases is empty for %q — real holdings were discarded", h)
+	}
+}
