@@ -540,6 +540,39 @@ operator's call, "till things are working and skilled". They stay excluded until
 wildlife hunting is reliable and the roster has real weapons levels, at which
 point lifting gate 2 is a one-line change.
 
+### 🔴 Shields and armor XP come only from PvP — this fleet can never train them
+
+Operator-confirmed: **shields and armor skill XP is awarded only for
+player-versus-player damage.** Wildlife does not train them at all, at any
+difficulty, however long the fleet hunts.
+
+So the curriculum this fleet runs has a hard ceiling, and it is worth stating
+before anyone plans around it:
+
+| Skill | Trained by hunting? | Source |
+|---|---|---|
+| weapons, gunnery, tactics, piloting | **yes** | per-hit `xp_gained` on `battle_damage`, plus mission completion |
+| xenobiology | **yes** | mission completion (15–20 per wildlife mission) |
+| **shields, armor** | **never** | PvP damage only |
+| EW (scrambling, webbing) | **never** | structurally — wildlife neither warps nor flees to hyperspace |
+
+This joins EW as the second capability that is *structurally untrainable* here,
+and it sharpens why `cmd/tools/spar` matters later rather than being a
+curiosity: sparring is the only route to shields, armor and EW, and all three
+are exactly what a fleet needs before it meets anything that shoots properly.
+
+Two consequences worth being concrete about:
+
+- **It does not block the fit-out.** Module `required_skills` are not enforced
+  at install (see the retraction above), so `shield_recharger_ii` at
+  `shields: 3` fits a roster that will never reach shields 1. The fleet gets
+  the defensive hardware without the skill; it simply never earns the skill.
+- **It does mean the roster's defensive *stats* never improve on their own.**
+  Every gain has to come from modules and hulls, not from levelling. A hunt
+  fleet left running for a month is a better shot and no tougher — which is
+  fine for grazers and is the thing to remember before pointing it at anything
+  that fights back properly.
+
 ## Why XP is the payload, not credits
 
 Mission credit payouts are running at roughly 37% of face value because the
