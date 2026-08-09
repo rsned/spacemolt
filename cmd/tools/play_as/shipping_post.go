@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 )
@@ -35,6 +36,8 @@ var shipperOptionalFlags = []string{
 // "omitted" — which for base_reward means the post is rejected as rewardless.
 var shipperIntFlags = map[string]bool{
 	"base_reward":    true,
+	"page":           true,
+	"per_page":       true,
 	"speed_bonus":    true,
 	"max_total_cost": true,
 }
@@ -52,9 +55,33 @@ var shipperIntFlags = map[string]bool{
 // the action.
 func shipperCommand(ctx context.Context, c shippingSender, parts []string) error {
 	if len(parts) < 2 {
-		return fmt.Errorf("usage: shipping <quote|post> <package-id> <destination-base-id> [flags]")
+		return fmt.Errorf("usage: shipping <quote|post|active|cancel> [args]")
 	}
 	action := strings.ToLower(parts[1])
+
+	switch action {
+	case "active":
+		// Your own outstanding contracts, from the server rather than from
+		// local disk state a crash can desynchronise. No default filters: an
+		// unasked-for eligible_as or page size quietly narrows the answer.
+		payload, err := shipperFlags(parts[2:], "eligible_as", "page", "per_page")
+		if err != nil {
+			return err
+		}
+
+		return c.Shipping(ctx, action, payload)
+
+	case "cancel":
+		// Only valid while the contract is still posted; once accepted it is
+		// the carrier's `return` that unwinds it, at a cost.
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: shipping cancel <shipment-id>  (only while still posted; " +
+				"`shipping active` lists yours)")
+		}
+
+		return c.Shipping(ctx, action, map[string]any{"shipment_id": parts[2]})
+	}
+
 	if len(parts) < 4 {
 		return fmt.Errorf("usage: shipping %s <package-id> <destination-base-id> [--base_reward N] "+
 			"[--service_level standard|priority] [--insured true] [--speed_bonus N] [--shipper player|faction]\n"+
@@ -66,24 +93,11 @@ func shipperCommand(ctx context.Context, c shippingSender, parts []string) error
 		"destination_base_id": parts[3],
 	}
 
-	flags, err := parseFlagArgs(parts[4:], shipperOptionalFlags...)
+	flags, err := shipperFlags(parts[4:], shipperOptionalFlags...)
 	if err != nil {
 		return err
 	}
-	for k, v := range flags {
-		switch {
-		case shipperIntFlags[k]:
-			n, err := strconv.ParseInt(fmt.Sprintf("%v", v), 10, 64)
-			if err != nil {
-				return fmt.Errorf("--%s must be a whole number: %w", k, err)
-			}
-			payload[k] = n
-		case k == "insured":
-			payload[k] = flagBool(v)
-		default:
-			payload[k] = v
-		}
-	}
+	maps.Copy(payload, flags)
 
 	// quote is the call you make to FIND OUT what to offer, so a reward on it
 	// would report an estimate as if it were a decision.
@@ -104,4 +118,33 @@ func shipperCommand(ctx context.Context, c shippingSender, parts []string) error
 	}
 
 	return c.Shipping(ctx, action, payload)
+}
+
+// shipperFlags parses the named optional flags into a payload, sending integer
+// fields as integers and `insured` as a bool. Unset flags are OMITTED rather
+// than sent as zero values: the server reads a present key as a choice, so a
+// blanket payload would silently request an uninsured shipment or a service
+// level nobody picked.
+func shipperFlags(args []string, keys ...string) (map[string]any, error) {
+	payload := map[string]any{}
+	flags, err := parseFlagArgs(args, keys...)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range flags {
+		switch {
+		case shipperIntFlags[k]:
+			n, err := strconv.ParseInt(fmt.Sprintf("%v", v), 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("--%s must be a whole number: %w", k, err)
+			}
+			payload[k] = n
+		case k == "insured":
+			payload[k] = flagBool(v)
+		default:
+			payload[k] = v
+		}
+	}
+
+	return payload, nil
 }

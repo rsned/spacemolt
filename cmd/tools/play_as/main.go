@@ -6716,9 +6716,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: shipping <quote|post|profile|list|get|track|pay_debt> [args]\n" +
 				"  shipping quote <package-id> <dest-base-id>   estimated_reward for a run this long\n" +
+				"  shipping active [--eligible_as ...]          YOUR outstanding contracts\n" +
+				"  shipping cancel <shipment-id>                only while still posted\n" +
 				"  shipping post  <package-id> <dest-base-id> --base_reward N   post the contract\n" +
 				"      optional: --service_level standard|priority --insured true --speed_bonus N\n" +
 				"                --shipper player|faction --max_total_cost N\n" +
+				"                --recipient_type player|faction|station --recipient_id ID\n" +
+				"                (omit both recipient flags and it comes back to YOU)\n" +
 				"      the package must already be sealed: craft pack_package (--file=<json>)\n" +
 				"  shipping profile              carrier tier, capacity, outstanding debt\n" +
 				"  shipping list [sort]          contracts posted at this station\n" +
@@ -6727,7 +6731,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				"  shipping pay_debt [amount]    omit amount to settle the full balance")
 		}
 		switch strings.ToLower(parts[1]) {
-		case "quote", "post":
+		case "quote", "post", "active", "cancel":
 			// The shipper side: posting cargo for someone else to haul. Kept in
 			// shipping_post.go behind a one-method interface so the payload
 			// shaping is unit-testable without a full GameClient.
@@ -6780,7 +6784,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				return client.ShippingPayDebt(ctx, amount)
 			}, ctx, 3*time.Second, cmd, format)
 		default:
-			return fmt.Errorf("unknown shipping action %q (quote, post, profile, list, get, track, pay_debt)", parts[1])
+			return fmt.Errorf("unknown shipping action %q (quote, post, active, cancel, profile, list, get, track, pay_debt)", parts[1])
 		}
 
 	case "list_ship_for_sale":

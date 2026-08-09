@@ -144,3 +144,62 @@ func TestShippingQuoteAndPostUsage(t *testing.T) {
 		}
 	}
 }
+
+// `shipping active` lists the contracts you currently have outstanding. The
+// freight fleet reconstructs this from disk today, and a listing that comes
+// from the server is a better answer than one reconstructed from local state
+// that a crash can desynchronise.
+func TestShippingActiveSendsNoParamsByDefault(t *testing.T) {
+	c := &shippingRecorder{}
+	if err := shipperCommand(context.Background(), c, []string{"shipping", "active"}); err != nil {
+		t.Fatalf("active: %v", err)
+	}
+	if c.action != "active" {
+		t.Errorf("action = %q, want active", c.action)
+	}
+	// An unasked-for filter is a filter the operator did not choose. Sending
+	// eligible_as or a page size by default would quietly narrow the answer.
+	if len(c.payload) != 0 {
+		t.Errorf("payload = %v, want empty when no flags are given", c.payload)
+	}
+}
+
+func TestShippingActivePassesFilters(t *testing.T) {
+	c := &shippingRecorder{}
+	err := shipperCommand(context.Background(), c,
+		[]string{"shipping", "active", "--eligible_as", "faction", "--per_page", "50"})
+	if err != nil {
+		t.Fatalf("active: %v", err)
+	}
+	if c.payload["eligible_as"] != "faction" {
+		t.Errorf("eligible_as = %v, want faction", c.payload["eligible_as"])
+	}
+	if c.payload["per_page"] != int64(50) {
+		t.Errorf("per_page = %#v, want int64 50", c.payload["per_page"])
+	}
+}
+
+// cancel applies only while a contract is still posted, so getting the id
+// wrong is a wasted round trip at best.
+func TestShippingCancelRequiresAnID(t *testing.T) {
+	c := &shippingRecorder{}
+	if err := shipperCommand(context.Background(), c, []string{"shipping", "cancel"}); err == nil {
+		t.Fatal("cancel without a shipment id must be a usage error")
+	}
+	if c.calls != 0 {
+		t.Error("nothing should reach the wire")
+	}
+}
+
+func TestShippingCancelSendsShipmentID(t *testing.T) {
+	c := &shippingRecorder{}
+	if err := shipperCommand(context.Background(), c, []string{"shipping", "cancel", "shp_77"}); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	if c.action != "cancel" {
+		t.Errorf("action = %q, want cancel", c.action)
+	}
+	if c.payload["shipment_id"] != "shp_77" {
+		t.Errorf("shipment_id = %v, want shp_77", c.payload["shipment_id"])
+	}
+}
