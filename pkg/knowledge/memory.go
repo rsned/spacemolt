@@ -3,6 +3,7 @@ package knowledge
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -264,6 +265,24 @@ func (kb *MemoryKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 	}
 
 	return nil, fmt.Errorf("base not found: %s", baseID)
+}
+
+// GetBaseIDsByEmpire lists the ids of every known base belonging to an empire.
+func (kb *MemoryKB) GetBaseIDsByEmpire(ctx context.Context, empire string) ([]string, error) {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
+	var ids []string
+	for _, base := range kb.bases {
+		if base.Empire == empire {
+			ids = append(ids, base.ID)
+		}
+	}
+	// Map iteration order is random; a stable list keeps callers (and the SQL
+	// they build from it) deterministic.
+	slices.Sort(ids)
+
+	return ids, nil
 }
 
 // GetBaseByPOI retrieves a base by its POI ID

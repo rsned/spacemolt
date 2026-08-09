@@ -46,6 +46,7 @@ func (f *fakeClient) AbandonMission(ctx context.Context, id string) error {
 type fakeMissionStore struct {
 	payoutRatio   float64
 	payoutSamples int
+	payoutScope   []string
 	asks      map[string]float64
 	refPrices map[string]float64
 	results   []market.MissionResult
@@ -87,7 +88,19 @@ func (s *fakeMissionStore) MissionPayoutRatio(ctx context.Context, window time.D
 	return s.payoutRatio, s.payoutSamples, nil
 }
 
+// MissionPayoutRatioIn records the scope it was asked for, so a test can prove
+// the pass narrows the sample to the current empire rather than the galaxy.
+func (s *fakeMissionStore) MissionPayoutRatioIn(ctx context.Context, window time.Duration, fromBases []string) (float64, int, error) {
+	s.payoutScope = fromBases
+
+	return s.MissionPayoutRatio(ctx, window)
+}
+
 func (s *fakeFreightStore) MissionPayoutRatio(ctx context.Context, window time.Duration) (float64, int, error) {
+	return 1, 0, nil
+}
+
+func (s *fakeFreightStore) MissionPayoutRatioIn(ctx context.Context, window time.Duration, fromBases []string) (float64, int, error) {
 	return 1, 0, nil
 }
 

@@ -19,6 +19,11 @@ type Base interface {
 	RememberBase(ctx context.Context, base SpaceBase) error
 	GetBase(ctx context.Context, baseID string) (*SpaceBase, error)
 	GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase, error)
+	// GetBaseIDsByEmpire lists the ids of every known base belonging to an
+	// empire. Ids rather than whole bases because the caller that needs this
+	// — the per-empire mission payout ratio — only joins on them, and an
+	// empire is dozens of bases wide.
+	GetBaseIDsByEmpire(ctx context.Context, empire string) ([]string, error)
 	AddExperience(ctx context.Context, agentID, expType, description, outcome, location string) error
 	GetRecentExperiences(ctx context.Context, agentID string, limit int) ([]Experience, error)
 	RegisterAgent(ctx context.Context, agentID, name, role, faction string, personality []byte) error
