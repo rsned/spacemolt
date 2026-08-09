@@ -343,12 +343,43 @@ each agent completes it, the fleet has no work until gate 1 rises to 2. That is
 acceptable for a canary but not a steady state, so gate 1 rising is part of the
 rollout, not an afterthought.
 
-⚠️ **The chain's second mission is unknown.** `first_hunt_belt_grazers` chains to
-`cracking_the_shell`, which has **never been seen on a board** and is absent from
-the knowledge base — difficulty unknown. If it is difficulty 2, a cap of 1 stalls
-the chain immediately. Capture it when it first appears and record its
-difficulty; the plan should treat an accepted chain continuation as exempt from
-gate 1, or the curriculum cannot proceed past its first step.
+✅ **The chain's second mission is now captured.** `cracking_the_shell` is
+**difficulty 2** — the case this section warned about, so the difficulty-1 cap
+would have stalled the chain at step one. **Operator decision: the cap stays at
+1 and a chain continuation is exempt from it.** A mission is admissible if
+`difficulty <= cap` OR it is the `chain_next` of one this agent has already
+*completed*. So the curriculum advances at its own pace while the open board
+stays conservative — `grazer_cull` and the other difficulty-2 wildlife missions
+remain refused. The exemption waives gate 1 only; gate 2 (wildlife-only) still
+applies in full.
+
+| | |
+|---|---|
+| Mission | `cracking_the_shell` |
+| Objective | Hunt 3 Slag-Tortoises at an asteroid belt |
+| Species | `slag_tortoise` — 90 hull, role `grazer`, shares the iron belts |
+| Difficulty | 2 |
+| Rewards | 1,500cr, weapons 55, xenobiology 20 |
+| Chains to | `ghosts_in_the_cloud` — unseen, difficulty unknown |
+
+**Armor is a mechanic our damage model does not have.** The dialog: slag-tortoises
+"armor away about half of every shot you land", and "won't flee and won't hurt
+you much". So the fight is long and safe rather than short and risky — roughly
+10 ticks per kill against a belt-grazer's 4, on 90 hull at ~50% absorption
+against 18/tick. Two consequences: the per-engagement tick budget must survive a
+legitimate grind, and the no-progress give-up must treat "hull decreased at all"
+as progress rather than "decreased by enough", or a slow grind reads as a stall
+and the fleet abandons fights it is winning. No armor value is exposed by any
+captured payload — only the dialog's "about half" — so the executor cannot
+predict fight length and must rely on the tick budget.
+
+⚠️ **The chain exemption has an accepted cost.** `ghosts_in_the_cloud` will be
+auto-admitted at whatever difficulty it turns out to be, once
+`cracking_the_shell` completes. That is the trade for a curriculum that
+progresses without a gate change at every step, but it means an unseen mission
+of unknown difficulty is admitted without review. The admitted-continuation log
+line — naming the predecessor and the difficulty being waived — is what keeps
+that visible rather than silent.
 
 The full admissible set once gate 1 reaches 2 and gate 2 still holds:
 

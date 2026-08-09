@@ -46,6 +46,27 @@ const (
 	// fight, still in range and still being shot.
 	huntDisengageTicks = 8
 
+	// huntRepairAtHull is the hull fraction below which the pass repairs while
+	// it is docked reading the board.
+	//
+	// Hull is the one pool that does not come back on its own: shields
+	// regenerate, hull needs a station or a Combat Support ship with a repair
+	// kit. So hull loss accumulates ACROSS passes, and a fleet that never
+	// repairs degrades monotonically until something kills it.
+	//
+	// This is deliberately far ABOVE huntDefaultFleeHull. The flee threshold is
+	// an emergency; this is a top-up, and its whole point is to start each pass
+	// near full rather than to rescue one that ended badly. 0.9 tolerates the
+	// ordinary case — one engagement fought with the shields already down costs
+	// roughly 12 hull, which on the live Prospect's 95 is about 13% — so a pass
+	// that spent hull repairs on the next one, and a pass that did not spends
+	// nothing.
+	//
+	// It costs no travel: the pass is already docked at the board station. That
+	// is the entire reason the rule is shaped as "repair where you stand"
+	// rather than as a return-to-station leg.
+	huntRepairAtHull = 0.9
+
 	// huntShieldReadyFrac is the shield fraction the pass wants before opening
 	// the NEXT engagement. Shields are renewable and hull is not — incoming
 	// damage lands on shields first (a captured battle_update shows shield 96%
@@ -54,18 +75,24 @@ const (
 	// keep hull off the table is to arrive at each fight with a full-enough
 	// bar, not to fight until the hull gate fires.
 	//
-	// The arithmetic, on the operator's numbers: a Belt-Grazer deals 4/tick
-	// and shields regenerate ~1/tick, so a fight drains ~3/tick net; a kill
-	// takes ~4 ticks in reach, so ~12-15 shield per engagement. Half of a
-	// Prospect's 50-point bar is 25 — comfortably more than one engagement,
-	// so a pass that waits at this line never exposes hull to a difficulty-1
-	// quarry. Raising it costs wall-clock for no gain; lowering it starts
-	// spending hull.
+	// The arithmetic, on the operator's damage numbers and a live Prospect
+	// reporting max_shield 50, shield_recharge 1: a Belt-Grazer deals 4/tick
+	// against 1/tick of recharge, so a fight drains ~3/tick net; a kill takes
+	// ~4 ticks in reach, so ~12-15 shield per engagement. Half a bar is more
+	// than one engagement's worth, so a pass that waits at this line never
+	// exposes hull to a difficulty-1 quarry. Raising it costs wall-clock for
+	// no gain; lowering it starts spending hull, which does not grow back.
+	//
+	// The fraction is the constant; the pool and the rate are NOT. Both are
+	// read per ship from the wire (Shield/MaxShield/ShieldRecharge) — the live
+	// Prospect reports max_hull 95 where the class catalogue says 100, so any
+	// hardcoded maximum is wrong by construction.
 	huntShieldReadyFrac = 0.5
-	// huntShieldWaitTicks bounds that wait. At the observed ~1/tick this
-	// recovers 40% of a Prospect's bar, enough to climb from nearly flat to
-	// past the threshold; the wait also ends early the moment the shield stops
-	// rising, so a ship that cannot regenerate does not sit here.
+	// huntShieldWaitTicks bounds that wait. At the Prospect's reported
+	// shield_recharge of 1 this recovers 40% of its bar, enough to climb from
+	// nearly flat to past the threshold; the wait also ends early the moment
+	// the shield stops rising, so a ship that cannot regenerate does not sit
+	// here.
 	huntShieldWaitTicks = 20
 
 	// huntStanceFlee / huntStanceFire are the battle stances this pass uses.
@@ -249,6 +276,11 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		}
 		return nil // re-read the board fresh at the new station next pass
 	}
+
+	// Docked, and this is the only place in the pass that is: hull does not
+	// grow back, so top it up here or carry the damage into every pass that
+	// follows.
+	huntRepairAtDock(ctx, deps, out, who, deps.Client.GetState())
 
 	// Step 2: read the board; accept the first admissible entry, logging
 	// every refusal with its reason.
@@ -633,6 +665,36 @@ func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly boo
 	return keep
 }
 
+// huntRepairAtDock tops the hull up while the pass is docked at the board
+// station, when it is below huntRepairAtHull.
+//
+// This is the whole repair story, on purpose. The pass already docks to read
+// the board, so a repair here costs no travel and no extra leg — it is one
+// command at a place the worker is already standing. A mid-pass return to a
+// station, and the Combat Support repair-kit path, are deliberately NOT built.
+//
+// A repair that fails is logged and swallowed, matching the neighbouring
+// executors: it may cost credits the agent does not have, or the station may
+// not offer the service, and neither is a reason to throw away a pass that can
+// still hunt. The call is given its own deadline so a slow or unacknowledged
+// reply cannot park a worker at the dock — GameClient.Repair waits on the
+// default terminator, whose behaviour against a real repair reply is
+// UNVERIFIED (the same shape recently hung Attack for five minutes).
+func huntRepairAtDock(ctx context.Context, deps HuntDeps, out io.Writer, who string, st *game.State) {
+	if st == nil || st.Ship.MaxHull <= 0 || st.Ship.Hull/st.Ship.MaxHull >= huntRepairAtHull {
+		return
+	}
+	fmt.Fprintf(out, "hunt[%s]: hull %.0f%% (%.0f/%.0f) below %.0f%%; repairing at %s\n", //nolint:errcheck
+		who, st.Ship.Hull/st.Ship.MaxHull*100, st.Ship.Hull, st.Ship.MaxHull, huntRepairAtHull*100, st.CurrentPOI)
+	rctx, cancel := context.WithTimeout(ctx, game.SleepActionStartTimeout)
+	defer cancel()
+	if err := deps.Client.Repair(rctx); err != nil {
+		fmt.Fprintf(out, "hunt: repair at %s: %v; hunting on the hull we have\n", st.CurrentPOI, err) //nolint:errcheck
+		return
+	}
+	fmt.Fprintf(out, "hunt[%s]: repaired at %s\n", who, st.CurrentPOI) //nolint:errcheck
+}
+
 // huntWaitForShields holds the pass between engagements until the shield bar
 // is back above huntShieldReadyFrac. It returns nothing: the caller re-reads
 // get_status at the top of the next iteration anyway, and handing back a state
@@ -651,6 +713,15 @@ func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly boo
 // is a cost, not a hazard, and the hull gate is what makes it safe.
 func huntWaitForShields(ctx context.Context, deps HuntDeps, out io.Writer, who string, st *game.State) {
 	if st == nil || st.Ship.MaxShield <= 0 || st.Ship.Shield/st.Ship.MaxShield >= huntShieldReadyFrac {
+		return
+	}
+	// The ship's own reported recharge decides whether waiting can work at all.
+	// A hull that reports no recharge will not recover no matter how long the
+	// pass stands still, and the measured loop below would only discover that
+	// after burning a tick.
+	if st.Ship.ShieldRecharge <= 0 {
+		fmt.Fprintf(out, "hunt[%s]: shields %.0f%% and this hull reports no recharge; engaging as-is\n", //nolint:errcheck
+			who, st.Ship.Shield/st.Ship.MaxShield*100)
 		return
 	}
 	cur := st
@@ -718,8 +789,19 @@ func huntSpeciesSeen(creatures []serverapi.NearbyCreature) string {
 // to get it wrong.
 //
 // NOTE — this deviates from the brief, which said to prefer full-hull ones,
-// and the deviation was ratified in review. The decisive evidence is on the
-// revenue side: BOTH captured carcasses — different species, different systems
+// and the deviation was ratified in review.
+//
+// The strongest argument is that a long fight costs PERMANENT damage. Incoming
+// damage lands on shields, which regenerate, but a quarry big enough that the
+// fight outlasts the shield pool starts eating hull — and hull comes back only
+// at a station. That is exactly where the operator's 82% hull came from: not a
+// belt-grazer, but a ~120hp creature that outlived the shields before dying.
+// A 50-point bar at ~3/tick net covers ~16 in-reach ticks, so at 18 damage a
+// tick anything past roughly 290 hull is buying credits-and-a-dock worth of
+// damage. Shortest-fight is the rule that keeps every engagement inside the
+// renewable pool.
+//
+// The revenue side agrees: BOTH captured carcasses — different species, different systems
 // — carry an identical single crystallized_biogas and salvage_value 5, so the
 // loot does not scale with the quarry. A bigger creature is strictly more cost
 // for identical revenue. On the cost side, a captured kill of a 70-hull grazer

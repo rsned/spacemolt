@@ -3,6 +3,8 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"slices"
 	"strings"
@@ -44,6 +46,19 @@ const (
 	huntRealWreckDecoy = `{"cargo":[{"item_id":"crystallized_biogas","quantity":1,"size":1}],"created_at":"2026-08-09T00:36:03.106837197Z","expire_tick":1565698,"expires_at":"2026-08-09T01:06:03.106837197Z","id":"78f7f0cb82e4f4ab27376594c319c73a","killer_id":"a50924913cef881c5e4d14257589d9ba","killer_name":"Arthur 'Artificer' Artis","modules":[],"poi_id":"gold_run_cryobelt","salvage_value":5,"ship_class":"","system_id":"gold_run","type":"creature","victim_id":"crt_1504baf945ab8e7faff70e1f4c7d146c","victim_name":"Frost-Moth"}`
 )
 
+// The fixture ship is the operator's live Prospect, verbatim from get_ship:
+// max_hull 95, max_shield 50, shield_recharge 1.
+//
+// max_hull is 95, NOT the 100 the class catalogue records — which is exactly
+// why no fraction in the executor may be computed against a literal. Tests
+// derive their expectations from these constants and from the ship's own
+// fields, never from a number typed into an assertion.
+const (
+	huntShipMaxHull        = 95.0
+	huntShipMaxShield      = 50.0
+	huntShipShieldRecharge = 1.0
+)
+
 // boardMission is the shorthand newHuntFake uses to build a combat board
 // entry with a single kill_creature objective.
 type boardMission struct {
@@ -77,11 +92,17 @@ type huntFakeOpts struct {
 	// battleHullPct is our own hull percentage the battle picture reports
 	// during the FIRST fight. 0 means full hull throughout.
 	battleHullPct int
-	// shieldMax/shieldStart size the shield bar the between-engagement gate
-	// reads, and shieldRegen is how much one get_status recovers. A zero
-	// shieldMax leaves the ship unshielded, which is how every other test in
-	// this file runs — the gate is inert then, by design.
-	shieldMax, shieldStart, shieldRegen float64
+	// shieldStart overrides the fixture ship's current shield (0 -> a full
+	// bar). shieldRecharge overrides the ship's reported per-tick recovery,
+	// which is also what the fake actually recovers per get_status — the point
+	// being that a hardcoded rate in the executor cannot pass a fixture whose
+	// rate is not 1. shieldStuck reports a recharge that never materialises.
+	shieldStart, shieldRecharge float64
+	shieldStuck                 bool
+	// maxHull/maxShield override the fixture ship's pools (0 -> the live
+	// Prospect's). A second ship shape is what proves the gates divide by the
+	// pool they were handed rather than by a literal.
+	maxHull, maxShield float64
 	// shipHullFrac is the hull fraction get_status reports from the start of
 	// the pass (the between-engagement gate reads Ship.Hull, which only
 	// get_status refreshes). 0 means full.
@@ -132,6 +153,11 @@ type huntFake struct {
 	// carcasses so far — the server's count, which is not the same number as
 	// the pass's confirmed kills once objectiveStuck is set.
 	actives []serverapi.ActiveMission
+
+	// repairErr is what the station answers a repair with. The fake never
+	// heals: these tests assert on the CALL, since the executor logs and
+	// continues either way and takes no decision from the outcome.
+	repairErr error
 
 	quarryID   string
 	battle     serverapi.GetBattleStatusResponse
@@ -207,6 +233,25 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 	if capacity == 0 {
 		capacity = 100
 	}
+	maxHull := opts.maxHull
+	if maxHull == 0 {
+		maxHull = huntShipMaxHull
+	}
+	maxShield := opts.maxShield
+	if maxShield == 0 {
+		maxShield = huntShipMaxShield
+	}
+	shield := opts.shieldStart
+	if shield == 0 {
+		shield = maxShield
+	}
+	recharge := opts.shieldRecharge
+	switch {
+	case recharge == 0:
+		recharge = huntShipShieldRecharge
+	case recharge < 0:
+		recharge = 0 // sentinel: a hull that reports no recharge at all
+	}
 
 	f := &fakeClient{
 		state: &game.State{
@@ -215,8 +260,8 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 			CurrentPOI: poi,
 			Doc:        !opts.unsetDocked,
 			Ship: game.Ship{
-				Hull: 100, MaxHull: 100,
-				Shield: opts.shieldStart, MaxShield: opts.shieldMax,
+				Hull: maxHull, MaxHull: maxHull,
+				Shield: shield, MaxShield: maxShield, ShieldRecharge: recharge,
 				CargoCapacity: capacity, CargoUsed: opts.cargoUsed,
 			},
 		},
@@ -309,12 +354,21 @@ func (f *huntFake) GetStatus(ctx context.Context) error {
 	if f.opts.shipHullFrac > 0 {
 		f.state.Ship.Hull = f.opts.shipHullFrac * f.state.Ship.MaxHull
 	}
-	// Shields recover between queries, which is the whole reason the wait gate
-	// exists. shieldRegen 0 models a ship that is not recovering at all.
-	if f.opts.shieldMax > 0 {
-		f.state.Ship.Shield = min(f.opts.shieldMax, f.state.Ship.Shield+f.opts.shieldRegen)
+	// Shields recover between queries at the ship's OWN reported rate, which is
+	// the whole reason the wait gate exists. shieldStuck reports a rate that
+	// never materialises — a server saying one thing and doing another.
+	if !f.opts.shieldStuck {
+		f.state.Ship.Shield = min(f.state.Ship.MaxShield, f.state.Ship.Shield+f.state.Ship.ShieldRecharge)
 	}
 	return nil
+}
+
+func (f *huntFake) Repair(ctx context.Context) error {
+	if f.repairErr != nil {
+		f.calls = append(f.calls, "repair_failed")
+		return f.repairErr
+	}
+	return f.fakeClient.Repair(ctx)
 }
 
 func (f *huntFake) Undock(ctx context.Context) error {
@@ -1119,19 +1173,19 @@ func TestHuntLogsTheObjectiveTarget(t *testing.T) {
 // Shields absorb before hull and grow back on their own, so a depleted bar is
 // worth waiting out rather than spending hull on.
 func TestHuntWaitsForShieldsBeforeEngaging(t *testing.T) {
+	// A bar low enough that the ship's own recharge has real work to do.
+	start := huntShipMaxShield * 0.1
 	c := newHuntFake(t, huntFakeOpts{
 		board:       []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
 		creatures:   huntGrazers("c1"),
-		shieldMax:   50,
-		shieldStart: 5,
-		shieldRegen: 3,
+		shieldStart: start,
 	})
 	var log strings.Builder
 	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
 		t.Fatalf("Hunt: %v", err)
 	}
 	if !strings.Contains(log.String(), "waiting to recover") {
-		t.Errorf("a flat shield bar must be waited out, got:\n%s", log.String())
+		t.Errorf("a near-flat shield bar must be waited out, got:\n%s", log.String())
 	}
 	if !strings.Contains(log.String(), "shields back to") {
 		t.Errorf("must say the wait ended on recovery, got:\n%s", log.String())
@@ -1145,15 +1199,69 @@ func TestHuntWaitsForShieldsBeforeEngaging(t *testing.T) {
 	}
 }
 
-// A ship whose shields are NOT coming back must not sit in the wait for the
-// full bound. The rate is measured, never assumed, so "no rise" is the signal.
-func TestHuntStopsWaitingWhenShieldsDoNotRecover(t *testing.T) {
+// The recovery rate comes off the wire per ship. This fixture recharges FASTER
+// than the Prospect's 1, so an executor that assumed the captured rate — the
+// N5 mistake, where every fixture happened to carry the value that was
+// hardcoded — reaches the threshold at the wrong tick.
+func TestHuntWaitsAtTheShipsOwnRechargeRate(t *testing.T) {
+	start := huntShipMaxShield * 0.1
+	const recharge = 4.0
+	c := newHuntFake(t, huntFakeOpts{
+		board:          []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures:      huntGrazers("c1"),
+		shieldStart:    start,
+		shieldRecharge: recharge,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	// One get_status precedes the wait, so the bar is already up one tick when
+	// the loop starts; every reading is a whole number of the ship's own rate.
+	want := start + recharge
+	for want/huntShipMaxShield < huntShieldReadyFrac {
+		want += recharge
+	}
+	if got := c.state.Ship.Shield; got != want {
+		t.Errorf("engaged at shield %.0f, want %.0f — the wait must step at the ship's reported %.0f/tick", got, want, recharge)
+	}
+	if !strings.Contains(log.String(), "shields back to") {
+		t.Errorf("must say the wait ended on recovery, got:\n%s", log.String())
+	}
+}
+
+// A hull that reports no recharge cannot be waited into recovery, and must not
+// spend a single tick trying.
+func TestHuntDoesNotWaitWhenTheHullReportsNoRecharge(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:          []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures:      huntGrazers("c1"),
+		shieldStart:    huntShipMaxShield * 0.1,
+		shieldRecharge: -1, // sentinel for "reports zero", see newHuntFake
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !strings.Contains(log.String(), "no recharge") {
+		t.Errorf("must say why waiting is pointless, got:\n%s", log.String())
+	}
+	if strings.Contains(log.String(), "waiting to recover") {
+		t.Errorf("must not enter the wait at all, got:\n%s", log.String())
+	}
+	if c.huntCalls != 1 {
+		t.Errorf("hunt calls = %d, want 1 — an under-shielded engagement is a cost, not a refusal", c.huntCalls)
+	}
+}
+
+// A server that reports a recharge it does not deliver must not hold the pass
+// for the full bound. The rate is measured, never trusted.
+func TestHuntStopsWaitingWhenShieldsDoNotActuallyRise(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
 		board:       []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
 		creatures:   huntGrazers("c1"),
-		shieldMax:   50,
-		shieldStart: 5,
-		shieldRegen: 0,
+		shieldStart: huntShipMaxShield * 0.1,
+		shieldStuck: true,
 	})
 	var log strings.Builder
 	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
@@ -1162,21 +1270,19 @@ func TestHuntStopsWaitingWhenShieldsDoNotRecover(t *testing.T) {
 	if !strings.Contains(log.String(), "stopped recovering") {
 		t.Errorf("must give up the wait once the bar stops rising, got:\n%s", log.String())
 	}
-	if strings.Contains(log.String(), "after 20 ticks") {
+	if strings.Contains(log.String(), fmt.Sprintf("after %d ticks", huntShieldWaitTicks)) {
 		t.Errorf("must not burn the full bound on a bar that is not moving, got:\n%s", log.String())
 	}
 	if c.huntCalls != 1 {
-		t.Errorf("hunt calls = %d, want 1 — an under-shielded engagement is a cost, not a refusal", c.huntCalls)
+		t.Errorf("hunt calls = %d, want 1", c.huntCalls)
 	}
 }
 
 // A full bar is not waited on at all.
 func TestHuntDoesNotWaitOnHealthyShields(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
-		board:       []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
-		creatures:   huntGrazers("c1"),
-		shieldMax:   50,
-		shieldStart: 50,
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures: huntGrazers("c1"),
 	})
 	var log strings.Builder
 	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
@@ -1184,6 +1290,100 @@ func TestHuntDoesNotWaitOnHealthyShields(t *testing.T) {
 	}
 	if strings.Contains(log.String(), "waiting to recover") {
 		t.Errorf("full shields must not wait, got:\n%s", log.String())
+	}
+}
+
+// Both gates divide by the pool the SHIP reports, never by the Prospect's.
+// This ship is nothing like a Prospect: 200 hull and 200 shield, both at a
+// fraction that reads as healthy against a 95/50 literal and as damaged
+// against its own maximum. That is the N5 trap — every fixture carrying the
+// captured value — closed for hull and shields.
+func TestHuntGatesScaleWithTheShipsOwnPools(t *testing.T) {
+	const pool = 200.0
+	c := newHuntFake(t, huntFakeOpts{
+		board:          []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures:      huntGrazers("c1"),
+		maxHull:        pool,
+		maxShield:      pool,
+		shipHullFrac:   0.75, // 150 hull: below 90% of 200, far above 95
+		shieldStart:    60,   // 30% of 200, but 120% of a Prospect's bar
+		shieldRecharge: 5,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !called(c, "repair") {
+		t.Errorf("150/200 hull is below the repair line and must repair, calls: %v", c.calls)
+	}
+	if !strings.Contains(log.String(), "waiting to recover") {
+		t.Errorf("60/200 shields must be waited out, got:\n%s", log.String())
+	}
+	if got := c.state.Ship.Shield / c.state.Ship.MaxShield; got < huntShieldReadyFrac {
+		t.Errorf("engaged at shields %.2f of this ship's own bar, want >= %.2f", got, huntShieldReadyFrac)
+	}
+}
+
+// Hull does not grow back, so it is topped up at the one dock the pass already
+// stands at — before hunting, not after a near-death.
+func TestHuntRepairsAtTheBoardDock(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:        []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures:    huntGrazers("c1"),
+		shipHullFrac: huntRepairAtHull - 0.1,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !called(c, "repair") {
+		t.Fatalf("a damaged hull must be repaired at the board dock, calls: %v", c.calls)
+	}
+	// Before hunting, not after: the point is to start the pass near full.
+	if firstCall(c, "repair") > firstCall(c, "hunt:") {
+		t.Errorf("repair must precede the first engagement, calls: %v", c.calls)
+	}
+	if !strings.Contains(log.String(), "repairing at haven_station") {
+		t.Errorf("must log the repair and where, got:\n%s", log.String())
+	}
+	// No new travel: repair happens where the board is.
+	if called(c, "travel:haven_station") {
+		t.Errorf("repair must not add a travel leg, calls: %v", c.calls)
+	}
+}
+
+// An undamaged hull spends nothing.
+func TestHuntDoesNotRepairAFullHull(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures: huntGrazers("c1"),
+	})
+	if err := Hunt(context.Background(), huntDeps(c, io.Discard)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if called(c, "repair") {
+		t.Errorf("repaired an undamaged hull, calls: %v", c.calls)
+	}
+}
+
+// A repair that fails is not a reason to throw away a pass that can still
+// hunt: no funds and no repair service are both ordinary.
+func TestHuntHuntsOnWhenTheRepairFails(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:        []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures:    huntGrazers("c1"),
+		shipHullFrac: huntRepairAtHull - 0.1,
+	})
+	c.repairErr = errors.New("insufficient credits")
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if c.huntCalls != 1 {
+		t.Errorf("hunt calls = %d, want 1 — a failed repair must not end the pass", c.huntCalls)
+	}
+	if !strings.Contains(log.String(), "insufficient credits") {
+		t.Errorf("must log why the repair failed, got:\n%s", log.String())
 	}
 }
 
