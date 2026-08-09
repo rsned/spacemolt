@@ -338,13 +338,48 @@ The recharger still wins on the arithmetic — 25% off incoming damage takes the
 net drain from 3/tick to 2/tick, while tripling recharge takes it to 1/tick, so
 the hardener buys half as much sustain for nearly three times the price.
 
-**And the skill gate decides it outright.** Both hardeners require `armor: 2` or
-`shields: 2`. `shield_recharger_i` requires nothing — the same property that
-made `pulse_laser_i` the only possible weapon for this roster. The fleet is
-miners whose recorded top skills are piloting, deep_core_mining and mining, with
-weapons at 0; armor and shields are almost certainly 0 as well, though the local
-`player_skills` table is empty so this needs a live `get_skills` to confirm.
-Until then the hardeners cannot be assumed buyable.
+> 🔴 **Retracted: `required_skills` on modules is NOT enforced at install.**
+> An earlier revision argued the skill gate "decides it outright", since both
+> hardeners need `armor: 2`/`shields: 2` while `shield_recharger_i` needs
+> nothing. That argument is dead. The operator installed **Shield Booster IV**
+> — `required_skills: {shields: 4}` — and the server accepted it:
+> `{"command":"install_mod","result":{"message":"Installed Shield Booster IV in
+> defense slot.","cpu_used":27,"power_used":45}}`.
+>
+> My error was treating a catalog field as an enforced rule without testing it.
+> That is the third time on this branch that a documented property turned out
+> not to describe the server — after the fabricated `NearbyCreature` fields and
+> the `is_npc` retraction. **CPU and power ARE enforced** (the response reports
+> both as running totals), so the real constraints on a fit are slots, CPU,
+> power and credits — not skills.
+
+**So the whole module ladder is open, and the tier-II parts change the answer.**
+Re-ranked with the skill gate removed, for a Prospect's single defense slot with
+8 spare CPU and 15 spare power:
+
+| Module | Cost | Effect | CPU/Pwr | Net shield drain vs a grazer's 4/tick |
+|---|---:|---|---|---:|
+| `shield_recharger_i` | 1,300 | recharge → 3 | 2/5 | −1/tick |
+| **`shield_recharger_ii`** | **7,500** | **recharge → 6** | 3/8 | **+2/tick — shields GROW mid-fight** |
+| `shield_booster_ii` | 7,200 | shield → 100 | 3/6 | −3/tick, on double the pool |
+| `kinetic_shield_hardener` | 3,800 | 25% resist → 3/tick | 3/6 | −2/tick |
+
+**`shield_recharger_ii` is the fleet's module.** At recharge 6 against 4/tick
+incoming, shields do not merely hold — they *regenerate faster than the quarry
+can strip them*, so a belt-grazer can never reach hull no matter how long the
+fight runs. That converts the shield-recovery wait between engagements into a
+formality and makes hull damage a non-event for the whole difficulty-1 tier. It
+fits the Prospect's spare CPU and power with room left.
+
+At 7,500cr each, five is **37,500cr** against the roster's ~76,900 — affordable,
+though no longer trivial. `shield_recharger_i` at 1,300 remains the budget
+option and still yields a net −1/tick.
+
+> ⚠️ **Verify before buying five.** Install being unenforced does not prove the
+> *effect* is ungated — a module might install and then underperform, or the
+> lenience might be a server bug that gets fixed. Fit one `shield_recharger_ii`
+> on one agent and confirm `get_ship` reports the raised `shield_recharge`
+> before committing 37,500cr.
 
 `kinetic_hull_hardener` is the one to revisit first anyway once `armor: 2`
 exists — at 740cr it is the cheapest defense module in the catalog, and 30% off
