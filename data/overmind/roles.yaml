@@ -87,6 +87,17 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
     idle: idle_market
+  # Wildlife-cull fleet (pkg/worker/hunt.go). Like the miner role, the asset
+  # captures are the only schedule it carries: a hunt pass reads the mission
+  # board itself, and update_market would only add tick cost at a station it is
+  # about to leave. The two safety gates (difficulty cap, wildlife-only) are not
+  # expressible here — they live in hunt_gate.go, which is deliberate.
+  hunt:
+    schedule:
+      - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
+    idle: hunt
   missionrunner:
     schedule:
       - { every: hourly, command: "update_market" }

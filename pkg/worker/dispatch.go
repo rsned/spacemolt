@@ -172,6 +172,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true, "ensure_home": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
+	"hunt": true,
 	"mine": true, "mine_qty": true, "deliver": true, "buy_directed": true, "craft_node": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
@@ -286,6 +287,22 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 				CaptureMarket(ctx, d.Client, d.KB)
 				return market.CaptureFromClient(ctx, d.Client, d.Market)
 			},
+		})
+	case "hunt":
+		// Both safety gates are deliberately left at their zero values.
+		// MaxDifficulty 0 resolves to huntDefaultMaxDifficulty and a nil
+		// WildlifeOnly resolves to huntWildlifeOnlyDefault, so hunt_gate.go
+		// stays the single place the fleet's risk posture is decided — naming
+		// them here would put the policy in two files that can drift, and the
+		// unsafe value of the interlock is precisely the one a copied-and-
+		// edited call site would produce.
+		return Hunt(ctx, HuntDeps{
+			Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID,
+			// Per-agent chain records (hunt_chain.go) live under the same
+			// tree as the credential files, so the worker's --agents-dir
+			// governs both; empty resolves to DefaultAgentsDir.
+			AgentsDir:   d.AgentsDir,
+			SetActivity: d.setActivity,
 		})
 	case "shuttle":
 		return Shuttle(ctx, ShuttleDeps{

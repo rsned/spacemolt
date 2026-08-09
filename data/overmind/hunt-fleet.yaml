@@ -1,0 +1,35 @@
+# Wildlife-hunt fleet — the wildlife-cull pool (pkg/worker/hunt.go).
+#
+# NOT LAUNCHED. This file is inert until an operator points an overmind at it;
+# no running worker reads it. Launching is a deliberate act, and it has a
+# pre-flight (below) that this file cannot perform.
+#
+# Two agents to start, per the rollout: hunting is the first standing behavior
+# in this repo that deliberately takes fire, and the gates that keep it survivable
+# (difficulty cap 1, wildlife-only) are only as good as the first fleet that runs
+# under them. Grow the pool after a pass has been watched end to end.
+#
+# The gates are NOT configurable here on purpose: they are constants in
+# pkg/worker/hunt_gate.go so that raising the fleet's risk posture is a code
+# change with a review, not a yaml edit.
+#
+# `station` is recorded for the operator and the fleet dashboard — the hunt role
+# does not read it. A hunt pass docks wherever it already is to reach a mission
+# board, travels to the quarry's own POI type, and stays out there; it never
+# returns to a pinned home.
+#
+# PRE-FLIGHT, by hand, before this fleet is launched:
+#   1. Refuel pirate-6 — its active Drillship was last seen at 0/130 and cannot
+#      move. Confirm before assuming: the reading is from 2026-08-08.
+#   2. Arm pirate-9's Prospector. The operator holds defensive modules in
+#      storage, so check `view_storage` before buying a pulse_laser_i (2,500cr)
+#      — the brief's buy step predates the storage ledger.
+#   3. Switch both agents into their Prospectors. The Drillships, Deeprock
+#      Harvester and Excavator stay docked: they out-slot the Prospector but are
+#      legacy hulls, and losing one costs more than this fleet earns.
+#   4. Canary first_hunt_belt_grazers by hand through play_as before letting the
+#      fleet run unattended.
+#   5. Launch with --assets-db-path data/assets.db and --stagger 10s.
+workers:
+  - { agent_id: pirate-6, role: hunt, station: frontier_station }
+  - { agent_id: pirate-9, role: hunt, station: frontier_station }

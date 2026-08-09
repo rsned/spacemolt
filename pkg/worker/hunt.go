@@ -212,6 +212,11 @@ type HuntDeps struct {
 	// FleeAtHull is the hull fraction below which the pass retreats rather
 	// than engaging another creature (0 -> huntDefaultFleeHull).
 	FleeAtHull float64
+	// SetActivity publishes the status-page "current activity" string (nil in
+	// tests and any non-dispatch caller). Set to the quarry once a job is in
+	// hand, replaced by the break-off line when the pass retreats, and cleared
+	// ("") at the top of every pass — mirrors Assist/Missions/Haul.
+	SetActivity func(string)
 	// sleep is the post-accept settle delay (nil -> craftPollSleepFunc, the
 	// ctx-aware real sleep). Mirrors MissionDeps.sleep; tests inject a
 	// zero-delay stand-in so the suite doesn't accumulate real waits.
@@ -279,6 +284,10 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		fmt.Fprintln(out, "hunt: game connection down; skipping pass until reconnected") //nolint:errcheck
 		return nil
 	}
+	// Clear last pass's line; huntSelectJob's result sets it below. A pass that
+	// finds no admissible mission is genuinely idle and should say nothing,
+	// rather than leave the previous quarry on the status page.
+	publishActivity(deps.SetActivity, "")
 	if deps.sleep == nil {
 		deps.sleep = craftPollSleepFunc
 	}
@@ -345,6 +354,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	if !ok {
 		return nil
 	}
+	publishActivity(deps.SetActivity, huntActivityLabel(job))
 
 	// Whatever ends the pass — the objective met, the cap, a flee, an error —
 	// report what the server counted, once. Deferred rather than repeated at
@@ -389,6 +399,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 			frac := st.Ship.Hull / st.Ship.MaxHull
 			fmt.Fprintf(out, "hunt[%s]: hull %.0f%% below flee threshold %.0f%% after %d/%d kill(s); breaking off\n", //nolint:errcheck
 				who, frac*100, fleeAtHull*100, kills, target)
+			publishActivity(deps.SetActivity, huntBreakOffLabel(job, kills))
 			// Only meaningful while a battle is actually in progress: between
 			// engagements the previous fight has resolved and the server
 			// rejects the stance. The in-fight abort (huntPolicy) is what
@@ -453,6 +464,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		switch outcome {
 		case huntFled:
 			fmt.Fprintf(out, "hunt: broke off at %d/%d kill(s); %s held for next pass\n", kills, target, job.boardID) //nolint:errcheck
+			publishActivity(deps.SetActivity, huntBreakOffLabel(job, kills))
 			return nil
 		case huntBattleError:
 			fmt.Fprintf(out, "hunt: ending pass after a battle error at %d/%d kill(s); %s held for next pass\n", kills, target, job.boardID) //nolint:errcheck
@@ -499,6 +511,44 @@ type huntJob struct {
 	baseline int // kills the server had already counted when this pass started
 	required string
 	resumed  bool
+}
+
+// huntJobName is what to call this mission on a status line: its title, or the
+// board id when the server sent no title (resumed instances have been seen
+// with an empty one).
+func huntJobName(job huntJob) string {
+	if job.title != "" {
+		return job.title
+	}
+	return job.boardID
+}
+
+// huntActivityLabel is the status-page line for the job a pass is working.
+//
+// It carries the quarry species and not just the title because the two are
+// separately wrong-able: the whole reason this executor tracks `required` is
+// that an evening of clean kills at correct belts never advanced
+// first_hunt_belt_grazers, and an operator watching the status page is exactly
+// the person who can spot a fleet hunting the wrong animal. The progress pair
+// is the server's count at the start of the pass (job.baseline), not this
+// pass's confirmed kills — the same number huntReportObjectiveProgress trusts.
+//
+// Shaped like Missions' "Mission <Title>" so the ovdash column reads uniformly
+// across roles.
+func huntActivityLabel(job huntJob) string {
+	label := "Hunt " + huntJobName(job)
+	if job.required != "" {
+		label += " · " + job.required
+	}
+	return fmt.Sprintf("%s %d/%d", label, job.baseline, job.target)
+}
+
+// huntBreakOffLabel is the status-page line for a pass that retreated. It is
+// left standing until the next pass clears it: a break-off is the one outcome
+// an operator wants to see without opening the worker log, since it is the
+// signal that a hull is being spent faster than the station can put it back.
+func huntBreakOffLabel(job huntJob, kills int) string {
+	return fmt.Sprintf("Hunt %s · broke off at %d/%d", huntJobName(job), kills, job.target)
 }
 
 // huntSelectJob picks the mission this pass will work on: a held one first,
