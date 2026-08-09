@@ -174,12 +174,17 @@ type GetNearbyResponse struct {
 }
 
 // GetBattleStatusResponse wraps the response from get_battle_status command.
+//
+// The reply carries NO "action" field (confirmed by capture, 2026-08-08), so
+// anything keyed on the action switch never sees it — see the shape-based
+// detection in client.go.
 type GetBattleStatusResponse struct {
 	BattleID      string              `json:"battle_id"`
 	SystemID      string              `json:"system_id"`
 	IsParticipant bool                `json:"is_participant"`
 	Participants  []BattleParticipant `json:"participants,omitempty"`
 	Sides         []BattleSide        `json:"sides,omitempty"`
+	CombatState   *CombatState        `json:"combat_state,omitempty"`
 	TickDuration  int                 `json:"tick_duration,omitempty"`
 }
 

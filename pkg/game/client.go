@@ -2409,15 +2409,11 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		if action, ok := resp.Payload["action"].(string); ok && action == "get_chat_history" {
 			c.parseChatHistoryData(resp.Payload)
 		}
-		// get_battle_status returns type "ok" with action "get_battle_status"
-		// and participants/sides/battle_id in payload. Detect it by shape too
-		// (is_participant, which no other modelled reply carries): gating the
-		// only writer of State.BattleState on "action" alone leaves the battle
-		// picture empty whenever a live reply omits that field, and an empty
-		// picture reads as "the fight is over".
-		action, _ := resp.Payload["action"].(string)
-		_, hasIsParticipant := resp.Payload["is_participant"]
-		if action == "get_battle_status" || hasIsParticipant {
+		// get_battle_status carries participants/sides/battle_id but NOT an
+		// "action" key (confirmed by capture), so this — the only writer of
+		// State.BattleState — has to be shape-gated. An empty battle picture
+		// reads as "the fight is over" to everything downstream.
+		if isBattleStatusPayload(resp.Payload) {
 			c.parseBattleStatusData(resp.Payload)
 		}
 
@@ -3140,6 +3136,29 @@ func (c *Client) parseChatHistoryData(payload map[string]any) {
 	}
 }
 
+// isBattleStatusPayload reports whether a payload is a get_battle_status
+// reply, by shape. Two shapes exist: a live battle (battle_id + participants)
+// and the bare "you are not in a battle" answer, which carries only
+// is_participant — the second matters because it is how a poll loop learns the
+// fight has ended. The action-based route is not usable: the reply has no
+// "action" key.
+func isBattleStatusPayload(payload map[string]any) bool {
+	if payload == nil {
+		return false
+	}
+	if action, ok := payload["action"].(string); ok && action == "get_battle_status" {
+		return true
+	}
+	_, hasBattleID := payload["battle_id"]
+	_, hasParticipants := payload["participants"]
+	if hasBattleID && hasParticipants {
+		return true
+	}
+	_, hasIsParticipant := payload["is_participant"]
+
+	return hasIsParticipant
+}
+
 // parseBattleStatusData populates state.BattleState from a get_battle_status
 // response. The server reports hull/shield as percentages plus zone/stance and
 // per-participant target. This is the structured read the spar harness and the
@@ -3155,21 +3174,8 @@ func (c *Client) parseBattleStatusData(payload map[string]any) {
 		return
 	}
 
-	parts := make([]BattleParticipant, 0, len(resp.Participants))
-	for _, p := range resp.Participants {
-		parts = append(parts, BattleParticipant{
-			PlayerID:  p.PlayerID,
-			Username:  p.Username,
-			ShipClass: p.ShipClass,
-			SideID:    p.SideID,
-			Zone:      p.Zone,
-			Stance:    p.Stance,
-			TargetID:  p.TargetID,
-			HullPct:   p.HullPct,
-			ShieldPct: p.ShieldPct,
-			AutoPilot: p.AutoPilot,
-		})
-	}
+	battle := BattleStateFromResponse(&resp)
+	parts := battle.Participants
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -3187,17 +3193,61 @@ func (c *Client) parseBattleStatusData(payload map[string]any) {
 		}
 		return
 	}
-	c.state.BattleState = &BattleState{
+	c.state.BattleState = battle
+	// Keep InBattle in sync with this authoritative poll: a status showing we
+	// are no longer a participant (battle ended) must clear it, not leave it
+	// stale for the next consumer (e.g. the future smart battle handler).
+	c.state.InBattle = resp.IsParticipant
+}
+
+// BattleStateFromResponse converts a get_battle_status reply into the cached
+// battle picture. Exported so a caller driving a fight (and a test standing in
+// for the server) shares exactly one mapping with the client rather than
+// keeping a second, drifting copy.
+func BattleStateFromResponse(resp *serverapi.GetBattleStatusResponse) *BattleState {
+	if resp == nil {
+		return nil
+	}
+	parts := make([]BattleParticipant, 0, len(resp.Participants))
+	for _, p := range resp.Participants {
+		parts = append(parts, BattleParticipant{
+			PlayerID:     p.PlayerID,
+			Username:     p.Username,
+			ShipClass:    p.ShipClass,
+			ShipName:     p.ShipName,
+			Kind:         p.Kind,
+			IsNPC:        p.IsNPC,
+			SideID:       string(p.SideID),
+			Zone:         p.Zone,
+			ZoneDistance: p.ZoneDistance,
+			Stance:       p.Stance,
+			TargetID:     p.TargetID,
+			HullPct:      p.HullPct,
+			ShieldPct:    p.ShieldPct,
+			AutoPilot:    p.AutoPilot,
+		})
+	}
+	st := &BattleState{
 		BattleID:      resp.BattleID,
 		SystemID:      resp.SystemID,
 		IsParticipant: resp.IsParticipant,
 		Participants:  parts,
 		TickDuration:  resp.TickDuration,
 	}
-	// Keep InBattle in sync with this authoritative poll: a status showing we
-	// are no longer a participant (battle ended) must clear it, not leave it
-	// stale for the next consumer (e.g. the future smart battle handler).
-	c.state.InBattle = resp.IsParticipant
+	if cs := resp.CombatState; cs != nil {
+		st.CombatState = &CombatState{
+			CanEscape:      cs.CanEscape,
+			EffectiveSpeed: cs.EffectiveSpeed,
+			EMDisrupted:    cs.EMDisrupted,
+			FleeCounter:    cs.FleeCounter,
+			FleeRequired:   cs.FleeRequired,
+			MaxWeaponReach: cs.MaxWeaponReach,
+			WarpDisrupted:  cs.WarpDisrupted,
+			Webbed:         cs.Webbed,
+		}
+	}
+
+	return st
 }
 
 // parseShipData extracts ship information from payload using serverapi types.
@@ -4680,14 +4730,13 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 				shouldStore = true
 			}
 		}
-		// Store get_battle_status by SHAPE as well as by action (the action
-		// case further down). A store key reachable only through the action
-		// switch is silently dead whenever a live reply omits "action" — the
-		// failure already recorded on browse_ships/owned_ships — and a hunt or
-		// battle loop reading an empty "battle_status" concludes the fight is
-		// over before it has begun. is_participant is unique to this reply
-		// among the modelled responses, so its presence identifies it.
-		if _, hasIsParticipant := resp.Payload["is_participant"]; hasIsParticipant {
+		// Store get_battle_status by SHAPE, not by action. A capture of the
+		// real reply (2026-08-08) has NO "action" key at all, so the action
+		// case further down never fires for this command and the key was
+		// simply never written — the browse_ships/owned_ships failure again,
+		// this time confirmed rather than suspected. A battle loop reading an
+		// empty "battle_status" concludes the fight is over before it began.
+		if isBattleStatusPayload(resp.Payload) {
 			if storeKey == "" {
 				storeKey = "battle_status"
 			}

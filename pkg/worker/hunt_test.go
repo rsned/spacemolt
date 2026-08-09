@@ -14,9 +14,34 @@ import (
 	"github.com/rsned/spacemolt/pkg/spar"
 )
 
-// huntSelfID is the player id the fake reports, and the id the battle picture
-// identifies "us" by (spar.BuildView matches on PlayerID).
-const huntSelfID = "me-1"
+// The three constants below are VERBATIM captures from the live server
+// (2026-08-08, craftsman-1), stored under
+// .superpowers/sdd/2026-08-08-wildlife-hunt-fleet/. They are pasted rather
+// than hand-composed on purpose: an invented get_nearby payload has already
+// put two field names into a struct on this branch that the server never
+// sends, and the test built on it passed against the wrong type.
+//
+// The only edits the fake makes are to the identifiers — the engaged
+// creature's id, so a test can run several engagements — never to the shape.
+const (
+	// huntSelfID is the capturing agent's real player id, so killer_id in the
+	// wreck captures and our own participant id in the battle capture match
+	// without editing either.
+	huntSelfID = "a50924913cef881c5e4d14257589d9ba"
+
+	// huntRealBattleStatusReply is THE get_battle_status reply — note it has
+	// no "action" key, which is why the raw store and the parse are shape-gated.
+	huntRealBattleStatusReply = `{"battle_id":"43598fe6756f61668661c9aeb8e68b8a","combat_state":{"can_escape":true,"effective_speed":1,"em_disrupted":false,"flee_counter":0,"flee_required":3,"max_weapon_reach":3,"warp_disrupted":false,"webbed":false},"is_participant":true,"participants":[{"auto_pilot":false,"hull_pct":100,"is_npc":true,"kind":"creature","player_id":"crt_cfbce87e4800ee17fa8e12b9e6adb8cb","ship_name":"grazer","side_id":1,"username":"Hollow Pilgrim","zone":"outer","zone_distance":6},{"auto_pilot":true,"hull_pct":100,"kind":"player","player_id":"a50924913cef881c5e4d14257589d9ba","shield_pct":100,"ship_class":"prospect","side_id":2,"stance":"fire","target_id":"crt_cfbce87e4800ee17fa8e12b9e6adb8cb","username":"Arthur 'Artificer' Artis","zone":"outer","zone_distance":6}],"sides":[{"player_count":1,"side_id":1},{"faction_id":"e727c0e918d994c72db2978fe5b18edc","faction_name":"Crafting Collective","faction_tag":"CRFT","player_count":1,"side_id":2}],"system_id":"gold_run"}`
+
+	// huntRealWreckOurs is the Drift-Ray carcass; the fake rewrites victim_id
+	// to whichever creature the pass just engaged.
+	huntRealWreckOurs = `{"cargo":[{"item_id":"crystallized_biogas","quantity":1,"size":1}],"created_at":"2026-08-09T00:23:13.142752742Z","expire_tick":1565621,"expires_at":"2026-08-09T00:53:13.142752742Z","id":"f80b0e98d825bfed35c3d1efbd9a2eaa","killer_id":"a50924913cef881c5e4d14257589d9ba","killer_name":"Arthur 'Artificer' Artis","modules":[],"poi_id":"market_prime_gas_plume","salvage_value":5,"ship_class":"","system_id":"market_prime","type":"creature","victim_id":"crt_d439a40cf658db0487e1be6bbe26a215","victim_name":"Drift-Ray"}`
+
+	// huntRealWreckDecoy is the Frost-Moth carcass, used UNMODIFIED as a
+	// wreck that is not ours: same type, same killer_id, different victim_id.
+	// That is exactly the case killer_id and type cannot tell apart.
+	huntRealWreckDecoy = `{"cargo":[{"item_id":"crystallized_biogas","quantity":1,"size":1}],"created_at":"2026-08-09T00:36:03.106837197Z","expire_tick":1565698,"expires_at":"2026-08-09T01:06:03.106837197Z","id":"78f7f0cb82e4f4ab27376594c319c73a","killer_id":"a50924913cef881c5e4d14257589d9ba","killer_name":"Arthur 'Artificer' Artis","modules":[],"poi_id":"gold_run_cryobelt","salvage_value":5,"ship_class":"","system_id":"gold_run","type":"creature","victim_id":"crt_1504baf945ab8e7faff70e1f4c7d146c","victim_name":"Frost-Moth"}`
+)
 
 // boardMission is the shorthand newHuntFake uses to build a combat board
 // entry with a single kill_creature objective.
@@ -31,6 +56,7 @@ type boardMission struct {
 type huntCreature struct {
 	id       string
 	species  string
+	role     string // "" -> grazer
 	hull     int
 	inCombat bool
 }
@@ -39,46 +65,44 @@ type huntCreature struct {
 type huntFakeOpts struct {
 	board     []boardMission
 	creatures []huntCreature
-	// activeMissions is the get_active_missions reply. Nil means the default
-	// (one active instance per board entry, with a hex-ish mission id);
-	// an explicitly empty slice models the accept not having landed yet.
+	// activeMissions overrides the default (one active instance per board
+	// entry with a hex-ish id); noActive models the accept not having landed.
 	activeMissions []serverapi.ActiveMission
 	noActive       bool
-	// battleHullPct is the own hull percentage the battle picture reports
+	// battleHullPct is our own hull percentage the battle picture reports
 	// during the FIRST fight. 0 means full hull throughout.
 	battleHullPct int
 	// shipHullFrac is the hull fraction get_status reports from the start of
 	// the pass (the between-engagement gate reads Ship.Hull, which only
 	// get_status refreshes). 0 means full.
 	shipHullFrac float64
-	// neverCloses models a quarry that outruns us: advance never improves the
-	// zone, so the chase makes no progress and never lands a shot.
+	// neverCloses models a quarry that outruns us: advance never reduces
+	// zone_distance, so the range never reaches weapon reach.
 	neverCloses bool
 	// noWreck suppresses the carcass, so a kill can never be confirmed.
 	noWreck bool
 	// cargoCapacity/cargoUsed size the hold for the loot clamp.
 	cargoCapacity float64
 	cargoUsed     float64
-	// wreckCargo is what each carcass carries.
-	wreckCargo []serverapi.CargoItem
-	// startPOI/startDocked place the worker; the default is docked at the
+	// startPOI/unsetDocked place the worker; the default is docked at the
 	// station whose board it reads.
 	startPOI    string
-	startDocked bool
 	unsetDocked bool
 }
 
-// huntFake wraps the shared fakeClient (dispatch_test.go) with a small battle
-// simulator, because the defect this suite exists to catch lives entirely
-// inside a fight: a canned "you are not a participant" reply resolves every
-// engagement instantly and proves nothing about advancing, breaking off, or
-// confirming a kill.
+// huntFake wraps the shared fakeClient (dispatch_test.go) with a battle
+// simulator seeded from the REAL get_battle_status capture, because the defect
+// this suite exists to catch lives entirely inside a fight: a canned "you are
+// not a participant" reply resolves every engagement instantly and proves
+// nothing about closing range, breaking off, or confirming a kill.
 //
-// The simulation is deliberately literal about the mechanics the executor
-// depends on: a fight starts in the outer zone; `advance` closes one zone per
-// tick; damage only lands from the engaged zone with the fire stance; a flee
-// stance ends the fight a tick later (it auto-retreats over several ticks);
-// and a dead creature leaves a carcass keyed by victim_id.
+// The simulation is literal about the mechanics the executor depends on, and
+// every number in it comes off the wire: the fight opens at zone_distance 6
+// against max_weapon_reach 3; `advance` closes one unit per tick and moves
+// both participants (the capture shows the two sides sharing a distance);
+// damage lands only within reach with a target set and the fire stance; the
+// flee stance takes flee_required counts to complete; and a dead creature
+// leaves a carcass keyed by victim_id.
 type huntFake struct {
 	*fakeClient
 	opts huntFakeOpts
@@ -90,17 +114,11 @@ type huntFake struct {
 	salvageCalls  []string
 
 	quarryID   string
+	battle     serverapi.GetBattleStatusResponse
 	battleLive bool
 	fleeing    bool
-	zone       int
-	stance     string
-	targetID   string
-	enemyHull  int
-	selfHull   int
 	wrecks     []serverapi.Wreck
 }
-
-var huntZones = []string{"outer", "mid", "inner", "engaged"}
 
 func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 	t.Helper()
@@ -135,13 +153,17 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 		if species == "" {
 			species = "ash_scarab"
 		}
+		role := c.role
+		if role == "" {
+			role = "grazer"
+		}
 		hull := c.hull
 		if hull == 0 {
 			hull = 45
 		}
 		creatures = append(creatures, serverapi.NearbyCreature{
-			CreatureID: c.id, Species: species, Role: "scavenger",
-			Hull: hull, MaxHull: 45, InCombat: c.inCombat,
+			CreatureID: c.id, Species: species, Role: role,
+			Hull: hull, MaxHull: hull, InCombat: c.inCombat,
 		})
 	}
 	nearbyRaw, err := json.Marshal(serverapi.GetNearbyResponse{
@@ -155,10 +177,6 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 	if poi == "" {
 		poi = "haven_station"
 	}
-	docked := !opts.unsetDocked
-	if opts.startDocked {
-		docked = true
-	}
 	capacity := opts.cargoCapacity
 	if capacity == 0 {
 		capacity = 100
@@ -169,7 +187,7 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 			Player:     game.Player{ID: huntSelfID},
 			System:     game.SystemData{ID: "test_system"},
 			CurrentPOI: poi,
-			Doc:        docked,
+			Doc:        !opts.unsetDocked,
 			Ship: game.Ship{
 				Hull: 100, MaxHull: 100,
 				CargoCapacity: capacity, CargoUsed: opts.cargoUsed,
@@ -206,6 +224,22 @@ func huntKB() knowledge.Base {
 	return kb
 }
 
+// huntRealReply decodes the captured reply. Decoding it at all is part of what
+// these tests assert: the capture sends side_id as a NUMBER, which a
+// string-typed field rejected outright, and a reply that will not decode is a
+// battle picture that never reaches the executor.
+func huntRealReply(t *testing.T) serverapi.GetBattleStatusResponse {
+	t.Helper()
+	var resp serverapi.GetBattleStatusResponse
+	if err := json.Unmarshal([]byte(huntRealBattleStatusReply), &resp); err != nil {
+		t.Fatalf("the captured get_battle_status reply must decode: %v", err)
+	}
+	if len(resp.Participants) != 2 || resp.CombatState == nil {
+		t.Fatalf("captured reply decoded to %+v", resp)
+	}
+	return resp
+}
+
 func (f *huntFake) GetStatus(ctx context.Context) error {
 	if err := f.fakeClient.GetStatus(ctx); err != nil {
 		return err
@@ -234,44 +268,77 @@ func (f *huntFake) GetNearby(ctx context.Context) error {
 	return nil
 }
 
+// self and quarry return pointers into the simulated battle picture.
+func (f *huntFake) self() *serverapi.BattleParticipant {
+	for i := range f.battle.Participants {
+		if f.battle.Participants[i].PlayerID == huntSelfID {
+			return &f.battle.Participants[i]
+		}
+	}
+	return nil
+}
+
+func (f *huntFake) quarry() *serverapi.BattleParticipant {
+	for i := range f.battle.Participants {
+		if f.battle.Participants[i].PlayerID != huntSelfID {
+			return &f.battle.Participants[i]
+		}
+	}
+	return nil
+}
+
 func (f *huntFake) Hunt(ctx context.Context, creatureID string) error {
 	f.huntCalls++
 	f.calls = append(f.calls, "hunt:"+creatureID)
 	f.quarryID = creatureID
+
+	var resp serverapi.GetBattleStatusResponse
+	if err := json.Unmarshal([]byte(huntRealBattleStatusReply), &resp); err != nil {
+		return err
+	}
+	f.battle = resp
+	// Point the capture at the creature this test engaged; everything else
+	// (zone_distance 6, max_weapon_reach 3, flee_required 3, is_npc, kind,
+	// ship_name, the numeric side ids) stays exactly as the server sent it.
+	q := f.quarry()
+	q.PlayerID = creatureID
+	f.self().TargetID = ""
+	f.self().Stance = ""
+	if f.huntCalls == 1 && f.opts.battleHullPct > 0 {
+		f.self().HullPct = f.opts.battleHullPct
+	}
 	f.battleLive = true
 	f.fleeing = false
-	f.zone = 0
-	f.stance = ""
-	f.targetID = ""
-	f.enemyHull = 100
-	f.selfHull = 100
-	if f.huntCalls == 1 && f.opts.battleHullPct > 0 {
-		f.selfHull = f.opts.battleHullPct
-	}
 	f.publishBattle()
 	return nil
 }
 
 // GetBattleStatus advances the simulated fight one tick and republishes the
-// battle picture, exactly where the real client's parseBattleStatusData writes
-// State.BattleState.
+// battle picture through the same converter the real client uses.
 func (f *huntFake) GetBattleStatus(ctx context.Context) error {
 	f.calls = append(f.calls, "get_battle_status")
 	switch {
 	case !f.battleLive:
 	case f.fleeing:
-		// The flee stance auto-retreats over several ticks; one is enough here.
-		f.battleLive = false
-	case f.zone == len(huntZones)-1 && f.stance == "fire":
-		f.enemyHull -= 60
-		if f.enemyHull <= 0 {
-			f.enemyHull = 0
+		f.battle.CombatState.FleeCounter++
+		if f.battle.CombatState.FleeCounter >= f.battle.CombatState.FleeRequired {
+			f.battleLive = false // the escape completed
+		}
+	case f.inReach() && f.self().Stance == "fire" && f.self().TargetID != "":
+		q := f.quarry()
+		q.HullPct -= 60
+		if q.HullPct <= 0 {
+			q.HullPct = 0
 			f.battleLive = false
 			f.recordCarcass()
 		}
 	}
 	f.publishBattle()
 	return nil
+}
+
+func (f *huntFake) inReach() bool {
+	return f.self().ZoneDistance <= f.battle.CombatState.MaxWeaponReach
 }
 
 func (f *huntFake) publishBattle() {
@@ -281,35 +348,20 @@ func (f *huntFake) publishBattle() {
 		return
 	}
 	f.state.InBattle = true
-	f.state.BattleState = &game.BattleState{
-		BattleID:      "b-" + f.quarryID,
-		IsParticipant: true,
-		Participants: []game.BattleParticipant{
-			{
-				PlayerID: huntSelfID, SideID: "1", Zone: huntZones[f.zone],
-				Stance: f.stance, TargetID: f.targetID, HullPct: f.selfHull,
-			},
-			{
-				PlayerID: f.quarryID, SideID: "2", Zone: huntZones[f.zone],
-				Stance: "fire", HullPct: f.enemyHull,
-			},
-		},
-	}
+	f.state.BattleState = game.BattleStateFromResponse(&f.battle)
 }
 
 func (f *huntFake) recordCarcass() {
 	if f.opts.noWreck {
 		return
 	}
-	cargo := f.opts.wreckCargo
-	if cargo == nil {
-		cargo = []serverapi.CargoItem{{ItemID: "carapace", Quantity: 3}}
+	var w serverapi.Wreck
+	if err := json.Unmarshal([]byte(huntRealWreckOurs), &w); err != nil {
+		panic(err)
 	}
-	f.wrecks = append(f.wrecks, serverapi.Wreck{
-		ID: "wreck_" + f.quarryID, Type: "creature",
-		VictimID: f.quarryID, KillerID: huntSelfID,
-		Cargo: cargo, SalvageValue: 5, POIID: "commerce_fields",
-	})
+	w.VictimID = f.quarryID
+	w.ID = "wreck_" + f.quarryID
+	f.wrecks = append(f.wrecks, w)
 }
 
 func (f *huntFake) Battle(ctx context.Context, action string, payload map[string]any) error {
@@ -324,14 +376,19 @@ func (f *huntFake) Battle(ctx context.Context, action string, payload map[string
 	f.battleActions = append(f.battleActions, label)
 	switch action {
 	case "advance":
-		if !f.opts.neverCloses && f.zone < len(huntZones)-1 {
-			f.zone++
+		// Both participants share the distance in the capture, so close both.
+		if !f.opts.neverCloses {
+			for i := range f.battle.Participants {
+				if f.battle.Participants[i].ZoneDistance > 0 {
+					f.battle.Participants[i].ZoneDistance--
+				}
+			}
 		}
 	case "target":
-		f.targetID, _ = payload["target_id"].(string)
+		f.self().TargetID, _ = payload["target_id"].(string)
 	case "stance":
-		f.stance, _ = payload["stance"].(string)
-		if f.stance == "flee" {
+		f.self().Stance, _ = payload["stance"].(string)
+		if f.self().Stance == "flee" {
 			f.fled = true
 			f.fleeing = true
 		}
@@ -341,12 +398,11 @@ func (f *huntFake) Battle(ctx context.Context, action string, payload map[string
 
 func (f *huntFake) GetWrecks(ctx context.Context) error {
 	f.calls = append(f.calls, "get_wrecks")
-	// A decoy from another hunter at the same belt: it must never be looted,
-	// which is what makes victim_id (not killer_id, not type) the key.
-	all := append([]serverapi.Wreck{{
-		ID: "wreck_someone_else", Type: "creature", VictimID: "not_our_quarry",
-		KillerID: "someone-else", Cargo: []serverapi.CargoItem{{ItemID: "biogas", Quantity: 9}},
-	}}, f.wrecks...)
+	var decoy serverapi.Wreck
+	if err := json.Unmarshal([]byte(huntRealWreckDecoy), &decoy); err != nil {
+		return err
+	}
+	all := append([]serverapi.Wreck{decoy}, f.wrecks...)
 	b, err := json.Marshal(serverapi.GetWrecksResponse{Wrecks: all, Count: len(all)})
 	if err != nil {
 		return err
@@ -377,6 +433,16 @@ func huntGrazers(ids ...string) []huntCreature {
 }
 
 func called(f *huntFake, want string) bool { return strings.Contains(strings.Join(f.calls, " "), want) }
+
+func countAction(f *huntFake, want string) int {
+	n := 0
+	for _, a := range f.battleActions {
+		if a == want {
+			n++
+		}
+	}
+	return n
+}
 
 // A gated pass must not issue a hunt at all.
 func TestHuntRefusesOverCapMission(t *testing.T) {
@@ -416,9 +482,7 @@ func TestHuntKillsToObjectiveCount(t *testing.T) {
 // huntCalls==0 alone does not isolate the empty-belt check: the engagement
 // loop's own huntPickQuarry also returns "nothing to hunt" for a nil quarry
 // slice, so a version of Hunt with the check deleted still reports zero hunts
-// and a nil error. The log assertion is what distinguishes them — the
-// empty-belt branch logs before the loop is ever entered, and the loop's own
-// fallback logs "no huntable creatures remain".
+// and a nil error. The log assertion is what distinguishes them.
 func TestHuntNoCreaturesIsNotAnError(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
 		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 3}},
@@ -438,7 +502,7 @@ func TestHuntNoCreaturesIsNotAnError(t *testing.T) {
 
 // The flee threshold aborts the hunt rather than trading the hull for a kill —
 // and it aborts from INSIDE the fight, which is the only window in which a
-// hunting worker actually takes damage.
+// hunting worker actually takes damage (a captured kill cost 12 hull).
 func TestHuntFleesBelowHullThreshold(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
 		board:         []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 3}},
@@ -457,10 +521,13 @@ func TestHuntFleesBelowHullThreshold(t *testing.T) {
 	if !c.fled {
 		t.Error("dropping below the flee threshold must issue a flee stance")
 	}
-	// The abort must dominate: no advance may be issued in the fight it has
-	// already decided to escape.
+	// The abort must dominate: nothing that closes the range may be issued in
+	// a fight it has already decided to escape.
 	if len(c.battleActions) == 0 || c.battleActions[0] != "stance:flee" {
 		t.Errorf("first battle action = %v, want stance:flee before anything that closes the range", c.battleActions)
+	}
+	if countAction(c, "advance") != 0 {
+		t.Errorf("advanced while fleeing: %v", c.battleActions)
 	}
 }
 
@@ -486,10 +553,16 @@ func TestHuntBreaksOffBeforeFirstEngagement(t *testing.T) {
 	}
 }
 
-// Closing the range is the whole fight: a battle opens in the outer zone,
-// where short-range weapons refuse to fire. The pass must advance, target and
-// hold the fire stance, re-evaluated every tick.
-func TestHuntAdvancesToCloseTheRange(t *testing.T) {
+// Closing the range is the whole fight, and the range is a NUMBER: the capture
+// opens at zone_distance 6 against max_weapon_reach 3, so exactly three
+// advances are needed before a shot can land.
+func TestHuntAdvancesUntilInWeaponReach(t *testing.T) {
+	reply := huntRealReply(t)
+	wantAdvances := reply.Participants[0].ZoneDistance - reply.CombatState.MaxWeaponReach
+	if wantAdvances != 3 {
+		t.Fatalf("fixture drift: expected 6-3=3 advances, computed %d", wantAdvances)
+	}
+
 	c := newHuntFake(t, huntFakeOpts{
 		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
 		creatures: huntGrazers("c1"),
@@ -498,18 +571,12 @@ func TestHuntAdvancesToCloseTheRange(t *testing.T) {
 	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
 		t.Fatalf("Hunt: %v", err)
 	}
-	advances := 0
-	for _, a := range c.battleActions {
-		if a == "advance" {
-			advances++
-		}
-	}
-	if advances != len(huntZones)-1 {
-		t.Errorf("advances = %d (%v), want %d — one per zone from outer to engaged",
-			advances, c.battleActions, len(huntZones)-1)
+	if got := countAction(c, "advance"); got != wantAdvances {
+		t.Errorf("advances = %d (%v), want %d — one per unit of zone_distance above max_weapon_reach",
+			got, c.battleActions, wantAdvances)
 	}
 	if !called(c, "battle:target:c1") {
-		t.Errorf("must target the quarry once in range, actions: %v", c.battleActions)
+		t.Errorf("must target the quarry once in reach, actions: %v", c.battleActions)
 	}
 	if !called(c, "battle:stance:fire") {
 		t.Errorf("must hold the fire stance, actions: %v", c.battleActions)
@@ -535,15 +602,9 @@ func TestHuntGivesUpOnAQuarryItCannotCatch(t *testing.T) {
 	if !strings.Contains(log.String(), "no progress for") || !strings.Contains(log.String(), "outrunning us") {
 		t.Errorf("must log the give-up and which failure mode it was, got:\n%s", log.String())
 	}
-	advances := 0
-	for _, a := range c.battleActions {
-		if a == "advance" {
-			advances++
-		}
-	}
-	if advances > huntNoProgressTicks+1 {
+	if got := countAction(c, "advance"); got > huntNoProgressTicks+1 {
 		t.Errorf("advanced %d times against an uncatchable quarry; the progress bound should stop it near %d",
-			advances, huntNoProgressTicks)
+			got, huntNoProgressTicks)
 	}
 	if !c.fled {
 		t.Error("abandoning a quarry must disengage first, not just move on")
@@ -551,28 +612,24 @@ func TestHuntGivesUpOnAQuarryItCannotCatch(t *testing.T) {
 }
 
 // The carcass is the kill receipt AND the cargo. It is matched by victim_id:
-// another hunter's wreck at the same belt is neither proof nor ours to take.
+// the decoy here is a REAL second capture with the same type and the same
+// killer_id, which is exactly what those two fields cannot tell apart.
 func TestHuntLootsItsOwnCarcassOnly(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
-		board:      []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
-		creatures:  huntGrazers("c1"),
-		wreckCargo: []serverapi.CargoItem{{ItemID: "carapace", Quantity: 3}, {ItemID: "biogas", Quantity: 2}},
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures: huntGrazers("c1"),
 	})
 	if err := Hunt(context.Background(), huntDeps(c, io.Discard)); err != nil {
 		t.Fatalf("Hunt: %v", err)
 	}
-	want := []string{"wreck_c1/carapace", "wreck_c1/biogas"}
-	if len(c.lootCalls) != len(want) {
+	want := []string{"wreck_c1/crystallized_biogas"}
+	if len(c.lootCalls) != len(want) || c.lootCalls[0] != want[0] {
 		t.Fatalf("loot calls = %v, want %v", c.lootCalls, want)
 	}
-	for i, w := range want {
-		if c.lootCalls[i] != w {
-			t.Errorf("loot call %d = %q, want %q", i, c.lootCalls[i], w)
-		}
-	}
+	// 78f7f0cb… is the Frost-Moth capture: another kill's carcass.
 	for _, got := range c.lootCalls {
-		if strings.Contains(got, "someone_else") {
-			t.Errorf("looted another hunter's wreck: %v", c.lootCalls)
+		if strings.HasPrefix(got, "78f7f0cb") {
+			t.Errorf("looted a carcass that was not ours: %v", c.lootCalls)
 		}
 	}
 }
@@ -602,7 +659,7 @@ func TestHuntLeavesCargoWhenTheHoldIsFull(t *testing.T) {
 }
 
 // No carcass, no kill. A battle ending proves nothing: it ends when the quarry
-// escapes too.
+// escapes, and when we die, too.
 func TestHuntWithoutACarcassCountsNoKill(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
 		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
@@ -663,16 +720,17 @@ func TestHuntHoldsWhenTheActiveIDCannotBeResolved(t *testing.T) {
 }
 
 // Do not pile onto a fight already underway: an InCombat creature is skipped
-// even when it is the healthiest one on the belt.
+// even when it would otherwise be the pick.
 func TestHuntSkipsCreaturesAlreadyInCombat(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
 		board: []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
 		creatures: []huntCreature{
-			{id: "busy", hull: 45, inCombat: true},
-			{id: "free", hull: 20},
+			{id: "busy", hull: 20, inCombat: true},
+			{id: "free", hull: 45},
 		},
 	})
-	if err := Hunt(context.Background(), huntDeps(c, io.Discard)); err != nil {
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
 		t.Fatalf("Hunt: %v", err)
 	}
 	if called(c, "hunt:busy") {
@@ -681,16 +739,83 @@ func TestHuntSkipsCreaturesAlreadyInCombat(t *testing.T) {
 	if !called(c, "hunt:free") {
 		t.Errorf("want the free creature engaged, calls: %v", c.calls)
 	}
+	if !strings.Contains(log.String(), "already in combat") {
+		t.Errorf("must log the refusal, got:\n%s", log.String())
+	}
 }
 
-// When the objective names its quarry, that species wins over a healthier
-// stranger: killing the wrong species may not advance the objective at all.
+// A PREDATOR is never engaged while wildlife-only is in force. The whole
+// safety case for a difficulty-1 fleet is that its quarry does not
+// meaningfully fight back; the captured Tempest-Eel is a 280-hull predator
+// sitting at full hull beside 45-hull grazers, so any "healthiest first" or
+// "first in the list" rule walks straight into it.
+func TestHuntRefusesToEngageAPredator(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board: []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures: []huntCreature{
+			{id: "eel", species: "tempest_eel", role: "predator", hull: 280},
+			{id: "jelly", species: "bell_jelly", role: "grazer", hull: 45},
+		},
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if called(c, "hunt:eel") {
+		t.Fatalf("engaged a predator: %v", c.calls)
+	}
+	if !called(c, "hunt:jelly") {
+		t.Errorf("want the grazer engaged, calls: %v", c.calls)
+	}
+	if !strings.Contains(log.String(), `role "predator" is not huntable wildlife`) {
+		t.Errorf("must log the refusal with the role named, got:\n%s", log.String())
+	}
+}
+
+// An unknown or absent role is refused too: not hunting is the safe failure.
+func TestHuntRefusesACreatureWithNoRole(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures: []huntCreature{{id: "mystery", species: "unknown_thing", role: "leviathan", hull: 900}},
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if c.huntCalls != 0 {
+		t.Errorf("hunt calls = %d, want 0 for an unrecognised role", c.huntCalls)
+	}
+	if !strings.Contains(log.String(), "nothing huntable") {
+		t.Errorf("must log that the belt held nothing huntable, got:\n%s", log.String())
+	}
+}
+
+// Among equally admissible quarry the SHORTEST fight wins: identical
+// kill_creature credit, fewer ticks, less damage taken.
+func TestHuntPicksTheShortestFight(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board: []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+		creatures: []huntCreature{
+			{id: "whale", species: "pilot_whale", hull: 220},
+			{id: "jelly", species: "bell_jelly", hull: 45},
+		},
+	})
+	if err := Hunt(context.Background(), huntDeps(c, io.Discard)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !called(c, "hunt:jelly") || called(c, "hunt:whale") {
+		t.Errorf("want the 45-hull jelly engaged rather than the 220-hull whale, calls: %v", c.calls)
+	}
+}
+
+// When the objective names its quarry, that species wins over a shorter fight:
+// killing the wrong species may not advance the objective at all.
 func TestHuntPrefersTheObjectiveSpecies(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
 		board: []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1, targetID: "belt_grazer"}},
 		creatures: []huntCreature{
-			{id: "scarab", species: "ash_scarab", hull: 45},
-			{id: "grazer", species: "belt_grazer", hull: 10},
+			{id: "scarab", species: "ash_scarab", role: "scavenger", hull: 20},
+			{id: "grazer", species: "belt_grazer", hull: 70},
 		},
 	})
 	if err := Hunt(context.Background(), huntDeps(c, io.Discard)); err != nil {
@@ -698,6 +823,24 @@ func TestHuntPrefersTheObjectiveSpecies(t *testing.T) {
 	}
 	if !called(c, "hunt:grazer") || called(c, "hunt:scarab") {
 		t.Errorf("want only the objective's species engaged, calls: %v", c.calls)
+	}
+}
+
+// The objective's target_id and description are logged verbatim on accept.
+// Mission progress has not moved across several live kills and nobody knows
+// what kill_creature is scoped to; this line is what makes the next live pass
+// answer it.
+func TestHuntLogsTheObjectiveTarget(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1, targetID: "belt_grazer"}},
+		creatures: huntGrazers("c1"),
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !strings.Contains(log.String(), `target_id="belt_grazer"`) || !strings.Contains(log.String(), `desc="cull the herd"`) {
+		t.Errorf("must log the objective target verbatim, got:\n%s", log.String())
 	}
 }
 
@@ -763,19 +906,135 @@ func TestHuntRecoversToAStationWhenUndocked(t *testing.T) {
 	}
 }
 
-// The policy is a pure function of the view, so its precedence is testable
-// without a fight: the hull abort must win over closing the range.
+// --- policy-level tests: the fight controller is a pure function of the view ---
+
+// huntView builds a spar.View from the captured reply, applying overrides.
+func huntView(t *testing.T, mutate func(*serverapi.GetBattleStatusResponse)) spar.View {
+	t.Helper()
+	resp := huntRealReply(t)
+	if mutate != nil {
+		mutate(&resp)
+	}
+	v, ok := spar.BuildView(game.BattleStateFromResponse(&resp), huntSelfID)
+	if !ok {
+		t.Fatal("BuildView could not find self in the captured participants")
+	}
+	return v
+}
+
+// The hull abort must win over closing the range, or the loop closes the very
+// range it decided to escape.
 func TestHuntPolicyAbortDominatesAdvance(t *testing.T) {
 	p := &huntPolicy{fleeAtHull: 0.35}
-	act := p.Decide(spar.View{
-		Self:    game.BattleParticipant{PlayerID: huntSelfID, Zone: "outer", HullPct: 20},
-		Enemies: []game.BattleParticipant{{PlayerID: "c1", HullPct: 100}},
+	v := huntView(t, func(r *serverapi.GetBattleStatusResponse) {
+		r.Participants[1].HullPct = 20 // ours; still at zone_distance 6, far out of reach
 	})
+	act := p.Decide(v)
 	if act.BattleAction != "stance" || act.Payload["stance"] != "flee" {
-		t.Fatalf("wounded in the outer zone: got %+v, want a flee stance", act)
+		t.Fatalf("wounded and out of reach: got %+v, want a flee stance", act)
 	}
 	if p.outcome != huntFled {
 		t.Errorf("outcome = %v, want huntFled", p.outcome)
+	}
+}
+
+// Range is numeric: at zone_distance 6 vs max_weapon_reach 3 the policy
+// advances; at 3 it stops advancing and fights.
+func TestHuntPolicyUsesNumericRangeNotTheZoneLabel(t *testing.T) {
+	far := huntView(t, nil)
+	if act := (&huntPolicy{}).Decide(far); act.BattleAction != "advance" {
+		t.Errorf("zone_distance 6 > reach 3: got %+v, want advance", act)
+	}
+	// Same zone STRING ("outer"), but now inside weapon reach. A zone-ladder
+	// implementation would keep advancing here; the numeric one must not.
+	near := huntView(t, func(r *serverapi.GetBattleStatusResponse) {
+		for i := range r.Participants {
+			r.Participants[i].ZoneDistance = r.CombatState.MaxWeaponReach
+		}
+		r.Participants[1].TargetID = ""
+	})
+	if near.Self.Zone != "outer" {
+		t.Fatalf("fixture drift: expected the zone label to stay %q", "outer")
+	}
+	act := (&huntPolicy{}).Decide(near)
+	if act.BattleAction == "advance" {
+		t.Errorf("in reach at zone_distance %d: got advance, want target/fire", near.Self.ZoneDistance)
+	}
+}
+
+// Breaking off is not one command: the server counts flee_counter up to
+// flee_required (3) before the escape lands. Walking away at the first tick
+// abandons the ship mid-escape, still a participant and still being shot.
+func TestHuntPolicyHoldsTheFleeUntilTheCounterCompletes(t *testing.T) {
+	p := &huntPolicy{fleeAtHull: 0.35}
+	// Tick 1: wounded -> break off.
+	if act := p.Decide(huntView(t, func(r *serverapi.GetBattleStatusResponse) {
+		r.Participants[1].HullPct = 10
+	})); act.Payload["stance"] != "flee" {
+		t.Fatalf("tick 1: want a flee stance, got %+v", act)
+	}
+	// Ticks 2-3: the counter is still short of flee_required; keep holding.
+	for count := 1; count < 3; count++ {
+		act := p.Decide(huntView(t, func(r *serverapi.GetBattleStatusResponse) {
+			r.Participants[1].HullPct = 10
+			r.Participants[1].Stance = "flee"
+			r.CombatState.FleeCounter = count
+		}))
+		if act.Kind == spar.ActionStop {
+			t.Fatalf("stopped at flee_counter %d of %d — the escape had not completed",
+				count, 3)
+		}
+	}
+	// The counter reaches flee_required: now the loop may end.
+	act := p.Decide(huntView(t, func(r *serverapi.GetBattleStatusResponse) {
+		r.Participants[1].HullPct = 10
+		r.Participants[1].Stance = "flee"
+		r.CombatState.FleeCounter = r.CombatState.FleeRequired
+	}))
+	if act.Kind != spar.ActionStop {
+		t.Errorf("flee_counter reached flee_required: got %+v, want stop", act)
+	}
+	if !strings.Contains(p.reason, "escaped after 3/3") {
+		t.Errorf("reason = %q, want it to record the completed escape", p.reason)
+	}
+}
+
+// can_escape is the server's verdict, not something to assume: holding a
+// stance that cannot complete just spends ticks under fire.
+func TestHuntPolicyStopsWhenTheServerSaysEscapeIsImpossible(t *testing.T) {
+	p := &huntPolicy{fleeAtHull: 0.35}
+	if act := p.Decide(huntView(t, func(r *serverapi.GetBattleStatusResponse) {
+		r.Participants[1].HullPct = 10
+	})); act.Payload["stance"] != "flee" {
+		t.Fatalf("tick 1: want a flee stance, got %+v", act)
+	}
+	act := p.Decide(huntView(t, func(r *serverapi.GetBattleStatusResponse) {
+		r.Participants[1].HullPct = 10
+		r.Participants[1].Stance = "flee"
+		r.CombatState.CanEscape = false
+	}))
+	if act.Kind != spar.ActionStop {
+		t.Errorf("can_escape=false: got %+v, want stop", act)
+	}
+	if !strings.Contains(p.reason, "can_escape=false") {
+		t.Errorf("reason = %q, want it to name can_escape", p.reason)
+	}
+}
+
+// The second line of defence on the no-predators rule: the battle payload
+// carries the role as ship_name, so anything that wandered in is caught before
+// a shot is exchanged.
+func TestHuntPolicyBreaksOffFromAPredatorParticipant(t *testing.T) {
+	p := &huntPolicy{fleeAtHull: 0.35, wildlifeOnly: true}
+	act := p.Decide(huntView(t, func(r *serverapi.GetBattleStatusResponse) {
+		r.Participants[0].ShipName = "predator"
+		r.Participants[0].Username = "Tempest-Eel"
+	}))
+	if act.Payload["stance"] != "flee" {
+		t.Fatalf("a predator in the battle: got %+v, want a flee stance", act)
+	}
+	if p.outcome != huntFled || !strings.Contains(p.reason, "not huntable wildlife") {
+		t.Errorf("outcome=%v reason=%q, want a wildlife refusal", p.outcome, p.reason)
 	}
 }
 

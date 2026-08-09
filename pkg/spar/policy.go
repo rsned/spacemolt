@@ -11,10 +11,14 @@ import (
 
 // View is the read-only battle picture handed to a Policy each tick.
 type View struct {
-	Self     game.BattleParticipant
-	Enemies  []game.BattleParticipant
-	Allies   []game.BattleParticipant
-	BattleID string
+	Self    game.BattleParticipant
+	Enemies []game.BattleParticipant
+	Allies  []game.BattleParticipant
+	// CombatState carries the numeric range and escape mechanics
+	// (max_weapon_reach, flee_counter/flee_required, can_escape). Nil when the
+	// server did not send the block; a policy must degrade rather than assume.
+	CombatState *game.CombatState
+	BattleID    string
 }
 
 // Action.Kind values.
@@ -54,16 +58,6 @@ func noop() Action { return Action{Kind: ActionNoop} }
 // unrecognized zone string maps to 0 (outer-equivalent), the safe default.
 var zoneIndex = map[string]int{"outer": 0, "mid": 1, "inner": 2, "engaged": 3}
 
-// ZoneEngaged is the closest zone: the one short-range weapons can fire from.
-const ZoneEngaged = "engaged"
-
-// ZoneRank exposes the zone ladder to policies living outside this package
-// (the wildlife hunt's, which measures whether an advance actually closed the
-// range). Note the ladder itself is a repo-internal assumption: "outer" and
-// "mid" are attested in captured payloads, "inner" and "engaged" only here, so
-// an unrecognized zone deliberately ranks 0 rather than erroring.
-func ZoneRank(zone string) int { return zoneIndex[zone] }
-
 // BuildView assembles a View for the participant whose PlayerID is selfID.
 // Returns ok=false if selfID is not among the participants.
 func BuildView(b *game.BattleState, selfID string) (View, bool) {
@@ -96,7 +90,7 @@ func BuildView(b *game.BattleState, selfID string) (View, bool) {
 			enemies = append(enemies, p)
 		}
 	}
-	return View{Self: self, Allies: allies, Enemies: enemies, BattleID: b.BattleID}, true
+	return View{Self: self, Allies: allies, Enemies: enemies, CombatState: b.CombatState, BattleID: b.BattleID}, true
 }
 
 // --- presets ---

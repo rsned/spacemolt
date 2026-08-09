@@ -24,24 +24,26 @@ const (
 	// unkillable creature cannot loop forever.
 	huntMaxEngagements = 12
 	// huntMaxBattleTicks bounds ONE engagement, in server ticks (the fight
-	// loop runs at game.SleepTick, one action per tick). Low-level wildlife
-	// flees and reopens the range, so an engagement is a chase, not an
-	// exchange: without a per-fight bound a single grazer can hold the pass
-	// for as long as it keeps running.
-	huntMaxBattleTicks = 30
+	// loop runs at game.SleepTick, one action per tick). A captured kill of a
+	// 70-hull grazer with a starter Prospect took 8 ticks, so this is roughly
+	// 3x a normal fight: generous headroom for a real engagement, while still
+	// bounding a chase that is going nowhere.
+	huntMaxBattleTicks = 24
 	// huntNoProgressTicks is the real give-up signal, and it is a PROGRESS
-	// bound rather than a liveness one. Progress means either the range
-	// closed (a better zone than any reached so far) or the quarry lost hull.
-	// After this many consecutive ticks with neither, the chase is not going
-	// to be won: the quarry is outrunning us (the zone never improves) or
-	// kiting us (the zone closes and reopens while its hull never drops).
+	// bound rather than a liveness one. Progress means either the numeric
+	// range closed below anything seen so far, or the quarry lost hull. After
+	// this many consecutive ticks with neither, the chase is not going to be
+	// won: the quarry is outrunning us (zone_distance never falls) or kiting
+	// us (it falls and reopens while the quarry's hull never drops).
 	huntNoProgressTicks = 6
-	// huntDisengageTicks bounds the break-off. The flee stance auto-retreats
-	// over several ticks, so the pass keeps polling with advancing disabled
-	// until the server agrees the battle is over — abandoning a quarry by
+	// huntDisengageTicks bounds the break-off. Escaping is not one command:
+	// a captured combat_state shows flee_counter 0 of flee_required 3, so the
+	// stance has to be held for several ticks while the server counts it out.
+	// The pass keeps polling with advancing disabled until the escape
+	// completes, the battle ends, or this bound — abandoning a quarry by
 	// simply moving on would leave the worker a participant in an unresolved
 	// fight, still in range and still being shot.
-	huntDisengageTicks = 6
+	huntDisengageTicks = 8
 
 	// huntStanceFlee / huntStanceFire are the battle stances this pass uses.
 	huntStanceFlee = "flee"
@@ -54,8 +56,22 @@ const (
 
 // huntWildlifePOITypes are the KB pois.type values that hold wildlife. The
 // mission board only exists at a station, so a pass reads the board docked and
-// then travels out to one of these.
+// then travels out to one of these. Captured kills so far are at a gas cloud
+// (market_prime_gas_plume) and a cryobelt (gold_run_cryobelt), in different
+// systems — wildlife is not confined to one POI type or one system.
 var huntWildlifePOITypes = []string{"asteroid_belt", "gas_cloud", "ice_field"}
+
+// huntQuarryRoles are the creature roles a wildlife pass may engage. `role` is
+// the stable classifier — species vary by POI and system, and one captured
+// belt held eight of them — so this filters on role and never on a species
+// allowlist.
+//
+// The excluded value is the point: a captured list put a 280-hull PREDATOR
+// (Tempest-Eel) alongside 45-hull grazers, all at full hull. The entire safety
+// case for a difficulty-1 wildlife fleet is that its quarry does not
+// meaningfully fight back, and a predator is not that. An unknown or missing
+// role is refused too: not hunting is the safe failure.
+var huntQuarryRoles = map[string]bool{"grazer": true, "scavenger": true}
 
 // HuntDeps are the injected collaborators for one Hunt pass.
 type HuntDeps struct {
@@ -260,7 +276,11 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// Steps 6-7: hunt until the objective is met, the engagement cap is hit,
 	// the pool of huntable creatures runs out, or the hull drops below the
 	// flee threshold.
-	quarry := nearby.Creatures
+	quarry := huntAdmissibleQuarry(nearby.Creatures, deps.WildlifeOnly, out)
+	if len(quarry) == 0 {
+		fmt.Fprintf(out, "hunt: nothing huntable among %d creature(s) at this POI; %s held for next pass\n", len(nearby.Creatures), chosen.MissionID) //nolint:errcheck
+		return nil
+	}
 	kills, attempts := 0, 0
 	for kills < target && attempts < huntMaxEngagements {
 		// The between-engagement hull gate. It reads a value that only
@@ -393,37 +413,55 @@ func huntAcceptMission(ctx context.Context, deps HuntDeps, out io.Writer, e serv
 	return "", false
 }
 
-// huntPickQuarry selects the next creature to engage from live: creatures
-// already InCombat are skipped (do not pile onto a fight already underway —
-// there is no field named IsAggressive on the wire, see hunt_gate.go), and
-// among the rest the highest hull-fraction survivor is preferred. When the
-// objective names a target, creatures matching it by species or creature id
-// win over any non-matching one regardless of hull — killing the wrong
-// species may not advance the objective at all. Returns idx=-1 when every
-// remaining creature is InCombat.
+// huntAdmissibleQuarry filters a get_nearby creature list down to what this
+// pass may engage, logging every refusal with its reason exactly as
+// huntAdmissible does for the board. Two rules: never pile onto a fight
+// already underway (InCombat — there is no field named IsAggressive on the
+// wire, see hunt_gate.go), and, while wildlife-only is in force, never engage
+// anything whose role is not in huntQuarryRoles.
+func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly bool, out io.Writer) []serverapi.NearbyCreature {
+	keep := make([]serverapi.NearbyCreature, 0, len(creatures))
+	for _, c := range creatures {
+		switch {
+		case c.InCombat:
+			fmt.Fprintf(out, "hunt: skip %s (%s): already in combat\n", c.CreatureID, c.Species) //nolint:errcheck
+		case wildlifeOnly && !huntQuarryRoles[c.Role]:
+			fmt.Fprintf(out, "hunt: skip %s (%s): role %q is not huntable wildlife\n", c.CreatureID, c.Species, c.Role) //nolint:errcheck
+		default:
+			keep = append(keep, c)
+		}
+	}
+	return keep
+}
+
+// huntPickQuarry selects the next creature to engage from an already-filtered
+// pool. When the objective names a target, creatures matching it by species or
+// creature id win outright — killing the wrong species may not advance the
+// objective at all. Otherwise the SHORTEST FIGHT wins: the creature with the
+// least hull left to chew through.
+//
+// NOTE — this deviates from the brief, which said to prefer full-hull ones. A
+// captured belt held a 220-hull Pilot-Whale beside a 45-hull Bell-Jelly, both
+// grazers, both at full hull, both worth exactly one kill_creature tick.
+// Preferring full hull picks the longest fight for identical credit, and every
+// extra tick is more damage taken — a captured kill of a 70-hull grazer cost
+// 12 hull. Flip the comparison to revert.
 func huntPickQuarry(creatures []serverapi.NearbyCreature, targetID string) (serverapi.NearbyCreature, int) {
 	best := -1
-	bestFrac := -1.0
+	bestHull := 0
 	bestMatch := false
 	for i, c := range creatures {
-		if c.InCombat {
-			continue
-		}
-		frac := 1.0
-		if c.MaxHull > 0 {
-			frac = float64(c.Hull) / float64(c.MaxHull)
-		}
 		match := targetID != "" && (c.Species == targetID || c.CreatureID == targetID)
 		switch {
 		case match && !bestMatch:
-			// First objective match seen: it outranks any healthier stranger.
-		case match == bestMatch && frac > bestFrac:
-			// Same class of candidate, healthier.
+			// First objective match seen: it outranks any other candidate.
+		case match == bestMatch && (best < 0 || c.Hull < bestHull):
+			// Same class of candidate, shorter fight.
 		default:
 			continue
 		}
 		bestMatch = match
-		bestFrac = frac
+		bestHull = c.Hull
 		best = i
 	}
 	if best < 0 {
@@ -436,15 +474,22 @@ func huntPickQuarry(creatures []serverapi.NearbyCreature, targetID string) (serv
 // engagement runs on spar.RunPolicyLoop rather than a second hand-rolled
 // advance loop.
 //
-// It behaves like spar's aggressor — close to the engaged zone, target, hold
-// the fire stance, re-evaluated every tick because low-level wildlife flees and
-// reopens the range — with three additions the sparring presets have no reason
-// to carry: a hull abort that is strictly dominant over closing the range, a
-// progress-based give-up for a quarry that cannot be caught, and a bounded
-// disengage so breaking off actually breaks contact instead of leaving the
-// worker a participant in a fight it has stopped playing.
+// It behaves like spar's aggressor — close the range, target, hold the fire
+// stance, re-evaluated every tick because low-level wildlife flees and reopens
+// the range — with four additions the sparring presets have no reason to
+// carry: a hull abort that is strictly dominant over closing the range, a
+// progress-based give-up for a quarry that cannot be caught, a bounded
+// disengage that waits for the server's flee counter instead of walking away
+// mid-escape, and a predator guard.
+//
+// Range is NUMERIC, not a zone-string ladder. A captured get_battle_status
+// reply carries per-participant zone_distance (6) and combat_state
+// max_weapon_reach (3): in range means distance <= reach. The zone label is a
+// coarse name over that number. max_weapon_reach is read from the wire on
+// every poll because it varies with the weapon fit.
 type huntPolicy struct {
-	fleeAtHull float64
+	fleeAtHull   float64
+	wildlifeOnly bool
 	// outcome is set once, when the policy decides to break off; the resolved
 	// case never sets it (the loop just ends).
 	outcome huntOutcome
@@ -453,8 +498,8 @@ type huntPolicy struct {
 	ticks        int
 	disengaging  bool
 	disengageFor int
-	bestZone     int
-	bestZoneSet  bool
+	bestDist     int
+	bestDistSet  bool
 	lowEnemyHull int
 	stallTicks   int
 }
@@ -464,12 +509,27 @@ func (p *huntPolicy) Name() string { return "hunt" }
 func (p *huntPolicy) Decide(v spar.View) spar.Action {
 	p.ticks++
 
-	// Breaking off is a multi-tick affair: the flee stance auto-retreats over
-	// several ticks, so hold it (issuing nothing that closes the range) until
-	// the server ends the battle or the budget runs out.
+	// Breaking off is a multi-tick commitment: the server counts flee_counter
+	// up to flee_required (3 in the capture) before the escape completes, so
+	// hold the stance — issuing nothing that closes the range — until it
+	// lands, the battle ends, or the bound runs out.
 	if p.disengaging {
 		p.disengageFor++
+		if cs := v.CombatState; cs != nil {
+			if cs.FleeRequired > 0 && cs.FleeCounter >= cs.FleeRequired {
+				p.reason += fmt.Sprintf("; escaped after %d/%d flee count(s)", cs.FleeCounter, cs.FleeRequired)
+				return spar.Action{Kind: spar.ActionStop}
+			}
+			if !cs.CanEscape {
+				// The server says escape is not possible. Nothing this loop
+				// can issue changes that; stop and let the pass end rather
+				// than spending ticks on a stance that cannot complete.
+				p.reason += "; server reports escape impossible (can_escape=false)"
+				return spar.Action{Kind: spar.ActionStop}
+			}
+		}
 		if p.disengageFor > huntDisengageTicks {
+			p.reason += fmt.Sprintf("; escape unconfirmed after %d tick(s)", huntDisengageTicks)
 			return spar.Action{Kind: spar.ActionStop}
 		}
 		if v.Self.Stance != huntStanceFlee {
@@ -478,11 +538,24 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 		return spar.Action{Kind: spar.ActionNoop}
 	}
 
-	// The hull abort is evaluated before any zone logic and returns
+	// Second line of defence on the no-predators rule. get_nearby's role field
+	// is the first (huntAdmissibleQuarry); a battle participant carries the
+	// same classifier as ship_name, so anything that got past the filter — or
+	// wandered in — is caught here before a shot is exchanged.
+	if p.wildlifeOnly {
+		for _, e := range v.Enemies {
+			if e.IsNPC && e.ShipName != "" && !huntQuarryRoles[e.ShipName] {
+				return p.breakOff(huntFled, fmt.Sprintf("%s is a %s, not huntable wildlife", e.Username, e.ShipName))
+			}
+		}
+	}
+
+	// The hull abort is evaluated before any range logic and returns
 	// immediately: evaluated after, or alongside, the loop would close the
-	// very range it just decided to escape. HullPct 0 is read as "not
-	// reported" rather than "destroyed" — a destroyed ship is no longer a
-	// participant, which ends the loop anyway.
+	// very range it just decided to escape. A captured kill cost 12 hull
+	// against a 70-hull grazer, so this gate is load-bearing. HullPct 0 is
+	// read as "not reported" rather than "destroyed" — a destroyed ship is no
+	// longer a participant, which ends the loop anyway.
 	if v.Self.HullPct > 0 && float64(v.Self.HullPct)/100 < p.fleeAtHull {
 		return p.breakOff(huntFled, fmt.Sprintf("hull %d%% below flee threshold %.0f%%", v.Self.HullPct, p.fleeAtHull*100))
 	}
@@ -491,13 +564,14 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 		return p.breakOff(huntGaveUp, fmt.Sprintf("engagement exceeded %d ticks", huntMaxBattleTicks))
 	}
 
-	// Progress is either range closed or quarry hull lost. A fleeing quarry
-	// can otherwise keep the loop busy indefinitely with neither side dying.
-	zone := spar.ZoneRank(v.Self.Zone)
+	// Progress is either the numeric range falling below anything seen so far,
+	// or the quarry losing hull. A fleeing quarry can otherwise keep the loop
+	// busy indefinitely with neither side dying.
+	dist := v.Self.ZoneDistance
 	enemyHull := huntLowestEnemyHull(v)
 	progressed := false
-	if !p.bestZoneSet || zone > p.bestZone {
-		p.bestZone, p.bestZoneSet, progressed = zone, true, true
+	if dist > 0 && (!p.bestDistSet || dist < p.bestDist) {
+		p.bestDist, p.bestDistSet, progressed = dist, true, true
 	}
 	if enemyHull >= 0 && (p.lowEnemyHull == 0 || enemyHull < p.lowEnemyHull) {
 		p.lowEnemyHull, progressed = enemyHull, true
@@ -510,13 +584,13 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 	if p.stallTicks >= huntNoProgressTicks {
 		// The two failure modes worth telling apart in the log.
 		what := "quarry is kiting us (range closes and reopens, its hull never drops)"
-		if p.bestZone < spar.ZoneRank(spar.ZoneEngaged) {
-			what = "quarry is outrunning us (never closed past zone " + v.Self.Zone + ")"
+		if !huntInRange(v) {
+			what = fmt.Sprintf("quarry is outrunning us (never closed inside weapon reach; distance %d, best %d)", dist, p.bestDist)
 		}
 		return p.breakOff(huntGaveUp, fmt.Sprintf("no progress for %d ticks: %s", p.stallTicks, what))
 	}
 
-	if zone < spar.ZoneRank(spar.ZoneEngaged) {
+	if !huntInRange(v) {
 		return spar.Action{Kind: spar.ActionBattle, BattleAction: "advance"}
 	}
 	if v.Self.TargetID == "" && len(v.Enemies) > 0 && v.Enemies[0].PlayerID != "" {
@@ -526,6 +600,25 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 		return spar.Action{Kind: spar.ActionBattle, BattleAction: "stance", Payload: map[string]any{"stance": huntStanceFire}}
 	}
 	return spar.Action{Kind: spar.ActionNoop}
+}
+
+// huntInRange reports whether the fitted weapons reach the quarry:
+// zone_distance <= max_weapon_reach, both read from the wire.
+//
+// Either number missing means "we cannot prove we are out of range", which
+// resolves to in-range on purpose. Advancing is the only action gated on this,
+// and an out-of-range shot is refused harmlessly by the server, whereas
+// advancing forever on absent data would never land one. The give-up bound
+// covers the case where that guess is wrong.
+func huntInRange(v spar.View) bool {
+	dist := v.Self.ZoneDistance
+	if dist <= 0 {
+		return true
+	}
+	if v.CombatState == nil || v.CombatState.MaxWeaponReach <= 0 {
+		return true
+	}
+	return dist <= v.CombatState.MaxWeaponReach
 }
 
 // breakOff records why the fight is being abandoned and starts the disengage.
@@ -560,7 +653,7 @@ func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull flo
 		fmt.Fprintf(out, "hunt: own player id unknown; cannot drive the fight vs %s\n", creatureID) //nolint:errcheck
 		return huntBattleError
 	}
-	p := &huntPolicy{fleeAtHull: fleeAtHull}
+	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: deps.WildlifeOnly}
 	if err := spar.RunPolicyLoop(ctx, deps.Client, selfID, p, deps.tickSleep); err != nil {
 		fmt.Fprintf(out, "hunt: fight vs %s ended on error after %d tick(s): %v\n", creatureID, p.ticks, err) //nolint:errcheck
 		return huntBattleError

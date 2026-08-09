@@ -722,14 +722,61 @@ type ActiveBuff struct {
 	ExpiresAt int    `json:"expires_at,omitempty"`
 }
 
+// FlexID is an identifier the server sends as either a JSON string or a JSON
+// number, canonicalised to a string.
+//
+// side_id is the case that forced it: every other battle payload in this file
+// types it as an int, and a captured get_battle_status reply (2026-08-08,
+// craftsman-1 vs a Hollow Pilgrim at gold_run) sends `"side_id":1` — a number.
+// Against a plain string field that is an UnmarshalTypeError, which made the
+// WHOLE reply fail to decode, so State.BattleState was never populated from a
+// real poll. Accepting both shapes is cheaper than betting on one.
+type FlexID string
+
+// UnmarshalJSON accepts a JSON string or number (or null).
+func (f *FlexID) UnmarshalJSON(data []byte) error {
+	s := string(data)
+	if s == "null" {
+		*f = ""
+
+		return nil
+	}
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*f = FlexID(str)
+
+		return nil
+	}
+	var num json.Number
+	if err := json.Unmarshal(data, &num); err == nil {
+		*f = FlexID(num.String())
+
+		return nil
+	}
+
+	return fmt.Errorf("cannot unmarshal id from %s", s)
+}
+
+// MarshalJSON always emits the canonical string form.
+func (f FlexID) MarshalJSON() ([]byte, error) { return json.Marshal(string(f)) }
+
 // BattleParticipant represents a player or NPC in a battle.
+//
+// Field set confirmed against a captured get_battle_status reply: a creature
+// participant carries kind/is_npc/ship_name and zone_distance, and omits
+// stance, ship_class and shield_pct entirely.
 type BattleParticipant struct {
 	// Kind is the v0.531.4 response discriminator: participant discriminator (spec: ParticipantSnapshot).
-	Kind        string `json:"kind,omitempty"`
-	PlayerID    string `json:"player_id"`
-	Username    string `json:"username"`
-	ShipClass   string `json:"ship_class"`
-	SideID      string `json:"side_id"`
+	Kind      string `json:"kind,omitempty"`
+	PlayerID  string `json:"player_id"`
+	Username  string `json:"username"`
+	ShipClass string `json:"ship_class"`
+	// ShipName is the creature's role ("grazer") for an NPC combatant, and the
+	// ship's given name for a player.
+	ShipName string `json:"ship_name,omitempty"`
+	// IsNPC marks a server-controlled combatant (wildlife, pirates).
+	IsNPC       bool   `json:"is_npc,omitempty"`
+	SideID      FlexID `json:"side_id"`
 	Stance      string `json:"stance"`
 	TargetID    string `json:"target_id,omitempty"`
 	HullPct     int    `json:"hull_pct"`
@@ -739,15 +786,40 @@ type BattleParticipant struct {
 	KillCount   int    `json:"kill_count"`
 	AutoPilot   bool   `json:"auto_pilot"`
 	Zone        string `json:"zone,omitempty"`
+	// ZoneDistance is the numeric engagement range. Weapons reach when it is
+	// <= CombatState.MaxWeaponReach; the Zone string is a coarse label over
+	// this number, not the primary signal.
+	ZoneDistance int `json:"zone_distance,omitempty"`
 }
 
 // BattleSide represents a side in a battle.
 type BattleSide struct {
-	SideID      string `json:"side_id"`
+	SideID      FlexID `json:"side_id"`
 	FactionID   string `json:"faction_id,omitempty"`
 	FactionName string `json:"faction_name,omitempty"`
 	FactionTag  string `json:"faction_tag,omitempty"`
 	PlayerCount int    `json:"player_count"`
+}
+
+// CombatState is the per-poll tactical block on a get_battle_status reply.
+// Fields are exactly those in the 2026-08-08 capture; nothing is speculated.
+type CombatState struct {
+	// CanEscape is the server's own verdict on whether disengaging is
+	// possible at all — not something to assume.
+	CanEscape bool `json:"can_escape"`
+	// EffectiveSpeed is speed after EW effects.
+	EffectiveSpeed float64 `json:"effective_speed"`
+	EMDisrupted    bool    `json:"em_disrupted"`
+	// FleeCounter counts ticks accrued toward an escape; the escape completes
+	// at FleeRequired (3 in the capture), which is why a flee stance is a
+	// multi-tick commitment rather than a fire-and-forget command.
+	FleeCounter  int `json:"flee_counter"`
+	FleeRequired int `json:"flee_required"`
+	// MaxWeaponReach is the range at which the fitted weapons can fire. Read
+	// it from the wire every poll: it varies with the fit.
+	MaxWeaponReach int  `json:"max_weapon_reach"`
+	WarpDisrupted  bool `json:"warp_disrupted"`
+	Webbed         bool `json:"webbed"`
 }
 
 // ActiveBattle is the compact in-progress-battle summary carried by the

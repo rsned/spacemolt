@@ -353,10 +353,10 @@ func (c *Client) recvFrame(resp protocol.Response) {
 // the server inserts a documented auto-undock step (costs one extra tick,
 // carries auto_undocked) BEFORE the genuine jump confirmation:
 //
-//	1. OK {pending:true}                          — queued ack (no action)
-//	2. OK {action:"undock", auto_undocked:true}   — auto-undock side effect
-//	3. OK {action:"jump", arrival_tick:N}         — genuine jump confirmation
-//	4. action_result {arrived, system_id:...}     — arrival
+//  1. OK {pending:true}                          — queued ack (no action)
+//  2. OK {action:"undock", auto_undocked:true}   — auto-undock side effect
+//  3. OK {action:"jump", arrival_tick:N}         — genuine jump confirmation
+//  4. action_result {arrived, system_id:...}     — arrival
 //
 // waitForInitialResponse must NOT treat frame 2 as the jump's initial
 // response: at that point Traveling is still false, so Jump() would call
@@ -697,40 +697,74 @@ func TestGetBattleStatus_ClearsInBattleWhenNotParticipant(t *testing.T) {
 	}
 }
 
-// A get_battle_status reply that omits "action" must still land. Both the
-// BattleState parse and the raw store used to be reachable only through the
-// action switch, which is the failure already recorded on
-// browse_ships/owned_ships: one live reply without the field and every
-// consumer sees an empty battle picture, which reads as "the fight is over".
-func TestGetBattleStatus_DetectedByShapeWithoutAction(t *testing.T) {
-	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
-	client.state.Player.ID = "me-123"
+// realBattleStatusReply is a get_battle_status reply captured verbatim from
+// the live server (2026-08-08, craftsman-1 vs a Hollow Pilgrim at gold_run).
+// Two things about it broke the client, and both are asserted below: it has NO
+// "action" key, and it sends side_id as a NUMBER.
+const realBattleStatusReply = `{"battle_id":"43598fe6756f61668661c9aeb8e68b8a","combat_state":{"can_escape":true,"effective_speed":1,"em_disrupted":false,"flee_counter":0,"flee_required":3,"max_weapon_reach":3,"warp_disrupted":false,"webbed":false},"is_participant":true,"participants":[{"auto_pilot":false,"hull_pct":100,"is_npc":true,"kind":"creature","player_id":"crt_cfbce87e4800ee17fa8e12b9e6adb8cb","ship_name":"grazer","side_id":1,"username":"Hollow Pilgrim","zone":"outer","zone_distance":6},{"auto_pilot":true,"hull_pct":100,"kind":"player","player_id":"a50924913cef881c5e4d14257589d9ba","shield_pct":100,"ship_class":"prospect","side_id":2,"stance":"fire","target_id":"crt_cfbce87e4800ee17fa8e12b9e6adb8cb","username":"Arthur 'Artificer' Artis","zone":"outer","zone_distance":6}],"sides":[{"player_count":1,"side_id":1},{"faction_id":"e727c0e918d994c72db2978fe5b18edc","faction_name":"Crafting Collective","faction_tag":"CRFT","player_count":1,"side_id":2}],"system_id":"gold_run"}`
 
-	client.recvFrame(protocol.Response{
-		Type: protocol.TypeOK,
-		Payload: map[string]any{
-			"battle_id":      "b7",
-			"system_id":      "ross_128",
-			"is_participant": true,
-			"participants": []any{
-				map[string]any{"player_id": "me-123", "side_id": "1", "zone": "outer", "hull_pct": float64(90)},
-				map[string]any{"player_id": "beast", "side_id": "2", "zone": "outer", "hull_pct": float64(100)},
-			},
-		},
-	})
+// The real reply must land: parsed into BattleState AND written to the raw
+// store. It reaches neither through the action switch (there is no action
+// key), and it used to reach neither through the parser either, because a
+// numeric side_id against a string field is an UnmarshalTypeError that failed
+// the WHOLE decode. The visible symptom was an empty battle picture, which
+// every consumer reads as "the fight is over".
+func TestGetBattleStatus_RealReplyWithoutActionOrStringSideID(t *testing.T) {
+	client := NewClient("wss://test.example.com", "testuser", "testtoken", nil)
+	const selfID = "a50924913cef881c5e4d14257589d9ba"
+	client.state.Player.ID = selfID
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(realBattleStatusReply), &payload); err != nil {
+		t.Fatalf("fixture: %v", err)
+	}
+	if _, hasAction := payload["action"]; hasAction {
+		t.Fatal("fixture drift: the captured reply is supposed to have no action key")
+	}
+	client.recvFrame(protocol.Response{Type: protocol.TypeOK, Payload: payload})
 
 	st := client.GetState()
 	if st.BattleState == nil {
-		t.Fatal("BattleState nil; an action-less get_battle_status reply must still be parsed")
+		t.Fatal("BattleState nil; the real get_battle_status reply must be parsed")
 	}
-	if st.BattleState.BattleID != "b7" || len(st.BattleState.Participants) != 2 {
-		t.Fatalf("unexpected BattleState: %+v", st.BattleState)
+	if len(st.BattleState.Participants) != 2 {
+		t.Fatalf("participants = %d, want 2: %+v", len(st.BattleState.Participants), st.BattleState)
 	}
 	if !st.InBattle {
 		t.Error("want InBattle true")
 	}
 	if len(client.GetRawJSON("battle_status")) == 0 {
 		t.Error(`GetRawJSON("battle_status") empty; the raw store must be reachable by shape too`)
+	}
+
+	var me, quarry *BattleParticipant
+	for i := range st.BattleState.Participants {
+		if st.BattleState.Participants[i].PlayerID == selfID {
+			me = &st.BattleState.Participants[i]
+		} else {
+			quarry = &st.BattleState.Participants[i]
+		}
+	}
+	if me == nil || quarry == nil {
+		t.Fatalf("could not split self from quarry: %+v", st.BattleState.Participants)
+	}
+	if me.SideID != "2" || quarry.SideID != "1" {
+		t.Errorf("side ids = %q/%q, want 2/1 — a numeric side_id must decode", me.SideID, quarry.SideID)
+	}
+	if me.ZoneDistance != 6 || quarry.ZoneDistance != 6 {
+		t.Errorf("zone_distance = %d/%d, want 6/6 — the numeric range is what the fight loop steers on",
+			me.ZoneDistance, quarry.ZoneDistance)
+	}
+	if !quarry.IsNPC || quarry.Kind != "creature" || quarry.ShipName != "grazer" {
+		t.Errorf("quarry discriminators = is_npc:%v kind:%q ship_name:%q, want true/creature/grazer",
+			quarry.IsNPC, quarry.Kind, quarry.ShipName)
+	}
+	cs := st.BattleState.CombatState
+	if cs == nil {
+		t.Fatal("combat_state nil; it carries the range and escape mechanics")
+	}
+	if cs.MaxWeaponReach != 3 || cs.FleeRequired != 3 || !cs.CanEscape {
+		t.Errorf("combat_state = %+v, want max_weapon_reach 3, flee_required 3, can_escape true", cs)
 	}
 }
 

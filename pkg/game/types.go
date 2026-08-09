@@ -27,6 +27,7 @@ type StorageUpdateEvent struct {
 //   - logged_in (in payload.player)
 //   - state_update (in payload.player)
 //   - get_status (in payload.player)
+//
 // EmpireStanding is one faction's standing block.
 type EmpireStanding struct {
 	Reputation        int    `json:"reputation"`
@@ -36,39 +37,39 @@ type EmpireStanding struct {
 }
 
 type Player struct {
-	ID                string                 `json:"id"`
-	Username          string                 `json:"username"`
-	Empire            string                 `json:"empire"`
-	Credits           float64                `json:"credits"`
-	CurrentSystem     string                 `json:"current_system"`
-	CurrentPOI        string                 `json:"current_poi"`
-	CurrentShipID     string                 `json:"current_ship_id"`
-	HomeBase          string                 `json:"home_base"`
-	DockedAtBase      string                 `json:"docked_at_base"`
+	ID            string  `json:"id"`
+	Username      string  `json:"username"`
+	Empire        string  `json:"empire"`
+	Credits       float64 `json:"credits"`
+	CurrentSystem string  `json:"current_system"`
+	CurrentPOI    string  `json:"current_poi"`
+	CurrentShipID string  `json:"current_ship_id"`
+	HomeBase      string  `json:"home_base"`
+	DockedAtBase  string  `json:"docked_at_base"`
 	// Standings is per-faction reputation, keyed by empire/faction id (e.g.
 	// "pirates", "solarian"). reputation drifts back toward baseline when
 	// idle, so BASELINE is the durable signal: chain-2's an_introduction
 	// raises the pirate baseline from the -30 default to 10, and that is what
 	// makes stronghold docking permanent.
 	Standings         map[string]EmpireStanding `json:"standings,omitempty"`
-	FactionID         string                 `json:"faction_id,omitempty"`
-	FactionRank       string                 `json:"faction_rank,omitempty"`
-	FactionTag        string                 `json:"faction_tag,omitempty"` // readable faction tag (e.g. "YSMT"); not in player payload, captured from faction_info
-	StatusMessage     string                 `json:"status_message,omitempty"`
-	ClanTag           string                 `json:"clan_tag,omitempty"`
-	PrimaryColor      string                 `json:"primary_color,omitempty"`
-	SecondaryColor    string                 `json:"secondary_color,omitempty"`
-	Anonymous         bool                   `json:"anonymous"`
-	IsCloaked         bool                   `json:"is_cloaked"`
-	Skills            map[string]Skill       `json:"skills"`
-	SkillXP           map[string]float64     `json:"skill_xp,omitempty"` // Current XP toward next level
-	Stats             PlayerStats            `json:"stats"`
-	TowingWreckID     string                 `json:"towing_wreck_id,omitempty"`
-	Experience        int64                  `json:"experience,omitempty"`
-	DiscoveredSystems map[string]any         `json:"discovered_systems,omitempty"`
-	LastActiveAt      string                 `json:"last_active_at,omitempty"`
-	LastLoginAt       string                 `json:"last_login_at,omitempty"`
-	CreatedAt         string                 `json:"created_at,omitempty"`
+	FactionID         string                    `json:"faction_id,omitempty"`
+	FactionRank       string                    `json:"faction_rank,omitempty"`
+	FactionTag        string                    `json:"faction_tag,omitempty"` // readable faction tag (e.g. "YSMT"); not in player payload, captured from faction_info
+	StatusMessage     string                    `json:"status_message,omitempty"`
+	ClanTag           string                    `json:"clan_tag,omitempty"`
+	PrimaryColor      string                    `json:"primary_color,omitempty"`
+	SecondaryColor    string                    `json:"secondary_color,omitempty"`
+	Anonymous         bool                      `json:"anonymous"`
+	IsCloaked         bool                      `json:"is_cloaked"`
+	Skills            map[string]Skill          `json:"skills"`
+	SkillXP           map[string]float64        `json:"skill_xp,omitempty"` // Current XP toward next level
+	Stats             PlayerStats               `json:"stats"`
+	TowingWreckID     string                    `json:"towing_wreck_id,omitempty"`
+	Experience        int64                     `json:"experience,omitempty"`
+	DiscoveredSystems map[string]any            `json:"discovered_systems,omitempty"`
+	LastActiveAt      string                    `json:"last_active_at,omitempty"`
+	LastLoginAt       string                    `json:"last_login_at,omitempty"`
+	CreatedAt         string                    `json:"created_at,omitempty"`
 }
 
 // Skill represents a player's skill level and XP.
@@ -133,25 +134,25 @@ type PlayerStats struct {
 //   - get_ship (in payload.ship)
 //   - get_status (in payload.ship)
 type Ship struct {
-	ID             string      `json:"id"`
-	OwnerID        string      `json:"owner_id"`
-	ClassID        string      `json:"class_id"`
-	Name           string      `json:"name"`
-	Hull           float64     `json:"hull"`
-	MaxHull        float64     `json:"max_hull"`
-	Shield         float64     `json:"shield"`
-	MaxShield      float64     `json:"max_shield"`
-	ShieldRecharge float64     `json:"shield_recharge"`
-	Armor          float64     `json:"armor"`
-	Speed          float64     `json:"speed"`
-	Fuel           float64     `json:"fuel"`
-	MaxFuel        float64     `json:"max_fuel"`
-	CargoUsed      float64     `json:"cargo_used"`
-	CargoCapacity  float64     `json:"cargo_capacity"`
-	CPUUsed        float64     `json:"cpu_used"`
-	CPUCapacity    float64     `json:"cpu_capacity"`
-	PowerUsed      float64     `json:"power_used"`
-	PowerCapacity  float64     `json:"power_capacity"`
+	ID                       string           `json:"id"`
+	OwnerID                  string           `json:"owner_id"`
+	ClassID                  string           `json:"class_id"`
+	Name                     string           `json:"name"`
+	Hull                     float64          `json:"hull"`
+	MaxHull                  float64          `json:"max_hull"`
+	Shield                   float64          `json:"shield"`
+	MaxShield                float64          `json:"max_shield"`
+	ShieldRecharge           float64          `json:"shield_recharge"`
+	Armor                    float64          `json:"armor"`
+	Speed                    float64          `json:"speed"`
+	Fuel                     float64          `json:"fuel"`
+	MaxFuel                  float64          `json:"max_fuel"`
+	CargoUsed                float64          `json:"cargo_used"`
+	CargoCapacity            float64          `json:"cargo_capacity"`
+	CPUUsed                  float64          `json:"cpu_used"`
+	CPUCapacity              float64          `json:"cpu_capacity"`
+	PowerUsed                float64          `json:"power_used"`
+	PowerCapacity            float64          `json:"power_capacity"`
 	WeaponSlots              int              `json:"weapon_slots"`
 	DefenseSlots             int              `json:"defense_slots"`
 	UtilitySlots             int              `json:"utility_slots"`
@@ -191,21 +192,21 @@ type ConnectionInfo struct {
 //
 // v0.87.1+ Enriched format includes has_base, base_name, and online fields.
 type POI struct {
-	ID          string        `json:"id"`
-	SystemID    string        `json:"system_id"`
-	Type        string        `json:"type"`
-	Class       string        `json:"class,omitempty"` // MK classification (e.g., "G2 V") or planet class
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Position    Position      `json:"position"`
-	Resources   []POIResource `json:"resources"`
-	BaseID      string        `json:"base_id,omitempty"`
-	HasBase     bool          `json:"has_base,omitempty"`
-	BaseName    string        `json:"base_name,omitempty"`
-	Online          int           `json:"online,omitempty"`
-	Hidden          bool          `json:"hidden,omitempty"`
-	RevealDifficulty int          `json:"reveal_difficulty,omitempty"`
-	ExpiresAt       string        `json:"expires_at,omitempty"` // ISO-8601 timestamp when POI expires (e.g., wormholes)
+	ID               string        `json:"id"`
+	SystemID         string        `json:"system_id"`
+	Type             string        `json:"type"`
+	Class            string        `json:"class,omitempty"` // MK classification (e.g., "G2 V") or planet class
+	Name             string        `json:"name"`
+	Description      string        `json:"description"`
+	Position         Position      `json:"position"`
+	Resources        []POIResource `json:"resources"`
+	BaseID           string        `json:"base_id,omitempty"`
+	HasBase          bool          `json:"has_base,omitempty"`
+	BaseName         string        `json:"base_name,omitempty"`
+	Online           int           `json:"online,omitempty"`
+	Hidden           bool          `json:"hidden,omitempty"`
+	RevealDifficulty int           `json:"reveal_difficulty,omitempty"`
+	ExpiresAt        string        `json:"expires_at,omitempty"` // ISO-8601 timestamp when POI expires (e.g., wormholes)
 }
 
 // Position represents 3D coordinates (Z is reserved for future use).
@@ -234,21 +235,21 @@ type POIResource struct {
 //   - POIs are objects with has_base/base_name/online instead of bare IDs
 //   - Connections are ConnectionInfo objects instead of bare system IDs
 type SystemData struct {
-	ID             string          `json:"id"`
-	Name           string          `json:"name"`
-	Description    string          `json:"description"`
-	Empire         string          `json:"empire"`
-	PoliceLevel    int             `json:"police_level"`
-	SecurityStatus string          `json:"security_status,omitempty"` // Human-readable: "High Security", "Lawless", etc.
-	IsStronghold   bool            `json:"is_stronghold,omitempty"`   // True for pirate stronghold systems
-	Online         int             `json:"online,omitempty"`          // Number of online players (from get_map)
-	POIs           []POI           `json:"pois"`                     // v0.87.1+: Enriched POI objects
-	Connections    []ConnectionInfo `json:"connections"`              // v0.87.1+: ConnectionInfo objects instead of system IDs
-	Discovered     bool            `json:"discovered"`
-	Position       Position        `json:"position"`
-	DiscoveredBy   string          `json:"discovered_by,omitempty"`
-	ShipPOI        string          // ID of the POI where the ship is located (internal field, not from JSON)
-	LastVisitedTick int64          `json:"last_visited_tick,omitempty"` // Game tick when we last had live data for this system (0 = never visited)
+	ID              string           `json:"id"`
+	Name            string           `json:"name"`
+	Description     string           `json:"description"`
+	Empire          string           `json:"empire"`
+	PoliceLevel     int              `json:"police_level"`
+	SecurityStatus  string           `json:"security_status,omitempty"` // Human-readable: "High Security", "Lawless", etc.
+	IsStronghold    bool             `json:"is_stronghold,omitempty"`   // True for pirate stronghold systems
+	Online          int              `json:"online,omitempty"`          // Number of online players (from get_map)
+	POIs            []POI            `json:"pois"`                      // v0.87.1+: Enriched POI objects
+	Connections     []ConnectionInfo `json:"connections"`               // v0.87.1+: ConnectionInfo objects instead of system IDs
+	Discovered      bool             `json:"discovered"`
+	Position        Position         `json:"position"`
+	DiscoveredBy    string           `json:"discovered_by,omitempty"`
+	ShipPOI         string           // ID of the POI where the ship is located (internal field, not from JSON)
+	LastVisitedTick int64            `json:"last_visited_tick,omitempty"` // Game tick when we last had live data for this system (0 = never visited)
 }
 
 // NearbyPlayer represents another player or pirate NPC at the same POI.
@@ -270,9 +271,9 @@ type NearbyPlayer struct {
 	InCombat       bool   `json:"in_combat"`
 	// Deprecated: Server no longer sends these fields as of v0.93.0
 	FactionID     string `json:"faction_id,omitempty"`
-	FactionTag     string `json:"faction_tag,omitempty"`
-	StatusMessage  string `json:"status_message,omitempty"`
-	ClanTag        string `json:"clan_tag,omitempty"`
+	FactionTag    string `json:"faction_tag,omitempty"`
+	StatusMessage string `json:"status_message,omitempty"`
+	ClanTag       string `json:"clan_tag,omitempty"`
 }
 
 // TravelProgress represents travel state when in transit (travel or jump).
@@ -321,26 +322,48 @@ type BattleParticipant struct {
 	ShieldPct int    `json:"shield_pct"`
 	TargetID  string `json:"target_id,omitempty"`
 	AutoPilot bool   `json:"auto_pilot,omitempty"`
+	// Kind / IsNPC / ShipName discriminate a server-controlled combatant from
+	// a player. For wildlife, ShipName carries the creature's role ("grazer").
+	Kind     string `json:"kind,omitempty"`
+	IsNPC    bool   `json:"is_npc,omitempty"`
+	ShipName string `json:"ship_name,omitempty"`
+	// ZoneDistance is the numeric engagement range; weapons reach when it is
+	// <= BattleState.CombatState.MaxWeaponReach.
+	ZoneDistance int `json:"zone_distance,omitempty"`
+}
+
+// CombatState mirrors serverapi.CombatState: the tactical block a
+// get_battle_status poll carries, holding the real range and escape mechanics.
+type CombatState struct {
+	CanEscape      bool    `json:"can_escape"`
+	EffectiveSpeed float64 `json:"effective_speed"`
+	EMDisrupted    bool    `json:"em_disrupted"`
+	FleeCounter    int     `json:"flee_counter"`
+	FleeRequired   int     `json:"flee_required"`
+	MaxWeaponReach int     `json:"max_weapon_reach"`
+	WarpDisrupted  bool    `json:"warp_disrupted"`
+	Webbed         bool    `json:"webbed"`
 }
 
 // BattleState represents the current state of a tactical battle.
 type BattleState struct {
-	BattleID     string              `json:"battle_id"`
-	SystemID     string              `json:"system_id"`
-	IsParticipant bool              `json:"is_participant"`
-	Participants []BattleParticipant `json:"participants"`
-	TickDuration int                 `json:"tick_duration"`
+	BattleID      string              `json:"battle_id"`
+	SystemID      string              `json:"system_id"`
+	IsParticipant bool                `json:"is_participant"`
+	Participants  []BattleParticipant `json:"participants"`
+	CombatState   *CombatState        `json:"combat_state,omitempty"`
+	TickDuration  int                 `json:"tick_duration"`
 }
 
 // OwnedShip represents a ship in the player's fleet (from list_ships).
 type OwnedShip struct {
-	ID        string `json:"id"`
-	ClassID   string `json:"class_id"`
-	Name      string `json:"name"`
-	Location  string `json:"location,omitempty"`
-	BaseID    string `json:"base_id,omitempty"`
-	BaseName  string `json:"base_name,omitempty"`
-	IsActive  bool   `json:"is_active"`
+	ID       string `json:"id"`
+	ClassID  string `json:"class_id"`
+	Name     string `json:"name"`
+	Location string `json:"location,omitempty"`
+	BaseID   string `json:"base_id,omitempty"`
+	BaseName string `json:"base_name,omitempty"`
+	IsActive bool   `json:"is_active"`
 }
 
 // State represents the current game state
@@ -380,7 +403,7 @@ type State struct {
 	// System data
 	System          SystemData
 	CurrentTick     int64
-	ServerTimestamp  int64 // Server UNIX timestamp from get_notifications
+	ServerTimestamp int64 // Server UNIX timestamp from get_notifications
 	LastMapUpdate   time.Time
 
 	// Nearby players (from state_update)
@@ -489,24 +512,24 @@ func (s *State) Clone() *State {
 	copy(nearbyCopy, s.Nearby)
 
 	cloned := &State{
-		Username:      s.Username,
-		Password:      s.Password,
-		Doc:           s.Doc,
-		CurrentSystem: s.CurrentSystem,
-		CurrentPOI:    s.CurrentPOI,
-		Traveling:     s.Traveling,
-		ServerVersion: s.ServerVersion,
-		Credits:       s.Credits,
-		Fuel:          s.Fuel,
-		MaxFuel:       s.MaxFuel,
-		Hull:          s.Hull,
-		MaxHull:       s.MaxHull,
-		Cargo:         cargoCopy,
-		MaxCargo:      s.MaxCargo,
-		CurrentTick:    s.CurrentTick,
+		Username:        s.Username,
+		Password:        s.Password,
+		Doc:             s.Doc,
+		CurrentSystem:   s.CurrentSystem,
+		CurrentPOI:      s.CurrentPOI,
+		Traveling:       s.Traveling,
+		ServerVersion:   s.ServerVersion,
+		Credits:         s.Credits,
+		Fuel:            s.Fuel,
+		MaxFuel:         s.MaxFuel,
+		Hull:            s.Hull,
+		MaxHull:         s.MaxHull,
+		Cargo:           cargoCopy,
+		MaxCargo:        s.MaxCargo,
+		CurrentTick:     s.CurrentTick,
 		ServerTimestamp: s.ServerTimestamp,
-		Player:         s.Player,
-		Ship:          s.Ship,
+		Player:          s.Player,
+		Ship:            s.Ship,
 		System: SystemData{
 			ID:              s.System.ID,
 			Name:            s.System.Name,
@@ -545,6 +568,10 @@ func (s *State) Clone() *State {
 		if len(s.BattleState.Participants) > 0 {
 			bs.Participants = make([]BattleParticipant, len(s.BattleState.Participants))
 			copy(bs.Participants, s.BattleState.Participants)
+		}
+		if s.BattleState.CombatState != nil {
+			cs := *s.BattleState.CombatState
+			bs.CombatState = &cs
 		}
 		cloned.BattleState = &bs
 	}
@@ -657,4 +684,3 @@ type MarketSnapshot struct {
 	Listings    []MarketListing `json:"listings"`
 	CapturedAt  time.Time       `json:"captured_at"`
 }
-
