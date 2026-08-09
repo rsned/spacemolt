@@ -364,6 +364,21 @@ The one genuinely new behaviour. Per the server docs, the loop is:
    `battleOver`, `NewAggressor`, the `outer/mid/inner/engaged` zone ladder)
    and is unit-tested; the hunt executor drives combat through it rather than
    hand-rolling a second one.
+
+   **Zone appears to be shared, not per-ship.** Captures of `battle_started`
+   and `battle_update` show *both* participants reporting the same zone —
+   `outer`/`outer`, then `inner`/`inner` after an advance. Read that way,
+   zone is the distance *between* the sides, which is the mechanical reason
+   advance has to repeat: a fleeing quarry drags the shared distance back out
+   from under you. The loop should be written to hold under either reading —
+   compare our own participant's zone against the target rung and re-advance
+   when it regresses.
+
+   Of spar's four rungs, `outer` and `inner` are wire-attested; `mid` and
+   `engaged` are still repo-internal assumptions, and one observed advance
+   went `outer` → `inner` without `mid` ever appearing. So the rungs are not
+   known to be contiguous: never count advances to infer position, always
+   re-read the zone, and keep spar's "unrecognized zone maps to 0" default.
 4. **Repeat to the objective count**, e.g. "Hunt 3 Belt-Grazers".
 5. **Loot the carcass.** Killing a creature drops a carcass wreck. The
    executor matches its own kill by `victim_id` against the creature id it
