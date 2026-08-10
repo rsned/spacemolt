@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -193,6 +195,27 @@ func (s *Service) drainOnce(ctx context.Context) {
 	}
 }
 
+// addressedTo reports whether a chat message's target_id addresses this agent.
+//
+// The server delivers a private message's target_id as a CONVERSATION key —
+// "<recipient>:<sender>" — not the bare recipient id this filter was
+// originally written against. Exact equality silently rejected every inbound
+// DM, and because the skip path marks the message read, each dropped request
+// was consumed on its way past. Observed live 2026-08-10:
+//
+//	skip 4600c288…: target_id="0e72a09d…:a5092491…" != agent_id="0e72a09d…"
+//
+// Segments are compared whole, so a longer id that merely starts with ours
+// does not match. Both sides of the pair are accepted because the ordering is
+// not guaranteed; that is safe only because the from-self check below rejects
+// our own messages, whose keys also contain our id.
+func addressedTo(targetID, agentID string) bool {
+	if agentID == "" {
+		return false
+	}
+	return slices.Contains(strings.Split(targetID, ":"), agentID)
+}
+
 // filterAndDedupe keeps only messages addressed to us from someone else,
 // drops duplicate (sender_id, content) pairs keeping the oldest, and
 // returns them oldest-first. The seen map is persistent across drainOnce
@@ -210,8 +233,8 @@ func (s *Service) filterAndDedupe(msgs []mbox.Message) []mbox.Message {
 
 	out := make([]mbox.Message, 0, len(reversed))
 	for _, m := range reversed {
-		if m.TargetID != s.cfg.AgentID {
-			s.cfg.Logger.Printf("skip %s: target_id=%q != agent_id=%q", m.ID, m.TargetID, s.cfg.AgentID)
+		if !addressedTo(m.TargetID, s.cfg.AgentID) {
+			s.cfg.Logger.Printf("skip %s: target_id=%q does not address agent_id=%q", m.ID, m.TargetID, s.cfg.AgentID)
 			if err := s.cfg.Mbox.MarkRead(m.ID); err != nil {
 				s.cfg.Logger.Printf("mark read (not-ours) %s: %v", m.ID, err)
 			}
