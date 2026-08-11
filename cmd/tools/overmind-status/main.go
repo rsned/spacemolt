@@ -68,6 +68,8 @@ func defaultSources() []ovstatus.Source {
 		{Name: "Assist", Path: "data/overmind/assist-status.json"},
 		{Name: "Craft", Path: "data/overmind/craft-status.json"},
 		{Name: "Missions", Path: "data/overmind/mission-learn-status.json"},
+		{Name: "Hunt", Path: "data/overmind/hunt-status.json"},
+		{Name: "Unlock", Path: "data/overmind/unlock-status.json"},
 	}
 }
 
