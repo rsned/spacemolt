@@ -27,6 +27,12 @@ MECHANICS THIS ENCODES
 USAGE
     scripts/gift-burst.py --fleet data/overmind/unlock-fleet.yaml
     scripts/gift-burst.py --agents miner-9,prophet-2 --amount 25000
+    # a named agent at its own amount, alongside (or instead of) a sweep --
+    # --also wins over the sweep for the same agent, so nobody is paid twice
+    scripts/gift-burst.py --fleet data/overmind/unlock-fleet.yaml --also databot=1000000
+
+Keep everything in ONE script: a single play_as session handles many commands,
+which beats one fresh login per gift against the per-IP /login limit.
 
 Then, because play_as is an interactive REPL needing a real TTY, the OPERATOR
 runs it (it cannot be driven from a headless tool shell):
@@ -114,7 +120,24 @@ def main():
     ap.add_argument("--floor", type=int, default=DEFAULT_FLOOR, help=f"only gift agents below this balance (default {DEFAULT_FLOOR}); ignored with --agents")
     ap.add_argument("--assets-db", default="data/assets.db")
     ap.add_argument("--out", help="write the play_as script here instead of stdout")
+    ap.add_argument(
+        "--also",
+        action="append",
+        default=[],
+        metavar="AGENT=AMOUNT",
+        help="gift a named agent a specific amount regardless of its balance; repeatable. "
+        "Overrides the sweep for that agent so nobody is paid twice.",
+    )
     args = ap.parse_args()
+
+    explicit = {}
+    for spec in args.also:
+        agent_id, _, raw = spec.partition("=")
+        if not agent_id or not raw.strip().isdigit():
+            print(f"ERROR: --also expects AGENT=AMOUNT with a whole number, got {spec!r}", file=sys.stderr)
+
+            return 1
+        explicit[agent_id.strip()] = int(raw)
 
     if args.fleet:
         candidates, apply_floor = load_fleet(args.fleet), True
@@ -122,19 +145,23 @@ def main():
         candidates, apply_floor = [a.strip() for a in args.agents.split(",") if a.strip()], False
 
     assets = sqlite3.connect(f"file:{args.assets_db}?mode=ro", uri=True)
+    # Explicit recipients come last in the candidate list but win on amount, so
+    # an agent named in --also is gifted once, at the amount asked for, whether
+    # or not the sweep would also have caught it.
     recipients, skipped = [], []
-    for agent_id in candidates:
+    for agent_id in candidates + [a for a in explicit if a not in candidates]:
+        amount = explicit.get(agent_id, args.amount)
         bal, as_of, source = credits_for(assets, agent_id)
         # An unknown balance is treated as broke: the agent has never been
         # captured, which is itself a sign it has been sitting outside every
         # pool, and over-funding costs nothing next to a stranded agent.
-        if apply_floor and bal is not None and bal >= args.floor:
+        if agent_id not in explicit and apply_floor and bal is not None and bal >= args.floor:
             continue
         name = username_for(agent_id)
         if not name:
             skipped.append(agent_id)
             continue
-        recipients.append((agent_id, bal, as_of, source, name))
+        recipients.append((agent_id, bal, as_of, source, name, amount))
 
     if skipped:
         # Refuse rather than emit a short script: a burst that silently drops
@@ -148,15 +175,18 @@ def main():
         return 0
 
     width = max(len(r[0]) for r in recipients)
-    print(f"{'agent':{width}}  {'credits':>10}  {'as of':10}  {'source':10}  username", file=sys.stderr)
-    for agent_id, bal, as_of, source, name in recipients:
+    print(f"{'agent':{width}}  {'credits':>10}  {'as of':10}  {'source':10}  {'gift':>10}  username", file=sys.stderr)
+    for agent_id, bal, as_of, source, name, amount in recipients:
         shown = "?" if bal is None else f"{bal:,.0f}"
-        print(f"{agent_id:{width}}  {shown:>10}  {as_of or '-':10}  {source:10}  {name!r}", file=sys.stderr)
-    total = len(recipients) * args.amount
-    print(f"\n{len(recipients)} recipients x {args.amount:,} = {total:,} credits", file=sys.stderr)
+        flag = " *" if agent_id in explicit else ""
+        print(f"{agent_id:{width}}  {shown:>10}  {as_of or '-':10}  {source:10}  {amount:>10,}  {name!r}{flag}", file=sys.stderr)
+    total = sum(r[5] for r in recipients)
+    print(f"\n{len(recipients)} recipients, {total:,} credits total", file=sys.stderr)
+    if explicit:
+        print("  * named explicitly via --also", file=sys.stderr)
 
     lines = ["dock"]
-    lines += [f'send_gift "{name}" credits {args.amount}' for *_, name in recipients]
+    lines += [f'send_gift "{name}" credits {amount}' for *_, name, amount in recipients]
     lines += ["get_status", "quit"]
     script = "\n".join(lines) + "\n"
     if args.out:
