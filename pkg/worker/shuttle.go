@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -94,6 +95,11 @@ type ShuttleDeps struct {
 	// SetActivity publishes the status-page "current activity" string (nil in
 	// tests). Set when passengers are boarded, cleared ("") on an idle pass.
 	SetActivity func(string)
+	// Access is the learned player-station access map. Player-built stations may
+	// refuse an outsider's dock and nothing readable says which will, so an
+	// unverified one is treated as closed and its fares are declined. nil
+	// disables the check entirely (older callers, tests).
+	Access *StationAccess
 }
 
 func shuttleNow(deps ShuttleDeps) time.Time {
@@ -224,7 +230,7 @@ func Shuttle(ctx context.Context, deps ShuttleDeps) error {
 		}
 	}
 
-	ranked := rankShuttleDestinations(resp.Waiting, current, graph, nameToID, strongholdByID, maxJumps, out)
+	ranked := rankShuttleDestinations(resp.Waiting, current, graph, nameToID, strongholdByID, maxJumps, out, deps.Access)
 	if len(ranked) == 0 {
 		return shuttleIdle(ctx, deps, out, current, fmt.Sprintf("no reachable, safe destinations within %d jumps", maxJumps))
 	}
@@ -281,7 +287,7 @@ func deliverAboardPassengers(ctx context.Context, deps ShuttleDeps, out io.Write
 		}
 	}
 
-	target, urgentTicks, routable := mostUrgentAboardDestination(resp.Passengers, current, graph, nameToID, strongholdByID, maxJumps)
+	target, urgentTicks, routable := mostUrgentAboardDestination(resp.Passengers, current, graph, nameToID, strongholdByID, maxJumps, deps.Access)
 	if !routable {
 		// Nothing aboard can be routed (unknown/over-budget systems, or
 		// stronghold-only destinations the shuttle must not enter). Strand them to
@@ -310,7 +316,7 @@ func deliverAboardPassengers(ctx context.Context, deps ShuttleDeps, out io.Write
 // must never fly into one), and returns the routable destination whose most-urgent
 // passenger has the fewest ticks remaining — soonest-to-expire fare delivered
 // first. routable is false when no aboard passenger has a deliverable destination.
-func mostUrgentAboardDestination(aboard []serverapi.AboardPassenger, current string, graph navigation.JumpGraph, nameToID map[string]string, strongholdByID map[string]bool, maxJumps int) (cand shuttleCandidate, urgentTicks int, routable bool) {
+func mostUrgentAboardDestination(aboard []serverapi.AboardPassenger, current string, graph navigation.JumpGraph, nameToID map[string]string, strongholdByID map[string]bool, maxJumps int, access *StationAccess) (cand shuttleCandidate, urgentTicks int, routable bool) {
 	type group struct {
 		cand     shuttleCandidate
 		minTicks int
@@ -323,6 +329,12 @@ func mostUrgentAboardDestination(aboard []serverapi.AboardPassenger, current str
 		sysID := resolveShuttleSystemID(p.DestinationSystem, graph, nameToID)
 		if sysID == "" || strongholdByID[sysID] {
 			continue // unknown system or stronghold — not a place the shuttle delivers
+		}
+		if access.Denied(p.Destination) {
+			// This station has already refused us. Treating it as unroutable is
+			// what routes these passengers to the unload path below, instead of
+			// flying there to be turned away a second time.
+			continue
 		}
 		g := groups[p.Destination]
 		if g == nil {
@@ -590,10 +602,17 @@ func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writ
 
 // rankShuttleDestinations groups the waiting passengers by destination station,
 // drops destinations that are pirate strongholds (most ships are destroyed flying
-// there), unreachable, or beyond maxJumps, and returns the survivors sorted by
-// total estimated fare (descending). Skipped strongholds are logged once.
-func rankShuttleDestinations(waiting []serverapi.StationPassenger, current string, graph navigation.JumpGraph, nameToID map[string]string, strongholdByID map[string]bool, maxJumps int, out io.Writer) []shuttleCandidate {
+// there), player stations we cannot prove will admit us, unreachable, or beyond
+// maxJumps, and returns the survivors sorted by total estimated fare
+// (descending). Skipped strongholds and closed stations are logged once.
+//
+// The access check is at BOARDING for a reason: a fare accepted for a station
+// that refuses the dock cannot be completed or abandoned cheaply -- live on
+// 2026-08-11 the shuttle took a passenger for Fortress Blackthorn and then held
+// them while circling, until an operator unloaded them by hand.
+func rankShuttleDestinations(waiting []serverapi.StationPassenger, current string, graph navigation.JumpGraph, nameToID map[string]string, strongholdByID map[string]bool, maxJumps int, out io.Writer, access *StationAccess) []shuttleCandidate {
 	agg := make(map[string]*shuttleCandidate)
+	loggedClosed := make(map[string]bool)
 	for _, p := range waiting {
 		if p.Destination == "" {
 			continue
@@ -601,6 +620,17 @@ func rankShuttleDestinations(waiting []serverapi.StationPassenger, current strin
 		sysID := resolveShuttleSystemID(p.DestinationSystem, graph, nameToID)
 		if sysID == "" {
 			continue // unknown system — cannot route
+		}
+		if !access.Deliverable(p.Destination) {
+			// Player station that has not proven it will admit us. Logged so a
+			// declined fare is visible as a decision rather than a silent gap.
+			if !loggedClosed[p.Destination] {
+				fmt.Fprintf(out, "shuttle: skipping unverified player station %s (%s); no proven dock access\n", //nolint:errcheck
+					cmp.Or(p.DestinationName, p.DestinationSystem), p.Destination)
+				loggedClosed[p.Destination] = true
+			}
+
+			continue
 		}
 		c := agg[p.Destination]
 		if c == nil {
@@ -691,8 +721,14 @@ func shuttleDeliver(ctx context.Context, deps ShuttleDeps, out io.Writer, c shut
 	}
 	// Autopilot travels to the station POI but leaves the ship undocked; dock to
 	// trigger the automatic passenger delivery + fare collection.
-	if err := deps.Client.Dock(ctx); err != nil {
-		fmt.Fprintf(out, "shuttle: dock at %s failed: %v; passengers stay aboard\n", c.station, err) //nolint:errcheck
+	dockErr := deps.Client.Dock(ctx)
+	// Learn from the attempt either way. This is the ONLY place the fleet finds
+	// out whether a player station admits us, so a refusal recorded here is what
+	// stops the next pass -- and every other shuttle sharing the map -- from
+	// selling the same undeliverable fare again.
+	deps.Access.RecordDock(c.station, dockErr)
+	if dockErr != nil {
+		fmt.Fprintf(out, "shuttle: dock at %s failed: %v; passengers stay aboard\n", c.station, dockErr) //nolint:errcheck
 		return nil
 	}
 	// Passengers bound here have now auto-delivered. Contribute the treasury's cut

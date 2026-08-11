@@ -64,6 +64,14 @@ type WorkerDispatch struct {
 	// mission carries cross-pass mission-runner memory (dry-pass streak +
 	// reposition cursor), the shuttleState pattern.
 	mission *missionRunState
+	// StationAccessPath is the learned player-station access map (empty ->
+	// DefaultStationAccessPath). Shared across the fleet: one shuttle's refusal
+	// teaches every other worker that reads the file.
+	StationAccessPath string
+	// access is the loaded map; accessOnce guards the one-time load + ledger
+	// seed so the seeding query runs once per process, not once per pass.
+	access     *StationAccess
+	accessOnce sync.Once
 	// freightPersistOnce guards the one-time load+wire of freight-held persistence.
 	freightPersistOnce sync.Once
 
@@ -307,7 +315,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 	case "shuttle":
 		return Shuttle(ctx, ShuttleDeps{
 			Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID, Treasury: d.treasury, State: d.shuttle,
-			SetActivity: d.setActivity,
+			SetActivity: d.setActivity, Access: d.stationAccess(ctx),
 		})
 	case "assist":
 		if d.Rescue == nil {
@@ -462,4 +470,43 @@ func (d *WorkerDispatch) ensureHome(ctx context.Context) error {
 		fmt.Fprintf(d.Out, "ensure_home: dock %s: %v\n", home, derr) //nolint:errcheck
 	}
 	return nil
+}
+
+// DefaultStationAccessPath is where the learned player-station access map lives.
+// It sits beside the other shared overmind sidecars (the rescue queue, the
+// membership overrides) because it is fleet-wide knowledge, not per-agent state:
+// one shuttle discovering a closed station must spare every other worker the
+// same wasted trip.
+const DefaultStationAccessPath = "data/overmind/station-access.json"
+
+// stationAccess loads the access map once per process and seeds it from the
+// asset ledger.
+//
+// The seed is what makes the map useful immediately. A shuttle acting alone
+// would have to strand one passenger per station to learn anything, but the
+// ledger already records where every agent in the fleet is docked, and a
+// non-empty docked_at_base at a player station is first-hand proof that station
+// admits us. On 2026-08-11 that evidence covers Hex Star (nine agents docked)
+// and The Obsidian Well -- the two player stations known to be open.
+//
+// Every failure here is non-fatal and degrades to "less evidence": a missing
+// ledger, a query error, or an unreadable map file all leave a usable map whose
+// unverified stations simply read as closed.
+func (d *WorkerDispatch) stationAccess(ctx context.Context) *StationAccess {
+	d.accessOnce.Do(func() {
+		path := d.StationAccessPath
+		if path == "" {
+			path = DefaultStationAccessPath
+		}
+		d.access = LoadStationAccess(path)
+		bases, err := d.Assets.ProvenDockedBases(ctx)
+		if err != nil {
+			fmt.Fprintf(d.Out, "station access: ledger seed failed: %v; continuing with the stored map\n", err) //nolint:errcheck
+
+			return
+		}
+		d.access.Seed(bases)
+	})
+
+	return d.access
 }

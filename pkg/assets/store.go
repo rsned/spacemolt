@@ -8,6 +8,7 @@
 package assets
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -115,3 +116,41 @@ func (s *Store) DB() *sql.DB {
 
 // rfc3339 renders a timestamp in the format every captured_at column uses.
 func rfc3339(t time.Time) string { return t.UTC().Format(time.RFC3339) }
+
+// ProvenDockedBases returns every distinct non-empty docked_at_base recorded in
+// the ledger: each one is a station some agent was actually docked at, which is
+// first-hand proof that it admits us.
+//
+// This exists so player-station access can be seeded from what the FLEET
+// collectively knows rather than rediscovered one stranded passenger at a time.
+// Only presence is meaningful -- an EMPTY docked_at_base proves nothing, because
+// it is a player field that reads blank even while docked, so absence must never
+// be inferred as refusal.
+//
+// A nil store returns nothing and no error: asset capture is optional, and a
+// caller without a ledger simply has no evidence to seed from.
+func (s *Store) ProvenDockedBases(ctx context.Context) ([]string, error) {
+	if s == nil || s.db == nil {
+		return nil, nil
+	}
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT DISTINCT docked_at_base FROM agent_profile WHERE docked_at_base != ''`)
+	if err != nil {
+		return nil, fmt.Errorf("proven docked bases: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck
+
+	var out []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("proven docked bases: scan: %w", err)
+		}
+		out = append(out, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("proven docked bases: %w", err)
+	}
+
+	return out, nil
+}

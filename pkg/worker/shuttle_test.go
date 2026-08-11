@@ -2,7 +2,10 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"io"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -76,7 +79,7 @@ func TestMostUrgentAboardDestination(t *testing.T) {
 	}
 
 	// maxJumps=2 keeps ac (1) and procyon (2); procyon's 100 ticks is the most urgent.
-	cand, ticks, routable := mostUrgentAboardDestination(aboard, "sol", graph, map[string]string{}, strongholds, 2)
+	cand, ticks, routable := mostUrgentAboardDestination(aboard, "sol", graph, map[string]string{}, strongholds, 2, nil)
 	if !routable {
 		t.Fatal("expected routable=true")
 	}
@@ -89,7 +92,7 @@ func TestMostUrgentAboardDestination(t *testing.T) {
 		{Destination: "den_station", DestinationSystem: "den", TicksRemaining: 50},
 		{Destination: "ghost_station", DestinationSystem: "nowhere", TicksRemaining: 10},
 	}
-	if _, _, ok := mostUrgentAboardDestination(stuck, "sol", graph, map[string]string{}, strongholds, 8); ok {
+	if _, _, ok := mostUrgentAboardDestination(stuck, "sol", graph, map[string]string{}, strongholds, 8, nil); ok {
 		t.Fatal("expected routable=false when only stronghold/unknown destinations are aboard")
 	}
 }
@@ -179,7 +182,7 @@ func TestRankShuttleDestinations(t *testing.T) {
 	}
 
 	// maxJumps=2 keeps ac (1) and procyon (2); excludes f3 (3 jumps).
-	ranked := rankShuttleDestinations(waiting, "sol", graph, map[string]string{}, strongholds, 2, io.Discard)
+	ranked := rankShuttleDestinations(waiting, "sol", graph, map[string]string{}, strongholds, 2, io.Discard, nil)
 
 	if len(ranked) != 2 {
 		t.Fatalf("ranked = %d candidates, want 2 (got %+v)", len(ranked), ranked)
@@ -204,7 +207,7 @@ func TestRankShuttleDestinations(t *testing.T) {
 	}
 
 	// A generous budget admits the far destination too.
-	wide := rankShuttleDestinations(waiting, "sol", graph, map[string]string{}, strongholds, 8, io.Discard)
+	wide := rankShuttleDestinations(waiting, "sol", graph, map[string]string{}, strongholds, 8, io.Discard, nil)
 	if len(wide) != 3 {
 		t.Fatalf("wide budget ranked = %d, want 3 (ac, procyon, far)", len(wide))
 	}
@@ -268,5 +271,76 @@ func TestShuttleAlreadyAtStation(t *testing.T) {
 				t.Fatalf("shuttleAlreadyAtStation = %v, want %v", got, tt.wantAtStation)
 			}
 		})
+	}
+}
+
+// The live incident this gate exists for, replayed exactly. On 2026-08-11 the
+// shuttle was docked at The Levy with two passengers waiting for Fortress
+// Blackthorn -- a player station that had ALREADY refused johnny_cab's dock --
+// paying a combined 13,125cr, by far the best fare on the board. Without the
+// gate the ranking takes the money and strands them; the first attempt had to be
+// unloaded by hand.
+func TestRankSkipsPlayerStationsWithoutProvenAccess(t *testing.T) {
+	graph := navigation.JumpGraph{
+		"the_levy":   {"blackthorn", "haven"},
+		"blackthorn": {"the_levy"},
+		"haven":      {"the_levy"},
+	}
+	access := LoadStationAccess(filepath.Join(t.TempDir(), "access.json"))
+	access.RecordDock(blackthornBase, errors.New("Error: Access denied"))
+
+	waiting := []serverapi.StationPassenger{
+		// The trap: highest fare on the board, undeliverable.
+		{Destination: blackthornBase, DestinationSystem: "blackthorn", DestinationName: "Fortress Blackthorn", EstimatedFare: 3750},
+		{Destination: blackthornBase, DestinationSystem: "blackthorn", DestinationName: "Fortress Blackthorn", EstimatedFare: 9375},
+		// An honest NPC fare worth a fraction as much.
+		{Destination: "grand_exchange_station", DestinationSystem: "haven", DestinationName: "Haven", EstimatedFare: 900},
+	}
+
+	var buf strings.Builder
+	ranked := rankShuttleDestinations(waiting, "the_levy", graph, map[string]string{}, map[string]bool{}, 8, &buf, access)
+
+	if len(ranked) != 1 || ranked[0].station != "grand_exchange_station" {
+		t.Fatalf("ranked = %+v, want only grand_exchange_station", ranked)
+	}
+	// The refusal must be VISIBLE: a silently dropped fare is indistinguishable
+	// from an empty board when an operator asks why the shuttle is idle.
+	if !strings.Contains(buf.String(), "Fortress Blackthorn") {
+		t.Errorf("skipping a closed station must be logged, got %q", buf.String())
+	}
+	// Logged once, not once per passenger.
+	if n := strings.Count(buf.String(), "Fortress Blackthorn"); n != 1 {
+		t.Errorf("closed station logged %d times, want 1", n)
+	}
+
+	// Proven-open player stations are ordinary business: Hex Star has nine
+	// agents docked, and refusing it would cost real fares.
+	access.RecordDock(hexStarBase, nil)
+	open := []serverapi.StationPassenger{
+		{Destination: hexStarBase, DestinationSystem: "haven", DestinationName: "Hex Star", EstimatedFare: 4000},
+	}
+	if got := rankShuttleDestinations(open, "the_levy", graph, map[string]string{}, map[string]bool{}, 8, io.Discard, access); len(got) != 1 {
+		t.Fatalf("a proven-open player station must be rankable, got %+v", got)
+	}
+}
+
+// Passengers already aboard for a station that refused us must become
+// unroutable, which is what sends them down the unload path instead of flying
+// back to be turned away again.
+func TestAboardDestinationSkipsDeniedStations(t *testing.T) {
+	graph := navigation.JumpGraph{"the_levy": {"blackthorn"}, "blackthorn": {"the_levy"}}
+	access := LoadStationAccess(filepath.Join(t.TempDir(), "access.json"))
+	access.RecordDock(blackthornBase, errors.New("Access denied"))
+
+	aboard := []serverapi.AboardPassenger{
+		{Destination: blackthornBase, DestinationSystem: "blackthorn", DestinationName: "Fortress Blackthorn", TicksRemaining: 500},
+	}
+	if _, _, routable := mostUrgentAboardDestination(aboard, "the_levy", graph, map[string]string{}, map[string]bool{}, 8, access); routable {
+		t.Error("a denied destination must be unroutable so the passengers are unloaded")
+	}
+	// Without the map the same passenger is routable -- proving the access check
+	// is what makes the difference, not the routing.
+	if _, _, routable := mostUrgentAboardDestination(aboard, "the_levy", graph, map[string]string{}, map[string]bool{}, 8, nil); !routable {
+		t.Error("with no access map the destination must stay routable (nil is permissive)")
 	}
 }
