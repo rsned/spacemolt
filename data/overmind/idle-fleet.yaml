@@ -1,0 +1,69 @@
+# Idle fleet — every defined agent that belongs to no other pool.
+#
+# PURPOSE IS OBSERVABILITY, NOT WORK. The `idle` role (data/overmind/roles.yaml)
+# carries a capture schedule and no idle script, so these workers log in, record
+# themselves to the asset ledger, and spend nothing. Launch with
+# `--assets-db-path data/assets.db` or this fleet does literally nothing.
+#
+# Why it exists: Coverage (pkg/assets/coverage.go) only knows an agent a worker
+# has captured, so "not in any pool" read as "no data" for 46 defined agents —
+# the ledger showed 95 of a 110-agent roster and nothing said why. Membership
+# here is the cheapest way to make an idle agent visible without giving it a job.
+#
+# DELIBERATELY NOT HERE:
+#   - databot — a standalone player run via cmd/databot. A worker logging in as
+#     it would fight that process for the session; the same session_replaced war
+#     killed a play_as pirate-7 session on 2026-08-10.
+#   - craftsman-1 — held out on purpose. It carries ~8,868 intentional lowball
+#     buy orders and is the only agent with pirate smuggling access; it also sits
+#     in mission-learn-overrides.json, which is where its membership is decided.
+#   - pirate-6..10 — the hunt fleet (data/overmind/hunt-fleet.yaml).
+#   - the nine stronghold marketbots (algol, alhena, barnard_44, bellatrix,
+#     gliese_581, gsc_0008, sheratan, xamidimura, zaniah) — one per pirate
+#     warlord base, waiting on pirate_* reputation before they can be placed.
+#     Parking them here would strand them as permanent idlers.
+#   - explorer-3, engineer-2, engineer-5 — mission-learn members that a freight
+#     run removed on 2026-08-09 and never restored. Fixed in the overrides
+#     sidecar, not by moving them here.
+#   - empire-crimson / empire-crimson-real — spent security-test accounts, not
+#     agents. The pair probed whether an empire ruler's name could be spoofed by
+#     homoglyph (Cyrillic "а" vs Latin "a") and whether ruler names were reserved
+#     at registration; they were not. Both bugs are fixed, so there is nothing
+#     left to track and no reason to keep logging them in.
+#
+# `overmind` is a real agent, reserved as the eventual overmind runner once
+# roles are interchangeable. cmd/overmind never logs in, so nothing contends
+# for that identity while it idles here.
+#
+# No `station` is set: the idle role never travels, so an agent captures from
+# wherever it already is.
+workers:
+  # Brigand bands 1 and 3 — dormant by design, blocked on combat dynamics and
+  # fleet combat. Band 2 (pirate-6..10) is in the hunt fleet.
+  - { agent_id: pirate-1, role: idle }
+  - { agent_id: pirate-2, role: idle }
+  - { agent_id: pirate-3, role: idle }
+  - { agent_id: pirate-4, role: idle }
+  - { agent_id: pirate-5, role: idle }
+  - { agent_id: pirate-11, role: idle }
+  - { agent_id: pirate-12, role: idle }
+  - { agent_id: pirate-13, role: idle }
+  - { agent_id: pirate-14, role: idle }
+  - { agent_id: pirate-15, role: idle }
+  # Miners: idle_mine was paused 2026-06-30 because the mine/harvest round trip
+  # stranded broke bots at 0 fuel. They capture until a funded-mining model exists.
+  - { agent_id: miner-1, role: idle }
+  - { agent_id: miner-2, role: idle }
+  - { agent_id: miner-3, role: idle }
+  - { agent_id: miner-4, role: idle }
+  - { agent_id: miner-5, role: idle }
+  - { agent_id: miner-6, role: idle }
+  - { agent_id: miner-7, role: idle }
+  - { agent_id: miner-8, role: idle }
+  - { agent_id: miner-9, role: idle }
+  - { agent_id: miner-10, role: idle }
+  - { agent_id: prophet-1, role: idle }
+  - { agent_id: prophet-2, role: idle }
+  - { agent_id: random-7, role: idle }
+  - { agent_id: random-clark, role: idle }
+  - { agent_id: overmind, role: idle }

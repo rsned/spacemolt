@@ -31,6 +31,21 @@
 #   4. Canary first_hunt_belt_grazers by hand through play_as before letting the
 #      fleet run unattended.
 #   5. Launch with --assets-db-path data/assets.db and --stagger 10s.
+# GROWN TO FIVE 2026-08-10. The two-agent start above was a risk posture for a
+# behaviour that had never run unattended, not a capability limit. Since then all
+# five were canaried by hand through the full loop — accept, travel, engage,
+# close, kill, complete — and every one finished First Hunt: Belt-Grazers at
+# 100% hull. A grazer deals ~40 damage across a ~19-tick fight and shields
+# absorb all of it. The five are identically fitted Prospectors with a
+# pulse_laser_i, so there is nothing left that the first two would prove.
+#
+# Grounds: kochab_belt and ironpeak_belt (2 jumps from first_step) are the only
+# nearby belts carrying Belt-Grazers, and both respawn. Khambalia is 10 jumps
+# out and unnecessary. The hunt role finds its own ground; this is recorded for
+# the operator.
 workers:
   - { agent_id: pirate-6, role: hunt, station: frontier_station }
+  - { agent_id: pirate-7, role: hunt, station: frontier_station }
+  - { agent_id: pirate-8, role: hunt, station: frontier_station }
   - { agent_id: pirate-9, role: hunt, station: frontier_station }
+  - { agent_id: pirate-10, role: hunt, station: frontier_station }

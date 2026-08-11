@@ -107,3 +107,20 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
     idle: missions
+  # Ledger-only. The agent logs in, captures itself, and does nothing else:
+  # there is deliberately no `idle:` key, so no idle script ever runs and the
+  # worker spends no ticks, credits or fuel. `miner` already has this shape,
+  # so it needs no code.
+  #
+  # This exists because an agent outside every fleet is invisible to the asset
+  # ledger — Coverage only sees what a worker captures — and "not in a pool"
+  # was silently reading as "no data" for 46 defined agents. Membership here is
+  # the cheapest way to make an idle agent observable without giving it a job.
+  #
+  # A role, not a parking lot: when an idle agent is given real work, move it to
+  # the fleet that owns that work rather than bolting behaviour on here.
+  idle:
+    schedule:
+      - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
