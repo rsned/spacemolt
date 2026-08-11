@@ -29,6 +29,8 @@ var Fleets = []FleetDef{
 	{File: "mb", Label: "mb", Color: "#a78bfa", Socket: "mb.sock"},
 	{File: "assist", Label: "assist", Color: "#fb923c", Socket: "assist.sock"},
 	{File: "shuttle", Label: "shuttle", Color: "#f472b6", Socket: "shuttle.sock"},
+	{File: "hunt", Label: "hunt", Color: "#ef4444", Socket: "hunt.sock"},
+	{File: "unlock", Label: "unlock", Color: "#60a5fa", Socket: "unlock.sock"},
 }
 
 // AgentState is one worker in one snapshot, system resolved to a map id.

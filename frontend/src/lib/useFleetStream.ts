@@ -100,6 +100,8 @@ export const FLEETS: Record<string, string> = {
   mb: '#a78bfa',
   assist: '#fb923c',
   shuttle: '#f472b6',
+  hunt: '#ef4444',
+  unlock: '#60a5fa',
 };
 
 export interface FleetStream {
