@@ -195,8 +195,14 @@ func TestHuntFleetYAMLParses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFleet: %v", err)
 	}
-	if len(specs) != 2 {
-		t.Fatalf("hunt fleet starts at two agents, got %d: %+v", len(specs), specs)
+	// Deliberately NOT an exact count. The pool started at two as a risk posture
+	// for a behaviour that had never run unattended; all five were canaried by
+	// hand on 2026-08-10 and it grew to five. Fleet size is an operational
+	// choice the operator re-makes, so pinning it here only manufactures a red
+	// suite every time the roster changes. What must hold is that the file the
+	// operator actually launches parses, is not empty, and names a real role.
+	if len(specs) == 0 {
+		t.Fatal("hunt fleet is empty")
 	}
 	roles, err := LoadRoles(filepath.Join("..", "..", "data", "overmind", "roles.yaml"))
 	if err != nil {

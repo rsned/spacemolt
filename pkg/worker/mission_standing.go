@@ -1,10 +1,24 @@
 package worker
 
-import "github.com/rsned/spacemolt/pkg/game"
+import (
+	"strings"
+
+	"github.com/rsned/spacemolt/pkg/game"
+)
 
 const (
-	// pirateFactionID keys the pirate block in Player.Standings.
-	pirateFactionID = "pirates"
+	// pirateStrongholdPrefix keys the nine per-stronghold pirate standings
+	// (pirate_crix, pirate_dross, pirate_kael, pirate_korr, pirate_mera,
+	// pirate_nyx, pirate_sable, pirate_thane, pirate_voss).
+	//
+	// There is deliberately no "pirates" constant. The server retired that
+	// single generic block — each stronghold keeps its own books, so attacking
+	// one crew leaves the other eight's opinion of you unchanged. A lookup of
+	// the retired key returns a zero value rather than an error, so this gate
+	// silently answered "still climbing" for EVERY agent, including the seven
+	// that had completed the chain. pkg/assets/capability.go was corrected for
+	// the same drift on 2026-08-07; this site was missed.
+	pirateStrongholdPrefix = "pirate_"
 	// pirateUnlockBaseline is the pirate BASELINE an agent holds once chain-2
 	// mission 1 (`an_introduction`) has been completed. Every agent starts at
 	// -30 (the only hostile default); the mission raises the baseline to 10,
@@ -28,13 +42,21 @@ const (
 // Unknown standings (no full player payload yet) read as NOT unlocked, which
 // keeps a fresh worker in the forgiving mode rather than silently applying
 // money rules to an agent that is still climbing.
+//
+// ANY one crew at the unlock baseline counts. an_introduction is granted by a
+// single giver, so the unlock lands at one stronghold first; requiring all nine
+// would report a genuinely unlocked agent as still climbing.
 func smugglingUnlocked(st *game.State) bool {
 	if st == nil || st.Player.Standings == nil {
 		return false
 	}
-	s, ok := st.Player.Standings[pirateFactionID]
+	for name, s := range st.Player.Standings {
+		if strings.HasPrefix(name, pirateStrongholdPrefix) && s.Baseline >= pirateUnlockBaseline {
+			return true
+		}
+	}
 
-	return ok && s.Baseline >= pirateUnlockBaseline
+	return false
 }
 
 // smugglingXPExemptLevel is the smuggling level at which an agent stops being

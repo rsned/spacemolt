@@ -124,3 +124,26 @@ roles:
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
+  # Pirate-reputation UNLOCK pool. Mission running with one objective: complete
+  # smuggling chain 2 mission 1 (`an_introduction`), which raises the pirate
+  # baseline from the -30 hostile default to 10. At baseline 10 an agent can dock
+  # at a stronghold and stops being attacked on sight, so the unlock is a safety
+  # property, not a trade perk — 115 of 122 agents are still attackable.
+  #
+  # The behaviour is missionrunner's; the role exists so the pool is named for
+  # its goal and can be retired agent-by-agent as each one banks the unlock.
+  # `capture_faction` is the completion signal: it writes agent_standings, which
+  # is where the baseline flip becomes visible to the ledger.
+  #
+  # mission_categories and the chain-giver pin are per-worker in
+  # unlock-fleet.yaml, NOT here: only agents that can physically reach the giver
+  # get pinned, and that is a per-agent fuel-and-distance fact.
+  unlock:
+    schedule:
+      - { every: hourly, command: "update_market" }
+      - { every: hourly, command: "capture_fuel" }
+      - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "kb_update" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
+    idle: missions

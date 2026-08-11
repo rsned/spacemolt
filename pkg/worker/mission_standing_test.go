@@ -16,8 +16,8 @@ func TestSmugglingUnlockedReadsBaselineNotReputation(t *testing.T) {
 	standing := func(rep, base int) *game.State {
 		return &game.State{Player: game.Player{
 			Standings: map[string]game.EmpireStanding{
-				"pirates":  {Reputation: rep, Baseline: base},
-				"solarian": {Reputation: 20, Baseline: 20},
+				"pirate_voss": {Reputation: rep, Baseline: base},
+				"solarian":    {Reputation: 20, Baseline: 20},
 			},
 		}}
 	}
@@ -41,6 +41,56 @@ func TestSmugglingUnlockedReadsBaselineNotReputation(t *testing.T) {
 		if got := smugglingUnlocked(tc.state); got != tc.want {
 			t.Errorf("%s: smugglingUnlocked = %v, want %v", tc.name, got, tc.want)
 		}
+	}
+}
+
+// pirateStrongholds is the live standings key set: the server retired the single
+// generic "pirates" block and now sends one per stronghold, because each crew
+// keeps its own books. pkg/assets was corrected for this on 2026-08-07 (a leader
+// at reputation 16-17 with all nine crews read as "baseline 0, needs 10");
+// pkg/worker kept reading the retired key, so smuggllingUnlocked could never
+// return true for any agent, on any board, ever.
+var pirateStrongholds = []string{
+	"pirate_crix", "pirate_dross", "pirate_kael", "pirate_korr", "pirate_mera",
+	"pirate_nyx", "pirate_sable", "pirate_thane", "pirate_voss",
+}
+
+// The live wire shape, verified against data/assets.db on 2026-08-11: 122 agents
+// x 9 pirate_* keys, and ZERO rows under "pirates". A fixture carrying the
+// retired key is why this stayed green while production could not unlock.
+func TestSmugglingUnlockedReadsTheLiveStrongholdKeys(t *testing.T) {
+	all := func(base int) map[string]game.EmpireStanding {
+		m := map[string]game.EmpireStanding{"solarian": {Reputation: 20, Baseline: 20}}
+		for _, k := range pirateStrongholds {
+			m[k] = game.EmpireStanding{Reputation: base, Baseline: base}
+		}
+		return m
+	}
+	unlocked := &game.State{Player: game.Player{Standings: all(pirateUnlockBaseline)}}
+	if !smugglingUnlocked(unlocked) {
+		t.Error("an agent at baseline 10 with all nine stronghold keys reads as locked")
+	}
+	hostile := &game.State{Player: game.Player{Standings: all(-30)}}
+	if smugglingUnlocked(hostile) {
+		t.Error("an agent at the -30 hostile default reads as unlocked")
+	}
+	// The retired key alone must NOT satisfy the gate: if it did, this whole
+	// class of drift would go unnoticed again the next time a key is renamed.
+	retired := &game.State{Player: game.Player{Standings: map[string]game.EmpireStanding{
+		"pirates": {Reputation: 10, Baseline: pirateUnlockBaseline},
+	}}}
+	if smugglingUnlocked(retired) {
+		t.Error("the retired \"pirates\" key still satisfies the unlock gate")
+	}
+	// One crew is enough. Standings are per-stronghold and an_introduction is
+	// granted by one giver, so the unlock arrives at one crew first; requiring
+	// all nine would report a genuinely unlocked agent as locked.
+	one := &game.State{Player: game.Player{Standings: map[string]game.EmpireStanding{
+		"pirate_kael": {Reputation: 10, Baseline: pirateUnlockBaseline},
+		"pirate_voss": {Reputation: -30, Baseline: -30},
+	}}}
+	if !smugglingUnlocked(one) {
+		t.Error("a single crew at baseline 10 reads as locked")
 	}
 }
 
