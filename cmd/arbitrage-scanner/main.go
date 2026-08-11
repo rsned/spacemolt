@@ -104,7 +104,7 @@ func defaultScanArgs() scanConfig {
 	return scanConfig{
 		dbPath: "data/market.db",
 		opts: market.ScanOptions{
-			MinProfit: 1000, MinPrice: 10, MinQuantity: 1,
+			MinProfit: 5000, MinPrice: 10, MinQuantity: 1,
 			ExpiresIn: 6 * time.Hour, Limit: 500,
 		},
 	}

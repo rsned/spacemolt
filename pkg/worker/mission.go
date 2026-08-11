@@ -51,6 +51,10 @@ type MissionStore interface {
 	// completions, so the gate can price a reward at what the empire is
 	// actually paying rather than at face value.
 	MissionPayoutRatio(ctx context.Context, window time.Duration) (float64, int, error)
+	// MissionPayoutRatioIn is the same measure restricted to missions accepted
+	// at the given origin bases. The purse is per-empire, so a galaxy-wide
+	// ratio is wrong in both directions at once — see MissionPayoutRatioIn.
+	MissionPayoutRatioIn(ctx context.Context, window time.Duration, fromBases []string) (float64, int, error)
 	GetReferenceAsk(ctx context.Context, itemID string) (market.ReferenceAsk, bool, error)
 	// GetReferencePrice returns a robust "cheap" cross-station reference
 	// (20th-percentile over lookback), used as the surge-ceiling basis for
@@ -709,13 +713,14 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// What the empire is actually paying per advertised credit, priced once per
 	// pass. Falls back to 1 (face value) on error or too few samples, which is
 	// also how the gate re-probes for a recovery — see MissionPayoutRatio.
-	payoutRatio, ratioSamples, rerr := deps.Market.MissionPayoutRatio(ctx, missionPayoutRatioWindow)
+	payoutEmpire, payoutBases := missionPayoutScope(ctx, deps)
+	payoutRatio, ratioSamples, rerr := deps.Market.MissionPayoutRatioIn(ctx, missionPayoutRatioWindow, payoutBases)
 	if rerr != nil {
 		fmt.Fprintf(out, "missions: payout ratio unavailable (%v); pricing at face value\n", rerr) //nolint:errcheck
 		payoutRatio = 1
 	}
-	if payoutRatio < 1 && deps.State.shouldLogSkip("payout-ratio", fmt.Sprintf("%.2f", payoutRatio)) {
-		fmt.Fprintf(out, "missions: empire paying %.0f%% of advertised (%d recent completions); rewards priced accordingly\n", payoutRatio*100, ratioSamples) //nolint:errcheck
+	if payoutRatio < 1 && deps.State.shouldLogSkip("payout-ratio", fmt.Sprintf("%s/%.2f", payoutEmpire, payoutRatio)) {
+		fmt.Fprintf(out, "missions: %s paying %.0f%% of advertised (%d recent completions); rewards priced accordingly\n", payoutEmpire, payoutRatio*100, ratioSamples) //nolint:errcheck
 	}
 	for _, e := range board {
 		if deps.State.wasAttempted(e.MissionID) {

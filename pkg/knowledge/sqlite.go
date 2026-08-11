@@ -707,6 +707,29 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 	return &base, nil
 }
 
+// GetBaseIDsByEmpire lists the ids of every known base belonging to an empire.
+func (kb *SQLiteKB) GetBaseIDsByEmpire(ctx context.Context, empire string) ([]string, error) {
+	rows, err := kb.db.QueryContext(ctx, `SELECT id FROM bases WHERE empire = ?`, empire)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query bases by empire: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("failed to scan base id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate bases by empire: %w", err)
+	}
+
+	return ids, nil
+}
+
 // GetBaseByPOI retrieves a base by its POI ID
 func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase, error) {
 	var base SpaceBase

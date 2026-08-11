@@ -8376,17 +8376,27 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				contentParts = append(contentParts, parts[i])
 			}
 		}
-		content := strings.Join(contentParts, " ")
+		content, err := forumBody(contentParts)
+		if err != nil {
+			return err
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.ForumCreateThread(ctx, title, content, category)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "forum_reply":
 		if len(parts) < 3 {
-			return fmt.Errorf("usage: forum_reply <thread-id> <content>")
+			return fmt.Errorf("usage: forum_reply <thread-id> <content>\n" +
+				"   or: forum_reply <thread-id> --file=<path>   (keeps newlines; " +
+				"the REPL splits a typed line on whitespace, so paragraphs only " +
+				"survive via a file)")
+		}
+		body, err := forumBody(parts[2:])
+		if err != nil {
+			return err
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.ForumReply(ctx, parts[1], strings.Join(parts[2:], " "))
+			return client.ForumReply(ctx, parts[1], body)
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "forum_upvote":

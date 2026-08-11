@@ -138,6 +138,10 @@ func (m *mockKB) GetBaseByPOI(ctx context.Context, poiID string) (*knowledge.Spa
 	return nil, nil
 }
 
+func (m *mockKB) GetBaseIDsByEmpire(ctx context.Context, empire string) ([]string, error) {
+	return nil, nil
+}
+
 func (m *mockKB) AddExperience(ctx context.Context, agentID, expType, description, outcome, location string) error {
 	return nil
 }

@@ -259,7 +259,7 @@ type StationCaptures struct {
 // ScanOptions parameterizes an arbitrage scan. Zero-valued fields take the
 // documented defaults when ScanArbitrage runs.
 type ScanOptions struct {
-	MinProfit   float64       `json:"min_profit"`   // gross_profit floor (default 1000)
+	MinProfit   float64       `json:"min_profit"`   // gross_profit floor (default 5000)
 	MinPrice    float64       `json:"min_price"`    // per-order price floor, filters basement orders (default 10)
 	MinQuantity float64       `json:"min_quantity"` // per-order depth floor (default 1)
 	ExpiresIn   time.Duration `json:"expires_in"`   // opportunity TTL (default 6h)

@@ -315,17 +315,22 @@ func TestScanArbitrageFiltersBasementByMinPrice(t *testing.T) {
 	now := time.Now().UTC()
 	if err := c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stnA", StationName: "Alpha", SystemID: "sysA", SystemName: "Sol", CapturedAt: now,
-		Orders: []Order{{StationID: "stnA", ItemID: "iron_ore", Side: "sell", PriceEach: 1, Quantity: 10, CapturedAt: now}},
+		Orders: []Order{{StationID: "stnA", ItemID: "iron_ore", Side: "sell", PriceEach: 1, Quantity: 50, CapturedAt: now}},
 	}); err != nil {
 		t.Fatalf("WriteSnapshot stnA: %v", err)
 	}
 	if err := c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stnB", StationName: "Beta", SystemID: "sysB", SystemName: "Sirius", CapturedAt: now,
-		Orders: []Order{{StationID: "stnB", ItemID: "iron_ore", Side: "buy", PriceEach: 200, Quantity: 10, CapturedAt: now}},
+		Orders: []Order{{StationID: "stnB", ItemID: "iron_ore", Side: "buy", PriceEach: 200, Quantity: 50, CapturedAt: now}},
 	}); err != nil {
 		t.Fatalf("WriteSnapshot stnB: %v", err)
 	}
-	// Default MinPrice 10 filters the 1cr ask (gross (200-1)*10=1990 would otherwise clear).
+	// Depth is 50 so the spread grosses (200-1)*50 = 9,950, clearing the default
+	// MinProfit floor on its own. That matters: at depth 10 the gross was 1,990,
+	// which slipped under the floor when it was raised to 5000 and made this
+	// test assert "filtered by MinPrice" about a row MinProfit had already
+	// removed. The fixture must leave MinPrice as the only thing that can
+	// reject it.
 	def, err := c.ScanArbitrage(ctx, ScanOptions{})
 	if err != nil {
 		t.Fatalf("ScanArbitrage default: %v", err)

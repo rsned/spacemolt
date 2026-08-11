@@ -140,8 +140,12 @@ func renderPriceText(itemID, fromSystem string, hops int, marginPct float64, mod
 		// reported (and the SUGGESTED total flagged as partial) per basis.
 		var nearbyMissing, mktMissing []string
 		for _, c := range r.Components {
+			// Two decimals, like every other numeric column. A shortest-repr
+			// float printed the accumulation noise that BOM expansion leaves
+			// on a fractional quantity (5.2 arrives as 5.200000000000001),
+			// which overflowed this 8-wide column and misaligned the row.
 			fmt.Fprintf(&b, "  %-20s %8s %10s %10s %10s\n", c.ItemID,
-				strconv.FormatFloat(c.Qty, 'f', -1, 64),
+				strconv.FormatFloat(c.Qty, 'f', 2, 64),
 				money(c.NearbyUnit, c.NearbyFound), money(c.MktBestUnit, c.MktBestFound), money(c.MktUnit, c.MktFound))
 			if !c.NearbyFound {
 				nearbyMissing = append(nearbyMissing, c.ItemID)
