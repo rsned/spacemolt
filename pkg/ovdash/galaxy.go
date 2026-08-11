@@ -183,8 +183,19 @@ func LoadGalaxy(ctx context.Context, dbPath string) (*Galaxy, error) {
 
 // ResolveName maps a display name ("Nova Terra") to a system id, case-insensitively.
 func (g *Galaxy) ResolveName(name string) (string, bool) {
-	id, ok := g.byName[strings.ToLower(name)]
-	return id, ok
+	if id, ok := g.byName[strings.ToLower(name)]; ok {
+		return id, true
+	}
+	// Some workers report the system ID rather than the display name -- live
+	// 2026-08-11, three agents docked at mobile_capital sent "deep_range" and
+	// were classed off-map even though Deep Range is an ordinary system. Ids
+	// and names cannot collide (a name has a space where the id has an
+	// underscore), so accepting an id here only widens what the map can place.
+	if lower := strings.ToLower(name); g.ids[lower] {
+		return lower, true
+	}
+
+	return "", false
 }
 
 // SystemPOIs returns the POIs for a system id (sorted by orbital radius,

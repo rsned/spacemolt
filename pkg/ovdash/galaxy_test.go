@@ -95,6 +95,33 @@ func TestResolveNameIsCaseInsensitive(t *testing.T) {
 	}
 }
 
+// Workers do not all report the same thing in their status file's `system`
+// field: most send the display name ("Nova Terra"), but some send the system
+// ID ("nova_terra"). Live on 2026-08-11, assist-frontier and craftsman-9/10
+// were all docked at mobile_capital and reported `deep_range`, so they
+// resolved against no name, fell into OffMap, and vanished from the dashboard
+// map even though Deep Range is an ordinary system with a station.
+//
+// An id is unambiguous -- ids and display names cannot collide, since a name
+// carries a space where the id carries an underscore -- so accepting both is
+// safe and strictly widens what the map can place.
+func TestResolveNameAcceptsASystemIDToo(t *testing.T) {
+	g, err := LoadGalaxy(context.Background(), fixtureKB(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, in := range []string{"nova_terra", "NOVA_TERRA"} {
+		if id, ok := g.ResolveName(in); !ok || id != "nova_terra" {
+			t.Errorf("ResolveName(%q) = %q, %v; want nova_terra, true", in, id, ok)
+		}
+	}
+	// Still no false positives: an unknown id must stay unresolved so a
+	// genuinely off-map agent is still reported as such.
+	if _, ok := g.ResolveName("deep_range"); ok {
+		t.Error("an id absent from this galaxy must not resolve")
+	}
+}
+
 func TestSystemNodeJSONShapeMatchesUseGalaxyMap(t *testing.T) {
 	n := SystemNode{ID: "sol", Name: "Sol", X: 1, Y: 2, Empire: "solarian",
 		Police: 10, Stronghold: true, LastVisited: 7, Connections: []string{"a"}}
