@@ -43,21 +43,22 @@
 # one-line edit once it is staged within a few jumps of the giver.
 #
 # ---------------------------------------------------------------------------
-# BLOCKER, WAVE 1: THE MARKETBOTS ARE BROKE
+# A THIN WALLET IS NOT A BLOCKER HERE — THE CHAIN SUPPLIES ITS OWN CARGO
 #
-# All nine stronghold marketbots hold between 89 and 489 credits (checkpoint.db,
-# last written 2026-06-26 — they have belonged to no fleet since). The chain's
-# middle legs are deliver_item missions: the agent BUYS the cargo, so a wallet
-# this thin cannot complete them. The thinnest arm ever proven through the chain
-# was explorer-1 at 15,135 credits, and that was chosen deliberately as the
-# thin-wallet canary.
+# The nine stronghold marketbots hold between 89 and 489 credits (checkpoint.db,
+# last written 2026-06-26 — they have belonged to no fleet since), and that is
+# fine. The mission provider hands the goods over on accept: every deliver_item
+# leg in this chain arrives fully stocked via ProvidedItems, so BuyQty is 0 and
+# the agent purchases nothing. The runner will not even attempt the other shape
+# — a smuggling mission that tells you to source the contraband yourself is a
+# HARD REJECT at selection (mission_select.go), because contraband has no sell
+# orders on any market and such a run could never be completed.
 #
-# alhena and sheratan are therefore pinned but NOT expected to finish the chain
-# until they are funded. miner-2 sits in the same system (Haven) with 895,145
-# credits and is the natural donor; send_gift needs the sender DOCKED and takes
-# the recipient's game USERNAME, not its agent_id. Until that happens they will
-# reach smuggling L1 on the free dock_at_base opener and then park on the
-# dry-board backoff, which is harmless — it is a stall, not a strand.
+# So a thin wallet pays for FUEL and nothing else, which is why alhena and
+# sheratan are pinned at 3 jumps rather than parked: the trip is short and the
+# chain that follows is free. If either does run dry, miner-2 sits in the same
+# system (Haven) with 895,145 credits; send_gift needs the sender DOCKED and
+# takes the recipient's game USERNAME, not its agent_id.
 #
 # ---------------------------------------------------------------------------
 # DELIBERATELY NOT HERE:
@@ -86,12 +87,12 @@
 # for that identity while it works here.
 workers:
   # === WAVE 1 — PINNED AT THE CHAIN GIVER (3 jumps) ===================
-  # Funded and in range: these two are the ones actually expected to bank the
-  # unlock. Fuel measured 2026-08-11: miner-1 86/150, miner-2 194/200.
+  # All four are in range and expected to bank the unlock. The two marketbots
+  # hold ~250 credits each and that is not a bar: the chain supplies its own
+  # cargo (see above), so their wallets only ever pay fuel over 3 jumps.
+  # Fuel measured 2026-08-11: miner-1 86/150, miner-2 194/200.
   - { agent_id: miner-1, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: miner-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
-  # In range (Haven, 3 jumps) but broke — see the WAVE 1 BLOCKER above. Pinned
-  # so they are standing at the giver the moment they are funded.
   - { agent_id: marketbot_alhena, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: marketbot_sheratan, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
 
@@ -104,17 +105,17 @@ workers:
   - { agent_id: miner-9, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }              # horizon, 13
   - { agent_id: miner-10, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }             # horizon, 13 — 0/130 FUEL, must refuel before it can move
   - { agent_id: overmind, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }             # horizon, 13
-  - { agent_id: marketbot_algol, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }      # unknown_edge, 14 — 89cr
-  - { agent_id: marketbot_xamidimura, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] } # unknown_edge, 14 — 89cr
+  - { agent_id: marketbot_algol, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] } # unknown_edge, 14
+  - { agent_id: marketbot_xamidimura, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] } # unknown_edge, 14
 
   # 16-17 jumps.
   - { agent_id: prophet-2, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }            # alpha_centauri, 16
   - { agent_id: miner-3, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }              # sol, 17
   - { agent_id: miner-4, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }              # sol, 17
-  - { agent_id: random-clark, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }         # sol, 17 — 270cr
-  - { agent_id: marketbot_barnard_44, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] } # sol, 17 — 489cr
-  - { agent_id: marketbot_bellatrix, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }  # sol, 17 — 489cr
-  - { agent_id: marketbot_zaniah, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }     # sol, 17 — 489cr
+  - { agent_id: random-clark, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] } # sol, 17
+  - { agent_id: marketbot_barnard_44, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] } # sol, 17
+  - { agent_id: marketbot_bellatrix, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] } # sol, 17
+  - { agent_id: marketbot_zaniah, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] } # sol, 17
 
   # 24 jumps — Nexus Prime cluster.
   - { agent_id: pirate-11, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
@@ -125,7 +126,7 @@ workers:
   - { agent_id: miner-5, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: miner-6, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: prophet-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: marketbot_gliese_581, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] } # 89cr
+  - { agent_id: marketbot_gliese_581, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
 
   # 26 jumps — Krynn cluster, the far tail. Brigand bands 1 and 3 are dormant by
   # design (blocked on combat dynamics); mission running is the only work they
@@ -137,4 +138,4 @@ workers:
   - { agent_id: pirate-5, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: miner-7, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: miner-8, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: marketbot_gsc_0008, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }   # 100cr
+  - { agent_id: marketbot_gsc_0008, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
