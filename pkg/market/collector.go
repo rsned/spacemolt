@@ -395,8 +395,9 @@ func (c *Collector) upsertOHLCV(tx *sql.Tx, ohlcv OHLCV) error {
 }
 
 // WriteSnapshot persists a market snapshot atomically: it upserts the station and
-// items, appends every order to market_orders (raw order rows always accumulate),
-// and upserts the hourly OHLCV bucket for each (station, item, side).
+// items, stores every order in market_orders (replacing any book already recorded
+// for this station at this same captured_at — see the DELETE below), and upserts
+// the hourly OHLCV bucket for each (station, item, side).
 //
 // OHLCV is computed only from this snapshot's orders and keyed by the truncated
 // UTC hour. A capture that lands in the SAME hour as a previous one therefore
@@ -464,7 +465,38 @@ func (c *Collector) WriteSnapshot(ctx context.Context, snapshot MarketSnapshot) 
 			ordersWithBucket[i].BucketUTC = bucketUTC
 		}
 
-		// Insert orders
+		// Replace, do not append, this station's book for this capture instant.
+		// Several marketbots dock at the same station and capture it
+		// independently, and captured_at is RFC3339 (second resolution), so two
+		// captures in the same second previously landed as two full copies of the
+		// book under one timestamp. Live on 2026-08-12 Frontier Station carried
+		// eight copies and Central Nexus two.
+		//
+		// That is not a cosmetic duplicate. GetItemStationPrices sums
+		// `AskQty += qty` across every row at the station's latest capture, so the
+		// copies became phantom depth: source_units, and through bookCap the
+		// number of haulers a book is thought to supply, scaled with the number of
+		// bots that happened to look at once. Deleting first makes a snapshot
+		// write idempotent per (station, captured_at) — a re-capture in the same
+		// second replaces the book rather than doubling it.
+		//
+		// Scoped to this station AND this instant on purpose: a later capture of
+		// the same station is a new observation the price history needs, and
+		// another station captured in the same second is an unrelated book.
+		// An order-less snapshot never replaces a book: it carries no observation
+		// to put in its place, and a capture that arrived empty (a filtered
+		// view_market, a dropped payload) must not erase a good book.
+		if len(ordersWithBucket) > 0 {
+			if _, err := tx.Exec(
+				`DELETE FROM market_orders WHERE station_id = ? AND captured_at = ?`,
+				snapshot.StationID, captured); err != nil {
+				return fmt.Errorf("clear prior rows for this capture: %w", err)
+			}
+		}
+
+		// Insert orders. Rows that tie on price and quantity within ONE book are
+		// left alone: those are distinct real orders, and collapsing them would
+		// under-report depth.
 		if err := c.insertOrders(tx, ordersWithBucket); err != nil {
 			return fmt.Errorf("insert orders: %w", err)
 		}

@@ -398,10 +398,12 @@ func TestGetMatrix(t *testing.T) {
 		{StationID: "stnA", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw", Side: "sell", PriceEach: 11, Quantity: 20, CapturedAt: now},
 		{StationID: "stnA", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw", Side: "buy", PriceEach: 3, Quantity: 5, CapturedAt: now},
 	})
+	// One book per (station, capture instant): view_market returns a station's
+	// whole market in a single unpaged response, and WriteSnapshot now REPLACES
+	// the book at a given captured_at rather than appending to it. Writing the
+	// two items as two same-instant snapshots would drop the first.
 	write("stnB", "sysB", []Order{
 		{StationID: "stnB", ItemID: "iron_ore", ItemName: "Iron Ore", Category: "raw", Side: "sell", PriceEach: 7, Quantity: 4, CapturedAt: now},
-	})
-	write("stnB", "sysB", []Order{
 		{StationID: "stnB", ItemID: "copper_ore", ItemName: "Copper Ore", Category: "raw", Side: "sell", PriceEach: 2, Quantity: 1, CapturedAt: now},
 	})
 
