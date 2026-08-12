@@ -80,6 +80,7 @@ type StationAccess struct {
 	denied        map[string]bool
 	fuel          map[string]bool
 	noStationFuel map[string]bool
+	gone          map[string]bool
 }
 
 // stationAccessFile is the on-disk shape. Sorted-set semantics, list encoding:
@@ -89,6 +90,7 @@ type stationAccessFile struct {
 	Denied        []string `json:"denied"`
 	Fuel          []string `json:"fuel"`
 	NoStationFuel []string `json:"no_station_fuel"`
+	Gone          []string `json:"gone"`
 }
 
 // LoadStationAccess reads the access map at path. A missing or unreadable file
@@ -99,6 +101,7 @@ func LoadStationAccess(path string) *StationAccess {
 		path: path,
 		open: map[string]bool{}, denied: map[string]bool{},
 		fuel: map[string]bool{}, noStationFuel: map[string]bool{},
+		gone: map[string]bool{},
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -119,6 +122,9 @@ func LoadStationAccess(path string) *StationAccess {
 	}
 	for _, id := range f.NoStationFuel {
 		a.noStationFuel[id] = true
+	}
+	for _, id := range f.Gone {
+		a.gone[id] = true
 	}
 
 	return a
@@ -142,7 +148,11 @@ func (a *StationAccess) Deliverable(stationID string) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	return a.open[stationID] && !a.denied[stationID]
+	// gone is checked as well as denied because `open` is never expired: a
+	// station we proved open and that was later dismantled would otherwise stay
+	// deliverable forever, and the fare would be booked for somewhere that no
+	// longer exists.
+	return a.open[stationID] && !a.denied[stationID] && !a.gone[stationID]
 }
 
 // Denied reports whether this station has refused us. Distinct from
@@ -249,6 +259,83 @@ func (a *StationAccess) Fuel(stationID string) (sells, known bool) {
 	return false, false
 }
 
+// A station can be DISMANTLED by its owner, and the knowledge base goes on
+// serving its POI row indefinitely: `pois` rows are refreshed only when an agent
+// visits that system, so a station somewhere nobody has flown to in weeks still
+// reads as good data. The server's answer is unambiguous when you finally get
+// there -- `{"code":"invalid_poi","message":"Unknown destination: <id>"}`.
+//
+// Both markers are matched because the code is the durable contract while the
+// message is what survives the client's error wrapping; either alone is proof.
+const (
+	invalidPOICodeMarker    = "invalid_poi"
+	unknownDestinationMarker = "unknown destination"
+)
+
+// RecordTransit learns whether a station still exists, from an attempt to fly to
+// it. Arriving proves it does; `invalid_poi` / `Unknown destination` proves it
+// does not; every other failure -- a dropped socket, an unplannable route, a
+// timeout -- teaches nothing and is ignored, exactly as for dock and refuel.
+//
+// This is what stops the survey re-flying the same ghost every pass. The
+// 2026-08-12 run spent seven jumps reaching Veilwatch Shoal in oakridge and
+// three more to ENDL Kitalpha Cache; both answered `Unknown destination`, and
+// both were the stalest rows in the POI table (ticks 1,429,376 and 1,468,302
+// against a clock of 1,599,600). Without this the next run would spend the same
+// fuel to learn the same thing.
+//
+// Player stations only. NPC ids are slugs the server has always known, so an
+// `Unknown destination` against one is a bug in our own routing, and recording
+// it would bury that bug under a permanent skip.
+func (a *StationAccess) RecordTransit(stationID string, transitErr error) {
+	if a == nil || !playerStationID(stationID) {
+		return
+	}
+	a.mu.Lock()
+	switch {
+	case transitErr == nil:
+		if !a.gone[stationID] {
+			a.mu.Unlock()
+
+			return // already known to exist; nothing to write
+		}
+		delete(a.gone, stationID) // rebuilt, or the id was reused
+	case containsAny(strings.ToLower(transitErr.Error()), invalidPOICodeMarker, unknownDestinationMarker):
+		a.gone[stationID] = true
+	default:
+		a.mu.Unlock()
+
+		return
+	}
+	a.mu.Unlock()
+	a.save()
+}
+
+// Gone reports whether a station has been proven not to exist. Distinct from
+// Denied: one refused us, the other is not there to refuse anyone, and an
+// operator reading this map to find out why a fare was declined needs to see
+// which.
+func (a *StationAccess) Gone(stationID string) bool {
+	if a == nil {
+		return false
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	return a.gone[stationID]
+}
+
+// containsAny reports whether s contains any of the given substrings.
+func containsAny(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Seed marks stations as open from outside evidence -- chiefly the asset ledger,
 // where any agent holding a non-empty docked_at_base at a player station has
 // proven that station admits us. That cross-agent evidence is what makes the map
@@ -286,6 +373,7 @@ func (a *StationAccess) save() {
 	f := stationAccessFile{
 		Open: sortedKeys(a.open), Denied: sortedKeys(a.denied),
 		Fuel: sortedKeys(a.fuel), NoStationFuel: sortedKeys(a.noStationFuel),
+		Gone: sortedKeys(a.gone),
 	}
 	a.mu.Unlock()
 	b, err := json.MarshalIndent(f, "", "  ")

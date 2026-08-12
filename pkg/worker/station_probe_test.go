@@ -398,3 +398,55 @@ func TestProbePreflightUndocked(t *testing.T) {
 		t.Error("must not attempt a refuel while undocked")
 	}
 }
+
+// A dismantled station answers `Unknown destination` after you have already
+// spent the fuel to get there. That is a conclusive fact and must be banked,
+// not discarded as an ordinary transit failure -- otherwise every later run
+// spends the same fuel to learn the same thing. Both ghosts on the 2026-08-12
+// survey (Veilwatch Shoal, ENDL Kitalpha Cache) failed exactly this way.
+func TestProbeRecordsAVanishedStation(t *testing.T) {
+	c := &probeFakeClient{
+		fuel: 120,
+		travelErr: map[string]error{
+			"gonesys": errors.New(`travel failed: {"code":"invalid_poi","message":"Unknown destination: x"}`),
+		},
+	}
+	deps, acc := probeDeps(t, c, map[string]int{"gonesys": 3})
+
+	got, err := ProbeStations(context.Background(), deps, []ProbeTarget{probeTarget("gonesys", hexStarBase, 3)})
+	if err != nil {
+		t.Fatalf("ProbeStations: %v", err)
+	}
+	if !acc.Gone(hexStarBase) {
+		t.Fatal("a station answering `Unknown destination` must be recorded as gone")
+	}
+	if len(got) != 1 || got[0].Reached {
+		t.Fatalf("a vanished station was not reached: %+v", got)
+	}
+	if len(c.docks) != 0 {
+		t.Fatalf("must not attempt a dock at a station that does not exist: %v", c.docks)
+	}
+}
+
+// The payoff: once known gone, the tour must not spend another leg on it. The
+// survey's budget is its whole constraint -- 19 stations need 200 fuel against
+// a 120 tank -- so a wasted leg costs a real station at the far end.
+func TestProbeSkipsStationsAlreadyKnownGone(t *testing.T) {
+	c := &probeFakeClient{fuel: 120}
+	deps, acc := probeDeps(t, c, map[string]int{"gonesys": 3, "goodsys": 3})
+	acc.RecordTransit(hexStarBase, errors.New("Unknown destination: x"))
+
+	got, err := ProbeStations(context.Background(), deps, []ProbeTarget{
+		probeTarget("gonesys", hexStarBase, 3),
+		probeTarget("goodsys", blackthornBase, 3),
+	})
+	if err != nil {
+		t.Fatalf("ProbeStations: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("the known-gone stop must not be attempted, got %d verdict(s): %+v", len(got), got)
+	}
+	if got[0].Target.StationID != blackthornBase {
+		t.Fatalf("wrong station surveyed: %+v", got[0])
+	}
+}

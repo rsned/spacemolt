@@ -121,6 +121,15 @@ func ProbeStations(ctx context.Context, deps ProbeDeps, targets []ProbeTarget) (
 
 	verdicts := make([]ProbeVerdict, 0, len(targets))
 	for i, t := range targets {
+		// A station already proven not to exist is not worth a leg of fuel. The
+		// POI catalogue keeps serving dismantled stations indefinitely (its rows
+		// refresh only when someone visits the system), so without this the tour
+		// re-flies the same ghosts every run.
+		if deps.Access.Gone(t.StationID) {
+			fmt.Fprintf(out, "probe: %s is known to be gone; skipping\n", t.Name) //nolint:errcheck
+
+			continue
+		}
 		fuel, ok := probeFuel(deps.Client)
 		if !ok {
 			fmt.Fprintln(out, "probe: cannot read fuel; stopping here rather than flying blind") //nolint:errcheck
@@ -211,9 +220,18 @@ func probeOne(ctx context.Context, deps ProbeDeps, out io.Writer, t ProbeTarget,
 	fmt.Fprintf(out, "probe: -> %s (%s), %d jumps, %.0f fuel of %.0f\n", t.Name, t.SystemID, jumps, need, fuel) //nolint:errcheck
 
 	err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out}, t.SystemID, t.poi())
+	deps.Access.RecordTransit(t.StationID, err)
 	if err != nil {
-		// Transit failure teaches nothing about the station -- we never got to
-		// ask it anything.
+		// Most transit failures teach nothing about the station -- we never got
+		// to ask it anything. The exception is `Unknown destination`, which says
+		// the station is not there at all; RecordTransit above is what tells the
+		// two apart, and it is the only reason this leg was not wasted.
+		if deps.Access.Gone(t.StationID) {
+			fmt.Fprintf(out, "probe: %s DOES NOT EXIST (dismantled); recorded\n", t.Name) //nolint:errcheck
+			v.Note = "station gone: " + err.Error()
+
+			return v
+		}
 		fmt.Fprintf(out, "probe: transit to %s failed: %v\n", t.Name, err) //nolint:errcheck
 		v.Note = "transit failed: " + err.Error()
 
