@@ -313,3 +313,8 @@ func sortedKeys(m map[string]bool) []string {
 
 	return out
 }
+
+// IsPlayerStationID reports whether an id belongs to a player-built station.
+// Exported for the survey tool, which must pick its targets out of the full POI
+// catalogue before any of them are in the access map.
+func IsPlayerStationID(id string) bool { return playerStationID(id) }

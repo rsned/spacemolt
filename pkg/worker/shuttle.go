@@ -734,8 +734,13 @@ func shuttleDeliver(ctx context.Context, deps ShuttleDeps, out io.Writer, c shut
 	// Passengers bound here have now auto-delivered. Contribute the treasury's cut
 	// of the booked fare to the shared fund.
 	depositProfitShare(ctx, deps.Client, out, float64(bookedFare))
-	if err := RefuelAndSync(ctx, deps.Client, out, "shuttle"); err != nil {
-		fmt.Fprintf(out, "shuttle: refuel at %s failed: %v\n", c.station, err) //nolint:errcheck
+	// The shuttle already refuels at every drop-off, so learning whether the
+	// station HAS a fuel desk is free here -- and it is the fact that stranded
+	// engineer-5 at a station that admitted it perfectly well.
+	refuelErr := RefuelAndSync(ctx, deps.Client, out, "shuttle")
+	deps.Access.RecordRefuel(c.station, refuelErr)
+	if refuelErr != nil {
+		fmt.Fprintf(out, "shuttle: refuel at %s failed: %v\n", c.station, refuelErr) //nolint:errcheck
 	}
 	fmt.Fprintf(out, "shuttle: delivered to %s; ready for next run\n", c.sysName) //nolint:errcheck
 	return nil
