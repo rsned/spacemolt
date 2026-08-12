@@ -23,14 +23,26 @@ type probeFakeClient struct {
 	refuels   []string
 	undocks   int
 	travelErr map[string]error
+	docked    bool
+	refuelTo  float64 // fuel level a successful refuel fills to
+	// nilStateAfter makes GetState return nil after this many calls, modelling a
+	// connection lost partway through a run.
+	nilStateAfter int
+	stateCalls    int
 }
 
 func (c *probeFakeClient) GetState() *game.State {
+	c.stateCalls++
+	if c.nilStateAfter > 0 && c.stateCalls > c.nilStateAfter {
+		return nil
+	}
 	s := &game.State{}
 	// GetFuel() reads State.Fuel/State.MaxFuel, NOT State.Ship.*
 	s.Fuel = c.fuel
 	s.MaxFuel = 120
 	s.System.ID = c.at
+	s.Doc = c.docked
+	s.CurrentPOI = c.at
 
 	return s
 }
@@ -62,8 +74,14 @@ func (c *probeFakeClient) Dock(_ context.Context) error {
 
 func (c *probeFakeClient) Refuel(_ context.Context) error {
 	c.refuels = append(c.refuels, c.at)
+	if err := c.refuelErr[c.at]; err != nil {
+		return err
+	}
+	if c.refuelTo > 0 {
+		c.fuel = c.refuelTo
+	}
 
-	return c.refuelErr[c.at]
+	return nil
 }
 
 func (c *probeFakeClient) Undock(_ context.Context) error {
@@ -247,7 +265,7 @@ func TestProbeSkipsUnroutableTargetAndContinues(t *testing.T) {
 // refusal -- that would blacklist a station nobody actually asked.
 func TestProbeTransitFailureTeachesNothing(t *testing.T) {
 	c := &probeFakeClient{
-		fuel:      120,
+		fuel: 120,
 		// Deliberately carries the refusal marker: a transit error can wrap a
 		// server message, and only "never record on transit failure" survives it.
 		travelErr: map[string]error{"sys": errors.New("giving up: Access denied by route planner")},
@@ -268,33 +286,33 @@ func TestProbeTransitFailureTeachesNothing(t *testing.T) {
 	}
 }
 
-// Losing state mid-run must halt the survey. Treating an unreadable tank as
-// empty would be survivable; treating it as full would strand the ship.
+// Losing state mid-run must halt the survey and keep the verdicts already
+// earned. Treating an unreadable tank as empty would be survivable; treating it
+// as full would strand the ship. Distinct from an unreadable state at DEPARTURE,
+// which is a hard error -- there is nothing to keep.
 func TestProbeHaltsWhenFuelCannotBeRead(t *testing.T) {
-	c := &nilStateClient{}
-	deps, _ := probeDeps(t, &probeFakeClient{fuel: 120}, map[string]int{"a": 1})
-	deps.Client = c
+	c := &probeFakeClient{fuel: 120, docked: true, at: "home", nilStateAfter: 4}
+	deps, _ := probeDeps(t, c, map[string]int{"a": 1, "b": 1})
 	var sb strings.Builder
 	deps.Out = &sb
-	got, err := ProbeStations(context.Background(), deps, []ProbeTarget{probeTarget("a", hexStarBase, 1)})
+
+	got, err := ProbeStations(context.Background(), deps, []ProbeTarget{
+		probeTarget("a", hexStarBase, 1),
+		probeTarget("b", obsidianBase, 1),
+	})
 	if err != nil {
-		t.Fatalf("ProbeStations: %v", err)
+		t.Fatalf("a mid-run state loss must not fail the survey: %v", err)
 	}
-	if len(got) != 0 {
-		t.Errorf("verdicts = %d, want 0 when the tank cannot be read", len(got))
+	if len(got) == 2 {
+		t.Error("want the run to halt before the second stop once state is unreadable")
 	}
 	// A lost connection and an exhausted fuel budget both end the run, but they
 	// mean different things to whoever reads the log: one is a fault to chase,
-	// the other is the survey finishing as designed. Saying "short on fuel" when
-	// the tank was simply unreadable sends the operator after the wrong problem.
+	// the other is the survey finishing as designed.
 	if !strings.Contains(sb.String(), "cannot read fuel") {
 		t.Errorf("want an unreadable-tank halt to say so, got %q", sb.String())
 	}
 }
-
-type nilStateClient struct{ game.GameClient }
-
-func (c *nilStateClient) GetState() *game.State { return nil }
 
 // A missing fuel figure is not a survey the operator can trust, so the probe
 // refuses to start rather than flying on a guessed margin.
@@ -304,5 +322,79 @@ func TestProbeRefusesToRunWithoutAFuelBudget(t *testing.T) {
 	deps.FuelPerJump = 0
 	if _, err := ProbeStations(context.Background(), deps, []ProbeTarget{probeTarget("a", hexStarBase, 1)}); err == nil {
 		t.Error("want an error when FuelPerJump is unset")
+	}
+}
+
+// A survey ship is usually one that has been parked, and a parked ship is often
+// dry -- salvager-9's Cobble sat at First Step on an empty tank. Without a
+// pre-departure top-up the fuel gate correctly refuses the first leg and the run
+// returns a survey of nothing.
+func TestProbeRefuelsBeforeDeparture(t *testing.T) {
+	c := &probeFakeClient{fuel: 0, docked: true, at: "home", refuelTo: 120}
+	deps, _ := probeDeps(t, c, map[string]int{"a": 3})
+
+	got, err := ProbeStations(context.Background(), deps, []ProbeTarget{probeTarget("a", hexStarBase, 3)})
+	if err != nil {
+		t.Fatalf("ProbeStations: %v", err)
+	}
+	if len(c.refuels) == 0 || c.refuels[0] != "home" {
+		t.Fatalf("refuels = %v, want a top-up at the origin first", c.refuels)
+	}
+	if len(got) != 1 || !got[0].Docked {
+		t.Errorf("verdicts = %+v, want the first stop flown on the topped-up tank", got)
+	}
+}
+
+// The origin is the one station the survey can ask about for free.
+func TestProbePreflightRecordsTheOriginFuelDesk(t *testing.T) {
+	c := &probeFakeClient{
+		fuel: 50, docked: true, at: "home",
+		refuelErr: map[string]error{"home": errors.New("Error: no_fuel_source")},
+	}
+	deps, acc := probeDeps(t, c, map[string]int{"a": 1})
+	if _, err := ProbeStations(context.Background(), deps, []ProbeTarget{probeTarget("a", hexStarBase, 1)}); err != nil {
+		t.Fatalf("ProbeStations: %v", err)
+	}
+	if sells, known := acc.Fuel("home"); !known || sells {
+		t.Error("a dry origin must be recorded like any other station")
+	}
+}
+
+// A failed top-up on a tank that still has fuel is not fatal -- the gate just
+// stops the run earlier. A failed top-up on an EMPTY tank is: there is nothing
+// to survey with, and saying so beats returning an empty result set.
+func TestProbePreflightOnlyFailsWhenTheShipCannotStart(t *testing.T) {
+	dry := &probeFakeClient{
+		fuel: 0, docked: true, at: "home",
+		refuelErr: map[string]error{"home": errors.New("Error: no_fuel_source")},
+	}
+	deps, _ := probeDeps(t, dry, map[string]int{"a": 1})
+	if _, err := ProbeStations(context.Background(), deps, []ProbeTarget{probeTarget("a", hexStarBase, 1)}); err == nil {
+		t.Error("want an error when the tank is empty and the origin will not refuel")
+	}
+
+	partial := &probeFakeClient{
+		fuel: 40, docked: true, at: "home",
+		refuelErr: map[string]error{"home": errors.New("Error: no_fuel_source")},
+	}
+	deps2, _ := probeDeps(t, partial, map[string]int{"a": 1})
+	got, err := ProbeStations(context.Background(), deps2, []ProbeTarget{probeTarget("a", hexStarBase, 1)})
+	if err != nil {
+		t.Fatalf("a partial tank must still fly: %v", err)
+	}
+	if len(got) != 1 {
+		t.Errorf("verdicts = %d, want the run to proceed on the fuel aboard", len(got))
+	}
+}
+
+// Undocked with fuel is fine; undocked without it cannot be fixed from here.
+func TestProbePreflightUndocked(t *testing.T) {
+	c := &probeFakeClient{fuel: 0, docked: false, at: "void"}
+	deps, _ := probeDeps(t, c, map[string]int{"a": 1})
+	if _, err := ProbeStations(context.Background(), deps, []ProbeTarget{probeTarget("a", hexStarBase, 1)}); err == nil {
+		t.Error("want an error when undocked with an empty tank")
+	}
+	if len(c.refuels) != 0 {
+		t.Error("must not attempt a refuel while undocked")
 	}
 }

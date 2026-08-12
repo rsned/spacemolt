@@ -113,6 +113,10 @@ func ProbeStations(ctx context.Context, deps ProbeDeps, targets []ProbeTarget) (
 		return nil, fmt.Errorf("probe: JumpsTo required")
 	}
 
+	if err := probePreflight(ctx, deps, out); err != nil {
+		return nil, err
+	}
+
 	verdicts := make([]ProbeVerdict, 0, len(targets))
 	for i, t := range targets {
 		fuel, ok := probeFuel(deps.Client)
@@ -144,6 +148,59 @@ func ProbeStations(ctx context.Context, deps ProbeDeps, targets []ProbeTarget) (
 	fmt.Fprintf(out, "probe: survey complete; %d station(s) attempted\n", len(verdicts)) //nolint:errcheck
 
 	return verdicts, nil
+}
+
+// probePreflight tops the tank off before departure.
+//
+// A survey ship is typically one that has been parked for a while, and a parked
+// ship is often dry: salvager-9's Cobble sat at First Step on an empty tank,
+// where the fuel gate would have correctly refused the first leg and returned a
+// survey of nothing. Refuelling here is also the only refuel the run gets for
+// free -- every later one depends on the station it just flew to having a fuel
+// desk, which is precisely what the survey does not yet know.
+//
+// The origin's own fuel status is recorded while we are here: it is the one
+// station we can ask at no cost.
+//
+// An error is returned only when the ship genuinely cannot start -- a dry tank
+// that would not fill. A failed top-up on a tank that already has fuel is not
+// fatal: the gate will simply stop the run earlier than planned.
+func probePreflight(ctx context.Context, deps ProbeDeps, out io.Writer) error {
+	state := deps.Client.GetState()
+	if state == nil {
+		return fmt.Errorf("probe: cannot read state before departure")
+	}
+	fuel, maxFuel := state.GetFuel()
+
+	if !state.Doc {
+		// Undocked at the start means nobody can sell us fuel here. That is only
+		// a problem if the tank is also empty.
+		if fuel <= 0 {
+			return fmt.Errorf("probe: undocked with an empty tank; dock and refuel before starting a survey")
+		}
+		fmt.Fprintf(out, "probe: starting undocked with %.0f fuel; no pre-departure top-up\n", fuel) //nolint:errcheck
+
+		return nil
+	}
+
+	refuelErr := RefuelAndSync(ctx, deps.Client, out, "probe preflight")
+	if station := state.CurrentPOI; station != "" {
+		deps.Access.RecordRefuel(station, refuelErr)
+	}
+	if refuelErr != nil {
+		if fuel <= 0 {
+			return fmt.Errorf("probe: tank is empty and the origin will not refuel (%w); move to a station that sells fuel", refuelErr)
+		}
+		fmt.Fprintf(out, "probe: pre-departure refuel failed (%v); running on the %.0f fuel aboard\n", refuelErr, fuel) //nolint:errcheck
+
+		return nil
+	}
+	if s := deps.Client.GetState(); s != nil {
+		fuel, maxFuel = s.GetFuel()
+	}
+	fmt.Fprintf(out, "probe: departing with %.0f/%.0f fuel\n", fuel, maxFuel) //nolint:errcheck
+
+	return nil
 }
 
 // probeOne flies to a single target and records what it learns.
