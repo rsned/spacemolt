@@ -11,7 +11,9 @@ import (
 // Surveying player stations is its own operation, not a side effect of hauling.
 // A player station may refuse an outsider's dock, and a station that admits you
 // may still sell no fuel -- two independent facts, neither readable ahead of
-// time, both discoverable only by flying there and trying. Until they are known
+// time, both discoverable only by flying there and trying. Both hazards are
+// real: `no_fuel_source` appears in the fleet logs against seven distinct
+// player stations. Until they are known
 // the shuttle must decline every fare bound for an unverified station, which
 // costs real money (13,125cr of Blackthorn fares declined on the first pass
 // alone).

@@ -65,11 +65,14 @@ func playerStationID(id string) bool {
 // its owner, which is why a denial blocks BOARDING rather than permanently
 // blacklisting the station for every purpose.
 //
-// Access and fuel are INDEPENDENT facts, and conflating them has already cost a
-// recovery: engineer-5 docked at Hex Star perfectly well and then stranded on
-// `no_fuel_source`, because a station that admits you is not thereby a station
-// that can send you home. A survey therefore learns both, and a router needs
-// both before it commits a long leg.
+// Access and fuel are INDEPENDENT facts: a station that admits you is not
+// thereby a station that can send you home. `no_fuel_source` shows up in the
+// fleet logs against seven distinct 32-hex ids -- every one a PLAYER station --
+// so a dry desk is a real and specifically player-station hazard, and a router
+// needs both facts before it commits a long leg.
+//
+// Hex Star, incidentally, does sell fuel: johnny_cab refuelled there on
+// 2026-08-12. Access and fuel really are orthogonal, and neither is guessable.
 type StationAccess struct {
 	mu            sync.Mutex
 	path          string
@@ -193,16 +196,19 @@ func (a *StationAccess) RecordDock(stationID string, dockErr error) {
 // which is the opposite situation: the STATION is fine and the SHIP is out of
 // fuel cells to burn. Both appear in the fleet logs in the hundreds of
 // thousands, so a substring match loose enough to catch one would silently
-// mislabel every station that saw the other.
+// mislabel every station that saw the other. engineer-5's 2026-07-29 strand was
+// the SHIP-dry one ("Fuel low (1%) and no fuel cells in cargo") -- it says
+// nothing about the station it happened at, which is exactly the confusion this
+// narrow match exists to prevent.
 const noFuelSourceMarker = "no_fuel_source"
 
 // RecordRefuel learns whether a station can actually sell fuel: a refuel that
 // succeeded proves it, `no_fuel_source` disproves it, and every other failure
 // teaches nothing.
 //
-// Recorded for NPC stations too, unlike access. Access is only ever in question
-// at a player station, but a fuel desk is not guaranteed anywhere -- Hex Star is
-// simply the case that cost us a recovery.
+// Recorded for NPC stations too, unlike access: access is only ever in question
+// at a player station, but a fuel desk is not guaranteed anywhere, and knowing
+// which NPC stations can refuel is what makes a long leg plannable.
 func (a *StationAccess) RecordRefuel(stationID string, refuelErr error) {
 	if a == nil || stationID == "" {
 		return
