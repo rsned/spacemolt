@@ -15,14 +15,17 @@ import (
 // to be recovered by hand.
 //
 // The server exposes no access flag we can read ahead of time. `bases` carries
-// public_access, but it is populated only for the seven pirate strongholds, and
-// 18 of the 21 known player stations have no bases row at all. So access is
+// public_access, but of the 23 known player stations only 3 have a bases row at
+// all -- and those 3 are exactly the ones the fleet has proven open, each with
+// public_access=1. Two independent sources agreeing that precisely is suggestive
+// but not proof, so a bases row is treated as corroboration and access is still
 // LEARNED: proven by a dock that worked, disproven by one that was refused, and
 // unknown until then.
 //
-// A blanket block would be wrong. Two player stations are provably open (Hex
-// Star in dheneb, where nine agents sit docked, and The Obsidian Well in arneb),
-// so refusing all of them would decline real fares to avoid one bad station.
+// A blanket block would be wrong. Three player stations are provably open (Hex
+// Star in dheneb, where nine agents sit docked; The Obsidian Well in arneb; and
+// The Veil Anchor in bd20_2457), so refusing all of them would decline real
+// fares to avoid the closed ones.
 
 // playerStationIDLen is the length of the hex id the server mints for a
 // player-built station.
@@ -61,25 +64,39 @@ func playerStationID(id string) bool {
 // until an operator says otherwise. Access could in principle be reconfigured by
 // its owner, which is why a denial blocks BOARDING rather than permanently
 // blacklisting the station for every purpose.
+//
+// Access and fuel are INDEPENDENT facts, and conflating them has already cost a
+// recovery: engineer-5 docked at Hex Star perfectly well and then stranded on
+// `no_fuel_source`, because a station that admits you is not thereby a station
+// that can send you home. A survey therefore learns both, and a router needs
+// both before it commits a long leg.
 type StationAccess struct {
-	mu     sync.Mutex
-	path   string
-	open   map[string]bool
-	denied map[string]bool
+	mu            sync.Mutex
+	path          string
+	open          map[string]bool
+	denied        map[string]bool
+	fuel          map[string]bool
+	noStationFuel map[string]bool
 }
 
 // stationAccessFile is the on-disk shape. Sorted-set semantics, list encoding:
 // a human reads this file when a shuttle refuses a fare and needs to know why.
 type stationAccessFile struct {
-	Open   []string `json:"open"`
-	Denied []string `json:"denied"`
+	Open          []string `json:"open"`
+	Denied        []string `json:"denied"`
+	Fuel          []string `json:"fuel"`
+	NoStationFuel []string `json:"no_station_fuel"`
 }
 
 // LoadStationAccess reads the access map at path. A missing or unreadable file
 // yields an empty map rather than an error: an absent map must degrade to
 // "nothing known yet", never to a worker that refuses to run.
 func LoadStationAccess(path string) *StationAccess {
-	a := &StationAccess{path: path, open: map[string]bool{}, denied: map[string]bool{}}
+	a := &StationAccess{
+		path: path,
+		open: map[string]bool{}, denied: map[string]bool{},
+		fuel: map[string]bool{}, noStationFuel: map[string]bool{},
+	}
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return a
@@ -93,6 +110,12 @@ func LoadStationAccess(path string) *StationAccess {
 	}
 	for _, id := range f.Denied {
 		a.denied[id] = true
+	}
+	for _, id := range f.Fuel {
+		a.fuel[id] = true
+	}
+	for _, id := range f.NoStationFuel {
+		a.noStationFuel[id] = true
 	}
 
 	return a
@@ -165,6 +188,61 @@ func (a *StationAccess) RecordDock(stationID string, dockErr error) {
 	a.save()
 }
 
+// noFuelSourceMarker is the server's refusal when a station sells no fuel at all.
+// Deliberately NOT matched against "no_fuel_cells" / "no fuel cells in cargo",
+// which is the opposite situation: the STATION is fine and the SHIP is out of
+// fuel cells to burn. Both appear in the fleet logs in the hundreds of
+// thousands, so a substring match loose enough to catch one would silently
+// mislabel every station that saw the other.
+const noFuelSourceMarker = "no_fuel_source"
+
+// RecordRefuel learns whether a station can actually sell fuel: a refuel that
+// succeeded proves it, `no_fuel_source` disproves it, and every other failure
+// teaches nothing.
+//
+// Recorded for NPC stations too, unlike access. Access is only ever in question
+// at a player station, but a fuel desk is not guaranteed anywhere -- Hex Star is
+// simply the case that cost us a recovery.
+func (a *StationAccess) RecordRefuel(stationID string, refuelErr error) {
+	if a == nil || stationID == "" {
+		return
+	}
+	a.mu.Lock()
+	switch {
+	case refuelErr == nil:
+		a.fuel[stationID] = true
+		delete(a.noStationFuel, stationID)
+	case strings.Contains(strings.ToLower(refuelErr.Error()), noFuelSourceMarker):
+		a.noStationFuel[stationID] = true
+		delete(a.fuel, stationID)
+	default:
+		a.mu.Unlock()
+
+		return
+	}
+	a.mu.Unlock()
+	a.save()
+}
+
+// Fuel reports what is known about a station's fuel desk. known=false means
+// nobody has tried, which a router must treat differently from a proven "no":
+// unknown is worth a look on the way past, a proven no must be routed around.
+func (a *StationAccess) Fuel(stationID string) (sells, known bool) {
+	if a == nil {
+		return false, false
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.fuel[stationID] {
+		return true, true
+	}
+	if a.noStationFuel[stationID] {
+		return false, true
+	}
+
+	return false, false
+}
+
 // Seed marks stations as open from outside evidence -- chiefly the asset ledger,
 // where any agent holding a non-empty docked_at_base at a player station has
 // proven that station admits us. That cross-agent evidence is what makes the map
@@ -199,7 +277,10 @@ func (a *StationAccess) save() {
 		return
 	}
 	a.mu.Lock()
-	f := stationAccessFile{Open: sortedKeys(a.open), Denied: sortedKeys(a.denied)}
+	f := stationAccessFile{
+		Open: sortedKeys(a.open), Denied: sortedKeys(a.denied),
+		Fuel: sortedKeys(a.fuel), NoStationFuel: sortedKeys(a.noStationFuel),
+	}
 	a.mu.Unlock()
 	b, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {

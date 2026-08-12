@@ -1,0 +1,13 @@
+{
+  "open": [
+    "59b102279f508c17831e557d3df6ad88",
+    "b495c6003fc83e18f6d8cecbe6929133",
+    "cca9e51e6eaf8dada77f698ccc4a09c7"
+  ],
+  "denied": [
+    "566fbb2d3a304fa2d846147aed2aec0c",
+    "9d742eadce7c211220fa20ba10093462"
+  ],
+  "fuel": [],
+  "no_station_fuel": []
+}
