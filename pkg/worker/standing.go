@@ -75,20 +75,39 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		deps.SetDrained = func(bool) {}
 	}
 
-	// Register schedule entries (idempotent: skip a command already registered,
-	// so a restart does not duplicate it).
+	// Register schedule entries (idempotent: skip a command already covered, so
+	// a restart does not duplicate it).
+	//
+	// "Covered" is not "exactly this frequency". The test used to key on
+	// frequency|command, which meant a role's `hourly update_market` did not
+	// match a hand-added `ten_minutely update_market` and was added beside it —
+	// and because seeding runs on EVERY start, it came back after every restart.
+	// The two then fire in the SAME scheduler pass at the top of each hour, since
+	// boundaries are wall-clock aligned and :00 is both an hourly and a
+	// ten-minutely mark: one wasted capture per agent per hour. Live 2026-08-13
+	// that was 43 of 45 marketbots, plus a redundant daily kb_update on nine.
 	if deps.Scheduler != nil {
-		existing := make(map[string]bool)
-		for _, t := range deps.Scheduler.List() {
-			existing[t.Frequency+"|"+t.Command] = true
+		existing := deps.Scheduler.List()
+		covered := func(se ScheduleEntry) bool {
+			for _, t := range existing {
+				if t.Command == se.Command && Covers(t.Frequency, se.Every) {
+					return true
+				}
+			}
+			return false
 		}
 		for _, se := range role.Schedule {
-			if existing[se.Every+"|"+se.Command] {
+			if covered(se) {
 				continue
 			}
-			if _, err := deps.Scheduler.Add(se.Every, se.Command, deps.NowFn()); err != nil {
+			task, err := deps.Scheduler.Add(se.Every, se.Command, deps.NowFn())
+			if err != nil {
 				fmt.Fprintf(deps.Out, "standing: schedule add %q failed: %v\n", se.Command, err) //nolint:errcheck
+				continue
 			}
+			// Keep the local view current so a role listing the same command at
+			// two frequencies does not seed a self-duplicate.
+			existing = append(existing, task)
 		}
 		// run executes one scheduled command line under ExecMu.
 		run := func(t ScheduledTask) {

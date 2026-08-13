@@ -26,6 +26,37 @@ type ScheduledTask struct {
 // ValidFrequencies is the closed set of supported frequencies.
 var ValidFrequencies = map[string]bool{"ten_minutely": true, "quarter_hourly": true, "half_hourly": true, "hourly": true, "daily": true, "weekly": true}
 
+// frequencyPeriod is each frequency's boundary spacing. Every frequency is
+// anchored to an instant that is itself a multiple of every shorter period
+// (the sub-hour marks to the top of the hour, daily to midnight, weekly to
+// Sunday midnight), so "does A fire at every boundary B fires at" reduces to
+// "does A's period divide B's". See CurrentBoundary for the anchors.
+var frequencyPeriod = map[string]time.Duration{
+	"ten_minutely":   10 * time.Minute,
+	"quarter_hourly": 15 * time.Minute,
+	"half_hourly":    30 * time.Minute,
+	"hourly":         time.Hour,
+	"daily":          24 * time.Hour,
+	"weekly":         7 * 24 * time.Hour,
+}
+
+// Covers reports whether a task at frequency have already fires at every
+// boundary want fires at — so scheduling want alongside have would buy nothing
+// but a second identical run in the same scheduler pass.
+//
+// This is NOT a coarse-to-fine ordering. ten_minutely and quarter_hourly are
+// incomparable: :10 is not a quarter mark and :15 is not a ten mark, so neither
+// covers the other and both earn their place. An unknown frequency covers
+// nothing and is covered by nothing.
+func Covers(have, want string) bool {
+	h, okHave := frequencyPeriod[have]
+	w, okWant := frequencyPeriod[want]
+	if !okHave || !okWant {
+		return false
+	}
+	return w%h == 0
+}
+
 // CurrentBoundary returns the most recent wall-clock boundary (UTC) for freq at
 // or before now: the most recent ten-minute mark (:00, :10, …), quarter hour,
 // half hour (:00 or :30), the top of the hour, midnight, or the most recent

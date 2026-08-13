@@ -246,3 +246,74 @@ func TestRunStandingResumeAfterDrainRunsIdleAndClearsDrained(t *testing.T) {
 		t.Fatal("expected drained cleared once passes resumed")
 	}
 }
+
+// TestRoleSeedingSkipsACommandAlreadyCoveredByAFinerSchedule is the 2026-08-13
+// regression. Seeding runs on EVERY worker start, and its idempotence test used
+// to key on frequency|command — so a role's `hourly update_market` did not match
+// an operator's hand-added `ten_minutely update_market` and was appended beside
+// it, again after every restart.
+//
+// The two are not spread across the hour: boundaries are wall-clock aligned, so
+// :00 is both an hourly and a ten-minutely mark and one scheduler pass fires
+// both back to back. That is a duplicate market capture per agent per hour,
+// which is how 43 of 45 marketbots ended up double-capturing.
+func TestRoleSeedingSkipsACommandAlreadyCoveredByAFinerSchedule(t *testing.T) {
+	r := &recordRunner{}
+	var mu sync.Mutex
+	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
+	sched, err := LoadScheduler(filepath.Join(t.TempDir(), "sched.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The operator's finer capture, already on the books.
+	if _, err := sched.Add("ten_minutely", "update_market", now); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	role := Role{
+		Idle: "noop_idle",
+		Schedule: []ScheduleEntry{
+			{Every: "hourly", Command: "update_market"}, // covered — must not be added
+			{Every: "hourly", Command: "capture_profile"},
+		},
+	}
+	deps := StandingDeps{
+		Runner: r, Scheduler: sched, Client: stateClient{st: &game.State{}},
+		ExecMu: &mu, Paused: func() bool { return false }, Out: io.Discard,
+		NowFn: func() time.Time { return now }, IdleInterval: time.Millisecond,
+		AgentID: "test",
+	}
+	done := make(chan struct{})
+	go func() { _ = RunStanding(ctx, role, deps); close(done) }()
+	time.Sleep(20 * time.Millisecond)
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("RunStanding did not return after cancel")
+	}
+
+	var freqs []string
+	for _, task := range sched.List() {
+		if task.Command == "update_market" {
+			freqs = append(freqs, task.Frequency)
+		}
+	}
+	if len(freqs) != 1 {
+		t.Errorf("update_market scheduled %d times (%v); the hourly entry is covered by ten_minutely and buys nothing", len(freqs), freqs)
+	}
+	if len(freqs) > 0 && freqs[0] != "ten_minutely" {
+		t.Errorf("kept the %s entry; the finer ten_minutely schedule is the one that must survive", freqs[0])
+	}
+	// An uncovered role entry must still be seeded — the guard is not a mute.
+	var sawProfile bool
+	for _, task := range sched.List() {
+		if task.Command == "capture_profile" {
+			sawProfile = true
+		}
+	}
+	if !sawProfile {
+		t.Error("capture_profile was not scheduled; the coverage guard dropped an entry nothing covered")
+	}
+}
