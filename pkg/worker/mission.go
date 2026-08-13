@@ -1141,29 +1141,42 @@ func atPinnedStation(ctx context.Context, deps MissionDeps, st *game.State) bool
 	if st == nil || !st.Doc || deps.HomeStation == "" {
 		return false
 	}
+	// EVERY check below is reached even when docked_at_base is empty, which it
+	// routinely is while docked: six marketbots sat AT their strongholds on
+	// 2026-08-12 logging `returning to pinned station X (at "")` on a loop,
+	// because an early return on the empty value skipped the checks that would
+	// have recognised them. docked_at_base is a hint, not the state of the world.
 	docked := st.Player.DockedAtBase
-	if docked == "" {
-		return false // undocked, or a state that predates the first dock event
-	}
-	if docked == deps.HomeStation {
+	poi := st.Player.CurrentPOI
+
+	// 1. Base-id pin against base-id state, the direct case.
+	if docked != "" && docked == deps.HomeStation {
 		return true
 	}
-	// A POI-id pin matches the POI the player is standing at, with no lookup. This
-	// is the only check that works for a station with no `bases` row — four of the
-	// nine pirate strongholds have never been scanned, so the bases table cannot
-	// resolve them, and a KB-only answer would loop such a worker "back" to the
-	// station it is docked at until its tank ran dry.
-	if st.Player.CurrentPOI != "" && st.Player.CurrentPOI == deps.HomeStation {
+	// 2. POI-id pin against the POI actually occupied. Needs no KB row, so it is
+	//    the only check that can work at a station the bases table has never
+	//    seen — four of the nine pirate strongholds have never been scanned.
+	if poi != "" && poi == deps.HomeStation {
 		return true
 	}
 	if deps.KB == nil {
 		return false
 	}
-	base, err := deps.KB.GetBaseByPOI(ctx, deps.HomeStation)
-	if err != nil || base == nil {
-		return false
+	// 3. POI-id pin -> the base it belongs to, compared against docked_at_base.
+	if docked != "" {
+		if base, err := deps.KB.GetBaseByPOI(ctx, deps.HomeStation); err == nil && base != nil && base.ID == docked {
+			return true
+		}
 	}
-	return base.ID == docked
+	// 4. BASE-id pin -> the POI it sits at, compared against the occupied POI.
+	//    This is the direction that rescues a base-id pin when docked_at_base is
+	//    empty — mera_sanctum_station resolving to POI mera_sanctum, and so on.
+	if poi != "" {
+		if base, err := deps.KB.GetBase(ctx, deps.HomeStation); err == nil && base != nil && base.POIID == poi {
+			return true
+		}
+	}
+	return false
 }
 
 // topUpAtPin refuels a pinned worker that is parking with a less-than-full tank.

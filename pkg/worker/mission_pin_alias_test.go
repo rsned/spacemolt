@@ -215,3 +215,45 @@ func TestPinMatchesTheCurrentPOIWithNoBasesRow(t *testing.T) {
 		t.Fatalf("must not route to the POI it is docked at: %s", out.String())
 	}
 }
+
+// TestPinMatchesWhileDockedAtBaseIsEmpty reproduces the live failure of
+// 2026-08-12 22:4x: six marketbots sat DOCKED at their strongholds while the log
+// read `returning to pinned station mera_sanctum_station (at "")`. docked_at_base
+// is empty far more often than it looks — treating the empty value as "not here"
+// short-circuited every other check and sent each bot travelling to the station
+// it was standing on, draining the tank a jump at a time. alhena and sheratan
+// reached 0/130 that way before it was caught.
+func TestPinMatchesWhileDockedAtBaseIsEmpty(t *testing.T) {
+	kb := &fakeKB{bases: map[string]*knowledge.SpaceBase{
+		"mera_sanctum": {ID: "mera_sanctum_station", POIID: "mera_sanctum", Name: "Mera Sanctum Station"},
+	}}
+	for _, tc := range []struct{ name, pin string }{
+		{"base-id pin", "mera_sanctum_station"}, // the direction that was failing live
+		{"POI-id pin", "mera_sanctum"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fc := &fakeClient{state: &game.State{
+				Doc: true,
+				Player: game.Player{
+					DockedAtBase: "", // docked, yet the field is empty — the live shape
+					CurrentPOI:   "mera_sanctum",
+				},
+				Fuel: 89, MaxFuel: 100,
+			}}
+			deps := MissionDeps{
+				Client: fc, KB: kb, AgentID: "t", HomeStation: tc.pin,
+				State: &missionRunState{dry: missionDryPassLimit - 1},
+			}
+			var out strings.Builder
+			if err := missionDryPass(context.Background(), deps, &out); err != nil {
+				t.Fatalf("dry pass: %v", err)
+			}
+			if strings.Contains(out.String(), "returning to pinned station") {
+				t.Fatalf("must not travel to the station it is docked at; log: %s", out.String())
+			}
+			if deps.State.parkedUntil.IsZero() {
+				t.Fatalf("must park; log: %s", out.String())
+			}
+		})
+	}
+}
