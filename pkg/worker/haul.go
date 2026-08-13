@@ -194,6 +194,33 @@ func buildStrongholdRefs(systems []knowledge.System) map[string]bool {
 	return m
 }
 
+// strongholdRefsFor returns the stronghold system references THIS agent must
+// avoid, which is all of them until it holds the pirate unlock and none of them
+// afterwards.
+//
+// The guard below was written when no agent could dock at a stronghold, so it
+// applied to everyone. That is now a real cost: on 2026-08-12 the three most
+// valuable opportunities on the board were stronghold-destined (144,480 /
+// 123,280 / 81,360), and strongholds carried 25% of available gross from 16% of
+// the rows at 1.8x the average margin -- from just two of nine strongholds,
+// both lit up that day. Eleven agents can dock there safely.
+//
+// Capability is read from the LIVE standings rather than a roster flag, so an
+// agent that banks the unlock mid-run picks it up on the next pass and one that
+// somehow loses it is guarded again immediately.
+//
+// A state we cannot read is treated as LOCKED. Assuming a capability we cannot
+// see is exactly how a hauler flies into a stronghold that destroys it, and the
+// asymmetry is stark: guessing locked costs one skipped route, guessing
+// unlocked costs the ship and its cargo.
+func strongholdRefsFor(st *game.State, systems []knowledge.System) map[string]bool {
+	if smugglingUnlocked(st) {
+		return nil
+	}
+
+	return buildStrongholdRefs(systems)
+}
+
 // dropStrongholdOpps removes opportunities whose buy- or sell-system is a pirate
 // stronghold, returning the survivors and the distinct stronghold system references
 // that were dropped (for logging). An empty stronghold set is a no-op. Both legs are
@@ -681,7 +708,12 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		return fmt.Errorf("haul: get connections: %w", err)
 	}
 	nameToID := buildNameToID(systems)
-	strongholds := buildStrongholdRefs(systems)
+	// Per-agent: an agent holding the pirate unlock may work stronghold routes,
+	// which are the richest on the board. Everyone else still avoids them.
+	strongholds := strongholdRefsFor(deps.Client.GetState(), systems)
+	if len(strongholds) == 0 {
+		fmt.Fprintln(out, "haul: pirate unlock held; stronghold routes are in play this pass") //nolint:errcheck
+	}
 	graph := navigation.JumpGraphFromConnections(conns)
 
 	// Danger-aware galaxy graph for stranded-worker recovery + route-safety checks.

@@ -74,7 +74,9 @@ workers:
   # from-zero run: 15,135 credits is within a rounding error of the 15,953 that
   # explorer-12 started chain 1 on, so if this one starves where that one did not,
   # the difference is not the wallet. 1 jump from the giver, 420 cargo.
-  - { agent_id: explorer-1, role: missionrunner, station: treasure_cache_trading_post, mission_categories: [delivery, exploration, smuggling], enable_freight: true, freight_max_packages: 4 }
+  # explorer-1 MOVED to haul-fleet 2026-08-12 as the stronghold-arbitrage
+  # canary: it holds the unlock and flies a 420-cargo Floor Price at 1
+  # fuel/jump. Return it here if the stronghold lane does not pay.
   # SMUGGLING CANARY 5 (2026-07-29). MID-WALLET arm: 133,308 credits, 340 cargo,
   # 1 jump out. Sits between explorer-1's 15k and fighter-2's 1.55M so the three
   # new arms bracket the credit axis at one jump-distance.

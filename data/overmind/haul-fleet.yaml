@@ -24,3 +24,17 @@ workers:
   - { agent_id: trader-8, role: hauler, station: "" }
   - { agent_id: trader-9, role: hauler, station: "" }  # recovered + refueled 2026-06-27 (cargo sold manually elsewhere)
   - { agent_id: trader-10, role: hauler, station: "" }
+  # === CANARY 2026-08-12: stronghold arbitrage ===================
+  # explorer-1 already HOLDS the pirate unlock (smuggling 19, baseline 10) and
+  # flies a Floor Price: 420 cargo at 1 fuel/jump. strongholdRefsFor keeps
+  # stronghold routes in play for it while every other hauler still avoids
+  # them, so this is the first agent that can take the richest rows on the
+  # board -- 144,480 / 123,280 / 81,360 were all stronghold-destined and all
+  # expired untouched.
+  #
+  # Canary, deliberately ONE agent: predicted-vs-realized has been running near
+  # 34%, so prove a stronghold run pays before committing 21 haulers to a
+  # 4-hour unlock round trip. Strongholds do NOT refuel (both report
+  # station_fuel_empty), so watch its tank -- 1 fuel/jump is the whole margin
+  # of safety here.
+  - { agent_id: explorer-1, role: hauler, station: "" }
