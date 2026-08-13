@@ -1123,6 +1123,41 @@ func shipSpeed(c game.GameClient) float64 {
 	return st.Ship.Speed
 }
 
+// atPinnedStation reports whether the worker is standing at its pinned station.
+//
+// A pin can be written in either of two id spaces — thirteen stations have a base id
+// that differs from their POI id, three of them with no textual relationship at all
+// (the_core -> voss_redoubt_station), so no string rule can bridge them. The pin is
+// consumed as a POI id when navigating (missionNavToBase) but compared against
+// docked_at_base, which is a BASE id. A POI-id pin therefore never matched, and a
+// worker standing at its own pin concluded it was somewhere else and "returned" to
+// where it already was, on every dry pass — 164 such loops drained alhena's tank to
+// zero and stranded it in a stronghold with a dead fuel desk.
+//
+// The bases table is the only thing that resolves the pair, so a mismatch falls back
+// to a POI -> base lookup. A KB failure leaves the answer false, which costs a
+// redundant navigation rather than parking a worker that has genuinely wandered off.
+func atPinnedStation(ctx context.Context, deps MissionDeps, st *game.State) bool {
+	if st == nil || !st.Doc || deps.HomeStation == "" {
+		return false
+	}
+	docked := st.Player.DockedAtBase
+	if docked == "" {
+		return false // undocked, or a state that predates the first dock event
+	}
+	if docked == deps.HomeStation {
+		return true
+	}
+	if deps.KB == nil {
+		return false
+	}
+	base, err := deps.KB.GetBaseByPOI(ctx, deps.HomeStation)
+	if err != nil || base == nil {
+		return false
+	}
+	return base.ID == docked
+}
+
 func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error {
 	if deps.State == nil {
 		return nil
@@ -1141,7 +1176,7 @@ func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error 
 		st := deps.Client.GetState()
 		// docked_at_base rides on the PLAYER object; the ship payload has no
 		// such field, so reading it off the ship silently never matches.
-		if st != nil && st.Doc && st.Player.DockedAtBase == deps.HomeStation {
+		if atPinnedStation(ctx, deps, st) {
 			deps.State.dry = 0
 			deps.State.parkedUntil = missionNow(deps).Add(missionParkWindow)
 			fmt.Fprintf(out, "missions: %d dry passes at pinned station %s; parking for %s\n", missionDryPassLimit, deps.HomeStation, missionParkWindow) //nolint:errcheck
