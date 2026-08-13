@@ -47,10 +47,18 @@ func TestUnlockFleetYAMLParses(t *testing.T) {
 	// The set is enumerated rather than opened up, because the property worth
 	// protecting is unchanged: a pin must be a place we MEANT to send someone.
 	// An arbitrary far station is how engineer-5 died.
+	//
+	// BASE ids, with the `_station` suffix -- NOT the POI ids. The arrival check
+	// compares st.Player.DockedAtBase against this field, so a POI-id pin never
+	// matches at a dual-named station: the worker reads "not arrived" while
+	// standing on the dock and re-travels every pass. That drained two 130-unit
+	// tanks to zero on 2026-08-12 before it was caught.
 	strongholds := map[string]bool{
-		"voss_redoubt": true, "sable_port": true, "crix_stronghold": true,
-		"kael_arsenal": true, "dross_citadel": true, "korr_fortress": true,
-		"nyx_nexus": true, "thane_keep": true, "mera_sanctum": true,
+		"voss_redoubt_station": true, "sable_port_station": true,
+		"crix_stronghold_station": true, "kael_arsenal_station": true,
+		"dross_citadel_station": true, "korr_fortress_station": true,
+		"nyx_nexus_station": true, "thane_keep_station": true,
+		"mera_sanctum_station": true,
 	}
 	pinned, atGiver := 0, 0
 	for _, s := range specs {

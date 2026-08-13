@@ -107,10 +107,15 @@ workers:
   #
   # Trip is cheap: both fly Prospects (1 fuel/jump, 130 tank) so 30-32 jumps
   # costs 30-32 fuel. Thane Keep has never been scanned by anyone.
-  # Station ids are the KB POI ids; the endpoint's base ids differ
-  # (voss_redoubt_station / thane_keep_station) — see station id aliases.
-  - { agent_id: marketbot_alhena, role: unlock, station: voss_redoubt, mission_categories: [smuggling, delivery, exploration] }   # alhena, 32 jumps
-  - { agent_id: marketbot_sheratan, role: unlock, station: thane_keep, mission_categories: [smuggling, delivery, exploration] }   # sheratan, 30 jumps
+  # ⚠️ PIN WITH THE BASE ID, NOT THE POI ID. The arrival check compares
+  # st.Player.DockedAtBase (a BASE id) against this field, so a POI-id pin can
+  # never match at a dual-named station. Both of these were first pinned as
+  # `voss_redoubt` / `thane_keep` and, though docked and capturing, read as
+  # not-yet-arrived on every dry pass -- so they re-travelled to the station
+  # they were standing on, 164 times for alhena, until both 130-unit tanks hit
+  # ZERO. Thane Keep's fuel desk is depleted, so it could not even refill.
+  - { agent_id: marketbot_alhena, role: unlock, station: voss_redoubt_station, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: marketbot_sheratan, role: unlock, station: thane_keep_station, mission_categories: [smuggling, delivery, exploration] }
 
   # === WAVE 2 — THE STRONGHOLD MARKETBOTS, PINNED (2026-08-12) ========
   #
