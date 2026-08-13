@@ -19,6 +19,28 @@ workers:
   - { agent_id: marketbot_001, role: resident, station: "" }  # added 2026-07-11: resident at Hex Star (dheneb, player station); dheneb has a belt
   - { agent_id: marketbot_002, role: resident, station: "" }  # added 2026-07-31: resident at The Obsidian Well (arneb, player station); arneb has belt + gas + ice
 
+  # === EIGHT NEW ACCOUNTS -> OPEN PLAYER STATIONS (2026-08-13) =============
+  # Registered to staff the open player stations. A fresh account logs in at its
+  # EMPIRE CAPITAL, which is what set each one's distance: measured live on
+  # 2026-08-13, Prospect 130 tank / Cobble 120 / Threshold 95 / Shard 90.
+  #
+  # All 13 free open player stations sit in CRIMSON space: 5-9 jumps from Krynn,
+  # but 14-17 from Nexus Prime (voidborn), 20-24 from Haven (nebula) and 23-26
+  # from Altais (outerrim). The 100-250 credit wallets do NOT gate the long
+  # trips: every starter hull here is scale 1 and burns 1-2 fuel per jump, so
+  # even the worst leg (25 jumps, Cobble) is 50 of a 120 tank and none of them
+  # ever needs to buy fuel. Big-scale hulls are the fuel hogs, not starters.
+  # Pinned below by measured margin, worst case +70.
+  - { agent_id: marketbot_000, role: resident, station: dbf463334120f3db5392dfccd401ba03 }  # The Deep Current (gsc_0019) — 21 jumps, Prospect
+  - { agent_id: marketbot_003, role: resident, station: d1c54e3a473f4d3ce9c7603c5e0c6b38 }  # Private Rain (crosshaven) — 22 jumps, Prospect
+  - { agent_id: marketbot_004, role: resident, station: 0367654caf8485adcef9a58b7122d223 }  # Starlight Cartographer (alpheratz) — 24 jumps, Cobble
+  - { agent_id: marketbot_005, role: resident, station: f9a69fe2de7833d14270f634f46622ae }  # Cryo Zenith (saiph) — 25 jumps, Cobble
+  - { agent_id: marketbot_006, role: resident, station: d6789ab34d7ec5bb3a9cdce9cdb1e31b }  # The Second Ledger (40_eridani) — 14 jumps, Threshold
+  - { agent_id: marketbot_007, role: resident, station: 9e0b4dbad76ae607e5ca994d8dd7363e }  # The Veil Anchor (bd20_2457) — 14 jumps, Threshold
+  - { agent_id: marketbot_008, role: resident, station: 91b887ed660acdcdc166e1e659c43ba0 }  # The Zero Point Nexus (kornephoros) — 5 jumps, Shard
+  - { agent_id: marketbot_009, role: resident, station: 6b710aa99f58aec15b0280ee71690ba4 }  # Ghost Runner Terminal (thuban) — 6 jumps, Shard
+  # =========================================================================
+
   # === THE NINE STRONGHOLD RESIDENTS (returned 2026-08-13) =================
   # ⚠️ PIN A `resident` WITH THE **POI ID**, NOT THE BASE ID. The two roles want
   # OPPOSITE halves of a dual-named station and there is no id that satisfies
@@ -68,9 +90,9 @@ workers:
   # Combine, IRLC) and the ONLY open one whose fuel desk is dry
   # (station_fuel_empty), so nothing can be refuelled there. Posted anyway, by
   # decision 2026-08-13: a resident that stays docked burns no fuel, miner-2
-  # arrives with ~78 of 200 spare, and it carries >1M credits to buy fuel_cell
-  # off the local market if it ever has to leave.
-  - { agent_id: miner-2, role: resident, station: 0321b3e4406021575337b7be26e53dd7 }  # LHS 1140 / Ironlight Crossroads — 9 jumps from Mimosa, 6 fuel/jump
+  # landed with 54 of 200 spare, and it carries >1M credits to buy fuel_cell off
+  # the local market if it ever has to leave.
+  - { agent_id: miner-2, role: resident, station: 0321b3e4406021575337b7be26e53dd7 }  # LHS 1140 / Ironlight Crossroads — 12 jumps from Alfirk, measured 4 fuel/jump
   # =========================================================================
 
   - { agent_id: marketbot_alpha_centauri, role: resident_ice, station: "" }
