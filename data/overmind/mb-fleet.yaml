@@ -1,10 +1,44 @@
 # Marketbots only (resident): idle-mine + scheduled update_market at the hour boundary.
-# Removed 2026-06-26 (parked in empire capitals, duplicating other agents' pulls,
-# tasked for stations they can't reach yet): algol, alhena, barnard_44, bellatrix,
-# gliese_581, gsc_0008, sheratan, xamidimura, zaniah.
+#
+# RETURNED 2026-08-13: algol, alhena, barnard_44, bellatrix, gliese_581,
+# gsc_0008, sheratan, xamidimura, zaniah — the nine removed on 2026-06-26 as
+# "tasked for stations they can't reach yet". They can reach them now. Each
+# completed the pirate-unlock chain (`an_introduction`, baseline -30 -> 10) in
+# the unlock fleet and is DOCKED at the warlord stronghold it is named for, so
+# the reason for the exclusion is gone and the pins below are the campaign's
+# output. Nine dark markets become reporting ones on the hourly update_market.
+#
+# All nine are plain `resident`, not the gas/ice variants, on purpose: the three
+# share an identical capture schedule and differ ONLY in what the idle script
+# harvests, and the ledger records module COUNTS, not names — so there is no way
+# to tell from here which of these hulls (cobble, prospect, archimedes, theoria,
+# threshold, maul) carries a gas or ice harvester. Capture is the point of the
+# move; mining is the bonus. The mineable resource in each system is noted per
+# line, so flip a role once you have confirmed the fitting.
 workers:
   - { agent_id: marketbot_001, role: resident, station: "" }  # added 2026-07-11: resident at Hex Star (dheneb, player station); dheneb has a belt
   - { agent_id: marketbot_002, role: resident, station: "" }  # added 2026-07-31: resident at The Obsidian Well (arneb, player station); arneb has belt + gas + ice
+
+  # === THE NINE STRONGHOLD RESIDENTS (returned 2026-08-13) =================
+  # ⚠️ PIN WITH THE BASE ID WHERE ONE EXISTS. The arrival check compares
+  # st.Player.DockedAtBase (a BASE id) against this field. alhena and sheratan
+  # were first pinned as `voss_redoubt` / `thane_keep` and, though docked and
+  # capturing, read as not-yet-arrived on every pass — so they re-travelled to
+  # the station they were standing on, 164 times for alhena, until both 130-unit
+  # tanks hit ZERO. sable_port and korr_fortress are pinned by POI id because
+  # they are two of the four warlord bases NEVER SCANNED: no bases row exists to
+  # name one, which is the case atPinnedStation's CurrentPOI check covers.
+  - { agent_id: marketbot_algol, role: resident, station: dross_citadel_station }      # Algol / Dross Citadel — gas_cloud
+  - { agent_id: marketbot_alhena, role: resident, station: voss_redoubt_station }      # Alhena / Voss Redoubt — NOTHING mineable; capture only
+  - { agent_id: marketbot_barnard_44, role: resident, station: sable_port }            # Barnard 44 / Sable Port (unscanned) — asteroid_belt
+  - { agent_id: marketbot_bellatrix, role: resident, station: crix_stronghold_station } # Bellatrix / Crix Stronghold — ice_field
+  - { agent_id: marketbot_gliese_581, role: resident, station: korr_fortress }         # Gliese 581 / Korr Fortress (unscanned) — NOTHING mineable; capture only
+  - { agent_id: marketbot_gsc_0008, role: resident, station: nyx_nexus_station }       # GSC-0008 / Nyx Nexus — gas_cloud + ice_field
+  - { agent_id: marketbot_sheratan, role: resident, station: thane_keep_station }      # Sheratan / Thane Keep — ice_field
+  - { agent_id: marketbot_xamidimura, role: resident, station: kael_arsenal_station }  # Xamidimura / Kael Arsenal — asteroid_belt + ice_field
+  - { agent_id: marketbot_zaniah, role: resident, station: mera_sanctum_station }      # Zaniah / Mera Sanctum — asteroid_belt
+  # =========================================================================
+
   - { agent_id: marketbot_alpha_centauri, role: resident_ice, station: "" }
   - { agent_id: marketbot_blood_forge, role: resident, station: "" }
   - { agent_id: marketbot_cargo_lanes, role: resident_gas, station: "" }

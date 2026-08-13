@@ -114,8 +114,11 @@ workers:
   # not-yet-arrived on every dry pass -- so they re-travelled to the station
   # they were standing on, 164 times for alhena, until both 130-unit tanks hit
   # ZERO. Thane Keep's fuel desk is depleted, so it could not even refill.
-  - { agent_id: marketbot_alhena, role: unlock, station: voss_redoubt_station, mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: marketbot_sheratan, role: unlock, station: thane_keep_station, mission_categories: [smuggling, delivery, exploration] }
+  # GRADUATED 2026-08-13 -> mb-fleet.yaml. Both hold the unlock (baseline 10)
+  # and are docked at their stronghold, so the unlock role has nothing left to
+  # give them: `resident` captures MORE per hour (adds view_market, facilities,
+  # kb_update) and, unlike the mission roles, runs an idle script that refuels.
+  # That last part is why they sat at 0/130 here with six-figure wallets.
 
   # === WAVE 2 — THE STRONGHOLD MARKETBOTS, PINNED (2026-08-12) ========
   #
@@ -163,13 +166,13 @@ workers:
   # sable_port and korr_fortress are pinned by POI id because they are two of the
   # four warlord bases NEVER SCANNED — no bases row exists to name, which is
   # exactly the case atPinnedStation's CurrentPOI check was added to survive.
-  - { agent_id: marketbot_algol, role: unlock, station: dross_citadel_station, mission_categories: [smuggling, delivery, exploration] }     # Algol / Dross Citadel
-  - { agent_id: marketbot_barnard_44, role: unlock, station: sable_port, mission_categories: [smuggling, delivery, exploration] }           # Barnard 44 / Sable Port (unscanned)
-  - { agent_id: marketbot_bellatrix, role: unlock, station: crix_stronghold_station, mission_categories: [smuggling, delivery, exploration] } # Bellatrix / Crix Stronghold
-  - { agent_id: marketbot_zaniah, role: unlock, station: mera_sanctum_station, mission_categories: [smuggling, delivery, exploration] }     # Zaniah / Mera Sanctum
-  - { agent_id: marketbot_xamidimura, role: unlock, station: kael_arsenal_station, mission_categories: [smuggling, delivery, exploration] } # Xamidimura / Kael Arsenal
-  - { agent_id: marketbot_gliese_581, role: unlock, station: korr_fortress, mission_categories: [smuggling, delivery, exploration] }        # Gliese 581 / Korr Fortress (unscanned)
-  - { agent_id: marketbot_gsc_0008, role: unlock, station: nyx_nexus_station, mission_categories: [smuggling, delivery, exploration] }      # GSC-0008 / Nyx Nexus
+  # GRADUATED 2026-08-13 -> mb-fleet.yaml, all seven. Each is docked at its
+  # stronghold holding baseline 10; the campaign's goal for them is met, so they
+  # go back to the fleet they were pulled from, now able to reach the posting
+  # mb-fleet.yaml had listed them as "tasked for stations they can't reach yet".
+  #
+  # The pins travel WITH them — the station ids are the campaign's hard-won
+  # output, including the two POI-id pins for the never-scanned warlord bases.
 
   # === WAVE 3 — UNPINNED, STAGING IN PLACE ============================
   # Distance to the giver in the trailing comment. `smuggling` is listed for all
