@@ -212,7 +212,7 @@ func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn Spawn
 		StallRestartLimit:  3, // quarantine after 3 futile stall-restarts
 
 		leaving:            make(map[string]*leavingState),
-		RemoveDrainTimeout: 4 * time.Minute,
+		RemoveDrainTimeout: DefaultRemoveDrainTimeout,
 	}
 	if server != nil {
 		s.Sender = server

@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+// DefaultRemoveDrainTimeout is how long a removed worker gets to finish its
+// current pass before the supervisor force-stops it. Anything that WAITS on a
+// removal must outlast this, or it declares failure while the drain it is
+// watching is still legitimately running.
+const DefaultRemoveDrainTimeout = 4 * time.Minute
+
 // FleetSide is one fleet's half of a secondment: where its overrides sidecar
 // lives, how to make it re-read the roster, and how to ask whether an agent's
 // worker is currently running under it.
@@ -32,7 +38,14 @@ type ReconcileOptions struct {
 	MaxInFlight int
 	// StopTimeout bounds the wait for a worker to actually exit its home fleet
 	// before the away fleet is allowed to start it. Exceeding it fails the trip
-	// rather than risking two live sessions for one agent. Zero means 90s.
+	// rather than risking two live sessions for one agent. Zero means one minute
+	// longer than DefaultRemoveDrainTimeout.
+	//
+	// It MUST outlast the drain it is watching. The removal is graceful — the
+	// worker finishes its current pass first — and only force-stops at
+	// DefaultRemoveDrainTimeout. The original 90s default was shorter than that,
+	// so on 2026-08-13 it failed two live trips whose drains then completed
+	// normally at 4m05s.
 	StopTimeout time.Duration
 	// PollInterval is how often the stop is re-checked. Zero means 3s.
 	PollInterval time.Duration
@@ -65,7 +78,9 @@ func (o ReconcileOptions) maxInFlight() int {
 
 func (o ReconcileOptions) stopTimeout() time.Duration {
 	if o.StopTimeout <= 0 {
-		return 90 * time.Second
+		// Derived, not a literal: a drain window that grew without this growing
+		// with it would silently reintroduce the 2026-08-13 failure.
+		return DefaultRemoveDrainTimeout + time.Minute
 	}
 	return o.StopTimeout
 }
@@ -186,22 +201,50 @@ func moveAgent(agentID string, from, to FleetSide, opts ReconcileOptions) error 
 	// 2. Wait for the worker to actually be gone. This is the step that makes
 	//    the handover safe; skipping it is what causes session_replaced.
 	if err := waitStopped(agentID, from, opts); err != nil {
-		return err
+		return restoreHome(agentID, from, err)
 	}
 
 	// 3. Only now let the other fleet have it.
 	toOv, err := LoadOverrides(to.OverridesPath)
 	if err != nil {
-		return fmt.Errorf("read %s overrides: %w", to.Name, err)
+		return restoreHome(agentID, from, fmt.Errorf("read %s overrides: %w", to.Name, err))
 	}
 	toOv.Delete(agentID)
 	if err := SaveOverrides(to.OverridesPath, toOv); err != nil {
-		return fmt.Errorf("write %s overrides: %w", to.Name, err)
+		return restoreHome(agentID, from, fmt.Errorf("write %s overrides: %w", to.Name, err))
 	}
 	if err := to.Reload(); err != nil {
-		return fmt.Errorf("reload %s: %w", to.Name, err)
+		return restoreHome(agentID, from, fmt.Errorf("reload %s: %w", to.Name, err))
 	}
 	return nil
+}
+
+// restoreHome undoes step 1 after a move fails, so a trip that cannot be
+// completed leaves membership exactly as it found it.
+//
+// Without this, a failure between step 1 and step 3 leaves the agent in its home
+// fleet's removed-set and absent from the away fleet's roster: it runs NOWHERE,
+// silently, until an operator notices. That is precisely what happened to
+// trader-1 and salvager-2 on 2026-08-13.
+//
+// Restoring is safe in both failure modes. If the wait timed out, the worker is
+// still alive at home and this simply stops the fleet from killing it. If the
+// away fleet could not be told, the worker has already stopped and home will
+// start it again. Neither path can produce two live sessions, because the away
+// fleet is only ever released after the home worker is confirmed gone.
+func restoreHome(agentID string, from FleetSide, cause error) error {
+	ov, err := LoadOverrides(from.OverridesPath)
+	if err != nil {
+		return fmt.Errorf("%w (ALSO: could not re-read %s overrides to restore the agent: %v — it may now run in no fleet)", cause, from.Name, err)
+	}
+	ov.Delete(agentID)
+	if err := SaveOverrides(from.OverridesPath, ov); err != nil {
+		return fmt.Errorf("%w (ALSO: could not restore %s to %s: %v — it may now run in no fleet)", cause, agentID, from.Name, err)
+	}
+	if err := from.Reload(); err != nil {
+		return fmt.Errorf("%w (ALSO: restored %s to the %s roster but could not reload it: %v)", cause, agentID, from.Name, err)
+	}
+	return cause
 }
 
 // waitStopped blocks until from.Running(agentID) is false, or the timeout lapses.

@@ -42,7 +42,10 @@ func main() {
 		awayOv     = flag.String("away-overrides", "data/overmind/unlock-overrides.json", "Away fleet membership sidecar")
 		awaySock   = flag.String("away-socket", "data/overmind/unlock.sock", "Away fleet control socket")
 		maxFlight  = flag.Int("max-in-flight", 1, "How many agents may be away from home at once")
-		stopWait   = flag.Duration("stop-timeout", 90*time.Second, "How long to wait for a worker to exit before failing the trip")
+		// Must outlast the supervisor's graceful drain, or every trip fails while
+		// the drain it is watching is still running. Measured live at 4m05s.
+		stopWait = flag.Duration("stop-timeout", supervisor.DefaultRemoveDrainTimeout+time.Minute,
+			"How long to wait for a worker to exit before failing the trip (must exceed the supervisor's remove-drain window)")
 		watch      = flag.Duration("watch", 0, "Sweep repeatedly on this interval (0 = single sweep)")
 		once       = flag.Bool("once", false, "Run a single sweep (default when --watch is unset)")
 		showStatus = flag.Bool("status", false, "Print the ledger and exit without changing anything")
