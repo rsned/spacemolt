@@ -1,0 +1,28 @@
+{
+  "removed": [
+    "hauler-0",
+    "salvager-1",
+    "salvager-2",
+    "salvager-3",
+    "salvager-4",
+    "salvager-5",
+    "salvager-6",
+    "salvager-7",
+    "salvager-8",
+    "salvager-9",
+    "salvager-10",
+    "trader-1",
+    "trader-2",
+    "trader-3",
+    "trader-4",
+    "trader-5",
+    "trader-6",
+    "trader-7",
+    "trader-8",
+    "trader-9",
+    "trader-10",
+    "explorer-1"
+  ],
+  "updated_at": "2026-08-13T05:26:11Z",
+  "by": "secondment-activation"
+}
