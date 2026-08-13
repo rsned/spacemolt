@@ -322,8 +322,23 @@ func TestSQLiteKB_GetShipClasses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetShipClasses failed: %v", err)
 	}
-	if len(all) != 2 {
-		t.Errorf("Expected 2 ship classes, got %d", len(all))
+	// Every store also folds in the retired-but-still-flown classes (legacy_ships.go),
+	// so the stored set is a floor, not the total. Assert on what was stored.
+	byID := map[string]ShipClassDef{}
+	for _, sc := range all {
+		byID[sc.ID] = sc
+	}
+	for _, want := range []string{"shuttle", "fighter"} {
+		if _, ok := byID[want]; !ok {
+			t.Errorf("stored class %s missing from GetShipClasses", want)
+		}
+	}
+	legacy, err := LegacyShipClasses()
+	if err != nil {
+		t.Fatalf("LegacyShipClasses failed: %v", err)
+	}
+	if len(all) != len(classes)+len(legacy) {
+		t.Errorf("Expected %d ship classes (2 stored + %d legacy), got %d", len(classes)+len(legacy), len(legacy), len(all))
 	}
 
 	// Verify build materials are loaded

@@ -224,8 +224,14 @@ func (kb *SQLiteKB) queryItems(ctx context.Context, query string, args ...any) (
 	return items, rows.Err()
 }
 
-// StoreShipClasses stores or replaces all ship classes in the catalog.
+// StoreShipClasses stores or replaces all ship classes in the catalog. Classes the
+// server has retired but agents still fly are folded back in (see legacy_ships.go) —
+// without that, this function's DELETE erases them on every catalog refresh.
 func (kb *SQLiteKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef) error {
+	classes, err := withLegacyShipClasses(classes)
+	if err != nil {
+		return err
+	}
 	tx, err := kb.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
