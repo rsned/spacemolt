@@ -254,8 +254,22 @@ func priorRouteCycles(ctx context.Context, tx *sql.Tx) (map[string]int, error) {
 // every distinct item_id present in market_orders (only traded items can yield a
 // spread).
 func (c *Collector) scanItemSet(ctx context.Context, allow []string) ([]string, error) {
+	// Items the server has refused to sell are filtered from BOTH branches: an
+	// explicit allow-list is a caller's item choice, not evidence the market will
+	// honour it, and a row minted for an unbuyable item is pure waste — it outranks
+	// real work on gross profit and every hauler that claims it fails at the till.
+	blocked, err := c.UnbuyableItems(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if len(allow) > 0 {
-		return allow, nil
+		out := make([]string, 0, len(allow))
+		for _, id := range allow {
+			if !blocked[id] {
+				out = append(out, id)
+			}
+		}
+		return out, nil
 	}
 	rows, err := c.db.QueryContext(ctx, `SELECT DISTINCT item_id FROM market_orders`)
 	if err != nil {
@@ -267,6 +281,9 @@ func (c *Collector) scanItemSet(ctx context.Context, allow []string) ([]string, 
 		var id string
 		if err := rows.Scan(&id); err != nil {
 			return nil, fmt.Errorf("scan traded item: %w", err)
+		}
+		if blocked[id] {
+			continue
 		}
 		out = append(out, id)
 	}

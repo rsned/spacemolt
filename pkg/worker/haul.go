@@ -463,6 +463,7 @@ type OpportunityStore interface {
 	ReleaseBookClaim(ctx context.Context, claimID int64, agentID string) error
 	GetActiveBookClaim(ctx context.Context, itemID, fromStation, agentID string) (int64, bool, error)
 	InvalidateBook(ctx context.Context, itemID, fromStation, agentID, reason string) error
+	MarkUnbuyable(ctx context.Context, itemID, agentID, reason string) error
 	ReapExpiredBookClaims(ctx context.Context) (int, error)
 	GetItemStationPrices(ctx context.Context, itemID string) ([]market.ItemStationPrice, error)
 	GetAskLadder(ctx context.Context, itemID, stationID string) ([]market.AskLevel, error)
@@ -962,6 +963,37 @@ func abandonCollapsed(ctx context.Context, deps HaulDeps, out io.Writer, opp mar
 	return nil
 }
 
+// invalidItemMarker is the server's rejection of an item id the market cannot trade.
+// It arrives as `invalid_item: Unknown item '<id>'.` — a permanent property of the
+// item, not of this station, this book, or this hauler.
+const invalidItemMarker = "invalid_item"
+
+// isUnbuyableItemErr reports whether a buy failure means the item can never be bought
+// through the market, as opposed to the transient failures (credits, cargo, a thin
+// book) that justify returning the row to the pool for someone else to try.
+func isUnbuyableItemErr(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), invalidItemMarker)
+}
+
+// abandonUnbuyable handles a buy the server refused because the item is not tradeable.
+// Releasing the row would put it straight back at the top of the pool — it prices as a
+// fat opportunity precisely because nobody can ever fill it — so the fleet re-claims and
+// re-fails it every pass: 150 failed buys on one item in an evening, 105 of them by a
+// single hauler. The item is blocked at the SCANNER instead, because every scan cycle
+// expires and rebuilds the pool, so expiring rows alone cannot hold.
+func abandonUnbuyable(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, bookClaimID int64, reason string) error {
+	if err := deps.Market.MarkUnbuyable(ctx, opp.ItemID, deps.AgentID, reason); err != nil {
+		fmt.Fprintf(out, "haul: opp %d unbuyable %s; block failed: %v\n", opp.ID, opp.ItemID, err) //nolint:errcheck
+	}
+	if bookClaimID > 0 {
+		if err := deps.Market.ReleaseBookClaim(ctx, bookClaimID, deps.AgentID); err != nil {
+			fmt.Fprintf(out, "haul: opp %d release book claim failed: %v\n", opp.ID, err) //nolint:errcheck
+		}
+	}
+	fmt.Fprintf(out, "haul: opp %d %s is not tradeable (%s); item blocked from scanning\n", opp.ID, opp.ItemID, reason) //nolint:errcheck
+	return nil
+}
+
 // releaseBookAnd releases the hauler's book-claim slot (best-effort) then delegates to
 // abandonClaim for a "my problem" pre-buy abandon (unroutable/dock/credits), which
 // returns the per-row claim to the pool for other haulers.
@@ -1092,6 +1124,9 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, reason)
 	}
 	if err := deps.Client.Buy(ctx, opp.ItemID, qty); err != nil {
+		if isUnbuyableItemErr(err) {
+			return abandonUnbuyable(ctx, deps, out, opp, bookClaimID, err.Error())
+		}
 		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, fmt.Sprintf("buy failed: %v", err))
 	}
 	// Settle: record the actual bought quantity so other haulers see the reduced book

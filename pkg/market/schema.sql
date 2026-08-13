@@ -262,3 +262,22 @@ CREATE TABLE IF NOT EXISTS station_fuel_prices (
     captured_at       TEXT NOT NULL,
     captured_by       TEXT
 );
+
+-- Items the game server refuses to trade through the market `buy` command,
+-- learned the only way it can be learned: a hauler standing at the station
+-- got `invalid_item` back. Such items DO appear in market books (modules
+-- listed by players are the known case), so the scanner mints profitable-
+-- looking rows for them forever — a route for one such item survived 1,008
+-- scan cycles and cost the fleet 150 failed buys in a single evening, because
+-- every scan expires and re-inserts the pool, so expiring rows cannot stick.
+-- blocked_until makes the block self-healing: if the server later starts
+-- accepting the item, the cost of finding out is one failed buy per TTL.
+CREATE TABLE IF NOT EXISTS unbuyable_items (
+    item_id       TEXT PRIMARY KEY,
+    reason        TEXT NOT NULL,
+    reported_by   TEXT NOT NULL,
+    hits          INTEGER NOT NULL DEFAULT 1,
+    first_seen_utc TEXT NOT NULL,
+    last_seen_utc  TEXT NOT NULL,
+    blocked_until  TEXT NOT NULL
+);

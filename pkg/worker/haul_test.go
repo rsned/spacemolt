@@ -523,6 +523,7 @@ type fakeStore struct {
 	bookClaimsCompleted []int64            // claimIDs completed
 	bookClaimsReleased  []int64            // claimIDs released
 	invalidated         []string           // "item/from" strings passed to InvalidateBook
+	unbuyable           []string           // itemIDs passed to MarkUnbuyable
 	activeBookClaimID   int64              // returned by GetActiveBookClaim
 	activeBookClaimOK   bool               // returned by GetActiveBookClaim
 
@@ -622,6 +623,10 @@ func (f *fakeStore) GetActiveBookClaim(_ context.Context, _, _, _ string) (int64
 }
 func (f *fakeStore) InvalidateBook(_ context.Context, itemID, fromStation, _, _ string) error {
 	f.invalidated = append(f.invalidated, itemID+"/"+fromStation)
+	return nil
+}
+func (f *fakeStore) MarkUnbuyable(_ context.Context, itemID, _, _ string) error {
+	f.unbuyable = append(f.unbuyable, itemID)
 	return nil
 }
 func (f *fakeStore) ReapExpiredBookClaims(_ context.Context) (int, error) {
