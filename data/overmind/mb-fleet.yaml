@@ -20,23 +20,32 @@ workers:
   - { agent_id: marketbot_002, role: resident, station: "" }  # added 2026-07-31: resident at The Obsidian Well (arneb, player station); arneb has belt + gas + ice
 
   # === THE NINE STRONGHOLD RESIDENTS (returned 2026-08-13) =================
-  # ⚠️ PIN WITH THE BASE ID WHERE ONE EXISTS. The arrival check compares
-  # st.Player.DockedAtBase (a BASE id) against this field. alhena and sheratan
-  # were first pinned as `voss_redoubt` / `thane_keep` and, though docked and
-  # capturing, read as not-yet-arrived on every pass — so they re-travelled to
-  # the station they were standing on, 164 times for alhena, until both 130-unit
-  # tanks hit ZERO. sable_port and korr_fortress are pinned by POI id because
-  # they are two of the four warlord bases NEVER SCANNED: no bases row exists to
-  # name one, which is the case atPinnedStation's CurrentPOI check covers.
-  - { agent_id: marketbot_algol, role: resident, station: dross_citadel_station }      # Algol / Dross Citadel — gas_cloud
-  - { agent_id: marketbot_alhena, role: resident, station: voss_redoubt_station }      # Alhena / Voss Redoubt — NOTHING mineable; capture only
+  # ⚠️ PIN A `resident` WITH THE **POI ID**, NOT THE BASE ID. The two roles want
+  # OPPOSITE halves of a dual-named station and there is no id that satisfies
+  # both:
+  #
+  #   mission/unlock roles -> BASE id. atPinnedStation compares the pin against
+  #     st.Player.DockedAtBase, resolving base<->POI through the KB.
+  #   resident -> POI id. Its return leg travels to the pin id LITERALLY, and
+  #     `voss_redoubt_station` never equals CurrentPOI `voss_redoubt`.
+  #
+  # Getting it wrong is not a no-op, because travel AUTO-UNDOCKS: the worker
+  # undocks, flies to the POI it was already docked at, re-docks, and repeats
+  # forever. Live 2026-08-13, ~50s per cycle. These nine were carried over from
+  # unlock-fleet.yaml with their BASE-id pins intact and seven of them thrashed
+  # immediately; only sable_port and korr_fortress -- pinned by POI id because
+  # they are never-scanned warlord bases with no `bases` row to name -- sat still.
+  # That is the same loop that drained alhena and sheratan to ZERO on 08-12,
+  # reached from the other direction.
+  - { agent_id: marketbot_algol, role: resident, station: dross_citadel }      # Algol / Dross Citadel — gas_cloud
+  - { agent_id: marketbot_alhena, role: resident, station: voss_redoubt }      # Alhena / Voss Redoubt — NOTHING mineable; capture only
   - { agent_id: marketbot_barnard_44, role: resident, station: sable_port }            # Barnard 44 / Sable Port (unscanned) — asteroid_belt
-  - { agent_id: marketbot_bellatrix, role: resident, station: crix_stronghold_station } # Bellatrix / Crix Stronghold — ice_field
+  - { agent_id: marketbot_bellatrix, role: resident, station: crix_stronghold } # Bellatrix / Crix Stronghold — ice_field
   - { agent_id: marketbot_gliese_581, role: resident, station: korr_fortress }         # Gliese 581 / Korr Fortress (unscanned) — NOTHING mineable; capture only
-  - { agent_id: marketbot_gsc_0008, role: resident, station: nyx_nexus_station }       # GSC-0008 / Nyx Nexus — gas_cloud + ice_field
-  - { agent_id: marketbot_sheratan, role: resident, station: thane_keep_station }      # Sheratan / Thane Keep — ice_field
-  - { agent_id: marketbot_xamidimura, role: resident, station: kael_arsenal_station }  # Xamidimura / Kael Arsenal — asteroid_belt + ice_field
-  - { agent_id: marketbot_zaniah, role: resident, station: mera_sanctum_station }      # Zaniah / Mera Sanctum — asteroid_belt
+  - { agent_id: marketbot_gsc_0008, role: resident, station: nyx_nexus }       # GSC-0008 / Nyx Nexus — gas_cloud + ice_field
+  - { agent_id: marketbot_sheratan, role: resident, station: thane_keep }      # Sheratan / Thane Keep — ice_field
+  - { agent_id: marketbot_xamidimura, role: resident, station: kael_arsenal }  # Xamidimura / Kael Arsenal — asteroid_belt + ice_field
+  - { agent_id: marketbot_zaniah, role: resident, station: mera_sanctum }      # Zaniah / Mera Sanctum — asteroid_belt
   # =========================================================================
 
   - { agent_id: marketbot_alpha_centauri, role: resident_ice, station: "" }
