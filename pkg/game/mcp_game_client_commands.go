@@ -493,6 +493,24 @@ func (m *MCPGameClient) Refuel(ctx context.Context) error {
 	return m.updateStateFromResult(result)
 }
 
+// RefuelFromCargo burns fuel cells from the hold. Passing item_id is what selects
+// the server's cargo-cell mode; a bare refuel prefers the station desk and fails
+// outright when its reserves are dry. See Client.RefuelFromCargo.
+func (m *MCPGameClient) RefuelFromCargo(ctx context.Context, itemID string, quantity int) error {
+	payload := map[string]any{}
+	if itemID != "" {
+		payload["item_id"] = itemID
+	}
+	if quantity > 0 {
+		payload["quantity"] = quantity
+	}
+	result, err := m.callTool(ctx, "refuel", payload)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 func (m *MCPGameClient) RefuelShip(ctx context.Context, target string, quantity int) error {
 	payload := map[string]any{"target": target}
 	if quantity > 0 {

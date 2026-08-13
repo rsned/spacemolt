@@ -1996,6 +1996,43 @@ func (c *Client) Refuel(ctx context.Context) error {
 	return maybeGoalReached("refuel", err)
 }
 
+// RefuelFromCargo burns fuel cells out of the hold instead of buying fuel at a
+// station desk.
+//
+// The server's `refuel` picks one of four modes, and mode 3 — "docked at a refuel
+// station" — takes precedence over mode 4, "otherwise, fuel cells from cargo". A
+// bare Refuel() therefore ALWAYS asks the desk while docked, and at a station
+// whose reserves are dry it fails with station_fuel_empty and never falls through
+// to the cells sitting in the hold. That is not a corner case: it is how three
+// agents stranded at pirate strongholds on 2026-08-12/13, one of them holding a
+// 138k sale one hop away, and the server's own error says what to do about it —
+// "Buy fuel cells from the market and use them directly."
+//
+// Passing item_id is what selects mode 4. itemID empty lets the server auto-pick
+// the cheapest cell type. quantity <= 0 burns one cell; each cell is consumed
+// whole, so asking for more than the tank can hold wastes the remainder — at a
+// dry station cells may be the only fuel for many jumps, so callers should ask
+// for what they need rather than topping off.
+func (c *Client) RefuelFromCargo(ctx context.Context, itemID string, quantity int) error {
+	payload := map[string]any{}
+	if itemID != "" {
+		payload["item_id"] = itemID
+	}
+	if quantity > 0 {
+		payload["quantity"] = quantity
+	}
+	msg := protocol.Message{
+		Type:      "refuel",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return maybeGoalReached("refuel", err)
+}
+
 // RefuelShip transfers fuel from this ship to target's ship (ship-to-ship,
 // needs a refuel_rig fitted). quantity <= 0 lets the server pick its default.
 func (c *Client) RefuelShip(ctx context.Context, target string, quantity int) error {

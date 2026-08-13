@@ -31,6 +31,11 @@ type fakeClient struct {
 	refuelShipCalls []refuelShipCall // records of RefuelShip(target, quantity) calls
 	refuelShipErr   error            // when set, RefuelShip returns it instead of recording success
 	refuelErr       error            // when set, Refuel returns it instead of recording success
+	refuelCargoErr  error            // when set, RefuelFromCargo returns it
+	// refuelCargoCalls records every cargo-cell burn, in order. Cells are scarce
+	// at the stations that need them, so tests assert on the count, not just that
+	// a call happened.
+	refuelCargoCalls []refuelCargoCall
 	// refuelFuel, when > 0, is the fuel the *server* now holds after a refuel.
 	// The fake applies it to state only on GetStatus, mirroring the real client:
 	// State.Fuel is a cache that a refuel alone does not update.
@@ -224,6 +229,22 @@ func (f *fakeClient) RawCommand(ctx context.Context, command string, args map[st
 	f.calls = append(f.calls, "raw:"+command)
 	return nil
 }
+func (f *fakeClient) RefuelFromCargo(ctx context.Context, itemID string, quantity int) error {
+	f.refuelCargoCalls = append(f.refuelCargoCalls, refuelCargoCall{itemID: itemID, quantity: quantity})
+	if f.refuelCargoErr != nil {
+		return f.refuelCargoErr
+	}
+	f.fuelLow = false
+	return nil
+}
+
+// refuelCargoCall records one RefuelFromCargo invocation. The item_id matters:
+// naming it is what selects the server's cargo-cell mode over the station desk.
+type refuelCargoCall struct {
+	itemID   string
+	quantity int
+}
+
 func (f *fakeClient) RefuelShip(ctx context.Context, target string, quantity int) error {
 	f.refuelShipCalls = append(f.refuelShipCalls, refuelShipCall{target: target, quantity: quantity})
 	return f.refuelShipErr

@@ -492,6 +492,9 @@ func (m *mockGameClient) RecycleWithOptions(ctx context.Context, recipeID string
 	return nil
 }
 func (m *mockGameClient) Refuel(ctx context.Context) error { return nil }
+func (m *mockGameClient) RefuelFromCargo(ctx context.Context, itemID string, quantity int) error {
+	return nil
+}
 func (m *mockGameClient) RefuelShip(ctx context.Context, target string, quantity int) error {
 	return nil
 }

@@ -68,6 +68,10 @@ type GameClient interface {
 	// RefuelShip transfers fuel to another player's ship (requires a fitted
 	// refuel_rig; target is the in-game username, not the on-disk alias).
 	RefuelShip(ctx context.Context, target string, quantity int) error
+	// RefuelFromCargo burns fuel cells from the hold. Refuel() cannot reach them
+	// while docked — the server prefers the station desk and fails outright when
+	// its reserves are dry, which is how agents strand at pirate strongholds.
+	RefuelFromCargo(ctx context.Context, itemID string, quantity int) error
 	Repair(ctx context.Context) error
 	RepairWith(ctx context.Context, payload map[string]any) error
 	RefitShip(ctx context.Context) error

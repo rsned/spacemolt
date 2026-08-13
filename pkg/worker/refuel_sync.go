@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
 )
@@ -40,10 +41,39 @@ import (
 // paths already do this inline and are left as they are.
 func RefuelAndSync(ctx context.Context, client game.GameClient, out io.Writer, what string) error {
 	if err := client.Refuel(ctx); err != nil {
-		return err
+		if !deskIsDry(err) {
+			return err
+		}
+		// The desk has nothing to sell. Cells in the hold are reachable only by
+		// naming an item_id — see game.Client.RefuelFromCargo for why a bare
+		// refuel can never get to them while docked.
+		fmt.Fprintf(out, "%s: station desk dry (%v); burning a fuel cell from cargo\n", what, err) //nolint:errcheck
+		if cerr := client.RefuelFromCargo(ctx, fuelCellItemID, 1); cerr != nil {
+			return fmt.Errorf("station desk dry (%w) and cargo cells unusable: %w", err, cerr)
+		}
 	}
 	syncShipState(ctx, client, out, what)
 	return nil
+}
+
+// fuelCellItemID is the basic cell. Naming it (rather than letting the server
+// auto-pick the cheapest) keeps a premium/military cell in the hold for the case
+// it was carried for, and it is the id a gift or a market buy produces.
+const fuelCellItemID = "fuel_cell"
+
+// deskIsDry reports whether a refuel failed because the STATION had no fuel to
+// sell, as opposed to the ship being unable to refuel at all. Only this case is
+// worth spending a cell on: a full tank, a rate limit, or a lost connection are
+// all answered by waiting, and burning a cell for them wastes fuel that may be
+// the only fuel available for many jumps.
+func deskIsDry(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "station_fuel_empty") ||
+		strings.Contains(msg, "no_fuel_source") ||
+		strings.Contains(msg, "reserves are depleted")
 }
 
 // syncShipState re-reads ship state after a mutation that the cache would
