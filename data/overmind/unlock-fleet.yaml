@@ -147,9 +147,16 @@ workers:
   # count — these hulls are simply not in that risk class.
   # UNLOCKED 2026-08-12 20:39-21:16 — all seven completed `an_introduction`, whose
   # completion text is the grant itself: "You now have enough standing with the
-  # pirate network to dock at their strongholds freely." Pirate reputation is NOT
-  # the gate — a locked bot and an unlocked one both read pirate_* 10/baseline 10;
-  # the mission is. (chain_next is `supply_run`, the paying work that follows.)
+  # pirate network to dock at their strongholds freely." (chain_next is
+  # `supply_run`, the paying work that follows.)
+  #
+  # WHAT THE MISSION ACTUALLY CHANGES: the pirate BASELINE, and it is bimodal.
+  # Across all 151 agents in assets.db there are exactly two values — -30 for the
+  # 133 still locked, and 10 for the 18 who hold it. Nothing sits in between, so
+  # `baseline >= 10` (smugglingUnlocked) is an exact test, not a threshold guess.
+  # Reputation is NOT the signal: it reads 10-11 either way. Do not sample only
+  # unlocked agents when checking this — every one of them shows 10/10 and the
+  # difference disappears.
   #
   # So they are re-pinned from the giver's station to their OWN stronghold, the
   # posting the whole campaign was for. Base ids where the bases table knows them.

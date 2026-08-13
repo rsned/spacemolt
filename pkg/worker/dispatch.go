@@ -68,6 +68,13 @@ type WorkerDispatch struct {
 	// DefaultStationAccessPath). Shared across the fleet: one shuttle's refusal
 	// teaches every other worker that reads the file.
 	StationAccessPath string
+	// SecondmentPath is the shared fleet-loan ledger a hauler writes its unlock
+	// nomination into (empty disables nominating entirely, which is the default
+	// for every fleet but haul). The fleet-secondment reconciler acts on it; the
+	// worker only ever appends a request and never moves itself.
+	SecondmentPath string
+	// FleetName identifies this worker's home fleet in the secondment ledger.
+	FleetName string
 	// access is the loaded map; accessOnce guards the one-time load + ledger
 	// seed so the seeding query runs once per process, not once per pass.
 	access     *StationAccess
@@ -260,9 +267,10 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		}
 		return Haul(ctx, HaulDeps{
 			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
-			Treasury:    d.treasury,
-			FuelPrices:  d.Market,
-			SetActivity: d.setActivity,
+			Treasury:          d.treasury,
+			FuelPrices:        d.Market,
+			SetActivity:       d.setActivity,
+			NominateForUnlock: d.nominateUnlockFn(),
 			RecaptureBuyMarket: func(ctx context.Context) error {
 				if err := d.Client.ViewMarket(ctx, map[string]any{}); err != nil {
 					return err

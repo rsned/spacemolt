@@ -598,6 +598,11 @@ type HaulDeps struct {
 	// the fleet status page (nil in tests). Best-effort; set when a haul is
 	// claimed, cleared ("") when the pass finds no work.
 	SetActivity func(string)
+	// NominateForUnlock offers this hauler for a loan to the unlock fleet after a
+	// delivery lands it in nebula space without the pirate unlock — the one place
+	// the chain is cheap to run. nil disables the whole path, which is the default
+	// for every fleet that is not haul.
+	NominateForUnlock func(ctx context.Context, stationID, systemID string) error
 }
 
 // haulActivityLabel renders a claimed opportunity as the status-page activity line,
@@ -1232,7 +1237,67 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 	}
 	recordHaulResult(ctx, deps, out, opp, held, m)
 	fmt.Fprintf(out, "haul: opp %d complete (sold %.0f %s)\n", opp.ID, held, opp.ItemID) //nolint:errcheck
+	nominateForUnlock(ctx, deps, out, sellSys, opp.ToStationID)
 	return nil
+}
+
+// nominateForUnlock offers this hauler for a loan to the unlock fleet, but only
+// from the one place the trip is nearly free: standing in nebula space having just
+// finished a delivery.
+//
+// The pirate unlock is granted by a mission chain whose giver sits at
+// treasure_cache_trading_post in nebula space. Sending an idle hauler there on
+// purpose costs a 20+ jump deadhead each way, which is why no hauler has ever run
+// it. A hauler that has just SOLD in nebula space is already there and, having
+// just sold, is carrying nothing it could strand. Those two facts are the whole
+// argument for the trip, so the trigger tests exactly them.
+//
+// A hauler that already holds the unlock has nothing to gain and is skipped —
+// which is also what makes this converge: every graduate stops nominating, so the
+// fleet drains its way to fully stronghold-capable and then goes quiet.
+func nominateForUnlock(ctx context.Context, deps HaulDeps, out io.Writer, sellSys, stationID string) {
+	if deps.NominateForUnlock == nil {
+		return
+	}
+	if smugglingUnlocked(deps.Client.GetState()) {
+		return // already capable; the loan would buy nothing
+	}
+	if !haulSystemInEmpire(ctx, deps, sellSys, unlockChainEmpire) {
+		return
+	}
+	if err := deps.NominateForUnlock(ctx, stationID, sellSys); err != nil {
+		if errors.Is(err, errAlreadyNominated) {
+			return // expected on every delivery after the first; not news
+		}
+		fmt.Fprintf(out, "haul: unlock nomination failed: %v\n", err) //nolint:errcheck
+		return
+	}
+	fmt.Fprintf(out, "haul: sold in %s space at %s without the pirate unlock; nominated for the unlock chain\n", unlockChainEmpire, stationID) //nolint:errcheck
+}
+
+// unlockChainEmpire is the region holding the unlock chain's giver
+// (treasure_cache_trading_post, system treasure_cache). knowledge.System.Empire is
+// the REGION field from get_system — not get_map's ownership field, which answers
+// a different question. See reference_empire_field_semantics.
+const unlockChainEmpire = "nebula"
+
+// haulSystemInEmpire reports whether systemID belongs to empire. An unknown system
+// or a KB failure answers false: the cost of a missed nomination is one deferred
+// trip, while a wrong one sends a hauler across the map.
+func haulSystemInEmpire(ctx context.Context, deps HaulDeps, systemID, empire string) bool {
+	if systemID == "" || deps.KB == nil {
+		return false
+	}
+	systems, err := deps.KB.GetSystems(ctx)
+	if err != nil {
+		return false
+	}
+	for _, s := range systems {
+		if s.ID == systemID {
+			return s.Empire == empire
+		}
+	}
+	return false
 }
 
 // haulPostCostOrder lists held cargo at the buy price instead of dumping it into thin

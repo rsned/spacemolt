@@ -48,6 +48,7 @@ func main() {
 	planStateDir := flag.String("plan-state-dir", "data/overmind/craft-plans", "Directory for persisted craft-plan run state")
 	handoffQueuePath := flag.String("handoff-queue", "data/overmind/handoff-queue.json", "Shared crafting-brain stock handoff queue file (forwarded to every spawned worker when non-empty; consumed by the plan runner only when --plan-queue is set)")
 	assetsDBPath := flag.String("assets-db-path", "", "Agent asset ledger DB path, forwarded to every spawned worker as --assets-db-path when non-empty (empty disables asset capture fleet-wide)")
+	secondmentPath := flag.String("secondment-ledger", "", "Fleet-loan ledger forwarded to every worker as --secondment-ledger when non-empty. Set on the haul fleet so a hauler that finishes a delivery in nebula space can nominate itself for the pirate-unlock chain (empty = no worker in this fleet nominates)")
 	holdersRosterPath := flag.String("holders-roster", "data/overmind/mb-fleet.yaml", "Fleet roster YAML for marketbot stock holders (the plan runner's Managed set; required when --plan-queue is set)")
 	overridesPath := flag.String("overrides-file", "", "Membership overrides sidecar (default: <socket dir>/<fleet>-overrides.json)")
 	flag.Parse()
@@ -85,7 +86,13 @@ func main() {
 		logger.Fatalf("new server: %v", err)
 	}
 
-	sup := supervisor.NewSupervisor(srv, fleet, specs, supervisor.DefaultSpawn(*workerBin, *handoffQueuePath, *assetsDBPath), logger)
+	sup := supervisor.NewSupervisor(srv, fleet, specs, supervisor.SpawnWith(supervisor.SpawnConfig{
+		WorkerBin:        *workerBin,
+		HandoffQueuePath: *handoffQueuePath,
+		AssetsDBPath:     *assetsDBPath,
+		SecondmentPath:   *secondmentPath,
+		FleetName:        *fleetName,
+	}), logger)
 	sup.StaggerInterval = *stagger
 	sup.RestartBatch = *restartBatch
 	srv.SetAdminHook(makeAdminHook(rs, sup, *overridesPath, logger))

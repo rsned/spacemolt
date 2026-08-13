@@ -26,6 +26,35 @@ type SpawnFunc func(ctx context.Context, spec WorkerSpec, socket string) (*exec.
 // --assets-db-path when non-empty, otherwise omitted, leaving the worker's
 // own default ("", asset capture disabled) in effect.
 func DefaultSpawn(workerBin, handoffQueuePath, assetsDBPath string) SpawnFunc {
+	return SpawnWith(SpawnConfig{
+		WorkerBin:        workerBin,
+		HandoffQueuePath: handoffQueuePath,
+		AssetsDBPath:     assetsDBPath,
+	})
+}
+
+// SpawnConfig carries the fleet-wide values forwarded to every worker this
+// overmind starts. Each is omitted from the worker's argv when empty, leaving
+// the worker's own default in effect — so adding one here never changes the
+// behaviour of a fleet that does not set it.
+type SpawnConfig struct {
+	WorkerBin string
+	// HandoffQueuePath is the shared crafting-brain stock handoff queue.
+	HandoffQueuePath string
+	// AssetsDBPath is the agent asset + capability ledger.
+	AssetsDBPath string
+	// SecondmentPath is the fleet-loan ledger a worker writes nominations into.
+	// Only the haul fleet sets it today: a hauler that finishes a delivery in
+	// nebula space nominates itself for the pirate-unlock chain, which is cheap
+	// to run from there and a 20+ jump deadhead from anywhere else.
+	SecondmentPath string
+	// FleetName is recorded on a nomination so the reconciler knows which fleet
+	// to return the agent to.
+	FleetName string
+}
+
+// SpawnWith returns a SpawnFunc that launches cfg.WorkerBin with flags.
+func SpawnWith(cfg SpawnConfig) SpawnFunc {
 	return func(ctx context.Context, spec WorkerSpec, socket string) (*exec.Cmd, error) {
 		args := []string{
 			"--agent", spec.AgentID,
@@ -33,11 +62,17 @@ func DefaultSpawn(workerBin, handoffQueuePath, assetsDBPath string) SpawnFunc {
 			"--station", spec.Station,
 			"--socket", socket,
 		}
-		if handoffQueuePath != "" {
-			args = append(args, "--handoff-queue", handoffQueuePath)
+		if cfg.HandoffQueuePath != "" {
+			args = append(args, "--handoff-queue", cfg.HandoffQueuePath)
 		}
-		if assetsDBPath != "" {
-			args = append(args, "--assets-db-path", assetsDBPath)
+		if cfg.AssetsDBPath != "" {
+			args = append(args, "--assets-db-path", cfg.AssetsDBPath)
+		}
+		if cfg.SecondmentPath != "" {
+			args = append(args, "--secondment-ledger", cfg.SecondmentPath)
+		}
+		if cfg.FleetName != "" {
+			args = append(args, "--fleet-name", cfg.FleetName)
 		}
 		if len(spec.MissionCategories) > 0 {
 			args = append(args, "--mission-categories", strings.Join(spec.MissionCategories, ","))
@@ -51,7 +86,7 @@ func DefaultSpawn(workerBin, handoffQueuePath, assetsDBPath string) SpawnFunc {
 		if spec.DisableFreightBootstrap {
 			args = append(args, "--freight-bootstrap=false")
 		}
-		cmd := exec.CommandContext(ctx, workerBin, args...)
+		cmd := exec.CommandContext(ctx, cfg.WorkerBin, args...)
 		cmd.Stdout = log.Writer()
 		cmd.Stderr = log.Writer()
 		if err := cmd.Start(); err != nil {
