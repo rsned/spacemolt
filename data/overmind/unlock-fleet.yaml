@@ -207,3 +207,24 @@ workers:
   - { agent_id: pirate-5, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: miner-7, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: miner-8, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+
+  # === JOHNNY CAB — the passenger carrier, on loan from the shuttle fleet ====
+  #
+  # He is here for reach, not for smuggling. Pirate strongholds are a passenger
+  # DESTINATION he cannot currently sell: the shuttle role skips any fare it
+  # cannot dock at, so every stronghold-bound passenger who has ever queued in
+  # front of him was left standing. The unlock turns nine closed destinations
+  # into payable fares, and stronghold fares are the expensive kind.
+  #
+  # Left UNPINNED on purpose. Wave 2's pin was a fix for bots too poor to reach
+  # the giver; johnny_cab holds 18.2M credits and can route himself. Pinning him
+  # to the giver's station would also strand his own return: he has no home base
+  # to go back to, his work is wherever passengers are.
+  #
+  # Hull: Cobble, scale 1 / speed 2 -> ceil(1^1.5 x 2) = 2 fuel per jump against
+  # a 120 tank = 60 jumps of range. Same class as marketbot_algol, which crossed
+  # 16 jumps with 88 to spare. He is not in the strand-risk class.
+  #
+  # RETURN HIM TO shuttle-fleet.yaml once he holds the unlock — this entry is a
+  # loan, and the shuttle fleet has no other carrier.
+  - { agent_id: johnny_cab, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
