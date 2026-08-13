@@ -99,8 +99,18 @@ workers:
   # Fuel measured 2026-08-11: miner-1 86/150, miner-2 194/200.
   - { agent_id: miner-1, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: miner-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: marketbot_alhena, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: marketbot_sheratan, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  # DEPLOYED 2026-08-12 — both hold the unlock (smuggling 8, pirate baseline 10)
+  # and have nothing left to earn at the giver. Re-pinned to the strongholds
+  # they are named for, which is what this whole campaign was for: the `unlock`
+  # role already runs update_market hourly, so a pinned agent AT a stronghold
+  # turns a dark market into a reporting one without any further change.
+  #
+  # Trip is cheap: both fly Prospects (1 fuel/jump, 130 tank) so 30-32 jumps
+  # costs 30-32 fuel. Thane Keep has never been scanned by anyone.
+  # Station ids are the KB POI ids; the endpoint's base ids differ
+  # (voss_redoubt_station / thane_keep_station) — see station id aliases.
+  - { agent_id: marketbot_alhena, role: unlock, station: voss_redoubt, mission_categories: [smuggling, delivery, exploration] }   # alhena, 32 jumps
+  - { agent_id: marketbot_sheratan, role: unlock, station: thane_keep, mission_categories: [smuggling, delivery, exploration] }   # sheratan, 30 jumps
 
   # === WAVE 2 — THE STRONGHOLD MARKETBOTS, PINNED (2026-08-12) ========
   #

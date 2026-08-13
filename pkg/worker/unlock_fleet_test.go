@@ -37,7 +37,22 @@ func TestUnlockFleetYAMLParses(t *testing.T) {
 	// `an_introduction` — the mission that raises the pirate baseline from the
 	// -30 hostile default to 10 — is offered only by its giver at this base.
 	const chainGiver = "treasure_cache_trading_post"
-	pinned := 0
+	// A pin has a second legitimate destination once an agent has BANKED the
+	// unlock: the stronghold it is named for. That is the campaign's whole
+	// purpose -- the `unlock` role runs update_market hourly, so a graduate
+	// pinned at a stronghold turns a dark market into a reporting one with no
+	// further change. Nine strongholds, one per marketbot; POI ids here, since
+	// the station registry's base ids carry a `_station` suffix these do not.
+	//
+	// The set is enumerated rather than opened up, because the property worth
+	// protecting is unchanged: a pin must be a place we MEANT to send someone.
+	// An arbitrary far station is how engineer-5 died.
+	strongholds := map[string]bool{
+		"voss_redoubt": true, "sable_port": true, "crix_stronghold": true,
+		"kael_arsenal": true, "dross_citadel": true, "korr_fortress": true,
+		"nyx_nexus": true, "thane_keep": true, "mera_sanctum": true,
+	}
+	pinned, atGiver := 0, 0
 	for _, s := range specs {
 		if s.Role != "unlock" {
 			t.Errorf("%s: role = %q, want unlock", s.AgentID, s.Role)
@@ -47,8 +62,15 @@ func TestUnlockFleetYAMLParses(t *testing.T) {
 		}
 		if s.Station != "" {
 			pinned++
-			if s.Station != chainGiver {
-				t.Errorf("%s: pinned at %q; the chain is sold only at %s", s.AgentID, s.Station, chainGiver)
+			switch {
+			case s.Station == chainGiver:
+				atGiver++
+			case strongholds[s.Station]:
+				// A deployed graduate. Nothing to check here that this file can
+				// see: whether it actually holds the unlock is runtime state in
+				// assets.db, not roster state.
+			default:
+				t.Errorf("%s: pinned at %q; a pin must be the chain giver (%s) or a stronghold", s.AgentID, s.Station, chainGiver)
 			}
 		}
 		// Smuggling is the category that carries the chain. A member without it
@@ -58,7 +80,7 @@ func TestUnlockFleetYAMLParses(t *testing.T) {
 			t.Errorf("%s: mission_categories %v omits smuggling", s.AgentID, s.MissionCategories)
 		}
 	}
-	if pinned == 0 {
+	if atGiver == 0 {
 		t.Error("no worker is pinned at the chain giver, so nobody can reach the unlock mission")
 	}
 	// The role must run missions; a schedule-only role would capture the ledger
