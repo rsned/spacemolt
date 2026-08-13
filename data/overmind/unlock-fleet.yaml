@@ -43,6 +43,47 @@
 # one-line edit once it is staged within a few jumps of the giver.
 #
 # ---------------------------------------------------------------------------
+# ⚠️ MEASURED 2026-08-13: STAGING IN PLACE NEVER UNLOCKS ANYONE. PINNING IS THE
+# ONLY MECHANISM THAT HAS EVER WORKED.
+#
+#   pinned at the giver:  2 of 2 unlocked (miner-1, miner-2, baseline 10)
+#   unpinned in this pool: 0 of 45 unlocked — every one still at baseline -30
+#
+# All 18 unlocked agents fleet-wide got there by standing at the giver. The
+# paragraph above expected unpinned workers to drift into the chain; they cannot.
+# `an_introduction` is sold from ONE base, an unpinned worker only ever sees its
+# LOCAL board, and nothing on that board routes it to Treasure Cache. johnny_cab
+# sat unpinned for a full day 3 jumps away and made no progress whatsoever.
+#
+# AND THE STRAND FEAR WAS MIS-STATED. Distance is not the risk — BURN RATE is,
+# via jump fuel = ceil(scale^1.5 x speed). Against the real tank sizes:
+#
+#   cobble / prospector / drillship / theoria / threshold — 1-2 fuel/jump:
+#       safe at EVERY distance in this pool. miner-7 is 27 jumps out and lands
+#       with 46 spare.
+#   excavator / deeprock_harvester — 6 fuel/jump: fine to ~22 jumps, marginal at
+#       24 (6 spare), and a guaranteed strand at 26 (needs 156, tank holds 150).
+#
+# engineer-5 stranded because it was a 6/jump hull, not because 16 jumps is far.
+# So pin on the burn-rate test, not the distance, and re-check it per agent:
+# the whole trip must fit in ONE tank, because the autopilot never docks to buy
+# fuel mid-route and departs anyway when its own estimate says it cannot make it.
+#
+# WAVE 2 PINNED 2026-08-13 (all 1-2 fuel/jump, >= 64 spare on a full tank):
+#   johnny_cab(3) random-clark(16) prophet-2(17) miner-4(18) miner-9(18)
+#   miner-10(18) overmind(18) trader-10(18)
+#
+# HELD BACK, with the reason, so nobody re-pins them by eye:
+#   miner-8(26, excavator)   needs 156 fuel into a 150 tank — STRANDS
+#   pirate-3(25, excavator)  needs exactly 150 of 150 — zero margin
+#   pirate-14/15(24, excav)  6 spare — inside the noise
+#   pirate-4                 1/200 fuel, already fuel-dead where it sits
+#   pirate-1 (sparrow), pirate-2 (shadow_dancer) — NOT IN THE SHIP CATALOG, so
+#       burn is unknown and unknowable from here; see the legacy-hull gap.
+#   miner-3(18) pirate-11(22) pirate-12(21) — 6/jump but adequate; next wave,
+#       after wave 2 lands, to keep the blast radius small.
+#
+# ---------------------------------------------------------------------------
 # A THIN WALLET IS NOT A BLOCKER HERE — THE CHAIN SUPPLIES ITS OWN CARGO
 #
 # The nine stronghold marketbots held between 89 and 489 credits when this pool
@@ -98,7 +139,15 @@ workers:
   # cargo (see above), so their wallets only ever pay fuel over 3 jumps.
   # Fuel measured 2026-08-11: miner-1 86/150, miner-2 194/200.
   - { agent_id: miner-1, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: miner-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  # miner-2 GRADUATED to mb-fleet 2026-08-13 as the Ironlight Crossroads
+  # resident. It banked the unlock here and had nothing left to earn at the
+  # giver, which is the whole reason it was free to reassign.
+  #
+  # It was NOT chosen for the unlock: LHS 1140 is Lawless, but lawless transit
+  # is routine at any reputation and a resident stays docked, so the posting
+  # never needed one. Measured on the trip: 12 jumps burned 48 fuel (4/jump),
+  # not the 6/jump that ceil(scale^1.5 * speed) predicts for a Deeprock
+  # Harvester — that formula is a conservative bound, not a planning number.
   # DEPLOYED 2026-08-12 — both hold the unlock (smuggling 8, pirate baseline 10)
   # and have nothing left to earn at the giver. Re-pinned to the strongholds
   # they are named for, which is what this whole campaign was for: the `unlock`
@@ -180,15 +229,15 @@ workers:
   # the skill that gates chain 2, and the accept-time gate stays authoritative.
 
   # 13-14 jumps.
-  - { agent_id: miner-9, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }              # horizon, 13
-  - { agent_id: miner-10, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }             # horizon, 13 — 0/130 FUEL, must refuel before it can move
-  - { agent_id: overmind, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }             # horizon, 13
+  - { agent_id: miner-9, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }              # horizon, 13
+  - { agent_id: miner-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }             # horizon, 13 — 0/130 FUEL, must refuel before it can move
+  - { agent_id: overmind, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }             # horizon, 13
 
   # 16-17 jumps.
-  - { agent_id: prophet-2, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }            # alpha_centauri, 16
+  - { agent_id: prophet-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }            # alpha_centauri, 16
   - { agent_id: miner-3, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }              # sol, 17
-  - { agent_id: miner-4, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }              # sol, 17
-  - { agent_id: random-clark, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] } # sol, 17
+  - { agent_id: miner-4, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }              # sol, 17
+  - { agent_id: random-clark, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] } # sol, 17
 
   # 24 jumps — Nexus Prime cluster.
   - { agent_id: pirate-11, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
@@ -230,7 +279,7 @@ workers:
   #
   # RETURN HIM TO shuttle-fleet.yaml once he holds the unlock — this entry is a
   # loan, and the shuttle fleet has no other carrier.
-  - { agent_id: johnny_cab, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: johnny_cab, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
 
   # === HAUL FLEET, ON CALL =================================================
   #
@@ -268,5 +317,5 @@ workers:
   - { agent_id: trader-7, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: trader-8, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: trader-9, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: trader-10, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trader-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: explorer-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }

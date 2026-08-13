@@ -48,6 +48,31 @@ workers:
   - { agent_id: marketbot_zaniah, role: resident, station: mera_sanctum }      # Zaniah / Mera Sanctum — asteroid_belt
   # =========================================================================
 
+  # === OPEN PLAYER STATIONS ================================================
+  # The station probe found 16 player stations that admit us, and EVERY one that
+  # resolves to a name sits in Lawless space (no police protection) — player
+  # stations get built in unclaimed territory.
+  #
+  # That does NOT gate the posting on the pirate unlock. Lawless TRANSIT is
+  # routine: every hauler, miner, mission runner and taxi crosses it dozens of
+  # times a day at the default -30 baseline without trouble. The exposure is
+  # sitting IDLE in lawless space, which a resident never does — resident_market
+  # is `ensure_home; dock; refuel`, so it stays docked and does not undock to a
+  # belt the way the gas/ice variants would. An unlocked agent is therefore not
+  # required here, and any of the marketbots can take one of these posts.
+  #
+  # Pinned by POI ID like every other resident (see the warning above). Player
+  # stations report an opaque hash as CurrentPOI, so the pin is the hash.
+  #
+  # Ironlight Crossroads is the game dev's own faction station (Ironlight
+  # Combine, IRLC) and the ONLY open one whose fuel desk is dry
+  # (station_fuel_empty), so nothing can be refuelled there. Posted anyway, by
+  # decision 2026-08-13: a resident that stays docked burns no fuel, miner-2
+  # arrives with ~78 of 200 spare, and it carries >1M credits to buy fuel_cell
+  # off the local market if it ever has to leave.
+  - { agent_id: miner-2, role: resident, station: 0321b3e4406021575337b7be26e53dd7 }  # LHS 1140 / Ironlight Crossroads — 9 jumps from Mimosa, 6 fuel/jump
+  # =========================================================================
+
   - { agent_id: marketbot_alpha_centauri, role: resident_ice, station: "" }
   - { agent_id: marketbot_blood_forge, role: resident, station: "" }
   - { agent_id: marketbot_cargo_lanes, role: resident_gas, station: "" }
