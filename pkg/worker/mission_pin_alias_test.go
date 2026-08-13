@@ -10,18 +10,20 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
-// Voss Redoubt is one of the thirteen stations whose base id and POI id differ, and
-// one of the three where they are not even textually related — no string rule can
-// bridge them, only the bases table can.
+// Central Nexus is one of the thirteen stations whose base id and POI id differ, and
+// one of the three where they are not even textually related: POI "the_core" resolves
+// to base "central_nexus". No string rule can bridge that pair — only the bases table
+// can. (Verified against data/spacemolt-knowledge.db: bases.poi_id='the_core' ->
+// bases.id='central_nexus', Central Nexus in Nexus Prime.)
 const (
-	vossBaseID = "voss_redoubt_station"
-	vossPOIID  = "the_core"
+	nexusBaseID = "central_nexus"
+	nexusPOIID  = "the_core"
 )
 
 func pinnedDeps(t *testing.T, pin string, fc *fakeClient) (MissionDeps, *strings.Builder) {
 	t.Helper()
 	kb := &fakeKB{bases: map[string]*knowledge.SpaceBase{
-		vossPOIID: {ID: vossBaseID, POIID: vossPOIID, Name: "Voss Redoubt Station"},
+		nexusPOIID: {ID: nexusBaseID, POIID: nexusPOIID, Name: "Central Nexus"},
 	}}
 	var out strings.Builder
 	return MissionDeps{
@@ -46,8 +48,8 @@ func dockedAt(base string) *fakeClient {
 // dry pass. That drained alhena's and sheratan's 130-unit tanks to zero — 164 loops
 // for alhena — and stranded both in strongholds with dead fuel desks.
 func TestDryPassRecognisesAPinWrittenAsAPOIID(t *testing.T) {
-	fc := dockedAt(vossBaseID)
-	deps, out := pinnedDeps(t, vossPOIID, fc)
+	fc := dockedAt(nexusBaseID)
+	deps, out := pinnedDeps(t, nexusPOIID, fc)
 	if err := missionDryPass(context.Background(), deps, out); err != nil {
 		t.Fatalf("dry pass: %v", err)
 	}
@@ -62,8 +64,8 @@ func TestDryPassRecognisesAPinWrittenAsAPOIID(t *testing.T) {
 // TestDryPassStillRecognisesAPinWrittenAsABaseID keeps the common case working: most
 // pins and base ids match outright and must not need a KB round trip to be believed.
 func TestDryPassStillRecognisesAPinWrittenAsABaseID(t *testing.T) {
-	fc := dockedAt(vossBaseID)
-	deps, out := pinnedDeps(t, vossBaseID, fc)
+	fc := dockedAt(nexusBaseID)
+	deps, out := pinnedDeps(t, nexusBaseID, fc)
 	if err := missionDryPass(context.Background(), deps, out); err != nil {
 		t.Fatalf("dry pass: %v", err)
 	}
@@ -76,7 +78,7 @@ func TestDryPassStillRecognisesAPinWrittenAsABaseID(t *testing.T) {
 // turn into "always parked": a worker that really has wandered off must still go back.
 func TestDryPassStillTravelsWhenGenuinelyElsewhere(t *testing.T) {
 	fc := dockedAt("some_other_station")
-	deps, out := pinnedDeps(t, vossPOIID, fc)
+	deps, out := pinnedDeps(t, nexusPOIID, fc)
 	_ = missionDryPass(context.Background(), deps, out)
 	if !deps.State.parkedUntil.IsZero() {
 		t.Fatal("a worker away from its pin must not park")
@@ -89,9 +91,9 @@ func TestDryPassStillTravelsWhenGenuinelyElsewhere(t *testing.T) {
 // TestDryPassDoesNotParkWhileUndocked guards the other half of the docked_at_base
 // gotcha: the field is stale while undocked, so it must never alone imply arrival.
 func TestDryPassDoesNotParkWhileUndocked(t *testing.T) {
-	fc := dockedAt(vossBaseID)
+	fc := dockedAt(nexusBaseID)
 	fc.state.Doc = false
-	deps, out := pinnedDeps(t, vossPOIID, fc)
+	deps, out := pinnedDeps(t, nexusPOIID, fc)
 	_ = missionDryPass(context.Background(), deps, out)
 	if !deps.State.parkedUntil.IsZero() {
 		t.Fatal("an undocked worker must not be treated as parked at its pin")
@@ -115,11 +117,12 @@ func clientCalled(fc *fakeClient, name string) bool {
 
 // TestParkingAtAPinTopsUpTheTank is the other half of the alhena/sheratan strand: a
 // pinned MISSION worker runs no idle script, so unlike a resident it never refuels
-// once it stops travelling. Both sat at 0/130 next to a working fuel desk holding
-// a quarter of a million credits.
+// once it stops travelling. Both sat at 0/130 holding a quarter of a million credits
+// without ever asking. (Asking turned out to fail at those two strongholds — the
+// desks really are depleted — but a refusal you can read beats silence you cannot.)
 func TestParkingAtAPinTopsUpTheTank(t *testing.T) {
-	fc := fueled(dockedAt(vossBaseID), 0, 130, 242722)
-	deps, out := pinnedDeps(t, vossPOIID, fc)
+	fc := fueled(dockedAt(nexusBaseID), 0, 130, 242722)
+	deps, out := pinnedDeps(t, nexusPOIID, fc)
 	if err := missionDryPass(context.Background(), deps, out); err != nil {
 		t.Fatalf("dry pass: %v", err)
 	}
@@ -134,8 +137,8 @@ func TestParkingAtAPinTopsUpTheTank(t *testing.T) {
 // TestParkingWithAFullTankSkipsTheRefuel keeps the top-up from becoming a per-park
 // tax on a worker that needs nothing.
 func TestParkingWithAFullTankSkipsTheRefuel(t *testing.T) {
-	fc := fueled(dockedAt(vossBaseID), 130, 130, 242722)
-	deps, out := pinnedDeps(t, vossPOIID, fc)
+	fc := fueled(dockedAt(nexusBaseID), 130, 130, 242722)
+	deps, out := pinnedDeps(t, nexusPOIID, fc)
 	if err := missionDryPass(context.Background(), deps, out); err != nil {
 		t.Fatalf("dry pass: %v", err)
 	}
@@ -147,8 +150,8 @@ func TestParkingWithAFullTankSkipsTheRefuel(t *testing.T) {
 // TestParkingBrokeSaysSoAndStillParks: with no credits there is nothing to buy, and
 // refusing to park would only spend fuel the worker does not have.
 func TestParkingBrokeSaysSoAndStillParks(t *testing.T) {
-	fc := fueled(dockedAt(vossBaseID), 0, 130, 0)
-	deps, out := pinnedDeps(t, vossPOIID, fc)
+	fc := fueled(dockedAt(nexusBaseID), 0, 130, 0)
+	deps, out := pinnedDeps(t, nexusPOIID, fc)
 	if err := missionDryPass(context.Background(), deps, out); err != nil {
 		t.Fatalf("dry pass: %v", err)
 	}
@@ -166,9 +169,9 @@ func TestParkingBrokeSaysSoAndStillParks(t *testing.T) {
 // TestRefuelFailureStillParks: a stronghold with a dead fuel desk must not turn into
 // a worker that refuses to settle.
 func TestRefuelFailureStillParks(t *testing.T) {
-	fc := fueled(dockedAt(vossBaseID), 0, 130, 242722)
+	fc := fueled(dockedAt(nexusBaseID), 0, 130, 242722)
 	fc.refuelErr = errors.New("station_fuel_empty")
-	deps, out := pinnedDeps(t, vossPOIID, fc)
+	deps, out := pinnedDeps(t, nexusPOIID, fc)
 	if err := missionDryPass(context.Background(), deps, out); err != nil {
 		t.Fatalf("dry pass: %v", err)
 	}
