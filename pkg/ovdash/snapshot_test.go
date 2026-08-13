@@ -37,7 +37,7 @@ func TestReadSnapshotMergesAndResolvesSystems(t *testing.T) {
 			Hull: 350, MaxHull: 350, Healthy: true, Seen: true},
 		{AgentID: "lost-1", System: "Atlantis", Seen: true, Healthy: true},
 	})
-	writeStatus(t, dir, "fleet", fresh, []balances.LiveRecord{
+	writeStatus(t, dir, "haul", fresh, []balances.LiveRecord{
 		{AgentID: "hauler-0", Role: "hauler", System: "Sol", Credits: 100, Seen: true, Healthy: true},
 	})
 
@@ -114,7 +114,7 @@ func TestReadSnapshotSurfacesLeavingAndRemoved(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Date(2026, 7, 20, 12, 0, 0, 0, time.UTC)
 	fresh := now.Add(-5 * time.Second).Format(time.RFC3339)
-	writeStatus(t, dir, "fleet", fresh, []balances.LiveRecord{
+	writeStatus(t, dir, "haul", fresh, []balances.LiveRecord{
 		{AgentID: "hauler-0", Role: "hauler", System: "Sol", Credits: 100,
 			Seen: true, Healthy: true, Leaving: true},
 	})
@@ -175,7 +175,7 @@ func TestReadSnapshotClassifiesVersionTiers(t *testing.T) {
 	older := "2026-07-22T09:00:00Z"
 
 	// haul overmind IS the current build (v0.3.0 @ newest).
-	writeStatusOv(t, dir, "fleet", fresh,
+	writeStatusOv(t, dir, "haul", fresh,
 		balances.OvermindBuild{Version: "v0.3.0", BuiltAt: newest},
 		[]balances.LiveRecord{
 			{AgentID: "hauler-green", System: "Sol", Seen: true, Healthy: true,
@@ -253,7 +253,7 @@ func TestSnapshotReportsCurrentOvermindAndWorkerSeparately(t *testing.T) {
 	// The overmind moved on; the workers did not. The newest WORKER build is
 	// older than the newest overmind build, so a build-time merge across both
 	// would report the overmind's version for both fields.
-	write("fleet", "v0.2.7", "2026-07-27T19:00:00Z", "v0.2.5", "2026-07-20T10:00:00Z")
+	write("haul", "v0.2.7", "2026-07-27T19:00:00Z", "v0.2.5", "2026-07-20T10:00:00Z")
 	write("mission-learn", "v0.2.6", "2026-07-26T19:00:00Z", "v0.2.6", "2026-07-26T19:00:00Z")
 
 	s, err := ReadSnapshot(dir, g, now, time.Minute)

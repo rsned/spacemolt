@@ -23,7 +23,12 @@ type FleetDef struct {
 
 // Fleets is the fixed fleet registry. Order is display order.
 var Fleets = []FleetDef{
-	{File: "fleet", Label: "haul", Color: "#d4a017", Socket: "haul.sock"},
+	// File is "haul", not "fleet": the haul overmind writes haul-status.json.
+	// This read fleet-status.json — the name from before the fleet was renamed —
+	// and nothing had written that file for 17 hours by 2026-08-13, so the panel
+	// showed every haul agent at a dead position and flagged the fleet stale
+	// forever while the live file sat unread beside it.
+	{File: "haul", Label: "haul", Color: "#d4a017", Socket: "haul.sock"},
 	{File: "mission-learn", Label: "mission", Color: "#22d3ee", Socket: "mission-learn.sock"},
 	{File: "craft", Label: "craft", Color: "#34d399", Socket: "craft.sock"},
 	{File: "mb", Label: "mb", Color: "#a78bfa", Socket: "mb.sock"},
@@ -97,6 +102,57 @@ type Snapshot struct {
 	AssetCoverage []assets.CoverageRow `json:"asset_coverage,omitempty"`
 }
 
+// dedupeByFreshestFleet keeps one entry per agent id, preferring the fleet whose
+// status file was captured most recently.
+//
+// Keeping a stale fleet's agents is deliberate — greying out is UI policy, data
+// completeness is ours — but that argument only holds while the stale copy is the
+// ONLY word on an agent. When a live fleet reports the same id, the two positions
+// contradict each other and the older one is simply wrong.
+//
+// Leaving both in place is not a cosmetic duplicate. Diff keys by agent id, so it
+// finds that id at two systems on EVERY poll and emits a Moved event every time:
+// live 2026-08-13 the dashboard drew trader-10 flying HR 8832 -> Gudja about once
+// a second, forever, while the real worker sat still — and neither endpoint was
+// anywhere an agent actually was. An agent mid-secondment can appear in two LIVE
+// fleets for a poll or two as well, so this guard is not only about dead files.
+//
+// Relative order within each slice is preserved so display order stays the
+// registry's.
+func dedupeByFreshestFleet(agents, offMap []AgentState, capturedAt map[string]string) ([]AgentState, []AgentState) {
+	freshness := func(fleet string) time.Time {
+		ts, err := time.Parse(time.RFC3339, capturedAt[fleet])
+		if err != nil {
+			return time.Time{} // unparseable loses to any real timestamp
+		}
+		return ts
+	}
+	best := map[string]time.Time{}
+	for _, a := range agents {
+		if t := freshness(a.Fleet); t.After(best[a.AgentID]) || best[a.AgentID].IsZero() {
+			best[a.AgentID] = t
+		}
+	}
+	for _, a := range offMap {
+		if t := freshness(a.Fleet); t.After(best[a.AgentID]) || best[a.AgentID].IsZero() {
+			best[a.AgentID] = t
+		}
+	}
+	taken := map[string]bool{}
+	keep := func(in []AgentState) []AgentState {
+		out := in[:0:0]
+		for _, a := range in {
+			if taken[a.AgentID] || !freshness(a.Fleet).Equal(best[a.AgentID]) {
+				continue
+			}
+			taken[a.AgentID] = true
+			out = append(out, a)
+		}
+		return out
+	}
+	return keep(agents), keep(offMap)
+}
+
 // ReadSnapshot reads every fleet status file under dir and merges them.
 // A missing, corrupt, or older-than-staleAfter file marks that fleet stale;
 // its last-good agents (if parseable) still appear — greying out is UI policy,
@@ -157,6 +213,7 @@ func ReadSnapshot(dir string, g *Galaxy, now time.Time, staleAfter time.Duration
 			s.Removed[f.Label] = ov.Removed
 		}
 	}
+	s.Agents, s.OffMap = dedupeByFreshestFleet(s.Agents, s.OffMap, s.CapturedAt)
 	current := currentVersion(samples)
 	s.CurrentOvermind = currentVersion(ovSamples)
 	s.CurrentWorker = currentVersion(wSamples)

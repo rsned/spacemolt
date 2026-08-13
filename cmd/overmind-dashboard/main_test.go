@@ -49,7 +49,7 @@ func writeFixtures(t *testing.T) (kb, market, statusDir string) {
 	if err := os.MkdirAll(statusDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeJSON(t, filepath.Join(statusDir, "fleet-status.json"), map[string]any{
+	writeJSON(t, filepath.Join(statusDir, "haul-status.json"), map[string]any{
 		"captured_at": time.Now().UTC().Format(time.RFC3339),
 		"workers": []map[string]any{{
 			"agent_id": "hauler-0", "role": "hauler", "system": "Sol",
