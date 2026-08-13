@@ -299,6 +299,15 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 // forever on the in-system sell hop — the multi-jump path refuels via ensureRouteFuel, but
 // this intra-system path previously went straight to Travel with whatever fuel was left.
 func autopilotTravelToPOI(ctx context.Context, client game.GameClient, out io.Writer, targetPOI string) error {
+	// Standing at the destination is arrival. The server prices travel before it
+	// measures it, so a zero-distance move is rejected outright at low fuel —
+	// which turns "already there" into an unsatisfiable fuel requirement, and at a
+	// station whose desk is dry there is no way out of it. Live 2026-08-13:
+	// explorer-1 retried this 84 times against a sale it was docked on top of.
+	if alreadyAtPOI(client, targetPOI) {
+		fmt.Fprintf(out, "  Already at %s; no travel needed\n", targetPOI) //nolint:errcheck
+		return nil
+	}
 	fmt.Fprintf(out, "Traveling to POI: %s...\n", targetPOI) //nolint:errcheck
 	result, err := client.Travel(ctx, targetPOI)
 	if err != nil && isInsufficientFuelErr(err) && refuelInPlace(ctx, client, out) {
@@ -313,6 +322,22 @@ func autopilotTravelToPOI(ctx context.Context, client game.GameClient, out io.Wr
 	}
 	fmt.Fprintf(out, "  Arrived at %s\n", result.POI) //nolint:errcheck
 	return nil
+}
+
+// alreadyAtPOI reports whether the ship is standing at targetPOI. An unknown
+// current POI is deliberately NOT treated as a match: "we don't know where we
+// are" and "we are there" look identical in a zero value, and guessing arrival
+// on missing data strands a worker at the wrong POI with nothing in the log to
+// say so.
+func alreadyAtPOI(client game.GameClient, targetPOI string) bool {
+	if targetPOI == "" {
+		return false
+	}
+	state := client.GetState()
+	if state == nil || state.Player.CurrentPOI == "" {
+		return false
+	}
+	return strings.EqualFold(state.Player.CurrentPOI, targetPOI)
 }
 
 // isInsufficientFuelErr reports whether a travel/jump error is the server's out-of-fuel

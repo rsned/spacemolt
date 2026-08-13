@@ -166,11 +166,31 @@ func TestParkingBrokeSaysSoAndStillParks(t *testing.T) {
 	}
 }
 
-// TestRefuelFailureStillParks: a stronghold with a dead fuel desk must not turn into
-// a worker that refuses to settle.
+// TestDryStrongholdDeskBurnsACargoCell is the alhena/sheratan case: both bots sat
+// pinned at a pirate stronghold at 0/130 fuel with six-figure wallets, because the
+// stronghold's desk sells nothing. Cells in the hold are the only fuel there is.
+func TestDryStrongholdDeskBurnsACargoCell(t *testing.T) {
+	fc := fueled(dockedAt(nexusBaseID), 0, 130, 242722)
+	fc.refuelErr = errors.New("station_fuel_empty")
+	deps, out := pinnedDeps(t, nexusPOIID, fc)
+	if err := missionDryPass(context.Background(), deps, out); err != nil {
+		t.Fatalf("dry pass: %v", err)
+	}
+	if len(fc.refuelCargoCalls) != 1 {
+		t.Fatalf("expected one cargo-cell burn at a dry stronghold, got %d", len(fc.refuelCargoCalls))
+	}
+	if deps.State.parkedUntil.IsZero() {
+		t.Error("it must still park")
+	}
+}
+
+// TestRefuelFailureStillParks: a stronghold with a dead fuel desk AND no cells
+// aboard is genuinely out of fuel, and must not turn into a worker that refuses
+// to settle.
 func TestRefuelFailureStillParks(t *testing.T) {
 	fc := fueled(dockedAt(nexusBaseID), 0, 130, 242722)
 	fc.refuelErr = errors.New("station_fuel_empty")
+	fc.refuelCargoErr = errors.New("no_fuel_cells: No fuel cells found in cargo")
 	deps, out := pinnedDeps(t, nexusPOIID, fc)
 	if err := missionDryPass(context.Background(), deps, out); err != nil {
 		t.Fatalf("dry pass: %v", err)

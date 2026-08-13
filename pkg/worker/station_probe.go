@@ -194,7 +194,9 @@ func probePreflight(ctx context.Context, deps ProbeDeps, out io.Writer) error {
 		return nil
 	}
 
-	refuelErr := RefuelAndSync(ctx, deps.Client, out, "probe preflight")
+	// Station desk only, for the same reason as the per-stop refuel: this error is
+	// recorded against the origin station as its fuel-desk verdict.
+	refuelErr := RefuelStationAndSync(ctx, deps.Client, out, "probe preflight")
 	if station := state.CurrentPOI; station != "" {
 		deps.Access.RecordRefuel(station, refuelErr)
 	}
@@ -254,7 +256,9 @@ func probeOne(ctx context.Context, deps ProbeDeps, out io.Writer, t ProbeTarget,
 	// Docked, so the fuel desk becomes answerable. Refuelling here is also how
 	// the survey extends its own range, which is why it is attempted at every
 	// stop rather than only when low.
-	refuelErr := RefuelAndSync(ctx, deps.Client, out, "probe")
+	// Station desk only: this error IS the measurement recorded against the
+	// station below, so it must not be masked by a cargo-cell fallback.
+	refuelErr := RefuelStationAndSync(ctx, deps.Client, out, "probe")
 	deps.Access.RecordRefuel(t.StationID, refuelErr)
 	if sells, known := deps.Access.Fuel(t.StationID); known {
 		v.FuelKnown, v.SellsFuel = true, sells

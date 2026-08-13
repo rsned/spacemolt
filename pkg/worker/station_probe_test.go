@@ -23,7 +23,10 @@ type probeFakeClient struct {
 	refuels   []string
 	undocks   int
 	travelErr map[string]error
-	docked    bool
+	// cargoBurns counts RefuelFromCargo calls. A probe must never make one: the
+	// desk's verdict is the measurement, and cells are scarce.
+	cargoBurns int
+	docked     bool
 	refuelTo  float64 // fuel level a successful refuel fills to
 	// nilStateAfter makes GetState return nil after this many calls, modelling a
 	// connection lost partway through a run.
@@ -81,6 +84,14 @@ func (c *probeFakeClient) Refuel(_ context.Context) error {
 		c.fuel = c.refuelTo
 	}
 
+	return nil
+}
+
+// RefuelFromCargo records the burn rather than panicking through the embedded
+// interface, so a probe that reaches for a cargo cell fails the assertion that
+// names the bug instead of dying in an unrelated nil-method panic.
+func (c *probeFakeClient) RefuelFromCargo(_ context.Context, _ string, _ int) error {
+	c.cargoBurns++
 	return nil
 }
 
@@ -222,6 +233,12 @@ func TestProbeLearnsFuelDeskSeparatelyFromAccess(t *testing.T) {
 	}
 	if sells, known := acc.Fuel(hexStarBase); !known || sells {
 		t.Error("no_fuel_source must be recorded against the station")
+	}
+	// A cargo-cell fallback here would answer the question the probe came to ask:
+	// the burn succeeds, the refuel reports nil, and a dry station gets written
+	// into the learned access file as one that sells fuel.
+	if c.cargoBurns != 0 {
+		t.Errorf("probe burned %d cargo cells; a dry desk is the finding, not a problem to solve", c.cargoBurns)
 	}
 }
 

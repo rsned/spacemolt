@@ -737,10 +737,22 @@ func shuttleDeliver(ctx context.Context, deps ShuttleDeps, out io.Writer, c shut
 	// The shuttle already refuels at every drop-off, so learning whether the
 	// station HAS a fuel desk is free here -- and it is the fact that stranded
 	// engineer-5 at a station that admitted it perfectly well.
-	refuelErr := RefuelAndSync(ctx, deps.Client, out, "shuttle")
+	// The station attempt is recorded on its own: a cargo-cell fallback that
+	// reported success would write "sells fuel" against a station whose desk is
+	// dry, and this record is what later routing trusts.
+	refuelErr := RefuelStationAndSync(ctx, deps.Client, out, "shuttle")
 	deps.Access.RecordRefuel(c.station, refuelErr)
 	if refuelErr != nil {
 		fmt.Fprintf(out, "shuttle: refuel at %s failed: %v\n", c.station, refuelErr) //nolint:errcheck
+		// A dry desk still leaves the shuttle needing fuel for the next run, and
+		// unlike the probe it has somewhere to be.
+		if deskIsDry(refuelErr) {
+			if cerr := deps.Client.RefuelFromCargo(ctx, fuelCellItemID, 1); cerr != nil {
+				fmt.Fprintf(out, "shuttle: no cargo cells to fall back on either: %v\n", cerr) //nolint:errcheck
+			} else {
+				syncShipState(ctx, deps.Client, out, "shuttle")
+			}
+		}
 	}
 	fmt.Fprintf(out, "shuttle: delivered to %s; ready for next run\n", c.sysName) //nolint:errcheck
 	return nil

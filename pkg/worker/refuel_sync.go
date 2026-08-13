@@ -39,6 +39,21 @@ import (
 // Best-effort by design: a failed refresh is not a failed refuel, so the
 // refuel's own error is the only one returned. Autopilot's station-refuel
 // paths already do this inline and are left as they are.
+// RefuelStationAndSync refuels from the STATION DESK ONLY and re-reads ship
+// state. It is the caller to use when the desk's answer is itself the thing
+// being measured: the station probe records the returned error against the
+// station to learn whether that station sells fuel at all, so a cargo-cell
+// fallback here would report a dry desk as a working one and write that into
+// the learned access file. It would also spend a scarce cell at every dry
+// station the survey visits.
+func RefuelStationAndSync(ctx context.Context, client game.GameClient, out io.Writer, what string) error {
+	if err := client.Refuel(ctx); err != nil {
+		return err
+	}
+	syncShipState(ctx, client, out, what)
+	return nil
+}
+
 func RefuelAndSync(ctx context.Context, client game.GameClient, out io.Writer, what string) error {
 	if err := client.Refuel(ctx); err != nil {
 		if !deskIsDry(err) {
