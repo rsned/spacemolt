@@ -182,3 +182,36 @@ func TestRefuelFailureStillParks(t *testing.T) {
 		t.Fatalf("the failure must be visible, got: %s", out.String())
 	}
 }
+
+// TestPinMatchesTheCurrentPOIWithNoBasesRow covers the case the KB cannot answer:
+// four of the nine pirate strongholds have never been scanned, so `bases` has no row
+// mapping their POI to a base id. A worker pinned there by POI id is standing exactly
+// where it belongs, and must not be sent "back" to itself until its tank runs dry.
+func TestPinMatchesTheCurrentPOIWithNoBasesRow(t *testing.T) {
+	fc := &fakeClient{state: &game.State{
+		Doc: true,
+		Player: game.Player{
+			DockedAtBase: "some_unscanned_base_id",
+			CurrentPOI:   "sable_port",
+		},
+		Fuel: 100, MaxFuel: 100,
+	}}
+	// An EMPTY bases map: the station is unknown to the KB, as the real ones are.
+	deps := MissionDeps{
+		Client:      fc,
+		KB:          &fakeKB{bases: map[string]*knowledge.SpaceBase{}},
+		AgentID:     "t",
+		HomeStation: "sable_port",
+		State:       &missionRunState{dry: missionDryPassLimit - 1},
+	}
+	var out strings.Builder
+	if err := missionDryPass(context.Background(), deps, &out); err != nil {
+		t.Fatalf("dry pass: %v", err)
+	}
+	if deps.State.parkedUntil.IsZero() {
+		t.Fatalf("a POI-id pin at an unscanned station must park; log: %s", out.String())
+	}
+	if strings.Contains(out.String(), "returning to pinned station") {
+		t.Fatalf("must not route to the POI it is docked at: %s", out.String())
+	}
+}

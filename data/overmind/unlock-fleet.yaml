@@ -145,13 +145,24 @@ workers:
   # docked at fuel-selling stations right now, so the origin top-up lands. The
   # distance tail that made wave 2 unpinnable is a hull property, not a jump
   # count — these hulls are simply not in that risk class.
-  - { agent_id: marketbot_algol, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }        # dheneb, 16
-  - { agent_id: marketbot_barnard_44, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # dheneb, 16
-  - { agent_id: marketbot_bellatrix, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }    # alpha_centauri, 16
-  - { agent_id: marketbot_zaniah, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }       # alpha_centauri, 16
-  - { agent_id: marketbot_xamidimura, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # procyon, 18
-  - { agent_id: marketbot_gliese_581, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # nexus_prime, 24
-  - { agent_id: marketbot_gsc_0008, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }     # ironhearth, 27
+  # UNLOCKED 2026-08-12 20:39-21:16 — all seven completed `an_introduction`, whose
+  # completion text is the grant itself: "You now have enough standing with the
+  # pirate network to dock at their strongholds freely." Pirate reputation is NOT
+  # the gate — a locked bot and an unlocked one both read pirate_* 10/baseline 10;
+  # the mission is. (chain_next is `supply_run`, the paying work that follows.)
+  #
+  # So they are re-pinned from the giver's station to their OWN stronghold, the
+  # posting the whole campaign was for. Base ids where the bases table knows them.
+  # sable_port and korr_fortress are pinned by POI id because they are two of the
+  # four warlord bases NEVER SCANNED — no bases row exists to name, which is
+  # exactly the case atPinnedStation's CurrentPOI check was added to survive.
+  - { agent_id: marketbot_algol, role: unlock, station: dross_citadel_station, mission_categories: [smuggling, delivery, exploration] }     # Algol / Dross Citadel
+  - { agent_id: marketbot_barnard_44, role: unlock, station: sable_port, mission_categories: [smuggling, delivery, exploration] }           # Barnard 44 / Sable Port (unscanned)
+  - { agent_id: marketbot_bellatrix, role: unlock, station: crix_stronghold_station, mission_categories: [smuggling, delivery, exploration] } # Bellatrix / Crix Stronghold
+  - { agent_id: marketbot_zaniah, role: unlock, station: mera_sanctum_station, mission_categories: [smuggling, delivery, exploration] }     # Zaniah / Mera Sanctum
+  - { agent_id: marketbot_xamidimura, role: unlock, station: kael_arsenal_station, mission_categories: [smuggling, delivery, exploration] } # Xamidimura / Kael Arsenal
+  - { agent_id: marketbot_gliese_581, role: unlock, station: korr_fortress, mission_categories: [smuggling, delivery, exploration] }        # Gliese 581 / Korr Fortress (unscanned)
+  - { agent_id: marketbot_gsc_0008, role: unlock, station: nyx_nexus_station, mission_categories: [smuggling, delivery, exploration] }      # GSC-0008 / Nyx Nexus
 
   # === WAVE 3 — UNPINNED, STAGING IN PLACE ============================
   # Distance to the giver in the trailing comment. `smuggling` is listed for all

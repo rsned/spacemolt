@@ -1148,6 +1148,14 @@ func atPinnedStation(ctx context.Context, deps MissionDeps, st *game.State) bool
 	if docked == deps.HomeStation {
 		return true
 	}
+	// A POI-id pin matches the POI the player is standing at, with no lookup. This
+	// is the only check that works for a station with no `bases` row — four of the
+	// nine pirate strongholds have never been scanned, so the bases table cannot
+	// resolve them, and a KB-only answer would loop such a worker "back" to the
+	// station it is docked at until its tank ran dry.
+	if st.Player.CurrentPOI != "" && st.Player.CurrentPOI == deps.HomeStation {
+		return true
+	}
 	if deps.KB == nil {
 		return false
 	}

@@ -53,10 +53,17 @@ func TestUnlockFleetYAMLParses(t *testing.T) {
 	// matches at a dual-named station: the worker reads "not arrived" while
 	// standing on the dock and re-travels every pass. That drained two 130-unit
 	// tanks to zero on 2026-08-12 before it was caught.
+	// Seven of the nine are named by BASE id. sable_port and korr_fortress are
+	// named by POI id because they are two of the four warlord bases that have
+	// NEVER BEEN SCANNED: `bases` holds no row for them, so no base id exists to
+	// write, and the `_station` suffix the other seven carry would be a guess.
+	// atPinnedStation matches those two on st.Player.CurrentPOI instead, which
+	// needs no KB row — see TestPinMatchesTheCurrentPOIWithNoBasesRow. Replace
+	// each with its real base id once a bot has docked there and scanned it.
 	strongholds := map[string]bool{
-		"voss_redoubt_station": true, "sable_port_station": true,
+		"voss_redoubt_station": true, "sable_port": true,
 		"crix_stronghold_station": true, "kael_arsenal_station": true,
-		"dross_citadel_station": true, "korr_fortress_station": true,
+		"dross_citadel_station": true, "korr_fortress": true,
 		"nyx_nexus_station": true, "thane_keep_station": true,
 		"mera_sanctum_station": true,
 	}
