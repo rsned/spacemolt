@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -94,5 +95,87 @@ func TestDryPassDoesNotParkWhileUndocked(t *testing.T) {
 	_ = missionDryPass(context.Background(), deps, out)
 	if !deps.State.parkedUntil.IsZero() {
 		t.Fatal("an undocked worker must not be treated as parked at its pin")
+	}
+}
+
+// fueled sets the tank and wallet on a docked fake so the top-up path can be driven.
+func fueled(fc *fakeClient, fuel, maxFuel, credits float64) *fakeClient {
+	fc.state.Fuel, fc.state.MaxFuel, fc.state.Credits = fuel, maxFuel, credits
+	return fc
+}
+
+func clientCalled(fc *fakeClient, name string) bool {
+	for _, c := range fc.calls {
+		if c == name {
+			return true
+		}
+	}
+	return false
+}
+
+// TestParkingAtAPinTopsUpTheTank is the other half of the alhena/sheratan strand: a
+// pinned MISSION worker runs no idle script, so unlike a resident it never refuels
+// once it stops travelling. Both sat at 0/130 next to a working fuel desk holding
+// a quarter of a million credits.
+func TestParkingAtAPinTopsUpTheTank(t *testing.T) {
+	fc := fueled(dockedAt(vossBaseID), 0, 130, 242722)
+	deps, out := pinnedDeps(t, vossPOIID, fc)
+	if err := missionDryPass(context.Background(), deps, out); err != nil {
+		t.Fatalf("dry pass: %v", err)
+	}
+	if !clientCalled(fc, "refuel") {
+		t.Fatalf("a pinned worker parking on an empty tank must refuel; log: %s", out.String())
+	}
+	if deps.State.parkedUntil.IsZero() {
+		t.Fatal("it must still park after topping up")
+	}
+}
+
+// TestParkingWithAFullTankSkipsTheRefuel keeps the top-up from becoming a per-park
+// tax on a worker that needs nothing.
+func TestParkingWithAFullTankSkipsTheRefuel(t *testing.T) {
+	fc := fueled(dockedAt(vossBaseID), 130, 130, 242722)
+	deps, out := pinnedDeps(t, vossPOIID, fc)
+	if err := missionDryPass(context.Background(), deps, out); err != nil {
+		t.Fatalf("dry pass: %v", err)
+	}
+	if clientCalled(fc, "refuel") {
+		t.Fatal("a full tank must not trigger a refuel")
+	}
+}
+
+// TestParkingBrokeSaysSoAndStillParks: with no credits there is nothing to buy, and
+// refusing to park would only spend fuel the worker does not have.
+func TestParkingBrokeSaysSoAndStillParks(t *testing.T) {
+	fc := fueled(dockedAt(vossBaseID), 0, 130, 0)
+	deps, out := pinnedDeps(t, vossPOIID, fc)
+	if err := missionDryPass(context.Background(), deps, out); err != nil {
+		t.Fatalf("dry pass: %v", err)
+	}
+	if clientCalled(fc, "refuel") {
+		t.Fatal("a broke worker must not attempt a refuel")
+	}
+	if !strings.Contains(out.String(), "no credits to refuel") {
+		t.Fatalf("the reason must be visible in the log, got: %s", out.String())
+	}
+	if deps.State.parkedUntil.IsZero() {
+		t.Fatal("it must still park")
+	}
+}
+
+// TestRefuelFailureStillParks: a stronghold with a dead fuel desk must not turn into
+// a worker that refuses to settle.
+func TestRefuelFailureStillParks(t *testing.T) {
+	fc := fueled(dockedAt(vossBaseID), 0, 130, 242722)
+	fc.refuelErr = errors.New("station_fuel_empty")
+	deps, out := pinnedDeps(t, vossPOIID, fc)
+	if err := missionDryPass(context.Background(), deps, out); err != nil {
+		t.Fatalf("dry pass: %v", err)
+	}
+	if deps.State.parkedUntil.IsZero() {
+		t.Fatal("a failed refuel must not prevent parking")
+	}
+	if !strings.Contains(out.String(), "refuel at pinned station") {
+		t.Fatalf("the failure must be visible, got: %s", out.String())
 	}
 }

@@ -1158,6 +1158,37 @@ func atPinnedStation(ctx context.Context, deps MissionDeps, st *game.State) bool
 	return base.ID == docked
 }
 
+// topUpAtPin refuels a pinned worker that is parking with a less-than-full tank.
+//
+// The resident role tops up every idle pass (data/scripts/resident_market.smolt
+// calls `refuel`), but a pinned MISSION worker runs no idle script at all: its only
+// refuel is the one autopilot performs while travelling, so one that stops travelling
+// never refuels again. alhena and sheratan sat at 0/130 in their strongholds holding
+// 242,722 and 197,230 credits, beside working fuel desks priced at 20 — unable to
+// leave, and nothing in their loop was ever going to ask.
+//
+// Parking is the right moment: the worker is docked, idle, and about to sit still for
+// missionParkWindow, which rate-limits this to one attempt per window. Station refuel
+// is all-or-nothing, so any shortfall is worth an attempt; a failure (no fuel service
+// here, desk empty, broke) is logged and the worker parks anyway — being parked with
+// an empty tank is no worse than the state it was already in.
+func topUpAtPin(ctx context.Context, deps MissionDeps, out io.Writer, st *game.State) {
+	if st == nil {
+		return
+	}
+	fuel, maxFuel := st.GetFuel()
+	if maxFuel <= 0 || fuel >= maxFuel {
+		return
+	}
+	if st.GetCredits() <= 0 {
+		fmt.Fprintf(out, "missions: pinned at %s with %.0f/%.0f fuel and no credits to refuel\n", deps.HomeStation, fuel, maxFuel) //nolint:errcheck
+		return
+	}
+	if err := RefuelAndSync(ctx, deps.Client, out, "missions"); err != nil {
+		fmt.Fprintf(out, "missions: refuel at pinned station %s failed: %v\n", deps.HomeStation, err) //nolint:errcheck
+	}
+}
+
 func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error {
 	if deps.State == nil {
 		return nil
@@ -1177,6 +1208,7 @@ func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error 
 		// docked_at_base rides on the PLAYER object; the ship payload has no
 		// such field, so reading it off the ship silently never matches.
 		if atPinnedStation(ctx, deps, st) {
+			topUpAtPin(ctx, deps, out, st)
 			deps.State.dry = 0
 			deps.State.parkedUntil = missionNow(deps).Add(missionParkWindow)
 			fmt.Fprintf(out, "missions: %d dry passes at pinned station %s; parking for %s\n", missionDryPassLimit, deps.HomeStation, missionParkWindow) //nolint:errcheck
