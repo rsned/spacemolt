@@ -4,34 +4,55 @@
     "frequency": "hourly",
     "command": "kb_update",
     "created_at": "2026-06-24T06:41:16.905720913Z",
-    "last_run": "2026-07-14T10:00:09.723918115Z"
+    "last_run": "2026-08-13T20:00:13.964325598Z"
   },
   {
     "id": 2,
     "frequency": "hourly",
     "command": "view_market",
     "created_at": "2026-06-24T06:41:16.905838891Z",
-    "last_run": "2026-07-14T10:00:09.723918115Z"
+    "last_run": "2026-08-13T20:00:13.964325598Z"
   },
   {
     "id": 3,
-    "frequency": "quarter_hourly",
+    "frequency": "ten_minutely",
     "command": "update_market",
     "created_at": "2026-06-24T06:41:16.905962321Z",
-    "last_run": "2026-07-14T10:15:09.723898844Z"
-  },
-  {
-    "id": 4,
-    "frequency": "hourly",
-    "command": "update_market",
-    "created_at": "2026-06-26T06:56:10.2662649Z",
-    "last_run": "2026-07-14T10:00:09.723918115Z"
+    "last_run": "2026-08-13T20:10:13.964768878Z"
   },
   {
     "id": 5,
     "frequency": "hourly",
     "command": "facilities",
     "created_at": "2026-07-09T19:44:16.412702432Z",
-    "last_run": "2026-07-14T10:00:09.723918115Z"
+    "last_run": "2026-08-13T20:00:13.964325598Z"
+  },
+  {
+    "id": 6,
+    "frequency": "hourly",
+    "command": "capture_fuel",
+    "created_at": "2026-07-15T04:38:53.537291104Z",
+    "last_run": "2026-08-13T20:00:13.964325598Z"
+  },
+  {
+    "id": 7,
+    "frequency": "hourly",
+    "command": "capture_profile",
+    "created_at": "2026-08-08T02:55:48.044964808Z",
+    "last_run": "2026-08-13T20:00:13.964325598Z"
+  },
+  {
+    "id": 8,
+    "frequency": "daily",
+    "command": "capture_storage",
+    "created_at": "2026-08-08T02:55:48.045159802Z",
+    "last_run": "2026-08-13T00:00:13.964765079Z"
+  },
+  {
+    "id": 9,
+    "frequency": "daily",
+    "command": "capture_faction",
+    "created_at": "2026-08-08T02:55:48.04527388Z",
+    "last_run": "2026-08-13T00:00:13.964765079Z"
   }
 ]

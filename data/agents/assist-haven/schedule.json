@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "frequency": "hourly",
+    "command": "capture_profile",
+    "created_at": "2026-08-12T18:35:23.664177314Z",
+    "last_run": "2026-08-13T20:00:03.665868776Z"
+  },
+  {
+    "id": 2,
+    "frequency": "daily",
+    "command": "capture_storage",
+    "created_at": "2026-08-12T18:35:23.665025213Z",
+    "last_run": "2026-08-13T00:00:03.666088054Z"
+  },
+  {
+    "id": 3,
+    "frequency": "daily",
+    "command": "capture_faction",
+    "created_at": "2026-08-12T18:35:23.665299633Z",
+    "last_run": "2026-08-13T00:00:03.666088054Z"
+  }
+]

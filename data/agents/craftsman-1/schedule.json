@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "frequency": "hourly",
+    "command": "update_market",
+    "created_at": "2026-07-22T23:49:23.327822189Z",
+    "last_run": "2026-07-24T19:00:08.908558797Z"
+  },
+  {
+    "id": 2,
+    "frequency": "hourly",
+    "command": "capture_fuel",
+    "created_at": "2026-07-22T23:49:23.327959382Z",
+    "last_run": "2026-07-24T19:00:08.908558797Z"
+  },
+  {
+    "id": 3,
+    "frequency": "daily",
+    "command": "kb_update",
+    "created_at": "2026-07-22T23:49:23.328038573Z",
+    "last_run": "2026-07-24T00:00:10.2960647Z"
+  }
+]

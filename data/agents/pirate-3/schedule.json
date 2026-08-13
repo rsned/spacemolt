@@ -1,0 +1,44 @@
+[
+  {
+    "id": 1,
+    "frequency": "hourly",
+    "command": "capture_profile",
+    "created_at": "2026-08-11T02:55:44.813738622Z",
+    "last_run": "2026-08-13T20:00:15.063110558Z"
+  },
+  {
+    "id": 2,
+    "frequency": "daily",
+    "command": "capture_storage",
+    "created_at": "2026-08-11T02:55:44.814075918Z",
+    "last_run": "2026-08-13T00:00:18.640620514Z"
+  },
+  {
+    "id": 3,
+    "frequency": "daily",
+    "command": "capture_faction",
+    "created_at": "2026-08-11T02:55:44.81437368Z",
+    "last_run": "2026-08-13T00:00:18.640620514Z"
+  },
+  {
+    "id": 4,
+    "frequency": "hourly",
+    "command": "update_market",
+    "created_at": "2026-08-11T19:17:38.239539827Z",
+    "last_run": "2026-08-13T20:00:15.063110558Z"
+  },
+  {
+    "id": 5,
+    "frequency": "hourly",
+    "command": "capture_fuel",
+    "created_at": "2026-08-11T19:17:38.239846728Z",
+    "last_run": "2026-08-13T20:00:15.063110558Z"
+  },
+  {
+    "id": 6,
+    "frequency": "daily",
+    "command": "kb_update",
+    "created_at": "2026-08-11T19:17:38.239955694Z",
+    "last_run": "2026-08-13T00:00:18.640620514Z"
+  }
+]
