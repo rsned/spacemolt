@@ -33,7 +33,8 @@ var Fleets = []FleetDef{
 	{File: "craft", Label: "craft", Color: "#34d399", Socket: "craft.sock"},
 	{File: "mb", Label: "mb", Color: "#a78bfa", Socket: "mb.sock"},
 	{File: "assist", Label: "assist", Color: "#fb923c", Socket: "assist.sock"},
-	{File: "shuttle", Label: "shuttle", Color: "#f472b6", Socket: "shuttle.sock"},
+	// shuttle retired 2026-08-13: johnny_cab moved to the unlock fleet, and
+	// shuttle-status.json stopped updating — listing it only showed a stale panel.
 	{File: "hunt", Label: "hunt", Color: "#ef4444", Socket: "hunt.sock"},
 	{File: "unlock", Label: "unlock", Color: "#60a5fa", Socket: "unlock.sock"},
 }

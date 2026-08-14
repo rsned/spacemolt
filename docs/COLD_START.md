@@ -2,8 +2,12 @@
 
 How to restart everything after a host reboot, a crash, or a deliberate full stop.
 
-Last proven end-to-end: **2026-07-30**, recovering from a ~6h total outage — 109 workers up,
-0 restarts, all on one commit. Every number in the Checkpoints section comes from that run.
+Last proven end-to-end: **2026-08-14**, recovering from a workstation crash (~75 min outage) —
+seven fleets, 144 workers up, 0 restarts, all on one commit. The Checkpoints numbers come from
+that run; the step-5 prune incident numbers are from the 2026-07-30 run that hit it.
+
+The fleet set as of 2026-08-14: **haul / mb / assist / hunt / craft / unlock / mission-learn**.
+Shuttle and idle are retired (johnny_cab now lives in the unlock fleet).
 
 **Read this in order.** The order is the point: the fleets have a dependency chain
 (marketbots feed `market.db` → the scanner reads it → haulers route on what the scanner
@@ -20,7 +24,7 @@ command line of the shell running the scan and reports itself.
 
 ```bash
 for d in /proc/[0-9]*; do c=$(tr '\0' ' ' < $d/cmdline 2>/dev/null); \
-  case "$c" in *overmind*|*bin/worker*|*arbitrage-scanner*|*market-prune*) \
+  case "$c" in *overmind*|*bin/worker*|*arbitrage-scanner*|*market-prune*|*fleet-secondment*) \
   echo "$(basename $d) ${c:0:100}";; esac; done
 ```
 
@@ -35,7 +39,7 @@ in-flight work (jumps, freight, transits) to have been interrupted mid-action.
 relaunch silently dies without this.
 
 ```bash
-rm -f data/overmind/{haul,mb,shuttle,assist,craft,mission-learn}.sock
+rm -f data/overmind/{haul,mb,assist,hunt,unlock,craft,mission-learn}.sock
 ```
 
 **d. Check the rescue queue.**
@@ -48,6 +52,15 @@ Any record whose status is not `done` causes `restoreQuarantine` to hold that wo
 the fleet at boot — **silently, with no log line**. The tell afterwards is a worker showing
 `0.0% no restarts=0` with zero spawn/connect lines. Restarting the fleet never fixes it;
 re-arm or clear the record first (see the rescue-pipeline notes for the flock protocol).
+
+A record stuck at `failed` with every assist worker in `failed_by` is not always a pipeline
+fault: a strand at a **pirate stronghold** (e.g. Xamidimura) fails all rescuers by design,
+because the station refuses the assists' dock. Those need a manual resolution, not a retry.
+
+**Also check the secondment ledger** (`data/overmind/secondments.json`): an agent whose entry
+is `phase=seconded` is *supposed* to be absent from its home fleet (it runs in the away fleet
+via the overrides sidecars). `phase=failed` plus a non-empty `removed` list in the home
+overrides plus no process = orphaned in no fleet; restore via the overrides + SIGHUP.
 
 **e. Confirm the binaries are the build you think they are.**
 
@@ -77,7 +90,10 @@ setsid nohup ./bin/overmind-status --addr ":8087" --refresh 300 \
 ```
 
 - `overmind-dashboard` needs a built `frontend/dist`; it logs `505 systems loaded, serving on :8091`.
-- `overmind-status` logs the sources it found: `[Haul, Marketbots, Shuttle, Assist, Craft, Missions]`.
+- `overmind-status` logs the sources it found:
+  `[Haul, Marketbots, Assist, Craft, Missions, Hunt, Unlock]`. The list is `defaultSources()`
+  in `cmd/tools/overmind-status/main.go` — a new fleet is invisible on :8087 until it is added
+  there and the viewer rebuilt.
 - **Do not use `scripts/start-overmind-status.sh` right after a build.** Its singleton guard is
   `pgrep -f bin/overmind-status`, which also matches a concurrent `go build -o bin/overmind-status`,
   so it refuses to start and blames a process that is really the compiler.
@@ -133,9 +149,9 @@ missing `data/assets.db` is not something to pre-create. Confirm it took with
 `/api/overmind/agents` → `asset_coverage`.
 
 Launch in this order — marketbots first, because everything downstream needs the market data
-they produce.
+they produce: **mb → assist → hunt → craft → unlock → mission-learn**, then haul (step 4).
 
-### 3a. Marketbots (35) — ~6 min
+### 3a. Marketbots (54) — ~9 min
 
 ```bash
 setsid nohup ./bin/overmind --fleet data/overmind/mb-fleet.yaml --socket data/overmind/mb.sock \
@@ -145,19 +161,21 @@ setsid nohup ./bin/overmind --fleet data/overmind/mb-fleet.yaml --socket data/ov
   >> data/overmind/mb-overmind.log 2>&1 < /dev/null &
 ```
 
-### 3b. Assist (5) and shuttle (1)
+### 3b. Assist (5) and hunt (5)
 
 Assist is the fuel-rescue fleet — bring it up early so it is available if anything strands.
+Hunt is the wildlife-cull pool (pirate-6..10). The shuttle fleet is retired — do not relaunch it.
 
 ```bash
 setsid nohup ./bin/overmind --socket data/overmind/assist.sock --fleet data/overmind/assist-fleet.yaml \
   --status-file data/overmind/assist-status.json --history-file data/overmind/assist-history.jsonl \
   --assets-db-path data/assets.db --stagger 10s >> data/overmind/assist-overmind.log 2>&1 < /dev/null &
 
-setsid nohup ./bin/overmind --socket data/overmind/shuttle.sock --fleet data/overmind/shuttle-fleet.yaml \
-  --status-file data/overmind/shuttle-status.json --history-file data/overmind/shuttle-history.jsonl \
-  --assets-db-path data/assets.db \
-  >> data/overmind/shuttle-overmind.log 2>&1 < /dev/null &
+# ~60s later:
+setsid nohup ./bin/overmind --socket data/overmind/hunt.sock --fleet data/overmind/hunt-fleet.yaml \
+  --worker-bin bin/worker --status-file data/overmind/hunt-status.json \
+  --history-file data/overmind/hunt-history.jsonl \
+  --assets-db-path data/assets.db --stagger 10s >> data/overmind/hunt-overmind.log 2>&1 < /dev/null &
 ```
 
 ### 3c. Craft (9)
@@ -171,10 +189,25 @@ setsid nohup ./bin/overmind --socket data/overmind/craft.sock --fleet data/overm
   >> data/overmind/craft-overmind.log 2>&1 < /dev/null &
 ```
 
-Expect the banner `plan runner enabled: queue=… state=… roster=9 managed=35`. No banner means
+Expect the banner `plan runner enabled: queue=… state=… roster=9 managed=54`. No banner means
 no runner.
 
-### 3d. Mission-learn (38 of 42) — ~6.5 min
+### 3d. Unlock (25 of 46) — ~4.5 min
+
+The pirate-reputation unlock pool. The roster carries 46 specs, but
+`unlock-overrides.json` removes the 21 haul agents (`by: secondment-activation`) —
+they only enter this fleet one at a time when the secondment daemon loans them in.
+25 launched is the correct count, not a fault.
+
+```bash
+setsid nohup ./bin/overmind --socket data/overmind/unlock.sock --fleet data/overmind/unlock-fleet.yaml \
+  --worker-bin bin/worker --status-file data/overmind/unlock-status.json \
+  --history-file data/overmind/unlock-history.jsonl \
+  --assets-db-path data/assets.db --stagger 10s \
+  >> data/overmind/unlock-overmind.log 2>&1 < /dev/null &
+```
+
+### 3e. Mission-learn (40 of 41) — ~7 min
 
 ```bash
 setsid nohup ./bin/overmind --socket data/overmind/mission-learn.sock \
@@ -186,8 +219,8 @@ setsid nohup ./bin/overmind --socket data/overmind/mission-learn.sock \
   >> data/overmind/mission-learn-overmind.log 2>&1 < /dev/null &
 ```
 
-The roster is 42 but the launched count is lower — `mission-learn-overrides.json` holds a
-`removed` list (4 entries as of 2026-07-30). A short fleet is not necessarily a fault; check
+The roster is 41 but the launched count is lower — `mission-learn-overrides.json` holds a
+`removed` list (1 entry as of 2026-08-14). A short fleet is not necessarily a fault; check
 the sidecar before investigating.
 
 ---
@@ -210,7 +243,8 @@ Wait for **both** gates:
      group by m order by m;"
    ```
 
-   Healthy: ~18k rows across ~29–34 stations, repeating every 10 minutes.
+   Healthy (54-bot fleet, 2026-08-14): a ~40k-row burst across ~48 stations landing at
+   every `:x0` bucket, with smaller trickle rows between bursts.
 
    **Compare `captured_at` against `strftime('%Y-%m-%dT%H:%M:%SZ',…)`, never `datetime(…)`.**
    The column is ISO-8601 (`2026-07-31T16:04:01Z`) while `datetime()` emits a space-separated
@@ -226,18 +260,27 @@ Wait for **both** gates:
    sqlite3 data/market.db "select count(*) from arbitrage_opportunities where status='available';"
    ```
 
-   Healthy: ~98 available. ~30 means the pool is starved and haul will idle.
+   Healthy: ~320–400 available (2026-08-14 scale; it was ~98 when the mb fleet was 35).
+   ~30 means the pool is starved and haul will idle.
 
 Then:
 
 ```bash
 setsid nohup ./bin/overmind --socket data/overmind/haul.sock \
-  --fleet data/overmind/haul-fleet.yaml --assets-db-path data/assets.db --stagger 10s \
+  --fleet data/overmind/haul-fleet.yaml \
+  --status-file data/overmind/haul-status.json --history-file data/overmind/haul-history.jsonl \
+  --assets-db-path data/assets.db --secondment-ledger data/overmind/secondments.json \
+  --stagger 10s \
   >> data/overmind/haul-overmind.log 2>&1 < /dev/null &
 ```
 
-Haul uses the **default** status/history files (`fleet-status.json`, `fleet-history.jsonl`) —
-do not pass overrides.
+Since 2026-08-13 haul writes `haul-status.json` / `haul-history.jsonl` — it no longer uses the
+default `fleet-status.json` / `fleet-history.jsonl`, so both flags must be passed.
+`--secondment-ledger` is what lets a hauler that sells in nebula space nominate itself for the
+pirate-unlock loan; without it the secondment pipeline silently gets no new nominations.
+
+Expect fewer than 21 workers if any are seconded away (check `secondments.json` for
+`phase=seconded`; those live in the unlock fleet until they graduate).
 
 `--stagger 10s` is mandatory here regardless of pacing arithmetic: 21 workers is the fleet that
 originally tripped the login limiter.
@@ -248,7 +291,7 @@ chain (marketbots → market.db → scanner → pool → hauler) is live.
 
 ---
 
-## 5. `market-prune` — last of all, and staged after downtime
+## 5. `market-prune` — after the fleets, and staged after downtime
 
 > **This step caused the only real incident of the 2026-07-30 cold start. Read it before running it.**
 
@@ -323,6 +366,24 @@ ls -la data/market.db data/market.db-wal && df -h /home/robert | tail -1
 
 ---
 
+## 6. The secondment daemon
+
+`fleet-secondment` reconciles the haul↔unlock loans (nominate → drain from haul → run in
+unlock → graduate → return). Like the scanner it is unsupervised — nothing restarts it, and
+without it nominated haulers never move and graduated ones never come home. It performs no
+game logins, so it can start any time after the haul and unlock overminds are up.
+
+```bash
+setsid nohup ./bin/fleet-secondment --watch 5m \
+  >> data/overmind/secondment.log 2>&1 < /dev/null &
+```
+
+Defaults cover the rest (`--home haul --away unlock`, sockets, overrides sidecars,
+`--ledger data/overmind/secondments.json`). `fleet-secondment --status` prints the ledger
+read-only if you want to inspect it first.
+
+---
+
 ## Checkpoints
 
 Every overmind writes a status file with the same shape. This is the fastest whole-system read:
@@ -330,32 +391,33 @@ Every overmind writes a status file with the same shape. This is the fastest who
 ```bash
 python3 -c "
 import json
-for f in ['fleet','mb','assist','shuttle','craft','mission-learn']:
+for f in ['haul','mb','assist','hunt','craft','unlock','mission-learn']:
     d=json.load(open(f'data/overmind/{f}-status.json')); ws=d['workers']
     print(f'{f:14} {len(ws):3d} workers  {sum(1 for w in ws if w.get(\"healthy\")):3d} healthy  '
           f'restarts={sum(w.get(\"restarts\",0) for w in ws)}  {d.get(\"overmind_commit\")}')
 "
 ```
 
-Healthy full system, 2026-07-30 (`fleet` = haul):
+Healthy full system, 2026-08-14:
 
 | fleet | workers | notes |
 |---|---:|---|
-| haul | 21 | default status/history files |
-| marketbots | 35 | |
-| mission-learn | 38 | roster 42 − 4 in the overrides sidecar |
+| haul | 20–21 | `haul-status.json`; short by however many are seconded away |
+| marketbots | 54 | |
+| mission-learn | 40 | roster 41 − overrides sidecar |
 | craft | 9 | plan runner banner required |
 | assist | 5 | all should be home-docked with full tanks |
-| shuttle | 1 | |
-| **total** | **109** | **restarts=0, one shared `overmind_commit`** |
+| hunt | 5 | |
+| unlock | 25 | roster 46 − the 21 secondment-held haul agents |
+| **total** | **~144** | **restarts=0, one shared `overmind_commit`** |
 
-Data-layer health:
+Data-layer health (2026-08-14 scale, 54-bot mb fleet):
 
 | check | healthy value |
 |---|---|
-| stations captured, last 15 min (see the format warning above) | 34 of 35, ~490k rows |
-| rows per 10-minute capture | ~18,000 |
-| `arbitrage_opportunities` available | ~98 (30 = starved) |
+| stations captured, last 15 min (see the format warning above) | ~48 of 54 |
+| rows per 10-minute capture burst | ~40,000 |
+| `arbitrage_opportunities` available | ~320–400 (30 = starved) |
 | `SQLITE_BUSY` in the mb log | 0 after the first minute |
 
 ---

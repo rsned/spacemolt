@@ -9,14 +9,15 @@
 // the newest snapshot the overminds have written (~every 30s).
 //
 //	overmind-status --addr :8087 --refresh 300 \
-//	  --overmind "Haul=data/overmind/fleet-status.json" \
+//	  --overmind "Haul=data/overmind/haul-status.json" \
 //	  --overmind "Marketbots=data/overmind/mb-status.json" \
-//	  --overmind "Shuttle=data/overmind/shuttle-status.json" \
 //	  --overmind "Assist=data/overmind/assist-status.json" \
 //	  --overmind "Craft=data/overmind/craft-status.json" \
-//	  --overmind "Missions=data/overmind/mission-learn-status.json"
+//	  --overmind "Missions=data/overmind/mission-learn-status.json" \
+//	  --overmind "Hunt=data/overmind/hunt-status.json" \
+//	  --overmind "Unlock=data/overmind/unlock-status.json"
 //
-// With no --overmind flags the six defaults above are used.
+// With no --overmind flags the seven defaults above are used.
 package main
 
 import (
@@ -62,9 +63,8 @@ func (e flagError) Error() string { return string(e) }
 
 func defaultSources() []ovstatus.Source {
 	return []ovstatus.Source{
-		{Name: "Haul", Path: "data/overmind/fleet-status.json"},
+		{Name: "Haul", Path: "data/overmind/haul-status.json"},
 		{Name: "Marketbots", Path: "data/overmind/mb-status.json"},
-		{Name: "Shuttle", Path: "data/overmind/shuttle-status.json"},
 		{Name: "Assist", Path: "data/overmind/assist-status.json"},
 		{Name: "Craft", Path: "data/overmind/craft-status.json"},
 		{Name: "Missions", Path: "data/overmind/mission-learn-status.json"},

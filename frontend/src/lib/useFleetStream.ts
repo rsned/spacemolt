@@ -99,7 +99,6 @@ export const FLEETS: Record<string, string> = {
   craft: '#34d399',
   mb: '#a78bfa',
   assist: '#fb923c',
-  shuttle: '#f472b6',
   hunt: '#ef4444',
   unlock: '#60a5fa',
 };

@@ -71,7 +71,7 @@ func TestReadSnapshotMergesAndResolvesSystems(t *testing.T) {
 	if stale["mission"] || stale["haul"] {
 		t.Fatalf("fresh fleets marked stale: %v", s.StaleFleets)
 	}
-	if !stale["craft"] || !stale["mb"] || !stale["assist"] || !stale["shuttle"] {
+	if !stale["craft"] || !stale["mb"] || !stale["assist"] || !stale["hunt"] || !stale["unlock"] {
 		t.Fatalf("missing fleets must be stale: %v", s.StaleFleets)
 	}
 }
