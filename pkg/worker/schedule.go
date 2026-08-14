@@ -165,6 +165,57 @@ func (s *Scheduler) Add(freq, command string, now time.Time) (ScheduledTask, err
 	return task, nil
 }
 
+// RetireCovered removes every task that another task of the SAME command
+// already covers, and returns what it removed. Keeping the covered one buys
+// nothing: its every firing coincides with the finer task's, in the same
+// scheduler pass, so it is a duplicate run of an identical command.
+//
+// This is the other half of the seeding guard. That one refuses to ADD a task
+// something already covers; this one retires a task that a NEWLY ADDED finer
+// task has just made redundant. Without it, changing a role's cadence silently
+// accumulates residue: raising `resident` to ten_minutely leaves every agent's
+// old hourly update_market in place, and moving an agent between roles leaves
+// the old role's coarser entries behind (miner-2 carried both a daily and an
+// hourly kb_update after graduating out of the unlock pool).
+//
+// Retiring is safe for hand-added tasks too, because coverage is defined per
+// command: a coarser entry for the same command has no firing of its own to
+// lose. Frequencies that merely look coarser are NOT retired — ten_minutely and
+// quarter_hourly do not cover each other, so both survive.
+func (s *Scheduler) RetireCovered() []ScheduledTask {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	covered := func(t ScheduledTask) bool {
+		for _, o := range s.tasks {
+			if o.ID == t.ID || o.Command != t.Command || o.Frequency == t.Frequency {
+				continue
+			}
+			if Covers(o.Frequency, t.Frequency) {
+				return true
+			}
+		}
+		return false
+	}
+	var dropped []ScheduledTask
+	kept := s.tasks[:0:0]
+	for _, t := range s.tasks {
+		if covered(t) {
+			dropped = append(dropped, t)
+
+			continue
+		}
+		kept = append(kept, t)
+	}
+	if len(dropped) == 0 {
+		return nil
+	}
+	s.tasks = kept
+	_ = s.saveLocked()
+
+	return dropped
+}
+
 // Remove deletes the task with the given id, persisting the change. Returns
 // false if no such task exists.
 func (s *Scheduler) Remove(id int) bool {

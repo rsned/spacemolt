@@ -109,6 +109,14 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 			// two frequencies does not seed a self-duplicate.
 			existing = append(existing, task)
 		}
+		// Retire whatever the seed just made redundant. A role whose cadence has
+		// been raised (resident's update_market went hourly -> ten_minutely on
+		// 2026-08-13) adds the finer entry above, and the agent's old coarser one
+		// would otherwise fire alongside it forever.
+		for _, t := range deps.Scheduler.RetireCovered() {
+			fmt.Fprintf(deps.Out, "standing: retired scheduled #%d (%s) %s — already covered by a finer schedule\n", //nolint:errcheck
+				t.ID, t.Frequency, t.Command)
+		}
 		// run executes one scheduled command line under ExecMu.
 		run := func(t ScheduledTask) {
 			fmt.Fprintf(deps.Out, "⏰ [scheduled %s] %s\n", t.Frequency, t.Command) //nolint:errcheck
