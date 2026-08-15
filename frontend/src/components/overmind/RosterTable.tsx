@@ -80,21 +80,28 @@ export function RosterTable({ onSelect }: { onSelect: (agentId: string) => void 
         .toLowerCase().includes(q);
     });
     const dir = sort.desc ? -1 : 1;
-    const val = (r: RosterRow): string | number => {
+    // Percent-style columns return [fraction, capacity]: the fill level sorts
+    // first, and among equal fills (a fleet of full tanks) the bigger tank
+    // ranks higher instead of falling straight through to the name tiebreak.
+    const val = (r: RosterRow): Array<string | number> => {
       switch (sort.key) {
-        case 'fleet': return r.fleet ?? '~'; // unfleeted sorts last
-        case 'credits': return r.credits;
-        case 'ship': return r.ship?.class_name ?? '~';
-        case 'hull': return r.ship && r.ship.hull_max > 0 ? r.ship.hull_current / r.ship.hull_max : -1;
-        case 'fuel': return r.ship && r.ship.fuel_max > 0 ? r.ship.fuel_current / r.ship.fuel_max : -1;
-        case 'cargo': return r.ship?.cargo_used ?? -1;
-        default: return r.agent_id || r.username;
+        case 'fleet': return [r.fleet ?? '~']; // unfleeted sorts last
+        case 'credits': return [r.credits];
+        case 'ship': return [r.ship?.class_name ?? '~'];
+        case 'hull': return r.ship && r.ship.hull_max > 0
+          ? [r.ship.hull_current / r.ship.hull_max, r.ship.hull_max] : [-1, 0];
+        case 'fuel': return r.ship && r.ship.fuel_max > 0
+          ? [r.ship.fuel_current / r.ship.fuel_max, r.ship.fuel_max] : [-1, 0];
+        case 'cargo': return [r.ship?.cargo_used ?? -1, r.ship?.cargo_capacity ?? 0];
+        default: return [r.agent_id || r.username];
       }
     };
     return filtered.sort((a, b) => {
       const av = val(a); const bv = val(b);
-      if (av < bv) return -dir;
-      if (av > bv) return dir;
+      for (let i = 0; i < av.length; i++) {
+        if (av[i] < bv[i]) return -dir;
+        if (av[i] > bv[i]) return dir;
+      }
       return a.agent_id < b.agent_id ? -1 : 1;
     });
   }, [data, query, showStale, sort]);
