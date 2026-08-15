@@ -7884,6 +7884,14 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "faction_get_invites":
 		return simpleCommand(client, client.FactionGetInvites, ctx, 2*time.Second, cmd, format)
 
+	case "faction_accept_invite":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: faction_accept_invite <faction-id>")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.FactionAcceptInvite(ctx, parts[1])
+		}, ctx, 2*time.Second, cmd, format)
+
 	case "faction_decline_invite":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: faction_decline_invite <faction-id>")
