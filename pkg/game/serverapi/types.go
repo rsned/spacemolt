@@ -362,6 +362,14 @@ type Base struct {
 	// AutoBuyFuel reports whether a player station automatically buys fuel
 	// from docked pilots at live scarcity-based prices. Off by default.
 	AutoBuyFuel bool `json:"auto_buy_fuel,omitempty"`
+	// Fuel/MaxFuel are the station fuel desk's own reserve. Pointers because
+	// a measured 0 (desk dry) must stay distinguishable from the field being
+	// absent on older payloads or non-desk bases.
+	Fuel      *int `json:"fuel,omitempty"`
+	MaxFuel   *int `json:"max_fuel,omitempty"`
+	Hull      int  `json:"hull,omitempty"`
+	MaxHull   int  `json:"max_hull,omitempty"`
+	MaxShield int  `json:"max_shield,omitempty"`
 }
 
 // ResourceDisplay represents a resource with display information.

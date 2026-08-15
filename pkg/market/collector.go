@@ -181,21 +181,78 @@ func (c *Collector) upsertStation(tx *sql.Tx, s Station) error {
 	return err
 }
 
+// UpsertStation writes one stations row outside a capture transaction —
+// NearestFuel's station→system resolution reads this table, and tests (or
+// backfills) need a way to seed it directly.
+func (c *Collector) UpsertStation(ctx context.Context, s Station) error {
+	return c.writeRetry(ctx, func(tx *sql.Tx) error {
+		return c.upsertStation(tx, s)
+	})
+}
+
 // UpsertStationFuel writes the latest fuel price for a station, replacing any
 // existing row (one row per station — no time growth).
 func (c *Collector) UpsertStationFuel(ctx context.Context, s StationFuel) error {
 	return c.writeRetry(ctx, func(tx *sql.Tx) error {
+		// Reserve columns update only when the incoming capture actually
+		// observed them, which parseGetBaseFuel signals by stamping
+		// ReserveObservedAt. Guarding on the stamp (not on the values) keeps
+		// two failure modes out of the table: an old-format payload erasing a
+		// real reading, and a zero-valued StationFuel{} from a price-only
+		// caller writing FuelReserve 0 — which reads as "measured dry".
+		obs := s.ReserveObservedAt != ""
+		fr, fc, ffr, ffc := s.FuelReserve, s.FuelCapacity, s.FactionFuelReserve, s.FactionFuelCapacity
+		if !obs {
+			fr, fc, ffr, ffc = -1, -1, -1, -1
+		}
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO station_fuel_prices
-			  (station_id, fuel_price, fuel_tax_per_unit, fuel_price_all_in, captured_at, captured_by)
-			VALUES (?, ?, ?, ?, ?, ?)
+			  (station_id, fuel_price, fuel_tax_per_unit, fuel_price_all_in, captured_at, captured_by,
+			   fuel_reserve, fuel_capacity, faction_fuel_reserve, faction_fuel_capacity, faction_id, reserve_observed_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(station_id) DO UPDATE SET
 				fuel_price = excluded.fuel_price,
 				fuel_tax_per_unit = excluded.fuel_tax_per_unit,
 				fuel_price_all_in = excluded.fuel_price_all_in,
 				captured_at = excluded.captured_at,
-				captured_by = excluded.captured_by
-		`, s.StationID, s.FuelPrice, s.FuelTaxPerUnit, s.FuelPriceAllIn, s.CapturedAt, s.CapturedBy)
+				captured_by = excluded.captured_by,
+				fuel_reserve = CASE WHEN excluded.reserve_observed_at != '' AND excluded.fuel_reserve >= 0
+					THEN excluded.fuel_reserve ELSE station_fuel_prices.fuel_reserve END,
+				fuel_capacity = CASE WHEN excluded.reserve_observed_at != '' AND excluded.fuel_capacity >= 0
+					THEN excluded.fuel_capacity ELSE station_fuel_prices.fuel_capacity END,
+				faction_fuel_reserve = CASE WHEN excluded.reserve_observed_at != '' AND excluded.faction_fuel_capacity >= 0
+					THEN excluded.faction_fuel_reserve ELSE station_fuel_prices.faction_fuel_reserve END,
+				faction_fuel_capacity = CASE WHEN excluded.reserve_observed_at != '' AND excluded.faction_fuel_capacity >= 0
+					THEN excluded.faction_fuel_capacity ELSE station_fuel_prices.faction_fuel_capacity END,
+				faction_id = CASE WHEN excluded.faction_id != ''
+					THEN excluded.faction_id ELSE station_fuel_prices.faction_id END,
+				reserve_observed_at = CASE WHEN excluded.reserve_observed_at != ''
+					THEN excluded.reserve_observed_at ELSE station_fuel_prices.reserve_observed_at END
+		`, s.StationID, s.FuelPrice, s.FuelTaxPerUnit, s.FuelPriceAllIn, s.CapturedAt, s.CapturedBy,
+			fr, fc, ffr, ffc, s.FactionID, s.ReserveObservedAt)
+		return err
+	})
+}
+
+// MarkDeskDry records a live station_fuel_empty refusal: a measured-dry (0)
+// reserve reading stamped now, newer than whatever the hourly capture said.
+// Inserts a placeholder row (prices 0) for stations never price-captured, so
+// the observation is not lost.
+func (c *Collector) MarkDeskDry(ctx context.Context, stationID, observedBy string, now time.Time) error {
+	if c == nil || stationID == "" {
+		return nil
+	}
+	at := now.UTC().Format(time.RFC3339)
+	return c.writeRetry(ctx, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO station_fuel_prices
+			  (station_id, fuel_price, fuel_tax_per_unit, fuel_price_all_in, captured_at, captured_by,
+			   fuel_reserve, reserve_observed_at)
+			VALUES (?, 0, 0, 0, ?, ?, 0, ?)
+			ON CONFLICT(station_id) DO UPDATE SET
+				fuel_reserve = 0,
+				reserve_observed_at = excluded.reserve_observed_at
+		`, stationID, at, observedBy, at)
 		return err
 	})
 }

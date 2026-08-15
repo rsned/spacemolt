@@ -332,7 +332,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return Assist(ctx, AssistDeps{
 			Client: d.Client, KB: d.KB, Queue: d.Rescue, Out: d.Out,
 			AgentID: d.AgentID, HomeStation: d.Station,
-			SetActivity: d.setActivity,
+			SetActivity: d.setActivity, Market: d.Market,
 		})
 	case "deliver":
 		if len(args) < 5 {

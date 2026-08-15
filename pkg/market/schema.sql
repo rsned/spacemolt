@@ -260,7 +260,17 @@ CREATE TABLE IF NOT EXISTS station_fuel_prices (
     fuel_tax_per_unit INTEGER NOT NULL,
     fuel_price_all_in INTEGER NOT NULL,
     captured_at       TEXT NOT NULL,
-    captured_by       TEXT
+    captured_by       TEXT,
+    -- Desk reserve from get_base. -1 = never measured, 0 = measured dry.
+    -- reserve_observed_at stamps the reserve reading separately from the
+    -- price capture, because a live station_fuel_empty refusal also writes
+    -- a (0, now) reading between hourly captures.
+    fuel_reserve          INTEGER NOT NULL DEFAULT -1,
+    fuel_capacity         INTEGER NOT NULL DEFAULT -1,
+    faction_fuel_reserve  INTEGER NOT NULL DEFAULT -1,
+    faction_fuel_capacity INTEGER NOT NULL DEFAULT -1,
+    faction_id            TEXT NOT NULL DEFAULT '',
+    reserve_observed_at   TEXT NOT NULL DEFAULT ''
 );
 
 -- Items the game server refuses to trade through the market `buy` command,

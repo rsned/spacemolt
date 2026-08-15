@@ -110,14 +110,38 @@ func parseGetBaseFuel(raw []byte, stationID, capturedBy string, capturedAt time.
 	if resp.FuelPriceAllIn <= 0 {
 		return StationFuel{}, false, nil
 	}
-	return StationFuel{
+	sf := StationFuel{
 		StationID:      stationID,
 		FuelPrice:      int(resp.FuelPrice),
 		FuelTaxPerUnit: int(resp.FuelTaxPerUnit),
 		FuelPriceAllIn: int(resp.FuelPriceAllIn),
 		CapturedAt:     capturedAt.UTC().Format(time.RFC3339),
 		CapturedBy:     capturedBy,
-	}, true, nil
+		// -1 = this payload didn't report it; UpsertStationFuel keeps the
+		// stored value in that case rather than clobbering a real reading.
+		FuelReserve:         -1,
+		FuelCapacity:        -1,
+		FactionFuelReserve:  -1,
+		FactionFuelCapacity: -1,
+	}
+	if resp.Base != nil {
+		sf.FactionID = resp.Base.FactionID
+		if resp.Base.Fuel != nil {
+			sf.FuelReserve = *resp.Base.Fuel
+			sf.ReserveObservedAt = sf.CapturedAt
+		}
+		if resp.Base.MaxFuel != nil {
+			sf.FuelCapacity = *resp.Base.MaxFuel
+		}
+	}
+	// A bunker only exists when capacity is reported; reserve 0 with no
+	// capacity would otherwise read as a measured-empty bunker.
+	if resp.FactionFuelCapacity > 0 {
+		sf.FactionFuelReserve = resp.FactionFuelReserve
+		sf.FactionFuelCapacity = resp.FactionFuelCapacity
+		sf.ReserveObservedAt = sf.CapturedAt
+	}
+	return sf, true, nil
 }
 
 // CaptureFuelFromClient reads the get_base response the client last cached and

@@ -31,6 +31,20 @@ type StationFuel struct {
 	FuelPriceAllIn int
 	CapturedAt     string
 	CapturedBy     string
+
+	// Desk reserve measured from get_base (v0.5xx exposes base.fuel/max_fuel).
+	// -1 = not reported by this capture; 0 = measured dry. Upserts leave the
+	// stored reserve untouched when the incoming value is -1.
+	FuelReserve  int
+	FuelCapacity int
+	// Faction fuel bunker at this base, when the response reports one
+	// (faction_fuel_capacity > 0). -1 = no bunker reported. FactionID says
+	// whose bunker it is, so readers can restrict to their own or allied
+	// factions.
+	FactionFuelReserve  int
+	FactionFuelCapacity int
+	FactionID           string
+	ReserveObservedAt   string
 }
 
 // Order represents a single buy or sell order from the market.

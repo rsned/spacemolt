@@ -46,6 +46,20 @@ func runMigrations(db *sql.DB) error {
 	if err := ensureColumn(db, "mission_results", "expiry_budget_ticks", "INTEGER DEFAULT 0"); err != nil {
 		return err
 	}
+	// Station fuel-desk reserves measured from get_base (see schema.sql for
+	// the -1/0 semantics) plus the faction fuel bunker at the same base.
+	for _, col := range []struct{ name, typ string }{
+		{"fuel_reserve", "INTEGER NOT NULL DEFAULT -1"},
+		{"fuel_capacity", "INTEGER NOT NULL DEFAULT -1"},
+		{"faction_fuel_reserve", "INTEGER NOT NULL DEFAULT -1"},
+		{"faction_fuel_capacity", "INTEGER NOT NULL DEFAULT -1"},
+		{"faction_id", "TEXT NOT NULL DEFAULT ''"},
+		{"reserve_observed_at", "TEXT NOT NULL DEFAULT ''"},
+	} {
+		if err := ensureColumn(db, "station_fuel_prices", col.name, col.typ); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

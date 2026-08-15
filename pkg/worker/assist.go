@@ -10,6 +10,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/navigation"
 	"github.com/rsned/spacemolt/pkg/rescue"
 )
@@ -109,6 +110,9 @@ type AssistDeps struct {
 	Out         io.Writer
 	AgentID     string
 	HomeStation string // station POI id at the home capital (fleet yaml `station`)
+	// Market records dry-desk observations and answers NearestFuel when the
+	// home desk cannot re-tank us. Nil disables both (tests, no --market-db).
+	Market *market.Collector
 	// Navigate overrides Autopilot in tests; nil uses the real thing.
 	Navigate func(ctx context.Context, system, poi string) error
 	// SetActivity publishes the status-page "current activity" string (nil in
@@ -436,6 +440,93 @@ func assistEnsureHome(ctx context.Context, deps AssistDeps) error {
 	// returns 0), which is silent and indistinguishable from having no work.
 	if err := RefuelAndSync(ctx, deps.Client, deps.Out, "assist"); err != nil {
 		fmt.Fprintf(deps.Out, "assist: home refuel: %v\n", err) //nolint:errcheck
+		if deskIsDry(err) {
+			assistRetankElsewhere(ctx, deps, home)
+		}
 	}
 	return nil
+}
+
+// assistRetankElsewhere handles a dry home fuel desk: record the observation,
+// then fly to the nearest station known (or at least believed) to have fuel,
+// re-tank there, and let the next Assist pass bring us home. Without this a
+// rescuer at a dry desk retries the same empty desk forever — live 2026-08-14,
+// assist-frontier sat at 42/1500 for half a day after giving its tank to a
+// rescue, failing every refuel against a desk with nothing to sell.
+func assistRetankElsewhere(ctx context.Context, deps AssistDeps, homeSystem string) {
+	if deps.Market == nil {
+		return
+	}
+	now := time.Now()
+	if err := deps.Market.MarkDeskDry(ctx, deps.HomeStation, deps.AgentID, now); err != nil {
+		fmt.Fprintf(deps.Out, "assist: record dry desk: %v\n", err) //nolint:errcheck
+	}
+	st := deps.Client.GetState()
+	if st == nil || deps.KB == nil {
+		return
+	}
+	deficit := int(st.MaxFuel - st.Fuel)
+	if deficit < int(st.MaxFuel)/5 {
+		return // ≥80% full: not worth a trip, the desk will restock eventually
+	}
+	conns, err := deps.KB.GetConnections(ctx)
+	if err != nil {
+		fmt.Fprintf(deps.Out, "assist: retank: connections: %v\n", err) //nolint:errcheck
+		return
+	}
+	graph := navigation.JumpGraphFromConnections(conns)
+	// Stronghold systems refuse our dock without pirate rep; an agent that
+	// has earned the unlock can drop this exclusion once capability data is
+	// plumbed through. Ally bunkers likewise: until faction relations are
+	// cached client-side, only our own faction's bunkers count as supply.
+	exclude := map[string]bool{}
+	if systems, serr := deps.KB.GetSystems(ctx); serr == nil {
+		for _, sys := range systems {
+			if sys.IsStronghold {
+				exclude[sys.ID] = true
+			}
+		}
+	}
+	allowed := map[string]bool{}
+	if st.Player.FactionID != "" {
+		allowed[st.Player.FactionID] = true
+	}
+	from := st.System.ID
+	if from == "" {
+		from = homeSystem
+	}
+	stops, err := deps.Market.NearestFuel(ctx, from, deficit, graph, allowed, exclude, 6*time.Hour, now)
+	if err != nil {
+		fmt.Fprintf(deps.Out, "assist: retank: nearest-fuel: %v\n", err) //nolint:errcheck
+		return
+	}
+	perJump := haulFuelPerJump(ctx, deps.Client, deps.HomeStation)
+	fuel := int(st.Fuel)
+	for _, stop := range stops {
+		if stop.StationID == deps.HomeStation {
+			continue // that desk is the problem
+		}
+		// Outbound reachability with one jump of slack; we re-tank on arrival.
+		if (stop.Jumps+1)*perJump > fuel {
+			continue
+		}
+		fmt.Fprintf(deps.Out, "assist: home desk dry; re-tanking at %s/%s (%d jumps, all-in %d, known-wet=%v)\n", //nolint:errcheck
+			stop.SystemID, stop.StationID, stop.Jumps, stop.AllIn, stop.KnownWet)
+		if err := deps.navigate(ctx, stop.SystemID, stop.StationID); err != nil {
+			fmt.Fprintf(deps.Out, "assist: retank travel: %v\n", err) //nolint:errcheck
+			return
+		}
+		if err := deps.Client.Dock(ctx); err != nil && !strings.Contains(err.Error(), "Already docked") {
+			fmt.Fprintf(deps.Out, "assist: retank dock: %v\n", err) //nolint:errcheck
+			return
+		}
+		if err := RefuelStationAndSync(ctx, deps.Client, deps.Out, "assist retank"); err != nil {
+			fmt.Fprintf(deps.Out, "assist: retank refuel: %v\n", err) //nolint:errcheck
+			if deskIsDry(err) {
+				_ = deps.Market.MarkDeskDry(ctx, stop.StationID, deps.AgentID, time.Now())
+			}
+		}
+		return // one attempt per pass; the standing loop re-elects next time
+	}
+	fmt.Fprintf(deps.Out, "assist: home desk dry and no reachable fueled station within %d fuel\n", fuel) //nolint:errcheck
 }
