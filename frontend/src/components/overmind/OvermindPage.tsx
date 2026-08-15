@@ -8,8 +8,14 @@ import { AssetCoveragePanel } from './AssetCoveragePanel';
 import { FleetRail } from './FleetRail';
 import { FleetOverlay } from './FleetOverlay';
 import { SystemView } from './SystemView';
+import { RosterTable } from './RosterTable';
+import { AgentSheet } from './AgentSheet';
 
-type OvView = { kind: 'galaxy' } | { kind: 'system'; systemId: string };
+type OvView =
+  | { kind: 'galaxy' }
+  | { kind: 'system'; systemId: string }
+  | { kind: 'roster' }
+  | { kind: 'agent'; agentId: string };
 
 export function OvermindPage() {
   const stream = useFleetStream();
@@ -33,9 +39,11 @@ export function OvermindPage() {
     setHighlightedIds(new Set());
   };
   useEffect(() => {
-    if (view.kind !== 'system') return;
+    if (view.kind !== 'system' && view.kind !== 'agent') return;
+    const isSystem = view.kind === 'system';
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeSystemView();
+      if (e.key !== 'Escape') return;
+      if (isSystem) { closeSystemView(); } else { setView({ kind: 'roster' }); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -79,7 +87,29 @@ export function OvermindPage() {
         currentWorker={stream.currentWorker}
       />
       <AssetCoveragePanel coverage={stream.assetCoverage} />
-      <div className="flex-1 flex min-h-0">
+      <div className="flex items-center gap-1 px-3 py-1 border-b border-[#2a2618]">
+        {(['galaxy', 'roster'] as const).map((kind) => {
+          const active = kind === 'galaxy'
+            ? view.kind === 'galaxy' || view.kind === 'system'
+            : view.kind === 'roster' || view.kind === 'agent';
+          return (
+            <button key={kind}
+              onClick={() => setView({ kind })}
+              className={`px-2.5 py-0.5 text-[10px] uppercase tracking-widest border rounded-sm
+                ${active ? 'border-[#d4a017] text-[#d4a017] bg-[#d4a017]/10' : 'border-[#2a2618] text-[#8a8570] hover:text-[#d8d3c0]'}`}>
+              {kind}
+            </button>
+          );
+        })}
+      </div>
+      {(view.kind === 'roster' || view.kind === 'agent') && (
+        <div className="flex-1 min-h-0">
+          {view.kind === 'roster'
+            ? <RosterTable onSelect={(agentId) => setView({ kind: 'agent', agentId })} />
+            : <AgentSheet agentId={view.agentId} onBack={() => setView({ kind: 'roster' })} />}
+        </div>
+      )}
+      <div className={view.kind === 'roster' || view.kind === 'agent' ? 'hidden' : 'flex-1 flex min-h-0'}>
         <div className="flex-1 min-w-0 relative flex flex-col" id="ov-map-slot">
           {/* Fleet layer toggles + off-map tray, in normal document flow above the
               map — NOT absolutely positioned over it. GalaxyMap already claims its

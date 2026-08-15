@@ -113,6 +113,28 @@ func (s *server) refresh(ctx context.Context, now time.Time) {
 	}
 }
 
+type fleetRole struct{ fleet, role string }
+
+// fleetByAgent maps agent id -> live fleet membership from the current
+// snapshot, so the ledger-backed roster can say which agents are running now.
+func (s *server) fleetByAgent() map[string]fleetRole {
+	s.mu.RLock()
+	snap := s.snap
+	s.mu.RUnlock()
+	out := map[string]fleetRole{}
+	if snap == nil {
+		return out
+	}
+	for _, a := range snap.Agents {
+		out[a.AgentID] = fleetRole{fleet: a.Fleet, role: a.Role}
+	}
+	for _, a := range snap.OffMap {
+		out[a.AgentID] = fleetRole{fleet: a.Fleet, role: a.Role}
+	}
+
+	return out
+}
+
 func (s *server) mux() *http.ServeMux {
 	m := http.NewServeMux()
 	m.HandleFunc("GET /api/overmind/systems", func(w http.ResponseWriter, _ *http.Request) {
@@ -131,6 +153,35 @@ func (s *server) mux() *http.ServeMux {
 		snap := s.snap
 		s.mu.RUnlock()
 		writeJSONResp(w, snap)
+	})
+	m.HandleFunc("GET /api/overmind/roster", func(w http.ResponseWriter, r *http.Request) {
+		rows, err := ovdash.LoadRoster(r.Context(), s.cfg.AssetsPath, s.cfg.KBPath, time.Now(), assetsStaleAfter)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		fleets := s.fleetByAgent()
+		for i := range rows {
+			if f, ok := fleets[rows[i].AgentID]; ok {
+				rows[i].Fleet, rows[i].Role = f.fleet, f.role
+			}
+		}
+		writeJSONResp(w, rows)
+	})
+	m.HandleFunc("GET /api/overmind/agents/{id}/sheet", func(w http.ResponseWriter, r *http.Request) {
+		sheet, err := ovdash.LoadSheet(r.Context(), s.cfg.AssetsPath, s.cfg.KBPath, r.PathValue("id"), time.Now(), assetsStaleAfter)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if sheet == nil {
+			http.NotFound(w, r)
+			return
+		}
+		if f, ok := s.fleetByAgent()[sheet.AgentID]; ok {
+			sheet.Fleet, sheet.Role = f.fleet, f.role
+		}
+		writeJSONResp(w, sheet)
 	})
 	m.HandleFunc("GET /api/overmind/accounting", func(w http.ResponseWriter, _ *http.Request) {
 		s.mu.RLock()
