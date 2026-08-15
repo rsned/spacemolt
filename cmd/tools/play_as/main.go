@@ -8765,6 +8765,8 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return runClaimArbitrage(ctx, parts)
 	case "release_arbitrage", "release-arbitrage":
 		return runReleaseArbitrage(ctx, parts)
+	case "my_claims", "my-claims", "claims":
+		return runMyClaims(ctx, parts, format)
 
 	// === KNOWLEDGE BASE UPDATE COMMANDS ===
 	case "update_system":
@@ -9680,6 +9682,8 @@ func printHelp() {
 	fmt.Println("                              (--near jumps default 3, -1 disables; --detour cap default 3)")
 	fmt.Println("  claim_arbitrage <id>      - Claim an opportunity so the hauler fleet skips it")
 	fmt.Println("  release_arbitrage <id>    - Release an opportunity you claimed")
+	fmt.Println("  my_claims [--limit N]     - Opportunities this agent holds or recently worked")
+	fmt.Println("                              (marks expired holds and stronghold deliveries)")
 
 	fmt.Println("\n=== MINING & COMBAT ===")
 	fmt.Println("  mine, scan, survey        - Mining and scanning operations")

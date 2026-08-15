@@ -634,3 +634,81 @@ func TestReleasedExpiredOppIsNotReServed(t *testing.T) {
 		t.Errorf("released expired opp re-entered the pool (%d rows); it must not be served again", len(opps))
 	}
 }
+
+// TestGetOpportunitiesByAgent covers the claim-history read behind play_as
+// my_claims: every status the agent's claim is still stamped on comes back,
+// released rows drop out, and other agents' claims never appear.
+func TestGetOpportunitiesByAgent(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	for range 4 {
+		insertRawOpp(t, c, "available")
+	}
+	var ids []int
+	rows, err := c.db.Query(`SELECT id FROM arbitrage_opportunities ORDER BY id`)
+	if err != nil {
+		t.Fatalf("ids: %v", err)
+	}
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			t.Fatalf("scan id: %v", err)
+		}
+		ids = append(ids, id)
+	}
+	_ = rows.Close()
+	if len(ids) != 4 {
+		t.Fatalf("want 4 seeded opps, got %d", len(ids))
+	}
+
+	for _, id := range ids {
+		if ok, err := c.ClaimOpportunity(ctx, id, "trader-9"); err != nil || !ok {
+			t.Fatalf("claim %d: ok=%v err=%v", id, ok, err)
+		}
+	}
+	// ids[0] stays held; ids[1] completes; ids[2] expires while still claimed
+	// (the sweep only expires the available pool, so this shape is real);
+	// ids[3] is released and must stop being this agent's history.
+	if ok, err := c.CompleteOpportunity(ctx, ids[1], "trader-9"); err != nil || !ok {
+		t.Fatalf("complete: ok=%v err=%v", ok, err)
+	}
+	if _, err := c.db.Exec(`UPDATE arbitrage_opportunities SET status='expired' WHERE id=?`, ids[2]); err != nil {
+		t.Fatalf("expire: %v", err)
+	}
+	if ok, err := c.ReleaseOpportunity(ctx, ids[3], "trader-9"); err != nil || !ok {
+		t.Fatalf("release: ok=%v err=%v", ok, err)
+	}
+
+	got, err := c.GetOpportunitiesByAgent(ctx, "trader-9", 10)
+	if err != nil {
+		t.Fatalf("GetOpportunitiesByAgent: %v", err)
+	}
+	statusByID := make(map[int]string, len(got))
+	for _, o := range got {
+		statusByID[o.ID] = o.Status
+	}
+	want := map[int]string{ids[0]: "claimed", ids[1]: "completed", ids[2]: "expired"}
+	if len(statusByID) != len(want) {
+		t.Fatalf("got %v, want exactly %v (released row must be absent)", statusByID, want)
+	}
+	for id, status := range want {
+		if statusByID[id] != status {
+			t.Errorf("opp %d: status %q, want %q", id, statusByID[id], status)
+		}
+	}
+
+	// GetClaimedByAgent stays narrower: only what is held right now.
+	heldOnly, err := c.GetClaimedByAgent(ctx, "trader-9")
+	if err != nil || len(heldOnly) != 1 || heldOnly[0].ID != ids[0] {
+		t.Fatalf("GetClaimedByAgent = %v (err %v), want just %d", heldOnly, err, ids[0])
+	}
+
+	if other, err := c.GetOpportunitiesByAgent(ctx, "trader-1", 10); err != nil || len(other) != 0 {
+		t.Fatalf("another agent must see no claims, got %v (err %v)", other, err)
+	}
+
+	// limit caps the result set.
+	if capped, err := c.GetOpportunitiesByAgent(ctx, "trader-9", 2); err != nil || len(capped) != 2 {
+		t.Fatalf("limit=2 returned %d rows (err %v)", len(capped), err)
+	}
+}

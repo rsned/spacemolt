@@ -450,3 +450,29 @@ func (c *Collector) GetClaimedByAgent(ctx context.Context, agentID string) ([]Ar
 	defer func() { _ = rows.Close() }()
 	return scanOpportunityRows(rows)
 }
+
+// GetOpportunitiesByAgent returns every opportunity still stamped with agentID's
+// claim — held, completed, and expired alike — most-recently claimed first, up to
+// limit rows (limit<1 = 25). Unlike GetClaimedByAgent it does not filter by
+// status, so it answers "what has this agent been working on" rather than "what
+// does it hold right now".
+//
+// Released claims are absent by design: ReleaseOpportunity clears claimed_by, so
+// a released row stops being any agent's history. Note that a row can sit in
+// 'claimed' past its expires_at — the sweep only expires rows in the available
+// pool — which is what a stalled or stranded hauler leaves behind.
+func (c *Collector) GetOpportunitiesByAgent(ctx context.Context, agentID string, limit int) ([]ArbitrageOpportunity, error) {
+	if limit < 1 {
+		limit = 25
+	}
+	rows, err := c.db.QueryContext(ctx,
+		arbitrageSelectJoin+`
+		WHERE ao.claimed_by=?
+		ORDER BY ao.claimed_at DESC
+		LIMIT ?`, agentID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("query opportunities by agent: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	return scanOpportunityRows(rows)
+}

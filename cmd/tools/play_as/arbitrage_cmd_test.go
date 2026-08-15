@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -245,5 +247,145 @@ func TestBuildArbPriceOf(t *testing.T) {
 	p2 := buildArbPriceOf(ctx, fakeArbFuel{prices: map[string]int{}, medianOK: false})
 	if got := p2("uncaptured"); got != 0 {
 		t.Fatalf("no median: got %v, want 0", got)
+	}
+}
+
+// claimOpp builds a claim row as GetOpportunitiesByAgent returns it.
+func claimOpp(id int, status, toSystem, expires string) market.ArbitrageOpportunity {
+	return market.ArbitrageOpportunity{
+		ID: id, Status: status, ToSystemName: toSystem, ExpiresAt: expires,
+		ItemID: "plasma_gas", Quantity: 37, ClaimedAt: "2026-08-13T22:56:51Z",
+	}
+}
+
+// TestPartitionClaimsSplitsAndFlags covers the three judgements my_claims makes:
+// held vs finished, a hold that outlived its window, and a delivery leg that
+// lands in a stronghold.
+func TestPartitionClaimsSplitsAndFlags(t *testing.T) {
+	now := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
+	strongholds := map[string]bool{"algol": true}
+	opps := []market.ArbitrageOpportunity{
+		claimOpp(1, "claimed", "Algol", "2026-08-14T04:23:00Z"),   // stale + stronghold
+		claimOpp(2, "claimed", "haven", "2026-08-16T00:00:00Z"),   // live hold
+		claimOpp(3, "completed", "haven", "2026-08-14T00:00:00Z"), // history
+		claimOpp(4, "expired", "algol", "2026-08-14T00:00:00Z"),   // history, stronghold
+	}
+
+	held, history := partitionClaims(opps, strongholds, now)
+
+	if len(held) != 2 || held[0].Opp.ID != 1 || held[1].Opp.ID != 2 {
+		t.Fatalf("held = %v, want ids [1 2]", held)
+	}
+	if !held[0].Expired {
+		t.Error("a claim held past expires_at must be marked expired")
+	}
+	if !held[0].DestStronghold {
+		t.Error("Algol destination must be flagged as a stronghold")
+	}
+	if held[1].Expired || held[1].DestStronghold {
+		t.Errorf("live non-stronghold hold must carry no marks: %+v", held[1])
+	}
+	if len(history) != 2 || history[0].Opp.ID != 3 || history[1].Opp.ID != 4 {
+		t.Fatalf("history = %v, want ids [3 4]", history)
+	}
+	if !history[1].DestStronghold {
+		t.Error("stronghold flag must apply to history rows too")
+	}
+}
+
+// TestPartitionClaimsWithoutKnowledgeBase pins the graceful-degradation path: no
+// stronghold map (knowledge base unavailable) must still classify claims, just
+// without the destination flag.
+func TestPartitionClaimsWithoutKnowledgeBase(t *testing.T) {
+	now := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
+	held, history := partitionClaims([]market.ArbitrageOpportunity{
+		claimOpp(1, "claimed", "Algol", "2026-08-14T04:23:00Z"),
+	}, nil, now)
+	if len(held) != 1 || len(history) != 0 {
+		t.Fatalf("held=%d history=%d, want 1/0", len(held), len(history))
+	}
+	if !held[0].Expired {
+		t.Error("expiry is computed from the row itself, not the knowledge base")
+	}
+	if held[0].DestStronghold {
+		t.Error("no stronghold map means no flag, not a false positive")
+	}
+}
+
+// TestPartitionClaimsUnparseableExpiry: a row whose expires_at cannot be parsed
+// must not be reported as expired — an unreadable stamp is not evidence.
+func TestPartitionClaimsUnparseableExpiry(t *testing.T) {
+	held, _ := partitionClaims([]market.ArbitrageOpportunity{
+		claimOpp(1, "claimed", "haven", "not-a-timestamp"),
+	}, nil, time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC))
+	if len(held) != 1 || held[0].Expired {
+		t.Fatalf("unparseable expiry must not mark a claim expired: %+v", held)
+	}
+}
+
+// TestRenderClaimsStyledMarksStaleStrongholdHold pins the output an operator
+// reads when diagnosing a stalled hauler: the held claim carries both warnings
+// and the release command, and finished work lands under Recent.
+func TestRenderClaimsStyledMarksStaleStrongholdHold(t *testing.T) {
+	held := []claimRow{{
+		Opp: market.ArbitrageOpportunity{
+			ID: 458031, Status: "claimed", ItemName: "Plasma Gas", ItemID: "plasma_gas",
+			Quantity: 4923, GrossProfit: 2973492,
+			FromStationName: "The Rampart Checkpoint", FromSystemName: "Rampart",
+			ToStationName: "Dross Citadel", ToSystemName: "Algol",
+			ClaimedAt: "2026-08-13T22:56:51Z", ExpiresAt: "2026-08-14T04:23:00Z",
+		},
+		Expired: true, DestStronghold: true,
+	}}
+	history := []claimRow{{Opp: market.ArbitrageOpportunity{
+		ID: 464455, Status: "completed", ItemName: "Water Ice", Quantity: 119,
+		GrossProfit: 6069, FromStationName: "Starfall", ToStationName: "Factory Belt",
+	}}}
+
+	out := captureStdout(t, func() { renderClaims("trader-10", held, history, formatStyled) })
+
+	for _, want := range []string{
+		"trader-10", "Holding (1)", "#458031", "Plasma Gas",
+		"2,973,492", "EXPIRED HOLD", "delivers to a stronghold",
+		"The Rampart Checkpoint (Rampart)", "Dross Citadel (Algol)",
+		"release_arbitrage 458031", "Recent (1)", "#464455", "completed",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("styled output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// TestRenderClaimsEmptyAndJSON covers the no-claims message and the machine
+// format's shape.
+func TestRenderClaimsEmptyAndJSON(t *testing.T) {
+	empty := captureStdout(t, func() { renderClaims("assist-sol", nil, nil, formatStyled) })
+	if !strings.Contains(empty, "No claims on record") {
+		t.Errorf("empty listing should say so, got:\n%s", empty)
+	}
+
+	out := captureStdout(t, func() {
+		renderClaims("trader-10", []claimRow{{
+			Opp:     market.ArbitrageOpportunity{ID: 7, Status: "claimed", ItemID: "iron_ore", Quantity: 3},
+			Expired: true,
+		}}, nil, formatRaw)
+	})
+	var got struct {
+		AgentID string `json:"agent_id"`
+		Held    []struct {
+			ID      int    `json:"id"`
+			Item    string `json:"item"`
+			Expired bool   `json:"expired_hold"`
+		} `json:"held"`
+		History []struct{} `json:"history"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("JSON output did not parse: %v\n%s", err, out)
+	}
+	if got.AgentID != "trader-10" || len(got.Held) != 1 {
+		t.Fatalf("unexpected JSON payload: %+v", got)
+	}
+	if got.Held[0].ID != 7 || got.Held[0].Item != "iron_ore" || !got.Held[0].Expired {
+		t.Errorf("held row wrong (item must fall back to the id): %+v", got.Held[0])
 	}
 }

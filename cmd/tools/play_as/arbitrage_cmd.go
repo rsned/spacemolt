@@ -313,6 +313,213 @@ func renderArbitrage(rows []arbRow, skipped, baseline, budget, near int, curID, 
 	fmt.Println("  Claim one with: claim_arbitrage <id>")
 }
 
+// claimRow is one of the agent's opportunity claims, decorated with the two
+// facts that explain a haul that never finished: whether the claim outlived its
+// window, and whether the delivery leg lands in a pirate stronghold.
+type claimRow struct {
+	Opp market.ArbitrageOpportunity
+	// Held past expires_at. The fleet will not run it and the scanner will not
+	// reclaim it, so it sits as a dead claim until released.
+	Expired bool
+	// Sell leg ends in a stronghold system. Reported as a fact, not a fault:
+	// an agent holding stronghold_access trades there routinely, so whether
+	// this explains a stalled haul depends on the agent's own standing.
+	DestStronghold bool
+}
+
+// partitionClaims splits an agent's claims into what it still holds and what it
+// has finished, marking expired holds and stronghold destinations. strongholds
+// holds lowercased stronghold system ids AND names, since the market database
+// joins a system NAME onto an opportunity while the knowledge base keys by id; a
+// nil map simply leaves DestStronghold false, because the flag is a decoration
+// and never a gate.
+func partitionClaims(opps []market.ArbitrageOpportunity, strongholds map[string]bool, now time.Time) (held, history []claimRow) {
+	for _, o := range opps {
+		row := claimRow{
+			Opp:            o,
+			DestStronghold: strongholds[strings.ToLower(o.ToSystemName)],
+		}
+		if o.Status != "claimed" {
+			history = append(history, row)
+			continue
+		}
+		if t, err := time.Parse(time.RFC3339, o.ExpiresAt); err == nil && now.After(t) {
+			row.Expired = true
+		}
+		held = append(held, row)
+	}
+	return held, history
+}
+
+// strongholdKeys returns lowercased ids and names of every stronghold system, or
+// nil when the knowledge base is unavailable or unreadable.
+func strongholdKeys(ctx context.Context) map[string]bool {
+	if globalKB == nil {
+		return nil
+	}
+	systems, err := globalKB.GetSystems(ctx)
+	if err != nil {
+		return nil
+	}
+	keys := make(map[string]bool)
+	for _, s := range systems {
+		if !s.IsStronghold {
+			continue
+		}
+		keys[strings.ToLower(s.ID)] = true
+		if s.Name != "" {
+			keys[strings.ToLower(s.Name)] = true
+		}
+	}
+	return keys
+}
+
+// runMyClaims lists the arbitrage opportunities this agent holds or recently
+// worked, newest first. It answers "what was this agent doing when it stopped" —
+// the fleet's own claim rows outlive the worker process, so a stranded or
+// quarantined agent's last intent is still readable here.
+//
+// Usage: my_claims [--limit N]
+func runMyClaims(ctx context.Context, parts []string, format outputFormat) error {
+	if globalMarketCollector == nil {
+		return fmt.Errorf("my_claims requires the market database, which is not available")
+	}
+	_, flags := partitionFlags(parts[1:])
+	limit := 25
+	if v, ok := flags["limit"]; ok {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+
+	opps, err := globalMarketCollector.GetOpportunitiesByAgent(ctx, globalAgentID, limit)
+	if err != nil {
+		return fmt.Errorf("load claims: %w", err)
+	}
+	held, history := partitionClaims(opps, strongholdKeys(ctx), time.Now())
+	renderClaims(globalAgentID, held, history, format)
+	return nil
+}
+
+// renderClaims prints held and historical claims as a styled listing (or JSON).
+func renderClaims(agentID string, held, history []claimRow, format outputFormat) {
+	if format != formatStyled {
+		type outRow struct {
+			ID             int     `json:"id"`
+			Item           string  `json:"item"`
+			Quantity       float64 `json:"quantity"`
+			BuyAt          string  `json:"buy_at"`
+			BuySystem      string  `json:"buy_system"`
+			SellAt         string  `json:"sell_at"`
+			SellSystem     string  `json:"sell_system"`
+			Gross          float64 `json:"gross_profit"`
+			Status         string  `json:"status"`
+			ClaimedAt      string  `json:"claimed_at"`
+			ExpiresAt      string  `json:"expires_at"`
+			Expired        bool    `json:"expired_hold"`
+			DestStronghold bool    `json:"dest_stronghold"`
+		}
+		conv := func(rows []claimRow) []outRow {
+			out := make([]outRow, 0, len(rows))
+			for _, r := range rows {
+				out = append(out, outRow{
+					ID: r.Opp.ID, Item: claimItemName(r.Opp), Quantity: r.Opp.Quantity,
+					BuyAt: r.Opp.FromStationName, BuySystem: r.Opp.FromSystemName,
+					SellAt: r.Opp.ToStationName, SellSystem: r.Opp.ToSystemName,
+					Gross: r.Opp.GrossProfit, Status: r.Opp.Status,
+					ClaimedAt: r.Opp.ClaimedAt, ExpiresAt: r.Opp.ExpiresAt,
+					Expired: r.Expired, DestStronghold: r.DestStronghold,
+				})
+			}
+			return out
+		}
+		b, err := json.MarshalIndent(struct {
+			AgentID string   `json:"agent_id"`
+			Held    []outRow `json:"held"`
+			History []outRow `json:"history"`
+		}{AgentID: agentID, Held: conv(held), History: conv(history)}, "", "  ")
+		if err != nil {
+			fmt.Printf("{\"error\":%q}\n", err.Error())
+			return
+		}
+		fmt.Println(string(b))
+		return
+	}
+
+	fmt.Printf("\nArbitrage claims for %s\n", agentID)
+	if len(held) == 0 && len(history) == 0 {
+		fmt.Println("  No claims on record. Find one with: find_arbitrage <dest>")
+		return
+	}
+
+	fmt.Printf("\n  Holding (%d)\n", len(held))
+	if len(held) == 0 {
+		fmt.Println("    (none — nothing claimed right now)")
+	}
+	for _, r := range held {
+		marks := ""
+		if r.Expired {
+			marks += "  ⚠ EXPIRED HOLD"
+		}
+		if r.DestStronghold {
+			marks += "  · delivers to a stronghold"
+		}
+		fmt.Printf("    #%d  %s x%.0f  gross %s cr%s\n",
+			r.Opp.ID, claimItemName(r.Opp), r.Opp.Quantity, formatCredits(r.Opp.GrossProfit), marks)
+		fmt.Printf("         %s → %s\n", claimLeg(r.Opp.FromStationName, r.Opp.FromSystemName),
+			claimLeg(r.Opp.ToStationName, r.Opp.ToSystemName))
+		fmt.Printf("         claimed %s · expires %s · release_arbitrage %d\n",
+			shortStamp(r.Opp.ClaimedAt), shortStamp(r.Opp.ExpiresAt), r.Opp.ID)
+	}
+
+	if len(history) > 0 {
+		fmt.Printf("\n  Recent (%d)\n", len(history))
+		for _, r := range history {
+			mark := ""
+			if r.DestStronghold {
+				mark = "  · stronghold"
+			}
+			fmt.Printf("    #%d  %-9s %s x%.0f  %s → %s  gross %s cr%s\n",
+				r.Opp.ID, r.Opp.Status, claimItemName(r.Opp), r.Opp.Quantity,
+				r.Opp.FromStationName, r.Opp.ToStationName, formatCredits(r.Opp.GrossProfit), mark)
+		}
+	}
+}
+
+// claimItemName prefers the joined item name, falling back to the raw id.
+func claimItemName(o market.ArbitrageOpportunity) string {
+	if o.ItemName != "" {
+		return o.ItemName
+	}
+	return o.ItemID
+}
+
+// claimLeg renders "station (system)", dropping either half when unjoined.
+func claimLeg(station, system string) string {
+	switch {
+	case station == "" && system == "":
+		return "(unknown)"
+	case system == "":
+		return station
+	case station == "":
+		return system
+	}
+	return fmt.Sprintf("%s (%s)", station, system)
+}
+
+// shortStamp trims an RFC3339 timestamp to minutes for display, leaving
+// anything it cannot parse untouched.
+func shortStamp(ts string) string {
+	if ts == "" {
+		return "—"
+	}
+	t, err := time.Parse(time.RFC3339, ts)
+	if err != nil {
+		return ts
+	}
+	return t.UTC().Format("2006-01-02 15:04Z")
+}
+
 // runClaimArbitrage claims an opportunity for this operator so the hauler fleet
 // skips it. Usage: claim_arbitrage <id>
 func runClaimArbitrage(ctx context.Context, parts []string) error {
