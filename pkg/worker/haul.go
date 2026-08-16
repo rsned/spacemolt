@@ -759,6 +759,17 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		if strongholds[held[0].ToSystemName] || strongholds[held[0].FromSystemName] {
 			return abandonClaim(ctx, deps, out, held[0], "stronghold destination")
 		}
+		// An EXPIRED claim must not be resumed. The sweep only expires rows in the
+		// available pool, so a claim held by a stopped or quarantined agent sits in
+		// 'claimed' indefinitely with its stale prices — and the resume path would
+		// fly the agent back to the destination that stranded it in the first place.
+		// Live 2026-08-14/15: explorer-1 and trader-10 were released from quarantine
+		// and each immediately resumed a two-day-old claim straight back into the
+		// stronghold it had just been towed out of. Release it and re-evaluate
+		// against the live board instead.
+		if haulClaimExpired(held[0], haulNow(deps)) {
+			return abandonClaim(ctx, deps, out, held[0], fmt.Sprintf("claim expired %s", held[0].ExpiresAt))
+		}
 		fmt.Fprintf(out, "haul: resuming claimed opp %d (%s)\n", held[0].ID, held[0].ItemID) //nolint:errcheck
 		// Recover the book-claim id so a resumed completion still frees the cap slot
 		// (0 when none is found — safe: the >0 guards degrade to TTL cleanup).
@@ -941,6 +952,21 @@ func filterStrongholdRoutes(ranked []market.ArbitrageOpportunity, current string
 // PRE-buy abandons so an opportunity the hauler decides not to act on (unroutable, gate
 // rejected, dock failed, …) does not leak its claim out of the pool. Post-buy abandons
 // instead KEEP the claim (see haulSellLeg) so the goods-bearing haul can be resumed.
+// haulClaimExpired reports whether opp's claim window has closed. An unparseable
+// or empty expires_at is treated as NOT expired: a stamp we cannot read is not
+// evidence that the claim is dead, and wrongly releasing a live claim mid-haul
+// would strand cargo the agent is already carrying.
+func haulClaimExpired(opp market.ArbitrageOpportunity, now time.Time) bool {
+	if opp.ExpiresAt == "" {
+		return false
+	}
+	t, err := time.Parse(time.RFC3339, opp.ExpiresAt)
+	if err != nil {
+		return false
+	}
+	return now.After(t)
+}
+
 func abandonClaim(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, reason string) error {
 	if _, err := deps.Market.ReleaseOpportunity(ctx, opp.ID, deps.AgentID); err != nil {
 		fmt.Fprintf(out, "haul: opp %d %s; release failed: %v\n", opp.ID, reason, err) //nolint:errcheck

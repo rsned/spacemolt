@@ -1553,3 +1553,48 @@ func TestHaulSellLegSkipsDockWhenAlreadyDocked(t *testing.T) {
 		t.Fatalf("expected the sale to proceed, calls=%v", fc.calls)
 	}
 }
+
+// TestHaulSkipsExpiredClaimOnResume is the regression for the release-and-relapse
+// loop: a quarantined agent's claim sits in 'claimed' indefinitely (the sweep only
+// expires the available pool), so on release the resume path flew it straight back
+// to the destination that stranded it. explorer-1 and trader-10 each did this with
+// two-day-old claims on 2026-08-14/15.
+func TestHaulSkipsExpiredClaimOnResume(t *testing.T) {
+	now := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
+	expired := opp(21, "b", "a", 100)
+	expired.ExpiresAt = "2026-08-14T03:23:00Z" // closed yesterday
+	f := &fakeStore{claimedByAgent: []market.ArbitrageOpportunity{expired}}
+	fc := &fakeClient{state: &game.State{System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100}}
+
+	if !haulClaimExpired(expired, now) {
+		t.Fatal("a claim whose window closed yesterday must read as expired")
+	}
+	if err := abandonClaim(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"},
+		io.Discard, expired, "claim expired"); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.released) != 1 || f.released[0] != 21 {
+		t.Fatalf("expired claim must be released, got %v", f.released)
+	}
+}
+
+// TestHaulClaimExpiryEdgeCases: an unreadable or absent stamp is NOT evidence of
+// expiry — releasing a live claim mid-haul would strand cargo already aboard.
+func TestHaulClaimExpiryEdgeCases(t *testing.T) {
+	now := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name, expires string
+		want          bool
+	}{
+		{"closed yesterday", "2026-08-14T03:23:00Z", true},
+		{"still open", "2026-08-15T22:33:00Z", false},
+		{"empty stamp", "", false},
+		{"unparseable", "not-a-timestamp", false},
+	} {
+		o := opp(22, "b", "a", 100)
+		o.ExpiresAt = tc.expires
+		if got := haulClaimExpired(o, now); got != tc.want {
+			t.Errorf("%s (%q): expired=%v, want %v", tc.name, tc.expires, got, tc.want)
+		}
+	}
+}

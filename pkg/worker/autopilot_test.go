@@ -245,3 +245,44 @@ func TestFormatDuration(t *testing.T) {
 		}
 	}
 }
+
+// TestAutopilotRefusesToDepartWhenShortOnFuel is the regression for the
+// 2026-08-15 strandings: the planner printed "Not enough fuel! Need 56 more"
+// and jumped anyway, killing craftsman-1 at westmark_star with 4/400. A route
+// we have already computed we cannot finish must not be started — the agent
+// stays docked and recoverable instead of fuel-dead in deep space.
+func TestAutopilotRefusesToDepartWhenShortOnFuel(t *testing.T) {
+	f := autopilotFake()
+	// find_route reports the shape craftsman-1 saw: 15 per jump, 225 needed,
+	// 169 aboard. Fuel is full in state, so ensureRouteFuel has nothing to add.
+	f.raw = map[string][]byte{
+		"_last": []byte(`{"fuel_per_jump":15,"estimated_fuel":225,"fuel_available":169}`),
+	}
+
+	err := Autopilot(context.Background(), AutopilotDeps{Client: f, Out: io.Discard}, "sys_c", "")
+
+	if !errors.Is(err, ErrInsufficientRouteFuel) {
+		t.Fatalf("want ErrInsufficientRouteFuel, got %v", err)
+	}
+	for _, c := range f.calls {
+		if strings.HasPrefix(c, "jump:") {
+			t.Fatalf("must not jump when short on fuel, calls=%v", f.calls)
+		}
+	}
+}
+
+// TestAutopilotDepartsWhenFuelSuffices guards the other side: an adequate tank
+// must still fly the whole route, so the gate cannot deadlock normal hauling.
+func TestAutopilotDepartsWhenFuelSuffices(t *testing.T) {
+	f := autopilotFake()
+	f.raw = map[string][]byte{
+		"_last": []byte(`{"fuel_per_jump":15,"estimated_fuel":30,"fuel_available":169}`),
+	}
+
+	if err := Autopilot(context.Background(), AutopilotDeps{Client: f, Out: io.Discard}, "sys_c", ""); err != nil {
+		t.Fatalf("Autopilot: %v", err)
+	}
+	if !slices.Contains(f.calls, "jump:sys_b") || !slices.Contains(f.calls, "jump:sys_c") {
+		t.Fatalf("sufficient fuel must fly the route, calls=%v", f.calls)
+	}
+}

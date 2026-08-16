@@ -28,6 +28,13 @@ type WaypointCheckFunc func(ctx context.Context) (stop bool, err error)
 // Callers detect it with errors.Is to distinguish a deliberate re-plan from a failure.
 var errAutopilotStopped = errors.New("autopilot stopped early by waypoint check")
 
+// ErrInsufficientRouteFuel is returned when a route needs more fuel than the ship
+// has after the origin top-up attempt, so autopilot refuses to depart. Callers
+// should treat it as "still at the origin, nothing moved": release any claim and
+// re-plan rather than retrying the same route. Exported so roles outside this
+// package can distinguish it from a genuine mid-route failure.
+var ErrInsufficientRouteFuel = errors.New("insufficient fuel for route")
+
 // AutopilotRefuelThreshold: when find_route fuel estimates are unavailable, the
 // pre-route station refuel triggers if current fuel is below this fraction of capacity.
 const AutopilotRefuelThreshold = 0.5
@@ -139,8 +146,8 @@ func ensureRouteFuel(ctx context.Context, client game.GameClient, out io.Writer,
 // AutopilotDeps are the injected dependencies for Autopilot.
 type AutopilotDeps struct {
 	Client     game.GameClient
-	Out        io.Writer         // progress lines; nil -> io.Discard
-	OnWaypoint CaptureFunc       // per-arrival capture; nil -> no-op
+	Out        io.Writer   // progress lines; nil -> io.Discard
+	OnWaypoint CaptureFunc // per-arrival capture; nil -> no-op
 	// WaypointCheck is an optional per-arrival early-stop decision (re-route hook);
 	// nil -> never stops. It runs after OnWaypoint on each jump arrival.
 	WaypointCheck WaypointCheckFunc
@@ -220,8 +227,21 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 	}
 	if estimatedFuel > 0 {
 		fmt.Fprintf(out, "   Fuel: %d per jump, ~%d total, %d available\n", fuelPerJump, estimatedFuel, fuelAvailable) //nolint:errcheck
+		// Do not start a journey we have just computed we cannot finish.
+		// ensureRouteFuel above already tried to top up; still being short means the
+		// origin desk is dry, empty, or unaffordable, so departing means running out
+		// in deep space. Refusing leaves the agent DOCKED and alive — recoverable by
+		// a later refuel, an assist, or the operator — instead of fuel-dead at a
+		// station-less POI needing a GSA tow.
+		//
+		// Live 2026-08-15: craftsman-1 printed this warning 56 fuel short and
+		// departed anyway, dying at westmark_star with 4/400; salvager-3 and
+		// engineer-1 stranded the same night the same way.
 		if estimatedFuel > fuelAvailable {
-			fmt.Fprintf(out, "   WARNING: Not enough fuel! Need %d more.\n", estimatedFuel-fuelAvailable) //nolint:errcheck
+			fmt.Fprintf(out, "   NOT DEPARTING: route needs ~%d fuel, %d available (short %d)\n", //nolint:errcheck
+				estimatedFuel, fuelAvailable, estimatedFuel-fuelAvailable)
+			return fmt.Errorf("%w: route to %s needs ~%d fuel, %d available",
+				ErrInsufficientRouteFuel, targetSystem, estimatedFuel, fuelAvailable)
 		}
 	}
 	// Each jump ~2 ticks travel + ~1 tick update overhead.
