@@ -1189,6 +1189,23 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 	if m != nil {
 		m.arrivedDstAt, m.arrivedDstTick = haulNow(deps), haulTick(deps)
 	}
+
+	// Dock before selling, exactly as the buy leg does. Autopilot leaves the ship
+	// AT the station POI but undocked, and autopilotTravelToPOI returns early when
+	// the ship is already standing there — so a resumed haul never travels and
+	// never docks. Sell usually auto-docks and hid this, but where it does not the
+	// sale fails "not_docked" forever: craftsman-1 looped on that at Korr Fortress
+	// on 2026-08-15 holding 1,100 liquid hydrogen (~300k), killed by the stall
+	// watchdog every 15 minutes until an operator docked it by hand.
+	// Only dock when undocked — a docked ship returns "Already docked", which must
+	// not abort a sale we are standing on top of.
+	if st := deps.Client.GetState(); st != nil && !st.IsDocked() {
+		if err := deps.Client.Dock(ctx); err != nil {
+			fmt.Fprintf(out, "haul: opp %d cannot dock at sell station %s: %v; leaving claimed\n", opp.ID, opp.ToStationName, err) //nolint:errcheck
+			return nil
+		}
+	}
+
 	held := cargoQty(deps.Client.GetState(), opp.ItemID)
 	if held <= 0 {
 		fmt.Fprintf(out, "haul: opp %d nothing in cargo to sell; leaving claimed\n", opp.ID) //nolint:errcheck

@@ -1495,3 +1495,61 @@ func TestFilterStrongholdRoutes(t *testing.T) {
 		t.Fatalf("dropped = %v, want [2:gold 4:plat]", dropped)
 	}
 }
+
+// TestHaulSellLegDocksBeforeSelling is the regression for the Korr Fortress
+// loop (2026-08-15): autopilot leaves the ship AT the sell station but undocked,
+// and autopilotTravelToPOI returns early when it is already standing there, so a
+// resumed haul reached the sale having never docked. Sell then failed
+// "not_docked" every pass while craftsman-1 sat on 1,100 liquid hydrogen.
+func TestHaulSellLegDocksBeforeSelling(t *testing.T) {
+	o := opp(11, "b", "a", 100) // iron_ore, sell station a-stn in current system "a"
+	fc := &fakeClient{state: &game.State{
+		System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100,
+		Doc:  false, // standing at the POI, NOT docked — the live failure shape
+		Ship: game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}},
+	}, route: []game.RouteStep{{SystemID: "a", Name: "A"}}}
+	// Healthy demand so the run reaches the market-sell branch.
+	f := &fakeStore{orders: []market.Order{{Side: "buy", PriceEach: 500, Quantity: 100}}}
+	deps := HaulDeps{Client: fc, Market: f, AgentID: "t"}
+
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", &haulMetrics{buyPrice: 100, qty: 10}, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	dockAt := slices.Index(fc.calls, "dock")
+	sellAt := slices.IndexFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell:iron_ore") })
+	if dockAt < 0 {
+		t.Fatalf("undocked ship must dock before selling, calls=%v", fc.calls)
+	}
+	if sellAt < 0 {
+		t.Fatalf("expected a sell, calls=%v", fc.calls)
+	}
+	if dockAt > sellAt {
+		t.Fatalf("dock must precede the sell, calls=%v", fc.calls)
+	}
+}
+
+// TestHaulSellLegSkipsDockWhenAlreadyDocked: a ship that is already docked must
+// not call Dock at all — the server answers "Already docked", and treating that
+// as a failure would abort a sale the hauler is standing on top of.
+func TestHaulSellLegSkipsDockWhenAlreadyDocked(t *testing.T) {
+	o := opp(12, "b", "a", 100)
+	fc := &fakeClient{state: &game.State{
+		System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100,
+		Doc:  true, // already docked
+		Ship: game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}},
+	}, route: []game.RouteStep{{SystemID: "a", Name: "A"}},
+		dockErr: errors.New("Already docked at this station")}
+	f := &fakeStore{orders: []market.Order{{Side: "buy", PriceEach: 500, Quantity: 100}}}
+
+	if err := haulSellLeg(context.Background(), HaulDeps{Client: fc, Market: f, AgentID: "t"},
+		io.Discard, o, "a", &haulMetrics{buyPrice: 100, qty: 10}, 0); err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(fc.calls, "dock") {
+		t.Fatalf("a docked ship must not re-dock, calls=%v", fc.calls)
+	}
+	if !slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell:iron_ore") }) {
+		t.Fatalf("expected the sale to proceed, calls=%v", fc.calls)
+	}
+}

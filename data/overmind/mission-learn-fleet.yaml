@@ -20,7 +20,11 @@ workers:
   # HELD OUT via mission-learn-overrides.json since 2026-07-25: operator is using
   # it for PRODUCTION FACILITY work. Do NOT re-add without operator say-so.
   # engineer-2 likewise held out as the standing smuggling pilot.
-  - { agent_id: craftsman-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 11 }
+  # MOVED TO THE HAUL FLEET 2026-08-15 (operator request) — see haul-fleet.yaml.
+  # Left commented rather than deleted so the history stays readable. Do NOT
+  # uncomment while it is a hauler: two fleets spawning one agent means a
+  # double login and session_replaced thrash.
+  # - { agent_id: craftsman-1, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 11 }
   - { agent_id: engineer-2, role: missionrunner, station: "", mission_categories: [delivery, exploration], enable_freight: true, freight_max_packages: 6 }
   # SMUGGLING CANARY 1 of 2 (2026-07-26). Contraband couriers carry warnings
   # (insurance voided) and only these two workers are opted in. Chosen for the
