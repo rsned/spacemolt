@@ -721,6 +721,46 @@ func migrations() []Migration {
 				ALTER TABLE wildlife_species ADD COLUMN ranchable INTEGER NOT NULL DEFAULT 0;
 			`,
 		},
+		{
+			// A ledger of every wildlife LOOK, whether or not anything was
+			// there. wildlife_sightings records what was seen and therefore
+			// cannot represent "we checked here and it was empty" — a POI with
+			// no creatures writes no row at all, so it is indistinguishable
+			// from a POI nobody has ever visited.
+			//
+			// That is not hypothetical: on 2026-08-17 the operator ran
+			// get_nearby at every POI in Goldcrest, and because goldcrest_star
+			// held zero creatures the database showed nothing, which was then
+			// read back as "never checked". The kill table already solves this
+			// exact problem with carcass_read; this is the same fix one table
+			// over.
+			//
+			// The second purpose is the series. Capacity, growth and loss are
+			// modelled server-side against an invisible per-system pool, and
+			// the only way to observe it is repeated counts at the same place
+			// over time — including the zeroes, which are the observations that
+			// bound a population from above.
+			version: 51,
+			name:    "wildlife_survey_coverage",
+			sql: `
+				CREATE TABLE IF NOT EXISTS wildlife_surveys (
+					id             INTEGER PRIMARY KEY AUTOINCREMENT,
+					system_id      TEXT NOT NULL DEFAULT '',
+					poi_id         TEXT NOT NULL DEFAULT '',
+					poi_type       TEXT NOT NULL DEFAULT '',
+					source         TEXT NOT NULL DEFAULT '',
+					species_seen   INTEGER NOT NULL DEFAULT 0,
+					creatures_seen INTEGER NOT NULL DEFAULT 0,
+					game_tick      INTEGER NOT NULL DEFAULT 0,
+					observed_utc   TEXT NOT NULL DEFAULT '',
+					agent_id       TEXT NOT NULL DEFAULT ''
+				);
+				CREATE INDEX IF NOT EXISTS idx_wildlife_surveys_place
+					ON wildlife_surveys(system_id, poi_id, game_tick DESC);
+				CREATE INDEX IF NOT EXISTS idx_wildlife_surveys_time
+					ON wildlife_surveys(observed_utc DESC);
+			`,
+		},
 		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
 		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
 		// pre-collapse DBs, where `ships` does not exist until

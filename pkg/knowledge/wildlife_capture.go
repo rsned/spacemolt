@@ -16,6 +16,7 @@ type WildlifeRecorder interface {
 	UpsertWildlifeSpecies(ctx context.Context, rows []WildlifeSpecies) error
 	RecordWildlifeSightings(ctx context.Context, rows []WildlifeSighting) error
 	RecordWildlifeKill(ctx context.Context, k WildlifeKill) error
+	RecordWildlifeCoverage(ctx context.Context, rows []WildlifeCoverage) error
 }
 
 // wildlifeRecorder narrows a Base to a WildlifeRecorder, returning nil when the
@@ -167,6 +168,22 @@ func CaptureWildlifeNearby(ctx context.Context, kb Base, creatures []serverapi.N
 		return 0, nil
 	}
 	species, sightings := WildlifeFromNearby(creatures, systemID, poiID, poiType, agentID, tick)
+
+	// The coverage row goes in FIRST and unconditionally. An empty POI produces
+	// no sightings at all, and without this the look leaves no trace — which is
+	// exactly how a fully surveyed system came to read as half unvisited.
+	total := 0
+	for _, s := range sightings {
+		total += s.ObservedCount
+	}
+	if err := rec.RecordWildlifeCoverage(ctx, []WildlifeCoverage{{
+		SystemID: systemID, POIID: poiID, POIType: poiType,
+		Source: WildlifeSourceNearby, SpeciesSeen: len(sightings),
+		CreaturesSeen: total, GameTick: tick, AgentID: agentID,
+	}}); err != nil {
+		return 0, fmt.Errorf("capture wildlife coverage: %w", err)
+	}
+
 	if len(sightings) == 0 {
 		return 0, nil
 	}
@@ -186,6 +203,22 @@ func CaptureWildlifeSurvey(ctx context.Context, kb Base, resp serverapi.SurveySy
 		return 0, nil
 	}
 	species, sightings := WildlifeFromSurvey(resp, agentID, tick)
+
+	// Same rule as the nearby path: a survey that found no wildlife at all is
+	// a real measurement of the system and must be recorded. It carries no POI
+	// id, because a census is system-wide.
+	total := 0
+	for _, s := range sightings {
+		total += s.ObservedCount
+	}
+	if err := rec.RecordWildlifeCoverage(ctx, []WildlifeCoverage{{
+		SystemID: resp.SystemID, Source: WildlifeSourceSurvey,
+		SpeciesSeen: len(sightings), CreaturesSeen: total,
+		GameTick: tick, AgentID: agentID,
+	}}); err != nil {
+		return 0, fmt.Errorf("capture survey wildlife coverage: %w", err)
+	}
+
 	if len(sightings) == 0 {
 		return 0, nil
 	}

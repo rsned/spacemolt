@@ -11,7 +11,7 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 22
+-- Migrations applied: 23
 -- Last Regenerated: 2026-08-17
 
 -- ============================================================================
@@ -1002,6 +1002,20 @@ CREATE TABLE wildlife_species (
 				, scan_traits TEXT NOT NULL DEFAULT '', scan_revealed TEXT NOT NULL DEFAULT '', ranchable INTEGER NOT NULL DEFAULT 0);
 
 
+CREATE TABLE wildlife_surveys (
+					id             INTEGER PRIMARY KEY AUTOINCREMENT,
+					system_id      TEXT NOT NULL DEFAULT '',
+					poi_id         TEXT NOT NULL DEFAULT '',
+					poi_type       TEXT NOT NULL DEFAULT '',
+					source         TEXT NOT NULL DEFAULT '',
+					species_seen   INTEGER NOT NULL DEFAULT 0,
+					creatures_seen INTEGER NOT NULL DEFAULT 0,
+					game_tick      INTEGER NOT NULL DEFAULT 0,
+					observed_utc   TEXT NOT NULL DEFAULT '',
+					agent_id       TEXT NOT NULL DEFAULT ''
+				);
+
+
 CREATE TABLE xp_observations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     agent_id TEXT NOT NULL,
@@ -1140,6 +1154,12 @@ CREATE INDEX idx_wildlife_sightings_place ON wildlife_sightings(system_id, poi_i
 
 CREATE INDEX idx_wildlife_sightings_species ON wildlife_sightings(species, observed_utc DESC);
 
+CREATE INDEX idx_wildlife_surveys_place
+					ON wildlife_surveys(system_id, poi_id, game_tick DESC);
+
+CREATE INDEX idx_wildlife_surveys_time
+					ON wildlife_surveys(observed_utc DESC);
+
 CREATE INDEX idx_xp_obs_action ON xp_observations(action);
 
 CREATE INDEX idx_xp_obs_agent ON xp_observations(agent_id);
@@ -1203,4 +1223,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (47, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (48, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (49, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (50, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (51, datetime('now'));
 
