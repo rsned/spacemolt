@@ -58,7 +58,7 @@ export const AgentCard = memo(function AgentCard({ agent, color, selected, stale
           <span className={unhealthy ? 'text-red-500' : 'text-emerald-500'}>◉</span>
         </span>
       </div>
-      <div className="text-[#8a8570] truncate">
+      <div className="text-[#8a8570] truncate" title={`${agent.system_name} / ${agent.poi}`}>
         {agent.system_name} / {agent.poi}{agent.docked ? ' ⚓' : ''}
       </div>
       <div className="font-mono text-[#d8d3c0]">
@@ -72,7 +72,14 @@ export const AgentCard = memo(function AgentCard({ agent, color, selected, stale
         cargo <Bar value={agent.cargo_used} max={agent.cargo_capacity} color="#d4a017" />
         {Math.round(agent.cargo_used)}/{Math.round(agent.cargo_capacity)}
       </div>
-      {agent.activity && <div className="text-[#d4a017] truncate">► {agent.activity}</div>}
+      {/* title= gives the full text on hover: the activity line is the only
+          place an opportunity's terms (item, quantity, route) are shown, and
+          it truncates well before the end of them. */}
+      {agent.activity && (
+        <div className="text-[#d4a017] truncate cursor-help" title={agent.activity}>
+          ► {agent.activity}
+        </div>
+      )}
       <div className="text-[#8a8570]">restarts {agent.restarts} · seen {seenAge(agent.last_seen)}</div>
     </div>
   );
