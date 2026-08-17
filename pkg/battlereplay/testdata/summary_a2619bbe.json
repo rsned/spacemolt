@@ -1,0 +1,90 @@
+{
+ "battle_id": "a2619bbe328676445828b4e1007fe9aa",
+ "category": "npc",
+ "destroyed_names": [
+  "Ashen Assault",
+  "Ashveteran",
+  "Attrition",
+  "Carbide",
+  "Grand Marshal Korr",
+  "Grind Advance",
+  "Grind Ash",
+  "Ravine",
+  "Scarred Bastion",
+  "Scourge",
+  "Steeltrench",
+  "[POLICE] Collective Observer II - Node Beta Industrial Station",
+  "[POLICE] Collective Observer III - Node Beta Industrial Station",
+  "[POLICE] Collective Observer IV - Node Beta Industrial Station"
+ ],
+ "duration_ticks": 30,
+ "ended_at": "2026-08-14T19:23:59Z",
+ "has_station": true,
+ "outcome": "victory",
+ "participant_count": 42,
+ "ships_destroyed": 14,
+ "sides": [
+  {
+   "participants": [
+    "Ashen Assault",
+    "Ashveteran",
+    "Attrition",
+    "Carbide",
+    "Grand Marshal Korr",
+    "Grind Advance",
+    "Grind Ash",
+    "Ravine",
+    "Scarred Bastion",
+    "Scourge",
+    "Steeltrench"
+   ],
+   "side_id": 1
+  },
+  {
+   "participants": [
+    "Anamnesis",
+    "Anamnesis",
+    "Annihilation",
+    "Annihilation",
+    "Apotheosis",
+    "Dualism",
+    "Dualism",
+    "Gestalt",
+    "Gestalt",
+    "Membrane",
+    "Membrane",
+    "Node Beta Industrial Station",
+    "Paradox I",
+    "Paradox I",
+    "Paradox II",
+    "Paradox II",
+    "Recursion I",
+    "Recursion I",
+    "Recursion II",
+    "Recursion II",
+    "Silent Tide",
+    "Silent Tide",
+    "Vigil",
+    "Voidborn Singularity",
+    "Voidborn Singularity",
+    "[POLICE] Collective Observer I - Node Beta Industrial Station",
+    "[POLICE] Collective Observer II - Node Beta Industrial Station",
+    "[POLICE] Collective Observer III - Node Beta Industrial Station",
+    "[POLICE] Collective Observer IV - Node Beta Industrial Station",
+    "[POLICE] Collective Observer V - Node Beta Industrial Station",
+    "[POLICE] Collective Observer VI - Node Beta Industrial Station"
+   ],
+   "side_id": 2
+  }
+ ],
+ "start_tick": 1615385,
+ "status": "completed",
+ "system_id": "node_beta",
+ "system_name": "Node Beta",
+ "top_damage": {
+  "damage": 1349,
+  "username": "Apotheosis"
+ },
+ "total_damage": 10293,
+ "winning_side": 2
+}
