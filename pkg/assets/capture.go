@@ -57,6 +57,23 @@ func CaptureProfile(ctx context.Context, client game.GameClient, st *Store, agen
 		return err
 	}
 
+	// Lifetime death counters ride along on the get_status above, so this costs
+	// no extra call. It is the only record anywhere that an agent has died:
+	// workers log nothing on a loss, and every other table here is
+	// current-state-only.
+	if _, err := st.RecordStats(ctx, playerID, Stats{
+		ShipsLost:                p.Stats.ShipsLost,
+		ShipsDestroyed:           p.Stats.ShipsDestroyed,
+		DeathsByPirate:           p.Stats.DeathsByPirate,
+		DeathsByPlayer:           p.Stats.DeathsByPlayer,
+		DeathsBySelfDestruct:     p.Stats.DeathsBySelfDestruct,
+		DeathsByWildlife:         p.Stats.DeathsByWildlife,
+		InsuranceClaimsMade:      p.Stats.InsuranceClaimsMade,
+		InsurancePayoutsReceived: p.Stats.InsurancePayoutsRecvd,
+	}, now); err != nil {
+		return err
+	}
+
 	skills := make([]SkillRow, 0, len(p.Skills))
 	skillMap := make(map[string]SkillRow, len(p.Skills))
 	for name, sk := range p.Skills {

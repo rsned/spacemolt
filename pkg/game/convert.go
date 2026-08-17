@@ -63,6 +63,14 @@ func PlayerStatsFromAPI(ext serverapi.PlayerStats) PlayerStats {
 		PiratesDestroyed:  ext.PiratesDestroyed,
 		ShipsLost:         ext.ShipsLost,
 		TimePlayed:        ext.TimePlayed,
+
+		DeathsByPirate:       ext.DeathsByPirate,
+		DeathsByPlayer:       ext.DeathsByPlayer,
+		DeathsBySelfDestruct: ext.DeathsBySelfDestruct,
+		DeathsByWildlife:     ext.DeathsByWildlife,
+
+		InsuranceClaimsMade:   ext.InsuranceClaimsMade,
+		InsurancePayoutsRecvd: ext.InsurancePayoutsRecvd,
 	}
 }
 

@@ -33,6 +33,51 @@ type Profile struct {
 	CapturedAt    time.Time
 }
 
+// Stats is one capture of an agent's lifetime death and loss counters.
+//
+// ShipsLost is NOT the sum of the death counters and must not be derived from
+// them: explorer-7 reports deaths_by_pirate 1 and deaths_by_player 1 against
+// ships_lost 1, so a death does not always cost a hull. Both are recorded as the
+// server states them.
+type Stats struct {
+	CapturedAt               string
+	ShipsLost                int
+	ShipsDestroyed           int
+	DeathsByPirate           int
+	DeathsByPlayer           int
+	DeathsBySelfDestruct     int
+	DeathsByWildlife         int
+	InsuranceClaimsMade      int
+	InsurancePayoutsReceived int64
+}
+
+// Deaths totals the per-cause counters.
+func (s Stats) Deaths() int {
+	return s.DeathsByPirate + s.DeathsByPlayer + s.DeathsBySelfDestruct + s.DeathsByWildlife
+}
+
+// sameCounters reports whether every counter matches, ignoring CapturedAt. This
+// is what makes the table append-on-change: an hourly capture that finds nothing
+// moved writes nothing.
+func (s Stats) sameCounters(o Stats) bool {
+	return s.ShipsLost == o.ShipsLost &&
+		s.ShipsDestroyed == o.ShipsDestroyed &&
+		s.DeathsByPirate == o.DeathsByPirate &&
+		s.DeathsByPlayer == o.DeathsByPlayer &&
+		s.DeathsBySelfDestruct == o.DeathsBySelfDestruct &&
+		s.DeathsByWildlife == o.DeathsByWildlife &&
+		s.InsuranceClaimsMade == o.InsuranceClaimsMade &&
+		s.InsurancePayoutsReceived == o.InsurancePayoutsReceived
+}
+
+// AgentStats pairs a stats capture with the agent it belongs to.
+type AgentStats struct {
+	AgentID  string
+	Username string
+	PlayerID string
+	Stats    Stats
+}
+
 // SkillRow is one entry of Player.Skills.
 type SkillRow struct {
 	Skill string

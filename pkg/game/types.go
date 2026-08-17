@@ -125,6 +125,28 @@ type PlayerStats struct {
 	PiratesDestroyed  int   `json:"pirates_destroyed"`
 	ShipsLost         int   `json:"ships_lost"`
 	TimePlayed        int64 `json:"time_played"`
+
+	// Deaths are counted per cause and are the only lifetime record of an agent
+	// dying that exists anywhere: workers log no death, and the asset ledger
+	// only ever shows the fleet an agent has right now.
+	//
+	// ShipsLost is NOT their sum, and neither derives from the other — observed
+	// live on explorer-7: deaths_by_pirate 1 + deaths_by_player 1, ships_lost 1.
+	// A death does not always cost a hull, so treat the two as separate facts.
+	DeathsByPirate       int `json:"deaths_by_pirate,omitempty"`
+	DeathsByPlayer       int `json:"deaths_by_player,omitempty"`
+	DeathsBySelfDestruct int `json:"deaths_by_self_destruct,omitempty"`
+	DeathsByWildlife     int `json:"deaths_by_wildlife,omitempty"`
+
+	InsuranceClaimsMade   int   `json:"insurance_claims_made,omitempty"`
+	InsurancePayoutsRecvd int64 `json:"insurance_payouts_received,omitempty"`
+}
+
+// Deaths totals the per-cause death counters. It is deliberately not compared
+// against ShipsLost: the two disagree in live data because a death does not
+// always destroy a hull.
+func (s PlayerStats) Deaths() int {
+	return s.DeathsByPirate + s.DeathsByPlayer + s.DeathsBySelfDestruct + s.DeathsByWildlife
 }
 
 // Ship represents the player's ship with all stats, modules, and cargo.

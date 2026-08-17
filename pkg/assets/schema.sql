@@ -232,3 +232,27 @@ CREATE TABLE IF NOT EXISTS faction_storage_items (
     PRIMARY KEY (faction_id, base_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_faction_storage_items_item ON faction_storage_items(item_id);
+
+-- Lifetime death and loss counters, straight off get_status. APPEND-ON-CHANGE:
+-- a row is written only when a counter differs from the agent's latest row, so
+-- the table is a series of events rather than one hourly row per agent.
+--
+-- This is deliberately NOT the replaceSet pattern the other asset tables use.
+-- agent_hulls deletes and reinserts, which makes it impossible to tell that a
+-- hull ever existed — and a ship loss is exactly the thing we went looking for
+-- and could not find. Counters only ever ratchet upward, so appending on change
+-- is both cheap and the whole point.
+CREATE TABLE IF NOT EXISTS agent_stats (
+    player_id                  TEXT NOT NULL,
+    captured_at                TEXT NOT NULL,
+    ships_lost                 INTEGER NOT NULL DEFAULT 0,
+    ships_destroyed            INTEGER NOT NULL DEFAULT 0,
+    deaths_by_pirate           INTEGER NOT NULL DEFAULT 0,
+    deaths_by_player           INTEGER NOT NULL DEFAULT 0,
+    deaths_by_self_destruct    INTEGER NOT NULL DEFAULT 0,
+    deaths_by_wildlife         INTEGER NOT NULL DEFAULT 0,
+    insurance_claims_made      INTEGER NOT NULL DEFAULT 0,
+    insurance_payouts_received INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (player_id, captured_at)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_stats_player ON agent_stats(player_id, captured_at DESC);
