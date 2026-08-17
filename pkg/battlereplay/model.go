@@ -36,11 +36,27 @@ type ReplayModel struct {
 	// Bounds is the extent of every position in the battle, so a renderer can
 	// fit the table without a pre-pass.
 	Bounds Bounds `json:"bounds"`
-	// Zones lists the distinct range bands seen, nearest-to-contact last.
+	// Centre is the middle of the table: the point zones are measured from, and
+	// the point every side's advance/retreat axis runs toward. Taken as the
+	// midpoint of Bounds, which reproduces the ordering of the range bands
+	// (mean radius engaged < inner < mid < outer in the reference battle).
+	Centre Point `json:"centre"`
+	// Zones lists the distinct range bands seen, nearest-to-contact last. They
+	// are RADIAL bands around Centre, not slices of an axis.
 	Zones []string `json:"zones"`
+	// Sides is every faction in the fight, ordered by side id. There is NO
+	// fixed limit of two: three- and four-sided battles occur, so a renderer
+	// must lay out whatever this contains rather than assuming a duel.
+	Sides []Side `json:"sides"`
 
 	Participants []Participant `json:"participants"`
 	Frames       []Frame       `json:"frames"`
+}
+
+// Point is a position on the table.
+type Point struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 // Bounds is the axis-aligned extent of all observed positions.
@@ -49,6 +65,29 @@ type Bounds struct {
 	XMax float64 `json:"x_max"`
 	YMin float64 `json:"y_min"`
 	YMax float64 `json:"y_max"`
+}
+
+// Side is one faction in the battle, with the layout facts a renderer needs to
+// place and label it. Battles are not always two-sided — three and four sides
+// happen, and the official viewer arranges them as sectors around the rings —
+// so nothing here assumes an opponent count.
+type Side struct {
+	SideID     int    `json:"side_id"`
+	FactionID  string `json:"faction_id,omitempty"`
+	FactionTag string `json:"faction_tag,omitempty"`
+	// Count is how many participants belong to this side.
+	Count int `json:"count"`
+	// Won marks the winning side, when the battle reported one.
+	Won bool `json:"won,omitempty"`
+
+	// BearingMean is this side's mean angle around the table in degrees,
+	// measured from Centre with 0° along +x and increasing toward +y. Sides
+	// occupy roughly distinct arcs, so this is where to anchor a side's roster
+	// panel or label.
+	BearingMean float64 `json:"bearing_mean"`
+	// RadiusMean is this side's mean distance from Centre — a rough measure of
+	// how committed it is, since closing the range means moving inward.
+	RadiusMean float64 `json:"radius_mean"`
 }
 
 // Participant is one combatant's constant identity plus its lifespan. Anything

@@ -3,6 +3,7 @@ package battlereplay
 import (
 	"compress/gzip"
 	"encoding/json"
+	"math"
 	"os"
 	"testing"
 
@@ -208,28 +209,139 @@ func TestAdaptBoundsAndZones(t *testing.T) {
 		}
 	}
 
-	// The engagement axis: the two sides should occupy different x ranges.
-	minX := map[int]float64{}
-	maxX := map[int]float64{}
-	side := map[string]int{}
-	for _, p := range m.Participants {
-		side[p.PlayerID] = p.SideID
+	// The table is RADIAL: zones are rings around Centre and each side holds a
+	// bearing. This reference battle is two-sided, but nothing here may assume
+	// that — three- and four-sided battles occur.
+	if len(m.Sides) < 2 {
+		t.Fatalf("expected at least 2 sides, got %d", len(m.Sides))
 	}
-	for _, f := range m.Frames {
-		for _, s := range f.Ships {
-			sd := side[s.PlayerID]
-			if _, ok := minX[sd]; !ok {
-				minX[sd], maxX[sd] = s.X, s.X
-			}
-			minX[sd] = min(minX[sd], s.X)
-			maxX[sd] = max(maxX[sd], s.X)
+	if m.Centre.X < m.Bounds.XMin || m.Centre.X > m.Bounds.XMax {
+		t.Errorf("centre %v outside bounds %v", m.Centre, m.Bounds)
+	}
+	for i, s := range m.Sides {
+		if s.Count == 0 {
+			t.Errorf("side %d has no participants", s.SideID)
+		}
+		if s.RadiusMean <= 0 {
+			t.Errorf("side %d has no radius", s.SideID)
+		}
+		if s.BearingMean < 0 || s.BearingMean >= 360 {
+			t.Errorf("side %d bearing %.1f out of range", s.SideID, s.BearingMean)
+		}
+		if i > 0 && m.Sides[i-1].SideID >= s.SideID {
+			t.Errorf("sides must be ordered by id, got %d then %d", m.Sides[i-1].SideID, s.SideID)
 		}
 	}
-	if len(minX) != 2 {
-		t.Fatalf("expected 2 sides, got %d", len(minX))
+	// Sides hold distinct arcs, so their mean bearings must differ.
+	if len(m.Sides) == 2 {
+		d := math.Abs(m.Sides[0].BearingMean - m.Sides[1].BearingMean)
+		if d > 180 {
+			d = 360 - d
+		}
+		if d < 20 {
+			t.Errorf("two sides should hold different arcs, bearings %.1f and %.1f",
+				m.Sides[0].BearingMean, m.Sides[1].BearingMean)
+		}
 	}
-	if minX[1] >= minX[2] {
-		t.Errorf("sides should separate along x: side1 min %.2f, side2 min %.2f", minX[1], minX[2])
+	// Exactly one side may be flagged as the winner, and it must be the one the
+	// battle named.
+	var won []int
+	for _, s := range m.Sides {
+		if s.Won {
+			won = append(won, s.SideID)
+		}
+	}
+	if len(won) != 1 || won[0] != m.WinningSide {
+		t.Errorf("winning side flags = %v, want exactly [%d]", won, m.WinningSide)
+	}
+	// Zones must order by radius: engaged nearest the centre, outer farthest.
+	sumR := map[string]float64{}
+	nR := map[string]int{}
+	for _, f := range m.Frames {
+		for _, s := range f.Ships {
+			r := math.Hypot(s.X-m.Centre.X, s.Y-m.Centre.Y)
+			sumR[s.Zone] += r
+			nR[s.Zone]++
+		}
+	}
+	// m.Zones is ordered far-to-near (outer first), so radii must SHRINK.
+	prev := math.Inf(1)
+	for _, z := range m.Zones {
+		if nR[z] == 0 {
+			continue
+		}
+		mean := sumR[z] / float64(nR[z])
+		if mean > prev {
+			t.Errorf("zone %q mean radius %.2f is outside the previous band (%.2f); m.Zones runs far-to-near",
+				z, mean, prev)
+		}
+		prev = mean
+	}
+}
+
+// TestAdaptHandlesMoreThanTwoSides: battles are not always duels — three- and
+// four-sided fights occur — so the model must carry every side and orient each
+// from its own position rather than from a hardcoded "side 2 mirrors" rule.
+func TestAdaptHandlesMoreThanTwoSides(t *testing.T) {
+	snap := func(id string, side int, x float64) serverapi.ParticipantSnapshot {
+		return serverapi.ParticipantSnapshot{
+			PlayerID: id, Username: id, Kind: "player", SideID: side,
+			ShipClass: "vigil", X: x, Y: 0, Zone: "outer",
+			Hull: 10, MaxHull: 10, Shield: 5, MaxShield: 5,
+		}
+	}
+	page := serverapi.GetBattleLogResponse{
+		BattleID: "four_way", Status: "completed", TotalTicks: 2,
+		Entries: []serverapi.BattleLogEntry{
+			{Tick: 1, SystemID: "sys", Snapshots: []serverapi.ParticipantSnapshot{
+				snap("a", 1, 0.5), snap("b", 2, 1.0), snap("c", 3, 2.0), snap("d", 4, 3.5),
+			}},
+			{Tick: 2, SystemID: "sys", Snapshots: []serverapi.ParticipantSnapshot{
+				snap("a", 1, 0.6), snap("b", 2, 1.1), snap("c", 3, 2.1), snap("d", 4, 3.4),
+			}},
+		},
+	}
+	sum := &serverapi.BattleSummaryResponse{
+		BattleID: "four_way", WinningSide: 3,
+		Sides: []serverapi.BattleSideSummary{
+			{SideID: 1, FactionTag: "AAA", Participants: []string{"a"}},
+			{SideID: 2, FactionTag: "BBB", Participants: []string{"b"}},
+			{SideID: 3, FactionTag: "CCC", Participants: []string{"c"}},
+			{SideID: 4, FactionTag: "DDD", Participants: []string{"d"}},
+			// A fifth side the log never showed — joined and died before any
+			// snapshot. It must still appear in the roster.
+			{SideID: 5, FactionTag: "EEE", Participants: []string{"e", "f"}},
+		},
+	}
+
+	m := Adapt([]serverapi.GetBattleLogResponse{page}, sum)
+
+	if len(m.Sides) != 5 {
+		t.Fatalf("sides = %d, want 5 (4 seen + 1 summary-only)", len(m.Sides))
+	}
+	tags := map[int]string{}
+	for _, s := range m.Sides {
+		tags[s.SideID] = s.FactionTag
+	}
+	if tags[1] != "AAA" || tags[4] != "DDD" || tags[5] != "EEE" {
+		t.Errorf("faction tags did not carry from the summary: %v", tags)
+	}
+	// All four sit on the y=0 line in this synthetic case, so sides below the
+	// centre bear 180 degrees and sides above it bear 0. What matters is that
+	// every side gets a bearing and a radius, with no two-side assumption.
+	for _, s := range m.Sides[:4] {
+		if s.RadiusMean <= 0 {
+			t.Errorf("side %d has no radius", s.SideID)
+		}
+	}
+	var won []int
+	for _, s := range m.Sides {
+		if s.Won {
+			won = append(won, s.SideID)
+		}
+	}
+	if len(won) != 1 || won[0] != 3 {
+		t.Errorf("winner flags = %v, want [3]", won)
 	}
 }
 

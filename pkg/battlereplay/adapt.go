@@ -159,6 +159,7 @@ func Adapt(pages []serverapi.GetBattleLogResponse, summary *serverapi.BattleSumm
 	}
 	if sawPosition {
 		m.Bounds = bounds
+		m.Centre = Point{X: (bounds.XMin + bounds.XMax) / 2, Y: (bounds.YMin + bounds.YMax) / 2}
 	}
 	m.Zones = sortedZones(zones)
 
@@ -177,8 +178,69 @@ func Adapt(pages []serverapi.GetBattleLogResponse, summary *serverapi.BattleSumm
 		return a.PlayerID < b.PlayerID
 	})
 
+	m.Sides = buildSides(m.Frames, m.Participants, m.Centre, m.WinningSide)
 	applySummary(&m, summary)
 	return m
+}
+
+// buildSides summarises where each side sits around the table.
+//
+// The table is RADIAL, not a linear axis: zones are rings around the centre and
+// each side is assigned a bearing, with advance and retreat running inward and
+// outward along it. So a side is described by its mean bearing (which arc it
+// holds) and mean radius (how far in it has pressed) — not by a position on an
+// axis, and emphatically not by a two-side "left versus right" rule, since
+// three- and four-sided battles occur.
+func buildSides(frames []Frame, parts []Participant, centre Point, winner int) []Side {
+	sideOf := make(map[string]int, len(parts))
+	counts := map[int]int{}
+	for _, p := range parts {
+		sideOf[p.PlayerID] = p.SideID
+		counts[p.SideID]++
+	}
+
+	// Bearings are averaged as unit vectors, not as degrees: a side straddling
+	// the +x axis has bearings near both 0° and 360°, and averaging those
+	// numerically would place it at 180° — the exact opposite of where it is.
+	type acc struct {
+		sinSum, cosSum, radSum float64
+		n                      int
+	}
+	stats := map[int]*acc{}
+	for _, f := range frames {
+		for _, s := range f.Ships {
+			sd := sideOf[s.PlayerID]
+			a := stats[sd]
+			if a == nil {
+				a = &acc{}
+				stats[sd] = a
+			}
+			dx, dy := s.X-centre.X, s.Y-centre.Y
+			a.radSum += math.Hypot(dx, dy)
+			if dx != 0 || dy != 0 {
+				ang := math.Atan2(dy, dx)
+				a.sinSum += math.Sin(ang)
+				a.cosSum += math.Cos(ang)
+			}
+			a.n++
+		}
+	}
+
+	out := make([]Side, 0, len(counts))
+	for sd, n := range counts {
+		s := Side{SideID: sd, Count: n, Won: winner != 0 && sd == winner}
+		if a := stats[sd]; a != nil && a.n > 0 {
+			s.RadiusMean = a.radSum / float64(a.n)
+			deg := math.Atan2(a.sinSum, a.cosSum) * 180 / math.Pi
+			if deg < 0 {
+				deg += 360
+			}
+			s.BearingMean = deg
+		}
+		out = append(out, s)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].SideID < out[j].SideID })
+	return out
 }
 
 // applySummary layers the optional summary over the log-derived model. The log
@@ -210,6 +272,43 @@ func applySummary(m *ReplayModel, s *serverapi.BattleSummaryResponse) {
 	}
 	if m.StartTick == 0 {
 		m.StartTick = s.StartTick
+	}
+
+	// Faction identity per side exists only in the summary — snapshots carry a
+	// participant's faction, not the side's tag. Sides the summary names but the
+	// log never showed are appended, so a side that joined and died before any
+	// snapshot still appears in the roster.
+	for _, ss := range s.Sides {
+		found := false
+		for i := range m.Sides {
+			if m.Sides[i].SideID != ss.SideID {
+				continue
+			}
+			found = true
+			if m.Sides[i].FactionID == "" {
+				m.Sides[i].FactionID = ss.FactionID
+			}
+			if m.Sides[i].FactionTag == "" {
+				m.Sides[i].FactionTag = ss.FactionTag
+			}
+			if m.Sides[i].Count == 0 {
+				m.Sides[i].Count = len(ss.Participants)
+			}
+		}
+		if !found {
+			m.Sides = append(m.Sides, Side{
+				SideID: ss.SideID, FactionID: ss.FactionID, FactionTag: ss.FactionTag,
+				Count: len(ss.Participants), Won: s.WinningSide != 0 && ss.SideID == s.WinningSide,
+			})
+		}
+	}
+	sort.Slice(m.Sides, func(i, j int) bool { return m.Sides[i].SideID < m.Sides[j].SideID })
+
+	// Re-flag the winner last: buildSides runs before this, so when the winning
+	// side came from the SUMMARY rather than a battle_ended entry, the flags set
+	// during the build were computed against a zero value.
+	for i := range m.Sides {
+		m.Sides[i].Won = m.WinningSide != 0 && m.Sides[i].SideID == m.WinningSide
 	}
 }
 
