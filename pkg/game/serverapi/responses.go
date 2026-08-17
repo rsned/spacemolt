@@ -2248,6 +2248,15 @@ type GetActionLogResponse struct {
 	PageSize   int              `json:"page_size,omitempty"`
 	Total      int              `json:"total,omitempty"`
 	TotalPages int              `json:"total_pages,omitempty"`
+	// EventTypes echoes a multi-value event_type filter.
+	EventTypes []string `json:"event_types,omitempty"`
+	// SinceID echoes the cursor the request supplied, and NextSinceID is what to
+	// send on the next poll. Together they make incremental capture gap-free:
+	// page numbers shift as new events arrive, an id cursor does not. Both were
+	// missing from this struct until 2026-08-17 even though the server has
+	// documented them.
+	SinceID     int64 `json:"since_id,omitempty"`
+	NextSinceID int64 `json:"next_since_id,omitempty"`
 }
 
 // ActionLogEntry represents a single entry in the action log.

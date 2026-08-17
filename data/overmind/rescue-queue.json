@@ -1,1 +1,27 @@
-[]
+[
+ {
+  "agent_id": "explorer-7",
+  "target_username": "Nova 'Navigator' Nash",
+  "fleet": "mission-learn",
+  "system": "40 Eridani",
+  "system_id": "40_eridani",
+  "poi": "40_eridani_iii",
+  "fuel": 0,
+  "max_fuel": 120,
+  "rescue_fuel": 10,
+  "reason": "fuel-dead: stalled >15m0s undocked, fuel 0/120",
+  "status": "failed",
+  "claimed_by": "",
+  "error": "travel: jump 1/13 to Sirius failed: You are detained by the Solarian Confederacy. Pay 51 credits to clear the bounty and be released. Detention lifts in 22h51m0s, but the bounty remains until paid and you will be detained again the next time you dock in their territory.",
+  "requested_at": "2026-08-16T22:49:27Z",
+  "updated_at": "2026-08-17T00:37:20Z",
+  "pending_since": "2026-08-17T00:12:10Z",
+  "attempts": 5,
+  "failed_by": [
+   "assist-krynn",
+   "assist-sol",
+   "assist-nexus",
+   "assist-haven"
+  ]
+ }
+]

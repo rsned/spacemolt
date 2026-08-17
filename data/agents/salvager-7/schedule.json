@@ -4,20 +4,26 @@
     "frequency": "hourly",
     "command": "capture_profile",
     "created_at": "2026-08-09T23:41:02.20983895Z",
-    "last_run": "2026-08-13T20:00:00.933095669Z"
+    "last_run": "2026-08-17T16:00:13.947287463Z"
   },
   {
     "id": 2,
     "frequency": "daily",
     "command": "capture_storage",
     "created_at": "2026-08-09T23:41:02.210010899Z",
-    "last_run": "2026-08-13T00:00:13.306559778Z"
+    "last_run": "2026-08-17T00:00:11.015881975Z"
   },
   {
     "id": 3,
     "frequency": "daily",
     "command": "capture_faction",
     "created_at": "2026-08-09T23:41:02.210121631Z",
-    "last_run": "2026-08-13T00:00:13.306559778Z"
+    "last_run": "2026-08-17T00:00:11.015881975Z"
+  },
+  {
+    "id": 4,
+    "frequency": "hourly",
+    "command": "capture_action_log",
+    "created_at": "2026-08-17T16:08:58.604475Z"
   }
 ]

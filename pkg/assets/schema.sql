@@ -256,3 +256,40 @@ CREATE TABLE IF NOT EXISTS agent_stats (
     PRIMARY KEY (player_id, captured_at)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_stats_player ON agent_stats(player_id, captured_at DESC);
+
+-- Server-side action-log events, pulled with get_action_log's since_id cursor.
+-- APPEND-ONLY, and the only place a worker's own history survives: the server
+-- retains roughly 85 days (measured 2026-08-17) and every other table here is
+-- current-state-only, so an event not captured before it ages out is gone.
+--
+-- This is the forensic record behind a ship loss. combat.ship_destroyed names
+-- the cause and system, combat.respawned names the replacement hull, and the
+-- trading.* rows immediately before a death are what reconstruct the cargo that
+-- went down with it.
+--
+-- data_json is a flat JSON object of string->string. Each event_type carries its
+-- own data shape, so the columns cannot be typed; values are stringified via
+-- json.Number to keep large ids and prices exact (see ActionLogFrom).
+CREATE TABLE IF NOT EXISTS action_log_events (
+    player_id  TEXT    NOT NULL,
+    event_id   INTEGER NOT NULL,
+    event_type TEXT    NOT NULL,
+    category   TEXT    NOT NULL DEFAULT '',
+    created_at TEXT    NOT NULL DEFAULT '',
+    data_json  TEXT    NOT NULL DEFAULT '{}',
+    PRIMARY KEY (player_id, event_id)
+);
+CREATE INDEX IF NOT EXISTS idx_action_log_events_type ON action_log_events(event_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_action_log_events_player ON action_log_events(player_id, created_at DESC);
+
+-- One row per agent: where the since_id walk has reached. Kept in its own table
+-- rather than derived from MAX(event_id) because pruning deletes rows, and a
+-- fleet whose cheap event types had all aged out would otherwise re-walk the
+-- entire log from the beginning.
+CREATE TABLE IF NOT EXISTS action_log_cursor (
+    player_id     TEXT PRIMARY KEY,
+    next_since_id INTEGER NOT NULL DEFAULT 0,
+    events_stored INTEGER NOT NULL DEFAULT 0,
+    caught_up     INTEGER NOT NULL DEFAULT 0,
+    captured_at   TEXT NOT NULL DEFAULT ''
+);

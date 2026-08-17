@@ -430,6 +430,13 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return assets.CaptureStorage(ctx, d.Client, d.Assets, d.AgentID, time.Now())
 	case "capture_faction":
 		return assets.CaptureFaction(ctx, d.Client, d.Assets, d.AgentID, time.Now())
+	case "capture_action_log":
+		// Walks the server's action log forward from a stored since_id cursor.
+		// Unlike the other captures this one races expiry: the server keeps
+		// roughly 85 days, and nothing else records what an agent was carrying
+		// when it died.
+		_, err := assets.CaptureActionLog(ctx, d.Client, d.Assets, d.AgentID, time.Now())
+		return err
 	default:
 		return fmt.Errorf("worker dispatch: unsupported command %q", cmd)
 	}
