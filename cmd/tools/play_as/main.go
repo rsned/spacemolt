@@ -7148,17 +7148,32 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: install <item-id>")
 		}
-		return simpleCommand(client, func(ctx context.Context) error {
+		err := simpleCommand(client, func(ctx context.Context) error {
 			return client.InstallMod(ctx, strings.ToLower(parts[1]))
 		}, ctx, 3*time.Second, cmd, format)
+		if err == nil {
+			// install_mod replies with only module_id/cpu_used/power_used, so
+			// state.Ship.Modules and state.ModuleDefinitions still describe the
+			// pre-install fit. Re-read the ship the way switch_ship does, or
+			// every state-driven module check keeps answering for the old fit.
+			_ = client.GetShip(ctx)
+			invalidateSurveyScannerCache()
+		}
+		return err
 
 	case "uninstall", "uninstall_mod":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: uninstall <module-id>")
 		}
-		return simpleCommand(client, func(ctx context.Context) error {
+		err := simpleCommand(client, func(ctx context.Context) error {
 			return client.UninstallMod(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
+		if err == nil {
+			// Same as install: the reply names the module, not the new fit.
+			_ = client.GetShip(ctx)
+			invalidateSurveyScannerCache()
+		}
+		return err
 
 	case "buy_ship":
 		if len(parts) < 2 {

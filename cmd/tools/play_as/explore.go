@@ -234,6 +234,17 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 	state := client.GetState()
 
 	if !checkForSurveyScanner(state) {
+		// State may simply be out of date: it learns the module list only from
+		// a get_ship reply, so a scanner fitted during this session is not in
+		// it yet. Re-read the ship before refusing — get_ship is a query and
+		// costs no tick, and this runs only on the path that was about to
+		// refuse anyway.
+		if err := client.GetShip(ctx); err == nil {
+			state = client.GetState()
+		}
+	}
+
+	if !checkForSurveyScanner(state) {
 		if format == formatStyled {
 			fmt.Printf("\nNo survey scanner installed — skipping system survey\n")
 		} else {
@@ -595,10 +606,21 @@ func truncateName(s string, maxLen int) string {
 // checkForSurveyScanner checks if the ship can survey systems, either via an
 // installed survey scanner module or a survey scanner built into the ship hull
 // (an "integrated_survey_scanner" inherent capability, e.g. the survey_vessel).
-// Results are cached until the ship might change (switch_ship, install_mod, etc.).
+//
+// Only a POSITIVE result is cached. A negative is deliberately not: the module
+// list in state (Ship.Modules plus the ModuleDefinitions that map those instance
+// ids to type ids) is populated exclusively by a get_ship reply, and
+// install_mod's reply carries nothing but module_id/cpu_used/power_used. A
+// scanner fitted mid-session is therefore invisible here until the ship is
+// re-read, and caching the "no" made that refusal last the whole session.
+// Recomputing a negative is a walk over a handful of map entries, so caching it
+// bought nothing in the first place.
 func checkForSurveyScanner(state *game.State) bool {
 	if surveyScannerCached {
 		return hasSurveyScanner
+	}
+	if state == nil {
+		return false
 	}
 
 	// Not cached - check installed modules
@@ -609,19 +631,21 @@ func checkForSurveyScanner(state *game.State) bool {
 	}
 	for _, scanner := range surveyScanners {
 		if game.HasModuleType(state, scanner) {
+			surveyScannerCached = true
 			hasSurveyScanner = true
-			break
+			return true
 		}
 	}
 
 	// Fall back to the ship hull's inherent capabilities (built-in scanners are
 	// not listed in state.Ship.Modules), looked up from the ship class catalog.
-	if !hasSurveyScanner && shipClassHasIntegratedSurveyScanner(state.Ship.ClassID) {
+	if shipClassHasIntegratedSurveyScanner(state.Ship.ClassID) {
+		surveyScannerCached = true
 		hasSurveyScanner = true
+		return true
 	}
 
-	surveyScannerCached = true
-	return hasSurveyScanner
+	return false
 }
 
 // shipClassHasIntegratedSurveyScanner reports whether the given ship class has a
