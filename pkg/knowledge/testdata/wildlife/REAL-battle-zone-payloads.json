@@ -1,0 +1,21 @@
+{
+  "_note": "REAL battle_started and battle_update push frames captured by the operator on 2026-08-08, craftsman-1 (player id a50924913cef881c5e4d14257589d9ba) fighting a Frost-Moth at gold_run. Verbatim from the wire. These are PUSH events, not the get_battle_status reply — that distinction still matters, see _open_questions.",
+
+  "_what_these_establish": [
+    "Per-participant `zone` is carried on BOTH battle_started and battle_update. It is not exclusive to the your_zone field.",
+    "`inner` is now WIRE-ATTESTED. Before this capture it appeared only in pkg/spar's zoneIndex ladder (outer:0, mid:1, inner:2, engaged:3) with no server evidence. `outer` and `inner` are now confirmed; `mid` and `engaged` remain repo-internal assumptions.",
+    "BOTH participants report the SAME zone value in both frames (outer/outer, then inner/inner). Zone reads as a shared engagement distance between the sides, not an independent per-ship position. If that holds, a fleeing quarry drags the shared zone back outward, which is mechanically why advance has to repeat.",
+    "The battle opened at outer and reached inner after the operator issued `battle advance`. Elapsed 17:34:53 -> 17:35:13, with the advance at 17:34:56.",
+    "auto_pilot is FALSE in this battle. In the earlier Drift-Ray capture at market_prime it was TRUE. The operator was issuing manual battle commands in this one and not in that one."
+  ],
+
+  "_open_questions": [
+    "UNPROVEN: whether issuing a manual battle command is what clears auto_pilot. Two captures differing in two ways is a hypothesis, not a finding. Do not build behaviour on it.",
+    "UNPROVEN: whether the get_battle_status REPLY carries `action` (needed for the raw-key path) and whether it carries `your_zone`. These captures are push frames and answer neither.",
+    "UNPROVEN: whether one advance always moves exactly one rung, or whether it can skip (outer -> inner here, with mid never observed)."
+  ],
+
+  "battle_started": {"battle_id":"51bdfc42efa3b3eee52c2fd35c981399","participants":[{"player_id":"crt_1504baf945ab8e7faff70e1f4c7d146c","side_id":1,"stance":"fire","username":"Frost-Moth","zone":"outer"},{"player_id":"a50924913cef881c5e4d14257589d9ba","ship_class":"prospect","ship_name":"Prospect","side_id":2,"stance":"fire","username":"Arthur 'Artificer' Artis","zone":"outer"}],"sides":[{"player_count":1,"side_id":1},{"faction_id":"e727c0e918d994c72db2978fe5b18edc","player_count":1,"side_id":2}],"system_id":"gold_run"},
+
+  "battle_update": {"auto_pilot":false,"battle_id":"51bdfc42efa3b3eee52c2fd35c981399","participants":[{"player_id":"crt_1504baf945ab8e7faff70e1f4c7d146c","side_id":1,"stance":"fire","username":"Frost-Moth","zone":"inner"},{"hull_pct":100,"player_id":"a50924913cef881c5e4d14257589d9ba","shield_pct":96,"ship_class":"prospect","side_id":2,"stance":"fire","username":"Arthur 'Artificer' Artis","zone":"inner"}],"sides":[{"player_count":1,"side_id":1},{"faction_id":"e727c0e918d994c72db2978fe5b18edc","player_count":1,"side_id":2}],"tick":1565513,"your_side_id":2,"your_stance":"fire","your_target_id":"crt_1504baf945ab8e7faff70e1f4c7d146c","your_zone":"inner"}
+}

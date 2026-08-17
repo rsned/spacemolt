@@ -596,6 +596,106 @@ func migrations() []Migration {
 				CREATE INDEX IF NOT EXISTS idx_public_facilities_recipe ON public_facilities(recipe_id);
 			`,
 		},
+		{
+			// The game ships no catalog or codex for its ~45 wildlife species, so
+			// every field below is something an agent has to go and see. These
+			// four tables are the field guide we build ourselves.
+			//
+			// No foreign keys to pois/systems on purpose: creatures live at belts
+			// and clouds we may never have surveyed, and a hunt must be able to
+			// record a sighting at a POI the KB has not heard of. (Nothing in this
+			// DB enables PRAGMA foreign_keys anyway.)
+			version: 49,
+			name:    "wildlife_field_guide",
+			sql: `
+				CREATE TABLE IF NOT EXISTS wildlife_species (
+					species           TEXT PRIMARY KEY,
+					name              TEXT NOT NULL DEFAULT '',
+					role              TEXT NOT NULL DEFAULT '',
+					max_hull          INTEGER NOT NULL DEFAULT 0,
+					max_shield        INTEGER NOT NULL DEFAULT 0,
+					danger            TEXT NOT NULL DEFAULT '',
+					danger_scanned_utc TEXT NOT NULL DEFAULT '',
+					habitats          TEXT NOT NULL DEFAULT '',
+					first_seen_utc    TEXT NOT NULL DEFAULT '',
+					last_seen_utc     TEXT NOT NULL DEFAULT ''
+				);
+
+				-- What a species SHOOTS WITH, which is the half of the fight a
+				-- resistance fit is chosen against. Keyed per battle so
+				-- re-importing a battle log replaces its row instead of
+				-- double-counting: the raw shots live on the server, never here,
+				-- so these counters ARE the observation, and hit rate is
+				-- computed on read from hits/shots.
+				CREATE TABLE IF NOT EXISTS wildlife_attacks (
+					species      TEXT NOT NULL,
+					battle_id    TEXT NOT NULL DEFAULT '',
+					weapon_name  TEXT NOT NULL DEFAULT '',
+					damage_type  TEXT NOT NULL DEFAULT '',
+					shot_kind    TEXT NOT NULL DEFAULT '',
+					shots        INTEGER NOT NULL DEFAULT 0,
+					hits         INTEGER NOT NULL DEFAULT 0,
+					damage_total REAL NOT NULL DEFAULT 0,
+					damage_min   REAL NOT NULL DEFAULT 0,
+					damage_max   REAL NOT NULL DEFAULT 0,
+					observed_utc TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (species, battle_id, weapon_name, damage_type, shot_kind)
+				);
+				CREATE INDEX IF NOT EXISTS idx_wildlife_attacks_species ON wildlife_attacks(species);
+				CREATE INDEX IF NOT EXISTS idx_wildlife_attacks_damage_type ON wildlife_attacks(damage_type);
+
+				CREATE TABLE IF NOT EXISTS wildlife_sightings (
+					id              INTEGER PRIMARY KEY AUTOINCREMENT,
+					species         TEXT NOT NULL,
+					system_id       TEXT NOT NULL DEFAULT '',
+					poi_id          TEXT NOT NULL DEFAULT '',
+					source          TEXT NOT NULL DEFAULT '',
+					observed_count  INTEGER NOT NULL DEFAULT 0,
+					abundance       TEXT NOT NULL DEFAULT '',
+					ranched         INTEGER NOT NULL DEFAULT 0,
+					branded         INTEGER NOT NULL DEFAULT 0,
+					in_combat       INTEGER NOT NULL DEFAULT 0,
+					bloom_status    TEXT NOT NULL DEFAULT '',
+					bloom_intensity REAL NOT NULL DEFAULT 0,
+					game_tick       INTEGER NOT NULL DEFAULT 0,
+					observed_utc    TEXT NOT NULL DEFAULT '',
+					agent_id        TEXT NOT NULL DEFAULT ''
+				);
+				CREATE INDEX IF NOT EXISTS idx_wildlife_sightings_species ON wildlife_sightings(species, observed_utc DESC);
+				CREATE INDEX IF NOT EXISTS idx_wildlife_sightings_place ON wildlife_sightings(system_id, poi_id, observed_utc DESC);
+
+				CREATE TABLE IF NOT EXISTS wildlife_kills (
+					creature_id    TEXT NOT NULL,
+					game_tick      INTEGER NOT NULL DEFAULT 0,
+					species        TEXT NOT NULL DEFAULT '',
+					creature_name  TEXT NOT NULL DEFAULT '',
+					role           TEXT NOT NULL DEFAULT '',
+					max_hull       INTEGER NOT NULL DEFAULT 0,
+					system_id      TEXT NOT NULL DEFAULT '',
+					poi_id         TEXT NOT NULL DEFAULT '',
+					battle_id      TEXT NOT NULL DEFAULT '',
+					duration_ticks INTEGER NOT NULL DEFAULT 0,
+					damage_dealt   INTEGER NOT NULL DEFAULT 0,
+					damage_taken   INTEGER NOT NULL DEFAULT 0,
+					wreck_id       TEXT NOT NULL DEFAULT '',
+					salvage_value  INTEGER NOT NULL DEFAULT 0,
+					carcass_read   INTEGER NOT NULL DEFAULT 0,
+					killed_utc     TEXT NOT NULL DEFAULT '',
+					agent_id       TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (creature_id, game_tick)
+				);
+				CREATE INDEX IF NOT EXISTS idx_wildlife_kills_species ON wildlife_kills(species, killed_utc DESC);
+
+				CREATE TABLE IF NOT EXISTS wildlife_kill_drops (
+					creature_id TEXT NOT NULL,
+					game_tick   INTEGER NOT NULL DEFAULT 0,
+					item_id     TEXT NOT NULL,
+					quantity    REAL NOT NULL DEFAULT 0,
+					PRIMARY KEY (creature_id, game_tick, item_id)
+				);
+				CREATE INDEX IF NOT EXISTS idx_wildlife_kill_drops_item ON wildlife_kill_drops(item_id);
+			`,
+		},
 		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
 		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
 		// pre-collapse DBs, where `ships` does not exist until

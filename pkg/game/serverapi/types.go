@@ -1147,14 +1147,22 @@ type NearbyPirate struct {
 //
 // Wildlife never dogpile: engaging one creature does not pull in the rest of
 // the herd, which is what makes difficulty-1 hunting safe.
+// Branded/BrandFaction/BrandRanch come from the CreatureInfo schema and mark
+// livestock: a creature can belong to a faction's ranch. No branded creature has
+// been observed in the wild yet, so treat a set brand as a reason NOT to shoot
+// until the consequences are known — killing another faction's stock is unlikely
+// to be free.
 type NearbyCreature struct {
-	CreatureID string `json:"creature_id"`
-	Species    string `json:"species,omitempty"`
-	Name       string `json:"name,omitempty"`
-	Role       string `json:"role,omitempty"`
-	Hull       int    `json:"hull"`
-	MaxHull    int    `json:"max_hull"`
-	InCombat   bool   `json:"in_combat,omitempty"`
+	CreatureID   string `json:"creature_id"`
+	Species      string `json:"species,omitempty"`
+	Name         string `json:"name,omitempty"`
+	Role         string `json:"role,omitempty"`
+	Hull         int    `json:"hull"`
+	MaxHull      int    `json:"max_hull"`
+	InCombat     bool   `json:"in_combat,omitempty"`
+	Branded      bool   `json:"branded,omitempty"`
+	BrandFaction string `json:"brand_faction,omitempty"`
+	BrandRanch   string `json:"brand_ranch,omitempty"`
 }
 
 // StationHealth represents the condition of a station.

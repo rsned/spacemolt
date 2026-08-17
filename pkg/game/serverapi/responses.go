@@ -788,6 +788,30 @@ type SurveySystemResponse struct {
 	XPGained        map[string]int   `json:"xp_gained,omitempty"`
 	Message         string           `json:"message,omitempty"`
 	AnomalyHint     string           `json:"anomaly_hint,omitempty"`
+
+	// Wildlife is a per-species census of the whole system, not of one POI —
+	// the only free (no-tick) source of population data there is. Bloom is the
+	// fertility wave the docs describe moving across the map, swelling grazer
+	// numbers as it passes; it is reported per system per survey, so it only
+	// becomes legible as a time series.
+	Wildlife       []WildlifeSurvey `json:"wildlife,omitempty"`
+	BloomIntensity float64          `json:"bloom_intensity,omitempty"`
+	BloomStatus    string           `json:"bloom_status,omitempty"`
+}
+
+// WildlifeSurvey is one species' line in a survey_system census.
+//
+// Estimate is the server's population estimate for the system, and Abundance its
+// coarse label; both are system-wide, so they do NOT say which POI holds the
+// herd — that needs get_nearby at the POI itself. Ranched counts branded stock
+// within the estimate (see NearbyCreature.Branded).
+type WildlifeSurvey struct {
+	Species   string `json:"species"`
+	Name      string `json:"name,omitempty"`
+	Role      string `json:"role,omitempty"`
+	Estimate  int    `json:"estimate"`
+	Abundance string `json:"abundance,omitempty"`
+	Ranched   int    `json:"ranched,omitempty"`
 }
 
 // FacilityResponse wraps the response from facility command.

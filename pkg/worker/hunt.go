@@ -442,7 +442,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		}
 		attempts++
 
-		outcome := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID)
+		outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID)
 
 		// The carcass is the kill receipt: a wreck whose victim_id is the
 		// creature we just engaged is the only evidence this pass has that
@@ -450,7 +450,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		// ENDED proves nothing, since a battle ends when the quarry escapes
 		// too.
 		if outcome != huntFled {
-			if huntLootCarcass(ctx, deps, out, c.CreatureID) {
+			if huntLootCarcass(ctx, deps, out, c, fightTicks) {
 				kills++
 				fmt.Fprintf(out, "hunt[%s]: %s down (%d/%d)\n", who, c.CreatureID, kills, target) //nolint:errcheck
 			} else {
@@ -717,6 +717,12 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 				return nil, false
 			}
 		}
+		// File everything seen, not just what this pass may shoot. The field
+		// guide wants the herd we are walking away from as much as the one we
+		// engage, and this reply is the only wildlife headcount that names a
+		// POI.
+		huntCaptureWildlife(ctx, deps, out, nearby, poi)
+
 		if quarry := huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out); len(quarry) > 0 {
 			return quarry, true
 		}
@@ -1281,25 +1287,29 @@ func huntLowestEnemyHull(v spar.View) int {
 // (pkg/spar/match_test.go), rather than a second copy of it here. Returns how
 // the engagement ended; it never reports a kill, because the battle ending is
 // not evidence of one.
-func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull float64, creatureID string) huntOutcome {
+// The tick count is returned alongside the outcome because it is the only
+// per-species combat cost this pass can measure for free: the fight length is
+// counted by the policy loop, whereas damage dealt and taken live on the
+// battle_ended push, which nothing stores in State yet.
+func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull float64, creatureID string) (huntOutcome, int) {
 	selfID := ""
 	if st := deps.Client.GetState(); st != nil {
 		selfID = st.Player.ID
 	}
 	if selfID == "" {
 		fmt.Fprintf(out, "hunt: own player id unknown; cannot drive the fight vs %s\n", creatureID) //nolint:errcheck
-		return huntBattleError
+		return huntBattleError, 0
 	}
 	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: huntWildlifeOnly(deps)}
 	if err := spar.RunPolicyLoop(ctx, deps.Client, selfID, p, deps.tickSleep); err != nil {
 		fmt.Fprintf(out, "hunt: fight vs %s ended on error after %d tick(s): %v\n", creatureID, p.ticks, err) //nolint:errcheck
-		return huntBattleError
+		return huntBattleError, p.ticks
 	}
 	if p.reason != "" {
 		fmt.Fprintf(out, "hunt: broke off vs %s after %d tick(s): %s\n", creatureID, p.ticks, p.reason) //nolint:errcheck
-		return p.outcome
+		return p.outcome, p.ticks
 	}
-	return huntResolved
+	return huntResolved, p.ticks
 }
 
 // huntLootCarcass looks for the carcass of the creature just engaged and
@@ -1310,7 +1320,13 @@ func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull flo
 // victim_id is the primary key, not killer_id or type: killer_id alone cannot
 // tell this pass's second kill from its first, and another hunter's carcass at
 // the same belt matches a type-only filter.
-func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, creatureID string) bool {
+//
+// It takes the whole creature rather than its id because the carcass cannot name
+// its own species — a creature wreck carries victim_name but an EMPTY ship_class
+// — so the species recorded against the kill has to be the one get_nearby
+// reported at engage time.
+func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, c serverapi.NearbyCreature, fightTicks int) bool {
+	creatureID := c.CreatureID
 	if err := deps.Client.GetWrecks(ctx); err != nil {
 		fmt.Fprintf(out, "hunt: get_wrecks after %s: %v\n", creatureID, err) //nolint:errcheck
 		return false
@@ -1326,9 +1342,17 @@ func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, creature
 	}
 	idx := slices.IndexFunc(resp.Wrecks, func(w serverapi.Wreck) bool { return w.VictimID == creatureID })
 	if idx < 0 {
+		// No carcass, so no drop observation: record the kill with the carcass
+		// unread so it stays out of the drop denominator instead of being
+		// counted as a species that dropped nothing.
+		huntCaptureKill(ctx, deps, out, nil, c, fightTicks)
 		return false
 	}
 	w := resp.Wrecks[idx]
+	// Record the carcass CONTENTS before looting a single item. What gets
+	// carried away below is capped by remaining hold space and then by salvage,
+	// so looted quantities would make the drop table a function of cargo room.
+	huntCaptureKill(ctx, deps, out, &w, c, fightTicks)
 	if w.Type != "" && w.Type != huntWreckTypeCreature {
 		fmt.Fprintf(out, "hunt: carcass %s for %s has type %q, not %q\n", w.ID, creatureID, w.Type, huntWreckTypeCreature) //nolint:errcheck
 	}

@@ -1,0 +1,23 @@
+{
+  "_note": "THE get_battle_status REPLY (not a push frame), captured verbatim by the operator on 2026-08-08 at 18:01:38, craftsman-1 (a50924913cef881c5e4d14257589d9ba) engaged with a Hollow Pilgrim at gold_run. This is the payload the executor's poll loop actually receives. Every earlier zone capture was a battle_started/battle_update PUSH; this one answers what those could not.",
+
+  "_what_this_settles": [
+    "CONFIRMED, finding I1: there is NO `action` key in this reply. The client writes the raw `battle_status` key only from an action switch, so that key is NEVER populated for this command. GetRawJSON(\"battle_status\") returns empty in production. This is no longer a suspicion — the shape-based fallback is mandatory, not defensive.",
+    "`combat_state` is an entirely UNMODELLED block. No serverapi struct covers it. It carries the real range mechanic.",
+    "`max_weapon_reach: 3` and per-participant `zone_distance: 6`. Range is NUMERIC. In-range is zone_distance <= max_weapon_reach, i.e. 6 must be closed to 3. The zone string (outer/inner) is a label over this number, not the primary signal.",
+    "`flee_counter: 0` with `flee_required: 3`. Fleeing takes THREE counts to complete. This quantifies review finding C1d.3 — the current code issues a flee stance and immediately returns, abandoning the ship mid-escape.",
+    "`can_escape: true` — whether escape is possible at all is server-reported, not assumed.",
+    "`is_npc: true` and `kind: \"creature\"` ARE present on this reply. This RESOLVES the review's open question and the spec's correction note: the wire carries both; it is the Go struct that lacks them. The spec's original claim was right about the wire and wrong only about reachability.",
+    "`auto_pilot` is PER-PARTICIPANT and is true on our own ship here while false on the creature. It is our ship's state, not a battle-wide flag.",
+    "The creature's `ship_name` is \"grazer\" — the role — while `username` is the display name \"Hollow Pilgrim\". Role is therefore visible in the battle payload too, not only in get_nearby.",
+    "EW state is exposed: em_disrupted, warp_disrupted, webbed, effective_speed. All false/1 here."
+  ],
+
+  "_still_open": [
+    "Whether zone_distance closes by a fixed amount per advance, or scales with effective_speed. effective_speed is 1 here; no capture yet at another speed.",
+    "Whether max_weapon_reach varies by fitted weapon. 3 here with a Prospect and a pulse laser; treat it as read-from-the-wire, never hardcoded.",
+    "Whether a fleeing quarry increases zone_distance faster than one advance closes it — the practical question behind the give-up rule."
+  ],
+
+  "reply": {"battle_id":"43598fe6756f61668661c9aeb8e68b8a","combat_state":{"can_escape":true,"effective_speed":1,"em_disrupted":false,"flee_counter":0,"flee_required":3,"max_weapon_reach":3,"warp_disrupted":false,"webbed":false},"is_participant":true,"participants":[{"auto_pilot":false,"hull_pct":100,"is_npc":true,"kind":"creature","player_id":"crt_cfbce87e4800ee17fa8e12b9e6adb8cb","ship_name":"grazer","side_id":1,"username":"Hollow Pilgrim","zone":"outer","zone_distance":6},{"auto_pilot":true,"hull_pct":100,"kind":"player","player_id":"a50924913cef881c5e4d14257589d9ba","shield_pct":100,"ship_class":"prospect","side_id":2,"stance":"fire","target_id":"crt_cfbce87e4800ee17fa8e12b9e6adb8cb","username":"Arthur 'Artificer' Artis","zone":"outer","zone_distance":6}],"sides":[{"player_count":1,"side_id":1},{"faction_id":"e727c0e918d994c72db2978fe5b18edc","faction_name":"Crafting Collective","faction_tag":"CRFT","player_count":1,"side_id":2}],"system_id":"gold_run"}
+}

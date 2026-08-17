@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 20
--- Last Regenerated: 2026-07-25
+-- Migrations applied: 21
+-- Last Regenerated: 2026-08-17
 
 -- ============================================================================
 -- TABLES
@@ -922,6 +922,86 @@ CREATE TABLE systems (
 , is_stronghold BOOLEAN DEFAULT 0, security_status TEXT DEFAULT '', last_visited_tick INTEGER NOT NULL DEFAULT 0);
 
 
+CREATE TABLE wildlife_attacks (
+					species      TEXT NOT NULL,
+					battle_id    TEXT NOT NULL DEFAULT '',
+					weapon_name  TEXT NOT NULL DEFAULT '',
+					damage_type  TEXT NOT NULL DEFAULT '',
+					shot_kind    TEXT NOT NULL DEFAULT '',
+					shots        INTEGER NOT NULL DEFAULT 0,
+					hits         INTEGER NOT NULL DEFAULT 0,
+					damage_total REAL NOT NULL DEFAULT 0,
+					damage_min   REAL NOT NULL DEFAULT 0,
+					damage_max   REAL NOT NULL DEFAULT 0,
+					observed_utc TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (species, battle_id, weapon_name, damage_type, shot_kind)
+				);
+
+
+CREATE TABLE wildlife_kill_drops (
+					creature_id TEXT NOT NULL,
+					game_tick   INTEGER NOT NULL DEFAULT 0,
+					item_id     TEXT NOT NULL,
+					quantity    REAL NOT NULL DEFAULT 0,
+					PRIMARY KEY (creature_id, game_tick, item_id)
+				);
+
+
+CREATE TABLE wildlife_kills (
+					creature_id    TEXT NOT NULL,
+					game_tick      INTEGER NOT NULL DEFAULT 0,
+					species        TEXT NOT NULL DEFAULT '',
+					creature_name  TEXT NOT NULL DEFAULT '',
+					role           TEXT NOT NULL DEFAULT '',
+					max_hull       INTEGER NOT NULL DEFAULT 0,
+					system_id      TEXT NOT NULL DEFAULT '',
+					poi_id         TEXT NOT NULL DEFAULT '',
+					battle_id      TEXT NOT NULL DEFAULT '',
+					duration_ticks INTEGER NOT NULL DEFAULT 0,
+					damage_dealt   INTEGER NOT NULL DEFAULT 0,
+					damage_taken   INTEGER NOT NULL DEFAULT 0,
+					wreck_id       TEXT NOT NULL DEFAULT '',
+					salvage_value  INTEGER NOT NULL DEFAULT 0,
+					carcass_read   INTEGER NOT NULL DEFAULT 0,
+					killed_utc     TEXT NOT NULL DEFAULT '',
+					agent_id       TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (creature_id, game_tick)
+				);
+
+
+CREATE TABLE wildlife_sightings (
+					id              INTEGER PRIMARY KEY AUTOINCREMENT,
+					species         TEXT NOT NULL,
+					system_id       TEXT NOT NULL DEFAULT '',
+					poi_id          TEXT NOT NULL DEFAULT '',
+					source          TEXT NOT NULL DEFAULT '',
+					observed_count  INTEGER NOT NULL DEFAULT 0,
+					abundance       TEXT NOT NULL DEFAULT '',
+					ranched         INTEGER NOT NULL DEFAULT 0,
+					branded         INTEGER NOT NULL DEFAULT 0,
+					in_combat       INTEGER NOT NULL DEFAULT 0,
+					bloom_status    TEXT NOT NULL DEFAULT '',
+					bloom_intensity REAL NOT NULL DEFAULT 0,
+					game_tick       INTEGER NOT NULL DEFAULT 0,
+					observed_utc    TEXT NOT NULL DEFAULT '',
+					agent_id        TEXT NOT NULL DEFAULT ''
+				);
+
+
+CREATE TABLE wildlife_species (
+					species           TEXT PRIMARY KEY,
+					name              TEXT NOT NULL DEFAULT '',
+					role              TEXT NOT NULL DEFAULT '',
+					max_hull          INTEGER NOT NULL DEFAULT 0,
+					max_shield        INTEGER NOT NULL DEFAULT 0,
+					danger            TEXT NOT NULL DEFAULT '',
+					danger_scanned_utc TEXT NOT NULL DEFAULT '',
+					habitats          TEXT NOT NULL DEFAULT '',
+					first_seen_utc    TEXT NOT NULL DEFAULT '',
+					last_seen_utc     TEXT NOT NULL DEFAULT ''
+				);
+
+
 CREATE TABLE xp_observations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     agent_id TEXT NOT NULL,
@@ -1048,6 +1128,18 @@ CREATE INDEX idx_storage_snapshot_ships_snapshot ON storage_snapshot_ships(snaps
 
 CREATE INDEX idx_storage_snapshots_agent ON storage_snapshots(agent_id);
 
+CREATE INDEX idx_wildlife_attacks_damage_type ON wildlife_attacks(damage_type);
+
+CREATE INDEX idx_wildlife_attacks_species ON wildlife_attacks(species);
+
+CREATE INDEX idx_wildlife_kill_drops_item ON wildlife_kill_drops(item_id);
+
+CREATE INDEX idx_wildlife_kills_species ON wildlife_kills(species, killed_utc DESC);
+
+CREATE INDEX idx_wildlife_sightings_place ON wildlife_sightings(system_id, poi_id, observed_utc DESC);
+
+CREATE INDEX idx_wildlife_sightings_species ON wildlife_sightings(species, observed_utc DESC);
+
 CREATE INDEX idx_xp_obs_action ON xp_observations(action);
 
 CREATE INDEX idx_xp_obs_agent ON xp_observations(agent_id);
@@ -1109,4 +1201,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (45, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (46, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (47, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (48, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (49, datetime('now'));
 

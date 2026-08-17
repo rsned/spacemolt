@@ -132,6 +132,10 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 		// Now at this POI: capture other players here (POI-scoped sighting,
 		// feeds seen_players via the player observer).
 		captureSightings(client, ctx, client.GetNearby, "get_nearby", format, &allResponses)
+		// The same reply lists any wildlife here. This is the only headcount
+		// that names a POI — survey_system's census is system-wide — so it is
+		// what ties a species to a habitat.
+		captureWildlifeAtPOI(client, ctx, poi.ID, poi.Type, format)
 
 		if poi.Type == "station" {
 			// Dock and run full update.
@@ -307,6 +311,22 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 		// Accumulate XP across iterations.
 		for skill, xp := range resp.XPGained {
 			totalXP[skill] += xp
+		}
+
+		// The census rides along on every survey and costs nothing extra, so
+		// capture it outside the format branch — unlike saveSurveyPOIs below,
+		// which only runs for styled output. The game ships no wildlife
+		// catalog, so this and get_nearby are the whole field guide.
+		if n, err := knowledge.CaptureWildlifeSurvey(ctx, globalKB, resp, globalAgentID, currentTick(client.GetState())); err != nil {
+			if format == formatStyled {
+				fmt.Printf("  (wildlife census not saved: %v)\n", err)
+			}
+		} else if n > 0 && format == formatStyled {
+			fmt.Printf("  Wildlife census: %d species", n)
+			if resp.BloomStatus != "" {
+				fmt.Printf(" | bloom %s (%.2f)", resp.BloomStatus, resp.BloomIntensity)
+			}
+			fmt.Println()
 		}
 
 		if format == formatStyled {
@@ -499,6 +519,51 @@ func captureSightings(client game.GameClient, ctx context.Context, fn func(conte
 		}
 	}
 	time.Sleep(game.SleepQuick)
+}
+
+// captureWildlifeAtPOI records the creatures listed in the get_nearby reply
+// already sitting in the client's raw cache. It issues no command of its own —
+// the caller has just run get_nearby for player sightings, and creatures come
+// back in the same payload for free.
+//
+// poiType becomes the species' habitat. It is passed in rather than looked up
+// because the explore loop already holds the POI it travelled to, and the KB may
+// not know a belt that a survey only just revealed.
+func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, poiType string, format outputFormat) {
+	raw := client.GetRawJSON("nearby")
+	if len(raw) == 0 {
+		return
+	}
+	var nearby serverapi.GetNearbyResponse
+	if err := json.Unmarshal(raw, &nearby); err != nil {
+		return
+	}
+	if len(nearby.Creatures) == 0 {
+		return
+	}
+
+	state := client.GetState()
+	systemID := ""
+	if state != nil {
+		systemID = state.System.ID
+	}
+	// The reply names its own POI; prefer it over the caller's idea of where we
+	// are, which can be a tick stale after an interrupted travel.
+	if nearby.POIID != "" {
+		poiID = nearby.POIID
+	}
+
+	n, err := knowledge.CaptureWildlifeNearby(ctx, globalKB, nearby.Creatures,
+		systemID, poiID, poiType, globalAgentID, currentTick(state))
+	if err != nil {
+		if format == formatStyled {
+			fmt.Printf("  (wildlife not saved: %v)\n", err)
+		}
+		return
+	}
+	if n > 0 && format == formatStyled {
+		fmt.Printf("  Wildlife: %d creature(s), %d species\n", len(nearby.Creatures), n)
+	}
 }
 
 // saveSurveyAnomaly persists a survey spatial-anomaly hint to the knowledge

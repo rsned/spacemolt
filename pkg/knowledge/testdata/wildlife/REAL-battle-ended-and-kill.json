@@ -1,0 +1,21 @@
+{
+  "_note": "A COMPLETED wildlife kill, captured verbatim by the operator 2026-08-08 18:02:53. craftsman-1 killed a Hollow Pilgrim (grazer) at gold_run_cryobelt. Two frames arrived together: an ok message and a battle_ended push.",
+
+  "_what_this_settles": [
+    "battle_ended is the DEFINITIVE kill signal and is strictly better than inferring a kill from the wreck. It reports reason:'victory', winning_side, and per-participant survived + kill_count. The quarry has survived:false; we have kill_count:1.",
+    "It is a PUSH event, not a reply. The poll loop sees get_battle_status; resolution still surfaces there as is_participant flipping false. battle_ended is the corroborating evidence that the flip means VICTORY rather than our own death or escape — a distinction is_participant alone cannot make.",
+    "THE SERVER ITSELF PUSHES AN INSTRUCTION TO LOOT: 'You killed a Hollow Pilgrim. A carcass dropped at gold_run_cryobelt — loot it for molt goods.' Looting is intended, designed behaviour. Brief step 8 was wrong.",
+    "That push also NAMES THE POI the carcass dropped at (gold_run_cryobelt), which is a second route to finding the wreck besides get_wrecks.",
+    "damage_taken:12 on our side. The fight was not free even against a 70-hull grazer with a starter Prospect, so the hull-abort gate is load-bearing, not decorative.",
+    "duration:8 ticks for one grazer. That sizes the per-engagement budget: a 12-engagement pass at ~8 ticks each is far under the old huntMaxBattlePolls=90-per-fight cap, confirming that cap was mis-sized."
+  ],
+
+  "_still_open": [
+    "Whether battle_ended is stored anywhere in State today, or only logged. If only logged, the executor cannot read it and must fall back to is_participant + the wreck receipt.",
+    "Whether mission progress moved on this kill. The operator reports it has NOT moved across several kills of several species — this Hollow Pilgrim was a grazer at a CRYOBELT, not a belt-grazer at an asteroid belt."
+  ],
+
+  "ok_message": {"message":"You killed a Hollow Pilgrim. A carcass dropped at gold_run_cryobelt — loot it for molt goods."},
+
+  "battle_ended": {"battle_id":"43598fe6756f61668661c9aeb8e68b8a","duration":8,"participants":[{"damage_dealt":12,"damage_taken":90,"kill_count":0,"player_id":"crt_cfbce87e4800ee17fa8e12b9e6adb8cb","side_id":1,"survived":false,"username":"Hollow Pilgrim"},{"damage_dealt":90,"damage_taken":12,"kill_count":1,"player_id":"a50924913cef881c5e4d14257589d9ba","side_id":2,"survived":true,"username":"Arthur 'Artificer' Artis"}],"reason":"victory","ships_destroyed":1,"total_damage":102,"winning_side":2}
+}
