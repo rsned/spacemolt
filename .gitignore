@@ -71,12 +71,12 @@ data/agents/*/credentials.json
 data/agents/*/play_as_history.json
 data/agents/*/play_as_history.txt
 data/agents/*/scheduled_commands.json
-# action_log stores are NOT ignored: get_action_log appears to serve only a
-# recent window (the spec says "older history is retained in long-term storage"
-# and craftsman-1's full scan on 2026-06-17 reached back only to 05-21), so these
-# JSONL files are the only surviving copy of everything older. They cannot be
-# re-fetched. Roughly 4 MB for the whole fleet — cheap insurance against a
-# server-side window we do not control.
+# action_log stores are NOT ignored. Measured 2026-08-17: get_action_log serves
+# ~85 days (craftsman-1's page 479/479 ends at 2026-05-24, total 47,878), so
+# there is no 30-day TTL — an earlier guess to that effect was wrong. But the
+# edge is real and it advances: these archives reach 2026-05-21, three days
+# beyond what the server will now return, and that margin grows daily. Roughly
+# 4 MB for the whole fleet, holding the only copy of everything past the edge.
 !data/agents/*/action_log*.jsonl
 data/crafting/
 data/credentials/

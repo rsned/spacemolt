@@ -6434,9 +6434,17 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			// Default to area scan if no target specified
 			return simpleCommand(client, client.Scan, ctx, 3*time.Second, cmd, format)
 		}
-		return simpleCommand(client, func(ctx context.Context) error {
+		err := simpleCommand(client, func(ctx context.Context) error {
 			return client.ScanTarget(ctx, target)
 		}, ctx, 3*time.Second, cmd, format)
+		if err == nil {
+			// Scanning fauna is the only way to learn a species' danger rating
+			// and whether it is ranchable stock, and it costs a tick — so the
+			// one result must not be thrown away.
+			captureCreatureScan(client, ctx, target, format)
+		}
+
+		return err
 
 	case "survey":
 		// The raw one-shot: unlike survey_system it does not loop or store POIs.

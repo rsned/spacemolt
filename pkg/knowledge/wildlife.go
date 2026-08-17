@@ -43,6 +43,17 @@ type WildlifeSpecies struct {
 	// TEXT so that a rating like "moderate" and a number both survive.
 	Danger           string
 	DangerScannedUTC string
+	// ScanTraits is the verbatim text after the em dash in a scan's display
+	// string ("harmless prey, ranchable stock"); ScanRevealed is that scan's
+	// revealed_info list, comma-joined. Both are stored raw because the trait
+	// vocabulary is unknown — every grazer measured so far reads "harmless
+	// prey", and an apex predator will presumably not.
+	ScanTraits   string
+	ScanRevealed string
+	// Ranchable is derived from ScanRevealed containing "ranchable". It is only
+	// meaningful once DangerScannedUTC is set: false on an unscanned species
+	// means unknown, not "cannot be ranched".
+	Ranchable bool
 	// Habitats are the POI types the species has been seen at (belt, gas_cloud,
 	// cryobelt, nebula...), deduplicated. Diet is not directly readable, but the
 	// docs say each grazer eats one specific ore or gas, so habitat plus that
@@ -188,8 +199,9 @@ func (kb *SQLiteKB) UpsertWildlifeSpecies(ctx context.Context, rows []WildlifeSp
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO wildlife_species
 					(species, name, role, max_hull, max_shield, danger, danger_scanned_utc,
+					 scan_traits, scan_revealed, ranchable,
 					 habitats, first_seen_utc, last_seen_utc)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT(species) DO UPDATE SET
 					name               = CASE WHEN excluded.name  <> '' THEN excluded.name  ELSE wildlife_species.name END,
 					role               = CASE WHEN excluded.role  <> '' THEN excluded.role  ELSE wildlife_species.role END,
@@ -197,9 +209,13 @@ func (kb *SQLiteKB) UpsertWildlifeSpecies(ctx context.Context, rows []WildlifeSp
 					max_shield         = MAX(wildlife_species.max_shield, excluded.max_shield),
 					danger             = CASE WHEN excluded.danger <> '' THEN excluded.danger ELSE wildlife_species.danger END,
 					danger_scanned_utc = CASE WHEN excluded.danger_scanned_utc <> '' THEN excluded.danger_scanned_utc ELSE wildlife_species.danger_scanned_utc END,
+					scan_traits        = CASE WHEN excluded.scan_traits   <> '' THEN excluded.scan_traits   ELSE wildlife_species.scan_traits END,
+					scan_revealed      = CASE WHEN excluded.scan_revealed <> '' THEN excluded.scan_revealed ELSE wildlife_species.scan_revealed END,
+					ranchable          = MAX(wildlife_species.ranchable, excluded.ranchable),
 					habitats           = excluded.habitats,
 					last_seen_utc      = excluded.last_seen_utc
 			`, r.Species, r.Name, r.Role, r.MaxHull, r.MaxShield, r.Danger, r.DangerScannedUTC,
+				r.ScanTraits, r.ScanRevealed, boolInt(r.Ranchable),
 				habitats, first, seen); err != nil {
 				return fmt.Errorf("upsert wildlife species %s: %w", r.Species, err)
 			}
@@ -226,6 +242,7 @@ func normalizeHabitats(in []string) []string {
 func (kb *SQLiteKB) GetWildlifeSpecies(ctx context.Context) ([]WildlifeSpecies, error) {
 	rows, err := kb.db.QueryContext(ctx, `
 		SELECT species, name, role, max_hull, max_shield, danger, danger_scanned_utc,
+		       scan_traits, scan_revealed, ranchable,
 		       habitats, first_seen_utc, last_seen_utc
 		FROM wildlife_species
 		ORDER BY species
@@ -240,7 +257,8 @@ func (kb *SQLiteKB) GetWildlifeSpecies(ctx context.Context) ([]WildlifeSpecies, 
 		var s WildlifeSpecies
 		var habitats string
 		if err := rows.Scan(&s.Species, &s.Name, &s.Role, &s.MaxHull, &s.MaxShield,
-			&s.Danger, &s.DangerScannedUTC, &habitats, &s.FirstSeenUTC, &s.LastSeenUTC); err != nil {
+			&s.Danger, &s.DangerScannedUTC, &s.ScanTraits, &s.ScanRevealed,
+			&s.Ranchable, &habitats, &s.FirstSeenUTC, &s.LastSeenUTC); err != nil {
 			return nil, fmt.Errorf("scan wildlife species: %w", err)
 		}
 		s.Habitats = normalizeHabitats(strings.Split(habitats, ","))
@@ -467,4 +485,15 @@ func (kb *SQLiteKB) CountWildlifeCarcassesRead(ctx context.Context, species stri
 		return 0, fmt.Errorf("count wildlife carcasses read: %w", err)
 	}
 	return n, nil
+}
+
+// boolInt maps a Go bool onto the INTEGER SQLite stores it as. (seen_players.go
+// has boolToInt for the same job; this file cannot reuse the name without
+// shadowing it across the package.)
+func boolInt(b bool) int {
+	if b {
+		return 1
+	}
+
+	return 0
 }

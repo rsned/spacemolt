@@ -696,6 +696,31 @@ func migrations() []Migration {
 				CREATE INDEX IF NOT EXISTS idx_wildlife_kill_drops_item ON wildlife_kill_drops(item_id);
 			`,
 		},
+		{
+			// scan on a creature does NOT return species/role/danger as fields.
+			// It returns numeric hull plus a packed display string —
+			// "Slag-Tortoise [grazer — harmless prey, ranchable stock]" — and a
+			// revealed_info list naming which traits the scanner tier unlocked.
+			// Measured live 2026-08-17 across six species.
+			//
+			// The trait vocabulary is unknown (every grazer so far reads
+			// "harmless prey"; an apex will presumably differ), so the text is
+			// stored verbatim rather than parsed into an enum, alongside the
+			// revealed_info list that produced it. ranchable is a derived
+			// convenience and is only meaningful when danger_scanned_utc is set:
+			// 0 on an unscanned species means "unknown", not "not ranchable".
+			//
+			// wildlife_species comes from migration 49, so these ALTERs always
+			// find the table — unlike the ships table, which predates the
+			// migration collapse.
+			version: 50,
+			name:    "wildlife_scan_traits",
+			sql: `
+				ALTER TABLE wildlife_species ADD COLUMN scan_traits TEXT NOT NULL DEFAULT '';
+				ALTER TABLE wildlife_species ADD COLUMN scan_revealed TEXT NOT NULL DEFAULT '';
+				ALTER TABLE wildlife_species ADD COLUMN ranchable INTEGER NOT NULL DEFAULT 0;
+			`,
+		},
 		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
 		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
 		// pre-collapse DBs, where `ships` does not exist until

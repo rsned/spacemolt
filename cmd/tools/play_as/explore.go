@@ -566,6 +566,76 @@ func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, po
 	}
 }
 
+// captureCreatureScan files what a scan revealed about a creature's species.
+//
+// It runs only for crt_ targets, and needs the species id — which the scan reply
+// does NOT carry, since it packs a display name into username and nothing else.
+// The species comes from the cached get_nearby reply for the same creature id,
+// which is how the herd was found in the first place; without that entry the
+// scan is left unrecorded rather than filed under a species guessed from the
+// display name.
+func captureCreatureScan(client game.GameClient, ctx context.Context, targetID string, format outputFormat) {
+	if !strings.HasPrefix(targetID, "crt_") {
+		return
+	}
+	raw := client.GetRawJSON("_last")
+	if len(raw) == 0 {
+		return
+	}
+	var resp serverapi.ScanResponse
+	if err := json.Unmarshal(unwrapActionResult(raw), &resp); err != nil {
+		return
+	}
+	if !resp.Success {
+		return
+	}
+
+	species := speciesForCreature(client, targetID)
+	if species == "" {
+		if format == formatStyled {
+			fmt.Printf("  (scan not recorded: run get_nearby first so %s can be tied to a species)\n", targetID)
+		}
+
+		return
+	}
+
+	s := knowledge.ParseCreatureScan(resp.Username, resp.RevealedInfo, resp.Hull)
+	if err := knowledge.CaptureWildlifeScan(ctx, globalKB, species, s, time.Now()); err != nil {
+		if format == formatStyled {
+			fmt.Printf("  (scan not recorded: %v)\n", err)
+		}
+
+		return
+	}
+	if format == formatStyled && s.Traits != "" {
+		ranch := ""
+		if s.Ranchable {
+			ranch = " | ranchable stock"
+		}
+		fmt.Printf("  Field guide: %s = %q%s\n", species, s.Traits, ranch)
+	}
+}
+
+// speciesForCreature resolves a crt_ id to its species using the cached
+// get_nearby reply. Returns "" when the creature is not in it.
+func speciesForCreature(client game.GameClient, creatureID string) string {
+	raw := client.GetRawJSON("nearby")
+	if len(raw) == 0 {
+		return ""
+	}
+	var nearby serverapi.GetNearbyResponse
+	if err := json.Unmarshal(raw, &nearby); err != nil {
+		return ""
+	}
+	for _, c := range nearby.Creatures {
+		if c.CreatureID == creatureID {
+			return c.Species
+		}
+	}
+
+	return ""
+}
+
 // poiTypeFromState resolves a POI id to its type from the loaded system, which
 // becomes the species' habitat (belt, gas_cloud, cryobelt, nebula...). Returns
 // "" when the POI is not in state, so an unknown habitat is recorded as absent
