@@ -10,12 +10,18 @@ import (
 // CreatureScan is what a scan reply says about a creature, after unpacking the
 // display string the server hides most of it in.
 type CreatureScan struct {
-	// Name is the display name ("Slag-Tortoise"), Role the bracketed role
-	// ("grazer"), Traits the verbatim text after the em dash ("harmless prey,
-	// ranchable stock").
+	// Name is the display name ("Slag-Tortoise"); Traits the verbatim text
+	// after the em dash ("harmless prey, ranchable stock").
 	Name   string
-	Role   string
 	Traits string
+	// ThreatClass is the token before the em dash. It reads like a role and is
+	// NOT one: it takes exactly two values, "grazer" and "PREDATOR", and the
+	// server files scavengers under "grazer" — Carrion-Moth and Ash-Scarab are
+	// role=scavenger in the survey_system census but "[grazer — harmless prey]"
+	// to a scan. It is a prey/predator threat flag, so it must never be written
+	// to WildlifeSpecies.Role, which carries the census taxonomy (grazer,
+	// predator, scavenger, lowercase).
+	ThreatClass string
 	// Danger is the first trait, which is where the threat descriptor sits in
 	// every sample measured so far. The rest of Traits is kept because the
 	// vocabulary is unknown and a second trait already exists (ranchable stock).
@@ -53,11 +59,11 @@ func ParseCreatureScan(username string, revealed []string, hull int) CreatureSca
 	}
 	rest = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(rest), "]"))
 
-	role, traits, hasTraits := strings.Cut(rest, scanTraitSeparator)
-	out.Role = strings.TrimSpace(role)
+	threat, traits, hasTraits := strings.Cut(rest, scanTraitSeparator)
+	out.ThreatClass = strings.TrimSpace(threat)
 	if !hasTraits {
-		// A bracket with no separator is all role, no traits — recorded as such
-		// rather than guessed at.
+		// A bracket with no separator is all threat class, no traits — recorded
+		// as such rather than guessed at.
 		return out
 	}
 	out.Traits = strings.TrimSpace(traits)
@@ -92,9 +98,13 @@ func CaptureWildlifeScan(ctx context.Context, kb Base, species string, s Creatur
 
 	stamp := now.UTC().Format(time.RFC3339)
 	if err := rec.UpsertWildlifeSpecies(ctx, []WildlifeSpecies{{
-		Species:          species,
-		Name:             s.Name,
-		Role:             s.Role,
+		Species: species,
+		Name:    s.Name,
+		// Role is deliberately left empty: the scan's bracket is a threat class,
+		// not the taxonomy, and writing it here filed Carrion-Moth (a scavenger)
+		// as a grazer and both predators as "PREDATOR", which no lowercase
+		// role query matched. The upsert's CASE-on-non-empty keeps whatever the
+		// census established.
 		MaxHull:          s.Hull,
 		Danger:           s.Danger,
 		DangerScannedUTC: stamp,

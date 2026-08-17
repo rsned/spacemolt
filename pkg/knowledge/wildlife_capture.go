@@ -153,6 +153,7 @@ func WildlifeFromSurvey(resp serverapi.SurveySystemResponse, agentID string, tic
 			Ranched:        w.Ranched,
 			BloomStatus:    resp.BloomStatus,
 			BloomIntensity: resp.BloomIntensity,
+			SurveyPower:    resp.SurveyPower,
 			GameTick:       tick,
 			AgentID:        agentID,
 		})
@@ -214,7 +215,7 @@ func CaptureWildlifeSurvey(ctx context.Context, kb Base, resp serverapi.SurveySy
 	if err := rec.RecordWildlifeCoverage(ctx, []WildlifeCoverage{{
 		SystemID: resp.SystemID, Source: WildlifeSourceSurvey,
 		SpeciesSeen: len(sightings), CreaturesSeen: total,
-		GameTick: tick, AgentID: agentID,
+		SurveyPower: resp.SurveyPower, GameTick: tick, AgentID: agentID,
 	}}); err != nil {
 		return 0, fmt.Errorf("capture survey wildlife coverage: %w", err)
 	}

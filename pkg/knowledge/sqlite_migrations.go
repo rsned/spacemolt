@@ -761,6 +761,23 @@ func migrations() []Migration {
 					ON wildlife_surveys(observed_utc DESC);
 			`,
 		},
+		{
+			// survey_system reports survey_power alongside the census, and it is
+			// a property of the SURVEYOR (scanning skill and modules), not of the
+			// system. Two agents counting the same herd on the same tick can
+			// therefore report different numbers, so a census series assembled
+			// across agents without this column is comparing estimators rather
+			// than measuring a population. Default 0 means "not recorded",
+			// which is what every row captured before this migration is.
+			version: 52,
+			name:    "wildlife_survey_power",
+			sql: `
+				ALTER TABLE wildlife_surveys
+					ADD COLUMN survey_power INTEGER NOT NULL DEFAULT 0;
+				ALTER TABLE wildlife_sightings
+					ADD COLUMN survey_power INTEGER NOT NULL DEFAULT 0;
+			`,
+		},
 		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
 		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
 		// pre-collapse DBs, where `ships` does not exist until

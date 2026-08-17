@@ -80,9 +80,16 @@ type WildlifeSighting struct {
 	InCombat       int
 	BloomStatus    string
 	BloomIntensity float64
-	GameTick       int64
-	ObservedUTC    string
-	AgentID        string
+	// SurveyPower is the surveyor's scanning strength on a survey_system row,
+	// and 0 on a get_nearby one, which counts individuals rather than
+	// estimating. The census is an ESTIMATE produced by that power, so two
+	// agents surveying the same system on the same tick can disagree; without
+	// this field a series assembled across agents cannot tell a population
+	// change from a change of surveyor.
+	SurveyPower int
+	GameTick    int64
+	ObservedUTC string
+	AgentID     string
 }
 
 // WildlifeKill is one dead creature: what it was, what it cost to kill, and
@@ -314,11 +321,11 @@ func (kb *SQLiteKB) RecordWildlifeSightings(ctx context.Context, rows []Wildlife
 				INSERT INTO wildlife_sightings
 					(species, system_id, poi_id, source, observed_count, abundance,
 					 ranched, branded, in_combat, bloom_status, bloom_intensity,
-					 game_tick, observed_utc, agent_id)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					 survey_power, game_tick, observed_utc, agent_id)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`, r.Species, r.SystemID, r.POIID, r.Source, r.ObservedCount, r.Abundance,
 				r.Ranched, r.Branded, r.InCombat, r.BloomStatus, r.BloomIntensity,
-				r.GameTick, observed, r.AgentID); err != nil {
+				r.SurveyPower, r.GameTick, observed, r.AgentID); err != nil {
 				return fmt.Errorf("record wildlife sighting %s: %w", r.Species, err)
 			}
 		}
@@ -335,7 +342,7 @@ func (kb *SQLiteKB) GetWildlifeSightings(ctx context.Context, species string, li
 	rows, err := kb.db.QueryContext(ctx, `
 		SELECT species, system_id, poi_id, source, observed_count, abundance,
 		       ranched, branded, in_combat, bloom_status, bloom_intensity,
-		       game_tick, observed_utc, agent_id
+		       survey_power, game_tick, observed_utc, agent_id
 		FROM wildlife_sightings
 		WHERE (? = '' OR species = ?)
 		ORDER BY observed_utc DESC, id DESC
@@ -351,8 +358,8 @@ func (kb *SQLiteKB) GetWildlifeSightings(ctx context.Context, species string, li
 		var s WildlifeSighting
 		if err := rows.Scan(&s.Species, &s.SystemID, &s.POIID, &s.Source,
 			&s.ObservedCount, &s.Abundance, &s.Ranched, &s.Branded, &s.InCombat,
-			&s.BloomStatus, &s.BloomIntensity, &s.GameTick, &s.ObservedUTC,
-			&s.AgentID); err != nil {
+			&s.BloomStatus, &s.BloomIntensity, &s.SurveyPower, &s.GameTick,
+			&s.ObservedUTC, &s.AgentID); err != nil {
 			return nil, fmt.Errorf("scan wildlife sighting: %w", err)
 		}
 		out = append(out, s)

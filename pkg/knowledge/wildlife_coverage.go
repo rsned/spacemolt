@@ -29,9 +29,14 @@ type WildlifeCoverage struct {
 	Source        string
 	SpeciesSeen   int
 	CreaturesSeen int
-	GameTick      int64
-	ObservedUTC   string
-	AgentID       string
+	// SurveyPower is the surveyor's scanning strength on a survey_system look,
+	// 0 on a get_nearby one. A zero census taken with weak survey power is a
+	// much weaker claim than the same zero taken with strong power, so the
+	// bound this row records is only interpretable alongside it.
+	SurveyPower int
+	GameTick    int64
+	ObservedUTC string
+	AgentID     string
 }
 
 // RecordWildlifeCoverage appends coverage rows. Rows with neither a system nor
@@ -55,10 +60,10 @@ func (kb *SQLiteKB) RecordWildlifeCoverage(ctx context.Context, rows []WildlifeC
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO wildlife_surveys
 					(system_id, poi_id, poi_type, source, species_seen,
-					 creatures_seen, game_tick, observed_utc, agent_id)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+					 creatures_seen, survey_power, game_tick, observed_utc, agent_id)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`, r.SystemID, r.POIID, r.POIType, r.Source, r.SpeciesSeen,
-				r.CreaturesSeen, r.GameTick, observed, r.AgentID); err != nil {
+				r.CreaturesSeen, r.SurveyPower, r.GameTick, observed, r.AgentID); err != nil {
 				return fmt.Errorf("record wildlife coverage %s/%s: %w", r.SystemID, r.POIID, err)
 			}
 		}
@@ -75,7 +80,7 @@ func (kb *SQLiteKB) GetWildlifeCoverage(ctx context.Context, systemID, poiID str
 		limit = 100
 	}
 	q := `SELECT system_id, poi_id, poi_type, source, species_seen,
-	             creatures_seen, game_tick, observed_utc, agent_id
+	             creatures_seen, survey_power, game_tick, observed_utc, agent_id
 	      FROM wildlife_surveys WHERE 1=1`
 	args := []any{}
 	if systemID != "" {
@@ -99,8 +104,8 @@ func (kb *SQLiteKB) GetWildlifeCoverage(ctx context.Context, systemID, poiID str
 	for rows.Next() {
 		var c WildlifeCoverage
 		if err := rows.Scan(&c.SystemID, &c.POIID, &c.POIType, &c.Source,
-			&c.SpeciesSeen, &c.CreaturesSeen, &c.GameTick, &c.ObservedUTC,
-			&c.AgentID); err != nil {
+			&c.SpeciesSeen, &c.CreaturesSeen, &c.SurveyPower, &c.GameTick,
+			&c.ObservedUTC, &c.AgentID); err != nil {
 			return nil, fmt.Errorf("scan wildlife coverage: %w", err)
 		}
 		out = append(out, c)

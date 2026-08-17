@@ -11,7 +11,7 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 23
+-- Migrations applied: 24
 -- Last Regenerated: 2026-08-17
 
 -- ============================================================================
@@ -985,7 +985,7 @@ CREATE TABLE wildlife_sightings (
 					game_tick       INTEGER NOT NULL DEFAULT 0,
 					observed_utc    TEXT NOT NULL DEFAULT '',
 					agent_id        TEXT NOT NULL DEFAULT ''
-				);
+				, survey_power INTEGER NOT NULL DEFAULT 0);
 
 
 CREATE TABLE wildlife_species (
@@ -1013,7 +1013,7 @@ CREATE TABLE wildlife_surveys (
 					game_tick      INTEGER NOT NULL DEFAULT 0,
 					observed_utc   TEXT NOT NULL DEFAULT '',
 					agent_id       TEXT NOT NULL DEFAULT ''
-				);
+				, survey_power INTEGER NOT NULL DEFAULT 0);
 
 
 CREATE TABLE xp_observations (
@@ -1224,4 +1224,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (48, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (49, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (50, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (51, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (52, datetime('now'));
 
