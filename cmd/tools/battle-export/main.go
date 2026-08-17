@@ -13,12 +13,15 @@
 package main
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/battlereplay"
@@ -34,12 +37,20 @@ const maxLimit = 200
 // cache write is what this tool reads, so it waits rather than racing it.
 const settleDelay = 2 * time.Second
 
+// contentionBackoff outwaits the client's session-contention detector, which
+// aborts the run if two connections die within 30s of each other.
+const contentionBackoff = 35 * time.Second
+
 func main() {
 	agent := flag.String("agent", "", "agent id to authenticate as (required)")
 	battleID := flag.String("battle", "", "battle id to export (required)")
 	out := flag.String("out", "", "output path (default: battle_<id>.json)")
+	limit := flag.Int("limit", maxLimit, "ticks per page (1..200). Lower it for battles with "+
+		"hundreds of participants: a page over 10MB exceeds the WebSocket read limit, and each "+
+		"oversized frame costs a reconnect")
 	pretty := flag.Bool("pretty", false, "indent the output JSON")
 	raw := flag.String("raw-out", "", "also write the unmodified log pages here, for fixtures")
+	gz := flag.Bool("gzip", false, "gzip the output (a 373-participant battle is ~24MB raw, ~5MB gzipped)")
 	flag.Parse()
 
 	if *agent == "" || *battleID == "" {
@@ -68,7 +79,10 @@ func main() {
 		logger.Printf("summary unavailable (%v); continuing from the log alone", err)
 	}
 
-	pages, err := fetchLog(ctx, client, *battleID, logger)
+	if *limit < 1 || *limit > maxLimit {
+		logger.Fatalf("--limit must be between 1 and %d, got %d", maxLimit, *limit)
+	}
+	pages, err := fetchLog(ctx, client, *battleID, *limit, logger)
 	if err != nil {
 		logger.Fatalf("fetch log: %v", err)
 	}
@@ -84,7 +98,10 @@ func main() {
 	}
 
 	model := battlereplay.Adapt(pages, summary)
-	if err := writeJSON(outPath, model, *pretty); err != nil {
+	if *gz && !strings.HasSuffix(outPath, ".gz") {
+		outPath += ".gz"
+	}
+	if err := writeJSONMaybeGzip(outPath, model, *pretty, *gz); err != nil {
 		logger.Fatalf("write model: %v", err)
 	}
 
@@ -97,33 +114,44 @@ func main() {
 		outPath, model.TickCount, len(model.Participants), shots, kills, model.Outcome, model.SystemName)
 }
 
-// fetchLog pages through the whole battle. The server caps a page at maxLimit
-// ticks, so a long battle needs several requests; each one resumes from the
-// tick after the last one returned.
-func fetchLog(ctx context.Context, client game.GameClient, battleID string, logger *log.Logger) ([]serverapi.GetBattleLogResponse, error) {
+// fetchLog pages through the whole battle, shrinking the page size when a page
+// is too large to receive.
+//
+// Two ceilings apply. The server caps a page at maxLimit ticks, so a long battle
+// needs several requests. Separately, the WebSocket client refuses frames over
+// 10 MB (pkg/game/client.go SetReadLimit), and a few hundred participants
+// produce roughly 50 KB of snapshot per tick — so a 200-tick page of a large
+// battle blows the transport limit, the connection drops mid-read, and the
+// command times out after reconnecting. Raising the global read limit would
+// inflate buffers for every fleet worker to suit one tool, so instead the page
+// size halves on failure and never climbs back: a battle that needs 25-tick
+// pages keeps them for the rest of the run.
+func fetchLog(ctx context.Context, client game.GameClient, battleID string, startLimit int, logger *log.Logger) ([]serverapi.GetBattleLogResponse, error) {
 	var pages []serverapi.GetBattleLogResponse
 	tickStart := 0
+	limit := startLimit
 
 	for {
-		args := map[string]any{"battle_id": battleID, "limit": maxLimit}
-		if tickStart > 0 {
-			args["tick_start"] = tickStart
-		}
-		if err := client.RawCommand(ctx, "get_battle_log", args); err != nil {
-			return pages, fmt.Errorf("get_battle_log from tick %d: %w", tickStart, err)
-		}
-		time.Sleep(settleDelay)
-
-		var page serverapi.GetBattleLogResponse
-		if err := json.Unmarshal(client.GetRawJSON("_last"), &page); err != nil {
-			return pages, fmt.Errorf("decode page from tick %d: %w", tickStart, err)
+		page, err := fetchPage(ctx, client, battleID, tickStart, limit)
+		if err != nil {
+			if limit > 1 {
+				limit /= 2
+				logger.Printf("page from tick %d failed (%v); retrying with limit %d", tickStart, err, limit)
+				// Wait out the client's session-contention window before retrying.
+				// An oversized frame kills the connection, and two connects dying
+				// inside 30s make the client conclude another session stole the
+				// credentials and give up entirely.
+				time.Sleep(contentionBackoff)
+				continue
+			}
+			return pages, fmt.Errorf("get_battle_log from tick %d at limit 1: %w", tickStart, err)
 		}
 		if len(page.Entries) == 0 {
 			return pages, nil
 		}
-		pages = append(pages, page)
+		pages = append(pages, *page)
 		last := page.Entries[len(page.Entries)-1].Tick
-		logger.Printf("fetched %d ticks (through %d)%s", len(page.Entries), last,
+		logger.Printf("fetched %d ticks (through %d, limit %d)%s", len(page.Entries), last, limit,
 			map[bool]string{true: ", more to come", false: ""}[page.HasMore])
 
 		if !page.HasMore {
@@ -136,6 +164,33 @@ func fetchLog(ctx context.Context, client game.GameClient, battleID string, logg
 		}
 		tickStart = next
 	}
+}
+
+// fetchPage requests one page of the battle log.
+func fetchPage(ctx context.Context, client game.GameClient, battleID string, tickStart, limit int) (*serverapi.GetBattleLogResponse, error) {
+	args := map[string]any{"battle_id": battleID, "limit": limit}
+	if tickStart > 0 {
+		args["tick_start"] = tickStart
+	}
+	if err := client.RawCommand(ctx, "get_battle_log", args); err != nil {
+		return nil, err
+	}
+	time.Sleep(settleDelay)
+
+	raw := client.GetRawJSON("_last")
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("empty reply")
+	}
+	var page serverapi.GetBattleLogResponse
+	if err := json.Unmarshal(raw, &page); err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+	// A reply for some other command means the page never landed — treat it as a
+	// failure so the caller shrinks the page rather than silently truncating.
+	if page.BattleID == "" && len(page.Entries) == 0 {
+		return nil, fmt.Errorf("reply carried no battle log")
+	}
+	return &page, nil
 }
 
 func fetchSummary(ctx context.Context, client game.GameClient, battleID string) (*serverapi.BattleSummaryResponse, error) {
@@ -154,12 +209,27 @@ func fetchSummary(ctx context.Context, client game.GameClient, battleID string) 
 }
 
 func writeJSON(path string, v any, pretty bool) error {
+	return writeJSONMaybeGzip(path, v, pretty, false)
+}
+
+// writeJSONMaybeGzip writes v as JSON, optionally gzipped. Gzip earns its place
+// here: the frames are highly repetitive (the same player ids, zones and stances
+// every tick), so a 24MB model compresses to about 5MB, and a browser fetching
+// it over HTTP decompresses transparently.
+func writeJSONMaybeGzip(path string, v any, pretty, compress bool) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close() //nolint:errcheck
-	enc := json.NewEncoder(f)
+
+	var w io.Writer = f
+	if compress {
+		zw := gzip.NewWriter(f)
+		defer zw.Close() //nolint:errcheck
+		w = zw
+	}
+	enc := json.NewEncoder(w)
 	if pretty {
 		enc.SetIndent("", " ")
 	}

@@ -13,6 +13,19 @@ import (
 // than being dropped — a new server-side zone must show up rather than vanish.
 var zoneOrder = map[string]int{"outer": 0, "mid": 1, "inner": 2, "engaged": 3}
 
+// posDecimals is the precision kept for table coordinates. The server sends
+// full float64 (x = 2.5294108071995476), which costs ~15 bytes per number for
+// resolution nothing can draw: the field spans roughly three units, so three
+// decimals is about 1/3000 of it — well under a pixel at any usable zoom. On a
+// 373-participant battle this is tens of thousands of coordinates.
+const posDecimals = 3
+
+// round trims v to d decimal places.
+func round(v float64, d int) float64 {
+	p := math.Pow(10, float64(d))
+	return math.Round(v*p) / p
+}
+
 // Adapt builds a ReplayModel from get_battle_log pages plus an optional
 // get_battle_summary. Pages may arrive in any order and may overlap; entries
 // are sorted and de-duplicated by tick.
@@ -83,7 +96,7 @@ func Adapt(pages []serverapi.GetBattleLogResponse, summary *serverapi.BattleSumm
 			p.LastTick = e.Tick
 
 			live[s.PlayerID] = ShipState{
-				PlayerID: s.PlayerID, X: s.X, Y: s.Y, Zone: s.Zone,
+				PlayerID: s.PlayerID, X: round(s.X, posDecimals), Y: round(s.Y, posDecimals), Zone: s.Zone,
 				Hull: s.Hull, Shield: s.Shield, Fuel: s.Fuel,
 				Stance: s.Stance, TargetID: s.TargetID, AutoPilot: s.AutoPilot,
 				DamageDealt: s.DamageDealt, DamageTaken: s.DamageTaken, KillCount: s.KillCount,
@@ -158,8 +171,14 @@ func Adapt(pages []serverapi.GetBattleLogResponse, summary *serverapi.BattleSumm
 		m.TotalTicks = m.TickCount
 	}
 	if sawPosition {
-		m.Bounds = bounds
-		m.Centre = Point{X: (bounds.XMin + bounds.XMax) / 2, Y: (bounds.YMin + bounds.YMax) / 2}
+		m.Bounds = Bounds{
+			XMin: round(bounds.XMin, posDecimals), XMax: round(bounds.XMax, posDecimals),
+			YMin: round(bounds.YMin, posDecimals), YMax: round(bounds.YMax, posDecimals),
+		}
+		m.Centre = Point{
+			X: round((bounds.XMin+bounds.XMax)/2, posDecimals),
+			Y: round((bounds.YMin+bounds.YMax)/2, posDecimals),
+		}
 	}
 	m.Zones = sortedZones(zones)
 
@@ -230,12 +249,12 @@ func buildSides(frames []Frame, parts []Participant, centre Point, winner int) [
 	for sd, n := range counts {
 		s := Side{SideID: sd, Count: n, Won: winner != 0 && sd == winner}
 		if a := stats[sd]; a != nil && a.n > 0 {
-			s.RadiusMean = a.radSum / float64(a.n)
+			s.RadiusMean = round(a.radSum/float64(a.n), posDecimals)
 			deg := math.Atan2(a.sinSum, a.cosSum) * 180 / math.Pi
 			if deg < 0 {
 				deg += 360
 			}
-			s.BearingMean = deg
+			s.BearingMean = round(deg, 1)
 		}
 		out = append(out, s)
 	}
