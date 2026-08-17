@@ -6439,7 +6439,14 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "survey":
-		return simpleCommand(client, client.SurveySystem, ctx, 15*time.Second, cmd, format)
+		// The raw one-shot: unlike survey_system it does not loop or store POIs.
+		// It still carries the wildlife census, so capture that much.
+		err := simpleCommand(client, client.SurveySystem, ctx, 15*time.Second, cmd, format)
+		if err == nil {
+			captureWildlifeFromSurveyReply(client, ctx, format)
+		}
+
+		return err
 
 	case "survey_system":
 		// Rich survey: loop until no more hidden POIs are revealed, store
@@ -7655,7 +7662,22 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, 5*time.Second, cmd, format)
 
 	case "nearby", "get_nearby":
-		return simpleCommand(client, client.GetNearby, ctx, 2*time.Second, cmd, format)
+		err := simpleCommand(client, client.GetNearby, ctx, 2*time.Second, cmd, format)
+		if err == nil {
+			// Wildlife capture must not depend on which command an operator
+			// typed. explore's POI loop already records the herd; a manual
+			// get_nearby at a belt is the same observation and the reply is
+			// already in hand, so it costs nothing to file it.
+			st := client.GetState()
+			poiID, poiType := "", ""
+			if st != nil {
+				poiID = st.CurrentPOI
+				poiType = poiTypeFromState(st, poiID)
+			}
+			captureWildlifeAtPOI(client, ctx, poiID, poiType, format)
+		}
+
+		return err
 
 	case "get_system_agents", "system_agents":
 		return simpleCommand(client, client.GetSystemAgents, ctx, 2*time.Second, cmd, format)

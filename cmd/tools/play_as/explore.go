@@ -566,6 +566,54 @@ func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, po
 	}
 }
 
+// poiTypeFromState resolves a POI id to its type from the loaded system, which
+// becomes the species' habitat (belt, gas_cloud, cryobelt, nebula...). Returns
+// "" when the POI is not in state, so an unknown habitat is recorded as absent
+// rather than guessed.
+func poiTypeFromState(state *game.State, poiID string) string {
+	if state == nil || poiID == "" {
+		return ""
+	}
+	for _, p := range state.System.POIs {
+		if p.ID == poiID {
+			return p.Type
+		}
+	}
+
+	return ""
+}
+
+// captureWildlifeFromSurveyReply files the wildlife census out of whatever
+// survey reply is sitting in the client's raw cache. It exists so the bare
+// `survey` command captures as much as `survey_system` does: the census rides on
+// both, and which alias an operator typed should not decide whether the
+// observation is kept.
+func captureWildlifeFromSurveyReply(client game.GameClient, ctx context.Context, format outputFormat) {
+	raw := client.GetRawJSON("_last")
+	if len(raw) == 0 {
+		return
+	}
+	var resp serverapi.SurveySystemResponse
+	if err := json.Unmarshal(unwrapActionResult(raw), &resp); err != nil {
+		return
+	}
+	n, err := knowledge.CaptureWildlifeSurvey(ctx, globalKB, resp, globalAgentID, currentTick(client.GetState()))
+	if err != nil {
+		if format == formatStyled {
+			fmt.Printf("  (wildlife census not saved: %v)\n", err)
+		}
+
+		return
+	}
+	if n > 0 && format == formatStyled {
+		fmt.Printf("  Wildlife census: %d species", n)
+		if resp.BloomStatus != "" {
+			fmt.Printf(" | bloom %s (%.2f)", resp.BloomStatus, resp.BloomIntensity)
+		}
+		fmt.Println()
+	}
+}
+
 // saveSurveyAnomaly persists a survey spatial-anomaly hint to the knowledge
 // base so it can be reviewed after the session. Directional hints ("toward X
 // (N jumps)") are parsed so callers can later tell which need explicit travel.
