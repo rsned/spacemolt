@@ -2745,6 +2745,7 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.mu.Lock()
 		c.state.InCombat = true
 		c.state.InBattle = true
+		c.rememberBattleIDLocked(ev.BattleID)
 		c.mu.Unlock()
 		c.notifyPlayersFromBattleStart("battle_started", ev.Participants)
 		c.debugLogger.Printf("[BATTLE STARTED] battle=%s system=%s participants=%d", ev.BattleID, ev.SystemID, len(ev.Participants))
@@ -2758,6 +2759,7 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.mu.Lock()
 		c.state.InCombat = true
 		c.state.InBattle = true
+		c.rememberBattleIDLocked(ev.BattleID)
 		c.mu.Unlock()
 		c.notifyPlayersFromBattleUpdate("battle_update", ev.Participants)
 		c.debugLogger.Printf("[BATTLE UPDATE] battle=%s tick=%d your_side=%d stance=%s zone=%s target=%s participants=%d",
@@ -2789,6 +2791,7 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.mu.Lock()
 		c.state.InCombat = false
 		c.state.InBattle = false
+		c.rememberBattleIDLocked(ev.BattleID)
 		c.mu.Unlock()
 		c.notifyPlayersFromBattleEnd("battle_ended", ev.Participants)
 		c.debugLogger.Printf("[BATTLE ENDED] battle=%s reason=%s winning_side=%d duration=%d ships_destroyed=%d total_damage=%.0f participants=%d",

@@ -48,12 +48,29 @@ func huntCaptureWildlife(ctx context.Context, deps HuntDeps, out io.Writer, near
 // push, which nothing writes into State today. fightTicks is measured by the
 // policy loop, so the per-species time cost is real while the damage cost waits
 // for that push to be wired up.
+//
+// The battle id IS recorded, and is the handle that makes the rest recoverable:
+// the full damage log — per shot, per weapon, per damage type — can be fetched
+// afterwards from get_battle_log for any battle whose id was kept, and there is
+// no way to enumerate past battles without one.
 func huntCaptureKill(ctx context.Context, deps HuntDeps, out io.Writer, wreck *serverapi.Wreck, c serverapi.NearbyCreature, fightTicks int) {
 	systemID, tick := huntWhere(deps)
-	if err := knowledge.CaptureWildlifeCarcass(ctx, deps.KB, wreck, c, systemID, "",
+	if err := knowledge.CaptureWildlifeCarcass(ctx, deps.KB, wreck, c, systemID, huntBattleID(deps),
 		deps.AgentID, tick, fightTicks, 0, 0); err != nil {
 		fmt.Fprintf(out, "hunt: kill of %s not recorded: %v\n", c.CreatureID, err) //nolint:errcheck
 	}
+}
+
+// huntBattleID reads the id of the battle just fought. Empty is normal — a
+// creature that died to a single volley may never have produced a battle push —
+// and an empty id simply leaves the kill unjoinable to a damage log.
+func huntBattleID(deps HuntDeps) string {
+	st := deps.Client.GetState()
+	if st == nil {
+		return ""
+	}
+
+	return st.LastBattleID
 }
 
 // huntWhere reads the current system id and game tick out of client state,

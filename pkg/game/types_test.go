@@ -155,14 +155,14 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 			ShipPOI:         "sol_station",
 			LastVisitedTick: 106000,
 		},
-		CurrentTick:    106000,
+		CurrentTick:     106000,
 		ServerTimestamp: 1773883811,
-		LastMapUpdate:  time.Date(2026, 2, 18, 9, 0, 0, 0, time.UTC),
+		LastMapUpdate:   time.Date(2026, 2, 18, 9, 0, 0, 0, time.UTC),
 		Nearby: []NearbyPlayer{
 			{PlayerID: "other-1", Username: "Rival", ShipClass: "fighter"},
 		},
-		InCombat:   true,
-		InBattle:   true,
+		InCombat: true,
+		InBattle: true,
 		BattleState: &BattleState{
 			BattleID: "battle-123",
 			SystemID: "sol",
@@ -174,10 +174,11 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 		PendingTrades: []map[string]any{
 			{"trade_id": "trade-1", "partner": "Rival"},
 		},
-		PirateName: "Blackbeard",
-		PirateTier: "elite",
-		PirateID:   "pirate-001",
-		LastDamage: 25.5,
+		PirateName:   "Blackbeard",
+		PirateTier:   "elite",
+		PirateID:     "pirate-001",
+		LastDamage:   25.5,
+		LastBattleID: "13ec2c95ba853a657b00385cf2683d49",
 	}
 
 	clone := original.Clone()

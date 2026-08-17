@@ -442,6 +442,17 @@ type State struct {
 	InBattle    bool
 	BattleState *BattleState
 
+	// LastBattleID is the most recent battle this client was told about,
+	// retained AFTER the battle ends and after BattleState is cleared.
+	//
+	// It is the handle for everything that can only be learned afterwards: the
+	// full log — positions, damage pipeline, per-shot damage types — is
+	// available from get_battle_log for any battle whose id you kept, and there
+	// is no way to enumerate your own past battles. A death clears the battle
+	// state, so without this the one battle most worth reading is the one whose
+	// id is already gone.
+	LastBattleID string
+
 	// Chat history (from get_chat_history response)
 	LastChatHistory []ChatMessage
 
@@ -577,6 +588,7 @@ func (s *State) Clone() *State {
 		PirateTier:        s.PirateTier,
 		PirateID:          s.PirateID,
 		LastDamage:        s.LastDamage,
+		LastBattleID:      s.LastBattleID,
 		SkillXP:           copyStringFloatMap(s.SkillXP),
 		SkillNextLevelXP:  copyStringFloatMap(s.SkillNextLevelXP),
 		SkillDefinitions:  copySkillDefsMap(s.SkillDefinitions),
