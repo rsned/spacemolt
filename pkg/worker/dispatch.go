@@ -193,7 +193,7 @@ var supported = map[string]bool{
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
 	"capture_storage": true, "capture_faction": true,
-	"capture_action_log": true, "capture_wildlife_attacks": true,
+	"capture_action_log": true, "capture_wildlife_attacks": true, "capture_tax": true,
 	"get_status": true, "get_system": true, "get_cargo": true,
 }
 
@@ -438,6 +438,11 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		// when it died.
 		_, err := assets.CaptureActionLog(ctx, d.Client, d.Assets, d.AgentID, time.Now())
 		return err
+	case "capture_tax":
+		// Reads the NEXT levy a week ahead. An unpayable levy turns into an
+		// empire debt that detains the agent and then skims its income, so the
+		// only cheap moment to act is before it fires.
+		return assets.CaptureTaxEstimate(ctx, d.Client, d.Assets, d.AgentID, time.Now())
 	case "capture_wildlife_attacks":
 		// Mines finished battles for what the creatures in them were shooting
 		// with. Given a battle id it captures just that one; otherwise it drains

@@ -293,3 +293,42 @@ CREATE TABLE IF NOT EXISTS action_log_cursor (
     caught_up     INTEGER NOT NULL DEFAULT 0,
     captured_at   TEXT NOT NULL DEFAULT ''
 );
+
+-- One row per agent: the FORWARD-LOOKING tax position from get_tax_estimate.
+--
+-- The action log records tax after the fact (tax.property_paid / tax.income_paid,
+-- with the shortfall becoming an outstanding bounty). This table is the other
+-- half: what the NEXT weekly levy will demand, captured before it fires, so an
+-- agent that cannot cover it can be topped up instead of bountied.
+--
+-- Property tax is assessed on SHIP VALUE and by CITIZENSHIP, not by location —
+-- a parked, idle hull is taxed exactly like a working one, which is why
+-- otherwise-idle bots drain to zero.
+CREATE TABLE IF NOT EXISTS agent_tax (
+    player_id                TEXT PRIMARY KEY,
+    assessed_property_value  INTEGER NOT NULL DEFAULT 0,
+    property_tax_total       INTEGER NOT NULL DEFAULT 0,
+    income_tax_total         INTEGER NOT NULL DEFAULT 0,
+    taxable_income_to_date   INTEGER NOT NULL DEFAULT 0,
+    taxable_market_income    INTEGER NOT NULL DEFAULT 0,
+    market_sales_to_date     INTEGER NOT NULL DEFAULT 0,
+    market_cogs_deducted     INTEGER NOT NULL DEFAULT 0,
+    market_loss_carryforward INTEGER NOT NULL DEFAULT 0,
+    tax_prepaid              INTEGER NOT NULL DEFAULT 0,
+    next_assessment_seconds  INTEGER NOT NULL DEFAULT 0,
+    collection_active        INTEGER NOT NULL DEFAULT 0,
+    note                     TEXT    NOT NULL DEFAULT '',
+    sales_tax_rates          TEXT    NOT NULL DEFAULT '',
+    captured_at              TEXT    NOT NULL DEFAULT ''
+);
+
+-- Per-ship assessed value behind agent_tax.assessed_property_value. Kept
+-- separately because the levy is the sum over hulls, so the lever for cutting it
+-- is knowing WHICH hull carries the value.
+CREATE TABLE IF NOT EXISTS agent_tax_ships (
+    player_id   TEXT    NOT NULL,
+    ship_id     TEXT    NOT NULL,
+    value       INTEGER NOT NULL DEFAULT 0,
+    captured_at TEXT    NOT NULL DEFAULT '',
+    PRIMARY KEY (player_id, ship_id)
+);
