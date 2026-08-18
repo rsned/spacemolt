@@ -4,20 +4,39 @@
     "frequency": "hourly",
     "command": "capture_profile",
     "created_at": "2026-08-09T23:41:22.178306124Z",
-    "last_run": "2026-08-10T02:00:18.390615085Z"
+    "last_run": "2026-08-18T09:00:07.593880418Z"
   },
   {
     "id": 2,
     "frequency": "daily",
     "command": "capture_storage",
     "created_at": "2026-08-09T23:41:22.178411413Z",
-    "last_run": "2026-08-10T00:00:18.390497778Z"
+    "last_run": "2026-08-18T08:00:18.729161805Z"
   },
   {
     "id": 3,
     "frequency": "daily",
     "command": "capture_faction",
     "created_at": "2026-08-09T23:41:22.17849445Z",
-    "last_run": "2026-08-10T00:00:18.390497778Z"
+    "last_run": "2026-08-18T08:00:18.729161805Z"
+  },
+  {
+    "id": 4,
+    "frequency": "hourly",
+    "command": "capture_action_log",
+    "created_at": "2026-08-18T07:32:04.956121Z",
+    "last_run": "2026-08-18T09:00:07.593880418Z"
+  },
+  {
+    "id": 5,
+    "frequency": "daily",
+    "command": "capture_tax",
+    "created_at": "2026-08-18T09:01:46.697929Z"
+  },
+  {
+    "id": 6,
+    "frequency": "hourly",
+    "command": "capture_wildlife_attacks",
+    "created_at": "2026-08-18T09:01:46.697929Z"
   }
 ]

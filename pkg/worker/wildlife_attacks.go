@@ -17,7 +17,7 @@ const attackCaptureBattleBudget = 5
 // attackQueue is the KB surface this command needs, kept narrow so a worker
 // running without a SQLite KB degrades to a no-op instead of failing.
 type attackQueue interface {
-	BattlesNeedingAttackCapture(ctx context.Context, limit int) ([]knowledge.BattleToCapture, error)
+	BattlesNeedingAttackCapture(ctx context.Context, agentID string, limit int) ([]knowledge.BattleToCapture, error)
 }
 
 // CaptureWildlifeAttacks records what creatures shoot with, from the logs of
@@ -50,7 +50,7 @@ func (d *WorkerDispatch) CaptureWildlifeAttacks(ctx context.Context, args []stri
 	if !ok {
 		return nil
 	}
-	battles, err := q.BattlesNeedingAttackCapture(ctx, attackCaptureBattleBudget)
+	battles, err := q.BattlesNeedingAttackCapture(ctx, d.AgentID, attackCaptureBattleBudget)
 	if err != nil {
 		return err
 	}

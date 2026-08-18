@@ -7,14 +7,48 @@ import (
 
 func recordKill(t *testing.T, kb *SQLiteKB, battleID, creatureID, species string, tick int64) {
 	t.Helper()
+	recordKillBy(t, kb, battleID, creatureID, species, "", tick)
+}
+
+func recordKillBy(t *testing.T, kb *SQLiteKB, battleID, creatureID, species, agentID string, tick int64) {
+	t.Helper()
 	if err := kb.RecordWildlifeKill(context.Background(), WildlifeKill{
 		CreatureID: creatureID,
 		GameTick:   tick,
 		Species:    species,
 		SystemID:   "goldcrest",
 		BattleID:   battleID,
+		AgentID:    agentID,
 	}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestBattlesNeedingAttackCapture_ScopedToTheAgent: the command is scheduled on
+// every worker in the fleet, so an unscoped queue would have all 161 of them
+// fetching the same logs every hour. An agent sees only the battles it fought.
+func TestBattlesNeedingAttackCapture_ScopedToTheAgent(t *testing.T) {
+	kb := newTestKB(t)
+	ctx := context.Background()
+
+	recordKillBy(t, kb, "battle_mine", "crt_1", "belt_grazer", "pirate-7", 100)
+	recordKillBy(t, kb, "battle_theirs", "crt_2", "slag_tortoise", "pirate-9", 200)
+
+	got, err := kb.BattlesNeedingAttackCapture(ctx, "pirate-7", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].BattleID != "battle_mine" {
+		t.Fatalf("scoped queue = %+v, want only pirate-7's battle", got)
+	}
+
+	// An empty agent id is the operator query: every battle, unscoped.
+	all, err := kb.BattlesNeedingAttackCapture(ctx, "", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 2 {
+		t.Errorf("unscoped queue = %d, want both battles", len(all))
 	}
 }
 
@@ -29,7 +63,7 @@ func TestBattlesNeedingAttackCapture_DerivesTheQueue(t *testing.T) {
 	recordKill(t, kb, "battle_a", "crt_2", "glitterback_crab", 101)
 	recordKill(t, kb, "battle_b", "crt_3", "slag_tortoise", 200)
 
-	got, err := kb.BattlesNeedingAttackCapture(ctx, 10)
+	got, err := kb.BattlesNeedingAttackCapture(ctx, "", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +95,7 @@ func TestBattlesNeedingAttackCapture_DerivesTheQueue(t *testing.T) {
 	}}); err != nil {
 		t.Fatal(err)
 	}
-	got, err = kb.BattlesNeedingAttackCapture(ctx, 10)
+	got, err = kb.BattlesNeedingAttackCapture(ctx, "", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +112,7 @@ func TestBattlesNeedingAttackCapture_SkipsKillsWithNoBattle(t *testing.T) {
 
 	recordKill(t, kb, "", "crt_9", "belt_grazer", 100)
 
-	got, err := kb.BattlesNeedingAttackCapture(context.Background(), 10)
+	got, err := kb.BattlesNeedingAttackCapture(context.Background(), "", 10)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +132,7 @@ func TestBattlesNeedingAttackCapture_LimitCountsBattlesNotKills(t *testing.T) {
 	}
 	recordKill(t, kb, "battle_small", "crt_5", "slag_tortoise", 50)
 
-	got, err := kb.BattlesNeedingAttackCapture(context.Background(), 1)
+	got, err := kb.BattlesNeedingAttackCapture(context.Background(), "", 1)
 	if err != nil {
 		t.Fatal(err)
 	}

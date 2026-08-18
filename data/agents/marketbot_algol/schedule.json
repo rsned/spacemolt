@@ -4,55 +4,74 @@
     "frequency": "hourly",
     "command": "kb_update",
     "created_at": "2026-06-24T06:38:56.771576388Z",
-    "last_run": "2026-08-13T20:00:08.782051931Z"
+    "last_run": "2026-08-18T09:00:16.796885011Z"
   },
   {
     "id": 2,
     "frequency": "hourly",
     "command": "view_market",
     "created_at": "2026-06-24T06:38:56.771772701Z",
-    "last_run": "2026-08-13T20:00:08.782051931Z"
-  },
-  {
-    "id": 3,
-    "frequency": "half_hourly",
-    "command": "update_market",
-    "created_at": "2026-06-24T06:38:56.771964159Z",
-    "last_run": "2026-08-13T20:00:08.782051931Z"
+    "last_run": "2026-08-18T09:00:16.796885011Z"
   },
   {
     "id": 5,
     "frequency": "hourly",
     "command": "capture_fuel",
     "created_at": "2026-08-11T19:14:18.223658016Z",
-    "last_run": "2026-08-13T20:00:08.782051931Z"
+    "last_run": "2026-08-18T09:00:16.796885011Z"
   },
   {
     "id": 6,
     "frequency": "hourly",
     "command": "capture_profile",
     "created_at": "2026-08-11T19:14:18.224390406Z",
-    "last_run": "2026-08-13T20:00:08.782051931Z"
+    "last_run": "2026-08-18T09:00:16.796885011Z"
   },
   {
     "id": 8,
     "frequency": "daily",
     "command": "capture_storage",
     "created_at": "2026-08-11T19:14:18.224597302Z",
-    "last_run": "2026-08-13T00:00:03.806904987Z"
+    "last_run": "2026-08-18T07:36:28.587767454Z"
   },
   {
     "id": 9,
     "frequency": "daily",
     "command": "capture_faction",
     "created_at": "2026-08-11T19:14:18.224671951Z",
-    "last_run": "2026-08-13T00:00:03.806904987Z"
+    "last_run": "2026-08-18T07:36:28.587767454Z"
   },
   {
     "id": 10,
     "frequency": "hourly",
     "command": "facilities",
     "created_at": "2026-08-13T12:04:18.824525939Z",
-    "last_run": "2026-08-13T20:00:08.782051931Z"
+    "last_run": "2026-08-18T09:00:16.796885011Z"
+  },
+  {
+    "id": 11,
+    "frequency": "ten_minutely",
+    "command": "update_market",
+    "created_at": "2026-08-14T18:43:53.889593503Z",
+    "last_run": "2026-08-18T09:00:16.796885011Z"
+  },
+  {
+    "id": 12,
+    "frequency": "hourly",
+    "command": "capture_action_log",
+    "created_at": "2026-08-18T07:32:04.956121Z",
+    "last_run": "2026-08-18T09:00:16.796885011Z"
+  },
+  {
+    "id": 13,
+    "frequency": "daily",
+    "command": "capture_tax",
+    "created_at": "2026-08-18T09:01:46.697929Z"
+  },
+  {
+    "id": 14,
+    "frequency": "hourly",
+    "command": "capture_wildlife_attacks",
+    "created_at": "2026-08-18T09:01:46.697929Z"
   }
 ]

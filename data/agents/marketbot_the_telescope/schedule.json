@@ -4,55 +4,62 @@
     "frequency": "hourly",
     "command": "kb_update",
     "created_at": "2026-06-24T06:41:56.815084407Z",
-    "last_run": "2026-08-13T20:00:13.821468062Z"
+    "last_run": "2026-08-18T09:00:00.913885233Z"
   },
   {
     "id": 2,
     "frequency": "hourly",
     "command": "view_market",
     "created_at": "2026-06-24T06:41:56.815207552Z",
-    "last_run": "2026-08-13T20:00:13.821468062Z"
+    "last_run": "2026-08-18T09:00:00.913885233Z"
   },
   {
     "id": 3,
     "frequency": "ten_minutely",
     "command": "update_market",
     "created_at": "2026-06-24T06:41:56.815299911Z",
-    "last_run": "2026-08-13T20:10:13.822312994Z"
+    "last_run": "2026-08-18T09:10:00.913812433Z"
   },
   {
     "id": 5,
     "frequency": "hourly",
     "command": "facilities",
     "created_at": "2026-07-09T19:45:36.505031013Z",
-    "last_run": "2026-08-13T20:00:13.821468062Z"
+    "last_run": "2026-08-18T09:00:00.913885233Z"
   },
   {
     "id": 6,
     "frequency": "hourly",
     "command": "capture_fuel",
     "created_at": "2026-07-15T04:40:13.49282887Z",
-    "last_run": "2026-08-13T20:00:13.821468062Z"
+    "last_run": "2026-08-18T09:00:00.913885233Z"
   },
   {
     "id": 7,
     "frequency": "hourly",
     "command": "capture_profile",
     "created_at": "2026-08-08T02:57:08.036283933Z",
-    "last_run": "2026-08-13T20:00:13.821468062Z"
+    "last_run": "2026-08-18T09:00:00.913885233Z"
   },
   {
     "id": 8,
     "frequency": "daily",
     "command": "capture_storage",
     "created_at": "2026-08-08T02:57:08.036491088Z",
-    "last_run": "2026-08-13T00:00:13.822328523Z"
+    "last_run": "2026-08-18T07:42:58.886319338Z"
   },
   {
     "id": 9,
     "frequency": "daily",
     "command": "capture_faction",
     "created_at": "2026-08-08T02:57:08.036599021Z",
-    "last_run": "2026-08-13T00:00:13.822328523Z"
+    "last_run": "2026-08-18T07:42:58.886319338Z"
+  },
+  {
+    "id": 10,
+    "frequency": "hourly",
+    "command": "capture_action_log",
+    "created_at": "2026-08-18T07:32:04.956121Z",
+    "last_run": "2026-08-18T09:00:00.913885233Z"
   }
 ]

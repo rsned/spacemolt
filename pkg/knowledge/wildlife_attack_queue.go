@@ -26,7 +26,13 @@ type BattleToCapture struct {
 //
 // Battles are returned newest first: a fresh log is the one most likely to still
 // be fetchable, and the freshest fights are the ones an operator is asking about.
-func (kb *SQLiteKB) BattlesNeedingAttackCapture(ctx context.Context, limit int) ([]BattleToCapture, error) {
+//
+// agentID scopes the queue to battles that agent actually fought. It is not an
+// optimisation: the command is scheduled fleet-wide, and an unscoped queue would
+// have all 161 workers racing to fetch the same handful of logs every hour —
+// idempotent, but 161x the requests for one result. Empty means every battle,
+// which is what a one-off operator query wants.
+func (kb *SQLiteKB) BattlesNeedingAttackCapture(ctx context.Context, agentID string, limit int) ([]BattleToCapture, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -34,11 +40,12 @@ func (kb *SQLiteKB) BattlesNeedingAttackCapture(ctx context.Context, limit int) 
 		SELECT k.battle_id, k.creature_id, k.species, MAX(k.game_tick) AS gt
 		FROM wildlife_kills k
 		WHERE k.battle_id <> ''
+		  AND (? = '' OR k.agent_id = ?)
 		  AND NOT EXISTS (
 		      SELECT 1 FROM wildlife_attacks a WHERE a.battle_id = k.battle_id
 		  )
 		GROUP BY k.battle_id, k.creature_id, k.species
-		ORDER BY gt DESC`)
+		ORDER BY gt DESC`, agentID, agentID)
 	if err != nil {
 		return nil, fmt.Errorf("battles needing attack capture: %w", err)
 	}
