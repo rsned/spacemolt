@@ -297,4 +297,3 @@ func resolveSystemToken(tok string, byID, byName map[string]string) (string, boo
 	}
 	return "", false
 }
-

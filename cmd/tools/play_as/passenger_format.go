@@ -203,7 +203,7 @@ func renderPaxByDestination(items []paxItem, classOrder []string, fareMode paxFa
 // renderPaxLine writes a single indented passenger line, padded to the shared
 // column widths so columns align across all groups:
 //
-//	    <name>  [<citizenship>]  <citizen_id>   [~]<fare> cr  [<ticks>t]
+//	<name>  [<citizenship>]  <citizen_id>   [~]<fare> cr  [<ticks>t]
 //
 // The citizenship column is omitted entirely when no passenger has one (the
 // aboard manifest carries no citizenship). The fare column depends on fareMode:

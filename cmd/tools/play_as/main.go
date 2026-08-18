@@ -856,6 +856,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatDeployDrone(raw)
 	case "get_tax_estimate", "tax_estimate":
 		return formatGetTaxEstimate(raw)
+	case "get_faction_tax_estimate", "faction_tax_estimate":
+		return formatFactionTaxEstimate(raw)
 	case "get_insurance_quote", "insurance_quote":
 		return formatGetInsuranceQuote(raw)
 	case "get_achievements", "achievements":
@@ -1443,38 +1445,22 @@ func formatDeployDrone(raw []byte) string {
 	return b.String()
 }
 
-// formatGetTaxEstimate renders the tax preview: a header noting whether
-// taxes are live or simulated, a totals row, sales-tax rates broken out
-// per empire (citizen rate flagged), taxable income by source, and the
-// per-ship property assessment. Empty sections are elided.
+// formatGetTaxEstimate renders the tax preview: a header noting whether taxes
+// are live or simulated, a totals row, the market profit basis, sales-tax rates
+// broken out per empire (citizen rate flagged), taxable income by source, the
+// per-empire tax breakdowns, and the per-ship property assessment. Empty
+// sections are elided.
+//
+// It decodes serverapi.GetTaxEstimateResponse rather than a local struct. The
+// local copy this replaced silently omitted seven fields — the whole market
+// profit basis (market_sales_to_date, market_cost_of_goods_deducted,
+// market_loss_carryforward, taxable_market_income), tax_prepaid, and the
+// per-empire property_tax / income_tax breakdowns — and parsed two more it never
+// printed. A private mirror of a wire struct drifts silently every time the
+// server adds a field; the shared type at least fails to compile when one is
+// renamed.
 func formatGetTaxEstimate(raw []byte) string {
-	type incomeRow struct {
-		Amount   int64  `json:"amount"`
-		Category string `json:"category"`
-	}
-	type salesRate struct {
-		Empire string `json:"empire"`
-		RateBP int    `json:"rate_bps"`
-		Reason string `json:"reason"`
-	}
-	type shipValue struct {
-		ShipID string `json:"ship_id"`
-		Value  int64  `json:"value"`
-	}
-	var resp struct {
-		AssessedPropertyByShip      []shipValue `json:"assessed_property_by_ship"`
-		AssessedPropertyValue       int64       `json:"assessed_property_value"`
-		IncomeTaxTotal              int64       `json:"income_tax_total"`
-		LastAssessedAt              int64       `json:"last_assessed_at"`
-		LastPropertyAssessedAt      int64       `json:"last_property_assessed_at"`
-		NextAssessmentApproxSeconds int64       `json:"next_assessment_approx_seconds"`
-		Note                        string      `json:"note"`
-		PropertyTaxTotal            int64       `json:"property_tax_total"`
-		SalesTaxRates               []salesRate `json:"sales_tax_rates"`
-		TaxCollectionActive         bool        `json:"tax_collection_active"`
-		TaxableIncomeBySource       []incomeRow `json:"taxable_income_by_source"`
-		TaxableIncomeToDate         int64       `json:"taxable_income_to_date"`
-	}
+	var resp serverapi.GetTaxEstimateResponse
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
 	}
@@ -1489,59 +1475,233 @@ func formatGetTaxEstimate(raw []byte) string {
 		resp.AssessedPropertyValue, resp.TaxableIncomeToDate)
 	fmt.Fprintf(&b, "Property tax due:   %d cr   |   Income tax due: %d cr\n",
 		resp.PropertyTaxTotal, resp.IncomeTaxTotal)
+	if resp.TaxPrepaid != 0 {
+		fmt.Fprintf(&b, "Tax prepaid:        %d cr (offsets the next assessment)\n", resp.TaxPrepaid)
+	}
 	if resp.NextAssessmentApproxSeconds > 0 {
 		days := resp.NextAssessmentApproxSeconds / 86400
 		hours := (resp.NextAssessmentApproxSeconds % 86400) / 3600
 		fmt.Fprintf(&b, "Next assessment:    ~%dd %dh\n", days, hours)
 	}
-
-	if len(resp.SalesTaxRates) > 0 {
-		fmt.Fprintf(&b, "\nSales tax rates (per empire):\n")
-		fmt.Fprintf(&b, "  %-12s  %-7s  %s\n", "Empire", "Rate", "Reason")
-		fmt.Fprintf(&b, "  %-12s  %-7s  %s\n", "------------", "-------", "------")
-		for _, r := range resp.SalesTaxRates {
-			tag := ""
-			if r.Reason == "citizen" {
-				tag = " *"
-			}
-			fmt.Fprintf(&b, "  %-12s  %5.2f%%  %s%s\n",
-				r.Empire, float64(r.RateBP)/100, r.Reason, tag)
-		}
+	if resp.LastAssessedAt > 0 {
+		fmt.Fprintf(&b, "Last assessed:      %s\n", taxStamp(resp.LastAssessedAt))
+	}
+	if resp.LastPropertyAssessedAt > 0 && resp.LastPropertyAssessedAt != resp.LastAssessedAt {
+		fmt.Fprintf(&b, "Last property:      %s\n", taxStamp(resp.LastPropertyAssessedAt))
 	}
 
-	if len(resp.TaxableIncomeBySource) > 0 {
-		any := false
-		for _, r := range resp.TaxableIncomeBySource {
-			if r.Amount != 0 {
-				any = true
-				break
-			}
+	// Market trading is taxed on PROFIT, not turnover, and for a trading agent
+	// this block is the entire basis of the bill — far larger than the property
+	// line above it.
+	if resp.MarketSalesToDate != 0 || resp.MarketCostOfGoodsDeducted != 0 ||
+		resp.TaxableMarketIncome != 0 || resp.MarketLossCarryforward != 0 {
+		fmt.Fprintf(&b, "\nMarket income (taxed on profit, not turnover):\n")
+		fmt.Fprintf(&b, "  Sales to date:      %d cr\n", resp.MarketSalesToDate)
+		fmt.Fprintf(&b, "  Cost of goods:     -%d cr\n", resp.MarketCostOfGoodsDeducted)
+		if resp.MarketLossCarryforward != 0 {
+			fmt.Fprintf(&b, "  Loss carryforward: -%d cr\n", resp.MarketLossCarryforward)
 		}
-		fmt.Fprintf(&b, "\nTaxable income by source:\n")
-		if !any {
-			fmt.Fprintf(&b, "  (none recorded)\n")
-		} else {
-			for _, r := range resp.TaxableIncomeBySource {
-				if r.Amount == 0 {
-					continue
-				}
-				fmt.Fprintf(&b, "  %-14s  %d cr\n", r.Category, r.Amount)
-			}
-		}
+		fmt.Fprintf(&b, "  Taxable profit:     %d cr\n", resp.TaxableMarketIncome)
 	}
 
-	if len(resp.AssessedPropertyByShip) > 0 {
-		fmt.Fprintf(&b, "\nAssessed property by ship (%d ships):\n", len(resp.AssessedPropertyByShip))
-		fmt.Fprintf(&b, "  %-34s  %s\n", "Ship ID", "Value (cr)")
-		fmt.Fprintf(&b, "  %-34s  %s\n", strings.Repeat("-", 34), "----------")
-		for _, s := range resp.AssessedPropertyByShip {
-			fmt.Fprintf(&b, "  %-34s  %10d\n", s.ShipID, s.Value)
-		}
-	}
+	b.WriteString(formatSalesTaxRates(resp.SalesTaxRates))
+	b.WriteString(formatTaxableIncomeBySource(resp.TaxableIncomeBySource))
+	b.WriteString(formatTaxBreakdown("Property tax by empire", resp.PropertyTax))
+	b.WriteString(formatTaxBreakdown("Income tax by empire", resp.IncomeTax))
+	b.WriteString(formatAssessedPropertyByShip(resp.AssessedPropertyByShip))
 
 	if resp.Note != "" {
 		fmt.Fprintf(&b, "\nNote: %s\n", resp.Note)
 	}
+
+	return b.String()
+}
+
+// formatFactionTaxEstimate renders get_faction_tax_estimate. A faction is taxed
+// on PROFIT by its domicile empire: income less deductible expenses, with prior
+// losses carried forward, which is why a faction turning over a large amount can
+// still owe nothing.
+func formatFactionTaxEstimate(raw []byte) string {
+	var resp serverapi.FactionTaxEstimateResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return ""
+	}
+
+	var b strings.Builder
+	status := "PREVIEW (simulated, no credits deducted)"
+	if resp.TaxCollectionActive {
+		status = "ACTIVE"
+	}
+	fmt.Fprintf(&b, "=== Faction Tax Estimate (%s) ===\n", status)
+	fmt.Fprintf(&b, "Faction:            %s (%s)\n", resp.FactionName, resp.FactionID)
+	if resp.Domicile != "" {
+		fmt.Fprintf(&b, "Domicile:           %s (the empire that taxes it)\n", resp.Domicile)
+	}
+	fmt.Fprintf(&b, "Taxable income:     %d cr\n", resp.TaxableIncomeToDate)
+	fmt.Fprintf(&b, "Deductible expense:-%d cr\n", resp.DeductibleExpensesToDate)
+	if resp.LossCarryforwardApplied != 0 {
+		fmt.Fprintf(&b, "Loss carryforward: -%d cr\n", resp.LossCarryforwardApplied)
+	}
+	fmt.Fprintf(&b, "Net taxable profit: %d cr\n", resp.NetTaxableProfit)
+	fmt.Fprintf(&b, "Income tax due:     %d cr\n", resp.IncomeTaxTotal)
+	if resp.CarriedDebtTotal != 0 {
+		fmt.Fprintf(&b, "Carried debt:       %d cr\n", resp.CarriedDebtTotal)
+	}
+	if resp.TaxPrepaid != 0 {
+		fmt.Fprintf(&b, "Tax prepaid:        %d cr\n", resp.TaxPrepaid)
+	}
+	if resp.NextAssessmentApproxSeconds > 0 {
+		days := resp.NextAssessmentApproxSeconds / 86400
+		hours := (resp.NextAssessmentApproxSeconds % 86400) / 3600
+		fmt.Fprintf(&b, "Next assessment:    ~%dd %dh\n", days, hours)
+	}
+	if resp.LastAssessedAt > 0 {
+		fmt.Fprintf(&b, "Last assessed:      %s\n", taxStamp(resp.LastAssessedAt))
+	}
+
+	b.WriteString(formatTaxBreakdown("Income tax by empire", resp.IncomeTax))
+	b.WriteString(formatTaxBreakdown("Carried debt by empire", resp.CarriedDebt))
+
+	if resp.Note != "" {
+		fmt.Fprintf(&b, "\nNote: %s\n", resp.Note)
+	}
+
+	return b.String()
+}
+
+// taxStamp renders a unix assessment timestamp in UTC.
+func taxStamp(sec int64) string {
+	return time.Unix(sec, 0).UTC().Format("2006-01-02 15:04 UTC")
+}
+
+// formatSalesTaxRates renders the per-empire sales-tax table, flagging the rate
+// that applies because you are a citizen.
+func formatSalesTaxRates(rawRates json.RawMessage) string {
+	var rates []struct {
+		Empire string `json:"empire"`
+		RateBP int    `json:"rate_bps"`
+		Reason string `json:"reason"`
+	}
+	if len(rawRates) == 0 || json.Unmarshal(rawRates, &rates) != nil || len(rates) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "\nSales tax rates (per empire):\n")
+	fmt.Fprintf(&b, "  %-12s  %-7s  %s\n", "Empire", "Rate", "Reason")
+	fmt.Fprintf(&b, "  %-12s  %-7s  %s\n", "------------", "-------", "------")
+	for _, r := range rates {
+		tag := ""
+		if r.Reason == "citizen" {
+			tag = " *"
+		}
+		fmt.Fprintf(&b, "  %-12s  %5.2f%%  %s%s\n", r.Empire, float64(r.RateBP)/100, r.Reason, tag)
+	}
+
+	return b.String()
+}
+
+// formatTaxableIncomeBySource renders the income breakdown, keeping the explicit
+// "(none recorded)" line: an empty list means the server tracked no taxable
+// income, which is a different statement from the field being absent.
+func formatTaxableIncomeBySource(rawSrc json.RawMessage) string {
+	var rows []struct {
+		Amount   int64  `json:"amount"`
+		Category string `json:"category"`
+	}
+	if len(rawSrc) == 0 || json.Unmarshal(rawSrc, &rows) != nil || len(rows) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "\nTaxable income by source:\n")
+	any := false
+	for _, r := range rows {
+		if r.Amount != 0 {
+			any = true
+		}
+	}
+	if !any {
+		fmt.Fprintf(&b, "  (none recorded)\n")
+
+		return b.String()
+	}
+	for _, r := range rows {
+		if r.Amount == 0 {
+			continue
+		}
+		fmt.Fprintf(&b, "  %-14s  %d cr\n", r.Category, r.Amount)
+	}
+
+	return b.String()
+}
+
+// formatAssessedPropertyByShip renders the per-hull assessment. Property tax is
+// levied on ship VALUE, so this table is what says which hull to move or sell.
+func formatAssessedPropertyByShip(rawShips json.RawMessage) string {
+	var ships []struct {
+		ShipID string `json:"ship_id"`
+		Value  int64  `json:"value"`
+	}
+	if len(rawShips) == 0 || json.Unmarshal(rawShips, &ships) != nil || len(ships) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "\nAssessed property by ship (%d ships):\n", len(ships))
+	fmt.Fprintf(&b, "  %-34s  %s\n", "Ship ID", "Value (cr)")
+	fmt.Fprintf(&b, "  %-34s  %s\n", strings.Repeat("-", 34), "----------")
+	for _, s := range ships {
+		fmt.Fprintf(&b, "  %-34s  %10d\n", s.ShipID, s.Value)
+	}
+
+	return b.String()
+}
+
+// formatTaxBreakdown renders a per-empire tax table (property_tax, income_tax,
+// carried_debt). The row shape is undocumented, so known fields are printed when
+// they decode and the compact JSON is printed verbatim when they do not — a
+// breakdown must never be silently dropped, which is exactly how the fields this
+// function exists for went unnoticed in the first place.
+func formatTaxBreakdown(label string, rawTax json.RawMessage) string {
+	if len(rawTax) == 0 || string(rawTax) == "null" || string(rawTax) == "[]" || string(rawTax) == "{}" {
+		return ""
+	}
+
+	var rows []struct {
+		Empire string `json:"empire"`
+		Amount int64  `json:"amount"`
+		Owed   int64  `json:"owed"`
+		Paid   int64  `json:"paid"`
+		Unpaid int64  `json:"unpaid"`
+		RateBP int    `json:"rate_bps"`
+		Value  int64  `json:"value"`
+	}
+	if err := json.Unmarshal(rawTax, &rows); err != nil || len(rows) == 0 {
+		var compact bytes.Buffer
+		if json.Compact(&compact, rawTax) != nil {
+			return fmt.Sprintf("\n%s: %s\n", label, rawTax)
+		}
+
+		return fmt.Sprintf("\n%s: %s\n", label, compact.String())
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "\n%s:\n", label)
+	fmt.Fprintf(&b, "  %-12s  %10s  %8s  %8s  %8s  %s\n",
+		"Empire", "Base", "Rate", "Owed", "Paid", "Unpaid")
+	fmt.Fprintf(&b, "  %-12s  %10s  %8s  %8s  %8s  %s\n",
+		"------------", "----------", "--------", "--------", "--------", "--------")
+	for _, r := range rows {
+		owed := r.Owed
+		if owed == 0 {
+			owed = r.Amount
+		}
+		rate := "-"
+		if r.RateBP != 0 {
+			rate = fmt.Sprintf("%.2f%%", float64(r.RateBP)/100)
+		}
+		fmt.Fprintf(&b, "  %-12s  %10d  %8s  %8d  %8d  %d\n",
+			r.Empire, r.Value, rate, owed, r.Paid, r.Unpaid)
+	}
+
 	return b.String()
 }
 

@@ -6,15 +6,18 @@ import (
 	"time"
 )
 
-// realTaxReply is a get_tax_estimate reply as the server sends it, taken
-// verbatim on 2026-08-18. The two ship values sum to assessed_property_value,
+// realTaxReply mirrors a get_tax_estimate reply observed on 2026-08-18,
+// reconstructed from the rendered output plus the field names in
+// serverapi.GetTaxEstimateResponse. assessed_property_by_ship is a LIST of
+// {ship_id, value} — that is the shape play_as decodes and the shape the live
+// reply rendered from. The two ship values sum to assessed_property_value,
 // which is the invariant that makes the per-ship table trustworthy.
 const realTaxReply = `{
   "action": "get_tax_estimate",
-  "assessed_property_by_ship": {
-    "c63763d53539dd8cdde94211d64916d9": 28705,
-    "f7827df3e87c7b26df365bd227de62ee": 46928
-  },
+  "assessed_property_by_ship": [
+    {"ship_id": "c63763d53539dd8cdde94211d64916d9", "value": 28705},
+    {"ship_id": "f7827df3e87c7b26df365bd227de62ee", "value": 46928}
+  ],
   "assessed_property_value": 75633,
   "property_tax_total": 378,
   "income_tax_total": 0,
@@ -25,7 +28,7 @@ const realTaxReply = `{
   "tax_prepaid": 0,
   "next_assessment_approx_seconds": 604800,
   "tax_collection_active": true,
-  "sales_tax_rates": {"solarian":100,"voidborn":250,"crimson":400,"nebula":100,"outerrim":200}
+  "sales_tax_rates": [{"empire":"solarian","rate_bps":100,"reason":"citizen"},{"empire":"crimson","rate_bps":400,"reason":"foreign-lowest"}]
 }`
 
 func TestTaxEstimateFrom_RealReply(t *testing.T) {
@@ -71,12 +74,13 @@ func TestTaxEstimateFrom_EmptyIsNotZeroOwed(t *testing.T) {
 	}
 }
 
-// TestTaxShipsFrom_AcceptsListShape: the per-ship field is undocumented, so a
-// shape change must cost the ship breakdown, never the scalar totals.
-func TestTaxShipsFrom_AcceptsListShape(t *testing.T) {
+// TestTaxShipsFrom_AcceptsMapShape: the live shape is a list (see realTaxReply);
+// a keyed map is also accepted, and an unrecognised shape must cost the ship
+// breakdown only, never the scalar totals.
+func TestTaxShipsFrom_AcceptsMapShape(t *testing.T) {
 	got, ok, err := TaxEstimateFrom([]byte(`{
 		"assessed_property_value": 300, "property_tax_total": 3,
-		"assessed_property_by_ship": [{"ship_id":"a","value":200},{"ship_id":"b","value":100}]}`))
+		"assessed_property_by_ship": {"a":200,"b":100}}`))
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
 	}

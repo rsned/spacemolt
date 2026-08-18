@@ -84,9 +84,9 @@ func TestSanitizeID(t *testing.T) {
 		{"already-lower-case", "already-lower-case"},
 		{"weird:chars/here", "weird-chars-here"},
 		{"UPPER123", "upper123"},
-		{"Café Crate", "caf--crate"},      // accented characters and spaces become dashes
-		{"日本語テキスト", "-------"},           // CJK characters become dashes
-		{"café-123", "caf--123"},           // mix of accented and valid chars
+		{"Café Crate", "caf--crate"}, // accented characters and spaces become dashes
+		{"日本語テキスト", "-------"},       // CJK characters become dashes
+		{"café-123", "caf--123"},     // mix of accented and valid chars
 	}
 	for _, tt := range tests {
 		got := sanitizeID(tt.in)

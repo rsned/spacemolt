@@ -22,9 +22,9 @@ func TestFormatGetInsuranceQuote_RendersQuote(t *testing.T) {
 
 	for _, want := range []string{
 		"Insurance Quote",
-		"33739",   // fitted value / coverage
-		"1687",    // premium
-		"7 days",  // expires_in as string
+		"33739",  // fitted value / coverage
+		"1687",   // premium
+		"7 days", // expires_in as string
 		"Ship Condition",
 		"Hull at 92%",
 		"Base premium: 5% of fitted value", // detail-only factor still renders

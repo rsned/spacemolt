@@ -130,8 +130,8 @@ func TestRenderPriceTextUnderpriced(t *testing.T) {
 			{Component: pricing.Component{ItemID: "iron_ore", Qty: 20}, NearbyUnit: 8, MktUnit: 14, NearbyFound: true, MktFound: true},
 			{Component: pricing.Component{ItemID: "rare_ore", Qty: 2}, MktUnit: 100, MktFound: true}, // no nearby
 		},
-		Nearby: pricing.Basis{BuildCost: 160, PerUnit: 32, Margin: 6.4, Suggested: 38.4, Covered: 1, Total: 2},
-		Mkt:    pricing.Basis{BuildCost: 480, PerUnit: 96, Margin: 19.2, Suggested: 115.2, Covered: 2, Total: 2},
+		Nearby:       pricing.Basis{BuildCost: 160, PerUnit: 32, Margin: 6.4, Suggested: 38.4, Covered: 1, Total: 2},
+		Mkt:          pricing.Basis{BuildCost: 480, PerUnit: 96, Margin: 19.2, Suggested: 115.2, Covered: 2, Total: 2},
 		CurAskNearby: 500, HasAskNearby: true, CurAskMkt: 520, HasAskMkt: true, CurBid: 400, HasBid: true,
 		Class: pricing.ClassUnder,
 	}
@@ -144,7 +144,7 @@ func TestRenderPriceTextUnderpriced(t *testing.T) {
 		"38.40",                          // nearby basis partial -> floor still shown (was blank before)
 		"nearby 1/2 (missing: rare_ore)", // coverage names the gap per basis
 		"mkt-avg 2/2",
-		"⚠",                                                // partial-basis warning
+		"⚠", // partial-basis warning
 		"CURRENT MARKET", "500", "400", "UNDERPRICED",
 	} {
 		if !strings.Contains(out, want) {
@@ -162,8 +162,8 @@ func TestRenderPriceTextPartialMktBasisShowsFloor(t *testing.T) {
 	rep := &pricing.PriceReport{
 		ItemID: "ghost_rounds", RecipeName: "forge_ghost_rounds", OutputUnits: 2, MarginPct: 20,
 		Components: []pricing.PricedComponent{
-			{Component: pricing.Component{ItemID: "hot_cell", Qty: 2}},                                            // no price anywhere
-			{Component: pricing.Component{ItemID: "titanium_ingot", Qty: 3}, MktUnit: 823.5, MktFound: true},      // mkt only
+			{Component: pricing.Component{ItemID: "hot_cell", Qty: 2}},                                       // no price anywhere
+			{Component: pricing.Component{ItemID: "titanium_ingot", Qty: 3}, MktUnit: 823.5, MktFound: true}, // mkt only
 		},
 		// mkt: only titanium_ingot priced -> 3*823.5=2470.5 /2 units =1235.25 +20% =1482.30 (partial)
 		Nearby: pricing.Basis{Covered: 0, Total: 2},
@@ -172,10 +172,10 @@ func TestRenderPriceTextPartialMktBasisShowsFloor(t *testing.T) {
 	out := renderPriceText("ghost_rounds", "alhena", 2, 20, []modeReport{{Label: "RECIPE", R: rep}}, "")
 
 	for _, want := range []string{
-		"1482.30",                          // partial mkt SUGGESTED is shown, not blank
-		"mkt-avg 1/2 (missing: hot_cell)",  // coverage explains the gap
-		"nearby 0/2",                       // nearby priced nothing
-		"⚠",                                // partial-basis warning present
+		"1482.30",                         // partial mkt SUGGESTED is shown, not blank
+		"mkt-avg 1/2 (missing: hot_cell)", // coverage explains the gap
+		"nearby 0/2",                      // nearby priced nothing
+		"⚠",                               // partial-basis warning present
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("render missing %q in:\n%s", want, out)

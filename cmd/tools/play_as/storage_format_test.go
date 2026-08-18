@@ -10,7 +10,7 @@ import (
 // "Storage at  — 0 types". A frame with no base_id/items/ships must render "".
 func TestFormatStorage_ErrorFrameRendersNothing(t *testing.T) {
 	cases := map[string]string{
-		"error frame": `{"error":"not_docked","message":"You must be docked or provide a station_id to view storage."}`,
+		"error frame":  `{"error":"not_docked","message":"You must be docked or provide a station_id to view storage."}`,
 		"empty object": `{}`,
 		"null items":   `{"items":null,"ships":null}`,
 	}

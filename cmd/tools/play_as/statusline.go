@@ -10,16 +10,16 @@ import (
 
 // ANSI color codes.
 const (
-	ansiReset     = "\033[0m"
-	ansiRed       = "\033[31m"
-	ansiBrightRed = "\033[91m"
-	ansiYellow    = "\033[33m"
-	ansiGreen     = "\033[32m"
+	ansiReset       = "\033[0m"
+	ansiRed         = "\033[31m"
+	ansiBrightRed   = "\033[91m"
+	ansiYellow      = "\033[33m"
+	ansiGreen       = "\033[32m"
 	ansiBrightGreen = "\033[92m"
-	ansiMagenta   = "\033[35m"
-	ansiCyan      = "\033[36m"
-	ansiWhite     = "\033[37m"
-	ansiGray      = "\033[90m"
+	ansiMagenta     = "\033[35m"
+	ansiCyan        = "\033[36m"
+	ansiWhite       = "\033[37m"
+	ansiGray        = "\033[90m"
 )
 
 // colorCode maps color names from config to ANSI escape sequences.
@@ -155,16 +155,16 @@ func renderStatusline(client game.GameClient, cfg PlayAsConfig, agentID string) 
 	// Build segment lookup.
 	segments := map[string]string{
 		// Identity
-		"agent":      agentID,
-		"player":     state.Player.Username,
-		"empire":     state.Player.Empire,
-		"faction":    state.Player.FactionID,
+		"agent":   agentID,
+		"player":  state.Player.Username,
+		"empire":  state.Player.Empire,
+		"faction": state.Player.FactionID,
 
 		// Location
-		"system":     colorize(state.System.Name, securityColor(state.System.SecurityStatus, sl)),
-		"system_id":  colorize(state.System.ID, securityColor(state.System.SecurityStatus, sl)),
-		"security":   colorize(state.System.SecurityStatus, securityColor(state.System.SecurityStatus, sl)),
-		"poi":        state.CurrentPOI,
+		"system":    colorize(state.System.Name, securityColor(state.System.SecurityStatus, sl)),
+		"system_id": colorize(state.System.ID, securityColor(state.System.SecurityStatus, sl)),
+		"security":  colorize(state.System.SecurityStatus, securityColor(state.System.SecurityStatus, sl)),
+		"poi":       state.CurrentPOI,
 
 		// Dock status
 		"dock": dockIndicator(state, sl),

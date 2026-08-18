@@ -102,15 +102,15 @@ const craftJobQueuedWrapped = `{"command":"craft","tick":42,"result":` + craftJo
 func TestFormatCraftJobQueued_KeySubstrings(t *testing.T) {
 	out := formatCraft([]byte(craftJobQueuedSample))
 	for _, want := range []string{
-		"job-abc-123",     // job ID
-		"shield_cell",     // recipe name
-		"station-7",       // venue
-		"3 runs",          // run count — brief says "(%d runs, …)"
-		"ETA tick 9000",   // ETA tick
-		"Shield Cell",     // produces entry
-		"Iron Ore",        // escrowed input
-		"labor 200",       // escrowed credits
-		"Job accepted.",   // message passthrough
+		"job-abc-123",   // job ID
+		"shield_cell",   // recipe name
+		"station-7",     // venue
+		"3 runs",        // run count — brief says "(%d runs, …)"
+		"ETA tick 9000", // ETA tick
+		"Shield Cell",   // produces entry
+		"Iron Ore",      // escrowed input
+		"labor 200",     // escrowed credits
+		"Job accepted.", // message passthrough
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("formatCraft(queued) missing %q:\n%s", want, out)
@@ -128,16 +128,16 @@ func TestFormatCraftJobQueued_UnwrapsActionResult(t *testing.T) {
 func TestFormatCraftQueue_KeySubstrings(t *testing.T) {
 	out := formatCraft([]byte(craftQueueSample))
 	for _, want := range []string{
-		"Crafting queue",  // header
-		"2 jobs",          // job count
-		"job-abc-123",     // first job ID
-		"shield_cell",     // first recipe
-		"1/3 runs",        // progress fraction
-		"33%",             // progress pct (0.3333*100 ≈ 33)
-		"running",         // status
-		"job-def-456",     // second job ID
-		"power_cell",      // second recipe
-		"queued",          // second status
+		"Crafting queue", // header
+		"2 jobs",         // job count
+		"job-abc-123",    // first job ID
+		"shield_cell",    // first recipe
+		"1/3 runs",       // progress fraction
+		"33%",            // progress pct (0.3333*100 ≈ 33)
+		"running",        // status
+		"job-def-456",    // second job ID
+		"power_cell",     // second recipe
+		"queued",         // second status
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("formatCraft(queue) missing %q:\n%s", want, out)
@@ -165,12 +165,12 @@ func TestFormatCraftQueue_LiveActionResultShape(t *testing.T) {
 		t.Fatal("formatCraft returned empty for the live queue action_result shape")
 	}
 	for _, want := range []string{
-		"Crafting queue",        // header
-		"1 job",                 // job count
-		"Encode Trade Cipher",   // recipe
-		"0/3 runs",              // progress fraction
-		"ETA 11 ticks",          // eta
-		"queued",                // status
+		"Crafting queue",      // header
+		"1 job",               // job count
+		"Encode Trade Cipher", // recipe
+		"0/3 runs",            // progress fraction
+		"ETA 11 ticks",        // eta
+		"queued",              // status
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("formatCraft(live queue) missing %q:\n%s", want, out)
@@ -189,11 +189,11 @@ func TestFormatCraftQueue_GroupsByFacility(t *testing.T) {
 		`{"eta_ticks":9,"facility_id":"f9ef7a19","job_id":"j3","mode":"craft","position":0,"produces":[{"item_id":"steel_plate","name":"Steel Plate","quantity":2}],"progress":0.65,"recipe":"Refine Steel","runs_done":10,"runs_total":100,"status":"active","venue":"Iron Refinery"}]}}`)
 	out := formatCraft(raw)
 	for _, want := range []string{
-		"3 jobs across 2 facilities",                  // grouped header
+		"3 jobs across 2 facilities",                         // grouped header
 		"Station Workshop @ grand_exchange_station — 2 jobs", // structured workshop id → station
-		"Iron Refinery [f9ef7a19] — 1 job",            // opaque faction hash, truncated
-		"2x Steel Plate",                                      // produces rendered
-		"10/100 runs done, current run 65%",                   // active job progress
+		"Iron Refinery [f9ef7a19] — 1 job",                   // opaque faction hash, truncated
+		"2x Steel Plate",                                     // produces rendered
+		"10/100 runs done, current run 65%",                  // active job progress
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("formatCraft(grouped queue) missing %q:\n%s", want, out)
@@ -204,14 +204,14 @@ func TestFormatCraftQueue_GroupsByFacility(t *testing.T) {
 func TestFormatCraftBulk_KeySubstrings(t *testing.T) {
 	out := formatCraft([]byte(craftBulkSample))
 	for _, want := range []string{
-		"Bulk craft",           // header
-		"2 total",              // summary total
-		"1 ok",                 // succeeded
-		"1 failed",             // failed
-		"job-aaa-111",          // successful job ID
-		"shield_cell",          // successful recipe
-		"rare_module",          // failed recipe
-		"missing inputs",       // error message
+		"Bulk craft",             // header
+		"2 total",                // summary total
+		"1 ok",                   // succeeded
+		"1 failed",               // failed
+		"job-aaa-111",            // successful job ID
+		"shield_cell",            // successful recipe
+		"rare_module",            // failed recipe
+		"missing inputs",         // error message
 		"insufficient_materials", // error code
 	} {
 		if !strings.Contains(out, want) {
@@ -223,15 +223,15 @@ func TestFormatCraftBulk_KeySubstrings(t *testing.T) {
 func TestFormatCraftDryRun_KeySubstrings(t *testing.T) {
 	out := formatCraft([]byte(craftDryRunSample))
 	for _, want := range []string{
-		"Dry run",          // header
-		"shield_cell",      // recipe
-		"5",                // quantity / runs
-		"station-7",        // venue
-		"ETA tick 9500",    // ETA tick
-		"Iron Ore",         // input name
-		"750",              // credits_total
-		"labor 700",        // cost breakdown
-		"fee 50",           // fee
+		"Dry run",           // header
+		"shield_cell",       // recipe
+		"5",                 // quantity / runs
+		"station-7",         // venue
+		"ETA tick 9500",     // ETA tick
+		"Iron Ore",          // input name
+		"750",               // credits_total
+		"labor 700",         // cost breakdown
+		"fee 50",            // fee
 		"You lack credits.", // message
 	} {
 		if !strings.Contains(out, want) {

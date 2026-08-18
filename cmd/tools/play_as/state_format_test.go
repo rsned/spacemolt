@@ -49,18 +49,18 @@ func TestFormatGetState(t *testing.T) {
 	}
 	// Spot-check fields unique to / important in the get_state shape.
 	wants := []string{
-		"Arthur 'Artificer' Artis",        // header title
-		"Bonanza King [Bonanza King]",     // ship + class
-		"Haven / Grand Exchange",          // nested location
+		"Arthur 'Artificer' Artis",         // header title
+		"Bonanza King [Bonanza King]",      // ship + class
+		"Haven / Grand Exchange",           // nested location
 		"Docked at grand_exchange_station", // derived status line
-		"2,495,218 cr",                    // comma'd credits
-		"v0.373.3",                        // version (get_status lacks this)
-		"380/380",                         // hull
-		"214/280",                         // fuel
-		"Steel Plate",                     // cargo manifest
-		"Maximum Security",                // security (may be truncated)
-		"piloting",                        // skill sorted by level
-		"0 / 5",                           // missions active/max
+		"2,495,218 cr",                     // comma'd credits
+		"v0.373.3",                         // version (get_status lacks this)
+		"380/380",                          // hull
+		"214/280",                          // fuel
+		"Steel Plate",                      // cargo manifest
+		"Maximum Security",                 // security (may be truncated)
+		"piloting",                         // skill sorted by level
+		"0 / 5",                            // missions active/max
 	}
 	for _, w := range wants {
 		if !strings.Contains(out, w) {

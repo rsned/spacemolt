@@ -54,10 +54,10 @@ func defaultConfig() PlayAsConfig {
 				Good:     65,
 			},
 			SecurityColors: map[string]string{
-				"High Security":    "green",
-				"Medium Security":  "yellow",
-				"Low Security":     "red",
-				"Lawless":          "bright_red",
+				"High Security":     "green",
+				"Medium Security":   "yellow",
+				"Low Security":      "red",
+				"Lawless":           "bright_red",
 				"Pirate Stronghold": "magenta",
 			},
 			Indicators: IndicatorConfig{

@@ -19,7 +19,7 @@ type stubClientNilState struct {
 	game.GameClient
 }
 
-func (stubClientNilState) GetState() *game.State { return nil }
+func (stubClientNilState) GetState() *game.State    { return nil }
 func (stubClientNilState) GetRawJSON(string) []byte { return nil }
 
 // TestRunLoopSingle_TokenErrorStopsScript verifies that a *tokenError
