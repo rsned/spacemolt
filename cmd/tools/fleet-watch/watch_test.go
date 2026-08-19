@@ -127,3 +127,41 @@ func TestProcessAlerts(t *testing.T) {
 		t.Errorf("wrong alert: %+v", got[0])
 	}
 }
+
+// TestNotifiable_SuppressesOnlySelfHealingChurn: the disconnect-imbalance alert
+// is the one that recovers on its own, and it is the one that buried the alerts
+// that don't. Everything else must still reach the screen.
+func TestNotifiable_SuppressesOnlySelfHealingChurn(t *testing.T) {
+	if Notifiable(KindUnrecovered) {
+		t.Error("disconnect churn must not raise a desktop notification")
+	}
+	for _, kind := range []string{KindStale, KindUnreadable, KindProcess} {
+		if !Notifiable(kind) {
+			t.Errorf("%s does not self-heal and must still notify", kind)
+		}
+	}
+}
+
+// TestEvaluate_StillRecordsUnrecovered guards against fixing the noise by
+// deleting the signal: suppression is a notification-layer decision, and the
+// alert must still be produced so it lands in the log and the status file.
+func TestEvaluate_StillRecordsUnrecovered(t *testing.T) {
+	now := time.Now()
+	samples := []Sample{{
+		Fleet: "haul", HasStamp: true, Newest: now,
+		Disconnects: 9, Reconnects: 2,
+	}}
+	prev := map[string]int{"haul": 4}
+
+	alerts, _ := Evaluate(samples, prev, time.Minute, now)
+
+	var found bool
+	for _, a := range alerts {
+		if a.Kind == KindUnrecovered {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("unrecovered alert no longer produced: %+v", alerts)
+	}
+}

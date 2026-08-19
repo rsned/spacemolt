@@ -76,7 +76,7 @@ func main() {
 		minWorkers: *minWorkers,
 		logger:     logger,
 		prevUnrec:  map[string]int{},
-		firing:     map[string]bool{},
+		firing:     map[string]string{},
 	}
 
 	if *once {
@@ -113,10 +113,12 @@ type watcher struct {
 	logger     *log.Logger
 
 	prevUnrec map[string]int
-	// firing tracks which alerts are already active, so a persistent fault
-	// notifies once rather than every pass. A watcher that cries every minute
-	// gets muted, and a muted watcher is the same as no watcher.
-	firing map[string]bool
+	// firing maps an active alert's "fleet/kind" key to its kind, so a
+	// persistent fault notifies once rather than every pass and a recovery can
+	// still tell whether the fault it clears was one worth interrupting for. A
+	// watcher that cries every minute gets muted, and a muted watcher is the
+	// same as no watcher.
+	firing map[string]string
 }
 
 type snapshot struct {
@@ -174,21 +176,22 @@ func (w *watcher) pass() {
 		snap.Fleets[s.Fleet] = h
 	}
 
-	active := map[string]bool{}
+	active := map[string]string{}
 	for _, a := range alerts {
 		key := a.Fleet + "/" + a.Kind
-		active[key] = true
+		active[key] = a.Kind
 		line := fmt.Sprintf("%s %s: %s", a.Fleet, a.Kind, a.Message)
 		snap.Alerts = append(snap.Alerts, line)
-		if !w.firing[key] {
-			w.raise(now, line)
+		if _, already := w.firing[key]; !already {
+			w.raise(now, line, Notifiable(a.Kind))
 		}
 	}
 	// Announce recoveries too: a watcher that only ever reports bad news leaves
-	// you unsure whether it is still running.
-	for key := range w.firing {
-		if !active[key] {
-			w.raise(now, "RECOVERED "+strings.ReplaceAll(key, "/", " "))
+	// you unsure whether it is still running. A recovery is only worth
+	// interrupting for when the fault itself was.
+	for key, kind := range w.firing {
+		if _, still := active[key]; !still {
+			w.raise(now, "RECOVERED "+strings.ReplaceAll(key, "/", " "), Notifiable(kind))
 		}
 	}
 	w.firing = active
@@ -196,14 +199,16 @@ func (w *watcher) pass() {
 	w.writeStatus(snap)
 }
 
-// raise records an alert and, when enabled, puts it on screen.
-func (w *watcher) raise(now time.Time, line string) {
+// raise records an alert and, when notify is true for this kind, puts it on
+// screen. Recording always happens: suppression is about what interrupts the
+// operator, never about what gets kept.
+func (w *watcher) raise(now time.Time, line string, notify bool) {
 	stamped := fmt.Sprintf("%s %s\n", now.Format(time.RFC3339), line)
 	if _, err := io.WriteString(w.alertFile, stamped); err != nil {
 		w.logger.Printf("append alert: %v", err)
 	}
 	w.logger.Print(line)
-	if !w.notify {
+	if !w.notify || !notify {
 		return
 	}
 	// Best-effort: a headless session has no notification daemon, and that must

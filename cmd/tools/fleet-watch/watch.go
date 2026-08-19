@@ -171,3 +171,19 @@ func ProcessAlerts(counts map[string]int, want map[string]int) []Alert {
 
 	return out
 }
+
+// Notifiable reports whether an alert of this kind should interrupt the
+// operator with a desktop notification, as opposed to being recorded only.
+//
+// KindUnrecovered is deliberately excluded. A disconnect/reconnect wave is
+// self-healing: across 42 such alerts during the 2026-08-18 server restarts,
+// every single one recovered without intervention, and the churn produced
+// bursts of 37 notifications an hour. An alert nobody can act on trains the
+// operator to dismiss the ones that matter, so this kind stays in the log and
+// the status file where it is useful for forensics, and off the screen.
+//
+// The remaining kinds do not self-heal: a silent log, an unreadable log, and a
+// missing daemon all stay broken until someone intervenes.
+func Notifiable(kind string) bool {
+	return kind != KindUnrecovered
+}
