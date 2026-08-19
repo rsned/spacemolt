@@ -4,40 +4,46 @@
     "frequency": "hourly",
     "command": "capture_profile",
     "created_at": "2026-08-11T03:00:18.349673331Z",
-    "last_run": "2026-08-18T09:00:11.379502096Z"
+    "last_run": "2026-08-19T06:00:11.379938454Z"
   },
   {
     "id": 2,
     "frequency": "daily",
     "command": "capture_storage",
     "created_at": "2026-08-11T03:00:18.349851733Z",
-    "last_run": "2026-08-18T07:44:47.857686503Z"
+    "last_run": "2026-08-19T00:00:11.379698003Z"
   },
   {
     "id": 3,
     "frequency": "daily",
     "command": "capture_faction",
     "created_at": "2026-08-11T03:00:18.350016419Z",
-    "last_run": "2026-08-18T07:44:47.857686503Z"
+    "last_run": "2026-08-19T00:00:11.379698003Z"
   },
   {
     "id": 4,
     "frequency": "hourly",
     "command": "capture_action_log",
     "created_at": "2026-08-18T07:32:04.956121Z",
-    "last_run": "2026-08-18T09:00:11.379502096Z"
+    "last_run": "2026-08-19T06:00:11.379938454Z"
   },
   {
     "id": 5,
     "frequency": "hourly",
     "command": "capture_wildlife_attacks",
     "created_at": "2026-08-18T07:32:04.956121Z",
-    "last_run": "2026-08-18T09:00:11.379502096Z"
+    "last_run": "2026-08-19T06:00:11.379938454Z"
   },
   {
     "id": 6,
     "frequency": "daily",
+    "command": "capture_citizenship",
+    "created_at": "2026-08-19T06:42:04.000000000Z"
+  },
+  {
+    "id": 7,
+    "frequency": "daily",
     "command": "capture_tax",
-    "created_at": "2026-08-18T09:01:46.697929Z"
+    "created_at": "2026-08-19T06:42:30.000000000Z"
   }
 ]

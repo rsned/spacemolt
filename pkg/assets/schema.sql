@@ -332,3 +332,63 @@ CREATE TABLE IF NOT EXISTS agent_tax_ships (
     captured_at TEXT    NOT NULL DEFAULT '',
     PRIMARY KEY (player_id, ship_id)
 );
+
+-- Citizenship held per agent. Multi-valued: an agent may hold zero or more, and
+-- every empire it holds one in assesses income and property tax, so this is the
+-- table that says who taxes whom. Distinct from agent_profile.empire, which is
+-- the IMMUTABLE origin (birthright gating skills and hulls) and says nothing
+-- about tax liability.
+CREATE TABLE IF NOT EXISTS agent_citizenship (
+    player_id   TEXT NOT NULL,
+    empire_id   TEXT NOT NULL,
+    granted_at  TEXT NOT NULL DEFAULT '',
+    granted_by  TEXT NOT NULL DEFAULT '',
+    captured_at TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (player_id, empire_id)
+);
+
+-- Citizenship applications and their outcomes. Non-auto-approve empires queue a
+-- petition for manual review with no SLA, so the point of this table is the
+-- TRANSITION: a row that sits at status='pending' for days is the signal that a
+-- review queue is unattended, and decided_at is the only measure of latency we
+-- can ever get.
+CREATE TABLE IF NOT EXISTS agent_citizenship_petitions (
+    petition_id TEXT NOT NULL PRIMARY KEY,
+    player_id   TEXT NOT NULL,
+    empire_id   TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT '',
+    decision    TEXT NOT NULL DEFAULT '',
+    fee_paid    INTEGER NOT NULL DEFAULT 0,
+    reputation  INTEGER NOT NULL DEFAULT 0,
+    credits     INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL DEFAULT '',
+    decided_at  TEXT NOT NULL DEFAULT '',
+    decided_by  TEXT NOT NULL DEFAULT '',
+    first_seen  TEXT NOT NULL DEFAULT '',
+    captured_at TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS agent_citizenship_petitions_player
+    ON agent_citizenship_petitions(player_id, status);
+
+-- Per-empire citizenship policy as the server reported it to this agent. The
+-- gates (fee/min_balance/min_reputation) and the exclusive flag decide whether a
+-- migration is affordable and whether it needs a follow-up renounce, and they
+-- are policy that can change under us, so they are captured rather than assumed.
+CREATE TABLE IF NOT EXISTS agent_citizenship_policy (
+    player_id         TEXT NOT NULL,
+    empire_id         TEXT NOT NULL,
+    empire_name       TEXT NOT NULL DEFAULT '',
+    is_citizen        INTEGER NOT NULL DEFAULT 0,
+    has_pending       INTEGER NOT NULL DEFAULT 0,
+    open              INTEGER NOT NULL DEFAULT 0,
+    exclusive         INTEGER NOT NULL DEFAULT 0,
+    auto_approve      INTEGER NOT NULL DEFAULT 0,
+    fee               INTEGER NOT NULL DEFAULT 0,
+    min_balance       INTEGER NOT NULL DEFAULT 0,
+    min_reputation    INTEGER NOT NULL DEFAULT 0,
+    your_reputation   INTEGER NOT NULL DEFAULT 0,
+    eligible          INTEGER NOT NULL DEFAULT 0,
+    ineligible_reason TEXT NOT NULL DEFAULT '',
+    captured_at       TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (player_id, empire_id)
+);

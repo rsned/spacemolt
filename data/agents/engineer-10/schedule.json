@@ -4,60 +4,60 @@
     "frequency": "hourly",
     "command": "update_market",
     "created_at": "2026-07-18T04:30:01.901200427Z",
-    "last_run": "2026-08-18T09:00:01.933899513Z"
+    "last_run": "2026-08-19T06:00:01.93426703Z"
   },
   {
     "id": 2,
     "frequency": "hourly",
     "command": "capture_fuel",
     "created_at": "2026-07-18T04:30:01.901411257Z",
-    "last_run": "2026-08-18T09:00:01.933899513Z"
+    "last_run": "2026-08-19T06:00:01.93426703Z"
   },
   {
     "id": 3,
     "frequency": "daily",
     "command": "kb_update",
     "created_at": "2026-07-18T04:30:01.901539695Z",
-    "last_run": "2026-08-18T07:52:28.799771104Z"
+    "last_run": "2026-08-19T00:00:01.934719082Z"
   },
   {
     "id": 4,
     "frequency": "hourly",
     "command": "capture_profile",
     "created_at": "2026-08-08T03:48:07.20378038Z",
-    "last_run": "2026-08-18T09:00:01.933899513Z"
+    "last_run": "2026-08-19T06:00:01.93426703Z"
   },
   {
     "id": 5,
     "frequency": "daily",
     "command": "capture_storage",
     "created_at": "2026-08-08T03:48:07.203941676Z",
-    "last_run": "2026-08-18T07:52:28.799771104Z"
+    "last_run": "2026-08-19T00:00:01.934719082Z"
   },
   {
     "id": 6,
     "frequency": "daily",
     "command": "capture_faction",
     "created_at": "2026-08-08T03:48:07.204023061Z",
-    "last_run": "2026-08-18T07:52:28.799771104Z"
+    "last_run": "2026-08-19T00:00:01.934719082Z"
   },
   {
     "id": 7,
     "frequency": "hourly",
     "command": "capture_action_log",
     "created_at": "2026-08-18T07:32:04.956121Z",
-    "last_run": "2026-08-18T09:00:01.933899513Z"
+    "last_run": "2026-08-19T06:00:01.93426703Z"
   },
   {
     "id": 8,
     "frequency": "daily",
-    "command": "capture_tax",
-    "created_at": "2026-08-18T09:01:46.697929Z"
+    "command": "capture_citizenship",
+    "created_at": "2026-08-19T06:42:04.000000000Z"
   },
   {
     "id": 9,
-    "frequency": "hourly",
-    "command": "capture_wildlife_attacks",
-    "created_at": "2026-08-18T09:01:46.697929Z"
+    "frequency": "daily",
+    "command": "capture_tax",
+    "created_at": "2026-08-19T06:42:30.000000000Z"
   }
 ]

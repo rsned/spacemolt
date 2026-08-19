@@ -1,6 +1,5 @@
 {
   "removed": [
-    "hauler-0",
     "salvager-1",
     "salvager-2",
     "salvager-3",
@@ -20,9 +19,9 @@
     "trader-7",
     "trader-8",
     "trader-9",
-    "trader-10",
-    "explorer-1"
+    "explorer-1",
+    "trader-10"
   ],
-  "updated_at": "2026-08-13T05:26:11Z",
-  "by": "secondment-activation"
+  "updated_at": "2026-08-19T03:40:15Z",
+  "by": "restore johnny_cab after hand-driven commands"
 }
