@@ -854,6 +854,10 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatUploadDroneScript(raw)
 	case "deploy_drone":
 		return formatDeployDrone(raw)
+	case "citizenship":
+		return formatCitizenship(raw)
+	case "petition":
+		return formatPetition(raw)
 	case "get_tax_estimate", "tax_estimate":
 		return formatGetTaxEstimate(raw)
 	case "get_faction_tax_estimate", "faction_tax_estimate":
@@ -7923,6 +7927,39 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Help(ctx, payload)
 		}, ctx, 2*time.Second, "help", format)
+
+	case "citizenship":
+		// list is the default because it is the only query here: it reports the
+		// per-empire gates (fee, min_balance, min_reputation, exclusive) that
+		// decide whether an apply will succeed or merely burn a mutation.
+		action := "list"
+		if len(parts) > 1 {
+			action = parts[1]
+		}
+		var empireID string
+		if len(parts) > 2 {
+			empireID = parts[2]
+		}
+		switch action {
+		case "list":
+		case "apply", "renounce", "withdraw":
+			if empireID == "" {
+				return fmt.Errorf("usage: citizenship %s <empire_id>  (solarian, voidborn, crimson, nebula, outerrim)", action)
+			}
+		default:
+			return fmt.Errorf("unknown citizenship action %q (list, apply, renounce, withdraw)", action)
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.Citizenship(ctx, action, empireID)
+		}, ctx, 2*time.Second, "citizenship", format)
+
+	case "petition":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: petition <empire_id> <message...>  (mail to empire leadership; grants nothing)")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.Petition(ctx, parts[1], strings.Join(parts[2:], " "))
+		}, ctx, 2*time.Second, "petition", format)
 
 	case "get_tax_estimate", "tax_estimate", "taxes":
 		return simpleCommand(client, client.GetTaxEstimate, ctx, 2*time.Second, "get_tax_estimate", format)
