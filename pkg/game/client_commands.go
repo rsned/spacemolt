@@ -2529,8 +2529,14 @@ func (c *Client) FactionRemoveEnemy(ctx context.Context, targetFactionID string)
 	return err
 }
 
-// Citizenship performs a citizenship sub-action (e.g. petition, renounce,
-// grant, list). empireID is optional depending on the action.
+// Citizenship performs a citizenship sub-action: list, apply, renounce, or
+// withdraw. empireID is required for all but list, which ignores it.
+//
+// The terminator differs by action. The command carries x-is-mutation because
+// three of its four actions are mutations that execute on the next tick, but
+// "list" is a plain query the server ack-terminates: waiting on it for an
+// action frame that never arrives hangs the caller for the whole timeout and
+// leaves the "citizenship" action lock held, blocking every later call.
 func (c *Client) Citizenship(ctx context.Context, action, empireID string) error {
 	payload := map[string]any{"action": action}
 	if empireID != "" {
@@ -2541,7 +2547,11 @@ func (c *Client) Citizenship(ctx context.Context, action, empireID string) error
 		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
-	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	opts := []SubmitOption{WithTimeout(SleepTick * 3)}
+	if action == "list" || action == "" {
+		opts = append(opts, WithAckOnly())
+	}
+	h, err := c.Submit(ctx, msg, opts...)
 	if err == nil {
 		_, err = c.await(ctx, h)
 	}
