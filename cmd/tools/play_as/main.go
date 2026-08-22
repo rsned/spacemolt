@@ -9023,6 +9023,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return kbUpdateMissions(client, ctx)
 	case "update_all":
 		return kbUpdateAll(client, ctx)
+	case "capture_wildlife_attacks":
+		return captureWildlifeAttacksCmd(ctx, os.Stdout, globalKB, client, parts[1:])
+	case "get_battle_log":
+		return getBattleLogCmd(ctx, os.Stdout, client, parts[1:], format)
 	case "capture_profile":
 		if globalAssets == nil {
 			fmt.Println("capture_profile: no assets DB configured (use --assets-db-path)")
@@ -10068,6 +10072,8 @@ func printHelp() {
 	fmt.Println("  update_facilities         - Save facility details to KB (must be docked)")
 	fmt.Println("  update_missions           - Save mission board templates to KB")
 	fmt.Println("  update_all                - Run all update commands for current location")
+	fmt.Println("  get_battle_log <id>       - Full battle log (JSON unless styled); works when species are unknown")
+	fmt.Println("  capture_wildlife_attacks <id> - File creature damage types/amounts from a battle log")
 	fmt.Println("  capture_profile           - Capture this agent's profile, skills, standings, carrier tier and hulls")
 	fmt.Println("  capture_storage           - Capture this agent's storage holdings at every base")
 	fmt.Println("  capture_faction           - Capture the agent's faction treasury and shared storage")
