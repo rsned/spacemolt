@@ -32,6 +32,16 @@ const (
 	// for headroom against a slow-running server.
 	SleepEspionageMaxWait = 18 * SleepTick // 3min hard cap for espionage
 
+	// SleepCommandMaxWait bounds ONE dispatched worker command. A reply lost to
+	// a disconnect used to park the standing loop forever on sync.Cond.Wait
+	// while holding ExecMu, which killed the scheduler with it: six workers ran
+	// 3.5 days with every scheduled command dead, still heartbeating and still
+	// reporting healthy (2026-08-22). Nothing bounded a command, so "forever"
+	// was literal. Sized well clear of the longest legitimate single command --
+	// autopilot flies an entire multi-jump route inside one dispatch (~12min
+	// measured for 16 jumps) -- so this only ever fires on a genuine hang.
+	SleepCommandMaxWait = 180 * SleepTick // 30min ceiling on one worker command
+
 	SleepReconnect         = 30 * time.Second // Reconnection recovery wait
 	SleepRetry             = 1 * time.Second  // Retry delay for failed operations
 	SleepScanInterval      = 5 * time.Minute  // Delay between scan_for_distress cycles

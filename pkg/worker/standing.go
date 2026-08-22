@@ -23,19 +23,22 @@ type AssignedTask struct {
 // StandingDeps are the collaborators RunStanding needs. All are injectable so
 // the driver is testable without a game connection.
 type StandingDeps struct {
-	Runner    CommandRunner                       // executes a tokenized command (WorkerDispatch)
-	Scheduler *Scheduler                          // per-agent recurring tasks
-	Client    interface{ GetState() *game.State } // for token resolution
-	ExecMu    *sync.Mutex                         // serializes scheduled + idle work on the one game conn
+	Runner     CommandRunner                       // executes a tokenized command (WorkerDispatch)
+	Scheduler  *Scheduler                          // per-agent recurring tasks
+	Client     interface{ GetState() *game.State } // for token resolution
+	ExecMu     *sync.Mutex                         // serializes scheduled + idle work on the one game conn
 	Paused     func() bool                         // gate from the control reader's paused flag
 	Draining   func() bool                         // second gate (drain): finish current pass, take no new work
 	SetDrained func(bool)                          // publishes whether the worker is held idle due to drain
 	Out        io.Writer                           // worker stdout / logs
-	NowFn     func() time.Time                    // injectable clock
+	NowFn      func() time.Time                    // injectable clock
 
 	IdleInterval     time.Duration // between idle passes (0 → game.SleepShort)
 	ScheduleInterval time.Duration // scheduler tick (0 → game.SleepLong)
-	AgentID          string        // for script resolution search paths
+	// CommandTimeout caps a single dispatched command (0 → game.SleepCommandMaxWait).
+	// Injectable so tests can assert the bound without waiting 30 minutes.
+	CommandTimeout time.Duration
+	AgentID        string // for script resolution search paths
 
 	// Task hooks (nil when the worker has no control channel). NextTask returns
 	// and consumes the pending assigned task (or nil); OnTaskResult reports a
@@ -70,6 +73,9 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 	}
 	if deps.ScheduleInterval == 0 {
 		deps.ScheduleInterval = game.SleepLong
+	}
+	if deps.CommandTimeout == 0 {
+		deps.CommandTimeout = game.SleepCommandMaxWait
 	}
 	if deps.SetDrained == nil {
 		deps.SetDrained = func(bool) {}
@@ -254,6 +260,19 @@ func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
 	resolved, err := ResolveTokens(tokens, st)
 	if err != nil {
 		return err
+	}
+	// Bound the command. Without this a reply lost to a disconnect parks the
+	// caller forever inside RequestHandle.Result (a sync.Cond wait that only
+	// the reply or a context cancel releases) while holding ExecMu -- which
+	// starves the scheduler too, since both run under that mutex. The ceiling
+	// is the whole fix: Result already breaks on ctx.Err(), and Submit
+	// registers a context.AfterFunc that broadcasts the cond on cancel, so the
+	// existing cancellation path does the waking. A zero value here means a
+	// direct caller (tests) opted out.
+	if deps.CommandTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, deps.CommandTimeout)
+		defer cancel()
 	}
 	return deps.Runner.Run(ctx, resolved)
 }
