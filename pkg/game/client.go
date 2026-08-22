@@ -3842,6 +3842,26 @@ func (c *Client) parseNearbyPlayers(payload map[string]any) {
 	}
 }
 
+// removeShipCargo subtracts qty of itemID from the locally tracked hold and
+// drops the entry when it empties. Callers already hold c.mu.
+//
+// The hold is tracked client-side and CargoUsed is recomputed from it, so any
+// command that moves items OUT of cargo has to maintain it or the figure only
+// ever grows. See the deposit_items case in parseActionResult.
+func (c *Client) removeShipCargo(itemID string, qty float64) {
+	kept := c.state.Ship.Cargo[:0]
+	for _, item := range c.state.Ship.Cargo {
+		if item.ItemID == itemID {
+			item.Quantity -= qty
+			if item.Quantity <= 0 {
+				continue
+			}
+		}
+		kept = append(kept, item)
+	}
+	c.state.Ship.Cargo = kept
+}
+
 // parseActionResult handles action_result messages from the server.
 // These arrive after a pending action completes on the next tick.
 // The payload has {command: "...", result: {...}, tick: N}.
@@ -3957,8 +3977,37 @@ func (c *Client) parseActionResult(payload map[string]any) {
 		c.debugLogger.Printf("Action result: repaired to %.0f", c.state.Hull)
 
 	case "deposit_items":
-		if cargoSpace, ok := result["cargo_space"].(float64); ok {
-			c.state.Ship.CargoCapacity = cargoSpace
+		// `cargo_space` is the FREE space left in the hold; `cargo_remaining` is
+		// what is still aboard. Both are integers and both are required by the
+		// DepositItemsResponse schema, so the hold's size is their SUM. Assigning
+		// cargo_space straight to CargoCapacity shrank the capacity to whatever
+		// happened to be free, and every depositing agent read over 100% full.
+		//
+		// Removing the deposited units from Ship.Cargo is the other half and is
+		// not optional: CargoUsed is recomputed elsewhere in this switch by
+		// summing that slice, so a stale slice regrows the bogus figure on the
+		// next mine or craft. Live on 2026-08-22, miner-10 read 182/100 while
+		// the server's ship payload reported cargo_used 0.
+		//
+		// Only a cargo-sourced deposit touches the hold: `source` of "storage" or
+		// "faction" is a direct cross-storage transfer that never loads the ship.
+		// The field is absent for the default cargo->storage case.
+		source, _ := result["source"].(string)
+		if source == "" || source == "cargo" {
+			itemID, _ := result["item_id"].(string)
+			// JSON numbers decode as float64 through map[string]any even though
+			// the wire type is an integer — .(int) would silently never match.
+			if qty, ok := result["quantity"].(float64); ok && itemID != "" && qty > 0 {
+				c.removeShipCargo(itemID, qty)
+			}
+			remaining, okRemaining := result["cargo_remaining"].(float64)
+			space, okSpace := result["cargo_space"].(float64)
+			if okRemaining {
+				c.state.Ship.CargoUsed = remaining
+			}
+			if okRemaining && okSpace {
+				c.state.Ship.CargoCapacity = remaining + space
+			}
 		}
 		c.debugLogger.Printf("Action result: deposited items")
 
