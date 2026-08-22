@@ -385,7 +385,19 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 			// otherwise make NeedsRestart's silence check fire immediately on the
 			// very next tick — killing a worker before it ever gets a chance to
 			// report in. Treat that as not-yet-seen; BootTimeout governs it instead.
-			seen = seen && !w.LastSeen.IsZero()
+			//
+			// The same reasoning covers a STALE non-zero LastSeen. The fleet
+			// record outlives the process, so after a restart the silence check
+			// was comparing against a heartbeat from the PREVIOUS incarnation —
+			// already older than SilenceTimeout the moment the replacement
+			// launched. The new process was killed ~5s into a connect that needs
+			// 10-20s, respawned, and killed again every reap tick until
+			// MaxRestarts. Live 2026-08-22: five agents across four fleets
+			// (johnny_cab 100 restarts, miner-1 138 and 5h dead), each needing a
+			// manual remove/readd — which worked only because it cleared the
+			// record. A heartbeat that predates this process says nothing about
+			// this process: treat it as not-yet-seen and let BootTimeout govern.
+			seen = seen && !w.LastSeen.IsZero() && w.LastSeen.After(proc.launchedAt)
 			switch {
 			case seen && NeedsRestart(w, now, s.SilenceTimeout):
 				// Established worker whose heartbeat went silent: hung. Kill it

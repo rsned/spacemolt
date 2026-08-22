@@ -587,6 +587,12 @@ func TestDisconnectedWorkerRestartedAfterGrace(t *testing.T) {
 
 	sup.launch(ctx, specs[0])
 	past := time.Now().Add(-time.Second) // disconnected a full second ago (>> 1ms grace)
+	// Backdate the launch so the report comes AFTER it. A heartbeat cannot
+	// predate the process that sent it, and the silence check now says so: a
+	// LastSeen older than launchedAt belongs to a previous incarnation and is
+	// treated as not-yet-seen. A disconnected-but-heartbeating worker (this
+	// case) always has a recent LastSeen in production, so it is unaffected.
+	procOf(sup, "wedged").launchedAt = past.Add(-time.Second)
 	fleet.ApplyHello(control.Hello{AgentID: "wedged", Role: "hauler"}, 1, past)
 	fleet.ApplyStatus("wedged", control.Status{Fuel: 300, MaxFuel: 420, Disconnected: true}, past)
 
