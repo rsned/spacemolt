@@ -37,12 +37,12 @@ export function AssetCoveragePanel({ coverage }: { coverage: AssetCoverageRow[] 
 
   return (
     <section className="bg-[#11100c] border-b border-[#2a2618] py-2">
-      <div className="px-4 text-[#d4a017] font-bold tracking-widest text-sm">
+      <div className="px-4 text-[#d4a017] font-bold tracking-widest text-base">
         ASSET LEDGER FRESHNESS
       </div>
-      <table className="w-full text-xs font-mono mt-1">
+      <table className="w-full text-sm font-mono mt-1">
         <thead>
-          <tr className="text-[10px] uppercase tracking-widest text-[#8a8570]">
+          <tr className="text-[13px] uppercase tracking-widest text-[#8a8570]">
             <th className="text-left px-4 font-normal">source</th>
             <th className="text-right px-4 font-normal">known</th>
             <th className="text-right px-4 font-normal">stale</th>

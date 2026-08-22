@@ -25,20 +25,25 @@ const dateLayout = "2006-01-02"
 
 // LiveRecord is the current view of one worker, written to the status file.
 type LiveRecord struct {
-	AgentID          string  `json:"agent_id"`
-	Role             string  `json:"role"`
-	System           string  `json:"system"`
-	POI              string  `json:"poi"`
-	Docked           bool    `json:"docked"`
-	Credits          float64 `json:"credits"`
-	Hull             float64 `json:"hull"`
-	MaxHull          float64 `json:"max_hull"`
-	Fuel             float64 `json:"fuel"`
-	MaxFuel          float64 `json:"max_fuel"`
-	CargoUsed        float64 `json:"cargo_used"`
-	CargoCapacity    float64 `json:"cargo_capacity"`
-	StandingBehavior string  `json:"standing_behavior"`
-	ActiveTaskID     string  `json:"active_task_id"`
+	AgentID       string  `json:"agent_id"`
+	Role          string  `json:"role"`
+	System        string  `json:"system"`
+	POI           string  `json:"poi"`
+	Docked        bool    `json:"docked"`
+	Credits       float64 `json:"credits"`
+	Hull          float64 `json:"hull"`
+	MaxHull       float64 `json:"max_hull"`
+	Fuel          float64 `json:"fuel"`
+	MaxFuel       float64 `json:"max_fuel"`
+	CargoUsed     float64 `json:"cargo_used"`
+	CargoCapacity float64 `json:"cargo_capacity"`
+	// ShipClass is the hull's catalog class id (e.g. "cobble"). The worker
+	// already reads hull/fuel/cargo off the same ship payload, so this costs
+	// nothing extra and lets a reader tell a 50-cargo Prospector from a
+	// 1100-cargo Enterprise without cross-referencing the asset ledger.
+	ShipClass        string `json:"ship_class,omitempty"`
+	StandingBehavior string `json:"standing_behavior"`
+	ActiveTaskID     string `json:"active_task_id"`
 	// Activity is a short human-readable description of the worker's current
 	// unit of work (e.g. "Opportunity #100042 24 power_cell from A to B"),
 	// surfaced as a sub-line on the status page. Empty when idle.
@@ -47,6 +52,12 @@ type LiveRecord struct {
 	FactionTag string `json:"faction_tag,omitempty"`
 	Healthy    bool   `json:"healthy"`
 	Restarts   int    `json:"restarts"`
+	// Quiesced mirrors an operator park (data/agents/<id>/quiesce.json): the
+	// worker stopped itself at its next safe point and is idle on purpose.
+	// Unlike Leaving it is not a removal, and unlike Quarantined it is not a
+	// fault -- it survives a restart because the flag lives on disk.
+	Quiesced      bool   `json:"quiesced,omitempty"`
+	QuiesceReason string `json:"quiesce_reason,omitempty"`
 	// Quarantined mirrors the supervisor's pulled-from-fleet state; the reason
 	// says why (e.g. "fuel-dead: ..."). Omitted for healthy workers.
 	Quarantined      bool   `json:"quarantined,omitempty"`

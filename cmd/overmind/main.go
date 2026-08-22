@@ -47,7 +47,7 @@ func main() {
 	planQueuePath := flag.String("plan-queue", "", "Path to the craft-plan dispatch queue dir (empty disables the plan runner)")
 	planStateDir := flag.String("plan-state-dir", "data/overmind/craft-plans", "Directory for persisted craft-plan run state")
 	handoffQueuePath := flag.String("handoff-queue", "data/overmind/handoff-queue.json", "Shared crafting-brain stock handoff queue file (forwarded to every spawned worker when non-empty; consumed by the plan runner only when --plan-queue is set)")
-	assetsDBPath := flag.String("assets-db-path", "", "Agent asset ledger DB path, forwarded to every spawned worker as --assets-db-path when non-empty (empty disables asset capture fleet-wide)")
+	assetsDBPath := flag.String("assets-db-path", "data/assets.db", "Agent asset ledger DB path, forwarded to every spawned worker as --assets-db-path when non-empty (empty disables asset capture fleet-wide)")
 	secondmentPath := flag.String("secondment-ledger", "", "Fleet-loan ledger forwarded to every worker as --secondment-ledger when non-empty. Set on the haul fleet so a hauler that finishes a delivery in nebula space can nominate itself for the pirate-unlock chain (empty = no worker in this fleet nominates)")
 	holdersRosterPath := flag.String("holders-roster", "data/overmind/mb-fleet.yaml", "Fleet roster YAML for marketbot stock holders (the plan runner's Managed set; required when --plan-queue is set)")
 	overridesPath := flag.String("overrides-file", "", "Membership overrides sidecar (default: <socket dir>/<fleet>-overrides.json)")
@@ -273,8 +273,9 @@ func recordBalances(ctx context.Context, logger *log.Logger, recorder *balances.
 			AgentID: w.AgentID, Role: w.Role, System: st.System, POI: st.POI,
 			Docked: st.Docked, Credits: st.Credits, Hull: st.Hull, MaxHull: st.MaxHull,
 			Fuel: st.Fuel, MaxFuel: st.MaxFuel,
-			CargoUsed: st.CargoUsed, CargoCapacity: st.CargoCapacity,
+			CargoUsed: st.CargoUsed, CargoCapacity: st.CargoCapacity, ShipClass: st.ShipClass,
 			StandingBehavior: st.StandingBehavior, Activity: st.Activity,
+			Quiesced: st.Quiesced, QuiesceReason: st.QuiesceReason,
 			ActiveTaskID: st.ActiveTaskID, FactionID: st.FactionID, FactionTag: st.FactionTag,
 			Healthy: w.Healthy, Restarts: w.Restarts,
 			Quarantined: w.Quarantined, QuarantineReason: w.QuarantineReason,

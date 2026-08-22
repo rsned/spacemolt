@@ -15,7 +15,14 @@ export interface AgentState {
   max_fuel: number;
   cargo_used: number;
   cargo_capacity: number;
+  /** Catalog class id of the active hull, e.g. "cobble". Absent on workers
+      still running a build from before it was plumbed through. */
+  ship_class?: string;
   activity?: string;
+  /** Set when an operator parked this worker at its next safe point via
+      data/agents/<id>/quiesce.json. It is idle on purpose, not stuck. */
+  quiesced?: boolean;
+  quiesce_reason?: string;
   healthy: boolean;
   seen: boolean;
   restarts: number;
@@ -101,6 +108,8 @@ export const FLEETS: Record<string, string> = {
   assist: '#fb923c',
   hunt: '#ef4444',
   unlock: '#60a5fa',
+  shuttle: '#f472b6',
+  mining: '#a3e635',
 };
 
 export interface FleetStream {

@@ -33,11 +33,22 @@ var Fleets = []FleetDef{
 	{File: "craft", Label: "craft", Color: "#34d399", Socket: "craft.sock"},
 	{File: "mb", Label: "mb", Color: "#a78bfa", Socket: "mb.sock"},
 	{File: "assist", Label: "assist", Color: "#fb923c", Socket: "assist.sock"},
-	// shuttle retired 2026-08-13: johnny_cab moved to the unlock fleet, and
-	// shuttle-status.json stopped updating — listing it only showed a stale panel.
 	{File: "hunt", Label: "hunt", Color: "#ef4444", Socket: "hunt.sock"},
 	{File: "unlock", Label: "unlock", Color: "#60a5fa", Socket: "unlock.sock"},
+	// shuttle was retired here 2026-08-13 when johnny_cab went to the unlock
+	// fleet; UN-retired 2026-08-21 when he banked the unlock and came back.
+	{File: "shuttle", Label: "shuttle", Color: "#f472b6", Socket: "shuttle.sock"},
+	// mining: the unlock campaign's graduation destination, created 2026-08-21.
+	{File: "mining", Label: "mining", Color: "#a3e635", Socket: "mining.sock"},
 }
+
+// NOTE: this list is one of FOUR places a fleet must be registered, and nothing
+// links them — adding a fleet to the roster does not make it visible anywhere:
+//   1. here (dashboard :8091 panels)
+//   2. frontend/src/lib/useFleetStream.ts FLEETS (accent colours; needs npm build)
+//   3. cmd/tools/overmind-status defaultSources() (viewer :8087)
+//   4. bin/fleet-watch, which fixes its watch set at STARTUP and so needs a
+//      restart — it derives from running overminds, not from any list.
 
 // AgentState is one worker in one snapshot, system resolved to a map id.
 type AgentState struct {
@@ -55,12 +66,17 @@ type AgentState struct {
 	MaxFuel    float64 `json:"max_fuel"`
 	CargoUsed  float64 `json:"cargo_used"`
 	CargoCap   float64 `json:"cargo_capacity"`
+	ShipClass  string  `json:"ship_class,omitempty"`
 	Activity   string  `json:"activity,omitempty"`
-	Healthy    bool    `json:"healthy"`
-	Seen       bool    `json:"seen"`
-	Restarts   int     `json:"restarts"`
-	LastSeen   string  `json:"last_seen"`
-	Leaving    bool    `json:"leaving,omitempty"`
+	// Quiesced marks a worker an operator parked at its next safe point. It is
+	// deliberately idle, so the dashboard must not read it as a dead worker.
+	Quiesced      bool   `json:"quiesced,omitempty"`
+	QuiesceReason string `json:"quiesce_reason,omitempty"`
+	Healthy       bool   `json:"healthy"`
+	Seen          bool   `json:"seen"`
+	Restarts      int    `json:"restarts"`
+	LastSeen      string `json:"last_seen"`
+	Leaving       bool   `json:"leaving,omitempty"`
 	// Build identity (from the worker's Hello, via the status file). Tier is
 	// this build's color vs the current (newest) fleet build. Modified is the
 	// cosmetic raw vcs.modified flag; CodeDirty drives the tier.
@@ -191,8 +207,9 @@ func ReadSnapshot(dir string, g *Galaxy, now time.Time, staleAfter time.Duration
 				SystemName: w.System, POI: w.POI, Docked: w.Docked,
 				Credits: w.Credits, Hull: w.Hull, MaxHull: w.MaxHull,
 				Fuel: w.Fuel, MaxFuel: w.MaxFuel,
-				CargoUsed: w.CargoUsed, CargoCap: w.CargoCapacity,
-				Activity: w.Activity, Healthy: w.Healthy, Seen: w.Seen,
+				CargoUsed: w.CargoUsed, CargoCap: w.CargoCapacity, ShipClass: w.ShipClass,
+				Activity: w.Activity, Quiesced: w.Quiesced, QuiesceReason: w.QuiesceReason,
+				Healthy: w.Healthy, Seen: w.Seen,
 				Restarts: w.Restarts, LastSeen: w.LastSeen,
 				Leaving: w.Leaving,
 				Version: w.Version, Commit: w.Commit, BuiltAt: w.BuiltAt,

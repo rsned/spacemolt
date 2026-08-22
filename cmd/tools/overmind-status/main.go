@@ -15,7 +15,9 @@
 //	  --overmind "Craft=data/overmind/craft-status.json" \
 //	  --overmind "Missions=data/overmind/mission-learn-status.json" \
 //	  --overmind "Hunt=data/overmind/hunt-status.json" \
-//	  --overmind "Unlock=data/overmind/unlock-status.json"
+//	  --overmind "Unlock=data/overmind/unlock-status.json" \
+//	  --overmind "Shuttle=data/overmind/shuttle-status.json" \
+//	  --overmind "Mining=data/overmind/mining-status.json"
 //
 // With no --overmind flags the seven defaults above are used.
 package main
@@ -70,6 +72,8 @@ func defaultSources() []ovstatus.Source {
 		{Name: "Missions", Path: "data/overmind/mission-learn-status.json"},
 		{Name: "Hunt", Path: "data/overmind/hunt-status.json"},
 		{Name: "Unlock", Path: "data/overmind/unlock-status.json"},
+		{Name: "Shuttle", Path: "data/overmind/shuttle-status.json"},
+		{Name: "Mining", Path: "data/overmind/mining-status.json"},
 	}
 }
 

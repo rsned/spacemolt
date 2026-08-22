@@ -63,7 +63,7 @@ export function FleetRail({
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
         placeholder="filter agents…"
-        className="w-full mb-2 px-2 py-1 bg-[#0a0a08] border border-[#2a2618] rounded-sm text-xs text-[#d8d3c0]"
+        className="w-full mb-2 px-2 py-1 bg-[#0a0a08] border border-[#2a2618] rounded-sm text-sm text-[#d8d3c0]"
       />
       {[...groups.entries()].map(([fleet, list]) => {
         const color = FLEETS[fleet] ?? '#d8d3c0';
@@ -77,7 +77,7 @@ export function FleetRail({
           <div key={fleet} className="mb-2">
             <button
               onClick={() => setCollapsed((c) => ({ ...c, [fleet]: !c[fleet] }))}
-              className="w-full flex items-center justify-between text-xs uppercase tracking-widest py-1"
+              className="w-full flex items-center justify-between text-sm uppercase tracking-widest py-1"
               style={{ color }}
             >
               <span>
@@ -99,7 +99,7 @@ export function FleetRail({
                 matter once you have opened the fleet, so they stay behind the
                 expand. */}
             {(ov?.version || vGroups.length > 0) && (
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1 pb-1 text-[9px] font-mono">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1 pb-1 text-[12px] font-mono">
                 {ov?.version && (
                   <span className="whitespace-nowrap" style={{ color: TIER_COLORS[ov.tier ?? 'red'] }}
                     title={`overmind ${ov.version}${ov.commit ? ` (${ov.commit})` : ''}`}>
@@ -128,13 +128,13 @@ export function FleetRail({
             ))}
             {!isCollapsed && (removed?.[fleet]?.length ?? 0) > 0 && (
               <div className="mt-1 pt-1 border-t border-[#2a2618]">
-                <div className="text-[10px] uppercase tracking-widest text-[#8a8570] mb-1">removed</div>
+                <div className="text-[13px] uppercase tracking-widest text-[#8a8570] mb-1">removed</div>
                 {removed![fleet].map((id) => (
-                  <div key={id} className="flex items-center justify-between text-xs text-[#8a8570] mb-1">
+                  <div key={id} className="flex items-center justify-between text-sm text-[#8a8570] mb-1">
                     <span className="truncate">{id}</span>
                     <button
                       onClick={() => onReadd?.(fleet, id)}
-                      className="px-1.5 py-0.5 text-[10px] uppercase tracking-widest border border-[#2a2618] rounded-sm text-[#d8d3c0] hover:border-[#d4a017] hover:text-[#d4a017]"
+                      className="px-1.5 py-0.5 text-[13px] uppercase tracking-widest border border-[#2a2618] rounded-sm text-[#d8d3c0] hover:border-[#d4a017] hover:text-[#d4a017]"
                     >
                       Re-add
                     </button>

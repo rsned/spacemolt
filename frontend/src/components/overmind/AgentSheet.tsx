@@ -10,9 +10,9 @@ function StatBox({ label, value, sub, accent }: {
   return (
     <div className="min-w-[92px] px-3 py-2 border border-[#2a2618] rounded-sm bg-[#11100c] text-center"
       style={{ boxShadow: `inset 0 0 0 1px #0a0a08, inset 0 0 0 2px ${accent}33` }}>
-      <div className="text-lg font-bold tabular-nums leading-tight" style={{ color: accent }}>{value}</div>
-      {sub && <div className="text-[10px] tabular-nums text-[#8a8570] leading-tight">{sub}</div>}
-      <div className="mt-0.5 text-[9px] uppercase tracking-[0.2em] text-[#8a8570]">{label}</div>
+      <div className="text-xl font-bold tabular-nums leading-tight" style={{ color: accent }}>{value}</div>
+      {sub && <div className="text-[13px] tabular-nums text-[#8a8570] leading-tight">{sub}</div>}
+      <div className="mt-0.5 text-[12px] uppercase tracking-[0.2em] text-[#8a8570]">{label}</div>
     </div>
   );
 }
@@ -20,7 +20,7 @@ function StatBox({ label, value, sub, accent }: {
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 mb-2">
-      <span className="text-[10px] uppercase tracking-[0.25em] text-[#8a8570]">{children}</span>
+      <span className="text-[13px] uppercase tracking-[0.25em] text-[#8a8570]">{children}</span>
       <span className="flex-1 border-t border-[#2a2618]" />
     </div>
   );
@@ -71,7 +71,7 @@ function StandingRow_({ s }: { s: SheetStanding }) {
   const hostile = s.baseline < 0;
   return (
     <div className="mb-1.5">
-      <div className="flex justify-between text-[10px]">
+      <div className="flex justify-between text-[13px]">
         <span className={hostile ? 'text-red-700' : 'text-[#d8d3c0]'}>{s.faction}</span>
         <span className="tabular-nums text-[#8a8570]">
           {s.reputation}{s.baseline !== s.reputation ? ` (base ${s.baseline})` : ''}
@@ -103,17 +103,17 @@ const FEAT_LABELS: Record<string, string> = {
 function Feats({ sheet }: { sheet: AgentSheetData }) {
   const entries = Object.entries(sheet.capabilities)
     .sort(([a], [b]) => a.localeCompare(b));
-  if (!entries.length) return <div className="text-[10px] text-[#5a5545]">Not evaluated yet.</div>;
+  if (!entries.length) return <div className="text-[13px] text-[#5a5545]">Not evaluated yet.</div>;
   return (
     <div className="space-y-1.5">
       {entries.map(([key, c]) => (
-        <div key={key} className={`px-2 py-1.5 border rounded-sm text-[11px] ${
+        <div key={key} className={`px-2 py-1.5 border rounded-sm text-[14px] ${
           c.eligible ? 'border-[#d4a017]/60 bg-[#d4a017]/5' : 'border-[#2a2618]'}`}>
           <span className={c.eligible ? 'text-[#d4a017]' : 'text-[#5a5545]'}>
             {c.eligible ? '◆' : '◇'} {FEAT_LABELS[key] ?? key}
           </span>
           {!c.eligible && c.reason && (
-            <div className="mt-0.5 text-[10px] text-[#8a8570]">{c.reason}</div>
+            <div className="mt-0.5 text-[13px] text-[#8a8570]">{c.reason}</div>
           )}
         </div>
       ))}
@@ -128,9 +128,9 @@ export function AgentSheet({ agentId, onBack }: { agentId: string; onBack: () =>
     [sheet?.fleet],
   );
 
-  if (loading) return <div className="p-6 text-xs text-[#8a8570]">Pulling the dossier…</div>;
-  if (error) return <div className="p-6 text-xs text-red-600">Sheet failed to load: {error}</div>;
-  if (!sheet) return <div className="p-6 text-xs text-[#8a8570]">No ledger record for {agentId}.</div>;
+  if (loading) return <div className="p-6 text-sm text-[#8a8570]">Pulling the dossier…</div>;
+  if (error) return <div className="p-6 text-sm text-red-600">Sheet failed to load: {error}</div>;
+  if (!sheet) return <div className="p-6 text-sm text-[#8a8570]">No ledger record for {agentId}.</div>;
 
   const ship = sheet.ship;
   const capturedAt = sheet.captured_at ? new Date(sheet.captured_at).toLocaleString() : 'never';
@@ -141,24 +141,24 @@ export function AgentSheet({ agentId, onBack }: { agentId: string; onBack: () =>
         {/* Dossier header */}
         <div className="flex items-baseline gap-3 flex-wrap">
           <button onClick={onBack}
-            className="text-[10px] uppercase tracking-widest text-[#8a8570] hover:text-[#d8d3c0] border border-[#2a2618] rounded-sm px-2 py-1">
+            className="text-[13px] uppercase tracking-widest text-[#8a8570] hover:text-[#d8d3c0] border border-[#2a2618] rounded-sm px-2 py-1">
             ← roster
           </button>
-          <h1 className="text-2xl font-bold" style={{ color: accent }}>{sheet.agent_id || sheet.username}</h1>
-          <span className="text-sm text-[#8a8570]">{sheet.username}</span>
+          <h1 className="text-3xl font-bold" style={{ color: accent }}>{sheet.agent_id || sheet.username}</h1>
+          <span className="text-base text-[#8a8570]">{sheet.username}</span>
           {sheet.fleet && (
-            <span className="px-1.5 text-[10px] uppercase tracking-widest border rounded-sm self-center"
+            <span className="px-1.5 text-[13px] uppercase tracking-widest border rounded-sm self-center"
               style={{ color: accent, borderColor: accent }}>
               {sheet.fleet}{sheet.role && sheet.role !== sheet.fleet ? ` · ${sheet.role}` : ''}
             </span>
           )}
           {sheet.stale && (
-            <span className="px-1.5 text-[10px] uppercase tracking-widest border border-red-800 text-red-700 rounded-sm self-center">
+            <span className="px-1.5 text-[13px] uppercase tracking-widest border border-red-800 text-red-700 rounded-sm self-center">
               stale
             </span>
           )}
         </div>
-        <div className="mt-1 text-[11px] text-[#8a8570]">
+        <div className="mt-1 text-[14px] text-[#8a8570]">
           {ship ? `${ship.class_name} — ` : ''}
           {sheet.empire || 'unknown empire'}
           {sheet.faction_id && ` · ${sheet.faction_id}${sheet.faction_rank ? ` (${sheet.faction_rank})` : ''}`}
@@ -187,7 +187,7 @@ export function AgentSheet({ agentId, onBack }: { agentId: string; onBack: () =>
               <SkillRadar skills={sheet.skills} accent={accent} />
               <div className="mt-2 space-y-0.5">
                 {sheet.skills.map((s) => (
-                  <div key={s.skill} className="flex justify-between text-[11px]">
+                  <div key={s.skill} className="flex justify-between text-[14px]">
                     <span>{s.skill}</span>
                     <span className="tabular-nums text-[#8a8570]">
                       <span style={{ color: accent }}>{s.level}</span> · {Math.round(s.xp).toLocaleString()} xp
@@ -195,13 +195,13 @@ export function AgentSheet({ agentId, onBack }: { agentId: string; onBack: () =>
                   </div>
                 ))}
               </div>
-            </> : <div className="text-[10px] text-[#5a5545]">No skills captured yet.</div>}
+            </> : <div className="text-[13px] text-[#5a5545]">No skills captured yet.</div>}
           </div>
           <div>
             <SectionTitle>reputation</SectionTitle>
             {sheet.standings?.length
               ? sheet.standings.map((s) => <StandingRow_ key={s.faction} s={s} />)
-              : <div className="text-[10px] text-[#5a5545]">No standings captured yet.</div>}
+              : <div className="text-[13px] text-[#5a5545]">No standings captured yet.</div>}
           </div>
           <div>
             <SectionTitle>feats</SectionTitle>
@@ -214,7 +214,7 @@ export function AgentSheet({ agentId, onBack }: { agentId: string; onBack: () =>
           <div>
             <SectionTitle>hangar</SectionTitle>
             {sheet.hulls?.length ? (
-              <table className="w-full text-[11px]">
+              <table className="w-full text-[14px]">
                 <tbody>
                   {sheet.hulls.map((h) => (
                     <tr key={h.ship_id} className="border-b border-[#1a1812]">
@@ -231,12 +231,12 @@ export function AgentSheet({ agentId, onBack }: { agentId: string; onBack: () =>
                   ))}
                 </tbody>
               </table>
-            ) : <div className="text-[10px] text-[#5a5545]">No hulls captured yet.</div>}
+            ) : <div className="text-[13px] text-[#5a5545]">No hulls captured yet.</div>}
           </div>
           <div>
             <SectionTitle>storage</SectionTitle>
             {sheet.storage?.length ? (
-              <table className="w-full text-[11px]">
+              <table className="w-full text-[14px]">
                 <tbody>
                   {sheet.storage.map((s) => (
                     <tr key={s.base_id} className="border-b border-[#1a1812]">
@@ -247,7 +247,7 @@ export function AgentSheet({ agentId, onBack }: { agentId: string; onBack: () =>
                   ))}
                 </tbody>
               </table>
-            ) : <div className="text-[10px] text-[#5a5545]">Nothing warehoused.</div>}
+            ) : <div className="text-[13px] text-[#5a5545]">Nothing warehoused.</div>}
           </div>
         </div>
       </div>

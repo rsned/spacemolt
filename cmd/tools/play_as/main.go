@@ -96,7 +96,7 @@ func main() {
 	registryURL := flag.String("registry-url", "", "Status registry URL (e.g., http://localhost:8081)")
 	dbPath := flag.String("db-path", "data/spacemolt-knowledge.db", "Path to SQLite knowledge base (enables update_* commands)")
 	marketDBPath := flag.String("market-db-path", "data/market.db", "Path to the separate market database")
-	assetsDBPath := flag.String("assets-db-path", "", "path to the agent asset ledger (data/assets.db); empty disables asset capture")
+	assetsDBPath := flag.String("assets-db-path", "data/assets.db", "path to the agent asset ledger; empty disables asset capture")
 	intelDir := flag.String("intel-dir", "data/intel", "Base directory for per-POI get_poi intel dumps (<intel-dir>/<system_id>/<system_id>___<poi_id>.json); empty to disable")
 	xpTracking := flag.Bool("xp-tracking", true, "Enable XP observation tracking to the knowledge base")
 	transport := flag.String("transport", "ws", "Game transport: 'ws' (WebSocket, default) or 'mcp' (MCP over HTTP)")

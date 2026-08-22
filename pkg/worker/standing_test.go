@@ -317,3 +317,125 @@ func TestRoleSeedingSkipsACommandAlreadyCoveredByAFinerSchedule(t *testing.T) {
 		t.Error("capture_profile was not scheduled; the coverage guard dropped an entry nothing covered")
 	}
 }
+
+// The park has to be honoured at the SAME boundary drain uses: the top of an
+// idle pass. Anywhere else and a hauler would be cut off mid-run.
+func TestRunStandingQuiescedHoldsAndReportsQuiesced(t *testing.T) {
+	r := &recordRunner{}
+	var mu sync.Mutex
+	var gotReason atomic.Value
+	gotReason.Store("")
+	sched, _ := LoadScheduler(t.TempDir() + "/sched.json")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	role := Role{Idle: "noop_idle"}
+	deps := StandingDeps{
+		Runner: r, Scheduler: sched, Client: stateClient{st: &game.State{}},
+		ExecMu: &mu, Paused: func() bool { return false },
+		Quiesced:    func() (bool, string) { return true, "wildlife testing" },
+		SetQuiesced: func(_ bool, reason string) { gotReason.Store(reason) },
+		Out:         io.Discard,
+		NowFn:       func() time.Time { return time.Unix(0, 0).UTC() }, IdleInterval: time.Millisecond, AgentID: "test",
+	}
+	go func() { _ = RunStanding(ctx, role, deps) }()
+	time.Sleep(20 * time.Millisecond)
+	if n := len(r.snapshot()); n != 0 {
+		t.Fatalf("quiesced worker ran %d commands, want 0", n)
+	}
+	if got := gotReason.Load().(string); got != "wildlife testing" {
+		t.Errorf("published reason = %q, want %q", got, "wildlife testing")
+	}
+}
+
+// Clearing the flag puts it straight back to work — an operator who parked an
+// agent by mistake should not have to restart it.
+func TestRunStandingResumeAfterQuiesceClearsFlag(t *testing.T) {
+	r := &recordRunner{}
+	var mu sync.Mutex
+	var parked atomic.Bool
+	parked.Store(true)
+	var published atomic.Bool
+	sched, _ := LoadScheduler(t.TempDir() + "/sched.json")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	role := Role{Idle: "noop_idle"}
+	deps := StandingDeps{
+		Runner: r, Scheduler: sched, Client: stateClient{st: &game.State{}},
+		ExecMu: &mu, Paused: func() bool { return false },
+		Quiesced:    func() (bool, string) { return parked.Load(), "" },
+		SetQuiesced: func(q bool, _ string) { published.Store(q) },
+		Out:         io.Discard,
+		NowFn:       func() time.Time { return time.Unix(0, 0).UTC() }, IdleInterval: time.Millisecond, AgentID: "test",
+	}
+	go func() { _ = RunStanding(ctx, role, deps) }()
+	time.Sleep(20 * time.Millisecond)
+	parked.Store(false)
+	time.Sleep(20 * time.Millisecond)
+	if len(r.snapshot()) == 0 {
+		t.Fatal("un-parked worker never ran an idle command")
+	}
+	if published.Load() {
+		t.Fatal("expected quiesced cleared once passes resumed")
+	}
+}
+
+// A park landing mid-pass must not truncate that pass. This is the whole point
+// of the design: the gate is at the boundary, so the run in flight completes.
+func TestRunStandingQuiesceDoesNotInterruptAPassInFlight(t *testing.T) {
+	var mu sync.Mutex
+	var parked atomic.Bool
+	// A runner that trips the park as soon as the pass's first command runs.
+	r := &recordRunner{}
+	gate := &quiesceTripRunner{inner: r, onFirst: func() { parked.Store(true) }}
+	sched, _ := LoadScheduler(t.TempDir() + "/sched.json")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// Three commands in the pass; all three must run even though the park is
+	// set while the first is executing. The script has to exist on disk --
+	// resolveIdle falls back to a single get_status when it does not, which
+	// would make this test vacuous.
+	t.Chdir(writeIdleScript(t, "three_line_idle", "get_status\nget_ship\nget_cargo\n"))
+	role := Role{Idle: "three_line_idle"}
+	deps := StandingDeps{
+		Runner: gate, Scheduler: sched, Client: stateClient{st: &game.State{}},
+		ExecMu: &mu, Paused: func() bool { return false },
+		Quiesced:    func() (bool, string) { return parked.Load(), "" },
+		SetQuiesced: func(bool, string) {},
+		Out:         io.Discard,
+		NowFn:       func() time.Time { return time.Unix(0, 0).UTC() }, IdleInterval: time.Millisecond, AgentID: "test",
+	}
+	go func() { _ = RunStanding(ctx, role, deps) }()
+	time.Sleep(40 * time.Millisecond)
+	got := r.snapshot()
+	if len(got) != 3 {
+		t.Fatalf("pass ran %d commands (%v), want all 3 — the park must not truncate a pass in flight", len(got), got)
+	}
+}
+
+// quiesceTripRunner fires onFirst once, when the first command of a pass runs.
+type quiesceTripRunner struct {
+	inner   *recordRunner
+	once    sync.Once
+	onFirst func()
+}
+
+func (q *quiesceTripRunner) Run(ctx context.Context, tokens []string) error {
+	q.once.Do(q.onFirst)
+	return q.inner.Run(ctx, tokens)
+}
+
+// writeIdleScript drops an idle script into a temp dir laid out the way
+// ResolveScriptArg expects (data/scripts/<name>.smolt) and returns that dir for
+// t.Chdir.
+func writeIdleScript(t *testing.T, name, body string) string {
+	t.Helper()
+	root := t.TempDir()
+	dir := filepath.Join(root, "data", "scripts")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir script dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name+".smolt"), []byte(body), 0o644); err != nil {
+		t.Fatalf("write idle script: %v", err)
+	}
+	return root
+}

@@ -79,7 +79,7 @@ func main() {
 	rolesPath := flag.String("roles", filepath.Join("data", "overmind", "roles.yaml"), "Path to roles config")
 	kbPath := flag.String("kb-path", filepath.Join("data", "spacemolt-knowledge.db"), "Path to shared knowledge base")
 	marketDBPath := flag.String("market-db-path", filepath.Join("data", "market.db"), "Path to market collector database")
-	assetsDBPath := flag.String("assets-db-path", "", "path to the agent asset ledger (data/assets.db); empty disables asset capture")
+	assetsDBPath := flag.String("assets-db-path", "data/assets.db", "path to the agent asset ledger; empty disables asset capture")
 	rescueQueuePath := flag.String("rescue-queue", filepath.Join("data", "overmind", "rescue-queue.json"), "Shared stranded-worker rescue queue file")
 	handoffQueuePath := flag.String("handoff-queue", "", "Shared crafting-brain stock handoff queue file (empty disables handoff fulfillment)")
 	missionCategories := flag.String("mission-categories", "", "Comma-separated mission-board categories for the missions role (empty = delivery only; learning pool: delivery,exploration)")
@@ -250,6 +250,10 @@ func main() {
 		var paused atomic.Bool
 		var draining atomic.Bool
 		var drained atomic.Bool
+		// Operator park, read from disk each idle pass so it survives a restart.
+		var quiesced atomic.Bool
+		var quiesceReason atomic.Value
+		quiesceReason.Store("")
 		readerDone := make(chan struct{})
 
 		go func() {
@@ -405,9 +409,16 @@ func main() {
 					Paused:     paused.Load,
 					Draining:   draining.Load,
 					SetDrained: drained.Store,
-					Out:        logOut,
-					NowFn:      func() time.Time { return time.Now().UTC() },
-					AgentID:    *agentID,
+					Quiesced: func() (bool, string) {
+						return worker.ReadQuiesce(worker.QuiesceFile(*agentID))
+					},
+					SetQuiesced: func(q bool, reason string) {
+						quiesced.Store(q)
+						quiesceReason.Store(reason)
+					},
+					Out:     logOut,
+					NowFn:   func() time.Time { return time.Now().UTC() },
+					AgentID: *agentID,
 					NextTask: func() *worker.AssignedTask {
 						t := pendingTask.Swap(nil)
 						if t != nil {
@@ -485,7 +496,12 @@ func main() {
 				if p := activity.Load(); p != nil {
 					act = *p
 				}
-				status := buildStatus(nowState, standing, tid, act, drained.Load(), client.IsConnected(), time.Now())
+				status := buildStatus(nowState, standing, tid, act, statusFlags{
+					Drained:       drained.Load(),
+					Connected:     client.IsConnected(),
+					Quiesced:      quiesced.Load(),
+					QuiesceReason: quiesceReason.Load().(string),
+				}, time.Now())
 				if sendErr := sendEnvelope(enc, control.TypeStatus, *agentID, status); sendErr != nil {
 					logger.Printf("warning: send status: %v", sendErr)
 				}
@@ -574,11 +590,21 @@ func nudgeReconnect(c reconnectable) bool {
 // connected reports whether the game-server connection is currently live; when
 // false the supervisor leaves the worker to the reconnect gate instead of
 // restarting it (a restart's fresh login deepens a per-IP block).
-func buildStatus(st *game.State, standing, taskID, activity string, drained, connected bool, now time.Time) control.Status {
+// statusFlags groups the worker's gate/liveness bits. They were positional
+// parameters until the operator park was added; at that point the call sites
+// read "false, true, false" and said nothing about which was which.
+type statusFlags struct {
+	Drained       bool   // held idle by a drain (fleet SIGUSR1 or a pending removal)
+	Connected     bool   // game-server connection is up
+	Quiesced      bool   // held idle by an operator park (data/agents/<id>/quiesce.json)
+	QuiesceReason string // operator's note, surfaced on the dashboard
+}
+
+func buildStatus(st *game.State, standing, taskID, activity string, f statusFlags, now time.Time) control.Status {
 	return control.Status{
-		Disconnected: !connected,
-		System: displaySystem(st),
-		POI:    st.CurrentPOI,
+		Disconnected: !f.Connected,
+		System:       displaySystem(st),
+		POI:          st.CurrentPOI,
 		// Docked must reflect a real station/outpost dock, not merely "parked at
 		// some POI": st.Doc is the server flag (true only at station/outpost,
 		// false at gas clouds/suns/planets and during transit), so a hauler
@@ -591,12 +617,15 @@ func buildStatus(st *game.State, standing, taskID, activity string, drained, con
 		Credits:          st.Credits,
 		CargoUsed:        st.Ship.CargoUsed,
 		CargoCapacity:    st.Ship.CargoCapacity,
+		ShipClass:        st.Ship.ClassID,
 		StandingBehavior: standing,
 		ActiveTaskID:     taskID,
 		Activity:         activity,
 		FactionID:        st.Player.FactionID,
 		FactionTag:       st.Player.FactionTag,
-		Drained:          drained,
+		Drained:          f.Drained,
+		Quiesced:         f.Quiesced,
+		QuiesceReason:    f.QuiesceReason,
 		Timestamp:        now.Format(time.RFC3339Nano),
 	}
 }

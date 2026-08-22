@@ -278,14 +278,14 @@ export function SystemView({ system, systems, agents, moves, selectedId, onAgent
   return (
     <div ref={containerRef} className="absolute inset-0 flex flex-col bg-[#0a0a08]">
       {/* Header strip — absorbs the retired system info panel's content. */}
-      <div className="flex items-center gap-4 px-3 py-1.5 border-b border-[#2a2618] bg-[#11100c] text-xs">
-        <span className="text-[#d4a017] font-bold tracking-widest uppercase text-sm">{system.name}</span>
+      <div className="flex items-center gap-4 px-3 py-1.5 border-b border-[#2a2618] bg-[#11100c] text-sm">
+        <span className="text-[#d4a017] font-bold tracking-widest uppercase text-base">{system.name}</span>
         <span className="text-[#8a8570] uppercase tracking-widest">{system.empire || 'neutral'}</span>
         <span className="text-[#8a8570]">police {system.police_level}</span>
         <span className="text-[#8a8570]">{system.connections.length} lanes</span>
         {system.is_stronghold && <span className="text-red-500 uppercase tracking-widest">pirate stronghold</span>}
         <span className="text-[#8a8570]">{agents.length} agents</span>
-        <span className="ml-auto text-[10px] text-[#8a8570]">scroll to zoom · drag to pan · esc to exit</span>
+        <span className="ml-auto text-[13px] text-[#8a8570]">scroll to zoom · drag to pan · esc to exit</span>
         <button onClick={onClose} title="Back to galaxy (Esc)"
           className="px-2 py-0.5 border border-[#2a2618] rounded-sm text-[#8a8570] hover:text-[#d8d3c0] hover:border-[#8a8570]">
           ✕
@@ -293,7 +293,7 @@ export function SystemView({ system, systems, agents, moves, selectedId, onAgent
       </div>
 
       {error && (
-        <div className="px-3 py-1 text-xs text-red-400 bg-[#11100c] border-b border-[#2a2618]">
+        <div className="px-3 py-1 text-sm text-red-400 bg-[#11100c] border-b border-[#2a2618]">
           POI layout failed: {error}
           <button onClick={retry} className="ml-2 underline text-[#d4a017]">retry</button>
         </div>
@@ -503,10 +503,10 @@ export function SystemView({ system, systems, agents, moves, selectedId, onAgent
           if (!p) return null;
           const pos = T(p.x, p.y);
           return (
-            <div className="absolute z-10 pointer-events-none bg-[#11100c]/95 border border-[#2a2618] rounded-sm p-2 text-xs shadow-lg max-w-60"
+            <div className="absolute z-10 pointer-events-none bg-[#11100c]/95 border border-[#2a2618] rounded-sm p-2 text-sm shadow-lg max-w-60"
               style={{ left: Math.min(pos.x + 16, dims.width - 240), top: Math.max(pos.y - 8, 8) }}>
               <div className="text-[#d4a017] font-bold">{p.name}</div>
-              <div className="text-[#8a8570] uppercase tracking-widest text-[10px]">{p.type}{p.class ? ` · ${p.class}` : ''}</div>
+              <div className="text-[#8a8570] uppercase tracking-widest text-[13px]">{p.type}{p.class ? ` · ${p.class}` : ''}</div>
               {(entry?.list ?? []).map((a) => (
                 <div key={a.agent_id} className="flex justify-between gap-3 py-0.5">
                   <span style={{ color: FLEETS[a.fleet] }}>{a.agent_id}{a.docked ? ' ⚓' : ''}</span>
@@ -520,7 +520,7 @@ export function SystemView({ system, systems, agents, moves, selectedId, onAgent
 
         {/* Unplaced tray — agents whose POI we can't match never vanish. */}
         {unplaced.length > 0 && (
-          <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2 px-3 py-1 bg-[#11100c]/90 border-t border-[#2a2618] text-[10px] flex-wrap">
+          <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2 px-3 py-1 bg-[#11100c]/90 border-t border-[#2a2618] text-[13px] flex-wrap">
             <span className="uppercase tracking-widest text-[#8a8570]">unplaced:</span>
             {unplaced.map((a) => (
               <button key={a.agent_id} onClick={() => onAgentClick(a.agent_id)}

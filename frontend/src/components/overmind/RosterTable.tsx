@@ -55,7 +55,7 @@ function UnlockPips({ row }: { row: RosterRow }) {
             : 'border-red-800 text-red-700';
         return (
           <span key={key} title={title}
-            className={`inline-flex items-center justify-center w-5 h-4 text-[9px] uppercase tracking-wider border rounded-sm ${cls}`}>
+            className={`inline-flex items-center justify-center w-5 h-4 text-[12px] uppercase tracking-wider border rounded-sm ${cls}`}>
             {label}
           </span>
         );
@@ -108,17 +108,17 @@ export function RosterTable({ onSelect }: { onSelect: (agentId: string) => void 
 
   const header = (key: SortKey, label: string, extra = '') => (
     <th
-      className={`px-2 py-1.5 text-left text-[10px] uppercase tracking-widest text-[#8a8570] cursor-pointer select-none hover:text-[#d8d3c0] ${extra}`}
+      className={`px-2 py-1.5 text-left text-[13px] uppercase tracking-widest text-[#8a8570] cursor-pointer select-none hover:text-[#d8d3c0] ${extra}`}
       onClick={() => setSort((s) => ({ key, desc: s.key === key ? !s.desc : false }))}
     >
       {label}{sort.key === key ? (sort.desc ? ' ▾' : ' ▴') : ''}
     </th>
   );
 
-  if (loading) return <div className="p-6 text-xs text-[#8a8570]">Reading the ledger…</div>;
-  if (error) return <div className="p-6 text-xs text-red-600">Roster failed to load: {error}</div>;
+  if (loading) return <div className="p-6 text-sm text-[#8a8570]">Reading the ledger…</div>;
+  if (error) return <div className="p-6 text-sm text-red-600">Roster failed to load: {error}</div>;
   if (!data?.length) {
-    return <div className="p-6 text-xs text-[#8a8570]">No agents captured yet — the asset ledger fills in as fleets run.</div>;
+    return <div className="p-6 text-sm text-[#8a8570]">No agents captured yet — the asset ledger fills in as fleets run.</div>;
   }
 
   const staleCount = data.filter((r) => r.stale).length;
@@ -130,19 +130,19 @@ export function RosterTable({ onSelect }: { onSelect: (agentId: string) => void 
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Filter by agent, fleet, or hull"
-          className="bg-[#11100c] border border-[#2a2618] rounded-sm px-2 py-1 text-xs w-64
+          className="bg-[#11100c] border border-[#2a2618] rounded-sm px-2 py-1 text-sm w-64
             placeholder:text-[#5a5545] focus:outline-none focus:border-[#d4a017]"
         />
-        <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-[#8a8570] cursor-pointer">
+        <label className="flex items-center gap-1.5 text-[13px] uppercase tracking-widest text-[#8a8570] cursor-pointer">
           <input type="checkbox" checked={showStale} onChange={(e) => setShowStale(e.target.checked)} />
           stale ({staleCount})
         </label>
-        <span className="ml-auto text-[10px] uppercase tracking-widest text-[#8a8570]">
+        <span className="ml-auto text-[13px] uppercase tracking-widest text-[#8a8570]">
           {rows.length} of {data.length} agents
         </span>
       </div>
       <div className="flex-1 overflow-auto">
-        <table className="w-full text-xs border-collapse">
+        <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 bg-[#0a0a08] z-10">
             <tr className="border-b border-[#2a2618]">
               {header('agent', 'agent')}
@@ -152,8 +152,8 @@ export function RosterTable({ onSelect }: { onSelect: (agentId: string) => void 
               {header('hull', 'hull')}
               {header('fuel', 'fuel')}
               {header('cargo', 'cargo')}
-              <th className="px-2 py-1.5 text-left text-[10px] uppercase tracking-widest text-[#8a8570]">unlocks</th>
-              <th className="px-2 py-1.5 text-right text-[10px] uppercase tracking-widest text-[#8a8570]">captured</th>
+              <th className="px-2 py-1.5 text-left text-[13px] uppercase tracking-widest text-[#8a8570]">unlocks</th>
+              <th className="px-2 py-1.5 text-right text-[13px] uppercase tracking-widest text-[#8a8570]">captured</th>
             </tr>
           </thead>
           <tbody>
@@ -168,7 +168,7 @@ export function RosterTable({ onSelect }: { onSelect: (agentId: string) => void 
                   </td>
                   <td className="px-2 py-1">
                     {r.fleet
-                      ? <span className="px-1.5 text-[9px] uppercase tracking-widest border rounded-sm" style={{ color, borderColor: color }}>{r.fleet}</span>
+                      ? <span className="px-1.5 text-[12px] uppercase tracking-widest border rounded-sm" style={{ color, borderColor: color }}>{r.fleet}</span>
                       : <span className="text-[#5a5545]">—</span>}
                   </td>
                   <td className="px-2 py-1 text-right tabular-nums">{Math.round(r.credits).toLocaleString()}</td>

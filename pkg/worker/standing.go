@@ -30,8 +30,16 @@ type StandingDeps struct {
 	Paused     func() bool                         // gate from the control reader's paused flag
 	Draining   func() bool                         // second gate (drain): finish current pass, take no new work
 	SetDrained func(bool)                          // publishes whether the worker is held idle due to drain
-	Out        io.Writer                           // worker stdout / logs
-	NowFn      func() time.Time                    // injectable clock
+	// Quiesced is the third gate: an operator park request, read from disk so
+	// it survives a restart (see quiesce.go). Like drain it is consulted only
+	// between passes, so a park never truncates a run in flight -- a hauler
+	// finishes its claim, a miner finishes its deposit. Returns the operator's
+	// reason alongside the flag.
+	Quiesced func() (bool, string)
+	// SetQuiesced publishes the park state (and reason) for the control channel.
+	SetQuiesced func(bool, string)
+	Out         io.Writer        // worker stdout / logs
+	NowFn       func() time.Time // injectable clock
 
 	IdleInterval     time.Duration // between idle passes (0 → game.SleepShort)
 	ScheduleInterval time.Duration // scheduler tick (0 → game.SleepLong)
@@ -79,6 +87,9 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 	}
 	if deps.SetDrained == nil {
 		deps.SetDrained = func(bool) {}
+	}
+	if deps.SetQuiesced == nil {
+		deps.SetQuiesced = func(bool, string) {}
 	}
 
 	// Register schedule entries (idempotent: skip a command already covered, so
@@ -143,14 +154,20 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		}
 		paused := deps.Paused != nil && deps.Paused()
 		draining := deps.Draining != nil && deps.Draining()
-		if paused || draining {
-			deps.SetDrained(draining) // drained only when held *because* of drain
+		parked, parkReason := false, ""
+		if deps.Quiesced != nil {
+			parked, parkReason = deps.Quiesced()
+		}
+		if paused || draining || parked {
+			deps.SetDrained(draining)            // drained only when held *because* of drain
+			deps.SetQuiesced(parked, parkReason) // likewise, parked only when held by the park
 			if sleepCtx(ctx, deps.IdleInterval) {
 				return nil
 			}
 			continue
 		}
 		deps.SetDrained(false)
+		deps.SetQuiesced(false, "")
 		deps.ExecMu.Lock()
 		if deps.PayDebts != nil {
 			deps.PayDebts(ctx)

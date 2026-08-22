@@ -287,3 +287,19 @@ func TestRemoveQuarantinedIsBookkeepingOnly(t *testing.T) {
 		t.Fatalf("fleet still has %+v", got)
 	}
 }
+
+// A parked worker is already stopped at a safe point, so a removal must complete
+// on the spot rather than run the 4-minute force-stop clock. That clock is
+// shorter than a haul run, so waiting it out risks killing a worker that had
+// started its next run mid-way.
+func TestRemovalCompletesImmediatelyForQuiescedWorker(t *testing.T) {
+	if !readyToStop(control.Status{Quiesced: true}) {
+		t.Error("quiesced worker should be ready to stop")
+	}
+	if !readyToStop(control.Status{Drained: true}) {
+		t.Error("drained worker should be ready to stop")
+	}
+	if readyToStop(control.Status{}) {
+		t.Error("a worker reporting neither drained nor quiesced is still busy")
+	}
+}

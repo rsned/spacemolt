@@ -59,6 +59,12 @@ func TestStalled(t *testing.T) {
 	if Stalled(base(func(w *WorkerInfo) { w.LastStatus.Drained = true }), now, stall) {
 		t.Error("drained worker must be exempt")
 	}
+	// A parked worker is deliberately idle and can be sitting undocked (a
+	// hauler parked between runs). Without this exemption the stall detector
+	// restarts exactly the workers an operator just took out of service.
+	if Stalled(base(func(w *WorkerInfo) { w.LastStatus.Quiesced = true }), now, stall) {
+		t.Error("operator-parked worker must be exempt")
+	}
 	if Stalled(base(func(w *WorkerInfo) { w.LastProgress = now.Add(-2 * time.Minute) }), now, stall) {
 		t.Error("worker that progressed 2min ago is within the window, not stalled")
 	}

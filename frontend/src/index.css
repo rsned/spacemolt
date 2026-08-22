@@ -4,6 +4,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---- READABILITY KNOB -------------------------------------------------
+   Every Tailwind text-* class is rem-based, so this one number scales the
+   whole UI. 16px is the browser default; 19px is ~19% larger everywhere.
+   Raise it if text is still too small, lower it toward 16px to fit more on
+   screen. Pixel-literal sizes (text-[13px] and friends) do NOT scale with
+   this — they were bumped separately in src/components/overmind.
+   Added 2026-08-22 at the operator's request: dashboard text was too small
+   to read comfortably.                                                    */
+html {
+  font-size: 19px;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', sans-serif;

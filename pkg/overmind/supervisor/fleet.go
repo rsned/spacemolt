@@ -13,10 +13,10 @@ import (
 
 // WorkerInfo is the overmind's view of one worker.
 type WorkerInfo struct {
-	AgentID    string
-	Role       string
-	Station    string
-	PID        int
+	AgentID string
+	Role    string
+	Station string
+	PID     int
 	// Version/Commit/BuiltAt/CodeDirty/Modified are the worker binary's build
 	// identity, reported in its Hello (buildinfo.Get). Empty Version = a
 	// pre-feature "legacy" worker. Modified is the raw vcs.modified cosmetic
@@ -177,6 +177,9 @@ func NeedsRestart(info WorkerInfo, now time.Time, silence time.Duration) bool {
 //     between scheduled captures, or a shuttle camping a hub for passengers, is
 //     docked and idle by design, not stuck.
 //   - Drained workers are exempt: a drain (SIGUSR1) intentionally quiesces them.
+//   - Quiesced workers are exempt for the same reason: an operator parked them.
+//     They can be parked UNDOCKED (a hauler between runs), so without this the
+//     stall detector would restart exactly the workers just taken out of service.
 //   - A zero LastProgress (never seen) or non-positive stallTimeout disables it.
 //
 // stallTimeout is deliberately generous so a healthy mobile worker — which moves
@@ -186,7 +189,7 @@ func Stalled(info WorkerInfo, now time.Time, stallTimeout time.Duration) bool {
 	if stallTimeout <= 0 || info.LastProgress.IsZero() {
 		return false
 	}
-	if info.LastStatus.Docked || info.LastStatus.Drained {
+	if info.LastStatus.Docked || info.LastStatus.Drained || info.LastStatus.Quiesced {
 		return false
 	}
 	return now.Sub(info.LastProgress) > stallTimeout

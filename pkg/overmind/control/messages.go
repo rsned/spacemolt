@@ -47,18 +47,21 @@ type Hello struct {
 
 // Status is a worker heartbeat snapshot.
 type Status struct {
-	System           string  `json:"system"`
-	POI              string  `json:"poi"`
-	Docked           bool    `json:"docked"`
-	Hull             float64 `json:"hull"`
-	MaxHull          float64 `json:"max_hull"`
-	Fuel             float64 `json:"fuel"`
-	MaxFuel          float64 `json:"max_fuel"`
-	Credits          float64 `json:"credits"`
-	CargoUsed        float64 `json:"cargo_used"`
-	CargoCapacity    float64 `json:"cargo_capacity"`
-	StandingBehavior string  `json:"standing_behavior"`
-	ActiveTaskID     string  `json:"active_task_id"`
+	System        string  `json:"system"`
+	POI           string  `json:"poi"`
+	Docked        bool    `json:"docked"`
+	Hull          float64 `json:"hull"`
+	MaxHull       float64 `json:"max_hull"`
+	Fuel          float64 `json:"fuel"`
+	MaxFuel       float64 `json:"max_fuel"`
+	Credits       float64 `json:"credits"`
+	CargoUsed     float64 `json:"cargo_used"`
+	CargoCapacity float64 `json:"cargo_capacity"`
+	// ShipClass is the hull's catalog class id (e.g. "cobble"). Free at the
+	// source: the worker reads it off the same ship payload as hull/fuel/cargo.
+	ShipClass        string `json:"ship_class,omitempty"`
+	StandingBehavior string `json:"standing_behavior"`
+	ActiveTaskID     string `json:"active_task_id"`
 	// Activity is a short human-readable description of the unit of work the
 	// standing role is currently doing (e.g. "Mission Steel Plate Order",
 	// "Rescuing haul-3"). Empty when idle. Produced by the role goroutine and
@@ -67,6 +70,13 @@ type Status struct {
 	FactionID  string `json:"faction_id,omitempty"`
 	FactionTag string `json:"faction_tag,omitempty"`
 	Drained    bool   `json:"drained,omitempty"`
+	// Quiesced reports that an operator parked this worker at its next safe
+	// point via data/agents/<id>/quiesce.json. Unlike Drained it survives a
+	// restart, because the flag lives on disk rather than in memory -- that is
+	// the whole reason it exists: a fleet cycle would otherwise put a parked
+	// agent straight back to work. Omitted (false) by an older worker binary.
+	Quiesced      bool   `json:"quiesced,omitempty"`
+	QuiesceReason string `json:"quiesce_reason,omitempty"`
 	// Disconnected reports that the worker's game-server connection is currently
 	// down (it is reconnecting via the fleet-wide reconnect gate). It keeps
 	// heartbeating to the overmind over the control socket throughout. The

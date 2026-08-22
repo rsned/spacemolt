@@ -158,6 +158,18 @@ func (s *Supervisor) memberRemove(agentID string, relaunch *WorkerSpec, now time
 	s.logger.Printf("membership: removing %q — drain sent, force-stop after %s", agentID, s.RemoveDrainTimeout)
 }
 
+// readyToStop reports that a worker has come to rest at a safe point and can be
+// stopped now rather than waiting out RemoveDrainTimeout.
+//
+// Quiesced counts alongside Drained because an operator park stops the worker
+// at the same boundary a drain does -- between passes, never mid-run. Honouring
+// it matters: the force-stop deadline (4 minutes) is shorter than a haul run,
+// so a removal that waits the clock out can kill a worker that has already
+// started its next run.
+func readyToStop(s control.Status) bool {
+	return s.Drained || s.Quiesced
+}
+
 // progressLeaving advances in-flight removals: stop when drained or past the
 // deadline, then complete (and relaunch updates through the budget).
 // Reap-goroutine only.
@@ -171,7 +183,7 @@ func (s *Supervisor) progressLeaving(ctx context.Context, now time.Time, budget 
 	}
 	for agentID, st := range s.leaving {
 		w, seen := status[agentID]
-		drained := seen && w.LastStatus.Drained
+		drained := seen && readyToStop(w.LastStatus)
 		proc := procSnapshot(s, agentID)
 		gone := proc == nil || !proc.alive()
 		if !gone && !drained && now.Before(st.deadline) {

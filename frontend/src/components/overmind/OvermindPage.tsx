@@ -95,7 +95,7 @@ export function OvermindPage() {
           return (
             <button key={kind}
               onClick={() => setView({ kind })}
-              className={`px-2.5 py-0.5 text-[10px] uppercase tracking-widest border rounded-sm
+              className={`px-2.5 py-0.5 text-[13px] uppercase tracking-widest border rounded-sm
                 ${active ? 'border-[#d4a017] text-[#d4a017] bg-[#d4a017]/10' : 'border-[#2a2618] text-[#8a8570] hover:text-[#d8d3c0]'}`}>
               {kind}
             </button>
@@ -118,7 +118,7 @@ export function OvermindPage() {
               with them (confirmed live). Living in the flex column above the map
               keeps both fully visible and clickable. */}
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#2a2618] bg-[#0a0a08] flex-wrap">
-            <span className="text-[10px] uppercase tracking-widest text-[#8a8570]">fleets</span>
+            <span className="text-[13px] uppercase tracking-widest text-[#8a8570]">fleets</span>
             {Object.entries(FLEETS).map(([fleet, color]) => (
               <button key={fleet}
                 onClick={() => setVisibleFleets((v) => {
@@ -126,14 +126,14 @@ export function OvermindPage() {
                   if (next.has(fleet)) { next.delete(fleet); } else { next.add(fleet); }
                   return next;
                 })}
-                className={`px-2 py-0.5 text-[10px] uppercase tracking-widest border rounded-sm
+                className={`px-2 py-0.5 text-[13px] uppercase tracking-widest border rounded-sm
                   ${visibleFleets.has(fleet) ? '' : 'opacity-40'}`}
                 style={{ color, borderColor: color }}>
                 {fleet}
               </button>
             ))}
             {stream.offMap.length > 0 && (
-              <span className="ml-auto flex items-center gap-2 text-[10px] uppercase tracking-widest text-[#8a8570]">
+              <span className="ml-auto flex items-center gap-2 text-[13px] uppercase tracking-widest text-[#8a8570]">
                 off-map:
                 {stream.offMap.map((a) => (
                   <span key={a.agent_id} style={{ color: FLEETS[a.fleet] }}>
