@@ -51,4 +51,7 @@ workers:
   # and held out of mission-learn via the overrides sidecar; its
   # mission-learn-fleet.yaml line is commented out so a cleared override
   # cannot spawn it twice.
-  - { agent_id: craftsman-1, role: hauler, station: "" }
+  # Pulled from haul 2026-08-22 (operator request): reassigned to wildlife
+  # combat testing. Removed at the end of a completed run, so it was not
+  # cut loose holding cargo. Re-add this line to put it back on haul.
+  # - { agent_id: craftsman-1, role: hauler, station: "" }

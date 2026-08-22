@@ -1,10 +1,9 @@
 # Shuttle (passenger taxi) fleet — canary johnny_cab.
 # Runs under its own overmind/socket so it can be launched without restarting the
 # haul fleet (no dynamic fleet-join yet). Added 2026-06-28.
-workers: []
-  # johnny_cab is ON LOAN to unlock-fleet.yaml as of 2026-08-12 22:2x, running the
-  # pirate-unlock chain. Stronghold fares are the point: the shuttle role skips any
-  # passenger whose destination it cannot dock at, so nine expensive destinations
-  # were being refused. Move this line back once he holds the unlock — until then
-  # this fleet has no carrier and should not be started.
-  # - { agent_id: johnny_cab, role: shuttle, station: "" }
+workers:
+  # Returned from unlock-fleet.yaml 2026-08-21, loan repaid: baseline 10 on all
+  # nine pirate factions (smuggling 15). That was the whole point of the loan —
+  # the shuttle role skips any passenger whose destination it cannot dock at, so
+  # nine stronghold destinations were being refused. They are payable fares now.
+  - { agent_id: johnny_cab, role: shuttle, station: "" }

@@ -2,10 +2,20 @@
 # refuel FIRST, while still docked from the prior cycle: it tops the tank up
 # before each trip AND recovers a bot that has run itself to empty. A trailing
 # refuel can't do that — an empty bot can't undock to reach it.
+#
+# 25 -> 100 on 2026-08-21. 25 was a hard cap that fired long before the hold
+# filled: across ~1,100 mine actions each, miner-1/miner-4/miner-9/random-clark
+# filled the hull ZERO times and hauled a partial load back every cycle, while
+# the three agents on `loop -f 100` per-agent scripts were stopping naturally on
+# cargo_full. The count is not a target — `mine` + cargo_full raises a
+# GoalReachedError the loop treats as a positive early exit, so 100 means "mine
+# until full". On a healthy belt the hull fills in ~15 cycles (operator), so the
+# higher ceiling only bites near depletion, where `-f` is tolerating misses
+# anyway and the extra attempts are what earn the load.
 refuel
 undock
 travel $ASTEROID_BELT$
-loop -f 25 mine
+loop -f 100 mine
 travel $STATION$
 dock
 deposit_all

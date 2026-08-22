@@ -1,0 +1,32 @@
+# Mining fleet — the pirate-unlock campaign's graduation destination.
+#
+# Created 2026-08-21. There was no mining fleet before this: data/overmind/fleet.yaml
+# is the dead Plan-A monolith (it still lists miner-1..10 alongside explorers and
+# haulers that have since moved to live fleets), and starting IT would double-run
+# ~30 agents under a second session — the `session_replaced` thrash. This roster is
+# the mining fleet; fleet.yaml stays unrun.
+#
+# Everyone here has BANKED THE PIRATE UNLOCK (baseline 10 on all nine pirate
+# factions). They finished the unlock chain and then kept churning the unlock
+# board with nothing left to win — johnny_cab's 47-hour livelock was the same
+# waste, found the same day. The unlock pool has no graduation step of its own,
+# so releasing a graduate is a manual move: comment it out of unlock-fleet.yaml,
+# add it here, SIGHUP the unlock overmind, and this fleet picks it up.
+#
+# The `miner` role gained its idle script (idle_mine) in the same change — before
+# that it ran captures only, so a "miner" did not mine.
+workers:
+  # Mining hulls, mining 12.
+  - { agent_id: miner-1, role: miner, station: "" }
+  - { agent_id: miner-4, role: miner, station: "" }
+  - { agent_id: miner-9, role: miner, station: "" }
+  - { agent_id: miner-10, role: miner, station: "" }
+
+  # Not miner-named, but same profile: mining 12 on starter hulls. Moved here
+  # rather than parked idle — an idle agent still pays property tax on its ship
+  # and drains toward the 0-credit bounty spiral.
+  - { agent_id: overmind, role: miner, station: "" }
+  - { agent_id: prophet-2, role: miner, station: "" }
+
+  # mining skill 0, but starter ships ship WITH a mining laser, so the loop runs.
+  - { agent_id: random-clark, role: miner, station: "" }

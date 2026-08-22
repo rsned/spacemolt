@@ -55,11 +55,23 @@ roles:
   # The asset captures are the only schedule a miner carries: everything else a
   # miner does is idle-loop work, but the ledger is meant to cover every agent,
   # and a role with no schedule block is invisible to it.
+  # Local mining loop. Until 2026-08-21 this role had NO idle script at all, so a
+  # "miner" only ran captures and never mined — the mining fleet was parked.
+  #
+  # idle_mine, not mine_local: `idle_params` is DEAD CONFIG (roles.go declares it,
+  # nothing consumes it — resolveIdle never calls SubstituteParams), so
+  # mine_local's `loop -f $COUNT$ mine` would never resolve its count. idle_mine
+  # hardcodes its loop count (100) and needs no params. It also refuels FIRST, which matters: a
+  # trailing refuel cannot recover a bot that has already run itself to empty,
+  # and these agents came off the unlock chain with as little as 10/130.
+  # $ASTEROID_BELT$/$STATION$ are state tokens resolved at dispatch, not params.
   miner:
     schedule:
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
+      - { every: hourly, command: "capture_fuel" }
+    idle: idle_mine
   hauler:
     schedule:
       - { every: hourly, command: "capture_profile" }

@@ -138,7 +138,8 @@ workers:
   # hold ~250 credits each and that is not a bar: the chain supplies its own
   # cargo (see above), so their wallets only ever pay fuel over 3 jumps.
   # Fuel measured 2026-08-11: miner-1 86/150, miner-2 194/200.
-  - { agent_id: miner-1, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  # GRADUATED 2026-08-21 -> mining-fleet.yaml (banked the unlock)
+  # - { agent_id: miner-1, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   # miner-2 GRADUATED to mb-fleet 2026-08-13 as the Ironlight Crossroads
   # resident. It banked the unlock here and had nothing left to earn at the
   # giver, which is the whole reason it was free to reassign.
@@ -229,15 +230,21 @@ workers:
   # the skill that gates chain 2, and the accept-time gate stays authoritative.
 
   # 13-14 jumps.
-  - { agent_id: miner-9, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }              # horizon, 13
-  - { agent_id: miner-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }             # horizon, 13 — 0/130 FUEL, must refuel before it can move
-  - { agent_id: overmind, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }             # horizon, 13
+  # GRADUATED 2026-08-21 -> mining-fleet.yaml (banked the unlock)
+  # - { agent_id: miner-9, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }              # horizon, 13
+  # GRADUATED 2026-08-21 -> mining-fleet.yaml (banked the unlock)
+  # - { agent_id: miner-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }             # horizon, 13 — 0/130 FUEL, must refuel before it can move
+  # GRADUATED 2026-08-21 -> mining-fleet.yaml (banked the unlock)
+  # - { agent_id: overmind, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }             # horizon, 13
 
   # 16-17 jumps.
-  - { agent_id: prophet-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }            # alpha_centauri, 16
+  # GRADUATED 2026-08-21 -> mining-fleet.yaml (banked the unlock)
+  # - { agent_id: prophet-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }            # alpha_centauri, 16
   - { agent_id: miner-3, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }              # sol, 17
-  - { agent_id: miner-4, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }              # sol, 17
-  - { agent_id: random-clark, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] } # sol, 17
+  # GRADUATED 2026-08-21 -> mining-fleet.yaml (banked the unlock)
+  # - { agent_id: miner-4, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }              # sol, 17
+  # GRADUATED 2026-08-21 -> mining-fleet.yaml (banked the unlock)
+  # - { agent_id: random-clark, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] } # sol, 17
 
   # 24 jumps — Nexus Prime cluster.
   - { agent_id: pirate-11, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
@@ -277,9 +284,11 @@ workers:
   # a 120 tank = 60 jumps of range. Same class as marketbot_algol, which crossed
   # 16 jumps with 88 to spare. He is not in the strand-risk class.
   #
-  # RETURN HIM TO shuttle-fleet.yaml once he holds the unlock — this entry is a
-  # loan, and the shuttle fleet has no other carrier.
-  - { agent_id: johnny_cab, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  # LOAN REPAID 2026-08-21: he holds baseline 10 on all nine pirate factions
+  # (smuggling 15), so the nine stronghold destinations are payable fares now and
+  # he has gone back to shuttle-fleet.yaml. Leave this line commented — re-enable
+  # only if a future unlock chain needs him again.
+  # - { agent_id: johnny_cab, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
 
   # === HAUL FLEET, ON CALL =================================================
   #
