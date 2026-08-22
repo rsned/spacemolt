@@ -221,6 +221,51 @@ func strongholdRefsFor(st *game.State, systems []knowledge.System) map[string]bo
 	return buildStrongholdRefs(systems)
 }
 
+// dropStrongholdPrices removes candidate markets sitting in a pirate stronghold,
+// returning the survivors and the distinct stronghold references dropped (for
+// logging). An empty stronghold set is a no-op — an agent holding the pirate
+// unlock may trade there, and those markets are the richest on the board.
+//
+// This is the re-route's counterpart to dropStrongholdOpps. The claimed
+// opportunity is filtered when it is picked, but haulSellLeg re-routes to a
+// fresh market mid-haul when demand at the destination thins, and that
+// replacement used to skip every stronghold check: haulFindReroute ranks purely
+// on realizable proceeds. A stronghold market prices well precisely BECAUSE
+// nobody safely trades there, so the re-route was drawn to the most dangerous
+// destination available and flew agents that cannot dock there into being
+// attacked on sight. Six of the haul fleet's twelve recorded ship losses are at
+// zaniah; salvager-4 and salvager-9 were re-routed to it ten seconds apart on
+// 2026-08-19 and died 100 seconds apart.
+//
+// Keyed by both system id and name because buildStrongholdRefs registers both:
+// 7 strongholds are dual-named between base id and poi id, so an id-only match
+// silently misses them.
+func dropStrongholdPrices(prices []market.BestPrice, strongholds map[string]bool) (kept []market.BestPrice, dropped []string) {
+	if len(strongholds) == 0 {
+		return prices, nil
+	}
+	kept = make([]market.BestPrice, 0, len(prices))
+	seen := make(map[string]bool)
+	for _, p := range prices {
+		ref := ""
+		switch {
+		case p.SystemID != "" && strongholds[p.SystemID]:
+			ref = p.SystemID
+		case p.SystemName != "" && strongholds[p.SystemName]:
+			ref = p.SystemName
+		}
+		if ref == "" {
+			kept = append(kept, p)
+			continue
+		}
+		if !seen[ref] {
+			seen[ref] = true
+			dropped = append(dropped, ref)
+		}
+	}
+	return kept, dropped
+}
+
 // dropStrongholdOpps removes opportunities whose buy- or sell-system is a pirate
 // stronghold, returning the survivors and the distinct stronghold system references
 // that were dropped (for logging). An empty stronghold set is a no-op. Both legs are
@@ -1198,7 +1243,7 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 		err := haulAutopilot(ctx, deps, out, sellSys, opp.ToStationID, check)
 		if errors.Is(err, errAutopilotStopped) {
 			rerouted = true // one re-route attempt max, then ride it out to avoid thrashing
-			if newSys, newStn, ok := haulFindReroute(ctx, deps, opp, m); ok {
+			if newSys, newStn, ok := haulFindReroute(ctx, deps, out, opp, m); ok {
 				fmt.Fprintf(out, "haul: opp %d demand thinned mid-route; re-routing to %s @%s\n", opp.ID, newSys, newStn) //nolint:errcheck
 				sellSys, opp.ToStationID = newSys, newStn
 			} else {
@@ -1411,7 +1456,7 @@ func haulDestCaptured(ctx context.Context, deps HaulDeps, stationID string, item
 // jump budget) against continuing to the original destination, returning the new (system,
 // station) when one clearly wins. ok=false means stay the course. Best-effort: any missing
 // input (no KB, no state, empty cargo, no candidates) returns ok=false and never errors.
-func haulFindReroute(ctx context.Context, deps HaulDeps, opp market.ArbitrageOpportunity, m *haulMetrics) (sysID, stationID string, ok bool) {
+func haulFindReroute(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, m *haulMetrics) (sysID, stationID string, ok bool) {
 	if deps.KB == nil {
 		return "", "", false
 	}
@@ -1433,6 +1478,22 @@ func haulFindReroute(ctx context.Context, deps HaulDeps, opp market.ArbitrageOpp
 
 	prices, err := deps.Market.FindBestPrices(ctx, opp.ItemID, "buy", haulRerouteCandidates)
 	if err != nil || len(prices) == 0 {
+		return "", "", false
+	}
+	// Never re-route into a pirate stronghold this agent may not enter. Computed
+	// here rather than threaded down from the caller so the function that CHOOSES
+	// a destination is the one responsible for not choosing a forbidden one; a
+	// GetSystems read is cheap on a path that only runs when demand thins.
+	if systems, serr := deps.KB.GetSystems(ctx); serr == nil {
+		if strongholds := strongholdRefsFor(state, systems); len(strongholds) > 0 {
+			kept, dropped := dropStrongholdPrices(prices, strongholds)
+			if len(dropped) > 0 {
+				fmt.Fprintf(out, "haul: opp %d re-route skipped stronghold market(s) %v\n", opp.ID, dropped) //nolint:errcheck
+			}
+			prices = kept
+		}
+	}
+	if len(prices) == 0 {
 		return "", "", false
 	}
 	conns, err := deps.KB.GetConnections(ctx)

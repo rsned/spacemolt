@@ -659,7 +659,7 @@ func TestHaulFindRerouteChoosesBetterMarket(t *testing.T) {
 	o := opp(7, "src", "x", 100) // ToStationID "x-stn"
 	m := &haulMetrics{buyPrice: 100}
 	deps := HaulDeps{Client: fc, Market: f, KB: kb, AgentID: "t"}
-	sys, stn, ok := haulFindReroute(context.Background(), deps, o, m)
+	sys, stn, ok := haulFindReroute(context.Background(), deps, io.Discard, o, m)
 	if !ok || sys != "g" || stn != "g-stn" {
 		t.Fatalf("want reroute to g/g-stn, got sys=%q stn=%q ok=%v", sys, stn, ok)
 	}
@@ -676,7 +676,7 @@ func TestHaulFindRerouteNoneWhenNotBetter(t *testing.T) {
 	}
 	kb := &fakeKB{systems: []knowledge.System{{ID: "a"}, {ID: "g"}}, conns: undirected([2]string{"a", "g"})}
 	o := opp(7, "src", "x", 100)
-	if _, _, ok := haulFindReroute(context.Background(), deps2(fc, f, kb), o, &haulMetrics{buyPrice: 100}); ok {
+	if _, _, ok := haulFindReroute(context.Background(), deps2(fc, f, kb), io.Discard, o, &haulMetrics{buyPrice: 100}); ok {
 		t.Fatalf("candidate does not beat continue+margin; want ok=false")
 	}
 }
