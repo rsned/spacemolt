@@ -546,10 +546,14 @@ func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.B
 	return nil
 }
 
-// publicFacilityUpserter is the subset of the KB that stores the public
-// facility catalog; SQLiteKB implements it, in-memory/mocks may not.
-type publicFacilityUpserter interface {
-	UpsertPublicFacilities(ctx context.Context, rows []knowledge.PublicFacility) error
+// publicFacilityStore is the subset of the KB that owns the public facility
+// catalog; SQLiteKB implements it, in-memory/mocks may not.
+//
+// Replace, not Upsert: a facility listing is the complete truth for one
+// station, so capturing it has to be able to REMOVE a line that is no longer
+// there, not just add the ones that are.
+type publicFacilityStore interface {
+	ReplacePublicFacilitiesAtStation(ctx context.Context, stationID string, rows []knowledge.PublicFacility) (int, error)
 }
 
 // facStr reads a string field from a decoded JSON object, returning "" if the
@@ -575,9 +579,11 @@ func facInt(m map[string]any, key string) int {
 	}
 }
 
-// upsertPublicFromFacilityList parses a raw `facility list` response and upserts
-// PUBLIC PRODUCTION facilities into the catalog. Best-effort: unknown/renamed
-// fields are preserved in DetailsJSON.
+// upsertPublicFromFacilityList parses a raw `facility list` response and makes
+// the catalog for that station match it: public production lines are upserted,
+// and any line still on file for the station that this listing did not return
+// is pruned. Returns (captured, pruned). Best-effort on fields: unknown/renamed
+// ones are preserved in DetailsJSON.
 //
 // Public production lines are spread across three sections, and many stations
 // return no public_facilities section at all: station_facilities holds NPC
@@ -587,7 +593,17 @@ func facInt(m map[string]any, key string) int {
 // Those first two sections mix public and private lines, and a private line
 // signals that by OMITTING production.public rather than setting it false (e.g.
 // voss_redoubt's "The Red Room"). So public requires an explicit true.
-func upsertPublicFromFacilityList(ctx context.Context, kb publicFacilityUpserter, raw []byte, tick int) (int, error) {
+//
+// The prune is what makes the two early returns below load-bearing rather than
+// cosmetic. Pruning deletes, so it must only run against a listing we believe
+// is complete for the station: the payload has to decode, name its station, and
+// carry at least one facility section. A reply that fails any of those is a
+// failed or mis-routed capture (GetRawJSON("_last") can hand back another
+// command's reply), and treating it as "this station has no facilities" would
+// erase live ones. A listing that decodes and DOES name sections but returns no
+// public production line is a real observation — that station's public lines
+// are gone — and must prune.
+func upsertPublicFromFacilityList(ctx context.Context, kb publicFacilityStore, raw []byte, tick int) (captured, pruned int, err error) {
 	var resp struct {
 		BaseID            string           `json:"base_id"`
 		StationFacilities []map[string]any `json:"station_facilities"`
@@ -595,14 +611,14 @@ func upsertPublicFromFacilityList(ctx context.Context, kb publicFacilityUpserter
 		PublicFacilities  []map[string]any `json:"public_facilities"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	all := make([]map[string]any, 0, len(resp.StationFacilities)+len(resp.FactionFacilities)+len(resp.PublicFacilities))
 	all = append(all, resp.StationFacilities...)
 	all = append(all, resp.FactionFacilities...)
 	all = append(all, resp.PublicFacilities...)
 	if resp.BaseID == "" || len(all) == 0 {
-		return 0, nil
+		return 0, 0, nil
 	}
 	var rows []knowledge.PublicFacility
 	for _, m := range all {
@@ -644,10 +660,12 @@ func upsertPublicFromFacilityList(ctx context.Context, kb publicFacilityUpserter
 			DetailsJSON:     string(details),
 		})
 	}
-	if len(rows) == 0 {
-		return 0, nil
+	// rows may legitimately be empty here; that prunes the station.
+	pruned, err = kb.ReplacePublicFacilitiesAtStation(ctx, resp.BaseID, rows)
+	if err != nil {
+		return 0, 0, err
 	}
-	return len(rows), kb.UpsertPublicFacilities(ctx, rows)
+	return len(rows), pruned, nil
 }
 
 // facilityDetail matches the structure returned by the facility list command.
@@ -686,11 +704,20 @@ func KBUpdateFacilities(ctx context.Context, client game.GameClient, kb knowledg
 		return fmt.Errorf("no facility list data in response")
 	}
 
-	if up, ok := kb.(publicFacilityUpserter); ok {
-		if n, perr := upsertPublicFromFacilityList(ctx, up, rawJSON, int(currentTick(state))); perr != nil {
+	if up, ok := kb.(publicFacilityStore); ok {
+		n, pruned, perr := upsertPublicFromFacilityList(ctx, up, rawJSON, int(currentTick(state)))
+		switch {
+		case perr != nil:
 			fmt.Printf("public facility capture failed: %v\n", perr)
-		} else if n > 0 {
-			fmt.Printf("Captured %d public facilities\n", n)
+		default:
+			if n > 0 {
+				fmt.Printf("Captured %d public facilities\n", n)
+			}
+			// Always report a prune: it is the one destructive thing this
+			// capture does, so it should never happen silently.
+			if pruned > 0 {
+				fmt.Printf("Pruned %d public facilities no longer listed at this station\n", pruned)
+			}
 		}
 	}
 

@@ -3,6 +3,8 @@ package worker
 import (
 	"context"
 	"os"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -21,7 +23,7 @@ func TestUpsertPublicFromFacilityList(t *testing.T) {
 
 	ctx := context.Background()
 
-	n, err := upsertPublicFromFacilityList(ctx, kb, raw, 100)
+	n, _, err := upsertPublicFromFacilityList(ctx, kb, raw, 100)
 	if err != nil {
 		t.Fatalf("upsertPublicFromFacilityList returned error: %v", err)
 	}
@@ -78,7 +80,7 @@ func TestUpsertPublicFromFacilityList_AllSections(t *testing.T) {
 
 	ctx := context.Background()
 
-	n, err := upsertPublicFromFacilityList(ctx, kb, raw, 100)
+	n, _, err := upsertPublicFromFacilityList(ctx, kb, raw, 100)
 	if err != nil {
 		t.Fatalf("upsertPublicFromFacilityList returned error: %v", err)
 	}
@@ -122,5 +124,161 @@ func TestUpsertPublicFromFacilityList_AllSections(t *testing.T) {
 	}
 	if len(redMist) != 0 {
 		t.Fatalf("expected 0 facilities for load_red_mist (public key absent = private), got %d", len(redMist))
+	}
+}
+
+// facilityListJSON builds a `facility list` reply for one station carrying the
+// given public production lines.
+func facilityListJSON(baseID string, facilityIDs ...string) []byte {
+	var b strings.Builder
+	b.WriteString(`{"base_id":"` + baseID + `","station_facilities":[`)
+	for i, id := range facilityIDs {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		b.WriteString(`{"facility_id":"` + id + `","name":"` + id + `","category":"production",` +
+			`"recipe_id":"refine_steel","level":1,` +
+			`"production":{"public":true,"rental_fee_per_run":10}}`)
+	}
+	b.WriteString(`]}`)
+	return []byte(b.String())
+}
+
+func facilityIDsAtStation(t *testing.T, kb *knowledge.SQLiteKB, station string) []string {
+	t.Helper()
+	facs, err := kb.FacilitiesForRecipe(context.Background(), "refine_steel")
+	if err != nil {
+		t.Fatalf("FacilitiesForRecipe: %v", err)
+	}
+	var out []string
+	for _, f := range facs {
+		if f.StationID == station {
+			out = append(out, f.FacilityID)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// The bug this fixes: a facility that gets dismantled between two visits used
+// to stay on file forever, still answering "you can build this recipe here".
+func TestUpsertPublicFromFacilityList_PrunesFacilityThatVanished(t *testing.T) {
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	if err != nil {
+		t.Fatalf("open kb: %v", err)
+	}
+	ctx := context.Background()
+
+	if _, _, err := upsertPublicFromFacilityList(ctx, kb, facilityListJSON("alpha", "f1", "f2"), 100); err != nil {
+		t.Fatalf("first capture: %v", err)
+	}
+	if got := facilityIDsAtStation(t, kb, "alpha"); len(got) != 2 {
+		t.Fatalf("after first capture = %v, want two facilities", got)
+	}
+
+	// Second visit: f2 is gone.
+	captured, pruned, err := upsertPublicFromFacilityList(ctx, kb, facilityListJSON("alpha", "f1"), 200)
+	if err != nil {
+		t.Fatalf("second capture: %v", err)
+	}
+	if captured != 1 || pruned != 1 {
+		t.Errorf("captured=%d pruned=%d, want 1 and 1", captured, pruned)
+	}
+	if got := facilityIDsAtStation(t, kb, "alpha"); len(got) != 1 || got[0] != "f1" {
+		t.Errorf("after second capture = %v, want [f1]", got)
+	}
+}
+
+// A station whose LAST public line is gone still returns facilities — just no
+// public production ones. That is a real observation and must prune; before
+// the prune existed this path returned early and the row lived forever.
+func TestUpsertPublicFromFacilityList_PrunesWhenNoPublicLinesRemain(t *testing.T) {
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	if err != nil {
+		t.Fatalf("open kb: %v", err)
+	}
+	ctx := context.Background()
+
+	if _, _, err := upsertPublicFromFacilityList(ctx, kb, facilityListJSON("alpha", "f1"), 100); err != nil {
+		t.Fatalf("first capture: %v", err)
+	}
+
+	// Same station, one facility, now PRIVATE (production.public omitted).
+	private := []byte(`{"base_id":"alpha","station_facilities":[` +
+		`{"facility_id":"f1","name":"f1","category":"production","recipe_id":"refine_steel",` +
+		`"production":{"rental_fee_per_run":10}}]}`)
+	captured, pruned, err := upsertPublicFromFacilityList(ctx, kb, private, 200)
+	if err != nil {
+		t.Fatalf("second capture: %v", err)
+	}
+	if captured != 0 || pruned != 1 {
+		t.Errorf("captured=%d pruned=%d, want 0 and 1", captured, pruned)
+	}
+	if got := facilityIDsAtStation(t, kb, "alpha"); len(got) != 0 {
+		t.Errorf("after second capture = %v, want none", got)
+	}
+}
+
+// The safety property. A capture that did not come back cleanly must never be
+// read as "this station has no facilities" — that would delete live rows, the
+// same failure shape as the catalog refresh that erased the legacy mining
+// hulls. GetRawJSON("_last") really can hand back another command's reply.
+func TestUpsertPublicFromFacilityList_IncompleteReplyNeverPrunes(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  []byte
+	}{
+		{"no station id", []byte(`{"station_facilities":[{"facility_id":"x","category":"production","production":{"public":true}}]}`)},
+		{"no sections at all", []byte(`{"base_id":"alpha"}`)},
+		{"another command's reply", []byte(`{"base_id":"alpha","credits":1000}`)},
+		{"empty sections", []byte(`{"base_id":"alpha","station_facilities":[],"faction_facilities":[],"public_facilities":[]}`)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+			if err != nil {
+				t.Fatalf("open kb: %v", err)
+			}
+			ctx := context.Background()
+			if _, _, err := upsertPublicFromFacilityList(ctx, kb, facilityListJSON("alpha", "f1"), 100); err != nil {
+				t.Fatalf("seed capture: %v", err)
+			}
+
+			captured, pruned, err := upsertPublicFromFacilityList(ctx, kb, tc.raw, 200)
+			if err != nil {
+				t.Fatalf("capture: %v", err)
+			}
+			if captured != 0 || pruned != 0 {
+				t.Errorf("captured=%d pruned=%d, want 0 and 0 (no prune from an incomplete reply)", captured, pruned)
+			}
+			if got := facilityIDsAtStation(t, kb, "alpha"); len(got) != 1 || got[0] != "f1" {
+				t.Errorf("facilities = %v, want [f1] still on file", got)
+			}
+		})
+	}
+}
+
+// One station's scrape must not touch another station's catalog.
+func TestUpsertPublicFromFacilityList_PruneIsScopedToOneStation(t *testing.T) {
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	if err != nil {
+		t.Fatalf("open kb: %v", err)
+	}
+	ctx := context.Background()
+	if _, _, err := upsertPublicFromFacilityList(ctx, kb, facilityListJSON("alpha", "f1"), 100); err != nil {
+		t.Fatalf("seed alpha: %v", err)
+	}
+	if _, _, err := upsertPublicFromFacilityList(ctx, kb, facilityListJSON("beta", "g1"), 100); err != nil {
+		t.Fatalf("seed beta: %v", err)
+	}
+
+	// alpha loses its only public line.
+	if _, pruned, err := upsertPublicFromFacilityList(ctx, kb, []byte(`{"base_id":"alpha","station_facilities":[{"facility_id":"f1","category":"storage"}]}`), 200); err != nil {
+		t.Fatalf("alpha recapture: %v", err)
+	} else if pruned != 1 {
+		t.Errorf("pruned = %d, want 1", pruned)
+	}
+	if got := facilityIDsAtStation(t, kb, "beta"); len(got) != 1 || got[0] != "g1" {
+		t.Errorf("beta = %v, want [g1] untouched", got)
 	}
 }
