@@ -56,22 +56,35 @@ remainder.**
 
 ### 1a-0. Put the miners in mining hulls first — free, from idle stock
 
-**Mining-class hulls carry a 100% cargo boost for raw ores**, which directly doubles units
-per round-trip jump — the metric site selection turns on. Three of the seven mining-fleet
-agents are not in one and forfeit it entirely.
+Ore capacity drives units per round-trip jump, the metric site selection turns on. Three of
+the seven mining agents fly non-mining hulls (cobble 75, theoria 70) and are ~10x short.
+
+⚠️ **Ore compression (the 100% raw-ore cargo boost) applies only to the CATALOG hull ids,
+not the legacy ones — and every mining hull we own is legacy.** The `ships` table cannot
+tell you this: `deeprock_harvester` (legacy) and `mining_cruiser` (catalog) have identical
+stats, 400 cargo / 6 utility / cpu 35 / power 60. We own 30 deeprock + 58 excavator, all
+legacy, and **zero** catalog-id hulls. Catalog hulls list at `price 0` with no
+`ship_listings` rows, so obtaining one is probably `commission_ship` — **unverified, and
+worth checking, since compression is the difference between ~800 and ~1,600 cargo.**
+
+**The legacy compensation is utility slots.** `cargo_expander_iii` costs cpu 3 / power 3
+against a deeprock's cpu 35 / power 60, so slots — not the power budget — are the limit.
+Reserve one slot for the gas harvester and one for a mining laser, fit **4 expanders at
++100 each**, and a legacy deeprock carries **~800**. We hold **809 `cargo_expander_iii`**.
 
 | agent | piloting | hull now | ore cap now | upgrade to | ore cap after |
 |---|---|---|---|---|---|
-| miner-1 | 29 | excavator | 300 | `deeprock_harvester` | **800** |
-| miner-4 | 28 | drillship | 200 | `deeprock_harvester` | **800** |
-| miner-10 | 28 | drillship | 200 | `deeprock_harvester` | **800** |
-| miner-9 | 28 | prospector | 100 | `deeprock_harvester` | **800** |
-| prophet-2 | 28 | **cobble (not mining)** | 75 | `deeprock_harvester` | **800** |
-| overmind | 13 | **cobble (not mining)** | 75 | `excavator` (piloting 10) | **300** |
-| random-clark | 13 | **theoria (not mining)** | 70 | `excavator` (piloting 10) | **300** |
+| miner-1 | 29 | excavator | 150 | `deeprock_harvester` + 4x expander_iii | **~800** |
+| miner-4 | 28 | drillship | 100 | `deeprock_harvester` + 4x expander_iii | **~800** |
+| miner-10 | 28 | drillship | 100 | `deeprock_harvester` + 4x expander_iii | **~800** |
+| miner-9 | 28 | prospector | 50 | `deeprock_harvester` + 4x expander_iii | **~800** |
+| prophet-2 | 28 | **cobble (not mining)** | 75 | `deeprock_harvester` + 4x expander_iii | **~800** |
+| overmind | 13 | **cobble (not mining)** | 75 | `excavator` + 2x expander_iii (piloting 10) | **~350** |
+| random-clark | 13 | **theoria (not mining)** | 70 | `excavator` + 2x expander_iii (piloting 10) | **~350** |
 
 - [ ] No purchase needed — we own **30 `deeprock_harvester` (25 idle)** and **58
-      `excavator` (45 idle)**. This is `switch_ship` while docked.
+      `excavator` (45 idle)**, plus **809 `cargo_expander_iii`**. This is `switch_ship`
+      plus fitting, while docked.
 - [ ] `deeprock_harvester` needs **piloting 20**; only `overmind` and `random-clark` (13)
       fall short, and an excavator needs only 10.
 - [ ] Verify against live data before switching — hull counts move:
