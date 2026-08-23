@@ -1524,7 +1524,7 @@ func TestFreightChainRunSettlesDockBeforeDeliver(t *testing.T) {
 // to freightChainRun.
 func TestFreightChainRunLeavesInFlightWhenDockNeverSettles(t *testing.T) {
 	store := &fakeFreightStore{}
-	f := &fakeClient{state: &game.State{}} // undocked forever
+	f := &fakeClient{state: &game.State{}, dockNeverSettles: true} // undocked forever
 	deps := MissionDeps{Client: f, AgentID: "fighter-4", Market: store, State: &missionRunState{}}
 	deps.sleep = func(ctx context.Context, d time.Duration) error { return nil }
 	c := acceptedContract(1200, 1380)

@@ -201,6 +201,57 @@ var supported = map[string]bool{
 // Supports reports whether cmd is in the curated worker vocabulary.
 func (d *WorkerDispatch) Supports(cmd string) bool { return supported[cmd] }
 
+// redundant reports whether cmd would be a no-op against the state we already
+// hold, so the worker can skip the round-trip instead of asking the server to
+// tell it something it knows.
+//
+// Every idle script opens with `refuel` and most close with `travel`/`dock`, and
+// all three were sent unconditionally on every pass. Measured 2026-08-23 over
+// seven minutes across all fleets: 3,932 "Already docked", 1,071 "Already in
+// target system", 976 "tank is already full" -- roughly 6,000 calls that changed
+// nothing, peaking at 156 in a single second. That volume is what trips the
+// shared per-IP rate limiter, and a block stalls every agent at once.
+//
+// This guard FAILS OPEN, opposite to the stronghold gate in mine_qty. There, an
+// unreadable state must be treated as hostile because guessing wrong costs a
+// ship. Here a wrongly-skipped dock strands a worker mid-loop, while a wrongly
+// sent one costs a single call -- so anything we cannot positively confirm is
+// redundant gets sent.
+func (d *WorkerDispatch) redundant(cmd string, args []string) (why string, skip bool) {
+	if d.Client == nil {
+		return "", false
+	}
+	st := d.Client.GetState()
+	if st == nil {
+		return "", false
+	}
+	switch cmd {
+	case "dock":
+		// State.Doc is the only trustworthy dock flag: docked_at_base is a
+		// PLAYER field the server routinely leaves empty while docked, and two
+		// dock paths set Doc without ever recording an id.
+		if st.Doc {
+			return "already docked", true
+		}
+	case "undock":
+		if !st.Doc {
+			return "not docked", true
+		}
+	case "refuel":
+		// MaxFuel 0 means "not loaded yet", not a zero-size tank.
+		if st.Ship.MaxFuel > 0 && st.Ship.Fuel >= st.Ship.MaxFuel {
+			return "tank full", true
+		}
+	case "travel":
+		// Never suppress mid-leg: while traveling the cached POI can already
+		// read as the destination, and skipping would abandon the leg.
+		if len(args) > 0 && !st.Traveling && st.CurrentPOI != "" && st.CurrentPOI == args[0] {
+			return "already at " + args[0], true
+		}
+	}
+	return "", false
+}
+
 // Run dispatches one tokenized command. Token resolution ($SYSTEM$, $STATION$,
 // POI-type tokens) is the caller's responsibility (RunStanding resolves before
 // calling) — Run treats tokens as literal.
@@ -210,6 +261,10 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 	}
 	cmd := tokens[0]
 	args := tokens[1:]
+	if why, skip := d.redundant(cmd, args); skip {
+		fmt.Fprintf(d.Out, "%s: %s; skipped\n", cmd, why) //nolint:errcheck
+		return nil
+	}
 	switch cmd {
 	case "undock":
 		return d.Client.Undock(ctx)

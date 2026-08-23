@@ -20,13 +20,17 @@ type fakeClient struct {
 	game.GameClient // embedded; unimplemented methods panic if called
 	calls           []string
 	state           *game.State
-	route           []game.RouteStep  // returned by FindRoute
-	routeErr        error             // when set, FindRoute returns it instead of route
-	jumpCanceled    bool              // Jump returns Canceled=true when set
-	disconnected    bool              // when set, IsConnected() returns false (game connection down)
-	dockErr         error             // when set, Dock returns it (ship not at a station)
-	fuelLow         bool              // when set, Travel fails with insufficient fuel until Refuel clears it
-	raw             map[string][]byte // GetRawJSON responses keyed by store key (e.g. "sell", "buy")
+	route           []game.RouteStep // returned by FindRoute
+	routeErr        error            // when set, FindRoute returns it instead of route
+	jumpCanceled    bool             // Jump returns Canceled=true when set
+	disconnected    bool             // when set, IsConnected() returns false (game connection down)
+	dockErr         error            // when set, Dock returns it (ship not at a station)
+	// dockNeverSettles models a dock that succeeds at the protocol level but
+	// never lands in state -- the docked_at_base family of bugs. Without it the
+	// fake's Dock always sets Doc, and "the dock never settles" is untestable.
+	dockNeverSettles bool
+	fuelLow          bool              // when set, Travel fails with insufficient fuel until Refuel clears it
+	raw              map[string][]byte // GetRawJSON responses keyed by store key (e.g. "sell", "buy")
 
 	refuelShipCalls []refuelShipCall // records of RefuelShip(target, quantity) calls
 	refuelShipErr   error            // when set, RefuelShip returns it instead of recording success
@@ -85,11 +89,20 @@ type refuelShipCall struct {
 
 func (f *fakeClient) Undock(ctx context.Context) error {
 	f.calls = append(f.calls, "undock")
+	if f.state != nil {
+		f.state.Doc = false
+	}
 	return nil
 }
 func (f *fakeClient) Dock(ctx context.Context) error {
 	f.calls = append(f.calls, "dock")
-	return f.dockErr
+	if f.dockErr != nil {
+		return f.dockErr
+	}
+	if f.state != nil && !f.dockNeverSettles {
+		f.state.Doc = true
+	}
+	return nil
 }
 func (f *fakeClient) Mine(ctx context.Context) error { f.calls = append(f.calls, "mine"); return nil }
 func (f *fakeClient) Buy(ctx context.Context, itemID string, qty float64) error {
@@ -298,7 +311,9 @@ func (f *fakeClient) ShippingGet(ctx context.Context, shipmentID string) error {
 }
 
 func TestDispatchRunsKnownCommands(t *testing.T) {
-	f := &fakeClient{state: &game.State{}}
+	// Starts DOCKED so undock and dock are each a genuine transition: Run now
+	// skips a command that its state says is already satisfied.
+	f := &fakeClient{state: &game.State{Doc: true}}
 	d := NewWorkerDispatch(f, nil, nil, io.Discard)
 	for _, tc := range [][]string{
 		{"undock"}, {"mine"}, {"dock"}, {"refuel"}, {"deposit_all"},
