@@ -470,11 +470,18 @@ type AcceptMissionResponse struct {
 // reward fields at the top level (not nested under "rewards").
 //   - complete_mission
 type CompleteMissionResponse struct {
-	Message              string          `json:"message"`
-	MissionID            string          `json:"mission_id"`
-	Title                string          `json:"title"`
-	ChainNext            string          `json:"chain_next,omitempty"`
-	CreditsEarned        int64           `json:"credits_earned,omitempty"`
+	Message       string `json:"message"`
+	MissionID     string `json:"mission_id"`
+	Title         string `json:"title"`
+	ChainNext     string `json:"chain_next,omitempty"`
+	CreditsEarned int64  `json:"credits_earned,omitempty"`
+	// CreditsPromised and CreditsShortfall arrive (v0.554.3) only when an empire
+	// treasury could not cover the full reward; both are omitted on a full
+	// payout. Without them a short payout was indistinguishable from a mission
+	// that was simply worth less, which is how the 2026-07-23 treasury drought
+	// read as a silent decay in mission income.
+	CreditsPromised      int64           `json:"credits_promised,omitempty"`
+	CreditsShortfall     int64           `json:"credits_shortfall,omitempty"`
 	ItemsReceived        json.RawMessage `json:"items_received,omitempty"`
 	SkillXPGained        json.RawMessage `json:"skill_xp_gained,omitempty"`
 	CommunityContributed json.RawMessage `json:"community_contributed,omitempty"`
