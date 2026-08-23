@@ -7161,7 +7161,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			}, ctx, 5*time.Second, cmd, format)
 		}
 		if len(craftArgs) < 1 {
-			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] | craft --file <path.json> | craft queue | craft cancel <job_id>")
+			return fmt.Errorf("usage: craft <recipe-id> [quantity] [--deliver_to=storage|faction] [--facility_id=ID] [--preset=fast|cheap|workshop] [--dry_run] | craft unpack_package --package_id=HASH [--source=cargo|storage|faction] [--target=...] | craft --file <path.json> | craft queue | craft cancel <job_id>")
 		}
 		recipeID := craftArgs[0]
 		qty := 1
@@ -7172,40 +7172,17 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			}
 			qty = n
 		}
-		deliverTo := flags["deliver_to"]
-		switch deliverTo {
-		case "", "storage", "faction":
-		default:
-			return fmt.Errorf("invalid deliver_to %q (must be storage or faction)", deliverTo)
+		payload, advanced, err := craftJobPayload(recipeID, qty, flags)
+		if err != nil {
+			return err
 		}
-		preset := flags["preset"]
-		switch preset {
-		case "", "fast", "cheap", "workshop":
-		default:
-			return fmt.Errorf("invalid preset %q (must be fast, cheap, or workshop)", preset)
-		}
-		_, dryRun := flags["dry_run"]
-		facilityID := flags["facility_id"]
 		// Fast path: plain craft with no advanced flags uses the typed client
 		// method (correct async terminator, validated quantity).
-		if !dryRun && preset == "" && facilityID == "" {
+		if !advanced {
+			deliverTo, _ := payload["deliver_to"].(string)
 			return simpleCommand(client, func(ctx context.Context) error {
 				return client.CraftWithOptions(ctx, recipeID, qty, deliverTo)
 			}, ctx, 5*time.Second, cmd, format)
-		}
-		// Advanced path: build the full payload and submit generically.
-		payload := map[string]any{"recipe_id": recipeID, "quantity": qty}
-		if deliverTo != "" {
-			payload["deliver_to"] = deliverTo
-		}
-		if facilityID != "" {
-			payload["facility_id"] = facilityID
-		}
-		if preset != "" {
-			payload["preset"] = preset
-		}
-		if dryRun {
-			payload["dry_run"] = true
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "craft", payload)
@@ -9680,6 +9657,74 @@ func partitionFlagsKV(args []string) (positional []string, flags map[string]stri
 // `--job_ids=ID1,ID2`, and the `action=cancel` forms. --job_ids takes
 // precedence over a single job_id; an empty/whitespace list or a missing job
 // id is a usage error.
+// craftJobPayload builds the generic `craft` payload from the parsed flags and
+// reports whether any flag requires it. When advanced is false the caller may
+// use the typed CraftWithOptions fast path, which carries only recipe_id,
+// quantity and deliver_to.
+//
+// Every flag the command accepts MUST be read here. partitionFlagsKV drops
+// unrecognised flags silently, so a flag this function does not consume is not
+// a usage error — it vanishes, the fast path fires, and the server rejects a
+// request the operator believes they parameterised. That is exactly how
+// `craft unpack_package --package_id=... --source=faction` came to send
+// {"recipe_id":"unpack_package","quantity":1} and fail with
+// "package_id is required when unpacking".
+func craftJobPayload(recipeID string, qty int, flags map[string]string) (map[string]any, bool, error) {
+	deliverTo := flags["deliver_to"]
+	switch deliverTo {
+	case "", "storage", "faction":
+	default:
+		return nil, false, fmt.Errorf("invalid deliver_to %q (must be storage or faction)", deliverTo)
+	}
+	preset := flags["preset"]
+	switch preset {
+	case "", "fast", "cheap", "workshop":
+	default:
+		return nil, false, fmt.Errorf("invalid preset %q (must be fast, cheap, or workshop)", preset)
+	}
+	// Package jobs (unpack_package / pack_package) move goods between the
+	// caller's cargo, station storage and faction storage.
+	packageID := flags["package_id"]
+	pkgSource := flags["source"]
+	pkgTarget := flags["target"]
+	for _, f := range []struct{ name, val string }{{"source", pkgSource}, {"target", pkgTarget}} {
+		switch f.val {
+		case "", "cargo", "storage", "faction":
+		default:
+			return nil, false, fmt.Errorf("invalid %s %q (must be cargo, storage or faction)", f.name, f.val)
+		}
+	}
+	_, dryRun := flags["dry_run"]
+	facilityID := flags["facility_id"]
+
+	payload := map[string]any{"recipe_id": recipeID, "quantity": qty}
+	if deliverTo != "" {
+		payload["deliver_to"] = deliverTo
+	}
+	if facilityID != "" {
+		payload["facility_id"] = facilityID
+	}
+	if preset != "" {
+		payload["preset"] = preset
+	}
+	if dryRun {
+		payload["dry_run"] = true
+	}
+	if packageID != "" {
+		payload["package_id"] = packageID
+	}
+	if pkgSource != "" {
+		payload["source"] = pkgSource
+	}
+	if pkgTarget != "" {
+		payload["target"] = pkgTarget
+	}
+	// deliver_to alone stays on the fast path: CraftWithOptions takes it.
+	advanced := dryRun || preset != "" || facilityID != "" ||
+		packageID != "" || pkgSource != "" || pkgTarget != ""
+	return payload, advanced, nil
+}
+
 func craftCancelPayload(craftArgs []string, flags map[string]string) (map[string]any, error) {
 	payload := map[string]any{"action": "cancel"}
 	if raw := flags["job_ids"]; raw != "" {
