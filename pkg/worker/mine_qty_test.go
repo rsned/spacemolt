@@ -368,7 +368,7 @@ func TestFindMinePOIPrimaryPathUsesPOIResourcesMatch(t *testing.T) {
 	kb := newMineTestKB(t, "raw_ore")
 	d := NewWorkerDispatch(&fakeClient{}, kb, nil, io.Discard)
 
-	sys, poi, err := d.findMinePOI(context.Background(), "mine_sys", "raw_ore")
+	sys, poi, err := d.findMinePOI(context.Background(), "mine_sys", "raw_ore", nil)
 	if err != nil {
 		t.Fatalf("findMinePOI: %v", err)
 	}
@@ -397,7 +397,7 @@ func TestFindMinePOIFallsBackToResourcePOIType(t *testing.T) {
 	}
 	d := NewWorkerDispatch(&fakeClient{}, kb, nil, io.Discard)
 
-	sys, poi, err := d.findMinePOI(ctx, "gas_sys", "unknown_gas")
+	sys, poi, err := d.findMinePOI(ctx, "gas_sys", "unknown_gas", nil)
 	if err != nil {
 		t.Fatalf("findMinePOI: %v", err)
 	}
@@ -417,7 +417,7 @@ func TestFindMinePOINoKnownResourceErrors(t *testing.T) {
 	}
 	d := NewWorkerDispatch(&fakeClient{}, kb, nil, io.Discard)
 
-	if _, _, err := d.findMinePOI(ctx, "from_sys", "nonexistent_ore"); err == nil {
+	if _, _, err := d.findMinePOI(ctx, "from_sys", "nonexistent_ore", nil); err == nil {
 		t.Fatal("expected an error when no resource POI is known anywhere")
 	}
 }

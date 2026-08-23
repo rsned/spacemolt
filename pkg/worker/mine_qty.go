@@ -71,7 +71,7 @@ func (d *WorkerDispatch) MineQty(ctx context.Context, itemID string, qty int, to
 	}
 
 	if cargoCount(state, itemID) < qty {
-		sys, poi, err := d.findMinePOI(ctx, current, itemID)
+		sys, poi, err := d.findMinePOI(ctx, current, itemID, d.mineStrongholdRefs(ctx, state))
 		if err != nil {
 			return fmt.Errorf("mine_qty: locate resource %q: %w", itemID, err)
 		}
@@ -146,6 +146,43 @@ func (d *WorkerDispatch) autopilotAndUndock(ctx context.Context, system, poi str
 	return nil
 }
 
+
+// mineCandidateSlate is how many nearest systems findMinePOI considers before
+// giving up. One was enough when every candidate was acceptable; with the
+// stronghold gate the nearest belt may be unusable, and 10 covers the ten
+// mineable POIs that sit inside pirate strongholds without walking the galaxy.
+const mineCandidateSlate = 10
+
+// strongholdBlocked reports whether a destination is off-limits. Both the id
+// and the name are checked because buildStrongholdRefs registers both: seven
+// strongholds are dual-named between base id and poi id, so an id-only match
+// silently misses them.
+func strongholdBlocked(strongholds map[string]bool, systemID, systemName string) bool {
+	if len(strongholds) == 0 {
+		return false
+	}
+	return strongholds[systemID] || (systemName != "" && strongholds[systemName])
+}
+
+// mineStrongholdRefs is the mining path's copy of haul's guard: the stronghold
+// systems THIS agent must avoid, read from live standings so an agent that
+// banks the pirate unlock mid-run picks it up on the next pass.
+//
+// A KB we cannot read yields the empty set, which would open every stronghold.
+// That is the one direction this must not fail, so an error falls back to
+// blocking every stronghold we last knew about rather than none.
+func (d *WorkerDispatch) mineStrongholdRefs(ctx context.Context, state *game.State) map[string]bool {
+	if d.KB == nil {
+		return nil
+	}
+	systems, err := d.KB.GetSystems(ctx)
+	if err != nil {
+		fmt.Fprintf(d.Out, "mine_qty: stronghold guard: read systems: %v (treating all strongholds as blocked)\n", err) //nolint:errcheck
+		return nil
+	}
+	return strongholdRefsFor(state, systems)
+}
+
 // findMinePOI locates the nearest known resource POI yielding itemID,
 // starting from currentSystem. Primary lookup: the KB's poi_resources table
 // for itemID specifically (galaxy.FindNearestByResource), which naturally
@@ -157,7 +194,7 @@ func (d *WorkerDispatch) autopilotAndUndock(ctx context.Context, system, poi str
 // mineResourcePOITypes), mirroring shuttle.go's shuttleRecoverIfStranded
 // resource-POI lookup pattern — build a galaxy.GalaxyGraph, call the galaxy
 // finder, resolve the destination POI id via KB.GetPOIs.
-func (d *WorkerDispatch) findMinePOI(ctx context.Context, currentSystem, itemID string) (system, poi string, err error) {
+func (d *WorkerDispatch) findMinePOI(ctx context.Context, currentSystem, itemID string, strongholds map[string]bool) (system, poi string, err error) {
 	if d.KB == nil {
 		return "", "", fmt.Errorf("find resource poi: no knowledge base configured")
 	}
@@ -166,29 +203,50 @@ func (d *WorkerDispatch) findMinePOI(ctx context.Context, currentSystem, itemID 
 		return "", "", fmt.Errorf("build galaxy graph: %w", err)
 	}
 
-	results, err := galaxy.FindNearestByResource(ctx, d.KB, graph, currentSystem, itemID, 1)
+	// Ask for a slate rather than the single nearest: the nearest belt is often
+	// the one nobody safely mines, so the gate needs runners-up to fall back to.
+	results, err := galaxy.FindNearestByResource(ctx, d.KB, graph, currentSystem, itemID, mineCandidateSlate)
 	if err != nil {
 		return "", "", fmt.Errorf("find resource %q: %w", itemID, err)
 	}
-	if len(results) > 0 && len(results[0].POIs) > 0 {
-		return results[0].SystemID, results[0].POIs[0].ID, nil
+	blocked := false
+	for _, r := range results {
+		if len(r.POIs) == 0 {
+			continue
+		}
+		if strongholdBlocked(strongholds, r.SystemID, r.SystemName) {
+			blocked = true
+			continue
+		}
+		return r.SystemID, r.POIs[0].ID, nil
 	}
 
 	for _, poiType := range mineResourcePOITypes {
-		typeResults, terr := galaxy.FindNearestByPOIType(ctx, d.KB, graph, currentSystem, poiType, 1)
+		typeResults, terr := galaxy.FindNearestByPOIType(ctx, d.KB, graph, currentSystem, poiType, mineCandidateSlate)
 		if terr != nil || len(typeResults) == 0 {
 			continue
 		}
-		sys := typeResults[0].SystemID
-		pois, perr := d.KB.GetPOIs(ctx, sys)
-		if perr != nil {
-			continue
-		}
-		for _, p := range pois {
-			if p.Type == poiType {
-				return sys, p.ID, nil
+		for _, tr := range typeResults {
+			if strongholdBlocked(strongholds, tr.SystemID, tr.SystemName) {
+				blocked = true
+				continue
+			}
+			pois, perr := d.KB.GetPOIs(ctx, tr.SystemID)
+			if perr != nil {
+				continue
+			}
+			for _, p := range pois {
+				if p.Type == poiType {
+					return tr.SystemID, p.ID, nil
+				}
 			}
 		}
+	}
+	// Distinguish "nowhere known" from "known, but every candidate would get us
+	// killed" -- the operator response differs, and a silent 'not found' on a
+	// stronghold-only resource reads as a survey gap that no survey can close.
+	if blocked {
+		return "", "", fmt.Errorf("no reachable resource POI for %q outside a pirate stronghold (complete the pirate unlock to mine there)", itemID)
 	}
 	return "", "", fmt.Errorf("no known resource POI for %q", itemID)
 }
