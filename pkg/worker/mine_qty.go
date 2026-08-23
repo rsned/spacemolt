@@ -14,6 +14,22 @@ import (
 // resets this counter back to zero.
 const MineQtyMaxDryPasses = 5
 
+// MineQtyMinFuelReserve is the fuel a worker must hold before MineQty will
+// leave a station. Below it the verb refuses the trip rather than starting one
+// it cannot finish.
+//
+// This exists because MineQty had no fuel guard at all. On 2026-07-12
+// craftsman-10 took a mine_qty node, flew out on a tank it could not return
+// on, mined down to roughly five fuel, froze undocked with no way back,
+// absorbed three stall-restarts and was quarantined; craftsman-2 repeated it
+// on the retry. A refused trip is recoverable by refuelling. A stranded miner
+// needs the rescue fleet.
+//
+// Deliberately a flat floor and not a computed round-trip cost: jump fuel is
+// ceil(scale^1.5 * speed) per jump and depends on the hull, so a wrong
+// estimate would fail toward departing. A flat floor fails toward staying.
+const MineQtyMinFuelReserve = 25
+
 // mineResourcePOITypes are the resource-bearing POI types findMinePOI falls
 // back to searching by type when the KB's poi_resources table has no entry
 // naming the target item at any known POI (e.g. the deposit has never been
@@ -46,6 +62,13 @@ func (d *WorkerDispatch) MineQty(ctx context.Context, itemID string, qty int, to
 		return fmt.Errorf("mine_qty: current system unknown")
 	}
 	current := state.System.ID
+
+	// Checked before findMinePOI so a grounded miner spends no lookups and,
+	// more importantly, never reaches autopilotAndUndock.
+	if state.Ship.Fuel < MineQtyMinFuelReserve {
+		return fmt.Errorf("mine_qty: fuel %d below reserve %d — refusing to depart (refuel first)",
+			int(state.Ship.Fuel), MineQtyMinFuelReserve)
+	}
 
 	if cargoCount(state, itemID) < qty {
 		sys, poi, err := d.findMinePOI(ctx, current, itemID)

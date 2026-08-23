@@ -102,7 +102,7 @@ func TestMineQtyMinesUntilQtyThenDelivers(t *testing.T) {
 		deliverFakeClient: &deliverFakeClient{
 			fakeClient: &fakeClient{state: &game.State{
 				System: game.SystemData{ID: "mine_sys"},
-				Ship:   game.Ship{CargoCapacity: 100},
+				Ship:   game.Ship{CargoCapacity: 100, Fuel: 130, MaxFuel: 130},
 			}},
 			storageStock: map[string]float64{},
 		},
@@ -153,7 +153,7 @@ func TestMineQtyDryBeltStopsAndDeliversPartial(t *testing.T) {
 		deliverFakeClient: &deliverFakeClient{
 			fakeClient: &fakeClient{state: &game.State{
 				System: game.SystemData{ID: "mine_sys"},
-				Ship:   game.Ship{CargoCapacity: 100},
+				Ship:   game.Ship{CargoCapacity: 100, Fuel: 130, MaxFuel: 130},
 			}},
 			storageStock: map[string]float64{},
 		},
@@ -208,11 +208,13 @@ func TestMineQtyDryCounterIgnoresOtherItemYields(t *testing.T) {
 					CargoCapacity: 100,
 					Cargo:         []game.CargoItem{{ItemID: "raw_ore", Quantity: 1}},
 					CargoUsed:     1,
+					Fuel:          130,
+					MaxFuel:       130,
 				},
 			}},
 			storageStock: map[string]float64{},
 		},
-		mineItemID:  "raw_ore", // mining for this
+		mineItemID:  "raw_ore",   // mining for this
 		yieldItemID: "other_ore", // but belt yields this instead
 		mineYields:  yields,
 	}
@@ -257,7 +259,7 @@ func TestMineQtyStopsWhenCargoFull(t *testing.T) {
 		deliverFakeClient: &deliverFakeClient{
 			fakeClient: &fakeClient{state: &game.State{
 				System: game.SystemData{ID: "mine_sys"},
-				Ship:   game.Ship{CargoCapacity: 5}, // full after one 5-unit pass
+				Ship:   game.Ship{CargoCapacity: 5, Fuel: 130, MaxFuel: 130}, // full after one 5-unit pass
 			}},
 			storageStock: map[string]float64{},
 		},
@@ -297,7 +299,7 @@ func TestMineQtyUndocksBeforeMining(t *testing.T) {
 		deliverFakeClient: &deliverFakeClient{
 			fakeClient: &fakeClient{state: &game.State{
 				System: game.SystemData{ID: "mine_sys"},
-				Ship:   game.Ship{CargoCapacity: 100},
+				Ship:   game.Ship{CargoCapacity: 100, Fuel: 130, MaxFuel: 130},
 				Doc:    true, // already docked somewhere in mine_sys
 			}},
 			storageStock: map[string]float64{},
@@ -341,7 +343,7 @@ func TestMineQtyBadRecipientSurfacesViaFinalDeliver(t *testing.T) {
 		deliverFakeClient: &deliverFakeClient{
 			fakeClient: &fakeClient{state: &game.State{
 				System: game.SystemData{ID: "mine_sys"},
-				Ship:   game.Ship{CargoCapacity: 100},
+				Ship:   game.Ship{CargoCapacity: 100, Fuel: 130, MaxFuel: 130},
 			}},
 			storageStock: map[string]float64{},
 		},
@@ -417,5 +419,77 @@ func TestFindMinePOINoKnownResourceErrors(t *testing.T) {
 
 	if _, _, err := d.findMinePOI(ctx, "from_sys", "nonexistent_ore"); err == nil {
 		t.Fatal("expected an error when no resource POI is known anywhere")
+	}
+}
+
+// TestMineQtyRefusesToDepartBelowFuelReserve: a miner that cannot afford the
+// trip must not start it. The live failure this pins (2026-07-12) was
+// craftsman-10 taking a mine_qty node, flying out on a tank it could not
+// return on, freezing undocked at ~5 fuel, absorbing three stall-restarts and
+// being quarantined. craftsman-2 then repeated it on the retry.
+func TestMineQtyRefusesToDepartBelowFuelReserve(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMineTestKB(t, "raw_ore")
+
+	client := &mineFakeClient{
+		deliverFakeClient: &deliverFakeClient{
+			fakeClient: &fakeClient{state: &game.State{
+				System: game.SystemData{ID: "mine_sys"},
+				Ship: game.Ship{
+					CargoCapacity: 100,
+					Fuel:          MineQtyMinFuelReserve - 1,
+					MaxFuel:       130,
+				},
+			}},
+			storageStock: map[string]float64{},
+		},
+		mineItemID: "raw_ore",
+		mineYields: []float64{3, 4},
+	}
+	d := noWaitMineDispatch(client, kb, agentsDir)
+
+	err := d.MineQty(context.Background(), "raw_ore", 7, "to_base", "craftsman-3")
+	if err == nil {
+		t.Fatal("MineQty returned nil; departing below the fuel reserve must be refused")
+	}
+	for _, c := range client.calls {
+		if c == "mine" {
+			t.Fatalf("MineQty mined despite insufficient fuel (calls: %v)", client.calls)
+		}
+	}
+}
+
+// TestMineQtyDepartsWhenFuelIsAdequate: the guard must not ground a healthy
+// miner. Same setup, full tank, ordinary run.
+func TestMineQtyDepartsWhenFuelIsAdequate(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMineTestKB(t, "raw_ore")
+
+	client := &mineFakeClient{
+		deliverFakeClient: &deliverFakeClient{
+			fakeClient: &fakeClient{state: &game.State{
+				System: game.SystemData{ID: "mine_sys"},
+				Ship:   game.Ship{CargoCapacity: 100, Fuel: 130, MaxFuel: 130},
+			}},
+			storageStock: map[string]float64{},
+		},
+		mineItemID: "raw_ore",
+		mineYields: []float64{3, 4},
+	}
+	d := noWaitMineDispatch(client, kb, agentsDir)
+
+	if err := d.MineQty(context.Background(), "raw_ore", 7, "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("MineQty: %v", err)
+	}
+	mineCalls := 0
+	for _, c := range client.calls {
+		if c == "mine" {
+			mineCalls++
+		}
+	}
+	if mineCalls == 0 {
+		t.Error("MineQty did not mine despite a full tank — the guard is too strict")
 	}
 }
