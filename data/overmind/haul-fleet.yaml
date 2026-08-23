@@ -3,7 +3,7 @@
 # salvagers refit + refueled. Baseline reset to current credits on this launch.
 # hauler-0 added 2026-06-28.
 workers:
-  - { agent_id: hauler-0, role: hauler, station: "" }
+  # SECONDED-OUT 2026-08-23 (runs in unlock): - { agent_id: hauler-0, role: hauler, station: "" }
   - { agent_id: salvager-1, role: hauler, station: "" }
   - { agent_id: salvager-2, role: hauler, station: "" }
   - { agent_id: salvager-3, role: hauler, station: "" }

@@ -307,24 +307,24 @@ workers:
   # DO NOT hand-delete an id from unlock-overrides.json. That is the one edit
   # that starts a hauler twice.
   - { agent_id: hauler-0, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: salvager-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: salvager-2, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: salvager-3, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: salvager-4, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: salvager-5, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: salvager-6, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: salvager-7, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: salvager-8, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: salvager-9, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: salvager-10, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: trader-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: trader-2, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: trader-3, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: trader-4, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: trader-5, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: trader-6, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: trader-7, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: trader-8, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: trader-9, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: trader-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: explorer-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-2, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-3, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-4, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-5, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-6, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-7, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-8, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-9, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-10, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-2, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-3, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-4, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-5, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-6, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-7, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-8, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-9, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: explorer-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
