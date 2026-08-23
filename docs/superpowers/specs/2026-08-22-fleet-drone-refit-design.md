@@ -226,12 +226,21 @@ Hull screening across the 158 agents with a known `ship_class`:
    against a need of 3,607. `resource_history` has 0 rows, so there is no trend to check.
    **Phase 1 must survey before it dispatches.**
 
-   Mitigating this: **deposits regenerate (operator-confirmed 2026-08-22** — `wanderers_veil`
-   went 255 → 289 in forty minutes). `remaining` is a standing pool, not a lifetime budget,
-   which makes **round-trip time the limiting variable rather than deposit size**. The
-   preferred pattern is short-loop harvesting of nearby fresh sites, not an expedition to
-   the two distant stale ones. The unmeasured quantity is now the **regeneration rate**,
-   which determines whether 3,607 is reachable by mining at all.
+   Mitigating this decisively: **deposits regenerate at roughly `1 unit/tick × the
+   resource's share of site richness`** (operator 2026-08-22; corroborated live —
+   `wanderers_veil` crystal read 255 → 289 → 338 in one session, ~0.28/tick against a 33%
+   share predicting 0.33). At 10s/tick a 33%-share site yields **~2,850 crystals/day**, so
+   the 3,607 shortfall is roughly a day of one good site's regeneration. **Mining is
+   comfortably viable; the 36M buy estimate is a ceiling, not a forecast.**
+
+   Note the reading this inverts: a low `remaining` at a NEARBY site indicates competition,
+   not scarcity, and a stale reading at a REMOTE site is probably an understatement, since
+   deposits refill while unvisited. Select sites by **units per round-trip jump** — on that
+   measure `forgotten_prism` (~139/jump) beats `wanderers_veil` (~21/jump) ~6x, if its
+   5,000 holds. One survey run settles it.
+
+   `poi_resources` is an **atrophied code area** (little miner work in months), which is
+   why survey ages span hours to 195 days and `resource_history` was never wired.
 
 ---
 

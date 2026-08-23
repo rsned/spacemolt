@@ -92,44 +92,40 @@ reads between 25 and 289 units, and the seven fresh sites total 615 against a ne
 There is also no trend data to fall back on: `resource_history` has **0 rows** — the
 writer exists, nothing calls it, same shape as `ship_modules`.
 
-**Deposits regenerate — operator-confirmed 2026-08-22.** Observed live: `wanderers_veil`
-read 255, then 289 forty minutes later. This changes the strategy more than the staleness
-does:
+**Deposits regenerate at roughly `1 unit/tick × the resource's share of site richness`**
+(operator estimate 2026-08-22, corroborated live: `wanderers_veil` crystal read
+255 → 289 → 338 in one session, ~0.28/tick against a 33% share predicting 0.33).
 
-- `remaining` is a **standing pool, not a lifetime budget**. A 289-unit site is not a
-  289-unit site; it is a site that refills.
-- Therefore **round-trip time, not deposit size, is the limiting variable.** A miner
-  working an 8-jump site repeatedly out-produces one parked at a 20-jump site, because it
-  gets more visits per day and the pool refills between them.
-- The two distant "5,000" entries stop being the prize. Even if real, they are ~2.5x the
-  round-trip distance of `wanderers_veil` for a pool we cannot verify.
+    regen_per_tick ≈ resource_richness / sum(all richness at that POI)     [× 8,640 = per day]
 
-**Preferred pattern: short-loop harvesting.** Work the nearest fresh sites on repeat
-rather than mounting one long expedition. `wanderers_veil` (8 jumps from haven) is the
-closest; `garnet` and `cedarhold` are 6 from sol, and `botein`/`pherkad`/`ruchbah` are 5-7
-from sol — a sol-based miner has four sites inside 7 jumps.
+| site | crystal share | ≈ regen/day | standing pool | round trip (haven) | units/jump |
+|---|---|---|---|---|---|
+| `wanderers_veil` | 33% | ~2,850 | 338, climbing | 16 | ~21 |
+| `forgotten_prism` | 24% | ~2,070 | 5,000 *(124d stale)* | 36 | **~139** |
+| `the_quiet_shimmer` | 23% | ~1,990 | 5,000 *(82d stale)* | 40 | ~125 |
+| `garnet` / `botein` / `pherkad` / `ruchbah` | 4–7% | ~430–600 | 54–66 | 12–14 (from sol) | ~5 |
 
-Open question worth measuring on the first loop: **the regeneration rate**. Survey a site,
-mine it out, and re-survey on the next visit. That number sets how many miners a site can
-sustain and whether 3,607 is reachable by mining at all. Nothing records it today —
-`resource_history` has 0 rows.
+**Read the low near-site numbers as competition, not scarcity — and read the stale remote
+numbers as probably understated.** Deposits refill while unvisited, so a 124-day-old
+reading at a remote site has had 124 days to accumulate. The tell that near sites are being
+worked rather than being poor: iron and copper there sit at ~99,000 of a ~100,000 cap while
+crystal sits at 54–338.
 
-- [ ] **Survey first, mine second.** Send one agent (not the fleet) to `ivorygate` and
-      `gsc_0002` and `survey_system` before committing miners to an 18–20 jump trip. If
-      the 5,000 figures are real, proceed as planned. If they read like the fresh sites,
-      **mining cannot supply 3,607** and the split shifts hard toward buying.
-- [ ] Re-rank live before dispatching — this ordering will change:
-```sql
-sqlite3 data/spacemolt-knowledge.db "
-  SELECT p.system_id, r.poi_id, CAST(r.remaining AS INT) rem, r.richness,
-         r.last_updated_tick, r.detected_by
-  FROM poi_resources r JOIN pois p ON p.id=r.poi_id
-  WHERE r.resource_id='energy_crystal' ORDER BY r.last_updated_tick DESC;"
-```
-- [ ] **Start short-loop harvesting now** — it needs no survey expedition and no long
-      trip. Put miners on the nearest fresh sites and let them cycle:
+Therefore compare **units per round-trip jump**, not raw remaining. On that measure one run
+to `forgotten_prism` beats short-looping `wanderers_veil` by roughly 6× — *if* the 5,000
+holds, which is exactly what one survey settles.
+
+⚠️ `poi_resources` is an **atrophied code area** — little miner work in months. That is why
+survey ages span hours to 195 days and why `resource_history` was never wired. Re-survey
+before trusting any row.
+
+- [ ] **Send one agent to survey `ivorygate` first.** It is the single highest-value
+      measurement in Phase 1: it decides expedition vs short-loop, and the two differ by
+      ~6× in yield per jump.
+- [ ] **Meanwhile start short-loop harvesting** — it needs no survey and no long trip:
       `wanderers_veil` (8 from haven) · `garnet`, `cedarhold` (6 from sol) ·
-      `botein`, `pherkad`, `ruchbah` (5-7 from sol).
+      `botein`, `pherkad`, `ruchbah` (5-7 from sol). Prefer `wanderers_veil`: its 33% share
+      regenerates ~6x faster than the 4-7% sites.
 - [ ] Record remaining-on-arrival each visit so we learn the regen rate. Until
       `resource_history` is wired, a note per visit is enough.
 
