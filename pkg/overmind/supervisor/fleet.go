@@ -192,7 +192,54 @@ func Stalled(info WorkerInfo, now time.Time, stallTimeout time.Duration) bool {
 	if info.LastStatus.Docked || info.LastStatus.Drained || info.LastStatus.Quiesced {
 		return false
 	}
-	return now.Sub(info.LastProgress) > stallTimeout
+	return now.Sub(info.LastProgress) > StallTimeoutFor(info, stallTimeout)
+}
+
+// MinerStallFactor multiplies StallTimeout for the miner role, giving a
+// working miner a 90-minute leash against the default 15.
+//
+// statusProgressed counts four things as forward motion: system, POI, credits
+// and the docked flag. A miner in its working state changes none of them — it
+// sits undocked at one resource POI filling its hold, and ore pays nothing
+// until it is delivered somewhere else. Cargo is the only thing that moves,
+// and cargo is deliberately not a progress signal because the client's
+// CargoUsed drifts upward permanently (deposit_items never clears the local
+// cargo slice), which would let a cargo-churning worker satisfy the watchdog
+// forever.
+//
+// So mining is the one activity whose success is indistinguishable from being
+// frozen, and the watchdog killed it on that resemblance: live 2026-08-23 the
+// mining fleet carried 92 restarts where craft and hunt carried 0, miner-4
+// dying at 88/100 iterations mid-mine on a ~15-minute cycle. Worse, Stranded
+// gates on Stalled, so a working miner that happened to be low on fuel was
+// quarantined as fuel-dead — an outcome only a rescue undoes.
+//
+// A longer leash, not an exemption: a genuinely wedged miner is still caught,
+// just after 90 minutes instead of 15. That trade is deliberate. Restarting a
+// working miner destroys real progress every 15 minutes; the cost of noticing
+// a real wedge late is that it idles longer.
+//
+// Ideally this would also require the miner to be AT a resource POI, but the
+// supervisor cannot tell: control.Status carries the POI id (e.g.
+// "cache_mineral_fields", "forgotten_prism") and no POI type, so there is
+// nothing to classify against without putting the type on the wire. Role is
+// the signal that is actually available. Stalled already exempts docked
+// workers, so this only ever widens the window for an undocked miner.
+const MinerStallFactor = 6
+
+// StallTimeoutFor returns the stall window that applies to one worker: the
+// configured base for every role except miner, which gets MinerStallFactor
+// times it. Callers pass the configured StallTimeout and the role adjustment
+// happens here, so Stalled and Stranded (which gates on Stalled) cannot drift
+// apart.
+func StallTimeoutFor(info WorkerInfo, base time.Duration) time.Duration {
+	if base <= 0 {
+		return base
+	}
+	if info.Role == "miner" {
+		return base * MinerStallFactor
+	}
+	return base
 }
 
 // DrainProgress reports drain quiescence across currently-healthy workers:
@@ -295,7 +342,11 @@ func Stranded(info WorkerInfo, now time.Time, stallTimeout time.Duration, fuelFr
 		threshold = frac
 	}
 	if st.Fuel < threshold {
-		return true, fmt.Sprintf("fuel-dead: stalled >%s undocked, fuel %.0f/%.0f", stallTimeout, st.Fuel, st.MaxFuel)
+		// Report the window that actually applied, not the configured base --
+		// a miner's is MinerStallFactor times longer and a reason string
+		// naming the base would misdescribe why it was quarantined.
+		return true, fmt.Sprintf("fuel-dead: stalled >%s undocked, fuel %.0f/%.0f",
+			StallTimeoutFor(info, stallTimeout), st.Fuel, st.MaxFuel)
 	}
 	return false, ""
 }

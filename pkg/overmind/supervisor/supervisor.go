@@ -439,7 +439,7 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 				// (e.g. the shuttle escape hatch), so the respawn actually recovers.
 				if s.logger != nil {
 					s.logger.Printf("stall watchdog: %s frozen undocked in %q for >%s (last progress %s); restarting",
-						spec.AgentID, w.LastStatus.System, s.StallTimeout, w.LastProgress.Format(time.RFC3339))
+						spec.AgentID, w.LastStatus.System, StallTimeoutFor(w, s.StallTimeout), w.LastProgress.Format(time.RFC3339))
 				}
 				s.fleet.MarkStallRestart(spec.AgentID)
 				s.kill(proc)
