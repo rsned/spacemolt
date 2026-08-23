@@ -396,6 +396,11 @@ func main() {
 			if schedErr != nil {
 				logger.Printf("warning: load scheduler: %v", schedErr)
 			}
+			// Put this worker on its own phase of the boundary grid. Without it
+			// every agent sharing a frequency fires in the same second -- on
+			// 2026-08-23 that put 110-160 commands/second on the wire and got the
+			// shared IP rate-limited for escalating blocks (229s -> 456s -> 911s).
+			sched.SetPhaseSeed(*agentID)
 			var execMu sync.Mutex
 			// One payer for the whole standing session: it announces an unpayable
 			// debt once rather than on every idle pass.

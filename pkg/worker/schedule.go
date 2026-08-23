@@ -57,6 +57,59 @@ func Covers(have, want string) bool {
 	return w%h == 0
 }
 
+// maxBoundaryPhase caps how far an agent's boundary grid is shifted from the
+// shared one. Five minutes spreads a 160-worker fleet to well under one firing
+// per second, which is the whole point: on 2026-08-23 the unphased grid put
+// 110-160 commands into a single second and tripped the shared IP rate limiter.
+// It is deliberately below every frequency's period so a phase never reorders
+// boundaries, and small enough that "daily" still means the expected time of day.
+const maxBoundaryPhase = 5 * time.Minute
+
+// BoundaryPhase returns the fixed offset this seed applies to freq's boundary
+// grid, in [0, maxBoundaryPhase). It is a pure function of the seed and the
+// frequency, so an agent keeps the same phase across restarts (no drift, no
+// re-herding) while two agents almost never share one. Including freq keeps an
+// agent's own hourly and ten_minutely tasks off the same instant.
+func BoundaryPhase(seed, freq string) time.Duration {
+	if seed == "" {
+		return 0
+	}
+	// FNV-1a over seed+freq: stable across processes and architectures, unlike
+	// maphash, which is randomly seeded per process and would re-herd on restart.
+	const (
+		offset64 = 14695981039346656037
+		prime64  = 1099511628211
+	)
+	h := uint64(offset64)
+	for _, b := range []byte(seed + "\x00" + freq) {
+		h ^= uint64(b)
+		h *= prime64
+	}
+	return time.Duration(h % uint64(maxBoundaryPhase))
+}
+
+// SetPhaseSeed puts this scheduler on its own phase of the boundary grid,
+// keyed by the seed (the agent id). Callers that want lock-step boundaries --
+// the play_as REPL, and tests asserting the raw grid -- simply never call it.
+// Deliberately explicit: deriving the seed from the schedule file's path would
+// hand every t.TempDir() test a different random phase.
+func (s *Scheduler) SetPhaseSeed(seed string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.phaseSeed = seed
+}
+
+// phasedBoundary is CurrentBoundary shifted onto this scheduler's own grid.
+// Shifting the clock back by the phase, snapping, then shifting forward keeps
+// the period exactly intact -- it only moves where the period starts.
+func (s *Scheduler) phasedBoundary(freq string, now time.Time) time.Time {
+	phase := BoundaryPhase(s.phaseSeed, freq)
+	if phase == 0 {
+		return CurrentBoundary(freq, now)
+	}
+	return CurrentBoundary(freq, now.Add(-phase)).Add(phase)
+}
+
 // CurrentBoundary returns the most recent wall-clock boundary (UTC) for freq at
 // or before now: the most recent ten-minute mark (:00, :10, …), quarter hour,
 // half hour (:00 or :30), the top of the hour, midnight, or the most recent
@@ -106,9 +159,13 @@ func NextBoundary(freq string, now time.Time) time.Time {
 
 // Scheduler owns the persisted set of scheduled tasks for one agent.
 type Scheduler struct {
-	path  string
-	mu    sync.Mutex
-	tasks []ScheduledTask
+	path string
+	mu   sync.Mutex
+	// phaseSeed staggers this agent's boundaries against the shared UTC grid.
+	// Empty means no phase (the old lock-step behaviour), which is what the
+	// REPL and tests want; LoadScheduler derives it from the agent directory.
+	phaseSeed string
+	tasks     []ScheduledTask
 }
 
 // LoadScheduler reads the scheduler state at path. A missing file yields an
@@ -252,7 +309,7 @@ func (s *Scheduler) Due(now time.Time) []ScheduledTask {
 func (s *Scheduler) dueLocked(now time.Time) []ScheduledTask {
 	var due []ScheduledTask
 	for _, t := range s.tasks {
-		if CurrentBoundary(t.Frequency, now).After(t.LastRun) {
+		if s.phasedBoundary(t.Frequency, now).After(t.LastRun) {
 			due = append(due, t)
 		}
 	}
