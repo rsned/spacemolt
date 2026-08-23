@@ -54,46 +54,51 @@ sqlite3 data/spacemolt-knowledge.db "
 The only material the fleet does not already own. Decision: **mine what we can, buy the
 remainder.**
 
-### 1a-0. Put the miners in mining hulls first — free, from idle stock
+### 1a-0. Put the miners in hulls that actually mine
 
-Ore capacity drives units per round-trip jump, the metric site selection turns on. Three of
-the seven mining agents fly non-mining hulls (cobble 75, theoria 70) and are ~10x short.
+⚠️ **Not one of the seven mining-fleet hulls has any ore capability.** `excavator`,
+`drillship`, `prospector`, `cobble`, `theoria` — zero compression, zero yield bonus. Nor do
+`deeprock_harvester` / `mining_cruiser`, despite the names: those six are **synthesised by
+`withLegacyShipClasses`** and absent from the real 335-class catalog. Our 30 idle
+"deeprock harvesters" are not mining ships in any mechanical sense.
 
-⚠️ **Ore compression (the 100% raw-ore cargo boost) applies only to the CATALOG hull ids,
-not the legacy ones — and every mining hull we own is legacy.** The `ships` table cannot
-tell you this: `deeprock_harvester` (legacy) and `mining_cruiser` (catalog) have identical
-stats, 400 cargo / 6 utility / cpu 35 / power 60. We own 30 deeprock + 58 excavator, all
-legacy, and **zero** catalog-id hulls. Catalog hulls list at `price 0` with no
-`ship_listings` rows, so obtaining one is probably `commission_ship` — **unverified, and
-worth checking, since compression is the difference between ~800 and ~1,600 cargo.**
+**The real capabilities live in `ships.inherent_capabilities`** (JSON `{Type, Value}`
+array), which we already capture and have never parsed. The top-level
+`*_cargo_efficiency` fields read 0 everywhere and are the wrong place to look.
 
-**The legacy compensation is utility slots.** `cargo_expander_iii` costs cpu 3 / power 3
-against a deeprock's cpu 35 / power 60, so slots — not the power budget — are the limit.
-Reserve one slot for the gas harvester and one for a mining laser, fit **4 expanders at
-+100 each**, and a legacy deeprock carries **~800**. We hold **809 `cargo_expander_iii`**.
+- `ore_cargo_efficiency: 50` → 50% space usage → **2x effective ore capacity**
+- `ore_yield_bonus: 10-35` → more ore per `mine`, which compounds with random yields
 
-| agent | piloting | hull now | ore cap now | upgrade to | ore cap after |
-|---|---|---|---|---|---|
-| miner-1 | 29 | excavator | 150 | `deeprock_harvester` + 4x expander_iii | **~800** |
-| miner-4 | 28 | drillship | 100 | `deeprock_harvester` + 4x expander_iii | **~800** |
-| miner-10 | 28 | drillship | 100 | `deeprock_harvester` + 4x expander_iii | **~800** |
-| miner-9 | 28 | prospector | 50 | `deeprock_harvester` + 4x expander_iii | **~800** |
-| prophet-2 | 28 | **cobble (not mining)** | 75 | `deeprock_harvester` + 4x expander_iii | **~800** |
-| overmind | 13 | **cobble (not mining)** | 75 | `excavator` + 2x expander_iii (piloting 10) | **~350** |
-| random-clark | 13 | **theoria (not mining)** | 70 | `excavator` + 2x expander_iii (piloting 10) | **~350** |
+`effective = cargo_capacity × 100 / ore_cargo_efficiency`
 
-- [ ] No purchase needed — we own **30 `deeprock_harvester` (25 idle)** and **58
-      `excavator` (45 idle)**, plus **809 `cargo_expander_iii`**. This is `switch_ship`
-      plus fitting, while docked.
-- [ ] `deeprock_harvester` needs **piloting 20**; only `overmind` and `random-clark` (13)
-      fall short, and an excavator needs only 10.
-- [ ] Verify against live data before switching — hull counts move:
+| hull | cargo | eff | yield | **effective** | piloting | availability (2026-08-22) |
+|---|---|---|---|---|---|---|
+| `paydirt` | 2160 | 50 | +15 | **4320** | 30 | commission, tier 3 |
+| `ravager` | 1440 | 50 | +30 | 2880 | 30 | commission, tier 3 |
+| `deep_survey` | 750 | 50 | +15 | **1500** | 20 | **for sale, nova_terra_central, 569,484** |
+| `bonanza_king` | 600 | 50 | +20 | 1200 | 20 | **we own 1, IDLE** |
+| `siege_breaker` | 450 | 50 | +35 | 900 | 20 | **for sale, ironhearth_station, 411,045** |
+| `workhorse` | 300 | 40 | +10 | 750 | **0** | commission, tier 1 |
+
+Miner piloting: miner-1 **29**, miner-4/9/10 and prophet-2 **28**, overmind and
+random-clark **13**. So tier-2 (piloting 20) is open to five of them today, and tier-3
+(4,320 effective) is one to two levels away for miner-1.
+
+- [ ] **Free first move:** put a miner into the idle `bonanza_king` — 1,200 effective
+      against miner-1's excavator at 150, at no cost.
+- [ ] **Buy the two listed hulls** — `deep_survey` (569,484) and `siege_breaker`
+      (411,045). Both piloting 20. ~1M total against a fleet holding ~296M idle.
+- [ ] **Re-check listings before buying** — these move:
 ```sql
-sqlite3 data/assets.db "
-  SELECT class_id, COUNT(*) n, SUM(CASE WHEN is_active=0 THEN 1 ELSE 0 END) idle
-  FROM agent_hulls WHERE class_id IN ('deeprock_harvester','mining_cruiser','excavator','mining_barge')
-  GROUP BY class_id;"
+sqlite3 data/spacemolt-knowledge.db "
+  SELECT class_id, station_id, price FROM ship_listings
+  WHERE class_id IN (SELECT id FROM ships WHERE inherent_capabilities LIKE '%ore_cargo_efficiency%')
+  ORDER BY price;"
 ```
+- [ ] **Train piloting to 30** on miner-1 (at 29) to unlock `paydirt` at 4,320 effective —
+      a 29x improvement over the current excavator, and the single largest lever in Phase 1.
+- [ ] ⚠️ Do **not** rank mining hulls by `cargo_capacity`. That is what put this fleet in
+      75-cargo cobbles with no capabilities in the first place.
 
 ### 1a. Fit harvesters (nebula work needs a gas harvester, not a mining laser)
 
