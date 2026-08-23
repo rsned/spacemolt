@@ -54,6 +54,34 @@ sqlite3 data/spacemolt-knowledge.db "
 The only material the fleet does not already own. Decision: **mine what we can, buy the
 remainder.**
 
+### 1a-0. Put the miners in mining hulls first — free, from idle stock
+
+**Mining-class hulls carry a 100% cargo boost for raw ores**, which directly doubles units
+per round-trip jump — the metric site selection turns on. Three of the seven mining-fleet
+agents are not in one and forfeit it entirely.
+
+| agent | piloting | hull now | ore cap now | upgrade to | ore cap after |
+|---|---|---|---|---|---|
+| miner-1 | 29 | excavator | 300 | `deeprock_harvester` | **800** |
+| miner-4 | 28 | drillship | 200 | `deeprock_harvester` | **800** |
+| miner-10 | 28 | drillship | 200 | `deeprock_harvester` | **800** |
+| miner-9 | 28 | prospector | 100 | `deeprock_harvester` | **800** |
+| prophet-2 | 28 | **cobble (not mining)** | 75 | `deeprock_harvester` | **800** |
+| overmind | 13 | **cobble (not mining)** | 75 | `excavator` (piloting 10) | **300** |
+| random-clark | 13 | **theoria (not mining)** | 70 | `excavator` (piloting 10) | **300** |
+
+- [ ] No purchase needed — we own **30 `deeprock_harvester` (25 idle)** and **58
+      `excavator` (45 idle)**. This is `switch_ship` while docked.
+- [ ] `deeprock_harvester` needs **piloting 20**; only `overmind` and `random-clark` (13)
+      fall short, and an excavator needs only 10.
+- [ ] Verify against live data before switching — hull counts move:
+```sql
+sqlite3 data/assets.db "
+  SELECT class_id, COUNT(*) n, SUM(CASE WHEN is_active=0 THEN 1 ELSE 0 END) idle
+  FROM agent_hulls WHERE class_id IN ('deeprock_harvester','mining_cruiser','excavator','mining_barge')
+  GROUP BY class_id;"
+```
+
 ### 1a. Fit harvesters (nebula work needs a gas harvester, not a mining laser)
 
 craftsman-1 holds, at `grand_exchange_station`: **203 `gas_harvester_i`, 100
@@ -104,6 +132,18 @@ writer exists, nothing calls it, same shape as `ship_modules`.
 | `forgotten_prism` | 24% | ~2,070 | 5,000 *(124d stale)* | 36 | **~139** |
 | `the_quiet_shimmer` | 23% | ~1,990 | 5,000 *(82d stale)* | 40 | ~125 |
 | `garnet` / `botein` / `pherkad` / `ruchbah` | 4–7% | ~430–600 | 54–66 | 12–14 (from sol) | ~5 |
+
+⚠️ **`mine` returns a RANDOM resource from the site's mix — you cannot target an ore.**
+So the share column above governs *yield* as well as regeneration: a 33% site returns
+crystal on roughly 1 mine in 3, a 6% site on 1 in 17. Effective crystal per trip is about
+`ore_capacity × share` unless the unwanted fraction is jettisoned on site, which converts
+the limit from cargo to site-pool-and-time. **This is why the 4-7% sites are close to
+useless for a crystal campaign despite being nearby.**
+
+Worked example with the upgraded hulls: a `deeprock_harvester` (800 ore capacity) at
+`wanderers_veil` (33%) nets ~264 crystals per trip before jettisoning, and is then capped
+by the site's standing pool of ~338. At `forgotten_prism` (24%), jettisoning lets a trip
+run up to a full 800 crystals against a 5,000 pool.
 
 **Read the low near-site numbers as competition, not scarcity — and read the stale remote
 numbers as probably understated.** Deposits refill while unvisited, so a 124-day-old
