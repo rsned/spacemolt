@@ -132,11 +132,14 @@ Both gaps close on-station with no hauling:
    gold_wiring, 48 silver_wiring)
 3. `faction_build polymer_extruder`, build_time 120 ticks
 
-**Ongoing obligation:** faction facilities draw maintenance from faction storage every
-cycle and **go offline when undersupplied**; the build response reports `rent_per_cycle`.
-`power_draw` and `life_support_draw` are both 1, so the draw is small, but the extruder is
-not build-and-forget. Confirm the maintenance recipe from the build response before
-relying on it for 491 runs.
+**Ongoing obligation is credits only.** A facility has **no material maintenance** — the
+only recurring cost is `rent_per_cycle`, charged per **100-tick cycle** (~16.7 min, 86.4
+cycles/day). The comparable `polymer_refinery` build reported **123/cycle**, i.e. roughly
+**10,600 cr/day**; the extruder's own figure comes back in its `faction_build` response.
+
+(The API text about facilities drawing maintenance from faction storage and going offline
+when undersupplied applies to **service/infrastructure** facilities — power, life support,
+services — not to a `category=production` facility like this one.)
 
 **Do not** try to source the build from the seven `package:` entries in CRFT storage
 (dismantled Faction Quarters / Market Runner / Trade Ledger materials). A package is
@@ -210,6 +213,8 @@ Hull screening across the 158 agents with a known `ship_class`:
    subtracts the wrong stock and must be fixed first.
 4. **Facility monopoly risk.** Until our extruder is built, `extrude_nanoplastic` depends
    on one player-owned facility that could raise its fee or go private without warning.
+   Note the reverse once ours is running: rent accrues per cycle whether or not it is
+   producing, so idle time between waves has a real (if small) cost.
 5. **`circuit_board` has no margin** (see §2).
 
 ---
