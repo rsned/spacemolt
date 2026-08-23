@@ -4,7 +4,9 @@
 Target build: **175 bays, 800 drones**. Drones work autonomously once fitted, so this is a
 one-time capital project that raises passive yield across the whole fleet.
 
-**Status:** design agreed 2026-08-22. Not yet implemented.
+**Status:** design agreed 2026-08-22. **Phase 0 built the same day** — `polymer_extruder`
+`b659c3602da933e414c9fa91a072968a` at grand_exchange_station, rent 123/cycle, build time
+120 ticks (~20 min). The `extrude_nanoplastic` monopoly no longer binds this campaign.
 
 ---
 
