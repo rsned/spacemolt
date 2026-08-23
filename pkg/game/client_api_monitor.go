@@ -444,12 +444,12 @@ var eventExpectedFields = map[string]map[string]bool{
 		"message": true,
 	},
 	protocol.TypeActionResult: {
-		"action":        true,
-		"message":       true,
-		"success":       true,
-		"result":        true,
-		"command":       true,
-		"tick":          true,
+		"action":  true,
+		"message": true,
+		"success": true,
+		"result":  true,
+		"command": true,
+		"tick":    true,
 		// Both flags since the 2026-07-20 patch: any command needing a
 		// different dock state auto-transitions same-tick and reports which
 		// way it went.
@@ -487,6 +487,9 @@ var eventExpectedFields = map[string]map[string]bool{
 		"station_name": true,
 	},
 	protocol.TypeMiningYield: {
+		// Kind is the v0.531.4 response discriminator ("yield"); serverapi.MiningYield
+		// already decodes it, so it is expected, not drift.
+		"kind":              true,
 		"resource_id":       true,
 		"quantity":          true,
 		"message":           true,
