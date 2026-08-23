@@ -160,7 +160,8 @@ the whole requirement between them:
 | `forgotten_prism` | ivorygate | 5,000 | 22 | 12 / 18 |
 | `the_quiet_shimmer` | gsc_0002 | 5,000 | 22 | 14 / 20 |
 
-Both are **nebula** POIs, so miners need a gas harvester fitted. craftsman-1 holds **203
+⚠️ **Both figures are stale — 124 and 82 days respectively (see Open Risk 6). Survey
+before dispatching.** Both are **nebula** POIs, so miners need a gas harvester fitted. craftsman-1 holds **203
 `gas_harvester_i`, 100 `gas_harvester_iii`, 23 `gas_harvester_ii` at grand_exchange** —
 ample for the 7-agent mining fleet.
 
@@ -218,6 +219,19 @@ Hull screening across the 158 agents with a known `ship_class`:
    Note the reverse once ours is running: rent accrues per cycle whether or not it is
    producing, so idle time between waves has a real (if small) cost.
 5. **`circuit_board` has no margin** (see §2).
+6. **The crystal deposit data is months stale.** `poi_resources.last_updated_tick` puts
+   `forgotten_prism` at ~124 days old and `the_quiet_shimmer` at ~82, and both read
+   exactly `5000` — plausibly a survey-time cap rather than a measurement. Every site
+   surveyed in the last 30 days reads 25–289, and the seven fresh sites total **615**
+   against a need of 3,607. `resource_history` has 0 rows, so there is no trend to check.
+   **Phase 1 must survey before it dispatches.**
+
+   Mitigating this: **deposits regenerate (operator-confirmed 2026-08-22** — `wanderers_veil`
+   went 255 → 289 in forty minutes). `remaining` is a standing pool, not a lifetime budget,
+   which makes **round-trip time the limiting variable rather than deposit size**. The
+   preferred pattern is short-loop harvesting of nearby fresh sites, not an expedition to
+   the two distant stale ones. The unmeasured quantity is now the **regeneration rate**,
+   which determines whether 3,607 is reachable by mining at all.
 
 ---
 

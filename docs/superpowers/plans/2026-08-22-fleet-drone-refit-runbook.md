@@ -73,14 +73,65 @@ sqlite3 data/assets.db "
       running a mining laser may have to give one up. See the blockers plan; we currently
       cannot see fitted modules.
 
-### 1b. Mine the two rich nebulas
+### 1b. ⚠️ SURVEY BEFORE COMMITTING MINERS — the deposit data is months stale
 
-| site | system | remaining | richness | jumps from sol / haven |
-|---|---|---|---|---|
-| `forgotten_prism` | ivorygate | 5,000 | 22 | 12 / 18 |
-| `the_quiet_shimmer` | gsc_0002 | 5,000 | 22 | 14 / 20 |
+**The "two rich nebulas" plan does not survive contact with the survey timestamps.**
+`poi_resources.last_updated_tick` against a current tick of ~1,686,357:
 
-10,000 available against a 3,607 need — ample, but both are far from the hub.
+| site | system | remaining | surveyed | age | jumps haven / sol |
+|---|---|---|---|---|---|
+| `forgotten_prism` | ivorygate | 5,000 | tick 611,806 | **~124 days** | 18 / 12 |
+| `the_quiet_shimmer` | gsc_0002 | 5,000 | tick 974,972 | **~82 days** | 20 / 14 |
+| `wanderers_veil` | struve_1321 | 289 | tick 1,687,267 | **current** | **8** / 11 |
+
+Both 5,000 figures are stale, and both are exactly `5000` — a round number that reads more
+like a survey-time cap than a measurement. **Every site surveyed within the last 30 days
+reads between 25 and 289 units, and the seven fresh sites total 615 against a need of
+3,607.**
+
+There is also no trend data to fall back on: `resource_history` has **0 rows** — the
+writer exists, nothing calls it, same shape as `ship_modules`.
+
+**Deposits regenerate — operator-confirmed 2026-08-22.** Observed live: `wanderers_veil`
+read 255, then 289 forty minutes later. This changes the strategy more than the staleness
+does:
+
+- `remaining` is a **standing pool, not a lifetime budget**. A 289-unit site is not a
+  289-unit site; it is a site that refills.
+- Therefore **round-trip time, not deposit size, is the limiting variable.** A miner
+  working an 8-jump site repeatedly out-produces one parked at a 20-jump site, because it
+  gets more visits per day and the pool refills between them.
+- The two distant "5,000" entries stop being the prize. Even if real, they are ~2.5x the
+  round-trip distance of `wanderers_veil` for a pool we cannot verify.
+
+**Preferred pattern: short-loop harvesting.** Work the nearest fresh sites on repeat
+rather than mounting one long expedition. `wanderers_veil` (8 jumps from haven) is the
+closest; `garnet` and `cedarhold` are 6 from sol, and `botein`/`pherkad`/`ruchbah` are 5-7
+from sol — a sol-based miner has four sites inside 7 jumps.
+
+Open question worth measuring on the first loop: **the regeneration rate**. Survey a site,
+mine it out, and re-survey on the next visit. That number sets how many miners a site can
+sustain and whether 3,607 is reachable by mining at all. Nothing records it today —
+`resource_history` has 0 rows.
+
+- [ ] **Survey first, mine second.** Send one agent (not the fleet) to `ivorygate` and
+      `gsc_0002` and `survey_system` before committing miners to an 18–20 jump trip. If
+      the 5,000 figures are real, proceed as planned. If they read like the fresh sites,
+      **mining cannot supply 3,607** and the split shifts hard toward buying.
+- [ ] Re-rank live before dispatching — this ordering will change:
+```sql
+sqlite3 data/spacemolt-knowledge.db "
+  SELECT p.system_id, r.poi_id, CAST(r.remaining AS INT) rem, r.richness,
+         r.last_updated_tick, r.detected_by
+  FROM poi_resources r JOIN pois p ON p.id=r.poi_id
+  WHERE r.resource_id='energy_crystal' ORDER BY r.last_updated_tick DESC;"
+```
+- [ ] **Start short-loop harvesting now** — it needs no survey expedition and no long
+      trip. Put miners on the nearest fresh sites and let them cycle:
+      `wanderers_veil` (8 from haven) · `garnet`, `cedarhold` (6 from sol) ·
+      `botein`, `pherkad`, `ruchbah` (5-7 from sol).
+- [ ] Record remaining-on-arrival each visit so we learn the regen rate. Until
+      `resource_history` is wired, a note per visit is enough.
 
 - [ ] ⚠️ **Do not use the `mine_qty` verb until its fuel bug is fixed** (blockers plan,
       Task 4). It has no fuel guard and no return-to-station; on 2026-07-12 it stranded
@@ -101,6 +152,8 @@ sqlite3 data/assets.db "
       **500**, so treat other stations as noise.
 - [ ] arneb is **22 jumps from haven**. Batch this — one deep buy, not repeated trips.
 - [ ] Budget: full shortfall at market ≈ **36M cr**. Every crystal mined saves 10,001.
+- [ ] ⚠️ Given 1b, plan for buying the **majority**, not the remainder, until a fresh
+      survey says otherwise. 615 units is the only mining supply we can currently evidence.
 
 ---
 
