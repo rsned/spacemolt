@@ -144,6 +144,10 @@ type Supervisor struct {
 	DisconnectGrace time.Duration
 	MaxRestarts     int
 	restarts        map[string]int
+	// crashCapLogged remembers which agents have already had their
+	// crash-loop-cap refusal logged, so the reap loop reports a permanently
+	// parked worker once instead of every tick.
+	crashCapLogged map[string]bool
 
 	// Stranded-quarantine tuning (see Stranded in fleet.go). OnQuarantine is
 	// invoked (from the reap goroutine) after a worker is quarantined so the
@@ -205,6 +209,7 @@ func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn Spawn
 		RestartBatch:    1,                    // 1 relaunch per reap tick (~12/min, mirrors stagger)
 		MaxRestarts:     100,
 		restarts:        make(map[string]int),
+		crashCapLogged:  make(map[string]bool),
 		procs:           make(map[string]*workerProc),
 
 		FuelStrandFraction: 0.10, // fuel-dead when fuel < max(10% of tank, floor)
@@ -452,6 +457,7 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 				// Healthy: clear the crash-loop counter so MaxRestarts bounds
 				// restarts-per-incident, not lifetime restarts.
 				delete(s.restarts, spec.AgentID)
+				delete(s.crashCapLogged, spec.AgentID)
 			default:
 				// Still booting (alive, no Hello yet, within BootTimeout): leave it.
 			}
@@ -476,6 +482,16 @@ func procSnapshot(s *Supervisor, agentID string) *workerProc {
 // actually happens; a budget-deferred spec is retried on the next reap tick.
 func (s *Supervisor) tryRestart(ctx context.Context, spec WorkerSpec, killed bool, budget *int) {
 	if s.restarts[spec.AgentID] >= s.MaxRestarts {
+		// Parked for good: s.restarts is only cleared when a worker reports
+		// healthy, which this one can no longer do because it will never be
+		// launched again. Without this line the refusal is completely silent --
+		// on 2026-08-23 three agents sat at exactly restarts=100 with no
+		// process and no log line saying why. Log once per agent, not per tick.
+		if !s.crashCapLogged[spec.AgentID] {
+			s.crashCapLogged[spec.AgentID] = true
+			s.logger.Printf("worker %q parked at the crash-loop cap (%d restarts); it will NOT relaunch until readd or an overmind restart",
+				spec.AgentID, s.MaxRestarts)
+		}
 		return
 	}
 	if *budget <= 0 {

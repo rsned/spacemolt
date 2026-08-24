@@ -97,6 +97,18 @@ func (s *Supervisor) applyMembership(now time.Time) {
 // memberAdd records the spec; the launch itself happens in the main reap loop
 // (no tracked proc -> tryRestart), which enforces the RestartBatch budget.
 func (s *Supervisor) memberAdd(spec WorkerSpec) {
+	// A readd is the operator's escape hatch for a worker parked at the
+	// crash-loop cap, so it must clear that cap. s.restarts is otherwise only
+	// cleared when a worker reports healthy, which a parked worker can never do
+	// because tryRestart refuses to launch it -- leaving an overmind restart as
+	// the only way out. Live 2026-08-23: three agents pinned at restarts=100
+	// after a network outage each accepted a remove+readd and still never
+	// relaunched, because the sidecar and the fleet record are not where this
+	// counter lives. Cleared before every early return below, since all of them
+	// are still a readd.
+	delete(s.restarts, spec.AgentID)
+	delete(s.crashCapLogged, spec.AgentID)
+
 	// F2: an add for an agent whose removal is still draining CANCELS that
 	// removal rather than racing it. applyMembership runs before
 	// progressLeaving each tick, so clearing s.leaving here lands on the
