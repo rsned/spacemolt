@@ -266,7 +266,11 @@ func missionRunExplore(ctx context.Context, deps MissionDeps, out io.Writer, c m
 			}
 			at = leg.SystemID
 			if leg.BaseID != "" {
-				if derr := deps.Client.Dock(ctx); derr != nil {
+				// Same reason as the return-dock below: a leg whose base is
+				// where the ship already sits answers "Already docked", and
+				// aborting there leaves dockedAt unset so the tour can never
+				// advance past its own starting point.
+				if derr := dockIdempotent(ctx, deps.Client); derr != nil {
 					fmt.Fprintf(out, "missions: explore dock at %s failed: %v; held for next pass\n", leg.BaseID, derr) //nolint:errcheck
 					return
 				}
@@ -323,7 +327,11 @@ func missionRunExplore(ctx context.Context, deps MissionDeps, out io.Writer, c m
 			fmt.Fprintf(out, "missions: explore return transit failed: %v; held for next pass\n", nerr) //nolint:errcheck
 			return
 		}
-		if derr := deps.Client.Dock(ctx); derr != nil {
+		// dockIdempotent, not Dock: a ship already sitting at the return base
+		// answers "Already docked", and aborting on that stranded a FINISHED
+		// mission ("0 leg(s) remaining") in a tick-cadence retry loop that
+		// never reached missionComplete.
+		if derr := dockIdempotent(ctx, deps.Client); derr != nil {
 			fmt.Fprintf(out, "missions: explore return dock failed: %v; held for next pass\n", derr) //nolint:errcheck
 			return
 		}
