@@ -151,34 +151,17 @@ func main() {
 		cancel()
 	}()
 
-	// ── Step 3: Connect to game server ───────────────────────────────────────
-	logger.Printf("connecting to game server as %s", *agentID)
-	client, _, err := game.InitializeAgent(*agentID, logger, ctx, *debug)
-	if err != nil {
-		log.Fatalf("initialize agent: %v", err)
-	}
-	defer func() {
-		if closeErr := client.Close(); closeErr != nil {
-			logger.Printf("warning: close client: %v", closeErr)
-		}
-	}()
-
-	// Fetch fresh state.
-	if err := client.GetStatus(ctx); err != nil {
-		logger.Printf("warning: get_status: %v", err)
-	}
-	if err := client.GetSystem(ctx); err != nil {
-		logger.Printf("warning: get_system: %v", err)
-	}
-	st := client.GetState()
-
-	live := buildKnownState(st, int(st.CurrentTick))
-
-	// ── Step 4: Reconcile saved vs live state ────────────────────────────────
-	rec := checkpoint.Reconcile(saved, live, 0.25)
-	logger.Printf("reconcile: %s", rec.Disposition)
-
-	// ── Step 5: Dial control socket (bounded retry) ──────────────────────────
+	// ── Step 3: Dial control socket (bounded retry) ──────────────────────────
+	//
+	// This runs BEFORE the game login on purpose. Logins are paced by the
+	// host-wide gate (one dial per reconnectGateCooldown across every client on
+	// the IP), so on a full-fleet boot a worker can legitimately sit in that
+	// queue for minutes. The supervisor's BootTimeout measures launch->Hello,
+	// so greeting it only after login made a queued worker look wedged: it
+	// would be killed at BootTimeout, relaunched, and land at the back of the
+	// queue again — a boot livelock for any fleet larger than
+	// BootTimeout/cooldown. Hello needs nothing from the game session, so we
+	// send it first and let the supervisor see a live, waiting worker.
 	const maxDialAttempts = 10
 	var conn net.Conn
 	if *socketPath != "" {
@@ -207,9 +190,10 @@ func main() {
 		logger.Printf("no --socket specified; running without overmind control channel")
 	}
 
-	// Send Hello and reconcile_diverged event (if socket available).
+	// ── Step 4: Greet the supervisor (before authenticating) ─────────────────
+	var enc *control.Encoder
 	if conn != nil {
-		enc := control.NewEncoder(conn)
+		enc = control.NewEncoder(conn)
 
 		bi := buildinfo.Get()
 		builtAt := ""
@@ -231,7 +215,38 @@ func main() {
 			log.Fatalf("send hello: %v", err)
 		}
 		logger.Printf("sent hello")
+	}
 
+	// ── Step 5: Connect to game server ───────────────────────────────────────
+	logger.Printf("connecting to game server as %s", *agentID)
+	client, _, err := game.InitializeAgent(*agentID, logger, ctx, *debug)
+	if err != nil {
+		log.Fatalf("initialize agent: %v", err)
+	}
+	defer func() {
+		if closeErr := client.Close(); closeErr != nil {
+			logger.Printf("warning: close client: %v", closeErr)
+		}
+	}()
+
+	// Fetch fresh state.
+	if err := client.GetStatus(ctx); err != nil {
+		logger.Printf("warning: get_status: %v", err)
+	}
+	if err := client.GetSystem(ctx); err != nil {
+		logger.Printf("warning: get_system: %v", err)
+	}
+	st := client.GetState()
+
+	live := buildKnownState(st, int(st.CurrentTick))
+
+	// ── Step 6: Reconcile saved vs live state ────────────────────────────────
+	rec := checkpoint.Reconcile(saved, live, 0.25)
+	logger.Printf("reconcile: %s", rec.Disposition)
+
+	// Report divergence (if socket available). This stays after reconcile
+	// because it needs live state; Hello above did not.
+	if conn != nil {
 		if rec.Disposition == checkpoint.Diverged {
 			detail := strings.Join(rec.Reasons, "; ")
 			evt := control.Event{
@@ -246,7 +261,7 @@ func main() {
 			}
 		}
 
-		// ── Step 6: Reader goroutine ─────────────────────────────────────────
+		// ── Step 7: Reader goroutine ─────────────────────────────────────────
 		var paused atomic.Bool
 		var draining atomic.Bool
 		var drained atomic.Bool
@@ -308,7 +323,7 @@ func main() {
 			}
 		}()
 
-		// ── Step 6b: Open shared KB (best-effort) ───────────────────────────
+		// ── Step 7b: Open shared KB (best-effort) ───────────────────────────
 		//
 		// Pool sizes are set explicitly rather than taking the package defaults
 		// (25 open / 5 idle). A worker queries on a ~10s cadence and can never
@@ -332,7 +347,7 @@ func main() {
 			defer func() { _ = sqliteKB.Close() }()
 		}
 
-		// ── Step 6b2: Open market collector (best-effort) ───────────────────
+		// ── Step 7b2: Open market collector (best-effort) ───────────────────
 		var mc *market.Collector
 		if mktColl, mktErr := market.Open(market.Config{
 			DBPath:       *marketDBPath,
@@ -346,7 +361,7 @@ func main() {
 			defer func() { _ = mktColl.Close() }()
 		}
 
-		// ── Step 6b3: Open asset ledger (best-effort) ────────────────────────
+		// ── Step 7b3: Open asset ledger (best-effort) ────────────────────────
 		var assetStore *assets.Store
 		if *assetsDBPath != "" {
 			cfg := assets.DefaultConfig()
@@ -363,7 +378,7 @@ func main() {
 			}
 		}
 
-		// ── Step 6c: Standing behavior ───────────────────────────────────────
+		// ── Step 7c: Standing behavior ───────────────────────────────────────
 		roles, rolesErr := worker.LoadRoles(*rolesPath)
 		if rolesErr != nil {
 			logger.Printf("warning: load roles %s: %v (no standing behavior)", *rolesPath, rolesErr)
@@ -462,7 +477,7 @@ func main() {
 			logger.Printf("no standing behavior for role %q; idle heartbeat only", *role)
 		}
 
-		// ── Step 7: Heartbeat loop ────────────────────────────────────────────
+		// ── Step 8: Heartbeat loop ────────────────────────────────────────────
 		ticker := time.NewTicker(game.SleepTick)
 		defer ticker.Stop()
 

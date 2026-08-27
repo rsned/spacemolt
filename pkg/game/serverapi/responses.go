@@ -2673,6 +2673,19 @@ type AttackResponse struct {
 	TargetName string `json:"target_name,omitempty"`
 	// TargetType is creature|player|npc.
 	TargetType string `json:"target_type,omitempty"`
+	// BattleID is the handle for get_battle_log. Added server-side and observed
+	// 2026-08-26; before it was decoded here, the only way to keep the id was to
+	// copy it out of the console at the moment the fight started.
+	BattleID string `json:"battle_id,omitempty"`
+	// System is where the battle is joined.
+	System string `json:"system,omitempty"`
+	// YourSide is the side index this player fights on. Sides are numbered, not
+	// named: a station defence can run to five or more.
+	YourSide int `json:"your_side,omitempty"`
+	// YourZone is the range band you enter at (e.g. "outer"). It explains the
+	// "weapons can't reach the enemy at this range" refusal on the first shot —
+	// engaging from outer requires an `advance` before any weapon will bear.
+	YourZone string `json:"your_zone,omitempty"`
 }
 
 // NameShipResponse — name_ship

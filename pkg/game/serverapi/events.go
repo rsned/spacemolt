@@ -331,3 +331,21 @@ type SkillLevelUp struct {
 	NewLevel int     `json:"new_level"`
 	XPGained float64 `json:"xp_gained"`
 }
+
+// BattleJoined is the battle_joined push: another player has entered a battle
+// already in progress.
+//
+// It is deliberately thin — the server sends only who arrived and which side
+// they took, with NO battle_id and no participant roster. Observed live
+// 2026-08-26 in the Dheneb station battle:
+//
+//	{"player_id":"32309e...","side_id":2,"username":"Munawar"}
+//
+// Because it carries no battle_id, a handler must not pass one to
+// rememberBattleIDLocked: an empty id would be ignored, but the absence is the
+// point — the id has to come from the attack reply or battle_started.
+type BattleJoined struct {
+	PlayerID string `json:"player_id"`
+	SideID   int    `json:"side_id"`
+	Username string `json:"username,omitempty"`
+}

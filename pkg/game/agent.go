@@ -136,26 +136,42 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 		Logger: logger,
 	}
 	reconnectingHandler := NewReconnectingHandler(client, handler, ctx, logger)
-	// Coordinate reconnects across every agent on this host/IP so a mass
-	// disconnect (e.g. a game-server restart) does not stampede the login
-	// endpoint into an escalating per-IP rate-limit block.
-	reconnectingHandler.SetReconnectGate(NewReconnectGate(DefaultReconnectGatePath(), reconnectGateCooldown))
+	// Coordinate authentication across every agent on this host/IP. The server
+	// budgets auth per IP, so a mass disconnect (a game-server restart) and a
+	// mass start (a fleet redeploy) both stampede the same allowance. One gate
+	// instance serves both paths: the handler uses it for reconnects, the
+	// client for its internal retries, and the initial dial below.
+	gate := NewReconnectGate(DefaultReconnectGatePath(), reconnectGateCooldown)
+	reconnectingHandler.SetReconnectGate(gate)
+	client.SetReconnectGate(gate)
 	client.SetHandler(reconnectingHandler)
 
-	// Step 4: Connect to game server
-	logger.Printf("Connecting to game server...")
-	if err := client.Connect(ctx); err != nil {
-		return nil, nil, fmt.Errorf("failed to connect to game server: %w", err)
-	}
-
-	// Step 5: Wait for connection to be ready (first message received)
-	logger.Printf("Waiting for connection ready...")
-	<-client.Ready()
-
-	// Step 6: Authenticate with credentials
-	logger.Printf("Logging in...")
-	if err := client.Login(ctx); err != nil {
-		return nil, nil, fmt.Errorf("failed to login: %w", err)
+	// Steps 4-6: Connect, wait for ready, and authenticate -- as one gated
+	// attempt, so a fresh start is spaced against every other client on the
+	// host instead of racing them into a per-IP block.
+	if err := dialWithGate(ctx, gate,
+		func(ctx context.Context) error {
+			logger.Printf("Connecting to game server...")
+			if err := client.Connect(ctx); err != nil {
+				return fmt.Errorf("failed to connect to game server: %w", err)
+			}
+			logger.Printf("Waiting for connection ready...")
+			select {
+			case <-client.Ready():
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		},
+		func(ctx context.Context) error {
+			logger.Printf("Logging in...")
+			if err := client.Login(ctx); err != nil {
+				return fmt.Errorf("failed to login: %w", err)
+			}
+			return nil
+		},
+	); err != nil {
+		return nil, nil, err
 	}
 
 	// Step 7: Get initial state to confirm successful login
@@ -202,17 +218,29 @@ func InitializeMCPAgent(agentID string, logger *log.Logger, ctx context.Context,
 		client.SetPolling(false)
 	}
 
-	// Step 3: Connect (MCP initialize handshake)
-	logger.Printf("Connecting to MCP server...")
-	if err := client.Connect(ctx); err != nil {
-		return nil, nil, fmt.Errorf("failed to connect to MCP server: %w", err)
-	}
-
-	// Step 4: Authenticate
-	logger.Printf("Logging in via MCP...")
-	if err := client.Login(ctx); err != nil {
-		_ = client.Close()
-		return nil, nil, fmt.Errorf("failed to login via MCP: %w", err)
+	// Steps 3-4: Connect (MCP initialize handshake) and authenticate, as one
+	// gated attempt. The MCP transport reaches the same accounts over the same
+	// outbound IP, so it draws on the same per-IP auth budget as the WS path
+	// and must share the host-wide gate.
+	gate := NewReconnectGate(DefaultReconnectGatePath(), reconnectGateCooldown)
+	if err := dialWithGate(ctx, gate,
+		func(ctx context.Context) error {
+			logger.Printf("Connecting to MCP server...")
+			if err := client.Connect(ctx); err != nil {
+				return fmt.Errorf("failed to connect to MCP server: %w", err)
+			}
+			return nil
+		},
+		func(ctx context.Context) error {
+			logger.Printf("Logging in via MCP...")
+			if err := client.Login(ctx); err != nil {
+				_ = client.Close()
+				return fmt.Errorf("failed to login via MCP: %w", err)
+			}
+			return nil
+		},
+	); err != nil {
+		return nil, nil, err
 	}
 
 	// Step 5: Fetch initial state (login response may not include full player data)

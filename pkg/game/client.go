@@ -29,6 +29,12 @@ import (
 
 // Client represents a WebSocket client for the Spacemolt game
 type Client struct {
+	// gate, when set, coordinates this client's own reconnect retries with
+	// every other client on the host IP. Reconnect retries internally, and
+	// each retry re-authenticates, so without this one caller-held slot could
+	// emit several login attempts. Nil disables coordination.
+	gate *ReconnectGate
+
 	conn        *websocket.Conn
 	url         string
 	username    string
@@ -240,6 +246,15 @@ const reconnectBlockDefault = 60 * time.Second
 // production agent path; leaving it unset keeps reconnects uncoordinated.
 func (r *ReconnectingHandler) SetReconnectGate(g *ReconnectGate) {
 	r.gate = g
+}
+
+// SetReconnectGate attaches the host-wide coordinator to the client itself, so
+// Reconnect's internal retries claim their own slots instead of riding on the
+// single slot the caller acquired. Pass the same gate instance the handler got.
+func (c *Client) SetReconnectGate(g *ReconnectGate) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.gate = g
 }
 
 // NewReconnectingHandler creates a handler that automatically reconnects on disconnect
@@ -854,7 +869,14 @@ func (c *Client) Reconnect(ctx context.Context) error {
 		return ctx.Err()
 	}
 
-	// Reconnect with retries
+	// Reconnect with retries. Each retry re-authenticates, so attempts past the
+	// first must claim their own gate slot: the caller (attemptReconnection)
+	// acquired exactly one, and letting three logins ride on it is how a
+	// "coordinated" reconnect still overruns the per-IP auth budget.
+	c.mu.RLock()
+	gate := c.gate
+	c.mu.RUnlock()
+
 	maxRetries := 3
 	var lastErr error
 	for attempt := 0; attempt < maxRetries; attempt++ {
@@ -867,10 +889,14 @@ func (c *Client) Reconnect(ctx context.Context) error {
 			case <-ctx.Done():
 				return ctx.Err()
 			}
+			if err := gate.Acquire(ctx); err != nil {
+				return err
+			}
 		}
 
 		if err := c.Connect(ctx); err != nil {
 			lastErr = err
+			recordRateLimitBlock(gate, err)
 			c.debugLogger.Printf("Reconnect attempt %d failed: %v", attempt+1, err)
 			continue
 		}
@@ -886,6 +912,7 @@ func (c *Client) Reconnect(ctx context.Context) error {
 		// Re-authenticate
 		if err := c.Login(ctx); err != nil {
 			lastErr = err
+			recordRateLimitBlock(gate, err)
 			c.debugLogger.Printf("Login failed after attempt %d: %v", attempt+1, err)
 			_ = c.Disconnect()
 			continue
@@ -2750,6 +2777,20 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.notifyPlayersFromBattleStart("battle_started", ev.Participants)
 		c.debugLogger.Printf("[BATTLE STARTED] battle=%s system=%s participants=%d", ev.BattleID, ev.SystemID, len(ev.Participants))
 
+	case protocol.TypeBattleJoined:
+		// Another player entered a battle already in progress. The frame names
+		// only the arrival — no battle_id, no roster — so it can confirm a fight
+		// is live but must not touch the remembered battle id.
+		var ev serverapi.BattleJoined
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.mu.Lock()
+		c.state.InCombat = true
+		c.state.InBattle = true
+		c.mu.Unlock()
+		c.debugLogger.Printf("[BATTLE JOINED] %s (%s) joined side %d", ev.Username, ev.PlayerID, ev.SideID)
+
 	case protocol.TypeBattleUpdate:
 		// Periodic authoritative snapshot of a battle we are in.
 		var ev serverapi.BattleUpdate
@@ -4406,6 +4447,7 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeChatMessage:             {},
 	protocol.TypeCombatUpdate:            {},
 	protocol.TypeBattleAlert:             {},
+	protocol.TypeBattleJoined:            {},
 	protocol.TypeBattleEnded:             {},
 	protocol.TypePirateWarning:           {},
 	protocol.TypePoliceWarning:           {},

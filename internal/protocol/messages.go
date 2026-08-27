@@ -23,6 +23,10 @@ const (
 	TypeCombatUpdate       = "combat_update"
 	TypeBattleAlert        = "battle_alert"
 	TypeBattleStarted      = "battle_started"
+	// TypeBattleJoined is pushed when another player enters a battle already in
+	// progress. It names only the arrival (player_id, side_id, username) and
+	// carries NO battle_id — see serverapi.BattleJoined.
+	TypeBattleJoined       = "battle_joined"
 	TypeBattleUpdate       = "battle_update"
 	TypeBattleDamage       = "battle_damage"
 	TypeBattleEnded        = "battle_ended"
