@@ -209,6 +209,11 @@ func (m *mockGameClient) Refuel(ctx context.Context) error {
 	m.actionsRecorded = append(m.actionsRecorded, "refuel")
 	return nil
 }
+
+func (m *mockGameClient) PayBounty(ctx context.Context, empire, source string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "pay_bounty")
+	return nil
+}
 func (m *mockGameClient) RefuelFromCargo(ctx context.Context, itemID string, quantity int) error {
 	m.actionsRecorded = append(m.actionsRecorded, "refuel_from_cargo")
 	return nil

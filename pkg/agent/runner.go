@@ -568,6 +568,12 @@ func (r *Runner) executeDecision(ctx context.Context, decision Decision) error {
 		r.logger.Printf("[%s] -> Refuel()", r.agent.ID())
 		return r.gameClient.Refuel(actionCtx)
 
+	case "pay_bounty":
+		// Target names the empire when several are owed; empty lets the server
+		// infer it, which only works when exactly one bounty is outstanding.
+		r.logger.Printf("[%s] -> PayBounty(%s)", r.agent.ID(), decision.Target)
+		return r.gameClient.PayBounty(actionCtx, decision.Target, "")
+
 	case "refuel_ship":
 		r.logger.Printf("[%s] -> RefuelShip(%s)", r.agent.ID(), decision.Target)
 		return r.gameClient.RefuelShip(actionCtx, decision.Target, 0)

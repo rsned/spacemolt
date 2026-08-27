@@ -2459,6 +2459,34 @@ type FactionRemoveEnemyResponse struct {
 	TargetName      string `json:"target_name"`
 }
 
+// PayBountyOutstandingRow is one empire's remaining debt after a pay_bounty.
+type PayBountyOutstandingRow struct {
+	Empire string `json:"empire"`
+	// Bounty is the credits still owed to this empire.
+	Bounty int `json:"bounty"`
+}
+
+// PayBountyResponse is returned by pay_bounty (v0.564.0). Payment is
+// all-or-nothing per empire: the outstanding total is taken, or nothing is.
+type PayBountyResponse struct {
+	Action string `json:"action"`
+	Empire string `json:"empire"`
+	// AmountPaid is what the empire actually took.
+	AmountPaid int `json:"amount_paid"`
+	// PaidFrom is "self" (wallet) or "faction" (treasury).
+	PaidFrom string `json:"paid_from"`
+	// Credits is the wallet balance after payment.
+	Credits int `json:"credits"`
+	// FactionCredits is the treasury balance after a source="faction" payment.
+	FactionCredits int `json:"faction_credits,omitempty"`
+	// ReputationAfter is the standing with this empire once the crimes cleared.
+	ReputationAfter int `json:"reputation_after"`
+	// ReleasedFromDetention reports whether this payment freed the pilot.
+	ReleasedFromDetention bool                      `json:"released_from_detention"`
+	OutstandingBounties   []PayBountyOutstandingRow `json:"outstanding_bounties"`
+	Message               string                    `json:"message"`
+}
+
 // CitizenshipResponse is returned by the citizenship action, which handles
 // petitioning for, granting, renouncing, and querying empire citizenship.
 // Field presence varies by the citizenship sub-action requested.

@@ -801,6 +801,7 @@ func (m *mockGameClient) FactionRemoveEnemy(ctx context.Context, targetFactionID
 	return nil
 }
 func (m *mockGameClient) Citizenship(ctx context.Context, action, empireID string) error { return nil }
+func (m *mockGameClient) PayBounty(ctx context.Context, empire, source string) error     { return nil }
 func (m *mockGameClient) GetEmpireInfo(ctx context.Context, empireID string) error       { return nil }
 func (m *mockGameClient) Petition(ctx context.Context, empireID, message string) error   { return nil }
 func (m *mockGameClient) GetTaxEstimate(ctx context.Context) error                       { return nil }

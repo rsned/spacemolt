@@ -2558,6 +2558,45 @@ func (c *Client) Citizenship(ctx context.Context, action, empireID string) error
 	return err
 }
 
+// PayBounty clears every uncleared crime with one empire — including unpaid
+// income and property tax — and restores the reputation those crimes cost, up
+// to that empire's cap.
+//
+// It works anywhere: docked, in open space, or mid-jump. If the empire already
+// has the pilot detained, paying releases them immediately. Payment is
+// all-or-nothing per empire.
+//
+// empire is optional; omit it (pass "") when the agent owes exactly one empire
+// and the server will infer the target. Naming an empire is required when
+// several are owed — read standings[].outstanding_bounty from get_status.
+//
+// source is "self" (the wallet, and the server's default) or "faction" (the
+// treasury, which needs ManageTreasury). Pass "" to take the default.
+//
+// This is the escape from the 0-credit spiral: a bountied agent cannot buy
+// fuel, and before v0.564.0 gifted credits were seized on entering the empire's
+// territory. Gifts now land even while detained, so gift -> PayBounty -> refuel
+// recovers an agent wherever it is stranded.
+func (c *Client) PayBounty(ctx context.Context, empire, source string) error {
+	payload := map[string]any{}
+	if empire != "" {
+		payload["empire"] = empire
+	}
+	if source != "" {
+		payload["source"] = source
+	}
+	msg := protocol.Message{
+		Type:      "pay_bounty",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return err
+}
+
 // GetEmpireInfo fetches empire information. empireID is optional; when empty
 // the server returns all empires.
 func (c *Client) GetEmpireInfo(ctx context.Context, empireID string) error {

@@ -1903,6 +1903,25 @@ func (m *MCPGameClient) FactionRemoveEnemy(ctx context.Context, targetFactionID 
 	return m.updateStateFromResult(result)
 }
 
+// PayBounty clears an empire's outstanding bounty from anywhere, releasing the
+// agent from that empire's detention. Both arguments are optional: an empty
+// empire lets the server infer the target (valid only when exactly one bounty
+// is outstanding), and an empty source takes the default of "self".
+func (m *MCPGameClient) PayBounty(ctx context.Context, empire, source string) error {
+	args := map[string]any{}
+	if empire != "" {
+		args["empire"] = empire
+	}
+	if source != "" {
+		args["source"] = source
+	}
+	result, err := m.callTool(ctx, "pay_bounty", args)
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 // Citizenship performs a citizenship sub-action.
 func (m *MCPGameClient) Citizenship(ctx context.Context, action, empireID string) error {
 	args := map[string]any{"action": action}

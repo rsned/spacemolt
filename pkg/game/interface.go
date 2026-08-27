@@ -185,6 +185,10 @@ type GameClient interface {
 
 	// Empire & citizenship
 	Citizenship(ctx context.Context, action, empireID string) error
+
+	// PayBounty clears an empire's outstanding bounty from anywhere, releasing
+	// the agent from that empire's detention. empire and source are optional.
+	PayBounty(ctx context.Context, empire, source string) error
 	GetEmpireInfo(ctx context.Context, empireID string) error
 	Petition(ctx context.Context, empireID, message string) error
 

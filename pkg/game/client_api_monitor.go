@@ -206,6 +206,7 @@ var actionResponseTypes = map[string]reflect.Type{
 
 	// Empire & citizenship
 	"citizenship":     reflect.TypeOf(serverapi.CitizenshipResponse{}),
+	"pay_bounty":      reflect.TypeOf(serverapi.PayBountyResponse{}),
 	"get_empire_info": reflect.TypeOf(serverapi.GetEmpireInfoResponse{}),
 	"petition":        reflect.TypeOf(serverapi.PetitionResponse{}),
 
