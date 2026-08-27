@@ -30,7 +30,7 @@ func DefaultConfig() Config {
 		WAL:          true,
 		MaxOpenConns: 25,
 		MaxIdleConns: 5,
-		BusyTimeout:  5 * time.Second,
+		BusyTimeout:  15 * time.Second,
 	}
 }
 
@@ -106,10 +106,37 @@ func (c *Collector) Close() error {
 }
 
 // maxRetryAttempts is the number of retries for SQLITE_BUSY.
-const maxRetryAttempts = 5
+//
+// The fleet runs ~153 workers, every one of which holds market.db open
+// read-write for its whole lifetime. Five attempts gave up while the lock was
+// still merely contended rather than deadlocked: marketbot captures failed at a
+// steady 4-6/min, and market-prune could not drain a backlog at all. A plain
+// write with a longer wait succeeds, so the cure is patience, not a bigger
+// database.
+const maxRetryAttempts = 24
 
 // baseRetryDelay is the initial retry delay.
 const baseRetryDelay = 50 * time.Millisecond
+
+// maxRetryDelay caps the exponential backoff. Without it, the later attempts
+// grow past an hour and a "retry" becomes a hang.
+const maxRetryDelay = 2 * time.Second
+
+// retryDelay returns the backoff before the given attempt (1-based), doubling
+// from baseRetryDelay and flattening at maxRetryDelay.
+func retryDelay(attempt int) time.Duration {
+	if attempt < 1 {
+		return 0
+	}
+	d := baseRetryDelay
+	for range attempt - 1 {
+		d *= 2
+		if d >= maxRetryDelay {
+			return maxRetryDelay
+		}
+	}
+	return d
+}
 
 // writeRetry executes a write operation with exponential backoff retry on
 // SQLITE_BUSY / database-locked errors.
@@ -117,7 +144,7 @@ func (c *Collector) writeRetry(ctx context.Context, fn func(tx *sql.Tx) error) e
 	var lastErr error
 	for attempt := range maxRetryAttempts {
 		if attempt > 0 {
-			delay := baseRetryDelay * time.Duration(1<<(attempt-1))
+			delay := retryDelay(attempt)
 			select {
 			case <-time.After(delay):
 			case <-ctx.Done():
