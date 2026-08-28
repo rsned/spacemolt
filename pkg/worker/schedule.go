@@ -24,7 +24,7 @@ type ScheduledTask struct {
 }
 
 // ValidFrequencies is the closed set of supported frequencies.
-var ValidFrequencies = map[string]bool{"ten_minutely": true, "quarter_hourly": true, "half_hourly": true, "hourly": true, "daily": true, "weekly": true}
+var ValidFrequencies = map[string]bool{"ten_minutely": true, "quarter_hourly": true, "half_hourly": true, "hourly": true, "twice_daily": true, "daily": true, "weekly": true}
 
 // frequencyPeriod is each frequency's boundary spacing. Every frequency is
 // anchored to an instant that is itself a multiple of every shorter period
@@ -36,6 +36,7 @@ var frequencyPeriod = map[string]time.Duration{
 	"quarter_hourly": 15 * time.Minute,
 	"half_hourly":    30 * time.Minute,
 	"hourly":         time.Hour,
+	"twice_daily":    12 * time.Hour,
 	"daily":          24 * time.Hour,
 	"weekly":         7 * 24 * time.Hour,
 }
@@ -65,6 +66,69 @@ func Covers(have, want string) bool {
 // boundaries, and small enough that "daily" still means the expected time of day.
 const maxBoundaryPhase = 5 * time.Minute
 
+// maxWidePhase caps the spread for commands that do not care when in the period
+// they run. It is an hour so an "hourly" capture can land anywhere in its hour
+// and a "daily" one still lands within an hour of its expected time of day --
+// wide enough to flatten the fleet's baseline, narrow enough that a daily job
+// does not wander across the day.
+const maxWidePhase = time.Hour
+
+// widePhaseCommands are the bookkeeping captures: append-only syncs whose exact
+// firing instant carries no information. Spreading them across the period costs
+// nothing and takes them out of the window reserved for time-sensitive work.
+//
+// update_market is deliberately ABSENT. A market read is a measurement, and
+// keeping an agent's reads on its own tight phase is what makes successive
+// snapshots comparable -- that burst is wanted.
+var widePhaseCommands = map[string]bool{
+	"capture_action_log":       true,
+	"capture_citizenship":      true,
+	"capture_faction":          true,
+	"capture_fuel":             true,
+	"capture_profile":          true,
+	"capture_storage":          true,
+	"capture_tax":              true,
+	"capture_wildlife_attacks": true,
+}
+
+// FrequencyPeriod is how long one full period of freq lasts, or 0 when freq is
+// unknown. It reads the same table Covers uses, so the two can never disagree.
+func FrequencyPeriod(freq string) time.Duration {
+	return frequencyPeriod[freq]
+}
+
+// phaseCapFor is how far command may be shifted on freq's grid. Time-sensitive
+// commands keep the original tight window; bookkeeping captures get half the
+// period (bounded by maxWidePhase), which stays strictly under the period and
+// so preserves the no-reordering invariant.
+func phaseCapFor(freq, command string) time.Duration {
+	if !widePhaseCommands[command] {
+		return maxBoundaryPhase
+	}
+	period := FrequencyPeriod(freq)
+	if period == 0 {
+		return maxBoundaryPhase
+	}
+	return max(min(period/2, maxWidePhase), maxBoundaryPhase)
+}
+
+// BoundaryPhaseFor is BoundaryPhase with a per-command spread.
+//
+// For a time-sensitive command it returns exactly BoundaryPhase(seed, freq), so
+// an agent's market reads all share one phase and stay together. For a
+// bookkeeping capture it hashes the command in as well and spreads over a wider
+// cap, so those neither collide with the tight window nor with each other.
+func BoundaryPhaseFor(seed, freq, command string) time.Duration {
+	if seed == "" {
+		return 0
+	}
+	limit := phaseCapFor(freq, command)
+	if limit == maxBoundaryPhase {
+		return BoundaryPhase(seed, freq)
+	}
+	return time.Duration(fnv1a(seed+"\x00"+freq+"\x00"+command) % uint64(limit))
+}
+
 // BoundaryPhase returns the fixed offset this seed applies to freq's boundary
 // grid, in [0, maxBoundaryPhase). It is a pure function of the seed and the
 // frequency, so an agent keeps the same phase across restarts (no drift, no
@@ -74,18 +138,22 @@ func BoundaryPhase(seed, freq string) time.Duration {
 	if seed == "" {
 		return 0
 	}
-	// FNV-1a over seed+freq: stable across processes and architectures, unlike
-	// maphash, which is randomly seeded per process and would re-herd on restart.
+	return time.Duration(fnv1a(seed+"\x00"+freq) % uint64(maxBoundaryPhase))
+}
+
+// fnv1a is stable across processes and architectures, unlike maphash, which is
+// randomly seeded per process and would re-herd the fleet on every restart.
+func fnv1a(s string) uint64 {
 	const (
 		offset64 = 14695981039346656037
 		prime64  = 1099511628211
 	)
 	h := uint64(offset64)
-	for _, b := range []byte(seed + "\x00" + freq) {
+	for _, b := range []byte(s) {
 		h ^= uint64(b)
 		h *= prime64
 	}
-	return time.Duration(h % uint64(maxBoundaryPhase))
+	return h
 }
 
 // SetPhaseSeed puts this scheduler on its own phase of the boundary grid,
@@ -102,8 +170,8 @@ func (s *Scheduler) SetPhaseSeed(seed string) {
 // phasedBoundary is CurrentBoundary shifted onto this scheduler's own grid.
 // Shifting the clock back by the phase, snapping, then shifting forward keeps
 // the period exactly intact -- it only moves where the period starts.
-func (s *Scheduler) phasedBoundary(freq string, now time.Time) time.Time {
-	phase := BoundaryPhase(s.phaseSeed, freq)
+func (s *Scheduler) phasedBoundary(freq, command string, now time.Time) time.Time {
+	phase := BoundaryPhaseFor(s.phaseSeed, freq, command)
 	if phase == 0 {
 		return CurrentBoundary(freq, now)
 	}
@@ -125,6 +193,8 @@ func CurrentBoundary(freq string, now time.Time) time.Time {
 		return time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), (now.Minute()/30)*30, 0, 0, time.UTC)
 	case "hourly":
 		return time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, time.UTC)
+	case "twice_daily":
+		return time.Date(now.Year(), now.Month(), now.Day(), (now.Hour()/12)*12, 0, 0, 0, time.UTC)
 	case "daily":
 		return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	case "weekly":
@@ -148,6 +218,8 @@ func NextBoundary(freq string, now time.Time) time.Time {
 		return cur.Add(30 * time.Minute)
 	case "hourly":
 		return cur.Add(time.Hour)
+	case "twice_daily":
+		return cur.Add(12 * time.Hour)
 	case "daily":
 		return cur.AddDate(0, 0, 1)
 	case "weekly":
@@ -309,7 +381,7 @@ func (s *Scheduler) Due(now time.Time) []ScheduledTask {
 func (s *Scheduler) dueLocked(now time.Time) []ScheduledTask {
 	var due []ScheduledTask
 	for _, t := range s.tasks {
-		if s.phasedBoundary(t.Frequency, now).After(t.LastRun) {
+		if s.phasedBoundary(t.Frequency, t.Command, now).After(t.LastRun) {
 			due = append(due, t)
 		}
 	}
