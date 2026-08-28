@@ -69,7 +69,19 @@ type StandingDeps struct {
 // runs the role's idle script in a loop, both serialized on deps.ExecMu so they
 // never interleave on the single game connection. It returns when ctx is
 // cancelled, after any in-flight idle pass completes.
-func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
+// applyStandingDefaults fills the zero values of deps in place.
+//
+// IdleInterval is deliberately one full game tick, NOT SleepShort. It used to
+// default to SleepShort (SleepTick/3 = 3.33s), which ran every worker's idle
+// pass three times per tick -- roughly 43 passes per second across a
+// 144-worker fleet. Nothing useful can happen at that rate: the game advances
+// once per 10s and a mutation is capped at 1 per tick per agent regardless, so
+// the extra passes could only emit redundant calls. On 2026-08-27 the fleet
+// spent 4.5 hours IP-blocked, with find_route timeouts and "Your IP has been
+// temporarily blocked" stranding seven miners. Each command's own response time
+// is added on top of this interval by the blocking dispatch, so the real loop
+// period is a tick plus the work.
+func applyStandingDefaults(deps *StandingDeps) {
 	if deps.Out == nil {
 		deps.Out = io.Discard
 	}
@@ -77,7 +89,7 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		deps.NowFn = func() time.Time { return time.Now().UTC() }
 	}
 	if deps.IdleInterval == 0 {
-		deps.IdleInterval = game.SleepShort
+		deps.IdleInterval = game.SleepTick
 	}
 	if deps.ScheduleInterval == 0 {
 		deps.ScheduleInterval = game.SleepLong
@@ -91,6 +103,10 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 	if deps.SetQuiesced == nil {
 		deps.SetQuiesced = func(bool, string) {}
 	}
+}
+
+func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
+	applyStandingDefaults(&deps)
 
 	// Register schedule entries (idempotent: skip a command already covered, so
 	// a restart does not duplicate it).
