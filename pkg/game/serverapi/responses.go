@@ -27,8 +27,12 @@ type GetSystemResponse struct {
 // GetPOIResponse wraps the response from get_poi command.
 type GetPOIResponse struct {
 	// Kind is the v0.531.4 response discriminator: normal|transit (transit variant folded into this one struct).
-	Kind          string            `json:"kind,omitempty"`
-	Action        string            `json:"action,omitempty"`
+	Kind   string `json:"kind,omitempty"`
+	Action string `json:"action,omitempty"`
+	// InTransit marks the transit variant, where the reply describes a journey
+	// in progress and carries no POI. Kind alone is not enough: it is the
+	// v0.531.4 discriminator and a reply predating it sets only this flag.
+	InTransit     bool              `json:"in_transit,omitempty"`
 	POI           POI               `json:"poi"`
 	Base          *Base             `json:"base,omitempty"`
 	PoliceDrones  int               `json:"police_drones,omitempty"`

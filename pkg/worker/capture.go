@@ -301,6 +301,80 @@ func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Ba
 	return nil
 }
 
+// GetPOI fetches the current POI via the get_poi command.
+//
+// It replaces GetLocationPOI, which asked get_location. That was wrong twice
+// over. get_location is not in the server spec at all -- 216 paths as of
+// 2026-08-27 document /get_poi and no /get_location -- so every POI we captured
+// came through an undocumented endpoint that the API drift monitor cannot watch,
+// because the monitor only checks fields on responses we already model. And
+// get_location omits `hidden` and `reveal_difficulty`, so GetLocationPOI had to
+// borrow structural fields from the cached get_system POI list and left those
+// two zero. A POI a survey had only just revealed is not in that cached list at
+// all, which meant a hidden-POI sweep recorded every reveal as an ordinary POI.
+//
+// The comments claiming the server retired get_poi on 2026-06-24 were simply
+// wrong; it is live and returns strictly more than get_location: resources,
+// description, class and position directly, plus hidden and reveal_difficulty.
+//
+// In transit the server answers with the transit variant (kind="transit",
+// in_transit=true) and no POI. That is an error here rather than a partial
+// capture: a half-populated POI would overwrite a good KB row with blanks.
+func GetPOI(ctx context.Context, client game.GameClient) (game.POI, error) {
+	if err := client.GetPOI(ctx); err != nil {
+		return game.POI{}, fmt.Errorf("get_poi failed: %w", err)
+	}
+	time.Sleep(game.SleepQuick)
+
+	rawJSON := client.GetRawJSON("poi")
+	if rawJSON == nil {
+		return game.POI{}, fmt.Errorf("no poi data in response")
+	}
+
+	var resp serverapi.GetPOIResponse
+	if err := json.Unmarshal(rawJSON, &resp); err != nil {
+		return game.POI{}, fmt.Errorf("failed to parse get_poi response: %w", err)
+	}
+	if resp.Kind == "transit" || resp.InTransit {
+		return game.POI{}, fmt.Errorf("in transit: no current POI")
+	}
+	p := resp.POI
+	if p.ID == "" {
+		return game.POI{}, fmt.Errorf("get_poi response has no current POI")
+	}
+
+	poi := game.POI{
+		ID:               p.ID,
+		SystemID:         p.SystemID,
+		Name:             p.Name,
+		Type:             p.Type,
+		Class:            p.Class,
+		Description:      p.Description,
+		Position:         game.Position{X: p.Position.X, Y: p.Position.Y},
+		BaseID:           p.BaseID,
+		HasBase:          p.HasBase,
+		BaseName:         p.BaseName,
+		Online:           p.Online,
+		Hidden:           p.Hidden,
+		RevealDifficulty: p.RevealDifficulty,
+		ExpiresAt:        p.ExpiresAt,
+	}
+	for _, r := range p.Resources {
+		poi.Resources = append(poi.Resources, game.POIResource{
+			ResourceID: r.ResourceID,
+			Richness:   r.Richness,
+			Remaining:  r.Remaining,
+		})
+	}
+	// The system id is not always echoed; fall back to where we are standing.
+	if poi.SystemID == "" {
+		if st := client.GetState(); st != nil {
+			poi.SystemID = st.System.ID
+		}
+	}
+	return poi, nil
+}
+
 // GetLocationPOI fetches the current POI via the get_location command and
 // returns it as a fully-populated game.POI.
 //
