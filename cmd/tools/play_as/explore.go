@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"time"
 
@@ -563,6 +564,49 @@ func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, po
 	}
 	if n > 0 && format == formatStyled {
 		fmt.Printf("  Wildlife: %d creature(s), %d species\n", len(nearby.Creatures), n)
+	}
+	reportUnscannedSpecies(ctx, nearby.Creatures, poiID, format)
+}
+
+// reportUnscannedSpecies flags species present here that no scan has ever
+// characterised, so the operator can decide whether to spend the tick.
+//
+// It deliberately does not scan. scan is a mutation costing a tick per
+// creature, and the thing worth knowing -- the danger bracket -- is exactly
+// what you do not have before scanning: a Rainbow Leviathan does 130
+// energy/tick and kills a starter hull in two. Automating that would spend
+// ticks to walk into fights the operator never chose. Naming the species and
+// the POI puts the decision where the judgement is.
+//
+// Reporting is best-effort: a KB that cannot answer produces silence, never an
+// error, since this runs inside an exploration loop that must not break.
+func reportUnscannedSpecies(ctx context.Context, creatures []serverapi.NearbyCreature, poiID string, format outputFormat) {
+	if format != formatStyled || globalKB == nil || len(creatures) == 0 {
+		return
+	}
+	seen := make(map[string]string, len(creatures)) // species -> display name
+	ids := make([]string, 0, len(creatures))
+	for _, c := range creatures {
+		if c.Species == "" {
+			continue
+		}
+		if _, dup := seen[c.Species]; dup {
+			continue
+		}
+		seen[c.Species] = c.Name
+		ids = append(ids, c.Species)
+	}
+	unscanned, err := knowledge.UnscannedSpecies(ctx, globalKB, ids)
+	if err != nil || len(unscanned) == 0 {
+		return
+	}
+	slices.Sort(unscanned)
+	for _, sp := range unscanned {
+		label := sp
+		if name := seen[sp]; name != "" && name != sp {
+			label = fmt.Sprintf("%s (%s)", sp, name)
+		}
+		fmt.Printf("  ** NEW UNSCANNED CREATURE CLASS %s at POI %s -- `scan <creature_id>` to characterise\n", label, poiID)
 	}
 }
 
