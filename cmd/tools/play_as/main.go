@@ -7281,19 +7281,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, client.Refuel, ctx, 3*time.Second, cmd, format)
 
 	case "repair":
-		if len(parts) > 1 {
-			payload, err := parseFlagArgs(parts[1:], "item_id", "quantity", "target")
-			if err != nil {
-				return err
-			}
-			if v, ok := payload["quantity"]; ok {
-				if n, ok := flagInt(v); ok {
-					payload["quantity"] = n
-				}
-			}
-			if v, ok := flagString(payload["item_id"]); ok {
-				payload["item_id"] = strings.ToLower(v)
-			}
+		payload, err := repairArgs(parts)
+		if err != nil {
+			return err
+		}
+		if payload != nil {
 			return simpleCommand(client, func(ctx context.Context) error {
 				return client.RepairWith(ctx, payload)
 			}, ctx, 3*time.Second, cmd, format)
