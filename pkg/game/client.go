@@ -2791,6 +2791,22 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.mu.Unlock()
 		c.debugLogger.Printf("[BATTLE JOINED] %s (%s) joined side %d", ev.Username, ev.PlayerID, ev.SideID)
 
+	case protocol.TypeBattleLeft:
+		// A combatant left the fight. This is NOT the battle ending -- that is
+		// battle_ended -- so InBattle stays as it is: the remaining hostiles
+		// are still shooting. The frame carries no battle_id, so the remembered
+		// id must survive untouched, and player_id may name a creature
+		// (crt_ prefix) with an empty username.
+		var ev serverapi.BattleLeft
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		who := ev.Username
+		if who == "" {
+			who = ev.PlayerID
+		}
+		c.debugLogger.Printf("[BATTLE LEFT] %s left (%s)", who, ev.Reason)
+
 	case protocol.TypeBattleUpdate:
 		// Periodic authoritative snapshot of a battle we are in.
 		var ev serverapi.BattleUpdate
@@ -4448,6 +4464,7 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeCombatUpdate:            {},
 	protocol.TypeBattleAlert:             {},
 	protocol.TypeBattleJoined:            {},
+	protocol.TypeBattleLeft:              {},
 	protocol.TypeBattleEnded:             {},
 	protocol.TypePirateWarning:           {},
 	protocol.TypePoliceWarning:           {},

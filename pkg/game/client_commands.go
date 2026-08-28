@@ -618,13 +618,25 @@ func (c *Client) GetWrecks(ctx context.Context) error {
 
 // LootWreck loots items from a wreck.
 func (c *Client) LootWreck(ctx context.Context, wreckID, itemID string, quantity float64) error {
+	// Every key here is optional, and an EMPTY value is not the same as an
+	// absent one. The server loots the whole wreck -- all cargo and all modules
+	// -- only when item_id and module_id are both absent; item_id:"" names an
+	// empty item instead. Likewise an absent wreck_id defaults to the wreck we
+	// are towing, while wreck_id:"" names one that does not exist.
+	payload := map[string]any{}
+	if wreckID != "" {
+		payload["wreck_id"] = wreckID
+	}
+	if itemID != "" {
+		payload["item_id"] = itemID
+		// quantity is only meaningful alongside an item_id.
+		if quantity > 0 {
+			payload["quantity"] = quantity
+		}
+	}
 	msg := protocol.Message{
-		Type: "loot_wreck",
-		Payload: map[string]any{
-			"wreck_id": wreckID,
-			"item_id":  itemID,
-			"quantity": quantity,
-		},
+		Type:      "loot_wreck",
+		Payload:   payload,
 		Timestamp: time.Now().UnixMilli(),
 	}
 	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))

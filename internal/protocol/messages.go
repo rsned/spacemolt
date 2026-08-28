@@ -19,14 +19,21 @@ const (
 	TypeListings     = "listings"
 
 	// Game events
-	TypeChatMessage        = "chat_message"
-	TypeCombatUpdate       = "combat_update"
-	TypeBattleAlert        = "battle_alert"
-	TypeBattleStarted      = "battle_started"
+	TypeChatMessage   = "chat_message"
+	TypeCombatUpdate  = "combat_update"
+	TypeBattleAlert   = "battle_alert"
+	TypeBattleStarted = "battle_started"
 	// TypeBattleJoined is pushed when another player enters a battle already in
 	// progress. It names only the arrival (player_id, side_id, username) and
 	// carries NO battle_id — see serverapi.BattleJoined.
-	TypeBattleJoined       = "battle_joined"
+	TypeBattleJoined = "battle_joined"
+
+	// TypeBattleLeft is pushed when a combatant leaves a battle -- fled,
+	// destroyed, or otherwise gone. It names only who left and why, carrying NO
+	// battle_id, and the departing combatant may be a CREATURE (crt_ prefix)
+	// with an empty username. One participant leaving is NOT the battle ending;
+	// that is TypeBattleEnded.
+	TypeBattleLeft         = "battle_left"
 	TypeBattleUpdate       = "battle_update"
 	TypeBattleDamage       = "battle_damage"
 	TypeBattleEnded        = "battle_ended"

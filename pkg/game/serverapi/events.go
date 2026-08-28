@@ -344,6 +344,22 @@ type SkillLevelUp struct {
 // Because it carries no battle_id, a handler must not pass one to
 // rememberBattleIDLocked: an empty id would be ignored, but the absence is the
 // point — the id has to come from the attack reply or battle_started.
+// BattleLeft is the battle_left push: a combatant has left a battle.
+//
+// Observed live 2026-08-27:
+//
+//	{"player_id":"crt_56cdf31ae2ce202c1d79057b75924563","reason":"fled","username":""}
+//
+// PlayerID may name a CREATURE (crt_ prefix), in which case Username is empty --
+// do not assume a player. Like BattleJoined it carries no battle_id, so a
+// handler must not pass one to rememberBattleIDLocked.
+type BattleLeft struct {
+	PlayerID string `json:"player_id"`
+	// Reason is why they left, e.g. "fled".
+	Reason   string `json:"reason,omitempty"`
+	Username string `json:"username,omitempty"`
+}
+
 type BattleJoined struct {
 	PlayerID string `json:"player_id"`
 	SideID   int    `json:"side_id"`
