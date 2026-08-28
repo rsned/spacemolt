@@ -218,8 +218,31 @@ func main() {
 	}
 
 	// ── Step 5: Connect to game server ───────────────────────────────────────
+	//
+	// Heartbeat THROUGH the login, not after it. Authentication can take
+	// minutes when the host is under a per-IP rate block, and the supervisor's
+	// SilenceTimeout is 90s -- so a worker that only started reporting at
+	// Step 8 was killed mid-login and respawned into the same block, forcing
+	// yet another fresh login. See startBootHeartbeat for the full failure.
+	var stopBoot func()
+	if enc != nil {
+		stopBoot = startBootHeartbeat(ctx, func(st control.Status) error {
+			return sendEnvelope(enc, control.TypeStatus, *agentID, st)
+		}, game.SleepTick, func(err error) {
+			logger.Printf("warning: send boot status: %v", err)
+		})
+	}
+
 	logger.Printf("connecting to game server as %s", *agentID)
 	client, _, err := game.InitializeAgent(*agentID, logger, ctx, *debug)
+	// Hand the encoder over before anything else can write to it: stopBoot is
+	// synchronous, so once it returns the boot goroutine is gone and the real
+	// heartbeat loop is the sole writer. Must run whether or not login
+	// succeeded -- but note log.Fatalf below skips defers, which is exactly why
+	// this is an explicit call and not one.
+	if stopBoot != nil {
+		stopBoot()
+	}
 	if err != nil {
 		log.Fatalf("initialize agent: %v", err)
 	}

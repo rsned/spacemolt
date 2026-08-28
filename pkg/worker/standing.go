@@ -41,8 +41,13 @@ type StandingDeps struct {
 	Out         io.Writer        // worker stdout / logs
 	NowFn       func() time.Time // injectable clock
 
-	IdleInterval     time.Duration // between idle passes (0 → game.SleepShort)
-	ScheduleInterval time.Duration // scheduler tick (0 → game.SleepLong)
+	IdleInterval time.Duration // between idle passes (0 → game.SleepTick)
+	// KeepaliveInterval is how long a worker may stay silent before it sends a
+	// single get_status purely to prove liveness (0 → game.SleepKeepalive). It
+	// applies ONLY to a pass that put nothing on the wire: a pass that did real
+	// work is already proof of life, so no heartbeat is appended to it.
+	KeepaliveInterval time.Duration
+	ScheduleInterval  time.Duration // scheduler tick (0 → game.SleepLong)
 	// CommandTimeout caps a single dispatched command (0 → game.SleepCommandMaxWait).
 	// Injectable so tests can assert the bound without waiting 30 minutes.
 	CommandTimeout time.Duration
@@ -90,6 +95,9 @@ func applyStandingDefaults(deps *StandingDeps) {
 	}
 	if deps.IdleInterval == 0 {
 		deps.IdleInterval = game.SleepTick
+	}
+	if deps.KeepaliveInterval == 0 {
+		deps.KeepaliveInterval = game.SleepKeepalive
 	}
 	if deps.ScheduleInterval == 0 {
 		deps.ScheduleInterval = game.SleepLong
@@ -160,6 +168,10 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 
 	// Resolve the idle script once into command lines.
 	idleCmds := deps.resolveIdle(role)
+	wire := serverCalls(deps.Runner)
+	// lastWire is when this worker last put something on the wire. Zero means
+	// "never", so a freshly started worker heartbeats on its first pass.
+	var lastWire time.Time
 
 	// Idle loop.
 	for {
@@ -185,6 +197,11 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		deps.SetDrained(false)
 		deps.SetQuiesced(false, "")
 		deps.ExecMu.Lock()
+		var before uint64
+		if wire != nil {
+			before = wire()
+		}
+		ran := false
 		if deps.PayDebts != nil {
 			deps.PayDebts(ctx)
 		}
@@ -193,6 +210,7 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		}
 		if task := deps.nextTask(); task != nil {
 			deps.runTask(ctx, task)
+			ran = true
 		} else {
 			for _, line := range idleCmds {
 				select {
@@ -202,36 +220,77 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 				default:
 				}
 				_ = deps.runLine(ctx, line)
+				ran = true
 			}
 		}
 		deps.ExecMu.Unlock()
+
+		// Liveness, not polling. A pass that reached the server has already
+		// proved this worker is alive, so nothing is appended to it. Only a
+		// silent pass can owe a heartbeat, and then at most one per
+		// KeepaliveInterval -- never one per tick.
+		spoke := ran
+		if wire != nil {
+			// The counter is the better signal where the runner offers one: it
+			// sees through the dispatch's redundancy guard, so a pass whose
+			// every command was skipped locally counts as silent, and it also
+			// catches wire traffic from PayDebts, Handoffs and the scheduler.
+			spoke = wire() != before
+		}
+		now := deps.NowFn()
+		switch {
+		case spoke:
+			lastWire = now
+		case lastWire.IsZero() || now.Sub(lastWire) >= deps.KeepaliveInterval:
+			deps.ExecMu.Lock()
+			_ = deps.runLine(ctx, "get_status")
+			deps.ExecMu.Unlock()
+			lastWire = now
+		}
+
 		if sleepCtx(ctx, deps.IdleInterval) {
 			return nil
 		}
 	}
 }
 
-// resolveIdle loads the role's idle script into command lines, falling back to a
-// single get_status when the script is absent (keeps an unconfigured worker
-// alive and tests hermetic).
+// serverCallReporter is implemented by a CommandRunner that can report how many
+// commands it has actually put on the wire. WorkerDispatch does; the play_as
+// REPL runner does not, and callers must tolerate a nil counter.
+type serverCallReporter interface{ ServerCalls() uint64 }
+
+// serverCalls returns r's wire-call counter, or nil when r cannot report one.
+func serverCalls(r CommandRunner) func() uint64 {
+	rep, ok := r.(serverCallReporter)
+	if !ok {
+		return nil
+	}
+	return rep.ServerCalls
+}
+
+// resolveIdle loads the role's idle script into command lines. A role with no
+// script -- or an unreadable one -- yields NO commands: it used to fall back to
+// a single get_status, which is how an unconfigured worker came to poll the
+// server every tick forever. Liveness is the keepalive's job now, so a silent
+// role is genuinely silent.
 func (deps StandingDeps) resolveIdle(role Role) []string {
 	if role.Idle == "" {
-		return []string{"get_status"}
+		return nil
 	}
 	path, ok := ResolveScriptArg(role.Idle, deps.AgentID)
 	if !ok {
-		fmt.Fprintf(deps.Out, "standing: idle script %q not found; using get_status\n", role.Idle) //nolint:errcheck
-		return []string{"get_status"}
+		fmt.Fprintf(deps.Out, "standing: idle script %q not found; idling silently\n", role.Idle) //nolint:errcheck
+		return nil
 	}
 	content, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Fprintf(deps.Out, "standing: read idle script %q: %v; using get_status\n", role.Idle, err) //nolint:errcheck
-		return []string{"get_status"}
+		fmt.Fprintf(deps.Out, "standing: read idle script %q: %v; idling silently\n", role.Idle, err) //nolint:errcheck
+		return nil
 	}
 	cmds, err := SplitScriptCommands(string(content))
 	if err != nil {
-		fmt.Fprintf(deps.Out, "standing: parse idle script %q: %v; using get_status\n", role.Idle, err) //nolint:errcheck
-		return []string{"get_status"}
+		fmt.Fprintf(deps.Out, "standing: parse idle script %q: %v; idling silently\n", role.Idle, err) //nolint:errcheck
+		return nil
 	}
 	return cmds
 }

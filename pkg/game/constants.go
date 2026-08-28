@@ -42,9 +42,14 @@ const (
 	// measured for 16 jumps) -- so this only ever fires on a genuine hang.
 	SleepCommandMaxWait = 180 * SleepTick // 30min ceiling on one worker command
 
-	SleepReconnect         = 30 * time.Second // Reconnection recovery wait
-	SleepRetry             = 1 * time.Second  // Retry delay for failed operations
-	SleepScanInterval      = 5 * time.Minute  // Delay between scan_for_distress cycles
+	SleepReconnect    = 30 * time.Second // Reconnection recovery wait
+	SleepRetry        = 1 * time.Second  // Retry delay for failed operations
+	SleepScanInterval = 5 * time.Minute  // Delay between scan_for_distress cycles
+	// SleepKeepalive is how often an otherwise-silent worker proves liveness to
+	// the server. It is a liveness heartbeat, NOT a poll: an idle agent has
+	// nothing to learn from get_status, and at fleet scale a per-tick poll is
+	// what saturates the shared per-IP rate limiter.
+	SleepKeepalive         = 15 * time.Minute
 	SleepChatPoll          = 1 * time.Hour    // Chat channel polling interval (background reconcile/ingest)
 	SleepIPRateLimitJitter = 60 * time.Second // Max random jitter added after IP rate limit expires
 

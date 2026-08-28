@@ -139,6 +139,17 @@ func TestRunStandingRunsAssignedTaskThenResumesIdle(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(scriptDir, "test_task.smolt"), []byte(scriptContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	// The idle script has to exist on disk. resolveIdle yields NO commands for a
+	// role whose script is missing (a silent role is genuinely silent now, with
+	// liveness left to the keepalive), so relying on the old get_status fallback
+	// would make the "idle resumes" assertion below vacuous.
+	idleDir := filepath.Join(tmp, "data", "scripts")
+	if err := os.MkdirAll(idleDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(idleDir, "idle_probe.smolt"), []byte("get_status\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	rec := &recordRunner{}
 	var execMu sync.Mutex
@@ -167,7 +178,7 @@ func TestRunStandingRunsAssignedTaskThenResumesIdle(t *testing.T) {
 	}
 
 	// Role with a distinct idle command so we can tell idle from task work.
-	role := Role{Idle: "get_status"}
+	role := Role{Idle: "idle_probe"}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
