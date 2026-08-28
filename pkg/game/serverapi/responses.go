@@ -1032,14 +1032,39 @@ type FacilityListResponse struct {
 	LifeSupport *LifeSupport `json:"life_support,omitempty"`
 }
 
+// StorageLocation is one station holding this player's storage, as reported by
+// the INDEX form of view_storage (issued while undocked and without a
+// station_id). It summarises a base rather than listing it: the contents still
+// need a docked read or an explicit station_id, which is what Hint says.
+//
+// ShipCount is notable -- it is the only view we have ever had of where ships
+// are parked. The agent_ships table has never captured a row, so before this
+// there was no way to answer "where are our hulls" without visiting each
+// station.
+type StorageLocation struct {
+	BaseID     string `json:"base_id"`
+	BaseName   string `json:"base_name"`
+	ItemCount  int    `json:"item_count"`
+	ShipCount  int    `json:"ship_count"`
+	System     string `json:"system"`
+	SystemName string `json:"system_name"`
+}
+
 // ViewStorageResponse wraps the response from view_storage command.
+//
+// It has two shapes. Docked (or with an explicit station_id) it returns one
+// base's contents in Items/Ships/Gifts. Undocked it returns Locations: a
+// fleet-wide index of every base holding storage, with Items and Ships empty.
+// Callers must not read an empty Items as "nothing in storage" -- check
+// Locations first.
 type ViewStorageResponse struct {
-	BaseID  string        `json:"base_id"`
-	Credits int           `json:"credits"`
-	Items   []CargoItem   `json:"items"`
-	Ships   []StorageShip `json:"ships,omitempty"`
-	Gifts   []StorageGift `json:"gifts,omitempty"`
-	Hint    string        `json:"hint,omitempty"`
+	BaseID    string            `json:"base_id"`
+	Credits   int               `json:"credits"`
+	Items     []CargoItem       `json:"items"`
+	Ships     []StorageShip     `json:"ships,omitempty"`
+	Gifts     []StorageGift     `json:"gifts,omitempty"`
+	Locations []StorageLocation `json:"locations,omitempty"`
+	Hint      string            `json:"hint,omitempty"`
 
 	Messages json.RawMessage `json:"messages,omitempty"`
 }
