@@ -932,6 +932,35 @@ func (c *Client) GetBase(ctx context.Context) error {
 }
 
 // GetShip gets detailed ship information.
+// getShipPayload builds the get_ship payload. An empty shipID reads the active
+// ship, which is the pre-v0.568.0 behaviour and stays the default.
+func getShipPayload(shipID string) map[string]any {
+	if shipID == "" {
+		return nil
+	}
+	return map[string]any{"ship_id": shipID}
+}
+
+// GetShipByID reads the full fit of a ship by id: one parked at a station, in a
+// faction garage, or racked in a carrier bay, from anywhere in the galaxy with
+// no docking and no travel (v0.568.0).
+//
+// The reply names the ship's location and OMITS drone_bay, because drones ride
+// with the agent rather than the hull -- consistent with a deployed drone
+// surviving a ship switch and continuing to mine in another system.
+func (c *Client) GetShipByID(ctx context.Context, shipID string) error {
+	msg := protocol.Message{
+		Type:      "get_ship",
+		Payload:   getShipPayload(shipID),
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return err
+}
+
 func (c *Client) GetShip(ctx context.Context) error {
 	msg := protocol.Message{
 		Type:      "get_ship",

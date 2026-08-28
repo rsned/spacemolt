@@ -954,6 +954,7 @@ type OwnedShip struct {
 	ShipID         string `json:"ship_id"`
 	ClassID        string `json:"class_id"`
 	ClassName      string `json:"class_name,omitempty"`
+	CustomName     string `json:"custom_name,omitempty"`
 	IsActive       bool   `json:"is_active"`
 	Hull           string `json:"hull,omitempty"`
 	Fuel           string `json:"fuel,omitempty"`
@@ -961,9 +962,15 @@ type OwnedShip struct {
 	Location       string `json:"location,omitempty"`
 	LocationBaseID string `json:"location_base_id,omitempty"`
 	Modules        int    `json:"modules,omitempty"`
-	ListingID      string `json:"listing_id,omitempty"`
-	ListingPrice   int64  `json:"listing_price,omitempty"`
-	ListingBaseID  string `json:"listing_base_id,omitempty"`
+	// ModuleTypeIDs lists what is fitted (v0.568.0). Modules remains the bare
+	// count it always was; this is the answer to "which hull carries a survey
+	// scanner" in one call rather than a visit to every station. It is also the
+	// only way to compute a stored hull's summed mining power, which the
+	// supported_power gate needs -- ship_modules has never captured a row.
+	ModuleTypeIDs []string `json:"module_type_ids,omitempty"`
+	ListingID     string   `json:"listing_id,omitempty"`
+	ListingPrice  int64    `json:"listing_price,omitempty"`
+	ListingBaseID string   `json:"listing_base_id,omitempty"`
 }
 
 // ShipListingDetail represents a ship listed for sale (browse_ships).
