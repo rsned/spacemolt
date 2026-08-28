@@ -209,6 +209,10 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 				}
 			}
 		}
+
+		// Second wildlife reading, now that the POI's work has put real time
+		// between the two samples. See captureWildlifeSecondLook.
+		captureWildlifeSecondLook(client, ctx, poi.ID, poi.Type, format)
 	}
 
 	// Refresh state for statusline.
@@ -547,6 +551,34 @@ func captureSightings(client game.GameClient, ctx context.Context, fn func(conte
 		}
 	}
 	time.Sleep(game.SleepQuick)
+}
+
+// captureWildlifeSecondLook takes a second wildlife reading at a POI the pass
+// is about to leave.
+//
+// A get_nearby creature list is a snapshot of a moment, not a census of the
+// POI. Live 2026-08-28: ashford_ice_shelf reported 0 creatures at 12:41:35 and
+// 3 at 12:43:16, and prismatic_gas_pocket did the same -- creatures move or
+// spawn faster than a POI visit takes. One look per POI therefore records a
+// false negative as fact, which is worse than no reading at all.
+//
+// It is placed at the END of the POI's work rather than beside the first look,
+// so the dock/update in between (get_location plus get_poi) supplies several
+// seconds of real separation. Sampling the same instant twice would learn
+// nothing, and an artificial sleep would cost the pass wall-clock for no gain.
+//
+// get_nearby is a query and costs no tick. It is still a call, so this doubles
+// the per-POI nearby volume -- acceptable at operator-session scale, and worth
+// re-checking against the coverage rows before any fleet role adopts it.
+func captureWildlifeSecondLook(client game.GameClient, ctx context.Context, poiID, poiType string, format outputFormat) {
+	if err := client.GetNearby(ctx); err != nil {
+		if format == formatStyled {
+			fmt.Printf("  (second wildlife look failed: %v)\n", err)
+		}
+		return
+	}
+	time.Sleep(game.SleepQuick)
+	captureWildlifeAtPOI(client, ctx, poiID, poiType, format)
 }
 
 // captureWildlifeAtPOI records the creatures listed in the get_nearby reply
