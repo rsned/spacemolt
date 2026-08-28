@@ -54,7 +54,7 @@ func gateSleep(ctx context.Context, d time.Duration) error {
 }
 
 type gateState struct {
-	LastAttemptNanos int64 `json:"last_attempt_nanos"`
+	LastAttemptNanos  int64 `json:"last_attempt_nanos"`
 	BlockedUntilNanos int64 `json:"blocked_until_nanos"`
 }
 
@@ -191,12 +191,23 @@ func (g *ReconnectGate) withLock(fn func(*gateState) bool) error {
 
 var blockSecondsRe = regexp.MustCompile(`(?i)try again in (\d+)\s*second`)
 
+// retryAfterRe matches the other two shapes the duration arrives in: the
+// standard Retry-After header (rendered as "retry-after: N" by rateLimitDetail)
+// and a JSON body field. Consulted only after blockSecondsRe, which is the
+// server's own prose and the most specific.
+var retryAfterRe = regexp.MustCompile(`(?i)retry[_-]after"?\s*[:=]\s*"?(\d+)`)
+
 // rateLimitBlock extracts how long to back off from a reconnect error. It
 // returns the server-stated "try again in N seconds" when present, else a
 // default cooldown for a bare per-IP block (HTTP 429 / "temporarily blocked" /
 // "rate limit"), else (0,false) for unrelated errors.
 func rateLimitBlock(errText string, deflt time.Duration) (time.Duration, bool) {
 	if m := blockSecondsRe.FindStringSubmatch(errText); m != nil {
+		if n, err := strconv.Atoi(m[1]); err == nil {
+			return time.Duration(n) * time.Second, true
+		}
+	}
+	if m := retryAfterRe.FindStringSubmatch(errText); m != nil {
 		if n, err := strconv.Atoi(m[1]); err == nil {
 			return time.Duration(n) * time.Second, true
 		}

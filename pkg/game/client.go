@@ -240,7 +240,15 @@ const reconnectGateCooldown = 5 * time.Second
 
 // reconnectBlockDefault is how long the fleet holds off on a bare per-IP block
 // (HTTP 429 with no stated duration).
-const reconnectBlockDefault = 60 * time.Second
+//
+// 60s was an order of magnitude short. Every block actually observed stated
+// 444s to 1757s (2026-08-27/28), so a 60s hold released the whole fleet back
+// into a live block, which extended it -- the 8-minute block at 00:40 became
+// 15.5 minutes at 00:48. Under-recording is the expensive direction: waiting
+// too long costs idle time, waiting too little costs an escalating outage.
+// This is only the fallback -- a server that states its duration is believed,
+// and rateLimitDetail now makes sure that number actually reaches us.
+const reconnectBlockDefault = 5 * time.Minute
 
 // SetReconnectGate attaches a host-wide reconnect coordinator. Call it on the
 // production agent path; leaving it unset keeps reconnects uncoordinated.
@@ -621,8 +629,15 @@ func (c *Client) Connect(ctx context.Context) error {
 			// then to disabled, if the server does not advertise support.
 			CompressionMode: websocket.CompressionContextTakeover,
 		})
-		if resp != nil && resp.Body != nil {
-			_ = resp.Body.Close()
+		// Read the server's stated back-off BEFORE closing the body: it is the
+		// only place the real block duration is published, and discarding it is
+		// what made the gate record a 60s default against a 900s block.
+		rlDetail := ""
+		if resp != nil {
+			rlDetail = rateLimitDetail(resp)
+			if resp.Body != nil {
+				_ = resp.Body.Close()
+			}
 		}
 		if err == nil {
 			// Success!
@@ -631,20 +646,30 @@ func (c *Client) Connect(ctx context.Context) error {
 
 		// Check if this is a 429 (rate limit) error
 		errMsg := err.Error()
-		isRateLimited := false
-		if len(errMsg) > 0 {
-			// Check for "429" in error message
-			for i := 0; i < len(errMsg)-2; i++ {
-				if errMsg[i:i+3] == "429" {
-					isRateLimited = true
-					break
-				}
+		isRateLimited := strings.Contains(errMsg, "429") ||
+			(resp != nil && resp.StatusCode == http.StatusTooManyRequests)
+
+		// Carry the stated duration into the error so the caller's
+		// recordRateLimitBlock publishes the REAL block to the host-wide gate.
+		wrap := func() error {
+			if rlDetail != "" {
+				return fmt.Errorf("failed to connect: %w (%s)", err, rlDetail)
 			}
+			return fmt.Errorf("failed to connect: %w", err)
 		}
 
 		// If this is the last attempt, or not a rate limit error, fail
 		if attempt >= maxRetries || !isRateLimited {
-			return fmt.Errorf("failed to connect: %w", err)
+			return wrap()
+		}
+
+		// The server told us how long the block lasts. Retrying inside this
+		// loop cannot outlast it -- the whole budget here is ~62s against
+		// blocks of 444s and up -- and every dial re-triggers the block for
+		// everyone. Return now so the gate records it and the caller waits it
+		// out properly, instead of burning six dials per gated login slot.
+		if _, stated := rateLimitBlock(rlDetail, 0); stated {
+			return wrap()
 		}
 
 		// Calculate exponential backoff delay
