@@ -219,7 +219,12 @@ func diffMissionRows(old, new missionCatalogRow) []MissionFieldDiff {
 	add("dialog_complete", old.DialogComplete, new.DialogComplete)
 	add("chain_next", old.ChainNext, new.ChainNext)
 	addBool("repeatable", old.Repeatable, new.Repeatable)
-	addInt("expires_in_ticks", old.ExpiresInTicks, new.ExpiresInTicks)
+	// expires_in_ticks is deliberately NOT diffed. It is a countdown on a live
+	// board, not a property of the template, so diffing it reported the whole
+	// board as changed on every capture -- nine "template changed" lines in one
+	// grand_exchange_station read on 2026-08-28, every one of them just 22 ticks
+	// of elapsed time. What the column keeps instead is the longest window ever
+	// seen (see missionOfferWindow), which is a template property.
 	addInt("rewards_credits", old.RewardsCredits, new.RewardsCredits)
 	add("rewards_skill_xp", old.RewardsSkillXP, new.RewardsSkillXP)
 	add("rewards_items", old.RewardsItems, new.RewardsItems)
@@ -229,6 +234,16 @@ func diffMissionRows(old, new missionCatalogRow) []MissionFieldDiff {
 	add("objectives", old.Objectives, new.Objectives)
 
 	return diffs
+}
+
+// missionOfferWindow is how long this mission is offered when freshly posted.
+//
+// Any given sighting catches the mission somewhere down its countdown, so the
+// largest value ever observed converges on the window at creation, and a later,
+// smaller reading is just a later sighting -- never new information about the
+// template. Same shape as the MAX(max_hull) merge in the wildlife upsert.
+func missionOfferWindow(old, new int) int {
+	return max(old, new)
 }
 
 func missionItoa(n int) string {

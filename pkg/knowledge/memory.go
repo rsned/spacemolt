@@ -13,13 +13,13 @@ import (
 
 // MemoryKB is an in-memory knowledge base for MVP
 type MemoryKB struct {
-	mu              sync.RWMutex
-	systems         map[string]*System
-	pois            map[string]*POI
-	bases           map[string]*SpaceBase
-	connections     map[string][]SystemConnection // from_system -> []to_system
-	experiences     map[string][]Experience       // agent_id -> experiences
-	agents          map[string]*AgentInfo
+	mu           sync.RWMutex
+	systems      map[string]*System
+	pois         map[string]*POI
+	bases        map[string]*SpaceBase
+	connections  map[string][]SystemConnection // from_system -> []to_system
+	experiences  map[string][]Experience       // agent_id -> experiences
+	agents       map[string]*AgentInfo
 	shipListings []ShipListings
 
 	// Catalog data
@@ -65,7 +65,7 @@ func NewMemoryKB() *MemoryKB {
 		connections:      make(map[string][]SystemConnection),
 		experiences:      make(map[string][]Experience),
 		agents:           make(map[string]*AgentInfo),
-		shipListings: make([]ShipListings, 0),
+		shipListings:     make([]ShipListings, 0),
 		items:            make(map[string]CatalogItem),
 		shipClasses:      make(map[string]ShipClassDef),
 		skills:           make(map[string]Skill),
@@ -141,9 +141,9 @@ func (kb *MemoryKB) GetConnections(ctx context.Context) ([]Connection, error) {
 	for fromID, sys := range kb.systems {
 		for _, conn := range sys.Connections {
 			connections = append(connections, Connection{
-				FromSystem:     fromID,
-				ToSystem:       conn.SystemID,
-				Distance:       conn.Distance,
+				FromSystem:      fromID,
+				ToSystem:        conn.SystemID,
+				Distance:        conn.Distance,
 				LastUpdatedTick: sys.LastUpdatedTick,
 			})
 		}
@@ -364,20 +364,20 @@ type SystemConnection struct {
 // Unlike SystemConnection (which is embedded in System), this is a standalone
 // record for graph building queries.
 type Connection struct {
-	FromSystem     string
-	ToSystem       string
-	Distance       int
+	FromSystem      string
+	ToSystem        string
+	Distance        int
 	LastUpdatedTick int64
 }
 
 // ConnectionMetric represents aggregated travel metrics for a connection.
 // Used for weighted pathfinding (fuel cost, travel time).
 type ConnectionMetric struct {
-	FromSystem   string
-	ToSystem     string
-	AvgFuelCost  float64
+	FromSystem    string
+	ToSystem      string
+	AvgFuelCost   float64
 	AvgTravelTime float64
-	LastTraveled string // ISO-8601 timestamp
+	LastTraveled  string // ISO-8601 timestamp
 }
 
 // System represents knowledge about a solar system
@@ -1085,7 +1085,13 @@ func (kb *MemoryKB) UpsertMissionTemplate(
 	now := time.Now().UTC()
 
 	if existing, ok := kb.missionCatalog[row.ID]; ok {
-		if diffs := diffMissionRows(existing, row); len(diffs) > 0 {
+		// Keep the longest offer window ever seen; a shorter reading is just a
+		// later sighting of the same posting. Written even when nothing else
+		// differs, or a longer window learned from a fresh posting would be
+		// dropped along with the countdown noise it arrives with.
+		row.ExpiresInTicks = missionOfferWindow(existing.ExpiresInTicks, row.ExpiresInTicks)
+		diffs := diffMissionRows(existing, row)
+		if len(diffs) > 0 || row.ExpiresInTicks != existing.ExpiresInTicks {
 			res.Diffs = diffs
 			kb.missionCatalog[row.ID] = row
 		}

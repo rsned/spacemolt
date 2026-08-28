@@ -33,8 +33,11 @@ func (kb *SQLiteKB) UpsertMissionTemplate(
 
 	res := &MissionUpsertResult{}
 	if existed {
+		// See the MemoryKB path: the column keeps the longest offer window
+		// observed, not the live countdown.
+		row.ExpiresInTicks = missionOfferWindow(existing.ExpiresInTicks, row.ExpiresInTicks)
 		diffs := diffMissionRows(existing, row)
-		if len(diffs) > 0 {
+		if len(diffs) > 0 || row.ExpiresInTicks != existing.ExpiresInTicks {
 			res.Diffs = diffs
 			if err := updateMissionRow(ctx, tx, row, tick, now); err != nil {
 				return nil, err
