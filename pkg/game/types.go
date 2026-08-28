@@ -245,6 +245,13 @@ type POIResource struct {
 	ResourceID string  `json:"resource_id"`
 	Richness   float64 `json:"richness"`
 	Remaining  float64 `json:"remaining"`
+	// MaxRemaining is the deposit's capacity, reported only by get_poi.
+	// Without it Remaining is a bare number: 8,046 units reads the same whether
+	// the deposit is nearly full (cap 9,000) or nearly stripped (cap 50,000).
+	// It also fixes the resource's highest possible mining ceiling, since
+	// supported_power is floor(remaining/20) -- see the mining gate. Zero means
+	// "not reported", which is every capture sourced from get_location.
+	MaxRemaining float64 `json:"max_remaining,omitempty"`
 }
 
 // SystemData holds complete system information including POIs, connections, and security status.

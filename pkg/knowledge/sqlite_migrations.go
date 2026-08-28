@@ -778,6 +778,28 @@ func migrations() []Migration {
 					ADD COLUMN survey_power INTEGER NOT NULL DEFAULT 0;
 			`,
 		},
+		{
+			// max_remaining is a deposit's capacity and only get_poi reports it;
+			// get_location gives remaining alone. Without the cap, `remaining`
+			// cannot be read as depletion -- 8,046 units is nearly full at a cap
+			// of 9,000 and nearly stripped at 50,000, and both occur at the same
+			// POI (Frostmarket Flats, haven).
+			//
+			// It also bounds the mining gate. supported_power is
+			// floor(remaining/20), so the cap fixes a resource's highest ever
+			// ceiling: 2,500 for a 50k deposit but only 450 for a 9k one. That
+			// is what decides whether a heavy rig can EVER work a resource
+			// rather than only while it is near full.
+			//
+			// Default 0 means "not reported", which is every row captured
+			// before this migration and every row sourced from get_location.
+			version: 53,
+			name:    "poi_resource_max_remaining",
+			sql: `
+				ALTER TABLE poi_resources
+					ADD COLUMN max_remaining REAL NOT NULL DEFAULT 0;
+			`,
+		},
 		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
 		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
 		// pre-collapse DBs, where `ships` does not exist until
@@ -856,6 +878,27 @@ func runMigrations(db *sql.DB) error {
 				`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='pois'`,
 			).Scan(&tableCount); err != nil {
 				return fmt.Errorf("check pois table: %w", err)
+			}
+			if tableCount == 0 {
+				if _, err := db.Exec(
+					"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+					m.version,
+				); err != nil {
+					return fmt.Errorf("failed to record migration %d: %w", m.version, err)
+				}
+				continue
+			}
+		}
+
+		// Special case for migration 53: same shape as 40 -- poi_resources comes
+		// from migration 1, and the narrow fixtures fake "migration 1 applied"
+		// without creating it.
+		if m.version == 53 {
+			var tableCount int
+			if err := db.QueryRow(
+				`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='poi_resources'`,
+			).Scan(&tableCount); err != nil {
+				return fmt.Errorf("check poi_resources table: %w", err)
 			}
 			if tableCount == 0 {
 				if _, err := db.Exec(

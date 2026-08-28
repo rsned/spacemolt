@@ -377,18 +377,21 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 	// data. So: never DELETE (keep resources this scan didn't mention), keep the
 	// MAX richness ever observed (richness is intrinsic — best detection wins),
 	// and take remaining + provenance from the newest observation (remaining
-	// depletes over time).
+	// depletes over time). max_remaining is kept when the incoming row does not
+	// carry one: only get_poi reports capacity, so a get_location capture saying
+	// nothing about it must not zero what get_poi established.
 	detectedBy := sql.NullString{String: poi.DetectedBy, Valid: poi.DetectedBy != ""}
 	for _, res := range poi.Resources {
 		_, err = tx.ExecContext(ctx, `
-			INSERT INTO poi_resources (poi_id, resource_id, richness, remaining, last_updated_tick, detected_by)
-			VALUES (?, ?, ?, ?, ?, ?)
+			INSERT INTO poi_resources (poi_id, resource_id, richness, remaining, max_remaining, last_updated_tick, detected_by)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(poi_id, resource_id) DO UPDATE SET
 				richness          = MAX(poi_resources.richness, excluded.richness),
+				max_remaining     = CASE WHEN excluded.max_remaining > 0 THEN excluded.max_remaining ELSE poi_resources.max_remaining END,
 				remaining         = CASE WHEN excluded.last_updated_tick >= poi_resources.last_updated_tick THEN excluded.remaining ELSE poi_resources.remaining END,
 				detected_by       = CASE WHEN excluded.last_updated_tick >= poi_resources.last_updated_tick AND excluded.detected_by IS NOT NULL AND excluded.detected_by != '' THEN excluded.detected_by ELSE poi_resources.detected_by END,
 				last_updated_tick = MAX(poi_resources.last_updated_tick, excluded.last_updated_tick)
-		`, poi.ID, res.ResourceID, res.Richness, res.Remaining, poi.LastUpdatedTick, detectedBy)
+		`, poi.ID, res.ResourceID, res.Richness, res.Remaining, res.MaxRemaining, poi.LastUpdatedTick, detectedBy)
 		if err != nil {
 			return fmt.Errorf("failed to upsert POI resource: %w", err)
 		}

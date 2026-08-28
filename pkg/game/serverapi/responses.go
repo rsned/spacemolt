@@ -39,6 +39,24 @@ type GetPOIResponse struct {
 	PoliceWarning string            `json:"police_warning,omitempty"`
 	Resources     []ResourceDisplay `json:"resources,omitempty"`
 	Services      []string          `json:"services,omitempty"`
+	ActiveBattle  *ActiveBattle     `json:"active_battle,omitempty"`
+
+	// Fuel pricing at this POI's base. all_in folds in the per-unit tax.
+	FuelPrice           int `json:"fuel_price,omitempty"`
+	FuelPriceAllIn      int `json:"fuel_price_all_in,omitempty"`
+	FuelTaxPerUnit      int `json:"fuel_tax_per_unit,omitempty"`
+	FactionFuelReserve  int `json:"faction_fuel_reserve,omitempty"`
+	FactionFuelCapacity int `json:"faction_fuel_capacity,omitempty"`
+
+	// Wormhole detail, present only on wormhole POIs. ExpiresIn is a STRING in
+	// the spec, not a tick count. We hold 5 wormhole_entrance and 4
+	// wormhole_exit POIs with no expiry recorded on any of them, alongside 43
+	// already collapsed -- so this is the field that separates a wormhole worth
+	// routing through from one about to strand the ship on the far side.
+	WormholeDestination    string `json:"wormhole_destination,omitempty"`
+	WormholeDestinationID  string `json:"wormhole_destination_id,omitempty"`
+	WormholeExpiresIn      string `json:"wormhole_expires_in,omitempty"`
+	WormholePredictionHint string `json:"wormhole_prediction_hint,omitempty"`
 }
 
 // GetStatusResponse wraps the response from get_status command.

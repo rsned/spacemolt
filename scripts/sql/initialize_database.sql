@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 24
--- Last Regenerated: 2026-08-17
+-- Migrations applied: 25
+-- Last Regenerated: 2026-08-28
 
 -- ============================================================================
 -- TABLES
@@ -636,7 +636,7 @@ CREATE TABLE poi_resources (
 	resource_id TEXT NOT NULL,
 	richness REAL NOT NULL,
 	remaining REAL NOT NULL,
-	last_updated_tick INTEGER DEFAULT 0, detected_by TEXT,
+	last_updated_tick INTEGER DEFAULT 0, detected_by TEXT, max_remaining REAL NOT NULL DEFAULT 0,
 	PRIMARY KEY (poi_id, resource_id),
 	FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
 );
@@ -1225,4 +1225,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (49, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (50, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (51, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (52, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (53, datetime('now'));
 

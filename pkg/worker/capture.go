@@ -457,6 +457,57 @@ func GetLocationPOI(ctx context.Context, client game.GameClient) (game.POI, erro
 	return poi, nil
 }
 
+// mergePOIDetail folds a get_poi reading into a get_location one.
+//
+// The two commands see different things and neither is a superset. get_location
+// has the live resource numbers, nearby players/pirates/NPCs and the system's
+// connections; get_poi has description, class, position, hidden,
+// reveal_difficulty, expires_at and each resource's max_remaining. Both are
+// captured at every POI rather than special-casing which POIs "deserve" the
+// second query: the fields that only get_poi carries appear on wormholes and
+// hidden belts, and deciding in advance which POI is which is the same
+// discriminator-trusting that silently dropped twelve harvesters from
+// item_mining.
+//
+// Merge rule: detail only ever FILLS, never blanks. A failed or empty get_poi
+// therefore degrades to exactly today's behaviour instead of wiping a row.
+func mergePOIDetail(dst *game.POI, detail game.POI) {
+	if dst == nil {
+		return
+	}
+	if dst.Class == "" {
+		dst.Class = detail.Class
+	}
+	if dst.Description == "" {
+		dst.Description = detail.Description
+	}
+	if dst.Position.X == 0 && dst.Position.Y == 0 {
+		dst.Position = detail.Position
+	}
+	if detail.Hidden {
+		dst.Hidden = true
+	}
+	if detail.RevealDifficulty != 0 {
+		dst.RevealDifficulty = detail.RevealDifficulty
+	}
+	if detail.ExpiresAt != "" {
+		dst.ExpiresAt = detail.ExpiresAt
+	}
+	// Capacity is per resource and only get_poi reports it. Match by id: a
+	// resource the detail omits keeps whatever it already had.
+	caps := make(map[string]float64, len(detail.Resources))
+	for _, r := range detail.Resources {
+		if r.MaxRemaining > 0 {
+			caps[r.ResourceID] = r.MaxRemaining
+		}
+	}
+	for i := range dst.Resources {
+		if c, ok := caps[dst.Resources[i].ResourceID]; ok {
+			dst.Resources[i].MaxRemaining = c
+		}
+	}
+}
+
 // KBUpdatePOI fetches current POI data and saves it to the knowledge base.
 // detectedBy records which agent observed the data (POI provenance).
 func KBUpdatePOI(ctx context.Context, client game.GameClient, kb knowledge.Base, detectedBy string) error {
@@ -476,6 +527,13 @@ func KBUpdatePOIData(ctx context.Context, client game.GameClient, kb knowledge.B
 	if err != nil {
 		return game.POI{}, err
 	}
+	// Both commands, every POI. get_poi is a query and costs no tick; its
+	// failure is not fatal because the merge only fills.
+	if detail, derr := GetPOI(ctx, client); derr == nil {
+		mergePOIDetail(&poi, detail)
+	} else {
+		fmt.Printf("Warning: get_poi detail for %s: %v\n", poi.ID, derr)
+	}
 	state := client.GetState()
 
 	kbPOI := knowledge.POI{
@@ -491,9 +549,12 @@ func KBUpdatePOIData(ctx context.Context, client game.GameClient, kb knowledge.B
 		},
 		Hidden:           poi.Hidden,
 		RevealDifficulty: poi.RevealDifficulty,
-		Resources:        poi.Resources,
-		LastUpdatedTick:  currentTick(state),
-		DetectedBy:       detectedBy,
+		// Carried through at last: the row had no ExpiresAt at all, so the nine
+		// live wormholes we hold all had a blank expiry even when one was known.
+		ExpiresAt:       poi.ExpiresAt,
+		Resources:       poi.Resources,
+		LastUpdatedTick: currentTick(state),
+		DetectedBy:      detectedBy,
 	}
 	if kbPOI.SystemID == "" {
 		kbPOI.SystemID = state.System.ID

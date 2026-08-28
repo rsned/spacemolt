@@ -32,6 +32,9 @@ type POIResource struct {
 	Name             string  `json:"name,omitempty"`
 	Richness         float64 `json:"richness"`
 	Remaining        float64 `json:"remaining"`
+	MaxRemaining     float64 `json:"max_remaining,omitempty"`
+	SupportedPower   int     `json:"supported_power,omitempty"`
+	DepletionPercent float64 `json:"depletion_percent,omitempty"`
 	RemainingDisplay string  `json:"remaining_display,omitempty"`
 }
 
