@@ -7775,10 +7775,17 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "skills", "get_skills":
 		return simpleCommand(client, client.GetSkills, ctx, 2*time.Second, cmd, format)
 
-	case "poi", "get_poi":
-		// get_poi was retired server-side (2026-06-24). Transparently run
-		// get_location, which returns the current POI plus its live resources,
-		// and format it through the get_location renderer.
+	case "get_poi":
+		// get_poi is LIVE. It was rerouted here to get_location on the belief
+		// that the server retired it on 2026-06-24; the spec of 2026-08-27
+		// documents /get_poi across 216 paths and has no /get_location at all.
+		// The two are complementary, not interchangeable: get_poi carries
+		// hidden, reveal_difficulty and the wormhole fields, while get_location
+		// carries nearby NPCs/pirates/players, connections and a per-resource
+		// supported_power. Both are reachable now, each under its own name.
+		return simpleCommand(client, client.GetPOI, ctx, 2*time.Second, "get_poi", format)
+
+	case "poi", "get_location", "location":
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "get_location", nil)
 		}, ctx, 2*time.Second, "get_location", format)

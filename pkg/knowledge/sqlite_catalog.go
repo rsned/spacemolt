@@ -93,15 +93,6 @@ func storeItemDetails(ctx context.Context, tx *sql.Tx, item CatalogItem) error {
 					return err
 				}
 			}
-		case "mining":
-			if mi := m.Mining; mi != nil {
-				if _, err := tx.ExecContext(ctx, `
-					INSERT INTO item_mining (item_id, mining_power, mining_range)
-					VALUES (?, ?, ?)
-				`, item.ID, mi.MiningPower, mi.MiningRange); err != nil {
-					return err
-				}
-			}
 		case "utility":
 			if u := m.Utility; u != nil {
 				if _, err := tx.ExecContext(ctx, `
@@ -118,6 +109,18 @@ func storeItemDetails(ctx context.Context, tx *sql.Tx, item CatalogItem) error {
 					u.HullPenalty, u.SpeedPenalty, u.Cooldown); err != nil {
 					return err
 				}
+			}
+		}
+
+		// Outside the type switch on purpose: a harvester is type="utility" and
+		// still has mining power, so the mining row is keyed on the detail
+		// existing, not on the module's declared type.
+		if mi := m.Mining; mi != nil {
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO item_mining (item_id, mining_power, mining_range)
+				VALUES (?, ?, ?)
+			`, item.ID, mi.MiningPower, mi.MiningRange); err != nil {
+				return err
 			}
 		}
 	}

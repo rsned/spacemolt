@@ -32,34 +32,34 @@ type CatalogItemJSON struct {
 	Tradeable bool   `json:"tradeable"`
 
 	// Module common fields (present when type/type_id are set)
-	Type      string `json:"type"`
-	TypeID    string `json:"type_id"`
-	Slot      string `json:"slot"`
-	CPUUsage  int    `json:"cpu_usage"`
-	PowerUsage int   `json:"power_usage"`
-	Hidden    bool   `json:"hidden"`
-	Special   string `json:"special"`
+	Type       string `json:"type"`
+	TypeID     string `json:"type_id"`
+	Slot       string `json:"slot"`
+	CPUUsage   int    `json:"cpu_usage"`
+	PowerUsage int    `json:"power_usage"`
+	Hidden     bool   `json:"hidden"`
+	Special    string `json:"special"`
 
 	// Weapon fields
-	Damage      int    `json:"damage"`
-	DamageType  string `json:"damage_type"`
-	Range       *int   `json:"range"`
-	Reach       *int   `json:"reach"`
-	Cooldown    int    `json:"cooldown"`
-	AmmoType    string `json:"ammo_type"`
-	MagazineSize *int  `json:"magazine_size"`
+	Damage       int    `json:"damage"`
+	DamageType   string `json:"damage_type"`
+	Range        *int   `json:"range"`
+	Reach        *int   `json:"reach"`
+	Cooldown     int    `json:"cooldown"`
+	AmmoType     string `json:"ammo_type"`
+	MagazineSize *int   `json:"magazine_size"`
 
 	// Defense fields
-	ArmorBonus          *int     `json:"armor_bonus"`
-	HullBonus           *int     `json:"hull_bonus"`
-	ShieldBonus         *int     `json:"shield_bonus"`
-	ShieldRechargeBonus *int     `json:"shield_recharge_bonus"`
-	ArmorRepairRate     *int     `json:"armor_repair_rate"`
+	ArmorBonus          *int               `json:"armor_bonus"`
+	HullBonus           *int               `json:"hull_bonus"`
+	ShieldBonus         *int               `json:"shield_bonus"`
+	ShieldRechargeBonus *int               `json:"shield_recharge_bonus"`
+	ArmorRepairRate     *int               `json:"armor_repair_rate"`
 	ResistanceBonus     map[string]float64 `json:"resistance_bonus"`
-	DamageReduction     *float64 `json:"damage_reduction"`
-	CloakStrength       *int     `json:"cloak_strength"`
-	ArmorBypassBonus    *float64 `json:"armor_bypass_bonus"`
-	ShieldBypassBonus   *float64 `json:"shield_bypass_bonus"`
+	DamageReduction     *float64           `json:"damage_reduction"`
+	CloakStrength       *int               `json:"cloak_strength"`
+	ArmorBypassBonus    *float64           `json:"armor_bypass_bonus"`
+	ShieldBypassBonus   *float64           `json:"shield_bypass_bonus"`
 
 	// Mining fields
 	MiningPower int `json:"mining_power"`
@@ -278,13 +278,13 @@ func convertModule(j CatalogItemJSON) *knowledge.ItemModule {
 	switch j.Type {
 	case "weapon":
 		m.Weapon = &knowledge.ItemWeapon{
-			Damage:       j.Damage,
-			DamageType:   j.DamageType,
-			Range:        j.Range,
-			Reach:        j.Reach,
-			Cooldown:     j.Cooldown,
-			AmmoType:     j.AmmoType,
-			MagazineSize: j.MagazineSize,
+			Damage:            j.Damage,
+			DamageType:        j.DamageType,
+			Range:             j.Range,
+			Reach:             j.Reach,
+			Cooldown:          j.Cooldown,
+			AmmoType:          j.AmmoType,
+			MagazineSize:      j.MagazineSize,
 			ArmorBypassBonus:  j.ArmorBypassBonus,
 			ShieldBypassBonus: j.ShieldBypassBonus,
 		}
@@ -304,10 +304,7 @@ func convertModule(j CatalogItemJSON) *knowledge.ItemModule {
 			Range:               j.Range,
 		}
 	case "mining":
-		m.Mining = &knowledge.ItemMining{
-			MiningPower: j.MiningPower,
-			MiningRange: j.MiningRange,
-		}
+		// Handled below, on the data rather than the type.
 	case "utility":
 		m.Utility = &knowledge.ItemUtility{
 			SpeedBonus:      j.SpeedBonus,
@@ -330,6 +327,25 @@ func convertModule(j CatalogItemJSON) *knowledge.ItemModule {
 			HullPenalty:     j.HullPenalty,
 			SpeedPenalty:    j.SpeedPenalty,
 			Cooldown:        intPtrIfNonZero(j.Cooldown),
+		}
+	}
+
+	// Route the mining detail on mining_power itself, not on j.Type.
+	//
+	// mining_power does not follow type: all twelve gas/ice/rad harvesters are
+	// type="utility" and carry it (8/18/35/60 by tier), so a type switch filed
+	// 13 of the catalog's 25 powered modules and silently dropped the rest --
+	// item_utilities.harvest_power was empty for all twelve, so the value was
+	// simply lost. A harvester is BOTH: it keeps its utility row and gains a
+	// mining row.
+	//
+	// Under-counting is the dangerous direction. Mining succeeds only while a
+	// fit's summed power stays BELOW a resource's supported_power, so a rig
+	// whose harvesters read 0 looks safely under a ceiling it is actually over.
+	if j.MiningPower != 0 || j.MiningRange != 0 {
+		m.Mining = &knowledge.ItemMining{
+			MiningPower: j.MiningPower,
+			MiningRange: j.MiningRange,
 		}
 	}
 
