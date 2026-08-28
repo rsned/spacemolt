@@ -17,9 +17,17 @@ import (
 // storing, is reported and stepped over. A hunt that dies because bookkeeping
 // failed would be a worse trade than a gap in the guide.
 func huntCaptureWildlife(ctx context.Context, deps HuntDeps, out io.Writer, nearby serverapi.GetNearbyResponse, poiID string) {
-	if len(nearby.Creatures) == 0 {
-		return
-	}
+	// An empty creature list is NOT a reason to return. CaptureWildlifeNearby
+	// writes its coverage row first and unconditionally so a look that found
+	// nothing still leaves a trace; returning here skipped that and
+	// reintroduced the failure its comment warns about -- a fully surveyed
+	// system reading as half unvisited. The hunt fleet walks far more POIs than
+	// any operator session, so it lost the most coverage.
+	//
+	// Wildlife is transient: ashford_ice_shelf reported 0 creatures at 12:41:35
+	// and 3 at 12:43:16 on 2026-08-28, 101 seconds apart. An empty reading is
+	// real data about a moment, not an absence of habitat, and only the
+	// coverage row separates "looked, found none" from "never looked".
 	systemID, tick := huntWhere(deps)
 	// The reply names its own POI; prefer it over the id the pass travelled to,
 	// which can be a tick stale after an interrupted travel.

@@ -566,10 +566,16 @@ func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, po
 	if err := json.Unmarshal(raw, &nearby); err != nil {
 		return
 	}
-	if len(nearby.Creatures) == 0 {
-		return
-	}
-
+	// NO early return on an empty creature list. CaptureWildlifeNearby records
+	// its coverage row first and unconditionally, precisely so a look that
+	// found nothing still leaves a trace -- returning here skipped that and
+	// reintroduced the failure its comment warns about, a fully surveyed system
+	// reading as half unvisited.
+	//
+	// Wildlife is transient: ashford_ice_shelf reported 0 creatures at 12:41:35
+	// and 3 at 12:43:16 on 2026-08-28, 101 seconds apart. So an empty reading
+	// is real data about a moment, not an absence of habitat, and only the
+	// coverage row can tell "looked, found none" from "never looked".
 	state := client.GetState()
 	systemID := ""
 	if state != nil {
