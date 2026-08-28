@@ -315,9 +315,9 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 		}
 
 		// The census rides along on every survey and costs nothing extra, so
-		// capture it outside the format branch — unlike saveSurveyPOIs below,
-		// which only runs for styled output. The game ships no wildlife
-		// catalog, so this and get_nearby are the whole field guide.
+		// capture it outside the format branch, like the revealed POIs below.
+		// The game ships no wildlife catalog, so this and get_nearby are the
+		// whole field guide.
 		if n, err := knowledge.CaptureWildlifeSurvey(ctx, globalKB, resp, globalAgentID, currentTick(client.GetState())); err != nil {
 			if format == formatStyled {
 				fmt.Printf("  (wildlife census not saved: %v)\n", err)
@@ -328,6 +328,12 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 				fmt.Printf(" | bloom %s (%.2f)", resp.BloomStatus, resp.BloomIntensity)
 			}
 			fmt.Println()
+		}
+
+		// Revealed POIs, both lists, in every output format. Capture is not a
+		// property of how the caller wants the result printed.
+		if globalKB != nil {
+			saveSurveyPOIs(client, ctx, resp)
 		}
 
 		if format == formatStyled {
@@ -348,9 +354,6 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 						fmt.Printf("      Resource: %s (richness: %.0f, remaining: %.0f/%.0f)\n",
 							r.ResourceID, r.Richness, r.Remaining, r.MaxRemaining)
 					}
-				}
-				if globalKB != nil {
-					saveSurveyPOIs(client, ctx, resp)
 				}
 			}
 
@@ -394,9 +397,6 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 			}
 		} else {
 			// In raw/json mode, still save POIs to KB
-			if len(resp.NewlyRevealed) > 0 && globalKB != nil {
-				saveSurveyPOIs(client, ctx, resp)
-			}
 			if len(resp.FaintSignatures) > 0 && globalKB != nil {
 				saveFaintSignatures(client, ctx, resp)
 			}
@@ -441,35 +441,62 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 	}
 }
 
-// saveSurveyPOIs saves newly revealed POIs from a survey to the knowledge
+// saveSurveyPOIs saves every POI a survey revealed -- newly and already -- to
 // base, preserving full resource data and explicitly marking them as revealed.
 // reveal_difficulty is not included in the survey response; it will be picked
 // up later when the agent visits the POI and runs update_poi.
 func saveSurveyPOIs(client game.GameClient, ctx context.Context, resp serverapi.SurveySystemResponse) {
-	state := client.GetState()
-	for _, revealed := range resp.NewlyRevealed {
-		kbPOI := knowledge.POI{
-			ID:          revealed.ID,
-			SystemID:    resp.SystemID,
-			Name:        revealed.Name,
-			Type:        revealed.Type,
-			Description: revealed.Description,
-			// The POI was just revealed by this survey — it is no longer hidden.
-			Hidden:          false,
-			LastUpdatedTick: currentTick(state),
-			DetectedBy:      globalAgentID,
-		}
-		for _, r := range revealed.Resources {
-			kbPOI.Resources = append(kbPOI.Resources, game.POIResource{
-				ResourceID: r.ResourceID,
-				Richness:   r.Richness,
-				Remaining:  r.Remaining,
-			})
-		}
+	for _, kbPOI := range surveyPOIsToKB(resp, globalAgentID, currentTick(client.GetState())) {
 		if err := globalKB.RememberPOI(ctx, kbPOI); err != nil {
-			fmt.Printf("    Warning: failed to save revealed POI %s: %v\n", revealed.Name, err)
+			fmt.Printf("    Warning: failed to save revealed POI %s: %v\n", kbPOI.Name, err)
 		}
 	}
+}
+
+// surveyPOIsToKB converts a survey's revealed POIs into knowledge rows.
+//
+// BOTH lists are captured. A hidden POI is newly revealed exactly once, ever;
+// every survey after that reports it under already_revealed, which this used to
+// ignore -- so its resources could only be refreshed by physically flying to
+// it. Live 2026-08-28: prismatic_gas_pocket's resource row sat at tick
+// 1,020,715 while the POI row read 1,736,298, and the survey reply carrying the
+// current numbers was thrown away.
+//
+// Hidden is TRUE for both lists. It is intrinsic to the POI, not "not yet
+// revealed to you" -- get_poi reports hidden:true for prismatic_gas_pocket, a
+// POI already revealed to us. This code used to hardcode false with the comment
+// "it is no longer hidden", writing false over the correct value; because the
+// upsert is tick-guarded, the newer survey write then clobbered it. SurveyedPOI
+// carries no hidden field, but needing a survey to see it is exactly what
+// hidden means.
+func surveyPOIsToKB(resp serverapi.SurveySystemResponse, agentID string, tick int64) []knowledge.POI {
+	revealed := make([]serverapi.RevealedPOI, 0, len(resp.NewlyRevealed)+len(resp.AlreadyRevealed))
+	revealed = append(revealed, resp.NewlyRevealed...)
+	revealed = append(revealed, resp.AlreadyRevealed...)
+
+	out := make([]knowledge.POI, 0, len(revealed))
+	for _, r := range revealed {
+		kbPOI := knowledge.POI{
+			ID:              r.ID,
+			SystemID:        resp.SystemID,
+			Name:            r.Name,
+			Type:            r.Type,
+			Description:     r.Description,
+			Hidden:          true,
+			LastUpdatedTick: tick,
+			DetectedBy:      agentID,
+		}
+		for _, res := range r.Resources {
+			kbPOI.Resources = append(kbPOI.Resources, game.POIResource{
+				ResourceID:   res.ResourceID,
+				Richness:     res.Richness,
+				Remaining:    res.Remaining,
+				MaxRemaining: res.MaxRemaining,
+			})
+		}
+		out = append(out, kbPOI)
+	}
+	return out
 }
 
 // saveFaintSignatures saves faint (unresolved) survey signatures as placeholder
