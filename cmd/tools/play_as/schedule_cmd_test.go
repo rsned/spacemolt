@@ -66,3 +66,21 @@ func TestHandleScheduleAddRejectsSchedulingItself(t *testing.T) {
 		t.Errorf("scheduling a schedule_* builtin should be rejected")
 	}
 }
+
+func TestHandleScheduleAddAcceptsShortInterval(t *testing.T) {
+	s := newTestScheduler(t)
+	now := time.Date(2026, 8, 29, 12, 5, 0, 0, time.UTC)
+	ran := 0
+	handleScheduleAdd(s, func(string) { ran++ }, now, []string{"30m", "get_system_agents"})
+
+	tasks := s.List()
+	if len(tasks) != 1 {
+		t.Fatalf("want 1 scheduled task, got %d", len(tasks))
+	}
+	if tasks[0].Frequency != "half_hourly" {
+		t.Errorf("Frequency = %q, want half_hourly", tasks[0].Frequency)
+	}
+	if ran != 1 {
+		t.Errorf("command should run once immediately, ran %d", ran)
+	}
+}

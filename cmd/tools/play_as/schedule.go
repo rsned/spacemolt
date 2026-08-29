@@ -13,7 +13,8 @@ import (
 // task, and (run-immediately) executes the command once via runner.
 func handleScheduleAdd(s *worker.Scheduler, runner func(string), now time.Time, args []string) {
 	if len(args) < 2 {
-		fmt.Println("usage: schedule_add <hourly|daily|weekly> <command...>")
+		fmt.Println("usage: schedule_add <10m|15m|30m|1h|12h|1d|1w> <command...>")
+		fmt.Println("       (canonical names also accepted: ten_minutely quarter_hourly half_hourly hourly twice_daily daily weekly)")
 		return
 	}
 	freq := strings.ToLower(args[0])

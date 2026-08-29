@@ -24,6 +24,30 @@ type ScheduledTask struct {
 }
 
 // ValidFrequencies is the closed set of supported frequencies.
+// frequencyAliases maps the short forms operators actually type to the
+// canonical frequency names. Canonical names pass through NormalizeFrequency
+// unchanged, so callers can accept either without knowing which they got.
+var frequencyAliases = map[string]string{
+	"10m": "ten_minutely", "10min": "ten_minutely",
+	"15m": "quarter_hourly", "15min": "quarter_hourly",
+	"30m": "half_hourly", "30min": "half_hourly", "halfhour": "half_hourly",
+	"1h": "hourly", "hour": "hourly",
+	"12h": "twice_daily",
+	"1d":  "daily", "24h": "daily", "day": "daily",
+	"1w": "weekly", "week": "weekly",
+}
+
+// NormalizeFrequency lower-cases and trims a frequency and resolves the short
+// aliases ("10m", "30m", "1d", ...) to canonical names. Unknown input is
+// returned trimmed and lower-cased so the caller's validation names it.
+func NormalizeFrequency(freq string) string {
+	freq = strings.ToLower(strings.TrimSpace(freq))
+	if canon, ok := frequencyAliases[freq]; ok {
+		return canon
+	}
+	return freq
+}
+
 var ValidFrequencies = map[string]bool{"ten_minutely": true, "quarter_hourly": true, "half_hourly": true, "hourly": true, "twice_daily": true, "daily": true, "weekly": true}
 
 // frequencyPeriod is each frequency's boundary spacing. Every frequency is
@@ -263,10 +287,10 @@ func LoadScheduler(path string) (*Scheduler, error) {
 // caller runs the command at add time, so LastRun is stamped to now: the task
 // will not fire again until the next boundary. Persists before returning.
 func (s *Scheduler) Add(freq, command string, now time.Time) (ScheduledTask, error) {
-	freq = strings.ToLower(strings.TrimSpace(freq))
+	freq = NormalizeFrequency(freq)
 	command = strings.TrimSpace(command)
 	if !ValidFrequencies[freq] {
-		return ScheduledTask{}, fmt.Errorf("unknown frequency %q (want ten_minutely, quarter_hourly, half_hourly, hourly, daily, or weekly)", freq)
+		return ScheduledTask{}, fmt.Errorf("unknown frequency %q (want ten_minutely, quarter_hourly, half_hourly, hourly, twice_daily, daily, or weekly; short forms 10m 15m 30m 1h 12h 1d 1w)", freq)
 	}
 	if command == "" {
 		return ScheduledTask{}, fmt.Errorf("empty command")

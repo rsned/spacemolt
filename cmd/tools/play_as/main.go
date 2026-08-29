@@ -10143,7 +10143,7 @@ func printHelp() {
 	fmt.Println("  mbox mark-read <id>|--all - Mark messages as read")
 	fmt.Println("  mbox backfill [--channel] [-f] - Deep crawl message history (-f resets cursor)")
 	fmt.Println("  mbox sources              - Push/backfill/reconcile counts")
-	fmt.Println("  schedule_add <hourly|daily|weekly> <command...> - Run a command on a recurring schedule (runs once now)")
+	fmt.Println("  schedule_add <10m|15m|30m|1h|12h|1d|1w> <command...> - Run a command on a recurring schedule (runs once now)")
 	fmt.Println("  schedule_remove <id>      - Remove a scheduled command")
 	fmt.Println("  view_scheduled            - List scheduled commands")
 	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
