@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
-	"sort"
+	"slices"
+
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 const (
@@ -80,9 +81,11 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 			fmt.Printf(" @ (%.1f, %.1f)", anchorPos.X, anchorPos.Y)
 		}
 		fmt.Printf("\n   Max hops: %d\n", maxHops)
-		if !anchorHasPos {
-			fmt.Printf("   Note: anchor position unknown (KB missing system data) — "+
-				"destination selection will not prefer 'outward' direction%s\n", "")
+		// Coverage, not position, is what the walk is steering by now, so
+		// report that instead of the anchor's coordinates.
+		if surveyed, total, ok := surveyCoverage(ctx); ok {
+			fmt.Printf("   Coverage: %d of %d systems surveyed (%.0f%%)\n",
+				surveyed, total, 100*float64(surveyed)/float64(total))
 		}
 		fmt.Println()
 	}
@@ -116,7 +119,7 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 		}
 
 		// Pick next system.
-		next, reason := pickNextSystem(ctx, state, anchorSystemID, anchorPos, anchorHasPos, visited)
+		next, reason := pickNextSystem(ctx, state, visited)
 		if next == "" {
 			if format == formatStyled {
 				fmt.Printf("\n🛑 Stopping: %s\n", reason)
@@ -232,71 +235,85 @@ func refuelFromCargoIfLow(client game.GameClient, ctx context.Context, format ou
 	}
 }
 
-// pickNextSystem chooses the next system to jump to from the current
-// system's connections. Unvisited neighbors win; among those, if we have
-// anchor position data, prefer systems farther from the anchor. Returns
-// the chosen system ID and a human-readable reason string, or ("", reason)
-// to signal no valid candidate.
-func pickNextSystem(
-	ctx context.Context,
-	state *game.State,
-	anchorSystemID string,
-	anchorPos game.Position,
-	anchorHasPos bool,
-	visited map[string]bool,
-) (string, string) {
+// pickNextSystem chooses the adjacent system to jump to next.
+//
+// The goal of auto-explore is eventual coverage of the whole galaxy, so the
+// target is the NEAREST ELIGIBLE system -- never surveyed, or surveyed longer
+// ago than game.FreshnessSystem -- found by a breadth-first walk of the
+// connection graph, and the return value is the first hop along the way.
+//
+// This replaces a picker that considered only the current system's immediate
+// connections and held its visited set in memory. That produced four distinct
+// failures, all of the same root:
+//
+//   - a server restart made it re-target the system it had just come from,
+//     because the visited set died with the process;
+//   - it re-surveyed systems it had finished minutes earlier, for the same
+//     reason;
+//   - it stopped dead with "all connections already visited" as soon as the
+//     immediate neighbourhood was done, because nothing looked further;
+//   - and it walled itself into pockets of the map, because a corridor it had
+//     just crossed counted as visited and so could not be re-entered.
+//
+// The old "farthest from anchor" tiebreak is gone with it. That biased the walk
+// away from gaps it had left behind, which is reasonable for a local wander and
+// wrong when the objective is covering everything.
+//
+// Falling back to the old immediate-neighbour behaviour when the KB is
+// unavailable is deliberate: an explorer with no graph should still explore.
+func pickNextSystem(ctx context.Context, state *game.State, visited map[string]bool) (string, string) {
 	connections := state.System.Connections
 	if len(connections) == 0 {
 		return "", "no connections from current system"
 	}
 
-	type candidate struct {
-		id       string
-		name     string
-		distFrom float64 // distance from anchor (0 if unknown)
-		hasPos   bool
+	adjacency, elig, err := loadFrontier(ctx, visited)
+	if err != nil {
+		return pickNearestUnvisitedNeighbor(connections, visited)
 	}
-	var unvisited []candidate
+
+	// The live reply is more current than the KB's graph, so fold this
+	// system's connections in. A system reached through a wormhole may have
+	// links the stored map has never seen.
+	from := state.System.ID
+	if from == "" {
+		from = state.CurrentSystem
+	}
+	for _, c := range connections {
+		if c.SystemID != "" && !slices.Contains(adjacency[from], c.SystemID) {
+			adjacency[from] = append(adjacency[from], c.SystemID)
+		}
+	}
+
+	hop, target, jumps, ok := nextHopToward(adjacency, from, elig)
+	if !ok {
+		return pickNearestUnvisitedNeighbor(connections, visited)
+	}
+	if target == hop {
+		return hop, "nearest unsurveyed system"
+	}
+
+	return hop, fmt.Sprintf("toward %s (%d jumps)", target, jumps)
+}
+
+// pickNearestUnvisitedNeighbor is the fallback for when the connection graph
+// cannot be read: any neighbour not yet seen this run, by name for determinism.
+func pickNearestUnvisitedNeighbor(connections []game.ConnectionInfo, visited map[string]bool) (string, string) {
+	var names []string
+	byName := make(map[string]string, len(connections))
 	for _, c := range connections {
 		if visited[c.SystemID] {
 			continue
 		}
-		cand := candidate{id: c.SystemID, name: c.Name}
-		if anchorHasPos {
-			if pos, ok := systemPosition(ctx, c.SystemID); ok {
-				cand.distFrom = math.Hypot(pos.X-anchorPos.X, pos.Y-anchorPos.Y)
-				cand.hasPos = true
-			}
-		}
-		unvisited = append(unvisited, cand)
+		names = append(names, c.Name)
+		byName[c.Name] = c.SystemID
 	}
-
-	if len(unvisited) == 0 {
-		if visited[anchorSystemID] && len(visited) == 1 {
-			return "", "starting system has no reachable neighbors"
-		}
-		return "", fmt.Sprintf("all %d connections already visited", len(connections))
+	if len(names) == 0 {
+		return "", fmt.Sprintf("all %d connections already visited and no graph to widen into", len(connections))
 	}
+	slices.Sort(names)
 
-	// Sort: candidates with known position and farther from anchor come first.
-	// Stable fallback by name for deterministic ordering on ties / no-data.
-	sort.SliceStable(unvisited, func(i, j int) bool {
-		a, b := unvisited[i], unvisited[j]
-		if a.hasPos && b.hasPos {
-			return a.distFrom > b.distFrom
-		}
-		if a.hasPos != b.hasPos {
-			return a.hasPos // prefer ones with known position
-		}
-		return a.name < b.name
-	})
-
-	pick := unvisited[0]
-	reason := "unvisited neighbor"
-	if pick.hasPos && anchorHasPos {
-		reason = fmt.Sprintf("farthest unvisited neighbor (%.1f from anchor)", pick.distFrom)
-	}
-	return pick.id, reason
+	return byName[names[0]], "unvisited neighbor (no graph)"
 }
 
 // systemPosition returns the position of a system from the knowledge base,
@@ -315,4 +332,23 @@ func systemPosition(ctx context.Context, systemID string) (game.Position, bool) 
 		return game.Position{}, false
 	}
 	return sys.Position, true
+}
+
+// surveyCoverage reports how much of the known galaxy has been surveyed, for
+// the opening line of an auto-explore run. Best-effort: a KB that cannot answer
+// produces no line rather than an error.
+func surveyCoverage(ctx context.Context) (surveyed, total int, ok bool) {
+	if globalKB == nil {
+		return 0, 0, false
+	}
+	systems, err := globalKB.GetSystems(ctx)
+	if err != nil || len(systems) == 0 {
+		return 0, 0, false
+	}
+	seen, err := knowledge.SystemsLastSurveyed(ctx, globalKB)
+	if err != nil {
+		return 0, 0, false
+	}
+
+	return len(seen), len(systems), true
 }
