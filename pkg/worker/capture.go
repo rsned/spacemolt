@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -372,6 +373,14 @@ func GetPOI(ctx context.Context, client game.GameClient) (game.POI, error) {
 			poi.ExpiresAt = at
 		}
 	}
+	// The prediction hint is the only statement of what a hole DEMANDS before
+	// it will name its destination. Only "needed" is kept: it is a property of
+	// the hole, while the power quoted alongside belongs to whichever agent
+	// asked and would be wrong on a shared POI row.
+	if _, needed, ok := wormholePrediction(resp.WormholePredictionHint); ok {
+		poi.WormholePredictionNeeded = needed
+	}
+	poi.WormholeDestination = resp.WormholeDestination
 	for _, r := range p.Resources {
 		poi.Resources = append(poi.Resources, game.POIResource{
 			ResourceID: r.ResourceID,
@@ -564,10 +573,12 @@ func KBUpdatePOIData(ctx context.Context, client game.GameClient, kb knowledge.B
 		RevealDifficulty: poi.RevealDifficulty,
 		// Carried through at last: the row had no ExpiresAt at all, so the nine
 		// live wormholes we hold all had a blank expiry even when one was known.
-		ExpiresAt:       poi.ExpiresAt,
-		Resources:       poi.Resources,
-		LastUpdatedTick: currentTick(state),
-		DetectedBy:      detectedBy,
+		ExpiresAt:                poi.ExpiresAt,
+		WormholePredictionNeeded: poi.WormholePredictionNeeded,
+		WormholeDestination:      poi.WormholeDestination,
+		Resources:                poi.Resources,
+		LastUpdatedTick:          currentTick(state),
+		DetectedBy:               detectedBy,
 	}
 	if kbPOI.SystemID == "" {
 		kbPOI.SystemID = state.System.ID
@@ -1101,3 +1112,34 @@ func wormholeExpiryAt(now time.Time, in string) (string, bool) {
 	}
 	return now.Add(total).Format(time.RFC3339), true
 }
+
+// wormholePrediction pulls the two figures out of a get_poi prediction hint,
+// which arrives as prose:
+//
+//	"Wormhole path unknown. Requires wormhole_navigation skill
+//	 (current prediction power: 12, needed: 39)."
+//
+// Both are returned because both are worth knowing, but they belong to
+// different things: needed is a property of the hole, power is a property of
+// the agent that asked. Only needed is stored on the POI.
+//
+// The open question the capture exists to answer is whether needed is constant
+// per hole, or scales with how far the hole reaches -- whether a longer jump
+// demands more skill. Neither is answerable without recording it first.
+func wormholePrediction(hint string) (power, needed int, ok bool) {
+	m := wormholePredictionRe.FindStringSubmatch(hint)
+	if m == nil {
+		return 0, 0, false
+	}
+	p, err := strconv.Atoi(m[1])
+	if err != nil {
+		return 0, 0, false
+	}
+	n, err := strconv.Atoi(m[2])
+	if err != nil {
+		return 0, 0, false
+	}
+	return p, n, true
+}
+
+var wormholePredictionRe = regexp.MustCompile(`(?i)prediction power:\s*(\d+),\s*needed:\s*(\d+)`)

@@ -229,6 +229,11 @@ type POI struct {
 	Hidden           bool          `json:"hidden,omitempty"`
 	RevealDifficulty int           `json:"reveal_difficulty,omitempty"`
 	ExpiresAt        string        `json:"expires_at,omitempty"` // ISO-8601 timestamp when POI expires (e.g., wormholes)
+	// WormholePredictionNeeded is the prediction power a wormhole demands
+	// before it will reveal its destination; WormholeDestination is that
+	// destination once known. Both come from get_poi and are zero elsewhere.
+	WormholePredictionNeeded int    `json:"wormhole_prediction_needed,omitempty"`
+	WormholeDestination      string `json:"wormhole_destination,omitempty"`
 }
 
 // Position represents 3D coordinates (Z is reserved for future use).

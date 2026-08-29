@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 25
--- Last Regenerated: 2026-08-28
+-- Migrations applied: 26
+-- Last Regenerated: 2026-08-29
 
 -- ============================================================================
 -- TABLES
@@ -651,7 +651,7 @@ CREATE TABLE pois (
 	position_x REAL NOT NULL,
 	position_y REAL NOT NULL,
 	base_id TEXT,
-	last_updated_tick INTEGER DEFAULT 0, class TEXT, hidden BOOLEAN NOT NULL DEFAULT 0, reveal_difficulty INTEGER NOT NULL DEFAULT 0, expires_at TEXT, detected_by TEXT,
+	last_updated_tick INTEGER DEFAULT 0, class TEXT, hidden BOOLEAN NOT NULL DEFAULT 0, reveal_difficulty INTEGER NOT NULL DEFAULT 0, expires_at TEXT, detected_by TEXT, wormhole_prediction_needed INTEGER NOT NULL DEFAULT 0, wormhole_destination TEXT NOT NULL DEFAULT '',
 	FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE
 );
 
@@ -1226,4 +1226,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (50, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (51, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (52, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (53, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (54, datetime('now'));
 

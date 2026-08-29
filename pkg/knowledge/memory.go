@@ -430,7 +430,16 @@ type POI struct {
 	Hidden           bool
 	RevealDifficulty int
 	ExpiresAt        string // ISO-8601 timestamp when POI expires (e.g., wormholes)
-	LastUpdatedTick  int64
+	// WormholePredictionNeeded is the prediction power required to read this
+	// wormhole's destination, from get_poi's prediction hint. A property of the
+	// hole, unlike the asking agent's own power, which is not stored here
+	// because it differs per agent.
+	WormholePredictionNeeded int
+	// WormholeDestination is where the hole leads, known only once predicted or
+	// traversed. Paired with Needed it is what tests whether a longer jump
+	// demands more skill.
+	WormholeDestination string
+	LastUpdatedTick     int64
 	// DetectedBy is the agent id that produced this observation. Provenance for
 	// the shared KB so a later capability-aware merge can rank quality; today it
 	// is recorded but not used to gate overwrites.

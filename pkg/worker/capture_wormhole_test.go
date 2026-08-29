@@ -39,3 +39,34 @@ func TestWormholeExpiryAt(t *testing.T) {
 		})
 	}
 }
+
+// TestWormholePrediction covers the hint parse. The hint is prose, so the test
+// pins the shape actually observed rather than a shape we would prefer.
+func TestWormholePrediction(t *testing.T) {
+	tests := []struct {
+		name        string
+		hint        string
+		power, need int
+		ok          bool
+	}{
+		{
+			name:  "the observed hint, verbatim",
+			hint:  "Wormhole path unknown. Requires wormhole_navigation skill (current prediction power: 12, needed: 39).",
+			power: 12, need: 39, ok: true,
+		},
+		{"bare figures", "prediction power: 4, needed: 7", 4, 7, true},
+		{"loose spacing", "prediction power:100,needed:250", 100, 250, true},
+		{"no hint at all", "", 0, 0, false},
+		{"a hint without figures", "Wormhole path unknown.", 0, 0, false},
+		{"a predicted hole states no requirement", "Destination: redmarsh.", 0, 0, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			power, need, ok := wormholePrediction(tc.hint)
+			if ok != tc.ok || power != tc.power || need != tc.need {
+				t.Errorf("wormholePrediction(%q) = (%d, %d, %v), want (%d, %d, %v)",
+					tc.hint, power, need, ok, tc.power, tc.need, tc.ok)
+			}
+		})
+	}
+}

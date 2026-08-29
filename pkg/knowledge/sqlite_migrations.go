@@ -800,6 +800,16 @@ func migrations() []Migration {
 					ADD COLUMN max_remaining REAL NOT NULL DEFAULT 0;
 			`,
 		},
+		{
+			version: 54,
+			name:    "poi_wormhole_prediction",
+			sql: `
+				ALTER TABLE pois
+					ADD COLUMN wormhole_prediction_needed INTEGER NOT NULL DEFAULT 0;
+				ALTER TABLE pois
+					ADD COLUMN wormhole_destination TEXT NOT NULL DEFAULT '';
+			`,
+		},
 		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
 		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
 		// pre-collapse DBs, where `ships` does not exist until
@@ -868,11 +878,12 @@ func runMigrations(db *sql.DB) error {
 			}
 		}
 
-		// Special case for migration 40: the pois/poi_resources tables come from
-		// migration 1 (initial_schema). Some narrow migration-test fixtures fake
-		// "migration 1 applied" without creating those tables, so guard the
-		// ALTERs — if pois is absent there's nothing to alter; record as applied.
-		if m.version == 40 {
+		// Special case for migrations 40 and 54: the pois/poi_resources tables
+		// come from migration 1 (initial_schema). Some narrow migration-test
+		// fixtures fake "migration 1 applied" without creating those tables, so
+		// guard the ALTERs — if pois is absent there's nothing to alter; record
+		// as applied.
+		if m.version == 40 || m.version == 54 {
 			var tableCount int
 			if err := db.QueryRow(
 				`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='pois'`,
