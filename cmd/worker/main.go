@@ -11,6 +11,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/rsned/spacemolt/pkg/agent"
 	"io"
 	"log"
 	"net"
@@ -368,6 +369,11 @@ func main() {
 		} else {
 			kb = sqliteKB
 			defer func() { _ = sqliteKB.Close() }()
+			// Every player the client parses out of a reply or push event
+			// (get_system_agents, get_nearby, scans, battles) lands in the
+			// KB's seen_player tables. Without this the worker fleet
+			// observed thousands of players and recorded none of them.
+			agent.WirePlayerObserver(client, sqliteKB, nil)
 		}
 
 		// ── Step 7b2: Open market collector (best-effort) ───────────────────

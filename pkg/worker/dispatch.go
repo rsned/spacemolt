@@ -303,17 +303,9 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			poi = args[1]
 		}
 		return Autopilot(ctx, AutopilotDeps{
-			Client: d.Client,
-			Out:    d.Out,
-			OnWaypoint: func(ctx context.Context) error {
-				if d.KB == nil {
-					return nil
-				}
-				if err := KBUpdateSystem(ctx, d.Client, d.KB, ""); err != nil {
-					return err
-				}
-				return KBUpdatePOI(ctx, d.Client, d.KB, "")
-			},
+			Client:     d.Client,
+			Out:        d.Out,
+			OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, d.Client, d.KB) },
 		}, args[0], poi)
 	case "explore":
 		return Explore(ctx, ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out})

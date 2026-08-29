@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -241,6 +242,34 @@ func aggregateSupplyHistory(orders []knowledge.MarketSellOrderRow, now time.Time
 
 // KBUpdateSystem fetches the current system data and saves it to the knowledge
 // base. detectedBy records which agent observed the data (POI provenance).
+// KBWaypointCapture is the per-hop capture autopilot runs on arrival in each
+// system: the system, the POI, and — in lawless space only — who else is in
+// the system. Player sightings flow to the KB through the client's
+// PlayerObserver, so nothing is stored here directly. Each capture is
+// attempted even if an earlier one fails; the joined error is reported once.
+//
+// get_system_agents is gated on police_level 0 because every info call is
+// paid from the same rate-limit budget whose exhaustion stranded ships in the
+// open, and hunters work lawless space. Widen the gate if more data is wanted.
+func KBWaypointCapture(ctx context.Context, client game.GameClient, kb knowledge.Base) error {
+	if kb == nil {
+		return nil
+	}
+	var errs []error
+	if err := KBUpdateSystem(ctx, client, kb, ""); err != nil {
+		errs = append(errs, err)
+	}
+	if st := client.GetState(); st != nil && st.System.PoliceLevel == 0 {
+		if err := client.GetSystemAgents(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("get_system_agents failed: %w", err))
+		}
+	}
+	if err := KBUpdatePOI(ctx, client, kb, ""); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
 func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Base, detectedBy string) error {
 	if kb == nil {
 		return fmt.Errorf("knowledge base not configured (use --db-path)")

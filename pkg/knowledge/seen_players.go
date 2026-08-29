@@ -28,6 +28,9 @@ type SeenPlayer struct {
 	POIID    string // "" => system-scope sighting (stored as empty string for PK uniqueness)
 	Source   string // "get_nearby" | "get_system_agents" | "battle_alert" | ...
 	SeenAt   time.Time
+
+	Tick       int64  // game tick of the observation; 0 = unknown
+	ObserverID string // player id of the agent that made the observation
 }
 
 // RecordSightings inserts/updates rows in seen_players, seen_player_ships,
@@ -104,6 +107,19 @@ ON CONFLICT(player_id, system_id, poi_id, bucket_hour_utc) DO UPDATE SET
 				boolToInt(o.InCombat), seenStr, seenStr,
 			); err != nil {
 				return fmt.Errorf("knowledge: upsert seen_player_sightings: %w", err)
+			}
+			// Append-only timeline row: one per observation, never merged,
+			// so "who was in this system at this tick, and who saw them" is
+			// answerable after the fact.
+			if _, err := tx.Exec(`
+INSERT INTO seen_player_events
+	(player_id, observer_id, system_id, poi_id, ship_class, source,
+	 in_combat, tick, seen_at_utc)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				o.PlayerID, o.ObserverID, o.SystemID, o.POIID, o.ShipClass, o.Source,
+				boolToInt(o.InCombat), o.Tick, seenStr,
+			); err != nil {
+				return fmt.Errorf("knowledge: insert seen_player_events: %w", err)
 			}
 		}
 	}

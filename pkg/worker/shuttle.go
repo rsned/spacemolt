@@ -482,17 +482,9 @@ func repositionShuttle(ctx context.Context, deps ShuttleDeps, out io.Writer, cur
 
 	fmt.Fprintf(out, "shuttle: repositioning to %s after %d boardless passes\n", name, shuttleRepositionThreshold) //nolint:errcheck
 	err = Autopilot(ctx, AutopilotDeps{
-		Client: deps.Client,
-		Out:    out,
-		OnWaypoint: func(ctx context.Context) error {
-			if deps.KB == nil {
-				return nil
-			}
-			if err := KBUpdateSystem(ctx, deps.Client, deps.KB, ""); err != nil {
-				return err
-			}
-			return KBUpdatePOI(ctx, deps.Client, deps.KB, "")
-		},
+		Client:     deps.Client,
+		Out:        out,
+		OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
 	}, pick, station)
 	if err != nil {
 		fmt.Fprintf(out, "shuttle: reposition transit to %s failed: %v\n", name, err) //nolint:errcheck
@@ -578,17 +570,9 @@ func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writ
 			current, name, dest.SystemID, dest.Hops)
 	}
 	err = Autopilot(ctx, AutopilotDeps{
-		Client: deps.Client,
-		Out:    out,
-		OnWaypoint: func(ctx context.Context) error {
-			if deps.KB == nil {
-				return nil
-			}
-			if err := KBUpdateSystem(ctx, deps.Client, deps.KB, ""); err != nil {
-				return err
-			}
-			return KBUpdatePOI(ctx, deps.Client, deps.KB, "")
-		},
+		Client:     deps.Client,
+		Out:        out,
+		OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
 	}, dest.SystemID, station)
 	if err != nil {
 		fmt.Fprintf(out, "shuttle: relocation transit to %s failed: %v; will retry next pass\n", name, err) //nolint:errcheck
@@ -703,17 +687,9 @@ func resolveShuttleSystemID(ds string, graph navigation.JumpGraph, nameToID map[
 // passengers aboard (they auto-deliver on a later dock) and idle without depositing.
 func shuttleDeliver(ctx context.Context, deps ShuttleDeps, out io.Writer, c shuttleCandidate, bookedFare int) error {
 	err := Autopilot(ctx, AutopilotDeps{
-		Client: deps.Client,
-		Out:    out,
-		OnWaypoint: func(ctx context.Context) error {
-			if deps.KB == nil {
-				return nil
-			}
-			if err := KBUpdateSystem(ctx, deps.Client, deps.KB, ""); err != nil {
-				return err
-			}
-			return KBUpdatePOI(ctx, deps.Client, deps.KB, "")
-		},
+		Client:     deps.Client,
+		Out:        out,
+		OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
 	}, c.system, c.station)
 	if err != nil {
 		fmt.Fprintf(out, "shuttle: transit to %s failed: %v; passengers stay aboard\n", c.sysName, err) //nolint:errcheck

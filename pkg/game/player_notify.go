@@ -21,7 +21,7 @@ func (c *Client) notifyPlayers(source string, players []serverapi.NearbyPlayer, 
 		return
 	}
 
-	systemID := c.currentSystemID()
+	systemID, tick, observer := c.observerStamp()
 
 	now := time.Now().UTC()
 	out := make([]ObservedPlayer, 0, len(players))
@@ -42,6 +42,8 @@ func (c *Client) notifyPlayers(source string, players []serverapi.NearbyPlayer, 
 			POIID:          poiID,
 			Source:         source,
 			SeenAt:         now,
+			Tick:           tick,
+			ObserverID:     observer,
 		})
 	}
 	cb(out)
@@ -62,19 +64,21 @@ func (c *Client) notifyCombatSightings(source string, players []combatSighting) 
 		return
 	}
 
-	systemID := c.currentSystemID()
+	systemID, tick, observer := c.observerStamp()
 
 	now := time.Now().UTC()
 	out := make([]ObservedPlayer, 0, len(players))
 	for _, p := range players {
 		out = append(out, ObservedPlayer{
-			PlayerID:  p.playerID,
-			Username:  p.username,
-			ShipClass: p.shipClass,
-			InCombat:  true,
-			SystemID:  systemID,
-			Source:    source,
-			SeenAt:    now,
+			PlayerID:   p.playerID,
+			Username:   p.username,
+			ShipClass:  p.shipClass,
+			InCombat:   true,
+			SystemID:   systemID,
+			Source:     source,
+			SeenAt:     now,
+			Tick:       tick,
+			ObserverID: observer,
 		})
 	}
 	cb(out)
@@ -196,6 +200,19 @@ func (c *Client) notifyPlayerFromScan(resp serverapi.ScanResponse, systemID stri
 //
 // Slugifying is safe and idempotent -- all 505 known system ids are lowercase
 // with no spaces or dashes, so a genuine id passes through untouched.
+// observerStamp returns the current system id together with the game tick
+// and the observing player's id, read under one lock so the three describe
+// the same moment.
+func (c *Client) observerStamp() (systemID string, tick int64, observerID string) {
+	systemID = c.currentSystemID()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.state == nil {
+		return systemID, 0, ""
+	}
+	return systemID, c.state.CurrentTick, c.state.Player.ID
+}
+
 func (c *Client) currentSystemID() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

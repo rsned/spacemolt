@@ -52,6 +52,8 @@ func WirePlayerObserver(c *game.Client, kb knowledge.Base, enq FactionEnqueuer) 
 				POIID:          o.POIID,
 				Source:         o.Source,
 				SeenAt:         o.SeenAt,
+				Tick:           o.Tick,
+				ObserverID:     o.ObserverID,
 			})
 		}
 		if err := kb.RecordSightings(seen); err != nil {

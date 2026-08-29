@@ -157,13 +157,8 @@ func Explore(ctx context.Context, deps ExploreDeps) error {
 	}
 	fmt.Fprintf(out, "explore: heading to %s\n", target) //nolint:errcheck
 	return Autopilot(ctx, AutopilotDeps{
-		Client: deps.Client,
-		Out:    out,
-		OnWaypoint: func(ctx context.Context) error {
-			if uerr := KBUpdateSystem(ctx, deps.Client, deps.KB, ""); uerr != nil {
-				return uerr
-			}
-			return KBUpdatePOI(ctx, deps.Client, deps.KB, "")
-		},
+		Client:     deps.Client,
+		Out:        out,
+		OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
 	}, target, "")
 }

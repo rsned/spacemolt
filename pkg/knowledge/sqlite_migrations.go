@@ -857,6 +857,29 @@ func migrations() []Migration {
 				WHERE system_id != LOWER(REPLACE(REPLACE(REPLACE(system_id, ' ', '_'), '-', '_'), '''', ''));
 			`,
 		},
+		{
+			version: 56,
+			name:    "seen_player_events",
+			// Per-observation timeline behind the hour-bucketed sightings:
+			// one row per (observer, player, moment). Built to backtrack a
+			// player hunter's movements against battle-log ticks.
+			sql: `
+				CREATE TABLE IF NOT EXISTS seen_player_events (
+					id          INTEGER PRIMARY KEY AUTOINCREMENT,
+					player_id   TEXT NOT NULL,
+					observer_id TEXT NOT NULL DEFAULT '',
+					system_id   TEXT NOT NULL,
+					poi_id      TEXT NOT NULL DEFAULT '',
+					ship_class  TEXT,
+					source      TEXT NOT NULL,
+					in_combat   INTEGER NOT NULL DEFAULT 0,
+					tick        INTEGER NOT NULL DEFAULT 0,
+					seen_at_utc TEXT NOT NULL
+				);
+				CREATE INDEX IF NOT EXISTS seen_events_player_time ON seen_player_events(player_id, seen_at_utc);
+				CREATE INDEX IF NOT EXISTS seen_events_system_time ON seen_player_events(system_id, seen_at_utc);
+			`,
+		},
 		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
 		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
 		// pre-collapse DBs, where `ships` does not exist until

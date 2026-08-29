@@ -1567,17 +1567,9 @@ func recordHaulResult(ctx context.Context, deps HaulDeps, out io.Writer, opp mar
 // nil disables it.
 func haulAutopilot(ctx context.Context, deps HaulDeps, out io.Writer, system, poi string, check WaypointCheckFunc) error {
 	return Autopilot(ctx, AutopilotDeps{
-		Client: deps.Client,
-		Out:    out,
-		OnWaypoint: func(ctx context.Context) error {
-			if deps.KB == nil {
-				return nil
-			}
-			if err := KBUpdateSystem(ctx, deps.Client, deps.KB, ""); err != nil {
-				return err
-			}
-			return KBUpdatePOI(ctx, deps.Client, deps.KB, "")
-		},
+		Client:        deps.Client,
+		Out:           out,
+		OnWaypoint:    func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
 		WaypointCheck: check,
 		// Haul is the first role opted into price-aware refuel timing: it jumps the
 		// most, so it pays the most fuel, and its realized P&L is already tracked

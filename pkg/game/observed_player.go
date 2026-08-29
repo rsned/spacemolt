@@ -26,6 +26,13 @@ type ObservedPlayer struct {
 	POIID    string
 	Source   string
 	SeenAt   time.Time
+
+	// Tick is the game tick the observation was made at (0 when the client
+	// has not yet learned the tick) and ObserverID the observing player's
+	// own id — together they let a sighting be lined up against a battle
+	// log and attributed to the agent that made it.
+	Tick       int64
+	ObserverID string
 }
 
 // PlayerObserver receives batches of player observations as the game
