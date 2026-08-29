@@ -17,7 +17,7 @@ import (
 
 func main() {
 	dbPath := flag.String("market-db-path", "data/market.db", "Path to market.db")
-	statusFile := flag.String("status-file", "data/overmind/fleet-status.json", "Path to fleet-status.json")
+	statusFile := flag.String("status-file", "data/overmind/haul-status.json", "Path to a fleet status file (haul fleet by default)")
 	periodName := flag.String("period", "hour", "Chart bucketing: hour|half_day|day")
 	window := flag.Duration("window", 48*time.Hour, "How far back to include history")
 	out := flag.String("out", "dashboard.html", "Output HTML file")

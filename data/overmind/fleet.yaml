@@ -1,38 +1,33 @@
-# Overmind fleet roster. role is a label in Plan A; standing behaviors per
-# role arrive in Plan B (data/overmind/roles.yaml).
-workers:
-  - agent_id: resident-nebula-1
-    role: resident
-    station: STN-NEB-1
-  - agent_id: resident-nebula-2
-    role: resident
-    station: STN-NEB-2
-  - { agent_id: explorer-1, role: explorer, station: "" }
-  - { agent_id: explorer-2, role: explorer, station: "" }
-  - { agent_id: explorer-3, role: explorer, station: "" }
-  - { agent_id: explorer-4, role: explorer, station: "" }
-  - { agent_id: explorer-5, role: explorer, station: "" }
-  - { agent_id: explorer-6, role: explorer, station: "" }
-  - { agent_id: explorer-7, role: explorer, station: "" }
-  - { agent_id: explorer-8, role: explorer, station: "" }
-  - { agent_id: explorer-9, role: explorer, station: "" }
-  - { agent_id: explorer-10, role: explorer, station: "" }
-  - { agent_id: explorer-11, role: explorer, station: "" }
-  - { agent_id: explorer-12, role: explorer, station: "" }
-  # Miners — already positioned in asteroid-belt systems; station label unused
-  # for mobile roles (mine_local resolves $ASTEROID_BELT$/$STATION$ in-system).
-  - { agent_id: miner-1, role: miner, station: "" }
-  - { agent_id: miner-2, role: miner, station: "" }
-  - { agent_id: miner-3, role: miner, station: "" }
-  - { agent_id: miner-4, role: miner, station: "" }
-  - { agent_id: miner-5, role: miner, station: "" }
-  - { agent_id: miner-6, role: miner, station: "" }
-  - { agent_id: miner-7, role: miner, station: "" }
-  - { agent_id: miner-8, role: miner, station: "" }
-  - { agent_id: miner-9, role: miner, station: "" }
-  - { agent_id: miner-10, role: miner, station: "" }
-  # Haulers — mobile arbitrage runners; station label unused (position emerges
-  # from where the opportunities are).
-  - { agent_id: hauler-1, role: hauler, station: "" }
-  - { agent_id: hauler-2, role: hauler, station: "" }
-  - { agent_id: hauler-3, role: hauler, station: "" }
+# RETIRED ROSTER — deliberately empty. Do not add agents here.
+#
+# This file is the DEFAULT value of the overmind's --fleet flag, which is the
+# only reason it still exists. Every agent it used to list now lives in a
+# purpose-built roster, and a bare `bin/overmind` with no --fleet would
+# otherwise re-launch all of them a second time: two processes logging in as
+# the same agent, which the server resolves by kicking one of them (see
+# SessionContentionMaxShortLived in pkg/game/constants.go).
+#
+# Where its 27 entries went, checked against running processes 2026-08-29:
+#
+#   explorer-2..12          -> mission-learn-fleet.yaml
+#   explorer-1              -> haul-fleet.yaml
+#   miner-2                 -> mb-fleet.yaml (graduated 2026-08-13, resident)
+#   miner-3, miner-5..8     -> unlock-fleet.yaml
+#   miner-1, 4, 9, 10       -> mining-fleet.yaml + unlock-fleet.yaml
+#                              (mining is stopped, so they are down on purpose)
+#   hauler-0, salvager-1..10, trader-1..10
+#                           -> haul-fleet.yaml / unlock-fleet.yaml
+#
+# And five that were never real: hauler-1, hauler-2, hauler-3,
+# resident-nebula-1, resident-nebula-2 have no data/agents/ directory, no row
+# in the assets ledger, and no game account. They were roster placeholders.
+#
+# Keeping the duplicates here was not harmless. An agent listed in two rosters
+# is the shape that left hauler-0 and trader-1 running in NO fleet for 14 hours
+# with every health check reading normal, and the stale fleet-status.json
+# alongside this file made salvager-9 appear twice in the off-map count while
+# one live worker ran happily in haul.
+#
+# To run a fleet, name its roster explicitly:
+#   bin/overmind --fleet data/overmind/haul-fleet.yaml --socket data/overmind/haul.sock ...
+workers: []

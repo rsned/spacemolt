@@ -36,7 +36,7 @@ func (e *errWriter) printf(format string, a ...any) {
 }
 
 func main() {
-	statusPath := flag.String("status-file", "data/overmind/fleet-status.json", "Live fleet status snapshot file")
+	statusPath := flag.String("status-file", "data/overmind/haul-status.json", "Live fleet status snapshot file (haul fleet by default)")
 	historyPath := flag.String("history-file", "data/overmind/fleet-history.jsonl", "Daily balance history file")
 	marketDB := flag.String("market-db", "data/market.db", "Market database for realized arbitrage profit")
 	flag.Parse()

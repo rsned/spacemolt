@@ -21,7 +21,7 @@ import (
 func main() {
 	kbPath := flag.String("kb-path", "data/spacemolt-knowledge.db", "Knowledge base path")
 	marketDB := flag.String("market-db", "data/market.db", "Market database path")
-	statusPath := flag.String("status-file", "data/overmind/fleet-status.json", "Live fleet status file")
+	statusPath := flag.String("status-file", "data/overmind/haul-status.json", "Live fleet status file (haul fleet by default)")
 	cap_ := flag.Int("cap", 5, "Distance cap the haulers currently use (for the within-cap count)")
 	flag.Parse()
 
