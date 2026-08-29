@@ -2,9 +2,12 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
@@ -107,4 +110,78 @@ func huntPOIType(deps HuntDeps, poiID string) string {
 		}
 	}
 	return ""
+}
+
+// huntNearbyCreatures reads the creature list at a POI the pass has just
+// reached, and re-reads it once when the first look comes back empty.
+//
+// A get_nearby issued in the same second as an arrival reads ZERO creatures at
+// a POI that is in fact populated. Live 2026-08-28, craftsman-1, both POIs it
+// reached that pass:
+//
+//	alrescha_emission_nebula  arrived 17:20:55  ->  0 creatures
+//	                                 17:21:01  -> 18 creatures
+//	alrescha_ice_fields       arrived 17:21:25  ->  0 creatures
+//	                                 17:21:31  ->  8 creatures
+//
+// This is an arrival race, not the ordinary churn of creatures wandering: the
+// list is simply not populated for the observer until a tick boundary passes
+// after the move completes. The first read is therefore not a sample to be
+// averaged with the second — it is invalid, and the second is the only reading
+// that means anything.
+//
+// For the hunt fleet that mis-read is worse than a hole in the field guide.
+// huntFindQuarry treats an empty list as "this ground holds nothing", abandons
+// a perfectly good hunting ground and flies to the next one — so the race made
+// the fleet reject the belts its missions needed, at the cost of a real journey
+// each time.
+//
+// The re-read is conditional on the first being empty rather than unconditional
+// (as the operator's explore pass does it). Every observed failure has the
+// shape 0 -> N, so emptiness is the whole signal; and the hunt fleet walks far
+// more POIs than an operator session, where an unconditional second call would
+// double nearby volume against a shared per-IP rate limiter for nothing.
+//
+// The wait is a full SleepTick because the tick boundary is what the reading
+// waits on: a shorter pause can land inside the same tick and re-read the same
+// nothing. Both looks are captured, so the coverage row still records that the
+// first one happened and found none.
+func huntNearbyCreatures(ctx context.Context, deps HuntDeps, out io.Writer, poi string) (serverapi.GetNearbyResponse, error) {
+	nearby, err := huntReadNearby(ctx, deps, out, poi)
+	if err != nil || len(nearby.Creatures) > 0 {
+		return nearby, err
+	}
+
+	time.Sleep(game.SleepTick)
+
+	// A failed re-read is not a reason to fail the pass: the first look stands
+	// on its own, having found nothing, which the caller already handles.
+	second, rerr := huntReadNearby(ctx, deps, out, poi)
+	if rerr != nil {
+		fmt.Fprintf(out, "hunt: re-reading %s: %v; keeping the empty first look\n", poi, rerr) //nolint:errcheck
+		return nearby, nil
+	}
+	if len(second.Creatures) > 0 {
+		fmt.Fprintf(out, "hunt: %s read empty on arrival, %d creature(s) on re-read\n", //nolint:errcheck
+			poi, len(second.Creatures))
+	}
+	return second, nil
+}
+
+// huntReadNearby issues one get_nearby, files what it saw, and returns it.
+func huntReadNearby(ctx context.Context, deps HuntDeps, out io.Writer, poi string) (serverapi.GetNearbyResponse, error) {
+	if err := deps.Client.GetNearby(ctx); err != nil {
+		return serverapi.GetNearbyResponse{}, fmt.Errorf("get_nearby: %w", err)
+	}
+	var nearby serverapi.GetNearbyResponse
+	if raw := deps.Client.GetRawJSON("nearby"); len(raw) > 0 {
+		if err := json.Unmarshal(raw, &nearby); err != nil {
+			return serverapi.GetNearbyResponse{}, fmt.Errorf("parse nearby: %w", err)
+		}
+	}
+	// File everything seen, not just what this pass may shoot. The field guide
+	// wants the herd we are walking away from as much as the one we engage, and
+	// this reply is the only wildlife headcount that names a POI.
+	huntCaptureWildlife(ctx, deps, out, nearby, poi)
+	return nearby, nil
 }

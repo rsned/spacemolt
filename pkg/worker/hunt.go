@@ -706,22 +706,14 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		}
 		tried = append(tried, poi)
 
-		if err := deps.Client.GetNearby(ctx); err != nil {
-			fmt.Fprintf(out, "hunt: get_nearby: %v\n", err) //nolint:errcheck
+		// Reads the ground, and re-reads it if the arrival race returned an
+		// empty list -- see huntNearbyCreatures. Without that, a populated
+		// belt reads as barren and the sweep below walks away from it.
+		nearby, err := huntNearbyCreatures(ctx, deps, out, poi)
+		if err != nil {
+			fmt.Fprintf(out, "hunt: %v\n", err) //nolint:errcheck
 			return nil, false
 		}
-		var nearby serverapi.GetNearbyResponse
-		if raw := deps.Client.GetRawJSON("nearby"); len(raw) > 0 {
-			if err := json.Unmarshal(raw, &nearby); err != nil {
-				fmt.Fprintf(out, "hunt: parse nearby: %v\n", err) //nolint:errcheck
-				return nil, false
-			}
-		}
-		// File everything seen, not just what this pass may shoot. The field
-		// guide wants the herd we are walking away from as much as the one we
-		// engage, and this reply is the only wildlife headcount that names a
-		// POI.
-		huntCaptureWildlife(ctx, deps, out, nearby, poi)
 
 		if quarry := huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out); len(quarry) > 0 {
 			return quarry, true
