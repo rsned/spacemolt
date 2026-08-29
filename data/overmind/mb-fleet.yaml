@@ -101,16 +101,16 @@ workers:
   - { agent_id: marketbot_deep_range, role: resident_gas, station: "" }  # belt+gas+ice available; user fit gas
   - { agent_id: marketbot_factory_belt, role: resident_gas, station: "" }
   - { agent_id: marketbot_first_step, role: resident, station: "" }
-  - { agent_id: marketbot_frontier, role: resident, station: "" }
+  - { agent_id: marketbot_frontier, role: resident, station: mobile_capital }
   - { agent_id: marketbot_gold_run, role: resident, station: "" }
   - { agent_id: marketbot_haven, role: resident, station: "" }
   - { agent_id: marketbot_iron_reach, role: resident, station: "" }
   - { agent_id: marketbot_krynn, role: resident, station: "" }
   - { agent_id: marketbot_last_light, role: resident, station: "" }
-  - { agent_id: marketbot_market_prime, role: resident, station: "" }
+  - { agent_id: marketbot_market_prime, role: resident, station: market_prime_exchange }
   - { agent_id: marketbot_nexus_prime, role: resident, station: "" }
   - { agent_id: marketbot_node_alpha, role: resident, station: "" }
-  - { agent_id: marketbot_node_beta, role: resident, station: "" }
+  - { agent_id: marketbot_node_beta, role: resident, station: node_beta_industrial_station }
   - { agent_id: marketbot_node_gamma, role: resident, station: "" }
   - { agent_id: marketbot_nova_terra, role: resident, station: "" }
   - { agent_id: marketbot_procyon, role: resident_gas, station: "" }  # has gas+ice; defaulted to gas — flip to resident_ice if you fit an ice_harvester
@@ -124,7 +124,7 @@ workers:
   - { agent_id: marketbot_the_experiment, role: resident, station: "" }
   - { agent_id: marketbot_the_levy, role: resident_ice, station: "" }
   - { agent_id: marketbot_the_rampart, role: resident, station: "" }
-  - { agent_id: marketbot_the_telescope, role: resident, station: "" }
+  - { agent_id: marketbot_the_telescope, role: resident, station: unknown_edge_waystation }
   - { agent_id: marketbot_traders_rest, role: resident, station: "" }
   - { agent_id: marketbot_treasure_cache, role: resident, station: "" }
   - { agent_id: marketbot_unknown_edge, role: resident, station: "" }

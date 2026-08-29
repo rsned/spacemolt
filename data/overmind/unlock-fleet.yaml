@@ -338,6 +338,7 @@ workers:
   - { agent_id: salvager-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 16j x1 = 16 of 130
   - { agent_id: salvager-3, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 23j x6 = 138 of 270
   - { agent_id: salvager-4, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 23j x1 = 23 of 100
+  - { agent_id: marketbot_ramens_rest, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # mb hot-swap stand-in; 14j x2 = 28 of 120 (cobble)
   - { agent_id: salvager-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 14j x1 = 14 of 95
   - { agent_id: salvager-6, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 21j x1 = 21 of 95
   - { agent_id: salvager-7, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 19j x1 = 19 of 90
