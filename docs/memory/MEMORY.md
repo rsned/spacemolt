@@ -4,7 +4,7 @@
 
 ## Resume here
 - [Status board](project_status_board.md) — **READ FIRST.** The ≤15 live items, dated and linked. Roll old ones to the archive; never grow it.
-- [Standing rules](feedback_standing_rules.md) — never `git add -A` with dirty data/*.json · haul `--stagger 10s` · unpushed? `git log origin/main..HEAD`
+- [Standing rules](feedback_standing_rules.md) — never `git add -A` with dirty data/*.json · haul `--stagger 10s` · unpushed? `git log origin/main..HEAD` · after memory edits: `make memory-sync` + commit docs/memory
 - ⭐🔴 [NO stronghold routing without pirate unlock](feedback_stronghold_routing_requires_pirate_unlock.md) — per-agent rule; strongholds are dead ends; 8 of 24 losses incl. assist-sol's tanker
 - Archives: [Aug](project_status_archive_2026_08.md) · [Jul 22–29](project_status_archive_2026_07.md) · [Jul 4–10](project_current_status.md) — misnamed: the OLDEST archive, 81 KB
 - [Shipped-feature index](reference_shipped_history.md) — check before rebuilding anything

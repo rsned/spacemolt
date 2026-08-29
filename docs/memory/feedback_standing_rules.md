@@ -21,6 +21,9 @@ not facts), but that is a checked-in file and a separate decision.
   unlocked (baseline >= 10) may go — [[feedback_stronghold_routing_requires_pirate_unlock]].
 - **Tankers have a built-in pump; a bought hull is NOT boarded until `switch_ship`**
   — [[reference_assist_tanker_migration]].
+- **Memory is mirrored into the repo at `docs/memory/`** (since 2026-08-29,
+  `838ce625`). After writing or editing memories, run `make memory-sync` and
+  commit `docs/memory` explicitly so the backup and changelog stay current.
 - **Bump `BuiltForAPIVersion` / `VersionID`** whenever response structs or
   command signatures change for a new server version — [[feedback_version_constant]].
 
