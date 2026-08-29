@@ -55,3 +55,19 @@ action_log_events) — same gate the stronghold rule needs
 ([[reference_stronghold_guard_is_per_role]]); (3) on battle_started for
 non-hunt roles send flee (or brace, 0.25 dmg) immediately — only helps when
 commands are NOT blocked.
+
+**⭐ 2026-08-29 12:18 local — MoltenOne DESTROYED** by the operator hand-flying
+craftsman-1 (Arthur 'Artificer' Artis, `eviction_notice`: 480/600, 4× Pulse
+Laser III, 2× Adaptive Shield III) at **Tau Bootis**, battle
+`509e1ef4a76fc90d7ce4e33c85336a68`: 5 ticks, 1,064 dmg dealt vs 10/tick
+taken; he was attacking Preston 'Profit' Price (bedrock) and entered at 136
+hull. Wreck `cc2128e841cba61c296423dd372e721a` — `wreck_has_cargo` +
+`wreck_has_modules` (our miners' ore). The server sent a NEW event type
+`player_kill {victim, wreck_has_cargo, wreck_has_modules, wreck_id}` that the
+client did not decode (API drift, fix queued). Respawn point unknown; his
+sightings history is 55 observations at `haven` (in_combat) vs 3 at `sol`, so
+haven is the likely home. There is NO fleet-wide "run get_nearby now"
+control (control types: hello/status/event/abort/pause/resume/assign/drain/
+admin_*), and the worker dispatcher rejects unknown scheduled command names,
+so a marketbot sensor sweep needs either a `capture_agents` dispatch case +
+resident schedule line (next mb restart) or a new exec/broadcast control.

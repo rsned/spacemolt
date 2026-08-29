@@ -10,8 +10,8 @@
 - [Shipped-feature index](reference_shipped_history.md) — check before rebuilding anything
 
 ## Fleet ops — live problems
-- [Player sightings timeline](project_player_sightings_timeline.md) — `2dfd83e9` UNDEPLOYED: worker finally persists sightings; get_system_agents per lawless hop; seen_player_events
-- ⭐🔴 [MoltenOne: a PLAYER kills ships stranded by IP blocks](reference_moltenone_player_hunter_ip_block_kills.md) — 10 losses since 08-27, all in block windows; two kill clusters; our ships never fire or flee
+- [Player sightings timeline](project_player_sightings_timeline.md) — `2dfd83e9` DEPLOYED 08-29 to mb/assist/hunt/craft/shuttle; haul/unlock/mission-learn still OLD binary
+- ⭐ [MoltenOne: PLAYER hunter, KILLED 08-29 by hand-flown craftsman-1](reference_moltenone_player_hunter_ip_block_kills.md) — 10 losses in IP-block windows; wreck cc2128e8 has our ore; new `player_kill` event undecoded
 - ⭐🔴 [Stronghold guard is re-written per role](reference_stronghold_guard_is_per_role.md) — 5 copies, ABSENT from assist/autopilot/hunt/explore/freight; 8 of 24 losses. Fix = one movement-layer gate
 - ⭐ [Tanker migration 08-14: how tankers work + hand-flown pickup](reference_assist_tanker_migration.md) — built-in pump, arrives full, 4 listings galaxy-wide, `switch_ship` is a SEPARATE step (nexus trap)
 - ⭐ [Assist pump gap + pump-blind claim election](project_assist_fleet_refueling_pump_gap.md) — pre-tanker history; stale `requested_at` defeats distance routing

@@ -26,7 +26,7 @@ jump, so any player's movements can be rebuilt (tick, system, poi).
   `SeenPlayer` gained `Tick`/`ObserverID` (stamped in `observerStamp()`).
 - `scripts/sql/initialize_database.sql` regenerated (a test enforces sync).
 
-**Deploy = rebuild bin/worker + roll every fleet** ([[reference_deploy_verification]],
+**DEPLOYED 2026-08-29 11:53-12:26 local to mb/assist/hunt/craft/shuttle** (bin/worker built 11:53:24 from `35561e87`; each fleet TERM → rm sock → relaunch with its exact live line, one at a time, zero block lines; verified oldest worker start > binary mtime). **haul, unlock, mission-learn still run the OLD binary.** Craft was relaunched WITHOUT `--plan-queue`, matching the 02:23 launch (last plan-runner banner 08-27). Full roll = rebuild bin/worker + roll every fleet ([[reference_deploy_verification]],
 [[project_pending_rollout_queue]]). Until then the fleet still records nothing.
 
 **Marketbots are NOT a sensor net yet** (operator asked 08-29): the resident
