@@ -29,13 +29,18 @@ jump, so any player's movements can be rebuilt (tick, system, poi).
 **DEPLOYED 2026-08-29 11:53-12:26 local to mb/assist/hunt/craft/shuttle** (bin/worker built 11:53:24 from `35561e87`; each fleet TERM → rm sock → relaunch with its exact live line, one at a time, zero block lines; verified oldest worker start > binary mtime). **haul, unlock, mission-learn still run the OLD binary.** Craft was relaunched WITHOUT `--plan-queue`, matching the 02:23 launch (last plan-runner banner 08-27). Full roll = rebuild bin/worker + roll every fleet ([[reference_deploy_verification]],
 [[project_pending_rollout_queue]]). Until then the fleet still records nothing.
 
-**Marketbots are NOT a sensor net yet** (operator asked 08-29): the resident
-roles schedule kb_update/view_market/update_market/facilities/capture_*
-only — no `get_nearby`, no `get_system_agents`; the only worker caller of
-`GetNearby` is `hunt_wildlife.go`. Adding a scheduled `get_system_agents`
-to the resident roles (~40 parked bots, one call each per interval) needs a
-dispatch case for the command name plus roles.yaml lines — a small
-follow-up, not yet approved.
+**Marketbot sensor net BUILT `2340e637` (08-29), INACTIVE until the mb fleet
+restarts** (schedules seed at launch): resident/resident_gas/resident_ice
+now carry `ten_minutely get_system_agents` + `get_nearby`; the dispatcher
+knows both names. Migration 57 dedups `seen_player_events` on (observer,
+player, system, tick) via a partial unique index (tick>0) and the recorder
+upserts so get_nearby's poi_id upgrades the system-wide row. `bin/worker`
+rebuilt 12:43 from `2340e637`. Cost ~11 calls/min fleet-wide.
+
+**One-off sweep 08-29 12:37 local** (play_as marketbot_haven/sol in SIGSTOP
+windows, 16-20s each, workers resumed clean): haven 63 players, sol 27 —
+**MoltenOne in neither**; zero sightings of him since the kill tick. His
+home is NOT haven or sol despite 55 in-combat sightings at haven.
 
 **Query the timeline:** `select observer_id, system_id, poi_id, tick,
 seen_at_utc from seen_player_events where player_id=? order by tick`.
