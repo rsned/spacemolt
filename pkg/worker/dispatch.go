@@ -464,6 +464,15 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			return err
 		}
 		return market.CaptureFromClient(ctx, d.Client, d.Market)
+	case "get_system_agents":
+		// Who else is in the system. Sightings persist through the client's
+		// PlayerObserver; nothing to store here. Residents run it on the
+		// update_market cadence as a fixed sensor net.
+		return d.Client.GetSystemAgents(ctx)
+	case "get_nearby":
+		// Who is at this POI; the POI-level companion of get_system_agents
+		// (the recorder merges the two into one observation per tick).
+		return d.Client.GetNearby(ctx)
 	case "capture_fuel":
 		if d.Market == nil {
 			return fmt.Errorf("capture_fuel: market collector not configured (use --market-db-path)")

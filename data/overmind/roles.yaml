@@ -12,6 +12,8 @@ roles:
       - { every: hourly, command: "kb_update" }
       - { every: hourly, command: "view_market" }
       - { every: ten_minutely, command: "update_market" }
+      - { every: ten_minutely, command: "get_system_agents" }
+      - { every: ten_minutely, command: "get_nearby" }
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
       - { every: hourly, command: "capture_profile" }
@@ -28,6 +30,8 @@ roles:
       - { every: hourly, command: "kb_update" }
       - { every: hourly, command: "view_market" }
       - { every: ten_minutely, command: "update_market" }
+      - { every: ten_minutely, command: "get_system_agents" }
+      - { every: ten_minutely, command: "get_nearby" }
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
       - { every: hourly, command: "capture_profile" }
@@ -39,6 +43,8 @@ roles:
       - { every: hourly, command: "kb_update" }
       - { every: hourly, command: "view_market" }
       - { every: ten_minutely, command: "update_market" }
+      - { every: ten_minutely, command: "get_system_agents" }
+      - { every: ten_minutely, command: "get_nearby" }
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
       - { every: hourly, command: "capture_profile" }

@@ -111,11 +111,21 @@ ON CONFLICT(player_id, system_id, poi_id, bucket_hour_utc) DO UPDATE SET
 			// Append-only timeline row: one per observation, never merged,
 			// so "who was in this system at this tick, and who saw them" is
 			// answerable after the fact.
+			// The same observer seeing the same player in the same system at
+			// the same tick is one observation however many calls reported it;
+			// a POI-level read (get_nearby) upgrades a system-wide one with its
+			// poi_id, and a later system-wide read never erases a known POI.
 			if _, err := tx.Exec(`
 INSERT INTO seen_player_events
 	(player_id, observer_id, system_id, poi_id, ship_class, source,
 	 in_combat, tick, seen_at_utc)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(observer_id, player_id, system_id, tick) WHERE tick > 0 DO UPDATE SET
+	poi_id      = CASE WHEN excluded.poi_id <> '' THEN excluded.poi_id ELSE poi_id END,
+	source      = CASE WHEN excluded.poi_id <> '' OR poi_id = '' THEN excluded.source ELSE source END,
+	ship_class  = COALESCE(NULLIF(excluded.ship_class, ''), ship_class),
+	in_combat   = excluded.in_combat,
+	seen_at_utc = excluded.seen_at_utc`,
 				o.PlayerID, o.ObserverID, o.SystemID, o.POIID, o.ShipClass, o.Source,
 				boolToInt(o.InCombat), o.Tick, seenStr,
 			); err != nil {

@@ -11,7 +11,7 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 28
+-- Migrations applied: 29
 -- Last Regenerated: 2026-08-29
 
 -- ============================================================================
@@ -1198,6 +1198,9 @@ CREATE INDEX passengers_citizenship ON passengers(citizenship);
 
 CREATE INDEX passengers_name ON passengers(name);
 
+CREATE UNIQUE INDEX seen_events_observation
+					ON seen_player_events(observer_id, player_id, system_id, tick) WHERE tick > 0;
+
 CREATE INDEX seen_events_player_time ON seen_player_events(player_id, seen_at_utc);
 
 CREATE INDEX seen_events_system_time ON seen_player_events(system_id, seen_at_utc);
@@ -1247,4 +1250,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (53, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (54, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (55, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (56, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (57, datetime('now'));
 

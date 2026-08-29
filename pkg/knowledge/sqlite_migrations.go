@@ -880,6 +880,24 @@ func migrations() []Migration {
 				CREATE INDEX IF NOT EXISTS seen_events_system_time ON seen_player_events(system_id, seen_at_utc);
 			`,
 		},
+		{
+			version: 57,
+			name:    "seen_player_events_dedup",
+			// Residents read get_system_agents and get_nearby back to back, so
+			// the same (observer, player, system, tick) arrived twice per pass.
+			// Collapse existing duplicates keeping the latest row (the POI-level
+			// read lands second and carries poi_id), then enforce it. Rows with
+			// tick 0 carry no moment and are left alone.
+			sql: `
+				DELETE FROM seen_player_events
+				WHERE tick > 0 AND id NOT IN (
+					SELECT MAX(id) FROM seen_player_events WHERE tick > 0
+					GROUP BY observer_id, player_id, system_id, tick
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS seen_events_observation
+					ON seen_player_events(observer_id, player_id, system_id, tick) WHERE tick > 0;
+			`,
+		},
 		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
 		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
 		// pre-collapse DBs, where `ships` does not exist until

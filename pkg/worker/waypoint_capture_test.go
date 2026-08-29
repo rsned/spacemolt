@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"io"
 	"slices"
 	"testing"
 
@@ -68,5 +69,24 @@ func TestKBWaypointCaptureNoKBIsANoop(t *testing.T) {
 	}
 	if len(client.calls) != 0 {
 		t.Errorf("calls = %v, want none", client.calls)
+	}
+}
+
+func (f *fakeClient) GetNearby(ctx context.Context) error {
+	f.calls = append(f.calls, "get_nearby")
+	return nil
+}
+
+// Residents schedule these two by name; the dispatcher must know them.
+func TestDispatchRunsSightingCommandsByName(t *testing.T) {
+	for _, cmd := range []string{"get_system_agents", "get_nearby"} {
+		fc := &fakeClient{state: waypointState(3)}
+		d := NewWorkerDispatch(fc, knowledge.NewMemoryKB(), nil, io.Discard)
+		if err := d.Run(context.Background(), []string{cmd}); err != nil {
+			t.Fatalf("Run(%s): %v", cmd, err)
+		}
+		if !slices.Contains(fc.calls, cmd) {
+			t.Errorf("Run(%s) issued %v", cmd, fc.calls)
+		}
 	}
 }
