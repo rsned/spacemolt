@@ -34,6 +34,7 @@
 - ⭐🔴 [Capture cadence retune PENDING](reference_capture_cadence_retune_pending.md) — `--apply` at the next fleet stop; live workers revert schedule.json edits
 - [Pirate unlock campaign](project_pirate_reputation_unlock_campaign.md) — raise every agent from -30 to 10; 45/161; NOMINATION is the bottleneck, not rotation
 - [Mining fleet](project_mining_fleet.md) — created 08-21 as the unlock campaign's graduation destination; two-system loop, ore-selection refinements
+- [Outer Rim capital is MOBILE; marketbot homes ≠ names](reference_outer_rim_mobile_capital_and_marketbot_homes.md) — Frontier has no station now; station-less residents never move; market_prime sits in Haven
 - [Spare marketbot accounts for smuggling](reference_smuggling_spare_marketbot_accounts.md) — nine dormant, credentials present, in no fleet yaml
 - [Rescue pipeline bug package](project_rescue_pipeline_bugs.md) — failed records never retry, wrong assister claims, gift-locked fees (Distant Light, 07-16)
 - [Worker heartbeat credits read stale 0](reference_worker_heartbeat_credits_stale.md) — gifts look failed when they landed; confirm in-game, not the status file
