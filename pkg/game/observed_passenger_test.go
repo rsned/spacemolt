@@ -58,7 +58,7 @@ func TestNotifyPassengers_NoObserverIsNoOp(t *testing.T) {
 }
 
 func TestHandleResponse_FiresOnStationPassengers(t *testing.T) {
-	c := newHandleResponseTestClient("sys-A")
+	c := newHandleResponseTestClient("sys_a")
 	got := capturePassengerObserver(t, c)
 
 	payload := payloadMarshal(t, map[string]any{
@@ -83,7 +83,7 @@ func TestHandleResponse_FiresOnStationPassengers(t *testing.T) {
 }
 
 func TestHandleResponse_FiresOnDockArrivals(t *testing.T) {
-	c := newHandleResponseTestClient("sys-A")
+	c := newHandleResponseTestClient("sys_a")
 	got := capturePassengerObserver(t, c)
 
 	// dock arrives as a type=ok frame; passenger_arrivals.delivered carries the
