@@ -810,6 +810,53 @@ func migrations() []Migration {
 					ADD COLUMN wormhole_destination TEXT NOT NULL DEFAULT '';
 			`,
 		},
+		{
+			version: 55,
+			name:    "seen_player_sightings_system_id_slug",
+			// seen_player_sightings.system_id was written from the client's
+			// CurrentSystem, which holds the system NAME, so rows recorded
+			// "Bellatrix" and "Alpha Centauri" where systems.id holds
+			// "bellatrix" and "alpha_centauri". 5,715 of 6,870 rows -- 83% --
+			// could not be joined to systems at all, hiding every player
+			// sighting from any query wanting a police level or an empire.
+			//
+			// The client now slugifies at the source; this repairs what is
+			// already stored. Idempotent: all 505 known system ids are
+			// lowercase with no spaces or dashes, so a correct row is
+			// rewritten to itself.
+			//
+			// The apostrophe is dropped rather than underscored: "Trader's
+			// Rest" is the one name carrying one, and its id is traders_rest.
+			//
+			// 23 of the misspelled rows collide with a correctly-spelled row
+			// for the same player, POI and hour -- the same observation under
+			// two spellings. They are MERGED, not replaced: a plain
+			// UPDATE OR REPLACE would delete the surviving row and silently
+			// drop its observation_count and its half of the time window.
+			// So the repair re-inserts each bad row under its slugged id and
+			// lets the upsert add the counts and widen first/last seen, then
+			// deletes the originals.
+			sql: `
+				INSERT INTO seen_player_sightings
+					(player_id, system_id, poi_id, bucket_hour_utc, ship_class,
+					 source, in_combat, first_seen_utc, last_seen_utc, observation_count)
+				SELECT player_id,
+				       LOWER(REPLACE(REPLACE(REPLACE(system_id, ' ', '_'), '-', '_'), '''', '')),
+				       poi_id, bucket_hour_utc, ship_class, source, in_combat,
+				       first_seen_utc, last_seen_utc, observation_count
+				FROM seen_player_sightings
+				WHERE system_id != LOWER(REPLACE(REPLACE(REPLACE(system_id, ' ', '_'), '-', '_'), '''', ''))
+				ON CONFLICT(player_id, system_id, poi_id, bucket_hour_utc) DO UPDATE SET
+					observation_count = seen_player_sightings.observation_count + excluded.observation_count,
+					first_seen_utc = MIN(seen_player_sightings.first_seen_utc, excluded.first_seen_utc),
+					last_seen_utc  = MAX(seen_player_sightings.last_seen_utc, excluded.last_seen_utc),
+					ship_class = CASE WHEN excluded.ship_class IS NOT NULL AND excluded.ship_class != ''
+						THEN excluded.ship_class ELSE seen_player_sightings.ship_class END;
+
+				DELETE FROM seen_player_sightings
+				WHERE system_id != LOWER(REPLACE(REPLACE(REPLACE(system_id, ' ', '_'), '-', '_'), '''', ''));
+			`,
+		},
 		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
 		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
 		// pre-collapse DBs, where `ships` does not exist until
@@ -889,6 +936,27 @@ func runMigrations(db *sql.DB) error {
 				`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='pois'`,
 			).Scan(&tableCount); err != nil {
 				return fmt.Errorf("check pois table: %w", err)
+			}
+			if tableCount == 0 {
+				if _, err := db.Exec(
+					"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",
+					m.version,
+				); err != nil {
+					return fmt.Errorf("failed to record migration %d: %w", m.version, err)
+				}
+				continue
+			}
+		}
+
+		// Special case for migration 55: same shape as 40 -- seen_player_sightings
+		// may be absent in narrow fixtures, and an UPDATE against a missing
+		// table is an error rather than a no-op.
+		if m.version == 55 {
+			var tableCount int
+			if err := db.QueryRow(
+				`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='seen_player_sightings'`,
+			).Scan(&tableCount); err != nil {
+				return fmt.Errorf("check seen_player_sightings table: %w", err)
 			}
 			if tableCount == 0 {
 				if _, err := db.Exec(

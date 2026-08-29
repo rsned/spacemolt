@@ -48,7 +48,7 @@ func captureObserver(t *testing.T, c *Client) *[]ObservedPlayer {
 }
 
 func TestNotifyPlayers_StampsContextFields(t *testing.T) {
-	c := &Client{state: &State{CurrentSystem: "sys-treasure"}}
+	c := &Client{state: &State{CurrentSystem: "treasure_cache"}}
 	got := captureObserver(t, c)
 
 	players := []serverapi.NearbyPlayer{
@@ -61,8 +61,8 @@ func TestNotifyPlayers_StampsContextFields(t *testing.T) {
 		t.Fatalf("got %d observations, want 2", len(*got))
 	}
 	for _, o := range *got {
-		if o.SystemID != "sys-treasure" {
-			t.Errorf("SystemID=%q, want sys-treasure", o.SystemID)
+		if o.SystemID != "treasure_cache" {
+			t.Errorf("SystemID=%q, want treasure_cache", o.SystemID)
 		}
 		if o.POIID != "poi-haven" {
 			t.Errorf("POIID=%q, want poi-haven", o.POIID)
@@ -83,7 +83,7 @@ func TestNotifyPlayers_NoObserverIsNoOp(t *testing.T) {
 }
 
 func TestNotifyPlayersFromBattle_MarksInCombat(t *testing.T) {
-	c := &Client{state: &State{CurrentSystem: "sys-A"}}
+	c := &Client{state: &State{CurrentSystem: "sys_a"}}
 	got := captureObserver(t, c)
 
 	// BattleParticipant has no FactionTag (faction is on BattleSide, not
@@ -105,7 +105,7 @@ func TestNotifyPlayersFromBattle_MarksInCombat(t *testing.T) {
 }
 
 func TestNotifyPlayerFromChat_NoShipNoPOI(t *testing.T) {
-	c := &Client{state: &State{CurrentSystem: "sys-A"}}
+	c := &Client{state: &State{CurrentSystem: "sys_a"}}
 	got := captureObserver(t, c)
 
 	// ChatMessage has no FactionTag — only SenderID, Sender, Channel,
@@ -160,7 +160,7 @@ func payloadMarshal(t *testing.T, v any) map[string]any {
 }
 
 func TestHandleResponse_FiresOnGetNearby(t *testing.T) {
-	c := newHandleResponseTestClient("sys-A")
+	c := newHandleResponseTestClient("sys_a")
 	got := captureObserver(t, c)
 
 	payload := payloadMarshal(t, map[string]any{
@@ -181,13 +181,13 @@ func TestHandleResponse_FiresOnGetNearby(t *testing.T) {
 	if (*got)[0].Source != "get_nearby" {
 		t.Errorf("Source=%q, want get_nearby", (*got)[0].Source)
 	}
-	if (*got)[0].SystemID != "sys-A" {
-		t.Errorf("SystemID=%q, want sys-A", (*got)[0].SystemID)
+	if (*got)[0].SystemID != "sys_a" {
+		t.Errorf("SystemID=%q, want sys_a", (*got)[0].SystemID)
 	}
 }
 
 func TestHandleResponse_FiresOnGetSystemAgents(t *testing.T) {
-	c := newHandleResponseTestClient("sys-A")
+	c := newHandleResponseTestClient("sys_a")
 	got := captureObserver(t, c)
 
 	payload := payloadMarshal(t, map[string]any{
@@ -195,7 +195,7 @@ func TestHandleResponse_FiresOnGetSystemAgents(t *testing.T) {
 			{PlayerID: "p1", Username: "u1", ShipClass: "viper"},
 			{PlayerID: "p2", Username: "u2", ShipClass: "theoria"},
 		},
-		"system_id": "sys-A",
+		"system_id": "sys_a",
 		"count":     2,
 	})
 	c.handleResponse(protocol.Response{Type: protocol.TypeOK, Payload: payload})
@@ -212,12 +212,12 @@ func TestHandleResponse_FiresOnGetSystemAgents(t *testing.T) {
 }
 
 func TestHandleResponse_FiresOnBattleAlert(t *testing.T) {
-	c := newHandleResponseTestClient("sys-A")
+	c := newHandleResponseTestClient("sys_a")
 	got := captureObserver(t, c)
 
 	payload := payloadMarshal(t, map[string]any{
 		"battle_id": "b1",
-		"system_id": "sys-A",
+		"system_id": "sys_a",
 		"participants": []serverapi.BattleParticipant{
 			{PlayerID: "p1", Username: "u1", ShipClass: "viper"},
 		},
@@ -236,7 +236,7 @@ func TestHandleResponse_FiresOnBattleAlert(t *testing.T) {
 }
 
 func TestHandleResponse_FiresOnBattleEnded(t *testing.T) {
-	c := newHandleResponseTestClient("sys-A")
+	c := newHandleResponseTestClient("sys_a")
 	c.state.InCombat = true
 	c.state.InBattle = true
 	got := captureObserver(t, c)
@@ -272,7 +272,7 @@ func TestHandleResponse_FiresOnBattleEnded(t *testing.T) {
 }
 
 func TestHandleResponse_FiresOnChatMessage(t *testing.T) {
-	c := newHandleResponseTestClient("sys-A")
+	c := newHandleResponseTestClient("sys_a")
 	got := captureObserver(t, c)
 
 	payload := payloadMarshal(t, map[string]any{
@@ -298,7 +298,7 @@ func TestHandleResponse_FiresOnChatMessage(t *testing.T) {
 }
 
 func TestHandleResponse_FiresOnScanActionResult(t *testing.T) {
-	c := newHandleResponseTestClient("sys-A")
+	c := newHandleResponseTestClient("sys_a")
 	got := captureObserver(t, c)
 
 	// scan arrives as an action_result frame with top-level command "scan"
@@ -336,8 +336,8 @@ func TestHandleResponse_FiresOnScanActionResult(t *testing.T) {
 	if o.FactionID != "e3653eac" {
 		t.Errorf("FactionID=%q, want e3653eac", o.FactionID)
 	}
-	if o.SystemID != "sys-A" {
-		t.Errorf("SystemID=%q, want sys-A", o.SystemID)
+	if o.SystemID != "sys_a" {
+		t.Errorf("SystemID=%q, want sys_a", o.SystemID)
 	}
 	if o.Source != "scan" {
 		t.Errorf("Source=%q, want scan", o.Source)
@@ -348,11 +348,11 @@ func TestHandleResponse_FiresOnScanActionResult(t *testing.T) {
 }
 
 func TestHandleResponse_FiresOnGetSystemOnlinePlayers(t *testing.T) {
-	c := newHandleResponseTestClient("sys-A")
+	c := newHandleResponseTestClient("sys_a")
 	got := captureObserver(t, c)
 
 	payload := payloadMarshal(t, map[string]any{
-		"system_id": "sys-A",
+		"system_id": "sys_a",
 		"name":      "Treasure Cache",
 		"online_players": []serverapi.NearbyPlayer{
 			{PlayerID: "p1", Username: "u1", ShipClass: "theoria"},

@@ -11,7 +11,7 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 26
+-- Migrations applied: 27
 -- Last Regenerated: 2026-08-29
 
 -- ============================================================================
@@ -1227,4 +1227,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (51, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (52, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (53, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (54, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (55, datetime('now'));
 

@@ -1,6 +1,7 @@
 package game
 
 import (
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -183,11 +184,42 @@ func (c *Client) notifyPlayerFromScan(resp serverapi.ScanResponse, systemID stri
 
 // currentSystemID returns the current system identifier from c.state,
 // guarded by c.mu. Returns "" if state has not been initialized.
+//
+// It reads System.ID before CurrentSystem, and slugifies whichever it gets.
+// Both are needed. CurrentSystem is documented as, and assigned from, the
+// system NAME (see GetCurrentSystem, and `c.state.CurrentSystem = sys.Name`),
+// so reading it stored "Bellatrix" and "Alpha Centauri" as system ids -- and
+// 5,715 of 6,870 seen_player_sightings rows could not be joined to the systems
+// table at all, 83% of our player intel silently invisible to any query that
+// wanted a police level or an empire. System.ID is not sufficient on its own
+// either: it falls back to the name when the server sends an empty id.
+//
+// Slugifying is safe and idempotent -- all 505 known system ids are lowercase
+// with no spaces or dashes, so a genuine id passes through untouched.
 func (c *Client) currentSystemID() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.state == nil {
 		return ""
 	}
-	return c.state.CurrentSystem
+	if id := c.state.System.ID; id != "" {
+		return slugSystemID(id)
+	}
+	return slugSystemID(c.state.CurrentSystem)
+}
+
+// slugSystemID converts a system display name to the id form the KB joins on:
+// "Alpha Centauri" -> "alpha_centauri", "GSC-0002" -> "gsc_0002",
+// "Trader's Rest" -> "traders_rest". A value that is already an id is returned
+// unchanged.
+//
+// The apostrophe is DROPPED rather than replaced, unlike the space and dash.
+// "Trader's Rest" is the one name in the galaxy that carries one, and its id is
+// traders_rest -- so substituting an underscore would produce trader_s_rest and
+// keep the row unjoinable.
+func slugSystemID(s string) string {
+	if s == "" {
+		return ""
+	}
+	return strings.ToLower(strings.NewReplacer(" ", "_", "-", "_", "'", "").Replace(s))
 }
