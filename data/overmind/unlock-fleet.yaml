@@ -16,6 +16,26 @@
 # pace under the per-IP /login limit).
 #
 # ---------------------------------------------------------------------------
+# NEVER COMMENT OUT A ROTATING AGENT'S LINE (2026-08-24)
+#
+# The haul<->unlock secondment reconciler moves an agent by editing the two
+# fleets' OVERRIDES sidecars, which are removed-SETS: they can only subtract
+# from the yaml roster, never add to it. Releasing an agent into a fleet is
+# `overrides.Delete(id)`, and that is a no-op if the fleet's yaml has no line
+# for it.
+#
+# So every agent that rotates must be listed in BOTH yamls permanently, with
+# the removed-sets as the only switch. On 2026-08-23 the haul-owned entries
+# here were commented out instead. The next morning the reconciler graduated
+# hauler-0 and seconded trader-1 in its place — both fleets removed their
+# worker, neither fleet could start one, and BOTH agents ran in NO fleet for
+# 14 hours while every status read normal (they simply were not in any roster).
+#
+# The comments were belt-and-braces on top of the removed-set. They are not
+# redundant, they are a second writer for state the reconciler owns, and that
+# is what broke the rotation.
+#
+# ---------------------------------------------------------------------------
 # WHY ONLY FOUR WORKERS ARE PINNED
 #
 # The whole chain is sold from ONE base. `across_the_line` and `supply_run` sit
@@ -249,12 +269,12 @@ workers:
   # 24 jumps — Nexus Prime cluster.
   - { agent_id: pirate-11, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: pirate-12, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: pirate-13, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: pirate-13, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: pirate-14, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: pirate-15, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: miner-5, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: miner-6, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: prophet-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miner-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miner-6, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: prophet-1, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
 
   # 26 jumps — Krynn cluster, the far tail. Brigand bands 1 and 3 are dormant by
   # design (blocked on combat dynamics); mission running is the only work they
@@ -263,7 +283,7 @@ workers:
   - { agent_id: pirate-2, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: pirate-3, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }             # 0/150 FUEL, must refuel before it can move
   - { agent_id: pirate-4, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: pirate-5, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: pirate-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: miner-7, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: miner-8, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
 
@@ -306,25 +326,32 @@ workers:
   #
   # DO NOT hand-delete an id from unlock-overrides.json. That is the one edit
   # that starts a hauler twice.
-  - { agent_id: hauler-0, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-2, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-3, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-4, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-5, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-6, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-7, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-8, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-9, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: salvager-10, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-2, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-3, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-4, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-5, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-6, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-7, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-8, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-9, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: trader-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
-  # QUEUED-NOT-OWNED 2026-08-23 (runs in haul): - { agent_id: explorer-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: hauler-0, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  # PINNED 2026-08-24. Every rotating hauler is pinned to the giver, because an
+  # unpinned worker NEVER unlocks (measured: pinned 8/8, unpinned 0/45) — it just
+  # burns board scans in place. Safe to pin because the hull attrition that cost
+  # these agents their freight hulls left them on scale-1 starters: 1-2 fuel/jump
+  # against 90-150 tanks. Measured 2026-08-24, worst case is salvager-9 at 26
+  # jumps x 2 = 52 fuel of a 120 tank. Contrast engineer-5, which stranded at 16
+  # jumps because it burned 6/jump. Pin on BURN RATE, never tank size.
+  - { agent_id: salvager-1, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 16j x1 = 16 of 130
+  - { agent_id: salvager-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 16j x1 = 16 of 130
+  - { agent_id: salvager-3, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 23j x6 = 138 of 270
+  - { agent_id: salvager-4, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 23j x1 = 23 of 100
+  - { agent_id: salvager-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 14j x1 = 14 of 95
+  - { agent_id: salvager-6, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 21j x1 = 21 of 95
+  - { agent_id: salvager-7, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 19j x1 = 19 of 90
+  - { agent_id: salvager-8, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 22j x1 = 22 of 90
+  - { agent_id: salvager-9, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 26j x2 = 52 of 120
+  - { agent_id: salvager-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 17j x2 = 34 of 120
+  - { agent_id: trader-1, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }     # seconded 08-24
+  - { agent_id: trader-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }     # 15j x1 = 15 of 130
+  - { agent_id: trader-3, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }     # 1j  x1 = 1 of 100
+  - { agent_id: trader-4, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }     # 17j x1 = 17 of 100
+  - { agent_id: trader-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }     # 15j x6 = 90 of 160
+  - { agent_id: trader-6, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }     # 23j x2 = 46 of 150
+  - { agent_id: trader-7, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }     # ALREADY AT THE GIVER
+  - { agent_id: trader-8, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }     # 16j x1 = 16 of 90, but only 15 aboard: MUST REFUEL FIRST
+  - { agent_id: trader-9, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }     # 23j x2 = 46 of 120
+  - { agent_id: trader-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: explorer-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
