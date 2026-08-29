@@ -334,6 +334,12 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 			fmt.Println()
 		}
 
+		// The census is a sighting source in its own right, so it gets the
+		// unscanned check too -- see reportUnscannedCensus. It runs
+		// unconditionally, not inside the n > 0 branch above, because a
+		// capture error must not also cost the operator the notice.
+		reportUnscannedCensus(ctx, resp, format)
+
 		// Revealed POIs, both lists, in every output format. Capture is not a
 		// property of how the caller wants the result printed.
 		if globalKB != nil {
@@ -646,19 +652,73 @@ func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, po
 // Reporting is best-effort: a KB that cannot answer produces silence, never an
 // error, since this runs inside an exploration loop that must not break.
 func reportUnscannedSpecies(ctx context.Context, creatures []serverapi.NearbyCreature, poiID string, format outputFormat) {
-	if format != formatStyled || globalKB == nil || len(creatures) == 0 {
+	cands := make([]unscannedCandidate, 0, len(creatures))
+	for _, c := range creatures {
+		cands = append(cands, unscannedCandidate{Species: c.Species, Name: c.Name, Role: c.Role})
+	}
+	reportUnscanned(ctx, cands, "at POI "+poiID, format)
+}
+
+// reportUnscannedCensus flags unscanned species named by a survey_system
+// census.
+//
+// The census was the ONLY sighting of two species for a full exploration pass,
+// and both slipped through silently because nothing ran this check over it:
+// pall_jelly and tempest_eel, seen in redmarsh 2026-08-29T01:13:37Z. That is
+// the gap biting in the worst direction. Of the ten species awaiting a scan,
+// seven are grazers of 35-85 hull; the three that are not are a 400-hull
+// predator, and those two -- a predator and a scavenger whose hull the census
+// does not report at all. The notice exists so the operator can judge whether a
+// scan is safe, and it stayed quiet on exactly the two where safety was least
+// knowable.
+//
+// A census names no POI -- it is system-wide -- so the notice says the system
+// and admits it cannot say where. That is still actionable, and for predators
+// it is arguably the RIGHT granularity: predators come and go from the herds
+// (observed in Goldcrest), so which POI holds one is a fact with a short shelf
+// life, while "this system has an uncharacterised predator in it" stays true.
+// A get_nearby that found only grazers is therefore not evidence the POI is
+// safe -- it is evidence about one moment, at one POI, in a system the census
+// may already have told us holds something worse.
+func reportUnscannedCensus(ctx context.Context, resp serverapi.SurveySystemResponse, format outputFormat) {
+	cands := make([]unscannedCandidate, 0, len(resp.Wildlife))
+	for _, w := range resp.Wildlife {
+		cands = append(cands, unscannedCandidate{Species: w.Species, Name: w.Name, Role: w.Role})
+	}
+	where := "somewhere in " + resp.SystemID + " (census: no POI)"
+	reportUnscanned(ctx, cands, where, format)
+}
+
+// unscannedCandidate is one species a reply mentioned, in the fields the notice
+// needs. It exists so the get_nearby and survey_system paths -- whose replies
+// agree on species/name/role and on nothing else -- can share one report.
+type unscannedCandidate struct {
+	Species string
+	Name    string
+	Role    string
+}
+
+// reportUnscanned is the shared body: it dedupes, asks the KB which species
+// have never been characterised, and prints one line each.
+//
+// Role is included in the line because the whole point of the notice is a
+// safety judgement, and role is the only danger signal available BEFORE the
+// scan that would reveal the danger bracket. "grazer" and "predator" are
+// different decisions.
+func reportUnscanned(ctx context.Context, cands []unscannedCandidate, where string, format outputFormat) {
+	if format != formatStyled || globalKB == nil || len(cands) == 0 {
 		return
 	}
-	seen := make(map[string]string, len(creatures)) // species -> display name
-	ids := make([]string, 0, len(creatures))
-	for _, c := range creatures {
+	seen := make(map[string]unscannedCandidate, len(cands))
+	ids := make([]string, 0, len(cands))
+	for _, c := range cands {
 		if c.Species == "" {
 			continue
 		}
 		if _, dup := seen[c.Species]; dup {
 			continue
 		}
-		seen[c.Species] = c.Name
+		seen[c.Species] = c
 		ids = append(ids, c.Species)
 	}
 	unscanned, err := knowledge.UnscannedSpecies(ctx, globalKB, ids)
@@ -667,11 +727,17 @@ func reportUnscannedSpecies(ctx context.Context, creatures []serverapi.NearbyCre
 	}
 	slices.Sort(unscanned)
 	for _, sp := range unscanned {
+		c := seen[sp]
 		label := sp
-		if name := seen[sp]; name != "" && name != sp {
-			label = fmt.Sprintf("%s (%s)", sp, name)
+		switch {
+		case c.Name != "" && c.Name != sp && c.Role != "":
+			label = fmt.Sprintf("%s (%s, %s)", sp, c.Name, c.Role)
+		case c.Name != "" && c.Name != sp:
+			label = fmt.Sprintf("%s (%s)", sp, c.Name)
+		case c.Role != "":
+			label = fmt.Sprintf("%s (%s)", sp, c.Role)
 		}
-		fmt.Printf("  ** NEW UNSCANNED CREATURE CLASS %s at POI %s -- `scan <creature_id>` to characterise\n", label, poiID)
+		fmt.Printf("  ** NEW UNSCANNED CREATURE CLASS %s %s -- `scan <creature_id>` to characterise\n", label, where)
 	}
 }
 
