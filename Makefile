@@ -4,7 +4,7 @@
 # Do NOT run 'go build ./...' directly - it creates binaries in the root directory
 # which should be kept clean. All binaries go into ./bin/
 
-.PHONY: test test-race lint vet check-all clean build update-server-docs generate-mcp-tools update-mcp
+.PHONY: test test-race lint vet check-all clean build update-server-docs generate-mcp-tools update-mcp memory-sync
 
 # Run standard tests
 test:
@@ -111,3 +111,7 @@ update-mcp: update-server-docs generate-mcp-tools
 	@echo "  1. Review changes: git diff server_docs/ cmd/mcp-ws-bridge/"
 	@echo "  2. Test bridge: make test"
 	@echo "  3. Commit if satisfied: git add -A && git commit -m 'chore: update MCP tools from latest API'"
+
+# Mirror Claude auto-memory into docs/memory/ for backup + change tracking
+memory-sync:
+	scripts/memory-sync.sh
