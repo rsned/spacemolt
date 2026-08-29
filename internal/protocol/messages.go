@@ -38,6 +38,7 @@ const (
 	TypeBattleDamage       = "battle_damage"
 	TypeBattleEnded        = "battle_ended"
 	TypePlayerDied         = "player_died"
+	TypePlayerKill         = "player_kill" // we destroyed another player; carries the wreck id
 	TypeMining             = "mining"
 	TypeMiningYield        = "mining_yield"
 	TypeScanResult         = "scan_result"

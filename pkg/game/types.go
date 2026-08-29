@@ -435,8 +435,11 @@ type State struct {
 	ModuleDefinitions map[string]ModuleDefinition `json:"modules,omitempty"`
 
 	// System data
-	System          SystemData
-	CurrentTick     int64
+	System      SystemData
+	CurrentTick int64
+	// LastKill is the most recent player_kill push: the wreck we are
+	// entitled to loot. Zero value until we destroy someone.
+	LastKill        serverapi.PlayerKill
 	ServerTimestamp int64 // Server UNIX timestamp from get_notifications
 	LastMapUpdate   time.Time
 
@@ -572,6 +575,7 @@ func (s *State) Clone() *State {
 		Cargo:           cargoCopy,
 		MaxCargo:        s.MaxCargo,
 		CurrentTick:     s.CurrentTick,
+		LastKill:        s.LastKill,
 		ServerTimestamp: s.ServerTimestamp,
 		Player:          s.Player,
 		Ship:            s.Ship,

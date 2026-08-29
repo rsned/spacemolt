@@ -540,6 +540,12 @@ var eventExpectedFields = map[string]map[string]bool{
 		"damage_type": true,
 		"message":     true,
 	},
+	protocol.TypePlayerKill: {
+		"victim":            true,
+		"wreck_id":          true,
+		"wreck_has_cargo":   true,
+		"wreck_has_modules": true,
+	},
 	protocol.TypePlayerDied: {
 		"message":          true,
 		"respawn_at":       true,

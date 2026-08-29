@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"reflect"
 	"testing"
 	"time"
@@ -156,6 +157,7 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 			LastVisitedTick: 106000,
 		},
 		CurrentTick:     106000,
+		LastKill:        serverapi.PlayerKill{Victim: "MoltenOne", WreckID: "wreck-1", WreckHasCargo: true, WreckHasModules: true},
 		ServerTimestamp: 1773883811,
 		LastMapUpdate:   time.Date(2026, 2, 18, 9, 0, 0, 0, time.UTC),
 		Nearby: []NearbyPlayer{

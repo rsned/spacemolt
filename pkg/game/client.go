@@ -2743,6 +2743,17 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.state.LastDamage = 0
 		c.mu.Unlock()
 
+	case protocol.TypePlayerKill:
+		var ev serverapi.PlayerKill
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.debugLogger.Printf("🏴 PLAYER KILL: %s destroyed, wreck %s (cargo=%v modules=%v)",
+			ev.Victim, ev.WreckID, ev.WreckHasCargo, ev.WreckHasModules)
+		c.mu.Lock()
+		c.state.LastKill = ev
+		c.mu.Unlock()
+
 	case protocol.TypePirateSpawn:
 		c.debugLogger.Printf("⚠️  PIRATE SPAWNED: %v", resp.Payload)
 
@@ -4494,6 +4505,7 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypePirateWarning:           {},
 	protocol.TypePoliceWarning:           {},
 	protocol.TypePlayerDied:              {},
+	protocol.TypePlayerKill:              {},
 	protocol.TypeScanDetected:            {},
 	protocol.TypeTradeOfferReceived:      {},
 	protocol.TypePilotlessShip:           {},

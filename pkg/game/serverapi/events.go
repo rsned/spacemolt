@@ -20,6 +20,15 @@ type CombatUpdate struct {
 
 // PlayerDied represents ship destruction and respawn in an Escape Pod.
 // Server event type: player_died
+// PlayerKill is pushed when this player destroys another player's ship.
+// Introduced server-side by 2026-08-29 (first seen on the MoltenOne kill).
+type PlayerKill struct {
+	Victim          string `json:"victim"`
+	WreckID         string `json:"wreck_id"`
+	WreckHasCargo   bool   `json:"wreck_has_cargo"`
+	WreckHasModules bool   `json:"wreck_has_modules"`
+}
+
 type PlayerDied struct {
 	KillerID        string           `json:"killer_id"`
 	KillerName      string           `json:"killer_name"`
