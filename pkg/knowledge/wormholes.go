@@ -54,11 +54,23 @@ func WormholeIntroMissionKey(poiID string) (string, bool) {
 // TransientWormholeTrustWindow is how long a transient wormhole observation is
 // worth acting on.
 //
-// Not a server-published lifetime — no reply carries one that we capture, and
-// wormhole_expires_in lives on get_poi, which is being retired. It is inferred
-// from the collapse record: of 38 rows, the freshest collapsed sightings were
-// 2-6 days old, so these live on the order of days. A week of silence means the
-// row is almost certainly describing something that no longer exists.
+// Originally inferred from the collapse record -- of 38 rows, the freshest
+// collapsed sightings were 2-6 days old -- and since confirmed: the devs have
+// stated a wormhole lasts 7 days before collapsing. So this is the real
+// lifetime, not an approximation of one, and a week of silence means the row is
+// almost certainly describing something that no longer exists.
+//
+// This is now the FALLBACK. Since 2026-08-28 worker.GetPOI converts
+// wormhole_expires_in into an absolute ExpiresAt, so a row captured through
+// get_poi carries the server's own answer and does not need this. The window
+// still governs every row observed some other way, and every row captured
+// before the conversion existed.
+//
+// The two figures measure DIFFERENT things and must not be compared.
+// wormhole_expires_in is the time REMAINING on one hole, not its lifetime -- a
+// hole reporting "12h" is not short-lived, it is ~6.5 days old and nearly dead.
+// Prefer that figure wherever it exists, because it is specific to the hole;
+// use this window only to age a row that never carried one.
 const TransientWormholeTrustWindow = 7 * 24 * time.Hour
 
 // WormholeStatus is what the KB can honestly say about one wormhole row.
@@ -69,9 +81,14 @@ type WormholeStatus struct {
 	Type      string
 	Hidden    bool
 	Transient bool
-	// ExpiresAt is the server's own expiry when we captured one. Empty for
-	// every row recorded so far — the field exists on get_poi and we have never
-	// stored it.
+	// ExpiresAt is the server's own expiry when we captured one.
+	//
+	// Empty for every row recorded before 2026-08-28, because get_poi states a
+	// wormhole's life as a RELATIVE duration on the response
+	// ("wormhole_expires_in":"12h") rather than as the absolute expires_at the
+	// POI object carries, and nothing bridged the two. worker.GetPOI now
+	// converts it, so rows captured since carry a real expiry and the trust
+	// window below is their fallback rather than their only evidence.
 	ExpiresAt string
 	// LastSeenTick is the tick an agent last observed this POI.
 	LastSeenTick int64

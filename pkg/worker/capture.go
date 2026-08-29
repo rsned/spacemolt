@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -358,6 +360,17 @@ func GetPOI(ctx context.Context, client game.GameClient) (game.POI, error) {
 		Hidden:           p.Hidden,
 		RevealDifficulty: p.RevealDifficulty,
 		ExpiresAt:        p.ExpiresAt,
+	}
+	// A wormhole reports its life as a RELATIVE duration on the response
+	// ("wormhole_expires_in":"12h"), never as the absolute expires_at the POI
+	// object carries. Nothing bridged the two, so every wormhole row in the KB
+	// had an empty expires_at -- for the one POI type whose whole significance
+	// is that it closes, on a column that exists and is indexed for exactly
+	// this.
+	if poi.ExpiresAt == "" && resp.WormholeExpiresIn != "" {
+		if at, ok := wormholeExpiryAt(time.Now().UTC(), resp.WormholeExpiresIn); ok {
+			poi.ExpiresAt = at
+		}
 	}
 	for _, r := range p.Resources {
 		poi.Resources = append(poi.Resources, game.POIResource{
@@ -1049,4 +1062,42 @@ func CaptureMarket(ctx context.Context, client game.GameClient, kb knowledge.Bas
 	_ = sqlite.RecordDemandHistory(ctx, aggregateDemandHistory(buyOrders, now, demandHistoryBucket))
 	_ = sqlite.ReplaceStationSellOrders(ctx, state.CurrentPOI, sellOrders)
 	_ = sqlite.RecordSupplyHistory(ctx, aggregateSupplyHistory(sellOrders, now, demandHistoryBucket))
+}
+
+// wormholeExpiryAt turns a relative wormhole lifetime into an absolute UTC
+// timestamp, so the value survives being written down. "12h" means nothing a
+// day later; a timestamp still does.
+//
+// The server's own units are coarse (a bare "12h" for a hole that may have
+// 12h59m left), so the result is an UNDER-estimate of the true expiry: it
+// errs toward the hole closing sooner than it will, which is the safe
+// direction for anything planning a trip through one.
+//
+// time.ParseDuration handles h/m/s but NOT days, and the server is free to say
+// "2d", so a leading day count is peeled off first.
+func wormholeExpiryAt(now time.Time, in string) (string, bool) {
+	rest := strings.TrimSpace(in)
+	if rest == "" {
+		return "", false
+	}
+	var total time.Duration
+	if i := strings.IndexByte(rest, 'd'); i >= 0 {
+		days, err := strconv.Atoi(rest[:i])
+		if err != nil {
+			return "", false
+		}
+		total += time.Duration(days) * 24 * time.Hour
+		rest = rest[i+1:]
+	}
+	if rest != "" {
+		d, err := time.ParseDuration(rest)
+		if err != nil {
+			return "", false
+		}
+		total += d
+	}
+	if total <= 0 {
+		return "", false
+	}
+	return now.Add(total).Format(time.RFC3339), true
 }
