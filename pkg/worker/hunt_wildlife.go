@@ -124,11 +124,19 @@ func huntPOIType(deps HuntDeps, poiID string) string {
 //	alrescha_ice_fields       arrived 17:21:25  ->  0 creatures
 //	                                 17:21:31  ->  8 creatures
 //
-// This is an arrival race, not the ordinary churn of creatures wandering: the
-// list is simply not populated for the observer until a tick boundary passes
-// after the move completes. The first read is therefore not a sample to be
-// averaged with the second — it is invalid, and the second is the only reading
-// that means anything.
+// This is an arrival race, not the ordinary churn of creatures wandering.
+// Cause confirmed by the server team 2026-08-28: wildlife is materialised at a
+// POI only while a pilot is there, and that step runs LATE in the tick, while
+// the arrival confirmation goes out at the START of the same tick. A client
+// that queries the instant it arrives reads the location before the herd is
+// placed. The first read is therefore not a sample to be averaged with the
+// second — it is invalid, and the second is the only reading that means
+// anything.
+//
+// A server fix is planned that places the wildlife before announcing the
+// arrival. This code needs no revisit when it lands: the re-read is conditional
+// on an empty first look, so a fixed server simply stops triggering it and the
+// extra call disappears on its own.
 //
 // For the hunt fleet that mis-read is worse than a hole in the field guide.
 // huntFindQuarry treats an empty list as "this ground holds nothing", abandons
