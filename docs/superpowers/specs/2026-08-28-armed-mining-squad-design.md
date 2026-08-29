@@ -144,11 +144,34 @@ member cannot corrupt a long-lived group. Our worst outages this month were all
 long-lived state going quietly wrong, and a standing squad is exactly that
 shape.
 
-**The leader is a single point of failure for movement.** If the leader dies,
-the survivors are a group that cannot initiate a jump. Whether members
-auto-promote, and whether `leave` restores independent navigation, are probe
-questions (see Open Questions) that the implementation must answer before this
-ships.
+**Leadership passes automatically on the leader's death**, to the surviving
+ship with the highest Leadership skill. The squad is therefore not stranded by
+losing its leader, and movement is not a single point of failure.
+
+It does mean **any member may become the leader mid-run**, without warning and
+without having planned the route. So the return plan cannot live only in the
+leader: every member carries the destination and the way home, and a worker
+that finds itself promoted continues the run rather than discovering it has
+no idea where it was going. `fleet status` reports `is_leader`, which is how a
+worker learns the promotion happened.
+
+**We cannot currently see Leadership at all.** `player_skills` holds **zero
+rows** — no agent's skills have ever been captured into the KB — so we cannot
+rank a squad by the stat that decides its succession. This is the same shape of
+gap as `ship_modules`, and it has to close before squad composition can be
+chosen deliberately rather than by accident.
+
+Worse, the ordering may be degenerate. Leadership trains through "lead faction
+operations, manage faction members, participate in diplomacy" — none of which a
+mining worker does. Our miners are therefore all plausibly at Leadership 0, in
+which case "highest Leadership remaining" is a tie among equals and the promoted
+leader is effectively arbitrary. That is survivable, given every member carries
+the plan, but it removes any ability to *choose* the successor.
+
+There is an upside worth noting: Leadership grants `fleetBonus` at 1 per level
+against a max level of 100. A deliberately trained leader is a real force
+multiplier for a squad, not just a tiebreak — though what `fleetBonus`
+multiplies is undocumented and untested.
 
 ### 2. Reaction policy
 
@@ -271,8 +294,11 @@ These block implementation and are answered by a probe, not by design:
    coordination — is untested, and the whole design rests on it.
 2. **What is `max_size`?** `FleetCreateResponse` carries it; the value is
    unknown. It caps squad size.
-3. **What happens when the leader dies mid-run?** Auto-promotion, or a stranded
-   group that cannot jump.
+3. **What does `fleetBonus` actually do?** Leadership grants 1 per level to it
+   and the skill description calls it "fleet coordination bonuses", which is not
+   a mechanic. If it affects damage, speed or fuel, it changes who should lead.
+   *(Resolved separately: leadership passes to the highest-Leadership survivor
+   when the leader dies, so succession itself is not in question.)*
 4. **Can a member `leave` mid-combat to flee independently?** Determines
    whether "flee" is even available to a squad member.
 5. **How quickly must a join land to matter?** A tier-0 miner with a booster
@@ -287,10 +313,12 @@ These block implementation and are answered by a probe, not by design:
 ## Rollout
 
 1. Probe the six open questions in `play_as` with two agents.
-2. Fit computation + tests; report what each idle hull *could* carry.
-3. Reaction policy + tests, deployed to solo miners first — it is independently
+2. Capture agent skills into `player_skills`, which has never held a row --
+   without it Leadership is invisible and squad composition is guesswork.
+3. Fit computation + tests; report what each idle hull *could* carry.
+4. Reaction policy + tests, deployed to solo miners first — it is independently
    valuable and does not depend on squads.
-4. Squad formation, one squad, one system, observed.
-5. Compare loss rate against the 24-ship baseline before widening.
+5. Squad formation, one squad, one system, observed.
+6. Compare loss rate against the 24-ship baseline before widening.
 
-Mining stays off until step 3 lands.
+Mining stays off until step 4 lands.
