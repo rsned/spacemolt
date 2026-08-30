@@ -50,6 +50,9 @@ type WildlifeSpecies struct {
 	// prey", and an apex predator will presumably not.
 	ScanTraits   string
 	ScanRevealed string
+	// Description is the species' lore, read off a scan (v0.571.0). Kept once
+	// seen: a later lore-less scan never erases it.
+	Description string
 	// Ranchable is derived from ScanRevealed containing "ranchable". It is only
 	// meaningful once DangerScannedUTC is set: false on an unscanned species
 	// means unknown, not "cannot be ranched".
@@ -206,9 +209,9 @@ func (kb *SQLiteKB) UpsertWildlifeSpecies(ctx context.Context, rows []WildlifeSp
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO wildlife_species
 					(species, name, role, max_hull, max_shield, danger, danger_scanned_utc,
-					 scan_traits, scan_revealed, ranchable,
+					 scan_traits, scan_revealed, ranchable, description,
 					 habitats, first_seen_utc, last_seen_utc)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT(species) DO UPDATE SET
 					name               = CASE WHEN excluded.name  <> '' THEN excluded.name  ELSE wildlife_species.name END,
 					role               = CASE WHEN excluded.role  <> '' THEN excluded.role  ELSE wildlife_species.role END,
@@ -219,10 +222,11 @@ func (kb *SQLiteKB) UpsertWildlifeSpecies(ctx context.Context, rows []WildlifeSp
 					scan_traits        = CASE WHEN excluded.scan_traits   <> '' THEN excluded.scan_traits   ELSE wildlife_species.scan_traits END,
 					scan_revealed      = CASE WHEN excluded.scan_revealed <> '' THEN excluded.scan_revealed ELSE wildlife_species.scan_revealed END,
 					ranchable          = MAX(wildlife_species.ranchable, excluded.ranchable),
+					description        = CASE WHEN excluded.description <> '' THEN excluded.description ELSE wildlife_species.description END,
 					habitats           = excluded.habitats,
 					last_seen_utc      = excluded.last_seen_utc
 			`, r.Species, r.Name, r.Role, r.MaxHull, r.MaxShield, r.Danger, r.DangerScannedUTC,
-				r.ScanTraits, r.ScanRevealed, boolInt(r.Ranchable),
+				r.ScanTraits, r.ScanRevealed, boolInt(r.Ranchable), r.Description,
 				habitats, first, seen); err != nil {
 				return fmt.Errorf("upsert wildlife species %s: %w", r.Species, err)
 			}
@@ -249,7 +253,7 @@ func normalizeHabitats(in []string) []string {
 func (kb *SQLiteKB) GetWildlifeSpecies(ctx context.Context) ([]WildlifeSpecies, error) {
 	rows, err := kb.db.QueryContext(ctx, `
 		SELECT species, name, role, max_hull, max_shield, danger, danger_scanned_utc,
-		       scan_traits, scan_revealed, ranchable,
+		       scan_traits, scan_revealed, ranchable, description,
 		       habitats, first_seen_utc, last_seen_utc
 		FROM wildlife_species
 		ORDER BY species
@@ -265,7 +269,7 @@ func (kb *SQLiteKB) GetWildlifeSpecies(ctx context.Context) ([]WildlifeSpecies, 
 		var habitats string
 		if err := rows.Scan(&s.Species, &s.Name, &s.Role, &s.MaxHull, &s.MaxShield,
 			&s.Danger, &s.DangerScannedUTC, &s.ScanTraits, &s.ScanRevealed,
-			&s.Ranchable, &habitats, &s.FirstSeenUTC, &s.LastSeenUTC); err != nil {
+			&s.Ranchable, &s.Description, &habitats, &s.FirstSeenUTC, &s.LastSeenUTC); err != nil {
 			return nil, fmt.Errorf("scan wildlife species: %w", err)
 		}
 		s.Habitats = normalizeHabitats(strings.Split(habitats, ","))

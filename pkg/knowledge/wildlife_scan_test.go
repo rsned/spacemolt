@@ -37,7 +37,7 @@ func TestParseCreatureScan(t *testing.T) {
 			[]string{"species", "role", "hull", "ranchable"}, 60,
 			"Soot-Grazer", "grazer", "harmless prey", "harmless prey, ranchable stock", true},
 	} {
-		got := ParseCreatureScan(tc.username, tc.revealed, tc.hull)
+		got := ParseCreatureScan(tc.username, tc.revealed, tc.hull, "")
 		if got.Name != tc.wantName || got.ThreatClass != tc.wantThreat {
 			t.Errorf("%q: name/threat = %q/%q, want %q/%q", tc.username, got.Name, got.ThreatClass, tc.wantName, tc.wantThreat)
 		}
@@ -54,7 +54,7 @@ func TestParseCreatureScan(t *testing.T) {
 // avoid: the separator is an EM DASH, and four of the six species measured have
 // a hyphen in their display name. Splitting on "-" would truncate every one.
 func TestParseCreatureScan_HyphenatedNamesSurvive(t *testing.T) {
-	got := ParseCreatureScan("Slag-Tortoise [grazer — harmless prey]", nil, 90)
+	got := ParseCreatureScan("Slag-Tortoise [grazer — harmless prey]", nil, 90, "")
 	if got.Name != "Slag-Tortoise" {
 		t.Fatalf("name = %q, want the full hyphenated name", got.Name)
 	}
@@ -63,7 +63,7 @@ func TestParseCreatureScan_HyphenatedNamesSurvive(t *testing.T) {
 // TestParseCreatureScan_NonCreature covers a scan of something that is not
 // wildlife: no bracket, so there is nothing to unpack and nothing is invented.
 func TestParseCreatureScan_NonCreature(t *testing.T) {
-	got := ParseCreatureScan("Arthur 'Artificer' Artis", []string{"ship_class", "hull"}, 400)
+	got := ParseCreatureScan("Arthur 'Artificer' Artis", []string{"ship_class", "hull"}, 400, "")
 	if got.Name != "Arthur 'Artificer' Artis" {
 		t.Errorf("name = %q", got.Name)
 	}
@@ -95,7 +95,7 @@ func TestCaptureWildlifeScan_StampsAndClearsTheWorkList(t *testing.T) {
 	}
 
 	s := ParseCreatureScan("Belt-Grazer [grazer — harmless prey, ranchable stock]",
-		[]string{"species", "role", "hull", "ranchable"}, 60)
+		[]string{"species", "role", "hull", "ranchable"}, 60, "")
 	if err := CaptureWildlifeScan(ctx, kb, "belt_grazer", s, time.Now()); err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestCaptureWildlifeScan_NoTraitsLeavesWorkList(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A bracketless reply: nothing revealed.
-	s := ParseCreatureScan("Molt Leviathan", []string{"hull"}, 2200)
+	s := ParseCreatureScan("Molt Leviathan", []string{"hull"}, 2200, "")
 	if err := CaptureWildlifeScan(ctx, kb, "molt_leviathan", s, time.Now()); err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func TestParseCreatureScan_ThreatClassIsNotTheRole(t *testing.T) {
 		{"Carrion-Moth [grazer — harmless prey]", 40, "Carrion-Moth", "grazer", "harmless prey"},
 		{"Rainbow Leviathan [PREDATOR — hunts ships]", 2200, "Rainbow Leviathan", "PREDATOR", "hunts ships"},
 	} {
-		got := ParseCreatureScan(tc.username, []string{"species", "role", "hull"}, tc.hull)
+		got := ParseCreatureScan(tc.username, []string{"species", "role", "hull"}, tc.hull, "")
 		if got.Name != tc.wantName || got.ThreatClass != tc.wantThreat || got.Danger != tc.wantDanger {
 			t.Errorf("%q: %+v", tc.username, got)
 		}
@@ -206,7 +206,7 @@ func TestCaptureWildlifeScan_DoesNotClobberTheCensusRole(t *testing.T) {
 		{"rainbow_leviathan", "Rainbow Leviathan [PREDATOR — hunts ships]", 2200},
 	} {
 		if err := CaptureWildlifeScan(ctx, kb,
-			s.species, ParseCreatureScan(s.username, []string{"species", "role", "hull"}, s.hull), now); err != nil {
+			s.species, ParseCreatureScan(s.username, []string{"species", "role", "hull"}, s.hull, ""), now); err != nil {
 			t.Fatal(err)
 		}
 	}

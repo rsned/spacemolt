@@ -898,6 +898,13 @@ func migrations() []Migration {
 					ON seen_player_events(observer_id, player_id, system_id, tick) WHERE tick > 0;
 			`,
 		},
+		{
+			version: 58,
+			name:    "wildlife_species_description",
+			// v0.571.0: creature scans return the species' lore in `description`,
+			// and a scan is the only way to read it.
+			sql: `ALTER TABLE wildlife_species ADD COLUMN description TEXT NOT NULL DEFAULT '';`,
+		},
 		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
 		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
 		// pre-collapse DBs, where `ships` does not exist until

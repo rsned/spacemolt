@@ -10,6 +10,9 @@ import (
 // CreatureScan is what a scan reply says about a creature, after unpacking the
 // display string the server hides most of it in.
 type CreatureScan struct {
+	// Description is the species' lore entry, verbatim (v0.571.0). Empty when
+	// the reply predates the field or revealed_info omitted it.
+	Description string
 	// Name is the display name ("Slag-Tortoise"); Traits the verbatim text
 	// after the em dash ("harmless prey, ranchable stock").
 	Name   string
@@ -44,8 +47,8 @@ const scanTraitSeparator = "—"
 // scanner tier unlocked in revealed_info. Verified live on 2026-08-17 against six
 // species; a reply without the bracket yields just the name, which is what a
 // scan of a ship or an NPC looks like.
-func ParseCreatureScan(username string, revealed []string, hull int) CreatureScan {
-	out := CreatureScan{Hull: hull, Revealed: revealed}
+func ParseCreatureScan(username string, revealed []string, hull int, description string) CreatureScan {
+	out := CreatureScan{Hull: hull, Revealed: revealed, Description: description}
 	for _, r := range revealed {
 		if strings.EqualFold(strings.TrimSpace(r), "ranchable") {
 			out.Ranchable = true
@@ -108,6 +111,7 @@ func CaptureWildlifeScan(ctx context.Context, kb Base, species string, s Creatur
 		MaxHull:          s.Hull,
 		Danger:           s.Danger,
 		DangerScannedUTC: stamp,
+		Description:      s.Description,
 		ScanTraits:       s.Traits,
 		ScanRevealed:     strings.Join(s.Revealed, ","),
 		Ranchable:        s.Ranchable,

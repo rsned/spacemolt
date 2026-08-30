@@ -774,7 +774,7 @@ func captureCreatureScan(client game.GameClient, ctx context.Context, targetID s
 		return
 	}
 
-	s := knowledge.ParseCreatureScan(resp.Username, resp.RevealedInfo, resp.Hull)
+	s := knowledge.ParseCreatureScan(resp.Username, resp.RevealedInfo, resp.Hull, resp.Description)
 	if err := knowledge.CaptureWildlifeScan(ctx, globalKB, species, s, time.Now()); err != nil {
 		if format == formatStyled {
 			fmt.Printf("  (scan not recorded: %v)\n", err)
@@ -788,6 +788,9 @@ func captureCreatureScan(client game.GameClient, ctx context.Context, targetID s
 			ranch = " | ranchable stock"
 		}
 		fmt.Printf("  Field guide: %s = %q%s\n", species, s.Traits, ranch)
+		if s.Description != "" {
+			fmt.Printf("  Lore: %s\n", s.Description)
+		}
 	}
 }
 

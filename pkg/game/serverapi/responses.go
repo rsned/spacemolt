@@ -2004,6 +2004,10 @@ type ScanResponse struct {
 	Shield       int      `json:"shield,omitempty"`
 	ShipClass    string   `json:"ship_class,omitempty"`
 	Username     string   `json:"username,omitempty"`
+	// Description is the species' lore entry (v0.571.0). Creature scans only;
+	// listed in RevealedInfo as "description". Scanning is the only way to
+	// read it, so it must be recorded.
+	Description string `json:"description,omitempty"`
 }
 
 // JettisonResponse wraps the response from jettison command.
