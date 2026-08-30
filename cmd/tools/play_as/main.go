@@ -5515,13 +5515,37 @@ type wreckCargo struct {
 
 // wreckEntry is a parsed wreck from a get_wrecks response.
 type wreckEntry struct {
-	ID           string       `json:"id"`
-	Type         string       `json:"type"`
-	VictimName   string       `json:"victim_name"`
-	ShipClass    string       `json:"ship_class"`
-	Cargo        []wreckCargo `json:"cargo"`
-	Modules      []string     `json:"modules"`
-	SalvageValue int          `json:"salvage_value"`
+	ID         string       `json:"id"`
+	Type       string       `json:"type"`
+	VictimName string       `json:"victim_name"`
+	KillerName string       `json:"killer_name"`
+	ShipClass  string       `json:"ship_class"`
+	Cargo      []wreckCargo `json:"cargo"`
+	// Modules are objects since v0.572 (see serverapi.LootedModule); the old
+	// []string field made every modded wreck fail the styled parse and dump
+	// raw JSON instead.
+	Modules []struct {
+		Name string `json:"name"`
+	} `json:"modules"`
+	SalvageValue    int    `json:"salvage_value"`
+	TowedByPlayerID string `json:"towed_by_player_id"`
+	CreatedAt       string `json:"created_at"`
+}
+
+// elideList renders up to keep items via render(i), then "+N" for the rest;
+// "-" for an empty list.
+func elideList(n, keep int, render func(int) string) string {
+	if n == 0 {
+		return "-"
+	}
+	parts := make([]string, 0, keep+1)
+	for i := 0; i < n && i < keep; i++ {
+		parts = append(parts, render(i))
+	}
+	if n > keep {
+		parts = append(parts, fmt.Sprintf("+%d", n-keep))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // formatWrecks formats a get_wrecks response.
@@ -5578,28 +5602,33 @@ func formatWrecks(raw []byte) string {
 		if len(jettisons) > 0 {
 			b.WriteString("\n")
 		}
+		// Richest first: salvage value is the tour order for a cleanup pass.
+		slices.SortFunc(ships, func(a, c wreckEntry) int {
+			return c.SalvageValue - a.SalvageValue
+		})
 		fmt.Fprintf(&b, "Ship Wrecks: %d\n", len(ships))
+		type row struct{ id, salvage, class, cargo, mods string }
+		rows := make([]row, 0, len(ships))
 		for _, w := range ships {
-			fmt.Fprintf(&b, "\nShip: %s\n", w.ID)
-			fmt.Fprintf(&b, "Owner: %q\n", w.VictimName)
-			fmt.Fprintf(&b, "Class: %s\n", w.ShipClass)
-			fmt.Fprintf(&b, "Salvage Value: %d\n", w.SalvageValue)
-			fmt.Fprintf(&b, "Modules:  %d\n", len(w.Modules))
-			if len(w.Cargo) == 0 {
-				b.WriteString("Cargo:   None\n")
-			} else {
-				b.WriteString("Cargo:\n")
-				idW := 0
-				for _, c := range w.Cargo {
-					idW = max(idW, len(c.ItemID))
-				}
-				for _, c := range w.Cargo {
-					fmt.Fprintf(&b, "  %*s | %s\n", idW, c.ItemID, formatFloat(c.Quantity))
-				}
+			r := row{id: w.ID, salvage: commaInt(int64(w.SalvageValue)), class: w.ShipClass}
+			if w.TowedByPlayerID != "" {
+				r.class += " (towed)"
 			}
-			b.WriteString("To salvage:\n")
-			fmt.Fprintf(&b, "tow_ship %s\n", w.ID)
+			r.cargo = elideList(len(w.Cargo), 2, func(i int) string {
+				return fmt.Sprintf("%s %s", w.Cargo[i].ItemID, trimFloat(w.Cargo[i].Quantity))
+			})
+			r.mods = elideList(len(w.Modules), 2, func(i int) string { return w.Modules[i].Name })
+			rows = append(rows, r)
 		}
+		salW, classW, cargoW := len("salv"), 0, 0
+		for _, r := range rows {
+			salW, classW, cargoW = max(salW, len(r.salvage)), max(classW, len(r.class)), max(cargoW, len(r.cargo))
+		}
+		for _, r := range rows {
+			fmt.Fprintf(&b, "  %s  %*s cr  %-*s  %-*s  %s\n",
+				r.id, salW, r.salvage, classW, r.class, cargoW, r.cargo, r.mods)
+		}
+		b.WriteString("\nloot_wreck <id> <item> <qty> · salvage <id> · sell_wreck (towed, at salvage yard)\n")
 	}
 
 	return b.String()
