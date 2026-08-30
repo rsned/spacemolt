@@ -114,6 +114,10 @@ func (ing *Ingester) backfillChannel(ctx context.Context, client BackfillClient,
 	var cr ChannelReport
 	var before string
 	var oldestSeen time.Time
+	// seen counts every row the crawl walked, known or new; it is what the
+	// per-channel cap bounds, so a long run of known rows still ends the
+	// crawl instead of letting it walk the whole history.
+	seen := 0
 
 	// Resume from the saved cursor (oldest message previously ingested) so
 	// successive backfills walk further into history instead of re-requesting
@@ -134,7 +138,7 @@ func (ing *Ingester) backfillChannel(ctx context.Context, client BackfillClient,
 		if ctx.Err() != nil {
 			return cr, ctx.Err()
 		}
-		if cr.Fetched >= opts.MaxPerChannel {
+		if seen >= opts.MaxPerChannel {
 			cr.Capped = true
 			break
 		}
@@ -165,13 +169,23 @@ func (ing *Ingester) backfillChannel(ctx context.Context, client BackfillClient,
 			break
 		}
 
-		hitKnown := false
+		// A message already in the store is NOT the floor of what we know:
+		// pushes arrive only while logged in, so history below a known row
+		// is full of holes (craftsman-1 had a June DM sitting under an
+		// August push, unreachable by any number of runs while the crawl
+		// stopped on the first duplicate). Known rows are skipped, not
+		// terminal; the crawl ends on an empty page, the cap, or a page
+		// that made no progress — the guard against a server that ignores
+		// `before` and hands back the same page forever.
+		hitCap := false
+		prevBefore := before
 		for _, m := range resp.Messages {
-			if cr.Fetched >= opts.MaxPerChannel {
+			if seen >= opts.MaxPerChannel {
 				cr.Capped = true
-				hitKnown = true
+				hitCap = true
 				break
 			}
+			seen++
 
 			ts, err := time.Parse(time.RFC3339, m.TimestampUTC)
 			if err != nil {
@@ -201,19 +215,19 @@ func (ing *Ingester) backfillChannel(ctx context.Context, client BackfillClient,
 			if err != nil {
 				return cr, fmt.Errorf("ingest: %w", err)
 			}
-			if !inserted {
-				hitKnown = true
-				break
+			if inserted {
+				cr.Fetched++
 			}
-			cr.Fetched++
 
+			// The cursor is the true crawl floor — known rows included — so
+			// the next run resumes below the hole, not at it.
 			if oldestSeen.IsZero() || ts.Before(oldestSeen) {
 				oldestSeen = ts
 			}
 			before = m.TimestampUTC
 		}
 
-		if hitKnown {
+		if hitCap || before == prevBefore {
 			break
 		}
 	}

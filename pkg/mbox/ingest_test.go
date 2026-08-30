@@ -107,7 +107,12 @@ func TestBackfillBasic(t *testing.T) {
 	}
 }
 
-func TestBackfillStopsOnKnownID(t *testing.T) {
+// A message we already hold (from a push) is NOT the floor of what we know:
+// pushes only arrive while logged in, so history below a known message is
+// full of holes. The crawl must skip the known row and keep descending.
+// craftsman-1's private channel demonstrated the failure: a June NPC DM sat
+// below an August push and was unreachable by any number of backfill runs.
+func TestBackfillCrawlsPastKnownID(t *testing.T) {
 	dir := t.TempDir()
 	s, err := Open(filepath.Join(dir, "mbox.db"))
 	if err != nil {
@@ -134,13 +139,16 @@ func TestBackfillStopsOnKnownID(t *testing.T) {
 	ing := NewIngester(s)
 	fc := newFakeClient()
 
-	// Page has: 1 new message, then the known message, then an older message.
-	page := []serverapi.ChatMessage{
+	// Page 1: 1 new message, then the known message, then an older one.
+	// Page 2: an even older message on the far side of the hole.
+	fc.addPage("local", []serverapi.ChatMessage{
 		makeMsg("new-1", "local", base.Add(-1*time.Minute)),
 		makeMsg("known-1", "local", base.Add(-2*time.Minute)),
 		makeMsg("old-1", "local", base.Add(-3*time.Minute)),
-	}
-	fc.addPage("local", page)
+	})
+	fc.addPage("local", []serverapi.ChatMessage{
+		makeMsg("older-1", "local", base.Add(-90*24*time.Hour)),
+	})
 
 	report, err := ing.Backfill(context.Background(), fc, BackfillOptions{
 		Channels:      []string{"local"},
@@ -151,17 +159,55 @@ func TestBackfillStopsOnKnownID(t *testing.T) {
 	}
 
 	cr := report.Channels["local"]
-	if cr.Fetched != 1 {
-		t.Errorf("Fetched = %d, want 1 (should stop at known ID)", cr.Fetched)
+	if cr.Fetched != 3 {
+		t.Errorf("Fetched = %d, want 3 (new-1, old-1, older-1; known-1 skipped, not terminal)", cr.Fetched)
 	}
-
 	msgs, err := s.List(Query{Channel: "local", Limit: 10})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	// 1 pre-seeded + 1 new = 2
-	if len(msgs) != 2 {
-		t.Errorf("stored %d messages, want 2", len(msgs))
+	if len(msgs) != 4 {
+		t.Errorf("stored %d messages, want 4", len(msgs))
+	}
+	// The cursor is the true crawl floor, so the next run resumes below the
+	// hole instead of re-hitting the same known row.
+	cursor, ok, err := s.Cursor("local")
+	if err != nil || !ok {
+		t.Fatalf("Cursor: ok=%v err=%v", ok, err)
+	}
+	if want := base.Add(-90 * 24 * time.Hour); !cursor.Equal(want) {
+		t.Errorf("cursor = %v, want %v", cursor, want)
+	}
+}
+
+// A server that ignored `before` would hand back the same page forever. With
+// the known-ID stop gone, the no-progress check is what ends that crawl.
+func TestBackfillStopsWhenPageMakesNoProgress(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(filepath.Join(dir, "mbox.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = s.Close() }()
+
+	base := time.Now().UTC().Truncate(time.Second)
+	page := []serverapi.ChatMessage{
+		makeMsg("a", "local", base.Add(-1*time.Minute)),
+		makeMsg("b", "local", base.Add(-2*time.Minute)),
+	}
+	fc := newFakeClient()
+	for range 5 {
+		fc.addPage("local", page)
+	}
+	report, err := NewIngester(s).Backfill(context.Background(), fc, BackfillOptions{Channels: []string{"local"}, MaxPerChannel: 500})
+	if err != nil {
+		t.Fatalf("Backfill: %v", err)
+	}
+	if fc.callIdx["local"] > 2 {
+		t.Errorf("made %d requests against a stuck server, want at most 2", fc.callIdx["local"])
+	}
+	if report.Channels["local"].Fetched != 2 {
+		t.Errorf("Fetched = %d, want 2", report.Channels["local"].Fetched)
 	}
 }
 
