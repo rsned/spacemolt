@@ -43,3 +43,11 @@ paths (`claim_prize`, `faction_personnel`, `recruit_personnel`,
 hardcoded→OpenAPI test stayed green; the six commands join the
 uncatalogued-in-actionspace list until Layer B lands. See
 [[reference_v0572_boarding_personnel]].
+
+**Formatter type auditor (2026-08-30):** `scripts/audit_playas_field_types.py`
+diffs every play_as struct field's Go type against the spec kinds for that
+property name. Run it after each `update-server-docs` refresh — the failure
+class it hunts is a type flip that makes a styled formatter's Unmarshal fail
+and silently fall back to raw JSON (wrecks modules `[]string`, v0.572;
+`coverage_pct` string-vs-number). Known false positives are play_as-authored
+plan structs (sellable/unload) and `get_location`'s string connections.
