@@ -116,3 +116,30 @@ func TestFormatFactionInfoEnhancements(t *testing.T) {
 		t.Errorf("warehouse faction_service missing from facilities section")
 	}
 }
+
+// v0.572.0: faction_info reports the crew and marines employed across the
+// faction's owned ships plus the local reserve. The formatter must show it —
+// it is where casualties (injured_*) first become visible to an operator.
+func TestFormatFactionInfoPersonnel(t *testing.T) {
+	payload := strings.Replace(realFactionInfoPayload, `"treasury":329220`,
+		`"treasury":329220,"personnel":{"assigned_prize_crew":4,"assigned_prize_marines":0,
+		"fit_crew":573,"fit_marines":68,"inbound_crew":6,"injured_crew":2,"injured_marines":1,
+		"owned_ship_crew":575,"owned_ship_marines":69,"reserve_crew":10,"reserve_marines":3,
+		"total_crew":575,"total_marines":69}`, 1)
+	out := formatFactionInfo([]byte(payload))
+	if out == "" {
+		t.Fatal("formatter returned empty with a personnel block")
+	}
+	for _, want := range []string{
+		"Personnel:", "573", "575", "68", "69",
+		"2 crew, 1 marines injured", "reserve 10/3", "prize crews 4", "inbound 6",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("personnel section lacks %q:\n%s", want, lineWith(out, "Personnel")+"\n"+lineWith(out, "injured"))
+		}
+	}
+	// Without the block (pre-0.572 reply) no Personnel section appears.
+	if out := formatFactionInfo([]byte(realFactionInfoPayload)); strings.Contains(out, "Personnel:") {
+		t.Errorf("Personnel section shown with no personnel block")
+	}
+}

@@ -5815,6 +5815,24 @@ func formatFactionInfo(raw []byte) string {
 			FuelReserve  int    `json:"fuel_reserve"`
 			FuelCapacity int    `json:"fuel_capacity"`
 		} `json:"fuel_bunkers"`
+		// Personnel is the v0.572.0 faction employment ledger: crew/marines
+		// across owned ships, the local reserve, prize-crew assignments, and
+		// injuries. nil on pre-0.572 replies.
+		Personnel *struct {
+			FitCrew              int `json:"fit_crew"`
+			FitMarines           int `json:"fit_marines"`
+			InjuredCrew          int `json:"injured_crew"`
+			InjuredMarines       int `json:"injured_marines"`
+			OwnedShipCrew        int `json:"owned_ship_crew"`
+			OwnedShipMarines     int `json:"owned_ship_marines"`
+			ReserveCrew          int `json:"reserve_crew"`
+			ReserveMarines       int `json:"reserve_marines"`
+			AssignedPrizeCrew    int `json:"assigned_prize_crew"`
+			AssignedPrizeMarines int `json:"assigned_prize_marines"`
+			InboundCrew          int `json:"inbound_crew"`
+			TotalCrew            int `json:"total_crew"`
+			TotalMarines         int `json:"total_marines"`
+		} `json:"personnel"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -5833,6 +5851,27 @@ func formatFactionInfo(raw []byte) string {
 
 	if resp.IsMember && resp.Treasury > 0 {
 		fmt.Fprintf(&b, "Treasury: %d credits\n", resp.Treasury)
+	}
+
+	// Personnel (v0.572.0): the faction's employment ledger. Injuries are the
+	// headline — this is where casualties first become visible to an operator.
+	if pe := resp.Personnel; pe != nil {
+		fmt.Fprintf(&b, "Personnel: %d/%d crew, %d/%d marines fit on ships",
+			pe.FitCrew, pe.OwnedShipCrew, pe.FitMarines, pe.OwnedShipMarines)
+		if pe.ReserveCrew > 0 || pe.ReserveMarines > 0 {
+			fmt.Fprintf(&b, " · reserve %d/%d", pe.ReserveCrew, pe.ReserveMarines)
+		}
+		if n := pe.AssignedPrizeCrew + pe.AssignedPrizeMarines; n > 0 {
+			fmt.Fprintf(&b, " · prize crews %d", n)
+		}
+		if pe.InboundCrew > 0 {
+			fmt.Fprintf(&b, " · inbound %d", pe.InboundCrew)
+		}
+		b.WriteString("\n")
+		if pe.InjuredCrew > 0 || pe.InjuredMarines > 0 {
+			fmt.Fprintf(&b, "  ⚕ %d crew, %d marines injured — treat_personnel at a medical station\n",
+				pe.InjuredCrew, pe.InjuredMarines)
+		}
 	}
 
 	if resp.Description != "" {
@@ -6079,7 +6118,7 @@ func formatFactionIntelStatus(raw []byte) string {
 		TopContributions int    `json:"top_contributions"`
 		SystemsKnown     int    `json:"systems_known"`
 		TotalSystems     int    `json:"total_systems"`
-		POIsKnown int `json:"pois_known"`
+		POIsKnown        int    `json:"pois_known"`
 		// CoveragePct arrives as a string in live captures and as a number in
 		// the OpenAPI spec; decode either — a type flip here would silently
 		// revert the command to raw JSON (the v0.572 wrecks failure mode).
