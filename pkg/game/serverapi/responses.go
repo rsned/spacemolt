@@ -2781,17 +2781,6 @@ type ReleaseTowResponse struct {
 	WreckID string `json:"wreck_id"`
 }
 
-// RepairModuleResponse — repair_module
-type RepairModuleResponse struct {
-	Message      string          `json:"message"`
-	ModuleID     string          `json:"module_id"`
-	RepairAmount float64         `json:"repair_amount,omitempty"`
-	WearAfter    float64         `json:"wear_after,omitempty"`
-	WearBefore   float64         `json:"wear_before,omitempty"`
-	WearStatus   string          `json:"wear_status,omitempty"`
-	XPGained     json.RawMessage `json:"xp_gained,omitempty"`
-}
-
 // ScrapWreckResponse — scrap_wreck
 type ScrapWreckResponse struct {
 	Action     string          `json:"action,omitempty"`

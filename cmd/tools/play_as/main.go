@@ -7754,14 +7754,6 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.UseItem(ctx, strings.ToLower(parts[1]), useQty)
 		}, ctx, 3*time.Second, cmd, format)
 
-	case "repair_module":
-		if len(parts) < 2 {
-			return fmt.Errorf("usage: repair_module <module-id>")
-		}
-		return simpleCommand(client, func(ctx context.Context) error {
-			return client.RawCommand(ctx, "repair_module", map[string]any{"module_id": parts[1]})
-		}, ctx, 3*time.Second, cmd, format)
-
 	// === QUERIES ===
 	case "status", "get_status":
 		return simpleCommand(client, client.GetStatus, ctx, 2*time.Second, cmd, format)

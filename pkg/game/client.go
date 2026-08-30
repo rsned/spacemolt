@@ -4615,28 +4615,6 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 					// Check for XP changes after processing xp_gained
 					c.checkXPChanges()
 				}
-			case "repair_module":
-				storeKey = "repair"
-				shouldStore = true
-				// Handle xp_gained if present (object type like craft)
-				if xpGained, ok := resp.Payload["xp_gained"].(map[string]any); ok && len(xpGained) > 0 {
-					c.mu.Lock()
-					if c.state.Player.Skills == nil {
-						c.state.Player.Skills = make(map[string]Skill)
-					}
-					if c.state.SkillXP == nil {
-						c.state.SkillXP = make(map[string]float64)
-					}
-					for skillID, xpAmount := range xpGained {
-						if xpFloat, ok := xpAmount.(float64); ok && xpFloat > 0 {
-							c.state.SkillXP[skillID] += xpFloat
-							c.debugLogger.Printf("Repair module XP gained: %s %.1f XP", skillID, xpFloat)
-						}
-					}
-					c.mu.Unlock()
-					// Check for XP changes after processing xp_gained
-					c.checkXPChanges()
-				}
 			case "get_tax_estimate":
 				storeKey = "tax_estimate"
 				shouldStore = true

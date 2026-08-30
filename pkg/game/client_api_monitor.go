@@ -316,7 +316,6 @@ var actionResponseTypes = map[string]reflect.Type{
 	"attack":              reflect.TypeOf(serverapi.AttackResponse{}),
 	"name_ship":           reflect.TypeOf(serverapi.NameShipResponse{}),
 	"release_tow":         reflect.TypeOf(serverapi.ReleaseTowResponse{}),
-	"repair_module":       reflect.TypeOf(serverapi.RepairModuleResponse{}),
 	"scrap_wreck":         reflect.TypeOf(serverapi.ScrapWreckResponse{}),
 	"cancel_ship_listing": reflect.TypeOf(serverapi.CancelShipListingResponse{}),
 	// Commission, forum & agents

@@ -195,11 +195,6 @@ var AllActions = []Action{
 		Preconditions: []Precondition{RequiresNotInTransit, RequiresDamaged},
 	},
 	{
-		Name: "repair_module", Summary: "Repair wear on a module using a Repair Kit",
-		Category: "ship", IsMutation: true,
-		Preconditions: []Precondition{RequiresNotInTransit, RequiresHasCargo},
-	},
-	{
 		Name: "install_mod", Summary: "Install a module on your ship",
 		Category: "ship", IsMutation: true,
 		Preconditions: []Precondition{RequiresDocked, RequiresHasCargo},

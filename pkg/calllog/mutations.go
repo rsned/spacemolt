@@ -58,7 +58,6 @@ var Mutations = map[string]bool{
 	"release_tow":                true,
 	"reload":                     true,
 	"repair":                     true,
-	"repair_module":              true,
 	"salvage_wreck":              true,
 	"scan":                       true,
 	"scrap_wreck":                true,

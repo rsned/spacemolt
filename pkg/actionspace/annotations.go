@@ -133,9 +133,6 @@ func CommandAnnotations() map[string]Annotation {
 		"repair": {
 			Preconditions: []Precondition{RequiresNotInTransit, RequiresDamaged},
 		},
-		"repair_module": {
-			Preconditions: []Precondition{RequiresNotInTransit, RequiresHasCargo},
-		},
 		"install_mod": {
 			Preconditions: []Precondition{RequiresDocked, RequiresHasCargo},
 		},
