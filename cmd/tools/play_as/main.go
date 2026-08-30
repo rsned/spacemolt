@@ -7711,7 +7711,15 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	// === WRECKS ===
 	case "wrecks", "get_wrecks":
-		return simpleCommand(client, client.GetWrecks, ctx, 2*time.Second, cmd, format)
+		// Every creature wreck listed is a hand-flown kill; record its drop
+		// roll now, before any loot call can shrink it.
+		return simpleCommand(client, func(ctx context.Context) error {
+			if err := client.GetWrecks(ctx); err != nil {
+				return err
+			}
+			captureCarcasses(ctx, client, globalKB, globalAgentID, capturedCarcasses, os.Stdout)
+			return nil
+		}, ctx, 2*time.Second, cmd, format)
 
 	case "loot", "loot_wreck":
 		if len(parts) < 4 {
@@ -7721,6 +7729,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
+		// A loot straight after the kill (no `wrecks` first) still has the
+		// last get_wrecks reply in the raw cache; capture from it before the
+		// carcass changes.
+		captureCarcasses(ctx, client, globalKB, globalAgentID, capturedCarcasses, os.Stdout)
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.LootWreck(ctx, parts[1], strings.ToLower(parts[2]), qty)
 		}, ctx, 3*time.Second, cmd, format)
