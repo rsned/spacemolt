@@ -260,6 +260,43 @@ type Ship struct {
 	// capture or a failed prize recovery.
 	StrandedSystemID string `json:"stranded_system_id,omitempty"`
 	StrandedPOIID    string `json:"stranded_poi_id,omitempty"`
+
+	// Combat capacitor: the energy pool weapons draw from, drained or
+	// siphoned by capacitor_drain / capacitor_transfer_pct effects. First
+	// seen live on an Eviction Notice, 2026-08-30 (85/85 = power_capacity).
+	Capacitor    int `json:"capacitor,omitempty"`
+	MaxCapacitor int `json:"max_capacitor,omitempty"`
+
+	// Damage-over-time status from incendiary/entropic ammo (burn) and
+	// plasma/corrosive ammo (armor melt). BurnSourceID is credited on a
+	// burn kill; ArmorMeltPct is the 0-1 armor effectiveness reduction.
+	BurnTicksRemaining      int     `json:"burn_ticks_remaining,omitempty"`
+	BurnDamagePerTick       int     `json:"burn_damage_per_tick,omitempty"`
+	BurnSourceID            string  `json:"burn_source_id,omitempty"`
+	ArmorMeltPct            float64 `json:"armor_melt_pct,omitempty"`
+	ArmorMeltTicksRemaining int     `json:"armor_melt_ticks_remaining,omitempty"`
+
+	// BattleSelfDestruct is the durable in-battle self-destruct countdown
+	// (v0.572.0 board stance counterplay); nil when not armed.
+	BattleSelfDestruct *BattleSelfDestructState `json:"battle_self_destruct,omitempty"`
+
+	// Custody and identity. InFactionGarage names the faction whose garage
+	// holds this hull as an inert shared-pool asset (empty when not
+	// garaged). LoadoutVersion below the class's default_loadout_version
+	// means refit_ship is offered. SingletonInstanceKey identifies a
+	// named-hull instance and survives custody changes; absent on ordinary
+	// ships.
+	InFactionGarage      string `json:"in_faction_garage,omitempty"`
+	LoadoutVersion       int    `json:"loadout_version,omitempty"`
+	SingletonInstanceKey string `json:"singleton_instance_key,omitempty"`
+}
+
+// BattleSelfDestructState is a ship's armed self-destruct countdown inside a
+// battle (spec schema BattleSelfDestructState, v0.572.0).
+type BattleSelfDestructState struct {
+	BattleID     string `json:"battle_id"`
+	StartedTick  int64  `json:"started_tick,omitempty"`
+	DetonateTick int64  `json:"detonate_tick,omitempty"`
 }
 
 // Personnel is a ship's crew and marine complement (server v0.572.0). Fit
