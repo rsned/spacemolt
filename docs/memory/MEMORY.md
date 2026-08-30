@@ -94,6 +94,7 @@
 - [v2 API migration gaps](project_v2_api_migration.md) — filed with the server team; blocks v1→v2
 - [request_id rollout](project_request_id_rollout.md) — LONG-TERM: fire-and-forget → Submit correlation
 - [get_poi retirement](project_get_poi_retirement.md)
+- [mbox backfill stopped at the first known row; private never backfilled](reference_mbox_backfill_holes.md) — a June DM invisible 3 months; FIXED 08-30, run `mbox backfill` once per parked pilot
 - ⭐🔴 [private chat target_id is a conversation key](reference_chat_target_id_conversation_key.md) — `"<recipient>:<sender>"`; killed databot silently for 2 months. FIXED
 - [Mission board wire shape](reference_mission_board_wire_shape.md) — NO `requirements`
 - [craft is action_result-wrapped](reference_craft_action_result_wrapping.md) — job body arrives next tick in `{command,tick,result}`
