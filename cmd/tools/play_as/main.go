@@ -7777,6 +7777,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	case "ship", "get_ship":
 		return simpleCommand(client, client.GetShip, ctx, 2*time.Second, cmd, format)
 
+	case "show_fitting", "fitting":
+		// Link to the KB fitting viewer for the hull we are flying.
+		return showFitting(ctx, client)
+
 	case "skills", "get_skills":
 		return simpleCommand(client, client.GetSkills, ctx, 2*time.Second, cmd, format)
 
