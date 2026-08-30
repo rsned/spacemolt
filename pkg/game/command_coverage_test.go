@@ -10,12 +10,17 @@ import (
 // ignoredCommands are server commands the client intentionally does not support.
 // Every entry MUST carry a justification; adding one is a deliberate, reviewed act.
 var ignoredCommands = map[string]string{
-	// Removed server-side in v0.571.0 (module wear removed; see openapi.20260829+).
-	// The cached data/game-api/latest/get_commands.json is from 2026-08-27 and
-	// still lists it. Delete this entry when that cache is refreshed — the same
-	// refresh will surface the six v0.572.0 personnel/prize commands, which are
-	// deliberately unwrapped until Layer B lands.
-	"repair_module": "removed in v0.571.0; stale get_commands.json cache",
+	// v0.572.0 personnel/prize commands ("Layer B"): typed wrappers are
+	// deliberately deferred until the passive absorption (structs, pushes,
+	// KB tables — committed 2026-08-30) is rolled out to the fleets. Remove
+	// these entries as each command gets its client method + response struct.
+	// See memory reference_v0572_boarding_personnel.
+	"claim_prize":        "v0.572.0 Layer B; wrapper deferred until A+C are deployed",
+	"service_prize":      "v0.572.0 Layer B; wrapper deferred until A+C are deployed",
+	"recruit_personnel":  "v0.572.0 Layer B; wrapper deferred until A+C are deployed",
+	"treat_personnel":    "v0.572.0 Layer B; wrapper deferred until A+C are deployed",
+	"transfer_personnel": "v0.572.0 Layer B; wrapper deferred until A+C are deployed",
+	"faction_personnel":  "v0.572.0 Layer B; wrapper deferred until A+C are deployed",
 	// v2 API — client is on v1 (project_v2_api_migration).
 	"v2_get_player":   "v2 API; client on v1 (project_v2_api_migration)",
 	"v2_get_ship":     "v2 API; client on v1 (project_v2_api_migration)",
