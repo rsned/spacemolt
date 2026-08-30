@@ -67,3 +67,9 @@ Carried forward, none of them blocking:
 4. `docs/COLD_START.md` was refreshed for the seven-fleet layout on 08-14 but
    has not been re-checked against the flags added since (`--assets-db-path` on
    every fleet, haul's `--secondment-ledger`).
+
+**2026-08-30 FULL ROLL:** every fleet (haul, unlock, mission-learn included)
+relaunched on `1d24c975` during the server-restart window; captured argv
+replayed verbatim per fleet, smallest-first, stagger-paced — 147/159 live,
+zero restarts, zero new IP blocks. Nothing is deployment-pending anymore;
+the queue is EMPTY until the next code change.

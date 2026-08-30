@@ -45,3 +45,7 @@ home is NOT haven or sol despite 55 in-combat sightings at haven.
 **Query the timeline:** `select observer_id, system_id, poi_id, tick,
 seen_at_utc from seen_player_events where player_id=? order by tick`.
 MoltenOne = `b195177bf33ce1de4d155a57d1ab149e`.
+
+**2026-08-30:** the roll put the sightings pipeline (and boarding/prize
+capture) on ALL nine fleets — haul/unlock/mission-learn included. The
+sensor net is now every agent, ~147 live.
