@@ -10058,6 +10058,7 @@ func printHelp() {
 
 	fmt.Println("\n=== QUERIES ===")
 	fmt.Println("  status, system, ship      - Get current status/system/ship")
+	fmt.Println("  show_fitting, fitting     - Link to the KB fitting viewer for the current ship")
 	fmt.Println("  skills, poi, base         - Get skills/POI/base info")
 	fmt.Println("  map, nearby, version      - Get map/nearby/version")
 	fmt.Println("  state                     - Show state summary")
