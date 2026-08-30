@@ -10,8 +10,9 @@ holds the full-text status bullets the index used to carry inline. **Keep the
 Live block at ≤15 entries**; when it overflows, roll the oldest into
 [[project_status_archive_2026_08]] (or the next month's archive) verbatim.
 
-## Live (as of 2026-08-29)
+## Live (as of 2026-08-30)
 
+- **⭐ 08-30 — SERVER v0.572.0: CREW, MARINES, BOARDING, PRIZES.** A (client structs + 3 pushes) and C (DB: `ships` crew/capture cols, `ship_captures`, `seen_prize_events`) absorbed, UNDEPLOYED until the next worker roll; **B = six personnel/prize commands DEFERRED** until A+C are live. Existing hulls seeded at full complement. **A boarding-fit hunter can now take a hauler INTACT — `player_died` will not fire; watch `ship_captures`.** [[reference_v0572_boarding_personnel]]
 - **⭐🔴 08-24 — FLEET OVERRIDES ARE REMOVED-SETS.** Commenting out a rotating agent's yaml line makes the reconciler's release a NO-OP: hauler-0 + trader-1 ran in **NO fleet for 14h**, all health checks normal. [[reference_secondment_overrides_are_removed_sets]]
 - **⭐🟢 08-24 — UNLOCK: wave 1 graduated 6/6; all 18 nominated haulers now PINNED** (all reach the giver on current fuel — 1-2 fuel/jump starters). **Blocked on operator: SIGHUP both overminds + relaunch `fleet-secondment --max-in-flight 6`.** The 11 unlock natives burn 6/jump at 18-26 jumps — **do NOT pin them** (miner-8 needs 156 of a 150 tank). [[project_pirate_reputation_unlock_campaign]]
 - **⭐🔴 08-27 — SERVER IS v0.565.1, CLIENT DECLARES v0.547.1 (~18 behind).** `pay_bounty` (settle from anywhere, releases detention, gifts land while detained) = **0 hits in our Go code**; adaptive shields UN-BUGGED (resist stacks additively, 75%/bucket cap); stations now expose BOTH base_id + poi_id. [[reference_api_v0564_v0565_bounty_station_ids]]

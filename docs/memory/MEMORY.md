@@ -78,6 +78,7 @@
 - [Empire treasury payout collapse](project_empire_treasury_payout_collapse.md) — mission credits ~37% of advertised from 07-23, dev-confirmed treasury dry; XP still full
 
 ## Server API
+- ⭐ [v0.572.0 crew/boarding/prizes](reference_v0572_boarding_personnel.md) — A+C absorbed 08-30 (structs, 3 pushes, `ship_captures`, `seen_prize_events`); B = 6 commands DEFERRED; capture is a NEW loss mode
 - ⭐🔴 [v0.564–v0.565: pay_bounty, resistance fix, station ids](reference_api_v0564_v0565_bounty_station_ids.md) — client is ~18 versions behind; `pay_bounty` has 0 hits in our Go
 - [v0.549.0 freight + per-crew pirates](reference_v0549_freight_and_percrew_pirates.md) — late delivery replaces default; shipping action=active; package_id addressing
 - [v0.536.0 wildlife combat](reference_v0536_wildlife_combat.md) — First Hunt chain, Pirate Bounty gated on weapons L1, scouts engage small hulls

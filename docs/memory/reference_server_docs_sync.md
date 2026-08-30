@@ -35,3 +35,11 @@ commands are not implemented at all. No test guards this direction. Also
 absorbed the same day: `player_kill` push and scan `description` (lore).
 `BuiltForAPIVersion` still reads v0.547.1 on purpose — bumping it would
 claim v0.548–v0.571 are absorbed.
+
+**2026-08-30 refresh (`openapi.20260830.json`, server v0.572.1):** six new
+paths (`claim_prize`, `faction_personnel`, `recruit_personnel`,
+`service_prize`, `transfer_personnel`, `treat_personnel`), 21 new schemas,
+~40 existing schemas gained fields. Nothing removed, so the
+hardcoded→OpenAPI test stayed green; the six commands join the
+uncatalogued-in-actionspace list until Layer B lands. See
+[[reference_v0572_boarding_personnel]].
