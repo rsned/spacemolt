@@ -90,3 +90,10 @@ Note the counter-argument on sizing: [[reference_haul_fleet_capacity_ceiling]] a
 book slots (`bookCap=ceil(srcUnits/cargoCap)`), so the gain from re-equipping is
 not linear in cargo. Rank fitted, not by base stats
 ([[reference_prayer_class_freight_hulls.md]]).
+
+**2026-08-30 operator sighting:** Bulk Terms (T2 Commercial hauler,
+`bulk_terms`) listed at 130,278 cr by the Station Manager at Cargo Lanes
+Freight Depot, listing `1615a7455302eb39b63c987cb3961cf1`. A candidate
+replacement hull — but the standing rule above holds: do NOT re-equip
+before the routing fix. Station-manager listings expire/sell; re-check
+before acting.
