@@ -39,6 +39,7 @@ func TestFormatWrecks_CompactTable(t *testing.T) {
 	// One compact row per ship wreck: id, salvage, class, elided cargo and
 	// module lists (first two entries, then +N).
 	for _, want := range []string{
+		"VoidMoth_Juno", "MoltenOne", "storgio14",
 		"prospect", "underwriter", "bulk_terms (towed)",
 		"2,684", "4,290", "609ef19c7495cd0192916408c7b433c3",
 		"iron_ore 30, copper_ore 20, +1", "Mining Laser I, Pulse Laser I",
@@ -55,8 +56,8 @@ func TestFormatWrecks_CompactTable(t *testing.T) {
 	// Compact means bounded rows: id+salvage+class+two elided lists must fit
 	// a wide terminal line.
 	for _, line := range strings.Split(out, "\n") {
-		if len(line) > 140 {
-			t.Errorf("line over 140 chars (%d): %q", len(line), line)
+		if len(line) > 160 {
+			t.Errorf("line over 160 chars (%d): %q", len(line), line)
 		}
 	}
 	// The jettison branch keeps its actionable loot lines.

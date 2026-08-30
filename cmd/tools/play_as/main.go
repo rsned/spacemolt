@@ -5607,10 +5607,10 @@ func formatWrecks(raw []byte) string {
 			return c.SalvageValue - a.SalvageValue
 		})
 		fmt.Fprintf(&b, "Ship Wrecks: %d\n", len(ships))
-		type row struct{ id, salvage, class, cargo, mods string }
+		type row struct{ id, salvage, class, victim, cargo, mods string }
 		rows := make([]row, 0, len(ships))
 		for _, w := range ships {
-			r := row{id: w.ID, salvage: commaInt(int64(w.SalvageValue)), class: w.ShipClass}
+			r := row{id: w.ID, salvage: commaInt(int64(w.SalvageValue)), class: w.ShipClass, victim: w.VictimName}
 			if w.TowedByPlayerID != "" {
 				r.class += " (towed)"
 			}
@@ -5620,13 +5620,14 @@ func formatWrecks(raw []byte) string {
 			r.mods = elideList(len(w.Modules), 2, func(i int) string { return w.Modules[i].Name })
 			rows = append(rows, r)
 		}
-		salW, classW, cargoW := len("salv"), 0, 0
+		salW, classW, vicW, cargoW := len("salv"), 0, 0, 0
 		for _, r := range rows {
-			salW, classW, cargoW = max(salW, len(r.salvage)), max(classW, len(r.class)), max(cargoW, len(r.cargo))
+			salW, classW = max(salW, len(r.salvage)), max(classW, len(r.class))
+			vicW, cargoW = max(vicW, len(r.victim)), max(cargoW, len(r.cargo))
 		}
 		for _, r := range rows {
-			fmt.Fprintf(&b, "  %s  %*s cr  %-*s  %-*s  %s\n",
-				r.id, salW, r.salvage, classW, r.class, cargoW, r.cargo, r.mods)
+			fmt.Fprintf(&b, "  %s  %*s cr  %-*s  %-*s  %-*s  %s\n",
+				r.id, salW, r.salvage, classW, r.class, vicW, r.victim, cargoW, r.cargo, r.mods)
 		}
 		b.WriteString("\nloot_wreck <id> <item> <qty> · salvage <id> · sell_wreck (towed, at salvage yard)\n")
 	}
