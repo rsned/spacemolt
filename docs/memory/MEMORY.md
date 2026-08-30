@@ -44,6 +44,7 @@
 - ⭐🔴 [Six ways we silently drop data](reference_capture_loss_taxonomy.md) — 18 KB tables have NEVER held a row; every mode looks like success. Detector spec'd, NOT built
 - ⭐🔴 [Stale status files read as LIVE](reference_fleet_status_fossil.md) — `fleet-status.json` 17 days dead; `mining-status.json` is the same now
 - ⭐🔴 [ship_modules has 0 rows, always](reference_ship_modules_never_captured.md) — we cannot see what is FITTED; hull capacity is the only proxy
+- [capture_* drop crew/boarding stats](project_assets_personnel_capture_gap.md) — LATER TASK 08-30: agent_hulls/agent_stats/faction_profile columns spec'd; do before Layer B
 - ⭐ [Fleet asset snapshots](project_fleet_asset_snapshots.md) — `agent_ships` = 0 rows ever; storage last captured 07-02
 - [Worker fleet never wires WireStorageCapture](project_worker_storage_capture_gap.md) — scheduling view_storage on a role stores nothing
 - [Action-log capture](project_action_log_capture.md) — 2 canaries live, fan-out pending
