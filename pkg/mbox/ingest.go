@@ -92,9 +92,10 @@ type ChannelReport struct {
 }
 
 // Backfill crawls history for each channel in opts.Channels, storing any
-// messages that are not already present in the Store.  It stops per channel
-// when it encounters a message ID that already exists, when MaxPerChannel is
-// reached, or when the server returns an empty page.
+// messages that are not already present in the Store. Messages it already
+// holds are skipped, not terminal: pushes leave holes below them. It stops
+// per channel when MaxPerChannel rows have been walked, when the server
+// returns an empty page, or when a page makes no progress.
 func (ing *Ingester) Backfill(ctx context.Context, client BackfillClient, opts BackfillOptions) (BackfillReport, error) {
 	if opts.MaxPerChannel <= 0 {
 		opts.MaxPerChannel = 500
