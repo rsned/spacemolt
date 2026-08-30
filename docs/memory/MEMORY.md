@@ -83,7 +83,7 @@
 - [v0.536.0 wildlife combat](reference_v0536_wildlife_combat.md) — First Hunt chain, Pirate Bounty gated on weapons L1, scouts engage small hulls
 - [Settled API changes](reference_server_api_history.md) — what is already absorbed into the client
 - [Patch notes source](reference_patch_notes_source.md) — where they live and the current server version
-- [server_docs sync](reference_server_docs_sync.md) — how it stays current and why actionspace drifts
+- [server_docs sync](reference_server_docs_sync.md) — refreshed 08-29 (v0.571): repair_module dropped; 31 OpenAPI commands uncatalogued, no test for that direction
 - [API sync v0.495](project_api_sync_v0495.md) — espionage command, ShipClass price removal, prestige cluster
 - [API struct drift audit](project_api_struct_drift_audit.md) — DONE 07-08 across v0.398→v0.473; response-struct verification partial
 - [API currentness round v0.322](project_api_currentness_round.md) — 3 workstreams, historical
