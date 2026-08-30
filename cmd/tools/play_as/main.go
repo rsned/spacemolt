@@ -10501,9 +10501,14 @@ func mboxRead(store *mbox.Store, args []string) {
 	}
 }
 
-func mboxBackfill(ing *mbox.Ingester, client game.GameClient, ctx context.Context, args []string) {
+// parseBackfillOpts turns `mbox backfill` arguments into BackfillOptions.
+// The default channel set includes private: a DM sent to a parked pilot is
+// never pushed and is never "new" to the poller, so private is the one
+// channel where missing-while-offline is the normal case rather than the
+// exception (a June 2026 NPC DM went unrecorded for three months this way).
+func parseBackfillOpts(args []string) (mbox.BackfillOptions, error) {
 	opts := mbox.BackfillOptions{
-		Channels:      []string{"system", "local", "faction"},
+		Channels:      []string{"system", "local", "faction", "private"},
 		MaxPerChannel: 500,
 	}
 	for i := 0; i < len(args); i++ {
@@ -10516,13 +10521,26 @@ func mboxBackfill(ing *mbox.Ingester, client game.GameClient, ctx context.Contex
 		case "--limit":
 			if i+1 < len(args) {
 				i++
-				if n, err := strconv.Atoi(args[i]); err == nil {
-					opts.MaxPerChannel = n
+				n, err := strconv.Atoi(args[i])
+				if err != nil {
+					return opts, fmt.Errorf("invalid --limit %q: %w", args[i], err)
 				}
+				opts.MaxPerChannel = n
 			}
 		case "-f", "--reset":
 			opts.ResetCursor = true
+		default:
+			return opts, fmt.Errorf("unknown argument %q (usage: mbox backfill [--channel <ch>] [--limit N] [-f|--reset])", args[i])
 		}
+	}
+	return opts, nil
+}
+
+func mboxBackfill(ing *mbox.Ingester, client game.GameClient, ctx context.Context, args []string) {
+	opts, err := parseBackfillOpts(args)
+	if err != nil {
+		fmt.Printf("  error: %v\n", err)
+		return
 	}
 
 	resetNote := ""
