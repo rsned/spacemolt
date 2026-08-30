@@ -1,7 +1,23 @@
 {
   "removed": [
-    "craftsman-1"
+    "craftsman-1",
+    "fighter-2",
+    "fighter-5",
+    "fighter-6",
+    "fighter-7",
+    "fighter-8",
+    "fighter-9",
+    "fighter-10",
+    "random-1",
+    "random-2",
+    "random-3",
+    "random-4",
+    "random-5",
+    "random-6",
+    "random-8",
+    "random-9",
+    "random-npc"
   ],
-  "updated_at": "2026-08-19T06:37:18Z",
-  "by": "restore explorer-7 after citizenship experiment; petition tracked by schedule instead"
+  "updated_at": "2026-08-25T03:40:00Z",
+  "by": "crystal squad: 16 mining hulls released to the mining fleet for the drone-refit energy_crystal run"
 }

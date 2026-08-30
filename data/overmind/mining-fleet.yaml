@@ -30,3 +30,44 @@ workers:
 
   # mining skill 0, but starter ships ship WITH a mining laser, so the loop runs.
   - { agent_id: random-clark, role: miner, station: "" }
+
+  # ---------------------------------------------------------------------------
+  # CRYSTAL SQUAD 2026-08-25 — 16 mining hulls moved out of mission-learn to mine
+  # energy_crystal for the drone refit (3,607 short). Every one of these carries a
+  # per-agent data/agents/<id>/scripts/idle_mine.smolt that overrides the shared
+  # script; read one before changing anything here.
+  #
+  # WHY THE OVERRIDE EXISTS: the shared idle_mine travels to $ASTEROID_BELT$, and
+  # every high-share energy_crystal site in the survey is a NEBULA. Left on the
+  # default script these 16 would mine the wrong rock and return no crystals.
+  #
+  # WHY role: miner AND NOT a new role name: StallTimeoutFor keys the 6x miner
+  # stall window off the literal string "miner". A `crystal_miner` role would fall
+  # back to the 15-minute window and the watchdog would kill them mid-pass — the
+  # exact bug fixed in ad3f4488. The role must stay "miner"; the per-agent script
+  # is what differs.
+  #
+  # Squad A -> forgotten_prism (ivorygate), ~24% crystal share, pool 5,000,
+  # home bd20_2457 (3 jumps, MEASURED fuel desk). Combined hold 1,550.
+  - { agent_id: fighter-5, role: miner, station: "" }
+  - { agent_id: fighter-6, role: miner, station: "" }
+  - { agent_id: fighter-7, role: miner, station: "" }
+  - { agent_id: fighter-9, role: miner, station: "" }
+  - { agent_id: random-1, role: miner, station: "" }
+  - { agent_id: random-2, role: miner, station: "" }
+  - { agent_id: random-3, role: miner, station: "" }
+  - { agent_id: random-4, role: miner, station: "" }
+  - { agent_id: random-5, role: miner, station: "" }
+  - { agent_id: random-6, role: miner, station: "" }
+  - { agent_id: random-8, role: miner, station: "" }
+  - { agent_id: random-9, role: miner, station: "" }
+
+  # Squad B -> wanderers_veil (struve_1321), ~33% share but pool only 444, home
+  # cargo_lanes (6 jumps, MEASURED). Split off Squad A so one field is not drawn
+  # to the floor. NOT homed at zaniah/mera_sanctum, which is 5 jumps and measured
+  # but is our worst kill zone (6 combat deaths) and these agents hold no pirate
+  # unlock. Combined hold 350.
+  - { agent_id: fighter-2, role: miner, station: "" }
+  - { agent_id: fighter-8, role: miner, station: "" }
+  - { agent_id: fighter-10, role: miner, station: "" }
+  - { agent_id: random-npc, role: miner, station: "" }

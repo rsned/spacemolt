@@ -1,0 +1,41 @@
+# Crystal run: ivorygate -> bd20_2457. Overrides data/scripts/idle_mine.smolt.
+#
+# TARGET: energy_crystal for the drone refit (3,607 short). forgotten_prism is 22
+# of a 92-point mix = ~24% of yields, standing pool 5,000 — the best combination
+# of share and depth in the survey. Yield is RANDOM from the site mix, so
+# iron_ore and copper_ore come back too; that is expected, not a misfire.
+#
+# autopilot, NOT jump. `jump` is SINGLE-HOP: it fails outright with "X is not
+# connected to Y" for anything not directly adjacent, and these agents start
+# 5-16 jumps out. That is exactly how the first version of this script failed on
+# 2026-08-26 — and because an idle script is best-effort, the failed jump did
+# NOT abort the pass: the loop below then ran 100 `mine` attempts against
+# "Nothing to mine here" while still docked at the origin, every pass. Autopilot
+# routes multi-hop, tops the tank up at the ORIGIN station first, and takes the
+# target POI as its second argument, which also removes the need for $NEBULA$.
+#
+# The nebula matters: the shared idle_mine travels to $ASTEROID_BELT$, and every
+# high-share energy_crystal site is a NEBULA. On the default script these agents
+# would mine the wrong rock.
+#
+# ivorygate has NO STATION, which is why its rock is untouched — the same reason
+# frostfeld works for miner-10. Home is bd20_2457, 3 jumps out, whose fuel desk
+# is MEASURED (2 cr/unit, ~54,800 reserve). An unverified desk in lawless space
+# is how an agent strands, so do not shorten this to a nearer unmeasured station.
+#
+# refuel FIRST, while still docked from the prior cycle: it tops up before each
+# trip AND recovers a bot that has run itself to empty. Several of these arrived
+# from mission-learn at 0-4 fuel.
+#
+# get_system after the return leg is load-bearing: $STATION$ resolves against the
+# client's cached POI list, which still holds the previous system right after a
+# jump. get_system is an info query, no tick cost.
+refuel
+undock
+autopilot ivorygate forgotten_prism
+loop -f 100 mine
+autopilot bd20_2457
+get_system
+travel $STATION$
+dock
+deposit_all

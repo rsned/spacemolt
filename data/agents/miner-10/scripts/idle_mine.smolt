@@ -1,0 +1,32 @@
+# Two-system mining loop for miner-10. Overrides data/scripts/idle_mine.smolt
+# (data/agents/<id>/scripts wins in ScriptSearchPaths).
+#
+# Why not just mine at home: ironhearth is picked over for ore, and this agent was
+# logging "Resources depleted" every other pass. frostfeld has NO STATION, which is
+# exactly why its rock is untouched — 402,006 remaining, the richest field within reach. Nobody mines where they cannot dock.
+#
+# Home stays ironhearth because its fuel desk is MEASURED (station_fuel_prices).
+# The nearer low-security systems with their own station — alzirr, gsc_0034,
+# tiaki, silvermark — have never had a fuel reading, and an unverified desk in
+# lawless space is how an agent strands.
+#
+# refuel is LAST so the tank is full before the next pass's outbound jump.
+# loop -f tolerates "Resources depleted" and exits early on cargo_full, which
+# the server reports as a GoalReachedError.
+#
+# get_system after EVERY jump is load-bearing, not decoration. $ASTEROID_BELT$
+# and $STATION$ resolve against the client's cached POI list, which still holds
+# the PREVIOUS system's POIs immediately after a jump. Without the refresh,
+# miner-10 jumped to frostfeld and then tried to travel to "Ironhearth Fields",
+# the belt it had just left, and the pass died there (observed 2026-08-21).
+# get_system is an info query: no tick cost.
+jump frostfeld
+get_system
+travel $ASTEROID_BELT$
+loop -f 100 mine
+jump ironhearth
+get_system
+travel $STATION$
+dock
+deposit_all
+refuel

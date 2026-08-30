@@ -1,0 +1,35 @@
+# Crystal run: struve_1321 -> cargo_lanes. Overrides data/scripts/idle_mine.smolt.
+#
+# TARGET: energy_crystal for the drone refit. wanderers_veil is the RICHEST share
+# we know of — 21 of a 63-point mix = ~33% of yields, vs ~24% at ivorygate — but
+# its standing pool is only 444 against ivorygate's 5,000. This squad exists to
+# spread the draw so one field is not taken to the floor; deposits regenerate, so
+# round-trip time matters more than pool size.
+#
+# autopilot, NOT jump. `jump` is SINGLE-HOP and fails with "X is not connected to
+# Y" for anything not adjacent; these agents start 2-16 jumps out. The first
+# version of this script used jump and failed on 2026-08-26 — and since an idle
+# script is best-effort, the failure did NOT stop the pass: the loop then ran 100
+# `mine` attempts against "Nothing to mine here" at the origin, every pass.
+# Autopilot routes multi-hop, tops up at the ORIGIN station, and takes the target
+# POI as its second argument.
+#
+# wanderers_veil is a NEBULA; the shared idle_mine travels to $ASTEROID_BELT$ and
+# would mine the wrong rock. Yield is RANDOM from the site mix.
+#
+# struve_1321 has NO STATION. Home is cargo_lanes (6 jumps), desk MEASURED (2
+# cr/unit, ~49,970 reserve). NOT zaniah/mera_sanctum, which is 5 jumps and
+# measured but is our worst kill zone (6 combat deaths) and these agents hold no
+# pirate unlock. The extra jump is the cheap option.
+#
+# refuel FIRST: tops up before each trip AND recovers a bot run to empty.
+# get_system before $STATION$: the POI cache still holds the previous system.
+refuel
+undock
+autopilot struve_1321 wanderers_veil
+loop -f 100 mine
+autopilot cargo_lanes
+get_system
+travel $STATION$
+dock
+deposit_all
