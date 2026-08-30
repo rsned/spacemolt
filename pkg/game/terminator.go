@@ -43,6 +43,16 @@ func terminateOnActionOrOK(resp protocol.Response) (bool, error) {
 		if pending, _ := resp.Payload["pending"].(bool); pending {
 			return false, nil
 		}
+		// The standalone auto-dock/auto-undock notification reuses the issuing
+		// command's request_id but is a side-channel state frame, not the
+		// command's response — the real terminal lands a moment later (seen
+		// live on sell_wreck, 2026-08-30). Only the notification FORM (the
+		// "type" discriminator) is skipped: a real terminal ok that merely
+		// carries the inline auto_docked flag must still terminate.
+		switch t, _ := resp.Payload["type"].(string); t {
+		case "auto_dock", "auto_undock":
+			return false, nil
+		}
 		return true, nil
 	}
 	return false, nil

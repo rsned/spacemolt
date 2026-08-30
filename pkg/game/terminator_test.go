@@ -62,3 +62,33 @@ func TestTerminateOnTypes(t *testing.T) {
 		t.Errorf("expected action_error to terminate with error, got done=%v err=%v", done, err)
 	}
 }
+
+// The server's standalone auto-dock notification reuses the issuing command's
+// request_id with type ok and payload {"type":"auto_dock"}. Treating it as the
+// command's terminal frame is what made a REPL sell_wreck print "Automatically
+// docked..." and orphan the real action_result (seen live 2026-08-30). It is
+// an intermediate frame; only the notification FORM is skipped — a real
+// terminal ok that merely carries the inline auto_docked flag must still
+// terminate, or every auto-docking command would hang to timeout.
+func TestTerminateOnActionOrOK_AutoDockNotificationIsIntermediate(t *testing.T) {
+	cases := []struct {
+		name    string
+		payload map[string]any
+		done    bool
+	}{
+		{"auto_dock notification", map[string]any{"type": "auto_dock", "message": "Automatically docked"}, false},
+		{"auto_undock notification", map[string]any{"type": "auto_undock"}, false},
+		{"pending ack", map[string]any{"pending": true}, false},
+		{"plain ok", map[string]any{"message": "done"}, true},
+		{"terminal ok with inline auto_docked flag", map[string]any{"auto_docked": true, "action": "dock"}, true},
+	}
+	for _, tc := range cases {
+		done, err := terminateOnActionOrOK(protocol.Response{Type: protocol.TypeOK, Payload: tc.payload})
+		if err != nil {
+			t.Errorf("%s: err = %v", tc.name, err)
+		}
+		if done != tc.done {
+			t.Errorf("%s: done = %v, want %v", tc.name, done, tc.done)
+		}
+	}
+}
