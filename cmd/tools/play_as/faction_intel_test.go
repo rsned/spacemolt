@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"strings"
 )
 
 func TestPoiToIntelMap_Fields(t *testing.T) {
@@ -176,5 +177,24 @@ func writeJSON(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+// The spec says coverage_pct is a number; a live capture said string. The
+// formatter must survive BOTH — a type flip here silently reverts the whole
+// command to raw JSON (the v0.572 wrecks failure mode).
+func TestFormatFactionIntelStatus_CoverageNumberOrString(t *testing.T) {
+	for _, raw := range []string{
+		`{"intel_level":2,"systems_known":5,"total_systems":50,"coverage_pct":"10.0"}`,
+		`{"intel_level":2,"systems_known":5,"total_systems":50,"coverage_pct":10.0}`,
+	} {
+		out := formatFactionIntelStatus([]byte(raw))
+		if out == "" {
+			t.Errorf("formatter fell back to JSON for %s", raw)
+			continue
+		}
+		if !strings.Contains(out, "10") {
+			t.Errorf("coverage missing from:\n%s", out)
+		}
 	}
 }

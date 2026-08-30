@@ -6079,9 +6079,12 @@ func formatFactionIntelStatus(raw []byte) string {
 		TopContributions int    `json:"top_contributions"`
 		SystemsKnown     int    `json:"systems_known"`
 		TotalSystems     int    `json:"total_systems"`
-		POIsKnown        int    `json:"pois_known"`
-		CoveragePct      string `json:"coverage_pct"`
-		MostRecentTick   int64  `json:"most_recent_tick"`
+		POIsKnown int `json:"pois_known"`
+		// CoveragePct arrives as a string in live captures and as a number in
+		// the OpenAPI spec; decode either — a type flip here would silently
+		// revert the command to raw JSON (the v0.572 wrecks failure mode).
+		CoveragePct    json.RawMessage `json:"coverage_pct"`
+		MostRecentTick int64           `json:"most_recent_tick"`
 	}
 	if err := json.Unmarshal(unwrapActionResult(raw), &r); err != nil {
 		return ""
@@ -6090,8 +6093,8 @@ func formatFactionIntelStatus(raw []byte) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "🛰  Faction Intel Status\n")
 	fmt.Fprintf(&b, "  Intel level:     %d\n", r.IntelLevel)
-	coverage := r.CoveragePct
-	if coverage == "" {
+	coverage := strings.Trim(string(r.CoveragePct), `"`)
+	if coverage == "" || coverage == "null" {
 		coverage = "0"
 	}
 	fmt.Fprintf(&b, "  Coverage:        %s%% (%d / %d systems)\n", coverage, r.SystemsKnown, r.TotalSystems)
