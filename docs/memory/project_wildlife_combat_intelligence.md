@@ -108,3 +108,13 @@ out-range it. Defence is not being in the fight** — which matches
 [[reference_belt_grazer_hunting_grounds]] and the per-arrival risk found in
 [[project_action_log_capture]]. See also
 [[reference_creature_scan_bracket_threat_flag]] for the hull table.
+
+**2026-08-30 — play_as never recorded carcasses.** `wildlife_kills` /
+`wildlife_kill_drops` were 0 rows ever while `wildlife_attacks` had 13 — ALL
+from the operator's hand-flown fights, none from the hunt fleet. Only the
+worker's `huntLootCarcass` called `CaptureWildlifeCarcass`; play_as `wrecks`
+/ `loot` were pass-throughs. FIXED: `cmd/tools/play_as/wildlife_carcass.go`
+captures every `type=creature` wreck from the last get_wrecks reply (species
+from the cached get_nearby entry, else slug of victim_name; drop roll read
+before looting; per-session dedupe). `capture_wildlife_attacks` only ever
+records what creatures SHOOT with (battle-log replay) — never loot.
