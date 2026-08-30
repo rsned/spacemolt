@@ -71,3 +71,9 @@ control (control types: hello/status/event/abort/pause/resume/assign/drain/
 admin_*), and the worker dispatcher rejects unknown scheduled command names,
 so a marketbot sensor sweep needs either a `capture_agents` dispatch case +
 resident schedule line (next mb restart) or a new exec/broadcast control.
+
+**2026-08-30 (operator report):** other players are now patrolling for
+MoltenOne, so the mining fields are materially safer than during the
+08-27/28 kill window. Relevant to timing the mining-fleet relaunch — the
+patrols are a favourable but TEMPORARY condition, not a fix; the standing
+mitigations (sensor net, no idling in lawless, IP-block discipline) stay.
