@@ -619,23 +619,35 @@ type RecipeItem struct {
 
 // Wreck represents a destroyed ship's wreckage.
 type Wreck struct {
-	ID                string      `json:"id"`
-	Type              string      `json:"type,omitempty"`
-	ShipClass         string      `json:"ship_class"`
-	POIID             string      `json:"poi_id"`
-	SystemID          string      `json:"system_id,omitempty"`
-	VictimID          string      `json:"victim_id,omitempty"`
-	VictimName        string      `json:"victim_name,omitempty"`
-	KillerID          string      `json:"killer_id,omitempty"`
-	KillerName        string      `json:"killer_name,omitempty"`
-	Cargo             []CargoItem `json:"cargo,omitempty"`
-	Modules           []string    `json:"modules,omitempty"`
-	SalvageValue      int         `json:"salvage_value,omitempty"`
-	InsurancePolicyID string      `json:"insurance_policy_id,omitempty"`
-	TowedByPlayerID   string      `json:"towed_by_player_id,omitempty"`
-	CreatedAt         string      `json:"created_at,omitempty"`
-	ExpiresAt         string      `json:"expires_at,omitempty"`
-	ExpireTick        int64       `json:"expire_tick,omitempty"`
+	ID         string      `json:"id"`
+	Type       string      `json:"type,omitempty"`
+	ShipClass  string      `json:"ship_class"`
+	POIID      string      `json:"poi_id"`
+	SystemID   string      `json:"system_id,omitempty"`
+	VictimID   string      `json:"victim_id,omitempty"`
+	VictimName string      `json:"victim_name,omitempty"`
+	KillerID   string      `json:"killer_id,omitempty"`
+	KillerName string      `json:"killer_name,omitempty"`
+	Cargo      []CargoItem `json:"cargo,omitempty"`
+	// Modules are the salvageable fittings on a SHIP wreck, as objects
+	// (LootedModule), never id strings; a creature carcass has none.
+	Modules           []LootedModule `json:"modules,omitempty"`
+	SalvageValue      int            `json:"salvage_value,omitempty"`
+	InsurancePolicyID string         `json:"insurance_policy_id,omitempty"`
+	TowedByPlayerID   string         `json:"towed_by_player_id,omitempty"`
+	CreatedAt         string         `json:"created_at,omitempty"`
+	ExpiresAt         string         `json:"expires_at,omitempty"`
+	ExpireTick        int64          `json:"expire_tick,omitempty"`
+}
+
+// LootedModule is one module still fitted to a ship wreck, as listed by
+// get_wrecks (spec schema LootedModule). ID is the module instance; TypeID
+// the catalog id.
+type LootedModule struct {
+	ID     string `json:"id"`
+	Name   string `json:"name,omitempty"`
+	Type   string `json:"type,omitempty"`
+	TypeID string `json:"type_id,omitempty"`
 }
 
 // Drone represents a deployed drone.
