@@ -1057,6 +1057,28 @@ type FacilityListResponse struct {
 	// FacilityResponse with no properties at all, so every field here is driven
 	// by live payloads.
 	LifeSupport *LifeSupport `json:"life_support,omitempty"`
+	// ServicePools are the station's finite crew-recruitment, medical, and
+	// marine-training pools (server v0.572.0), replenishing from supplied
+	// facilities each cycle. nil where personnel mechanics are off.
+	ServicePools *StationServicePools `json:"service_pools,omitempty"`
+}
+
+// StationServicePools groups the three v0.572.0 station personnel pools.
+type StationServicePools struct {
+	Personnel      StationServicePoolStatus `json:"personnel"`
+	Medical        StationServicePoolStatus `json:"medical"`
+	MarineTraining StationServicePoolStatus `json:"marine_training"`
+}
+
+// StationServicePoolStatus is one pool's standing: what remains, its cap,
+// how much a supplied facility refills per cycle, the supply item it burns,
+// and how much of that item the next cycle needs.
+type StationServicePoolStatus struct {
+	Remaining               int    `json:"remaining"`
+	Capacity                int    `json:"capacity"`
+	RefillPerCycle          int    `json:"refill_per_cycle"`
+	SupplyItem              string `json:"supply_item,omitempty"`
+	NextCycleSupplyRequired int    `json:"next_cycle_supply_required,omitempty"`
 }
 
 // StorageLocation is one station holding this player's storage, as reported by
