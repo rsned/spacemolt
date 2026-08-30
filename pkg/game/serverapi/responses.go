@@ -69,6 +69,8 @@ type GetStatusResponse struct {
 	POI         POI            `json:"poi,omitempty"`
 	Nearby      []NearbyPlayer `json:"nearby,omitempty"`
 	CurrentTick int64          `json:"current_tick,omitempty"`
+	// PrizeRecoveries lists our claimed prizes in transit (server v0.572.0).
+	PrizeRecoveries []PrizeRecovery `json:"prize_recoveries,omitempty"`
 }
 
 // GetShipResponse wraps the response from get_ship command.
@@ -193,6 +195,9 @@ type GetNearbyResponse struct {
 	EmpireNPCCount   int              `json:"empire_npc_count,omitempty"`
 	EmpireNPCs       json.RawMessage  `json:"empire_npcs,omitempty"`
 	OfflineCollapsed int              `json:"offline_collapsed,omitempty"`
+	// Intact captured ships at this POI (server v0.572.0).
+	Prizes     []NearbyPrize `json:"prizes,omitempty"`
+	PrizeCount int           `json:"prize_count,omitempty"`
 }
 
 // GetBattleStatusResponse wraps the response from get_battle_status command.

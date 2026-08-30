@@ -263,8 +263,10 @@ func (kb *SQLiteKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef
 				piloting_required, inherent_capabilities, default_modules, flavor_tags,
 				passive_recipes, required_achievement, required_faction_achievement,
 				required_faction_leader, prestige_lock, default_loadout_version,
+				crew_capacity, marine_capacity, minimum_crew, capture_policy,
+				capture_policy_reason, latch_resistance, boarding_defense_bonus_pct,
 				last_updated_tick)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, sc.ID, sc.Name, sc.Class, sc.Category, sc.Description, sc.Lore, sc.Faction,
 			sc.Tier, sc.Scale, sc.BaseHull, sc.BaseShield, sc.BaseShieldRecharge, sc.BaseArmor,
 			sc.BaseSpeed, sc.BaseFuel, sc.CargoCapacity, sc.CPUCapacity, sc.PowerCapacity,
@@ -273,6 +275,8 @@ func (kb *SQLiteKB) StoreShipClasses(ctx context.Context, classes []ShipClassDef
 			sc.PilotingRequired, string(capJSON), string(defMods), string(flavTags),
 			string(passRecipes), sc.RequiredAchievement, sc.RequiredFactionAchievement,
 			sc.RequiredFactionLeader, sc.PrestigeLock, sc.DefaultLoadoutVersion,
+			sc.CrewCapacity, sc.MarineCapacity, sc.MinimumCrew, sc.CapturePolicy,
+			sc.CapturePolicyReason, sc.LatchResistance, sc.BoardingDefenseBonusPct,
 			sc.LastUpdatedTick)
 		if err != nil {
 			return fmt.Errorf("failed to insert ship class %s: %w", sc.ID, err)
@@ -310,6 +314,8 @@ const shipClassColumns = `
 	default_modules, flavor_tags, passive_recipes,
 	COALESCE(required_achievement, ''), COALESCE(required_faction_achievement, ''),
 	required_faction_leader, COALESCE(prestige_lock, ''), default_loadout_version,
+	crew_capacity, marine_capacity, minimum_crew, COALESCE(capture_policy, ''),
+	COALESCE(capture_policy_reason, ''), latch_resistance, boarding_defense_bonus_pct,
 	last_updated_tick`
 
 // GetShipClass retrieves a single ship class by ID.
@@ -443,6 +449,8 @@ func shipClassScanTargets(sc *ShipClassDef, capJSON, defModsJSON, flavTagsJSON, 
 		defModsJSON, flavTagsJSON, passRecipesJSON,
 		&sc.RequiredAchievement, &sc.RequiredFactionAchievement,
 		&sc.RequiredFactionLeader, &sc.PrestigeLock, &sc.DefaultLoadoutVersion,
+		&sc.CrewCapacity, &sc.MarineCapacity, &sc.MinimumCrew, &sc.CapturePolicy,
+		&sc.CapturePolicyReason, &sc.LatchResistance, &sc.BoardingDefenseBonusPct,
 		&sc.LastUpdatedTick,
 	}
 }

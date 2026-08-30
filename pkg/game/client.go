@@ -161,6 +161,13 @@ type Client struct {
 	passengerObserver   PassengerObserver
 	passengerObserverMu sync.RWMutex
 
+	// prizeObserver / captureObserver (server v0.572.0 boarding): fired for
+	// intact prizes listed in get_nearby and for every ship_captured push.
+	// See pkg/game/observed_prize.go.
+	prizeObserver      PrizeObserver
+	captureObserver    CaptureObserver
+	boardingObserverMu sync.RWMutex
+
 	// Structured call logger for request/response pairs
 	CallLogger      *calllog.Logger
 	lastSentMsg     json.RawMessage // most recent message sent via Send(), for pairing with response
@@ -517,6 +524,22 @@ func (c *Client) SetPassengerObserver(fn PassengerObserver) {
 	c.passengerObserverMu.Lock()
 	defer c.passengerObserverMu.Unlock()
 	c.passengerObserver = fn
+}
+
+// SetPrizeObserver registers a callback that fires when handleResponse parses
+// a payload listing intact captured ships (get_nearby prizes[]).
+func (c *Client) SetPrizeObserver(fn PrizeObserver) {
+	c.boardingObserverMu.Lock()
+	defer c.boardingObserverMu.Unlock()
+	c.prizeObserver = fn
+}
+
+// SetCaptureObserver registers a callback that fires on every ship_captured
+// push, whichever side of the boarding we were on.
+func (c *Client) SetCaptureObserver(fn CaptureObserver) {
+	c.boardingObserverMu.Lock()
+	defer c.boardingObserverMu.Unlock()
+	c.captureObserver = fn
 }
 
 // SetDebugLogging controls whether the game client logs WebSocket messages.
@@ -2754,6 +2777,50 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.state.LastKill = ev
 		c.mu.Unlock()
 
+	case protocol.TypeShipCaptured:
+		var ev serverapi.ShipCaptured
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.debugLogger.Printf("⚓ SHIP CAPTURED: %s (%s) taken from %s by %s in battle %s",
+			ev.ShipID, ev.ShipClass, ev.FormerOwnerUsername, ev.CaptorUsername, ev.BattleID)
+		c.mu.Lock()
+		c.state.LastCapture = ev
+		c.mu.Unlock()
+		c.notifyCapture(ev)
+
+	case protocol.TypePrizeUpdate:
+		var ev serverapi.PrizeUpdate
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.debugLogger.Printf("🏁 PRIZE UPDATE: %s (%s) %s %s — %s",
+			ev.PrizeID, ev.ShipClass, ev.Status, ev.WaitReason, ev.Message)
+		c.mu.Lock()
+		c.state.LastPrizeUpdate = ev
+		c.mu.Unlock()
+
+	case protocol.TypePersonnelUpdate:
+		var ev serverapi.PersonnelUpdate
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.debugLogger.Printf("🩺 PERSONNEL UPDATE: %s on %s from %s (crew treated %d, fit crew moved %d)",
+			ev.Action, ev.ShipID, ev.SourceUsername, ev.CrewTreated, ev.FitCrewTransferred)
+		c.mu.Lock()
+		// The push names the recipient ship; only the hull we are flying is
+		// mirrored in State, so an update for a docked spare is ignored.
+		if ev.ShipID != "" && ev.ShipID == c.state.Ship.ID {
+			c.state.Ship.Personnel = PersonnelFromAPI(&ev.Personnel)
+			if ev.CrewCapacity > 0 {
+				c.state.Ship.CrewCapacity = ev.CrewCapacity
+			}
+			if ev.MarineCapacity > 0 {
+				c.state.Ship.MarineCapacity = ev.MarineCapacity
+			}
+		}
+		c.mu.Unlock()
+
 	case protocol.TypePirateSpawn:
 		c.debugLogger.Printf("⚠️  PIRATE SPAWNED: %v", resp.Payload)
 
@@ -4506,6 +4573,9 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypePoliceWarning:           {},
 	protocol.TypePlayerDied:              {},
 	protocol.TypePlayerKill:              {},
+	protocol.TypeShipCaptured:            {},
+	protocol.TypePrizeUpdate:             {},
+	protocol.TypePersonnelUpdate:         {},
 	protocol.TypeScanDetected:            {},
 	protocol.TypeTradeOfferReceived:      {},
 	protocol.TypePilotlessShip:           {},
@@ -5089,6 +5159,11 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 			if unmarshalPayloadKey(resp.Payload, "nearby", &players) {
 				poiID, _ := resp.Payload["poi_id"].(string)
 				c.notifyPlayers("get_nearby", players, poiID)
+			}
+			var prizes []serverapi.NearbyPrize
+			if unmarshalPayloadKey(resp.Payload, "prizes", &prizes) {
+				poiID, _ := resp.Payload["poi_id"].(string)
+				c.notifyPrizes("get_nearby", prizes, poiID)
 			}
 		}
 		// Store map data (from get_map response)

@@ -201,6 +201,21 @@ type KillLogEntry struct {
 	KillerUsername string `json:"killer_username"`
 	VictimID       string `json:"victim_id"`
 	VictimUsername string `json:"victim_username"`
+	// Cause distinguishes a shot-down hull from a self-destruct during a
+	// boarding (server v0.572.0).
+	Cause string `json:"cause,omitempty"`
+}
+
+// CaptureLogEntry records a hull taken intact by boarding, in battle_ended,
+// get_battle_summary, and the battle log (server v0.572.0).
+type CaptureLogEntry struct {
+	BoardingOperationID string `json:"boarding_operation_id"`
+	CaptorID            string `json:"captor_id"`
+	CaptorUsername      string `json:"captor_username,omitempty"`
+	FormerOwnerID       string `json:"former_owner_id"`
+	FormerOwnerUsername string `json:"former_owner_username,omitempty"`
+	ShipID              string `json:"ship_id"`
+	ShipClass           string `json:"ship_class,omitempty"`
 }
 
 // JoinLogEntry records a combatant entering the battle mid-fight.
@@ -293,6 +308,9 @@ type BattleSummaryResponse struct {
 	Sides                []BattleSideSummary  `json:"sides,omitempty"`
 	TopDamage            *BattleTopDamage     `json:"top_damage,omitempty"`
 	ParticipantSummaries []ParticipantSummary `json:"participants,omitempty"`
+	// Boarding outcomes (server v0.572.0).
+	ShipsCaptured int               `json:"ships_captured,omitempty"`
+	Captures      []CaptureLogEntry `json:"captures,omitempty"`
 }
 
 // BattleSideSummary lists one side's roster.

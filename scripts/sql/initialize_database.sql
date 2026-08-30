@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 30
--- Last Regenerated: 2026-08-29
+-- Migrations applied: 31
+-- Last Regenerated: 2026-08-30
 
 -- ============================================================================
 -- TABLES
@@ -784,6 +784,29 @@ CREATE TABLE seen_players (
 				);
 
 
+CREATE TABLE seen_prize_events (
+					id          INTEGER PRIMARY KEY AUTOINCREMENT,
+					prize_id    TEXT NOT NULL,
+					ship_id     TEXT NOT NULL DEFAULT '',
+					ship_class  TEXT NOT NULL DEFAULT '',
+					ship_name   TEXT NOT NULL DEFAULT '',
+					actor_id    TEXT NOT NULL DEFAULT '',
+					status      TEXT NOT NULL DEFAULT '',
+					wait_reason TEXT NOT NULL DEFAULT '',
+					hull        INTEGER NOT NULL DEFAULT 0,
+					max_hull    INTEGER NOT NULL DEFAULT 0,
+					shield      INTEGER NOT NULL DEFAULT 0,
+					max_shield  INTEGER NOT NULL DEFAULT 0,
+					in_combat   INTEGER NOT NULL DEFAULT 0,
+					system_id   TEXT NOT NULL DEFAULT '',
+					poi_id      TEXT NOT NULL DEFAULT '',
+					source      TEXT NOT NULL DEFAULT '',
+					tick        INTEGER NOT NULL DEFAULT 0,
+					observer_id TEXT NOT NULL DEFAULT '',
+					seen_at_utc TEXT NOT NULL DEFAULT ''
+				);
+
+
 CREATE TABLE "ship_build_materials" (
     ship_class_id TEXT NOT NULL,
     item_id TEXT NOT NULL,
@@ -791,6 +814,22 @@ CREATE TABLE "ship_build_materials" (
     PRIMARY KEY (ship_class_id, item_id),
     FOREIGN KEY (ship_class_id) REFERENCES "ships"(id) ON DELETE CASCADE
 );
+
+
+CREATE TABLE ship_captures (
+					boarding_operation_id TEXT NOT NULL,
+					battle_id             TEXT NOT NULL DEFAULT '',
+					tick                  INTEGER NOT NULL DEFAULT 0,
+					captor_id             TEXT NOT NULL DEFAULT '',
+					captor_username       TEXT NOT NULL DEFAULT '',
+					former_owner_id       TEXT NOT NULL DEFAULT '',
+					former_owner_username TEXT NOT NULL DEFAULT '',
+					ship_id               TEXT NOT NULL DEFAULT '',
+					ship_class            TEXT NOT NULL DEFAULT '',
+					observer_id           TEXT NOT NULL DEFAULT '',
+					seen_at_utc           TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (boarding_operation_id)
+				);
 
 
 CREATE TABLE ship_cargo (
@@ -877,7 +916,7 @@ CREATE TABLE "ships" (
     default_modules TEXT DEFAULT '[]',
     flavor_tags TEXT DEFAULT '[]',
     last_updated_tick INTEGER DEFAULT 0
-, passive_recipes TEXT DEFAULT '[]', based_on TEXT, npc_role TEXT, special TEXT, required_reputation INTEGER NOT NULL DEFAULT 0, piloting_required INTEGER NOT NULL DEFAULT 0, inherent_capabilities TEXT, required_achievement TEXT DEFAULT '', required_faction_achievement TEXT DEFAULT '', required_faction_leader INTEGER NOT NULL DEFAULT 0, prestige_lock TEXT DEFAULT '', default_loadout_version INTEGER NOT NULL DEFAULT 0);
+, passive_recipes TEXT DEFAULT '[]', based_on TEXT, npc_role TEXT, special TEXT, required_reputation INTEGER NOT NULL DEFAULT 0, piloting_required INTEGER NOT NULL DEFAULT 0, inherent_capabilities TEXT, required_achievement TEXT DEFAULT '', required_faction_achievement TEXT DEFAULT '', required_faction_leader INTEGER NOT NULL DEFAULT 0, prestige_lock TEXT DEFAULT '', default_loadout_version INTEGER NOT NULL DEFAULT 0, crew_capacity INTEGER NOT NULL DEFAULT 0, marine_capacity INTEGER NOT NULL DEFAULT 0, minimum_crew INTEGER NOT NULL DEFAULT 0, capture_policy TEXT DEFAULT '', capture_policy_reason TEXT DEFAULT '', latch_resistance INTEGER NOT NULL DEFAULT 0, boarding_defense_bonus_pct INTEGER NOT NULL DEFAULT 0);
 
 
 CREATE TABLE skills (
@@ -1138,6 +1177,16 @@ CREATE INDEX idx_resource_history_poi_resource ON resource_history(poi_id, resou
 
 CREATE INDEX idx_resource_history_tick ON resource_history(game_tick DESC);
 
+CREATE INDEX idx_seen_prize_events_place ON seen_prize_events(system_id, tick);
+
+CREATE INDEX idx_seen_prize_events_prize ON seen_prize_events(prize_id, tick);
+
+CREATE INDEX idx_ship_captures_battle ON ship_captures(battle_id);
+
+CREATE INDEX idx_ship_captures_captor ON ship_captures(captor_id, tick DESC);
+
+CREATE INDEX idx_ship_captures_owner ON ship_captures(former_owner_id, tick DESC);
+
 CREATE INDEX idx_ship_listings_class ON ship_listings(class_id, captured_at DESC);
 
 CREATE INDEX idx_ship_listings_station ON ship_listings(station_id, captured_at DESC);
@@ -1213,6 +1262,9 @@ CREATE INDEX seen_players_last_seen ON seen_players(last_seen_utc);
 
 CREATE INDEX seen_players_username  ON seen_players(username);
 
+CREATE UNIQUE INDEX seen_prize_observation
+					ON seen_prize_events(observer_id, prize_id, system_id, tick) WHERE tick > 0;
+
 CREATE INDEX seen_sightings_last   ON seen_player_sightings(last_seen_utc);
 
 CREATE INDEX seen_sightings_system ON seen_player_sightings(system_id, bucket_hour_utc);
@@ -1252,4 +1304,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (55, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (56, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (57, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (58, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (59, datetime('now'));
 

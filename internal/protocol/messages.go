@@ -39,6 +39,14 @@ const (
 	TypeBattleEnded        = "battle_ended"
 	TypePlayerDied         = "player_died"
 	TypePlayerKill         = "player_kill" // we destroyed another player; carries the wreck id
+	// v0.572.0 boarding pushes. ship_captured is the terminal boarding event
+	// (sent to captor, former owner, and remaining participants);
+	// prize_update is the private claimant update as a prize is recovered;
+	// personnel_update is sent to an ally whose ship received remote
+	// treatment or a personnel transfer.
+	TypeShipCaptured    = "ship_captured"
+	TypePrizeUpdate     = "prize_update"
+	TypePersonnelUpdate = "personnel_update"
 	TypeMining             = "mining"
 	TypeMiningYield        = "mining_yield"
 	TypeScanResult         = "scan_result"

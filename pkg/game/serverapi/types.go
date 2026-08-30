@@ -130,6 +130,33 @@ type PlayerStats struct {
 	WreckItemsLooted        int   `json:"wreck_items_looted,omitempty"`
 	WrecksScrapped          int   `json:"wrecks_scrapped,omitempty"`
 	WrecksSold              int   `json:"wrecks_sold,omitempty"`
+	// Boarding, personnel, and prize statistics (server v0.572.0).
+	AlliedPersonnelTreated    int   `json:"allied_personnel_treated,omitempty"`
+	BoardingAttempts          int   `json:"boarding_attempts,omitempty"`
+	BoardingMarineDeaths      int   `json:"boarding_marine_deaths,omitempty"`
+	BoardingMarineInjuries    int   `json:"boarding_marine_injuries,omitempty"`
+	BoardingMarinesDeployed   int   `json:"boarding_marines_deployed,omitempty"`
+	BoardingOperationsStarted int   `json:"boarding_operations_started,omitempty"`
+	BoardingVictories         int   `json:"boarding_victories,omitempty"`
+	BoardingWithdrawals       int   `json:"boarding_withdrawals,omitempty"`
+	CrewDeaths                int   `json:"crew_deaths,omitempty"`
+	CrewHired                 int   `json:"crew_hired,omitempty"`
+	CrewInjuries              int   `json:"crew_injuries,omitempty"`
+	CrewInjuriesHealed        int   `json:"crew_injuries_healed,omitempty"`
+	CrewTransferred           int   `json:"crew_transferred,omitempty"`
+	MarineDeaths              int   `json:"marine_deaths,omitempty"`
+	MarineInjuries            int   `json:"marine_injuries,omitempty"`
+	MarineInjuriesHealed      int   `json:"marine_injuries_healed,omitempty"`
+	MarinesHired              int   `json:"marines_hired,omitempty"`
+	MarinesTransferred        int   `json:"marines_transferred,omitempty"`
+	PirateBossPrizesDelivered int   `json:"pirate_boss_prizes_delivered,omitempty"`
+	PiratePrizesDelivered     int   `json:"pirate_prizes_delivered,omitempty"`
+	PrizeValueRecovered       int64 `json:"prize_value_recovered,omitempty"`
+	PrizesClaimed             int   `json:"prizes_claimed,omitempty"`
+	PrizesDelivered           int   `json:"prizes_delivered,omitempty"`
+	ShipsCaptured             int   `json:"ships_captured,omitempty"`
+	ShipsLostToCapture        int   `json:"ships_lost_to_capture,omitempty"`
+	TriageLivesSaved          int   `json:"triage_lives_saved,omitempty"`
 }
 
 // ModuleDefinition represents a module's definition including stats and requirements.
@@ -221,6 +248,76 @@ type Ship struct {
 	DockedAtBase             string       `json:"docked_at_base,omitempty"`
 	LastProcessTick          int64        `json:"last_process_tick,omitempty"`
 	CreatedAt                string       `json:"created_at,omitempty"`
+
+	// Personnel (server v0.572.0). Personnel is nil when the server has
+	// personnel mechanics disabled; CrewCapacity/MarineCapacity are the
+	// hull's berths after module bonuses.
+	CrewCapacity          int        `json:"crew_capacity,omitempty"`
+	MarineCapacity        int        `json:"marine_capacity,omitempty"`
+	Personnel             *Personnel `json:"personnel,omitempty"`
+	PersonnelRecoveryTick int64      `json:"personnel_recovery_tick,omitempty"`
+	// StrandedSystemID/StrandedPOIID are set on a hull left behind by a
+	// capture or a failed prize recovery.
+	StrandedSystemID string `json:"stranded_system_id,omitempty"`
+	StrandedPOIID    string `json:"stranded_poi_id,omitempty"`
+}
+
+// Personnel is a ship's crew and marine complement (server v0.572.0). Fit
+// personnel work; injured ones need treatment at a station medical service
+// or an onboard medical module. Version increments on every change so a
+// stale personnel_update can be told from a fresh one.
+type Personnel struct {
+	FitCrew        int `json:"fit_crew"`
+	FitMarines     int `json:"fit_marines"`
+	InjuredCrew    int `json:"injured_crew"`
+	InjuredMarines int `json:"injured_marines"`
+	Version        int `json:"version,omitempty"`
+}
+
+// NearbyPrize is an intact captured ship listed by get_nearby (server
+// v0.572.0). ActorID is whoever currently holds it; Status/WaitReason are the
+// recovery state words. Attackable like any combatant.
+type NearbyPrize struct {
+	PrizeID    string `json:"prize_id"`
+	ShipID     string `json:"ship_id,omitempty"`
+	ShipClass  string `json:"ship_class,omitempty"`
+	ShipName   string `json:"ship_name,omitempty"`
+	ActorID    string `json:"actor_id,omitempty"`
+	Status     string `json:"status,omitempty"`
+	WaitReason string `json:"wait_reason,omitempty"`
+	Hull       int    `json:"hull,omitempty"`
+	MaxHull    int    `json:"max_hull,omitempty"`
+	Shield     int    `json:"shield,omitempty"`
+	MaxShield  int    `json:"max_shield,omitempty"`
+	InCombat   bool   `json:"in_combat,omitempty"`
+}
+
+// PrizeRecovery is one of our claimed prizes in transit, as listed under
+// get_status.prize_recoveries (server v0.572.0).
+type PrizeRecovery struct {
+	PrizeID             string `json:"prize_id"`
+	ShipID              string `json:"ship_id,omitempty"`
+	ShipClass           string `json:"ship_class,omitempty"`
+	ShipName            string `json:"ship_name,omitempty"`
+	ActorID             string `json:"actor_id,omitempty"`
+	Status              string `json:"status,omitempty"`
+	WaitReason          string `json:"wait_reason,omitempty"`
+	CrewDisposition     string `json:"crew_disposition,omitempty"`
+	DestinationBaseID   string `json:"destination_base_id,omitempty"`
+	ReturnCrewFactionID string `json:"return_crew_faction_id,omitempty"`
+	PrizeCrewFit        int    `json:"prize_crew_fit,omitempty"`
+	Hull                int    `json:"hull,omitempty"`
+	MaxHull             int    `json:"max_hull,omitempty"`
+	Fuel                int    `json:"fuel,omitempty"`
+	MaxFuel             int    `json:"max_fuel,omitempty"`
+	SystemID            string `json:"system_id,omitempty"`
+	POIID               string `json:"poi_id,omitempty"`
+	TransitKind         string `json:"transit_kind,omitempty"`
+	TransitFromSystemID string `json:"transit_from_system_id,omitempty"`
+	TransitFromPOIID    string `json:"transit_from_poi_id,omitempty"`
+	TransitToSystemID   string `json:"transit_to_system_id,omitempty"`
+	TransitToPOIID      string `json:"transit_to_poi_id,omitempty"`
+	TransitArrivalTick  int64  `json:"transit_arrival_tick,omitempty"`
 }
 
 // POI represents a Point of Interest in a system.
@@ -469,6 +566,17 @@ type ShipClass struct {
 	PilotingRequired     int              `json:"piloting_required,omitempty"`
 	RequiredItems        []map[string]any `json:"required_items,omitempty"`
 	Special              string           `json:"special,omitempty"`
+
+	// Personnel and boarding (server v0.572.0). CapturePolicy says whether a
+	// boarding party can take this hull intact ("standard", or a restricted
+	// policy explained by CapturePolicyReason — pirate boss hulls, for one).
+	CrewCapacity            int    `json:"crew_capacity,omitempty"`
+	MarineCapacity          int    `json:"marine_capacity,omitempty"`
+	MinimumCrew             int    `json:"minimum_crew,omitempty"`
+	CapturePolicy           string `json:"capture_policy,omitempty"`
+	CapturePolicyReason     string `json:"capture_policy_reason,omitempty"`
+	LatchResistance         int    `json:"latch_resistance,omitempty"`
+	BoardingDefenseBonusPct int    `json:"boarding_defense_bonus_pct,omitempty"`
 
 	// Prestige / unlock gating (v0.495.1). A hull may require a player
 	// achievement, a faction achievement (optionally leader-only), or a
@@ -1381,6 +1489,22 @@ type ShipModule struct {
 	DroneCapacity       int            `json:"drone_capacity,omitempty"`
 	ResistanceBonus     map[string]int `json:"resistance_bonus,omitempty"`
 	Special             string         `json:"special,omitempty"`
+	// Boarding, personnel, medical, and fleet-support module stats (server
+	// v0.572.0). Zero on modules that lack the capability.
+	BoardingCapability      int  `json:"boarding_capability,omitempty"`
+	BoardingContactDefense  int  `json:"boarding_contact_defense,omitempty"`
+	BoardingDefenseBonusPct int  `json:"boarding_defense_bonus_pct,omitempty"`
+	LatchStrength           int  `json:"latch_strength,omitempty"`
+	LatchResistance         int  `json:"latch_resistance,omitempty"`
+	CrewCapacityBonus       int  `json:"crew_capacity_bonus,omitempty"`
+	MarineCapacityBonus     int  `json:"marine_capacity_bonus,omitempty"`
+	CrewCombatBonusPct      int  `json:"crew_combat_bonus_pct,omitempty"`
+	MarineCombatBonusPct    int  `json:"marine_combat_bonus_pct,omitempty"`
+	MedicalTreatmentRate    int  `json:"medical_treatment_rate,omitempty"`
+	RemoteMedicalTreatment  bool `json:"remote_medical_treatment,omitempty"`
+	FleetTriagePct          int  `json:"fleet_triage_pct,omitempty"`
+	FuelTransferRate        int  `json:"fuel_transfer_rate,omitempty"`
+	RepairKitThroughput     int  `json:"repair_kit_throughput,omitempty"`
 }
 
 // AutoListedOrder represents an automatically created sell order from a buy.

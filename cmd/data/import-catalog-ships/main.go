@@ -61,6 +61,14 @@ type ShipClassJSON struct {
 	RequiredFactionLeader      bool   `json:"required_faction_leader"`
 	PrestigeLock               string `json:"prestige_lock"`
 	DefaultLoadoutVersion      int    `json:"default_loadout_version"`
+	// Personnel and boarding (server v0.572.0).
+	CrewCapacity            int    `json:"crew_capacity"`
+	MarineCapacity          int    `json:"marine_capacity"`
+	MinimumCrew             int    `json:"minimum_crew"`
+	CapturePolicy           string `json:"capture_policy"`
+	CapturePolicyReason     string `json:"capture_policy_reason"`
+	LatchResistance         int    `json:"latch_resistance"`
+	BoardingDefenseBonusPct int    `json:"boarding_defense_bonus_pct"`
 }
 
 // BuildMaterialJSON represents a build material from JSON
@@ -175,6 +183,14 @@ func main() {
 			RequiredFactionLeader:      sc.RequiredFactionLeader,
 			PrestigeLock:               sc.PrestigeLock,
 			DefaultLoadoutVersion:      sc.DefaultLoadoutVersion,
+
+			CrewCapacity:            sc.CrewCapacity,
+			MarineCapacity:          sc.MarineCapacity,
+			MinimumCrew:             sc.MinimumCrew,
+			CapturePolicy:           sc.CapturePolicy,
+			CapturePolicyReason:     sc.CapturePolicyReason,
+			LatchResistance:         sc.LatchResistance,
+			BoardingDefenseBonusPct: sc.BoardingDefenseBonusPct,
 
 			LastUpdatedTick: 0,
 		}

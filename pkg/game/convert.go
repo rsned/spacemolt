@@ -243,6 +243,9 @@ func ShipFromAPI(ext serverapi.Ship) Ship {
 		DockedAtBase:             ext.DockedAtBase,
 		LastProcessTick:          ext.LastProcessTick,
 		CreatedAt:                ext.CreatedAt,
+		CrewCapacity:             ext.CrewCapacity,
+		MarineCapacity:           ext.MarineCapacity,
+		Personnel:                PersonnelFromAPI(ext.Personnel),
 	}
 }
 

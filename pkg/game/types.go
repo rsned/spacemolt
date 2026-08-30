@@ -187,6 +187,34 @@ type Ship struct {
 	DockedAtBase             string           `json:"docked_at_base,omitempty"`
 	LastProcessTick          int64            `json:"last_process_tick,omitempty"`
 	CreatedAt                string           `json:"created_at,omitempty"`
+
+	// Personnel (server v0.572.0). Zero-valued when the server sent no
+	// personnel block; CrewCapacity/MarineCapacity are berths after modules.
+	CrewCapacity   int       `json:"crew_capacity,omitempty"`
+	MarineCapacity int       `json:"marine_capacity,omitempty"`
+	Personnel      Personnel `json:"personnel"`
+}
+
+// Personnel is a ship's crew and marine complement. See serverapi.Personnel.
+type Personnel struct {
+	FitCrew        int `json:"fit_crew"`
+	FitMarines     int `json:"fit_marines"`
+	InjuredCrew    int `json:"injured_crew"`
+	InjuredMarines int `json:"injured_marines"`
+	Version        int `json:"version,omitempty"`
+}
+
+// PersonnelFromAPI converts a serverapi personnel block; nil yields the zero
+// value (personnel mechanics disabled or not reported).
+func PersonnelFromAPI(p *serverapi.Personnel) Personnel {
+	if p == nil {
+		return Personnel{}
+	}
+	return Personnel{
+		FitCrew: p.FitCrew, FitMarines: p.FitMarines,
+		InjuredCrew: p.InjuredCrew, InjuredMarines: p.InjuredMarines,
+		Version: p.Version,
+	}
 }
 
 // ConnectionInfo represents a connection from one system to another with details.
@@ -439,7 +467,13 @@ type State struct {
 	CurrentTick int64
 	// LastKill is the most recent player_kill push: the wreck we are
 	// entitled to loot. Zero value until we destroy someone.
-	LastKill        serverapi.PlayerKill
+	LastKill serverapi.PlayerKill
+	// LastCapture is the most recent ship_captured push we received — as
+	// captor, as the former owner, or as a bystander in the same battle.
+	// LastPrizeUpdate is the most recent recovery update for a prize we
+	// claimed. Both zero until boarding touches us.
+	LastCapture     serverapi.ShipCaptured
+	LastPrizeUpdate serverapi.PrizeUpdate
 	ServerTimestamp int64 // Server UNIX timestamp from get_notifications
 	LastMapUpdate   time.Time
 
@@ -576,6 +610,8 @@ func (s *State) Clone() *State {
 		MaxCargo:        s.MaxCargo,
 		CurrentTick:     s.CurrentTick,
 		LastKill:        s.LastKill,
+		LastCapture:     s.LastCapture,
+		LastPrizeUpdate: s.LastPrizeUpdate,
 		ServerTimestamp: s.ServerTimestamp,
 		Player:          s.Player,
 		Ship:            s.Ship,

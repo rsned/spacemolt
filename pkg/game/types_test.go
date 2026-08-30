@@ -158,6 +158,8 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 		},
 		CurrentTick:     106000,
 		LastKill:        serverapi.PlayerKill{Victim: "MoltenOne", WreckID: "wreck-1", WreckHasCargo: true, WreckHasModules: true},
+		LastCapture:     serverapi.ShipCaptured{BattleID: "battle-123", BoardingOperationID: "op-1", CaptorID: "MoltenOne", ShipID: "ship-7"},
+		LastPrizeUpdate: serverapi.PrizeUpdate{PrizeID: "prize-1", Status: "delivered"},
 		ServerTimestamp: 1773883811,
 		LastMapUpdate:   time.Date(2026, 2, 18, 9, 0, 0, 0, time.UTC),
 		Nearby: []NearbyPlayer{

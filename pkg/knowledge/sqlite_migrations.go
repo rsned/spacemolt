@@ -905,6 +905,60 @@ func migrations() []Migration {
 			// and a scan is the only way to read it.
 			sql: `ALTER TABLE wildlife_species ADD COLUMN description TEXT NOT NULL DEFAULT '';`,
 		},
+		{
+			// v0.572.0 boarding: a hull can now be taken intact. ship_captures is
+			// the terminal record of each boarding operation we witnessed (from
+			// the ship_captured push); seen_prize_events is the per-observation
+			// timeline of intact prizes seen in get_nearby, the prize-side twin
+			// of seen_player_events.
+			version: 59,
+			name:    "boarding_captures_and_prize_sightings",
+			sql: `
+				CREATE TABLE IF NOT EXISTS ship_captures (
+					boarding_operation_id TEXT NOT NULL,
+					battle_id             TEXT NOT NULL DEFAULT '',
+					tick                  INTEGER NOT NULL DEFAULT 0,
+					captor_id             TEXT NOT NULL DEFAULT '',
+					captor_username       TEXT NOT NULL DEFAULT '',
+					former_owner_id       TEXT NOT NULL DEFAULT '',
+					former_owner_username TEXT NOT NULL DEFAULT '',
+					ship_id               TEXT NOT NULL DEFAULT '',
+					ship_class            TEXT NOT NULL DEFAULT '',
+					observer_id           TEXT NOT NULL DEFAULT '',
+					seen_at_utc           TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (boarding_operation_id)
+				);
+				CREATE INDEX IF NOT EXISTS idx_ship_captures_captor ON ship_captures(captor_id, tick DESC);
+				CREATE INDEX IF NOT EXISTS idx_ship_captures_owner ON ship_captures(former_owner_id, tick DESC);
+				CREATE INDEX IF NOT EXISTS idx_ship_captures_battle ON ship_captures(battle_id);
+
+				CREATE TABLE IF NOT EXISTS seen_prize_events (
+					id          INTEGER PRIMARY KEY AUTOINCREMENT,
+					prize_id    TEXT NOT NULL,
+					ship_id     TEXT NOT NULL DEFAULT '',
+					ship_class  TEXT NOT NULL DEFAULT '',
+					ship_name   TEXT NOT NULL DEFAULT '',
+					actor_id    TEXT NOT NULL DEFAULT '',
+					status      TEXT NOT NULL DEFAULT '',
+					wait_reason TEXT NOT NULL DEFAULT '',
+					hull        INTEGER NOT NULL DEFAULT 0,
+					max_hull    INTEGER NOT NULL DEFAULT 0,
+					shield      INTEGER NOT NULL DEFAULT 0,
+					max_shield  INTEGER NOT NULL DEFAULT 0,
+					in_combat   INTEGER NOT NULL DEFAULT 0,
+					system_id   TEXT NOT NULL DEFAULT '',
+					poi_id      TEXT NOT NULL DEFAULT '',
+					source      TEXT NOT NULL DEFAULT '',
+					tick        INTEGER NOT NULL DEFAULT 0,
+					observer_id TEXT NOT NULL DEFAULT '',
+					seen_at_utc TEXT NOT NULL DEFAULT ''
+				);
+				CREATE INDEX IF NOT EXISTS idx_seen_prize_events_prize ON seen_prize_events(prize_id, tick);
+				CREATE INDEX IF NOT EXISTS idx_seen_prize_events_place ON seen_prize_events(system_id, tick);
+				CREATE UNIQUE INDEX IF NOT EXISTS seen_prize_observation
+					ON seen_prize_events(observer_id, prize_id, system_id, tick) WHERE tick > 0;
+			`,
+		},
 		// NOTE: the ship-class prestige/unlock columns added for server v0.495.1
 		// are NOT a numbered migration. A plain `ALTER TABLE ships` here fails on
 		// pre-collapse DBs, where `ships` does not exist until
@@ -1126,6 +1180,9 @@ func runMigrations(db *sql.DB) error {
 	if err := ensureShipClassPrestigeCols(db); err != nil {
 		return fmt.Errorf("ensure ships prestige/unlock columns: %w", err)
 	}
+	if err := ensureShipClassPersonnelCols(db); err != nil {
+		return fmt.Errorf("ensure ships personnel/boarding columns: %w", err)
+	}
 	if err := ensureMissionTemplatesProceduralCol(db); err != nil {
 		return fmt.Errorf("ensure mission_templates procedural column: %w", err)
 	}
@@ -1180,6 +1237,50 @@ func ensureShipClassPrestigeCols(db *sql.DB) error {
 		}
 	}
 
+	return nil
+}
+
+// ensureShipClassPersonnelCols adds the v0.572.0 crew/marine/boarding columns
+// to the ships (ship-class catalog) table. Same three-cohort story as
+// ensureShipClassPrestigeCols: it runs after ensureCollapseMissingTables so it
+// works on fresh, current, and pre-collapse DBs alike, and is idempotent.
+func ensureShipClassPersonnelCols(db *sql.DB) error {
+	var tableCount int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='ships'`,
+	).Scan(&tableCount); err != nil {
+		return fmt.Errorf("check ships table: %w", err)
+	}
+	if tableCount == 0 {
+		return nil
+	}
+
+	cols := []struct {
+		name string
+		ddl  string
+	}{
+		{"crew_capacity", `ALTER TABLE ships ADD COLUMN crew_capacity INTEGER NOT NULL DEFAULT 0`},
+		{"marine_capacity", `ALTER TABLE ships ADD COLUMN marine_capacity INTEGER NOT NULL DEFAULT 0`},
+		{"minimum_crew", `ALTER TABLE ships ADD COLUMN minimum_crew INTEGER NOT NULL DEFAULT 0`},
+		{"capture_policy", `ALTER TABLE ships ADD COLUMN capture_policy TEXT DEFAULT ''`},
+		{"capture_policy_reason", `ALTER TABLE ships ADD COLUMN capture_policy_reason TEXT DEFAULT ''`},
+		{"latch_resistance", `ALTER TABLE ships ADD COLUMN latch_resistance INTEGER NOT NULL DEFAULT 0`},
+		{"boarding_defense_bonus_pct", `ALTER TABLE ships ADD COLUMN boarding_defense_bonus_pct INTEGER NOT NULL DEFAULT 0`},
+	}
+	for _, c := range cols {
+		var present int
+		if err := db.QueryRow(
+			`SELECT COUNT(*) FROM pragma_table_info('ships') WHERE name=?`, c.name,
+		).Scan(&present); err != nil {
+			return fmt.Errorf("check ships.%s column: %w", c.name, err)
+		}
+		if present > 0 {
+			continue
+		}
+		if _, err := db.Exec(c.ddl); err != nil {
+			return fmt.Errorf("add ships.%s column: %w", c.name, err)
+		}
+	}
 	return nil
 }
 
@@ -1374,7 +1475,14 @@ CREATE TABLE IF NOT EXISTS "ships" (
     required_faction_achievement TEXT DEFAULT '',
     required_faction_leader INTEGER NOT NULL DEFAULT 0,
     prestige_lock TEXT DEFAULT '',
-    default_loadout_version INTEGER NOT NULL DEFAULT 0
+    default_loadout_version INTEGER NOT NULL DEFAULT 0,
+    crew_capacity INTEGER NOT NULL DEFAULT 0,
+    marine_capacity INTEGER NOT NULL DEFAULT 0,
+    minimum_crew INTEGER NOT NULL DEFAULT 0,
+    capture_policy TEXT DEFAULT '',
+    capture_policy_reason TEXT DEFAULT '',
+    latch_resistance INTEGER NOT NULL DEFAULT 0,
+    boarding_defense_bonus_pct INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_ships_class ON ships(class);

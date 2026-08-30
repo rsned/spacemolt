@@ -172,6 +172,18 @@ type ShipClassDef struct {
 	PrestigeLock               string
 	DefaultLoadoutVersion      int
 
+	// Personnel and boarding (server v0.572.0). MinimumCrew is the crew count
+	// below which the hull runs with an operational penalty; CapturePolicy
+	// says whether a boarding party can take the hull intact ("standard",
+	// or a restricted policy explained by CapturePolicyReason).
+	CrewCapacity            int
+	MarineCapacity          int
+	MinimumCrew             int
+	CapturePolicy           string
+	CapturePolicyReason     string
+	LatchResistance         int
+	BoardingDefenseBonusPct int
+
 	LastUpdatedTick int64
 }
 

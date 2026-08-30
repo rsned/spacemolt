@@ -186,3 +186,26 @@ func TestTruncateCountsCells(t *testing.T) {
 		}
 	}
 }
+
+// v0.572.0: a hull runs understaffed below its minimum crew, so the status
+// header must show the complement at a glance — fit/berths, injured called out.
+func TestFormatGetStatusShowsCrew(t *testing.T) {
+	payload := `{"player":{"id":"p1","username":"Pilot","empire":"nebula","credits":10,
+		"current_system":"sol","current_poi":"sol_station"},
+		"ship":{"name":"Survey Vessel","class_id":"survey_vessel","crew_capacity":60,"marine_capacity":6,
+		"personnel":{"fit_crew":58,"fit_marines":6,"injured_crew":2,"injured_marines":0,"version":1}}}`
+	out := formatGetStatus([]byte(payload))
+	if !strings.Contains(out, "Crew") || !strings.Contains(out, "58/60") ||
+		!strings.Contains(out, "2 injured") || !strings.Contains(out, "6/6") {
+		t.Errorf("status header lacks crew line:\n%s", out)
+	}
+}
+
+// Without personnel data (server feature off, or a pre-0.572 frame) the
+// header stays as it was — no zero-crew noise.
+func TestFormatGetStatusHidesCrewWhenAbsent(t *testing.T) {
+	out := formatGetStatus([]byte(sampleStatusPayload))
+	if strings.Contains(out, "Crew") {
+		t.Errorf("status header shows a crew line with no personnel data:\n%s", out)
+	}
+}

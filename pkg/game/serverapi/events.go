@@ -66,6 +66,23 @@ type BattleUpdateParticipant struct {
 	Zone      string `json:"zone,omitempty"`
 	HullPct   int    `json:"hull_pct"`
 	ShieldPct int    `json:"shield_pct"`
+	// Kind is player, pirate, police, drone, creature, station, prize, or the
+	// fallback npc (server v0.572.0); IsNPC is true for server-controlled
+	// combatants, including an autonomously moving intact prize.
+	Kind  string `json:"kind,omitempty"`
+	IsNPC bool   `json:"is_npc,omitempty"`
+}
+
+// BoardingStatus is the qualitative public view of one boarding operation in
+// a battle_update / get_battle_status (server v0.572.0). Phase and Progress
+// are the server's words; exact enemy personnel counts are never exposed.
+type BoardingStatus struct {
+	OperationID           string `json:"operation_id"`
+	AttackerID            string `json:"attacker_id"`
+	TargetID              string `json:"target_id"`
+	Phase                 string `json:"phase,omitempty"`
+	Progress              string `json:"progress,omitempty"`
+	SelfDestructCountdown int    `json:"self_destruct_countdown,omitempty"`
 }
 
 // BattleUpdate is a periodic authoritative snapshot of a battle the player is
@@ -81,6 +98,8 @@ type BattleUpdate struct {
 	YourStance   string                    `json:"your_stance,omitempty"`
 	YourTargetID string                    `json:"your_target_id,omitempty"`
 	YourZone     string                    `json:"your_zone,omitempty"`
+	// Boarding lists the active boarding operations (server v0.572.0).
+	Boarding []BoardingStatus `json:"boarding,omitempty"`
 }
 
 // BattleDamage is a single weapon-hit telemetry event during a battle.
@@ -113,6 +132,8 @@ type BattleEndedParticipant struct {
 	DamageTaken float64 `json:"damage_taken"`
 	KillCount   int     `json:"kill_count"`
 	Survived    bool    `json:"survived"`
+	Kind        string  `json:"kind,omitempty"`
+	IsNPC       bool    `json:"is_npc,omitempty"`
 }
 
 // BattleEnded is broadcast when a tactical battle the player was part of
@@ -126,6 +147,66 @@ type BattleEnded struct {
 	ShipsDestroyed int                      `json:"ships_destroyed,omitempty"`
 	TotalDamage    float64                  `json:"total_damage,omitempty"`
 	Participants   []BattleEndedParticipant `json:"participants,omitempty"`
+	// ShipsCaptured / Captures list hulls taken intact by boarding (server
+	// v0.572.0); a capture is not a destruction and is not in ShipsDestroyed.
+	ShipsCaptured int               `json:"ships_captured,omitempty"`
+	Captures      []CaptureLogEntry `json:"captures,omitempty"`
+}
+
+// ShipCaptured is the authoritative terminal boarding event, sent to the
+// captor, the former owner, and every remaining participant. It contains no
+// personnel counts.
+// Server event type: ship_captured (v0.572.0)
+type ShipCaptured struct {
+	BattleID            string `json:"battle_id"`
+	Tick                int64  `json:"tick,omitempty"`
+	BoardingOperationID string `json:"boarding_operation_id"`
+	CaptorID            string `json:"captor_id"`
+	CaptorUsername      string `json:"captor_username,omitempty"`
+	FormerOwnerID       string `json:"former_owner_id"`
+	FormerOwnerUsername string `json:"former_owner_username,omitempty"`
+	ShipID              string `json:"ship_id"`
+	ShipClass           string `json:"ship_class,omitempty"`
+}
+
+// PrizeUpdate is the private claimant update after an autonomous prize
+// recovery stalls, delivers, or loses the hull. Unchanged stall retries are
+// deduplicated server-side.
+// Server event type: prize_update (v0.572.0)
+type PrizeUpdate struct {
+	PrizeID           string `json:"prize_id"`
+	ShipID            string `json:"ship_id,omitempty"`
+	ShipClass         string `json:"ship_class,omitempty"`
+	ShipName          string `json:"ship_name,omitempty"`
+	Status            string `json:"status"`
+	WaitReason        string `json:"wait_reason,omitempty"`
+	DestinationBaseID string `json:"destination_base_id,omitempty"`
+	SystemID          string `json:"system_id,omitempty"`
+	POIID             string `json:"poi_id,omitempty"`
+	WreckID           string `json:"wreck_id,omitempty"`
+	Message           string `json:"message,omitempty"`
+}
+
+// PersonnelUpdate is sent to an allied player whose ship received remote
+// treatment or a personnel transfer; Personnel is the recipient ship's
+// complete post-commit state. Donor state is never included.
+// Server event type: personnel_update (v0.572.0)
+type PersonnelUpdate struct {
+	Action                    string    `json:"action"`
+	ShipID                    string    `json:"ship_id"`
+	SourcePlayerID            string    `json:"source_player_id,omitempty"`
+	SourceUsername            string    `json:"source_username,omitempty"`
+	CrewTreated               int       `json:"crew_treated,omitempty"`
+	MarinesTreated            int       `json:"marines_treated,omitempty"`
+	FitCrewTransferred        int       `json:"fit_crew_transferred,omitempty"`
+	FitMarinesTransferred     int       `json:"fit_marines_transferred,omitempty"`
+	InjuredCrewTransferred    int       `json:"injured_crew_transferred,omitempty"`
+	InjuredMarinesTransferred int       `json:"injured_marines_transferred,omitempty"`
+	InjuredCrewSwapped        int       `json:"injured_crew_swapped,omitempty"`
+	InjuredMarinesSwapped     int       `json:"injured_marines_swapped,omitempty"`
+	CrewCapacity              int       `json:"crew_capacity,omitempty"`
+	MarineCapacity            int       `json:"marine_capacity,omitempty"`
+	Personnel                 Personnel `json:"personnel"`
 }
 
 // MiningYield represents successful mining action with resource extraction.

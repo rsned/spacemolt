@@ -196,6 +196,7 @@ var supported = map[string]bool{
 	"capture_action_log": true, "capture_wildlife_attacks": true, "capture_tax": true,
 	"capture_citizenship": true,
 	"get_status":          true, "get_system": true, "get_cargo": true,
+	"get_system_agents": true, "get_nearby": true,
 }
 
 // Supports reports whether cmd is in the curated worker vocabulary.

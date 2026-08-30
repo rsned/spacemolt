@@ -67,9 +67,47 @@ type statusPayload struct {
 		} `json:"stats"`
 	} `json:"player"`
 	Ship struct {
-		Name    string `json:"name"`
-		ClassID string `json:"class_id"`
+		Name           string `json:"name"`
+		ClassID        string `json:"class_id"`
+		CrewCapacity   int    `json:"crew_capacity"`
+		MarineCapacity int    `json:"marine_capacity"`
+		Personnel      *struct {
+			FitCrew        int `json:"fit_crew"`
+			FitMarines     int `json:"fit_marines"`
+			InjuredCrew    int `json:"injured_crew"`
+			InjuredMarines int `json:"injured_marines"`
+		} `json:"personnel"`
 	} `json:"ship"`
+}
+
+// statusCrewLine renders the v0.572.0 personnel block as
+// "58/60 fit (2 injured) · marines 6/6", or "" when the frame carries no
+// personnel data so pre-0.572 output is unchanged.
+func statusCrewLine(sh *struct {
+	Name           string `json:"name"`
+	ClassID        string `json:"class_id"`
+	CrewCapacity   int    `json:"crew_capacity"`
+	MarineCapacity int    `json:"marine_capacity"`
+	Personnel      *struct {
+		FitCrew        int `json:"fit_crew"`
+		FitMarines     int `json:"fit_marines"`
+		InjuredCrew    int `json:"injured_crew"`
+		InjuredMarines int `json:"injured_marines"`
+	} `json:"personnel"`
+}) string {
+	if sh.Personnel == nil {
+		return ""
+	}
+	pe := sh.Personnel
+	crew := fmt.Sprintf("%d/%d fit", pe.FitCrew, sh.CrewCapacity)
+	if pe.InjuredCrew > 0 {
+		crew += fmt.Sprintf(" (%d injured)", pe.InjuredCrew)
+	}
+	marines := fmt.Sprintf("marines %d/%d", pe.FitMarines, sh.MarineCapacity)
+	if pe.InjuredMarines > 0 {
+		marines += fmt.Sprintf(" (%d injured)", pe.InjuredMarines)
+	}
+	return crew + " · " + marines
 }
 
 // Column geometry for an 80-column terminal: a full-width header box on top,
@@ -114,14 +152,18 @@ func formatGetStatus(raw []byte) string {
 	if s.Ship.ClassID != "" {
 		ship = fmt.Sprintf("%s [%s]", ship, s.Ship.ClassID)
 	}
-	header := boxLines(p.Username, statusTopW, []string{
+	headerFields := []string{
 		statusField("ID", p.ID, hInner),
 		statusField("Empire", p.Empire, hInner),
 		statusField("Faction", faction, hInner),
 		statusField("Credits", commaInt(p.Credits)+" cr", hInner),
 		statusField("Location", p.CurrentSystem+" / "+p.CurrentPOI, hInner),
 		statusField("Ship", ship, hInner),
-	})
+	}
+	if crew := statusCrewLine(&s.Ship); crew != "" {
+		headerFields = append(headerFields, statusField("Crew", crew, hInner))
+	}
+	header := boxLines(p.Username, statusTopW, headerFields)
 
 	// --- left column: Stats, then Missions ---
 	st := p.Stats

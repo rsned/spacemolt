@@ -1577,6 +1577,7 @@ func main() {
 		// Persist every encountered player to the shared KB. See spec
 		// docs/superpowers/specs/2026-05-17-player-sightings-design.md.
 		agent.WirePlayerObserver(wsClient, kb, nil)
+		agent.WireBoardingObservers(wsClient, kb)
 		client = wsClient
 	default:
 		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
