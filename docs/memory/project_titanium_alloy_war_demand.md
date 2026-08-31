@@ -37,3 +37,27 @@ Manager buy orders + craftable matching): a titanium mining squad feeding
 craftsman-7/8, haul selling into the best bid per
 [[reference_book_depth_is_the_real_haul_ceiling]]. Not built; operator's
 call on priority vs the crystal squad.
+
+
+## 2026-08-31: WAR ECONOMY LIVE — "obscene amounts" confirmed
+grand_exchange bids (22:03Z): **power_cell 31,671 x 15,978 (506M book!)** vs
+~2,000 elsewhere; titanium_alloy 1,029 x 8.1M; steel_plate 480 x 2.1M;
+copper_piping 441 x 8.3M; adamantite_bar 100,000 x 393k; also
+contained_low_enriched_uranium 5,000 x 8.7M. Scanner found it at 21:53;
+5 haulers claimed power_cell/steel_plate runs immediately.
+
+**Key mechanics learned:**
+- grand_exchange hosts a PUBLIC Power Cell Assembler (build_power_cell:
+  2 circuit_board + 2 copper_wiring + 3 energy_crystal -> 1 cell, 112cr rent,
+  6.75 ticks/craft). Crystal is the binder: local ask 11,822x3 > bid, so
+  crafting pays ONLY with cheap crystals (blood_forge 6,194 x682) or OUR
+  stored 6,103 (2,724 at cargo_lanes under fighter-2/8/10).
+- rebuild_power_cells (2cr salvage inputs, 500x) is facility_only with ZERO
+  facilities anywhere — dead option.
+- Cheap salvage inputs (rare_salvage 2cr x104k korr_fortress) cluster at
+  PIRATE STRONGHOLDS — only unlock-holders can source them.
+- Our sellable stock: craftsman-1 ~1,000 power_cells scattered (136 AT
+  grand_exchange = 4.3M one sell away) + 1,193 plates there; 20k steel_plate
+  fleet-wide; 2,274 titanium_alloy at crimson_war_citadel (krynn, 6 jumps,
+  1,029 vs 337 local); 23,447 titanium_ore (forge = 3 ore + 1 plate).
+- Storage is PER-PLAYER: consolidating stock means each owner flies it.
