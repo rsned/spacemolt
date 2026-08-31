@@ -8146,14 +8146,15 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		// Usage: faction_edit [--description "text"] [--charter "text"]
 		//   [--primary_color "#hex"] [--secondary_color "#hex"]
 		//   [--ally_intel_opt_out true|false] [--ally_fuel_access true|false]
+		//   [--ally_facility_access true|false]
 		payload, err := parseFlagArgs(parts[1:], "charter", "description", "primary_color", "secondary_color",
-			"ally_intel_opt_out", "ally_fuel_access")
+			"ally_intel_opt_out", "ally_fuel_access", "ally_facility_access")
 		if err != nil {
 			return err
 		}
 		// The two ally toggles are booleans server-side; parseFlagArgs yields a
 		// string/int, so coerce them to real JSON bools.
-		if err := coerceBoolFlags(payload, "ally_intel_opt_out", "ally_fuel_access"); err != nil {
+		if err := coerceBoolFlags(payload, "ally_intel_opt_out", "ally_fuel_access", "ally_facility_access"); err != nil {
 			return fmt.Errorf("faction_edit: %w", err)
 		}
 		if len(payload) == 0 {
