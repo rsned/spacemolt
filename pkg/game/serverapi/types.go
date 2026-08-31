@@ -261,12 +261,6 @@ type Ship struct {
 	StrandedSystemID string `json:"stranded_system_id,omitempty"`
 	StrandedPOIID    string `json:"stranded_poi_id,omitempty"`
 
-	// Combat capacitor: the energy pool weapons draw from, drained or
-	// siphoned by capacitor_drain / capacitor_transfer_pct effects. First
-	// seen live on an Eviction Notice, 2026-08-30 (85/85 = power_capacity).
-	Capacitor    int `json:"capacitor,omitempty"`
-	MaxCapacitor int `json:"max_capacitor,omitempty"`
-
 	// Damage-over-time status from incendiary/entropic ammo (burn) and
 	// plasma/corrosive ammo (armor melt). BurnSourceID is credited on a
 	// burn kill; ArmorMeltPct is the 0-1 armor effectiveness reduction.

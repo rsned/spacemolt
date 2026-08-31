@@ -53,8 +53,9 @@ func jsonTags(typ reflect.Type) map[string]bool {
 }
 
 // Ship is the one struct every state-bearing reply carries, so it drifts the
-// fastest: capacitor, burn and armor-melt state, garage custody and the
-// self-destruct countdown were all in the spec and absent here on 2026-08-30.
+// fastest: burn and armor-melt state, garage custody and the self-destruct
+// countdown were all in the spec and absent here on 2026-08-30, and the
+// capacitor fields absorbed that day were removed again by v0.572.4.
 // This pins the struct to the spec in BOTH directions.
 func TestShipMatchesOpenAPISpec(t *testing.T) {
 	spec := openAPIProperties(t, "Ship")
@@ -71,10 +72,11 @@ func TestShipMatchesOpenAPISpec(t *testing.T) {
 	}
 }
 
-// The live Eviction Notice reply of 2026-08-30 carried capacitor; the rest
-// are the combat status effects and custody fields from the same schema.
+// Combat status effects and custody fields from the Ship schema, as carried
+// by the live Eviction Notice reply of 2026-08-30 (minus capacitor, which
+// v0.572.4 removed from the game).
 func TestShip_DecodesCombatAndCustodyFields(t *testing.T) {
-	raw := `{"id":"s1","class_id":"eviction_notice","capacitor":40,"max_capacitor":85,
+	raw := `{"id":"s1","class_id":"eviction_notice",
 		"burn_ticks_remaining":3,"burn_damage_per_tick":7,"burn_source_id":"molten",
 		"armor_melt_pct":0.25,"armor_melt_ticks_remaining":2,
 		"in_faction_garage":"fac1","loadout_version":3,"singleton_instance_key":"named_hull_7",
@@ -83,7 +85,7 @@ func TestShip_DecodesCombatAndCustodyFields(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &s); err != nil {
 		t.Fatal(err)
 	}
-	if s.Capacitor != 40 || s.MaxCapacitor != 85 || s.BurnTicksRemaining != 3 || s.BurnDamagePerTick != 7 ||
+	if s.BurnTicksRemaining != 3 || s.BurnDamagePerTick != 7 ||
 		s.BurnSourceID != "molten" || s.ArmorMeltPct != 0.25 || s.ArmorMeltTicksRemaining != 2 ||
 		s.InFactionGarage != "fac1" || s.LoadoutVersion != 3 || s.SingletonInstanceKey != "named_hull_7" {
 		t.Errorf("ship = %+v", s)

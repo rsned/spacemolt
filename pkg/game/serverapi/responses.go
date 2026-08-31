@@ -80,6 +80,28 @@ type GetShipResponse struct {
 	CargoUsed int          `json:"cargo_used"`
 	CargoMax  int          `json:"cargo_max"`
 	Class     *ShipClass   `json:"class,omitempty"`
+	// DroneBay summarizes fitted drone bays and the drones in them
+	// (spec first carried it 2026-08-30). Note the drone LEDGER is
+	// agent-wide, not per-hull; this view is what this hull can host.
+	DroneBay *DroneBayView `json:"drone_bay,omitempty"`
+}
+
+// DroneBayView summarizes a ship's drone bays: slots, bandwidth, and the
+// drones currently docked in the bay versus deployed.
+type DroneBayView struct {
+	BayCount       int            `json:"bay_count"`
+	BayCapacity    int            `json:"bay_capacity"`
+	BandwidthTotal int            `json:"bandwidth_total"`
+	BandwidthUsed  int            `json:"bandwidth_used"`
+	DeployedCount  int            `json:"deployed_count"`
+	InBay          []DroneBaySlot `json:"in_bay,omitempty"`
+}
+
+// DroneBaySlot is one drone sitting in a ship's drone bay.
+type DroneBaySlot struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 // GetMapResponse wraps the response from get_map command.
@@ -105,6 +127,51 @@ type GetBaseResponse struct {
 	FuelTaxPerUnit      int64 `json:"fuel_tax_per_unit,omitempty"`
 
 	LifeSupport *LifeSupport `json:"life_support,omitempty"`
+
+	// Repairs reports the station's automatic facility repairs: per-facility
+	// progress and material bills plus combined supply shortages that count
+	// shared stock once (server v0.573.1).
+	Repairs *StationRepairResponse `json:"repairs,omitempty"`
+}
+
+// StationRepairResponse is a station's automatic-repair ledger (v0.573.1):
+// hull deficit, every damaged/repairing facility with its bill, and the
+// combined material shortfall across them.
+type StationRepairResponse struct {
+	Wrecked        bool                    `json:"wrecked,omitempty"`
+	HullCurrent    int                     `json:"hull_current,omitempty"`
+	HullMissing    int                     `json:"hull_missing,omitempty"`
+	HullRequired   int                     `json:"hull_required,omitempty"`
+	DamagedCount   int                     `json:"damaged_count,omitempty"`
+	RepairingCount int                     `json:"repairing_count,omitempty"`
+	WaitingCount   int                     `json:"waiting_count,omitempty"`
+	SupplyMethod   string                  `json:"supply_method,omitempty"`
+	Facilities     []StationRepairEntry    `json:"facilities,omitempty"`
+	Materials      []StationRepairMaterial `json:"materials,omitempty"`
+	NextBlocked    *StationRepairEntry     `json:"next_blocked,omitempty"`
+	Remediation    string                  `json:"remediation,omitempty"`
+}
+
+// StationRepairEntry is one facility's repair: its status and per-repair
+// material bill.
+type StationRepairEntry struct {
+	InstanceID         string                  `json:"instance_id"`
+	DefinitionID       string                  `json:"definition_id"`
+	Name               string                  `json:"name,omitempty"`
+	Category           string                  `json:"category,omitempty"`
+	Status             string                  `json:"status,omitempty"`
+	TicksUntilComplete int                     `json:"ticks_until_complete,omitempty"`
+	Materials          []StationRepairMaterial `json:"materials,omitempty"`
+}
+
+// StationRepairMaterial is one line of a repair's material bill: required
+// vs in storage vs still missing.
+type StationRepairMaterial struct {
+	ItemID            string `json:"item_id"`
+	Name              string `json:"name,omitempty"`
+	QuantityRequired  int    `json:"quantity_required"`
+	QuantityInStorage int    `json:"quantity_in_storage"`
+	QuantityMissing   int    `json:"quantity_missing"`
 }
 
 // LifeSupport describes a station's life-support standing (server v0.495.1):
