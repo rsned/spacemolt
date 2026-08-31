@@ -47,3 +47,12 @@ Deferred: B (commands + play_as handlers); a worker "treat injured crew when
 docked at a medical station" idle step (needs B); `KillLogEntry.cause` has no
 KB home until per-death loss capture exists ([[project_per_death_loss_capture]]).
 `BuiltForAPIVersion` still v0.547.1 on purpose.
+
+
+**v0.572.4 REMOVED the capacitor mechanic** — Ship.capacitor/max_capacitor,
+absorbed with Layer A, were deleted again the next day. Struct + decode test
+updated 2026-08-30. Ion weapons keep their shield bonuses; power fitting limits
+unchanged. Also v0.572.2 removed pump/repair-arm THROUGHPUT limits (one
+Refueling Pump now moves the full requested amount — tanker fleet upside) and
+deleted the high-capacity pump/repair modules; v0.572.1 made shield-absorbed
+hits casualty-free.

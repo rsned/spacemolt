@@ -51,3 +51,12 @@ class it hunts is a type flip that makes a styled formatter's Unmarshal fail
 and silently fall back to raw JSON (wrecks modules `[]string`, v0.572;
 `coverage_pct` string-vs-number). Known false positives are play_as-authored
 plan structs (sellable/unload) and `get_location`'s string connections.
+
+
+**2026-08-30 (late): refreshed again at v0.573.1** (server restarted through
+v0.572.1-v0.573.1 the same day). Capacitor fields REMOVED from the Ship schema
+(v0.572.4) — the day-old TestShipMatchesOpenAPISpec caught it, first real catch.
+Absorbed: capacitor fields deleted; GetBaseResponse.Repairs
+(StationRepair{Response,Entry,Material}, v0.573.1 repair ledger with material
+bills) and GetShipResponse.DroneBay (DroneBayView/DroneBaySlot). openapi.v2.json
+refresh got HTTP 429 — retry pending.
