@@ -18,6 +18,12 @@ type fakeKB struct {
 	// reposition).
 	pois  map[string][]knowledge.POI
 	bases map[string]*knowledge.SpaceBase
+	// dangers backs GetDangerZones for the haul wildlife/danger gate tests.
+	dangers []knowledge.DangerZone
+}
+
+func (f *fakeKB) GetDangerZones(context.Context, int) ([]knowledge.DangerZone, error) {
+	return f.dangers, nil
 }
 
 func (f *fakeKB) GetSystems(context.Context) ([]knowledge.System, error) {

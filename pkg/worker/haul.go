@@ -765,6 +765,10 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	if len(strongholds) == 0 {
 		fmt.Fprintln(out, "haul: pirate unlock held; stronghold routes are in play this pass") //nolint:errcheck
 	}
+	// Wildlife/hostile danger zones apply to EVERYONE: no unlock makes a
+	// kill zone safe. Unioned with the (per-agent) stronghold set, the pair
+	// gates claim-resume, endpoint drops, and route-safety below.
+	hazards := unionRefs(strongholds, dangerRefsFor(ctx, deps.KB, out))
 	graph := navigation.JumpGraphFromConnections(conns)
 
 	// Danger-aware galaxy graph for stranded-worker recovery + route-safety checks.
@@ -801,8 +805,8 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		// A claim made before the stronghold guard (or carried across a restart) must
 		// not be resumed into a stronghold — abandon it and fall through to liquidate
 		// any cargo aboard and re-evaluate against safe opportunities.
-		if strongholds[held[0].ToSystemName] || strongholds[held[0].FromSystemName] {
-			return abandonClaim(ctx, deps, out, held[0], "stronghold destination")
+		if hazards[held[0].ToSystemName] || hazards[held[0].FromSystemName] {
+			return abandonClaim(ctx, deps, out, held[0], "stronghold or danger-zone destination")
 		}
 		// An EXPIRED claim must not be resumed. The sweep only expires rows in the
 		// available pool, so a claim held by a stopped or quarantined agent sits in
@@ -863,12 +867,12 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	// Never route a no-standing hauler into a pirate stronghold, however juicy the
 	// standing buy orders posted there look. Drop stronghold-endpoint opportunities
 	// before ranking/claiming.
-	opps, droppedStrongholds := dropStrongholdOpps(opps, strongholds)
-	if len(droppedStrongholds) > 0 {
-		fmt.Fprintf(out, "haul: skipped stronghold destination(s) %s\n", strings.Join(droppedStrongholds, ", ")) //nolint:errcheck
+	opps, droppedHazards := dropStrongholdOpps(opps, hazards)
+	if len(droppedHazards) > 0 {
+		fmt.Fprintf(out, "haul: skipped stronghold/danger-zone destination(s) %s\n", strings.Join(droppedHazards, ", ")) //nolint:errcheck
 	}
 	if len(opps) == 0 {
-		fmt.Fprintln(out, "haul: only stronghold opportunities available; idling") //nolint:errcheck
+		fmt.Fprintln(out, "haul: only stronghold/danger-zone opportunities available; idling") //nolint:errcheck
 		return nil
 	}
 
@@ -885,13 +889,13 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	// (the Crix-stronghold route). A stronghold anywhere on the path is a
 	// ship-destruction risk no spread justifies.
 	if galGraph != nil {
-		safe, dropped := filterStrongholdRoutes(ranked, current, nameToID, galGraph.FindPath, strongholds)
+		safe, dropped := filterStrongholdRoutes(ranked, current, nameToID, galGraph.FindPath, hazards)
 		if len(dropped) > 0 {
-			fmt.Fprintf(out, "haul: skipped %d opportunity(ies) routing through strongholds: %s\n", len(dropped), strings.Join(dropped, ", ")) //nolint:errcheck
+			fmt.Fprintf(out, "haul: skipped %d opportunity(ies) routing through strongholds/danger zones: %s\n", len(dropped), strings.Join(dropped, ", ")) //nolint:errcheck
 		}
 		ranked = safe
 		if len(ranked) == 0 {
-			fmt.Fprintln(out, "haul: all reachable opportunities route through strongholds; idling") //nolint:errcheck
+			fmt.Fprintln(out, "haul: all reachable opportunities route through strongholds/danger zones; idling") //nolint:errcheck
 			return nil
 		}
 	}
@@ -1492,6 +1496,15 @@ func haulFindReroute(ctx context.Context, deps HaulDeps, out io.Writer, opp mark
 			}
 			prices = kept
 		}
+	}
+	// And never re-route into a wildlife/hostile danger zone — the goldcrest
+	// deaths were exactly this shape of "best price on the board" trap.
+	if dangers := dangerRefsFor(ctx, deps.KB, out); len(dangers) > 0 {
+		kept, dropped := dropStrongholdPrices(prices, dangers)
+		if len(dropped) > 0 {
+			fmt.Fprintf(out, "haul: opp %d re-route skipped danger-zone market(s) %v\n", opp.ID, dropped) //nolint:errcheck
+		}
+		prices = kept
 	}
 	if len(prices) == 0 {
 		return "", "", false
