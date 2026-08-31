@@ -61,3 +61,18 @@ contained_low_enriched_uranium 5,000 x 8.7M. Scanner found it at 21:53;
   fleet-wide; 2,274 titanium_alloy at crimson_war_citadel (krynn, 6 jumps,
   1,029 vs 337 local); 23,447 titanium_ore (forge = 3 ore + 1 plate).
 - Storage is PER-PLAYER: consolidating stock means each owner flies it.
+
+
+**THE WALL CYCLES (learned 08-31 22:55Z):** the station manager's repair
+buy-wall (33,969 x 15,978) VANISHED ~20min after the :33 scan — budget
+exhausted or per-cycle reposting. When haulers arrive to no demand they
+list at COST ("demand too thin; listing @cost 9350"), which hands the
+manager cheap fills when the wall re-posts — upside forfeited by design.
+A player parks asks at 31,000 x 1,130 betting on the wall's return; we
+joined them: trader-10's 675 cells listed at 30,900 (order
+08e6a9dd3fbe1c16cbdb4e1f60590e4c, fee 312,862; cost basis 7,380+fuel).
+trader-10 run: Last Light -> Haven, 14 jumps, 11m45s, bought 675 @7,380
+(4.98M; cells are SIZE 2 — junk_convoy's 850 'cargo' = 1,350 size units
+-> 675 cells max). If the order fills: ~20.5M gross. Possible haul
+improvement (operator's call): price the thin-market fallback listing at
+a recent reference bid instead of cost.
