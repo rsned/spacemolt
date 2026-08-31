@@ -51,6 +51,7 @@
 - [Action-log capture](project_action_log_capture.md) — 2 canaries live, fan-out pending
 - [Per-death loss capture](project_per_death_loss_capture.md) — hull + manifest + cause + insurance; FOLLOW-UP, so detour/PvP losses are measurable
 - [Survey anomaly capture](project_survey_anomaly_capture.md) — persist survey_system anomaly hints to the anomalies table
+- [12 unregistered wildlife species + open battle API](reference_unregistered_wildlife_from_battle_api.md) — Kiln-Snail@furud is Phase-Lurker-common; Bulwark/Wormwood ARMED; api/battles needs no auth, category=pvp untapped
 - [Wildlife combat intelligence](project_wildlife_combat_intelligence.md) — capture wired `3dea78d7`, NOT scheduled; Leviathan kills a starter hull in 2 ticks
 
 ## Haul & freight economics
