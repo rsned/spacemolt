@@ -53,5 +53,6 @@ let ALLIED members refuel free from CRFT's grand_exchange bunker
 (18.3k/50k). Allies: XPLR, YSMT, DB, HELP. Refuel order is own bunker ->
 allied bunkers -> paid station reserve. The toggle is per-faction opt-in
 (default off); `ally_facility_access` and intel sharing are siblings.
-CRFT's Faction Office at grand_exchange shows INACTIVE yet faction_edit
-worked from elsewhere — the admin-office requirement did not bite.
+CRFT's Faction Office at grand_exchange had been war-DAMAGED (shown
+'inactive'); the operator repaired it 08-31, which is what made
+faction_edit work — the admin-office requirement is real.
