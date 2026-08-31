@@ -34,6 +34,7 @@
 - ⭐🔴 [Capture cadence retune PENDING](reference_capture_cadence_retune_pending.md) — `--apply` at the next fleet stop; live workers revert schedule.json edits
 - [Pirate unlock campaign](project_pirate_reputation_unlock_campaign.md) — raise every agent from -30 to 10; 45/161; NOMINATION is the bottleneck, not rotation
 - [Marketbot unlock hot-swap rotation](project_marketbot_unlock_hotswap_rotation.md) — ramens_rest = stand-in; runbook docs/runbooks/…; 2 logins/rotation; automate after 2 clean runs
+- [Energy crystals RESERVED for drone project](project_drone_project_crystal_reserve.md) — ~6.1k held; never sell/craft them without asking
 - [Titanium-alloy war demand](project_titanium_alloy_war_demand.md) — OPTION 08-30: galaxy-wide repair demand; 374k top-tier at grand_exchange; sol_central 242-ask arbitrage first; krynn pipeline pre-positioned
 - [Mining fleet](project_mining_fleet.md) — created 08-21 as the unlock campaign's graduation destination; two-system loop, ore-selection refinements
 - [Outer Rim capital is MOBILE; marketbot homes ≠ names](reference_outer_rim_mobile_capital_and_marketbot_homes.md) — Frontier has no station now; station-less residents never move; market_prime sits in Haven
