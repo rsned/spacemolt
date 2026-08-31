@@ -56,3 +56,13 @@ allied bunkers -> paid station reserve. The toggle is per-faction opt-in
 CRFT's Faction Office at grand_exchange had been war-DAMAGED (shown
 'inactive'); the operator repaired it 08-31, which is what made
 faction_edit work — the admin-office requirement is real.
+
+
+**VERIFIED 08-31 03:41: "Refueled at ally. 120 units for 0 credits."**
+explorer-1 (14 days dry at grand_exchange) joined XPLR (explorer-3/Atlas
+invited as leader; a plain YSMT member could NOT invite) and its next
+refuel drew CRFT's bunker free; the worker jumped out within seconds.
+**YSMT is FULL at 20/20** — joining it needs a Recruitment Office
+upgrade. Factionless agents get NOTHING from ally sharing: salvager-9 is
+also factionless; check faction membership when a worker can't refuel at
+a CRFT-bunker station.
