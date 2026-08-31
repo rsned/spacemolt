@@ -97,3 +97,19 @@ Freight Depot, listing `1615a7455302eb39b63c987cb3961cf1`. A candidate
 replacement hull — but the standing rule above holds: do NOT re-equip
 before the routing fix. Station-manager listings expire/sell; re-check
 before acting.
+
+
+**2026-08-30: BOTH embargo conditions are now met.**
+- zaniah re-route fix `9bc6e755` deployed fleet-wide 08-30 (zero stronghold
+  deaths since 08-22).
+- goldcrest wildlife gate BUILT `cd0bb197`: haul routing unions
+  `danger_zones` (level >= 5, `HaulDangerGateLevel`) with the stronghold set
+  at claim-resume, endpoint drop, waypoint filter, and mid-route re-route;
+  unconditional (no unlock exemption). goldcrest seeded at level 8 in the
+  live KB. Activates on the next haul-fleet restart onto the new bin/worker.
+Re-equip can proceed once the gate is live; prices 08-30: junk_convoy 850
+cargo @ 216,979 (First Step/Deep Range), bulk_terms 350 @ 129,547
+(Cargo Lanes/Gold Run), floor_price 400 @ 11,484, prayer 540 @ 8,061
+(0 slots), vs ~250M fleet credits. Skip losers_weepers (listed AT Zaniah).
+NOTE: nothing populates danger_zones automatically yet — new kill zones
+need a seed row (or the action-log fan-out + a writer) to be avoided.
