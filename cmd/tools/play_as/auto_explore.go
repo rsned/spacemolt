@@ -272,18 +272,16 @@ func pickNextSystem(ctx context.Context, state *game.State, visited map[string]b
 		return pickNearestUnvisitedNeighbor(connections, visited)
 	}
 
-	// The live reply is more current than the KB's graph, so fold this
-	// system's connections in. A system reached through a wormhole may have
-	// links the stored map has never seen.
+	// The live reply is AUTHORITATIVE for the current system — not merely
+	// fresher. The stored graph both misses links (a wormhole arrival) and
+	// carries links the server no longer honors (an expired wormhole's
+	// one-way row, which wedged auto-explore at albireo repeatedly jumping
+	// at a non-neighbor). Replace, don't fold.
 	from := state.System.ID
 	if from == "" {
 		from = state.CurrentSystem
 	}
-	for _, c := range connections {
-		if c.SystemID != "" && !slices.Contains(adjacency[from], c.SystemID) {
-			adjacency[from] = append(adjacency[from], c.SystemID)
-		}
-	}
+	adjacency = liveAdjacency(adjacency, from, connections)
 
 	hop, target, jumps, ok := nextHopToward(adjacency, from, elig)
 	if !ok {

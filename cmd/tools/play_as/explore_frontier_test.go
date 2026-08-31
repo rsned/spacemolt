@@ -152,3 +152,36 @@ func TestBuildAdjacencyIsUndirectedAndDeduped(t *testing.T) {
 		t.Errorf("b has %d neighbours, want 1 (undirected): %v", got, adj["b"])
 	}
 }
+
+// The albireo wedge of 2026-08-31: an expired wormhole left a one-way
+// iron_reach->albireo row in the KB, buildAdjacency makes links undirected, so
+// the BFS handed back iron_reach as a first hop that the live system does not
+// offer — and every jump attempt failed. The live connection list is
+// authoritative for the CURRENT system: liveAdjacency must replace the stored
+// row for `from` with exactly the live neighbors (deeper stored edges stay,
+// because each hop re-plans with its own live reply).
+func TestLiveAdjacencyOverridesCurrentSystem(t *testing.T) {
+	adjacency := map[string][]string{
+		"albireo":    {"the_rampart", "iron_reach"}, // iron_reach = ghost
+		"iron_reach": {"albireo", "blood_forge"},    // deeper rows untouched
+	}
+	live := []game.ConnectionInfo{
+		{SystemID: "the_rampart", Name: "The Rampart"},
+		{SystemID: "dawnbreak", Name: "Dawnbreak"},
+	}
+	adj := liveAdjacency(adjacency, "albireo", live)
+	if got := adj["albireo"]; len(got) != 2 || got[0] != "the_rampart" || got[1] != "dawnbreak" {
+		t.Errorf("adjacency[albireo] = %v, want exactly the live neighbors", got)
+	}
+	if got := adj["iron_reach"]; len(got) != 2 {
+		t.Errorf("deeper rows must be untouched, got %v", got)
+	}
+	// A ghost-only current system yields no first hops at all.
+	if hop, _, _, ok := nextHopToward(liveAdjacency(map[string][]string{
+		"albireo": {"iron_reach"},
+	}, "albireo", nil), "albireo", systemEligible{}); ok {
+		t.Errorf("no live neighbors must mean no hop, got %q", hop)
+	}
+	// Empty live connections on a nil map must not panic.
+	_ = liveAdjacency(nil, "albireo", live)
+}

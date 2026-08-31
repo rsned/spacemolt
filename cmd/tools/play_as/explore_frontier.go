@@ -124,6 +124,31 @@ func buildAdjacency(conns []knowledge.Connection) map[string][]string {
 	return adj
 }
 
+// liveAdjacency replaces the stored adjacency row for the CURRENT system with
+// exactly the live get_system connection list. The stored graph can carry
+// edges the server no longer honors — an expired wormhole leaves a one-way
+// row behind (iron_reach->albireo, 2026-08-31), and buildAdjacency treats
+// every row as bidirectional — so the live reply is authoritative for where
+// we can jump FROM HERE. Deeper rows stay as stored: the walk re-plans every
+// hop, and each system's own live reply overrides in turn when we stand there.
+func liveAdjacency(adjacency map[string][]string, from string, connections []game.ConnectionInfo) map[string][]string {
+	if adjacency == nil {
+		adjacency = make(map[string][]string, 1)
+	}
+	ids := make([]string, 0, len(connections))
+	seen := make(map[string]bool, len(connections))
+	for _, c := range connections {
+		if c.SystemID == "" || seen[c.SystemID] {
+			continue
+		}
+		seen[c.SystemID] = true
+		ids = append(ids, c.SystemID)
+	}
+	adjacency[from] = ids
+
+	return adjacency
+}
+
 // loadFrontier reads the galaxy graph and the survey log from the KB.
 //
 // Both are whole-table reads, which is affordable: 505 systems and ~2,139
