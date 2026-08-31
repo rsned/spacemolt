@@ -84,3 +84,35 @@ func TestClassifyLootErr(t *testing.T) {
 		}
 	}
 }
+
+// lootOutcome reads the request's true result from the action_result frame
+// that lands a tick after the pending-ok (live craftsman-1 capture,
+// 2026-08-30 19:04): {"command":"loot_wreck","result":{"action":"loot_wreck",
+// "item_id":"iron_ore","quantity":11,"wreck_empty":false,...},"tick":...}.
+// matched is false when the cached frame is for a different stack (stale) or
+// unparseable — the loop then reports the submit-level ok only.
+func TestLootOutcome(t *testing.T) {
+	raw := []byte(`{"command":"loot_wreck","result":{"action":"loot_wreck","item_id":"iron_ore","quantity":11,"wreck_empty":false,"xp_gained":{"salvaging":11}},"tick":1755886}`)
+	qty, empty, xp, matched := lootOutcome(raw, "iron_ore")
+	if !matched || qty != 11 || empty || xp["salvaging"] != 11 {
+		t.Errorf("outcome = qty %v empty %v xp %v matched %v", qty, empty, xp, matched)
+	}
+
+	// The frame also arrives flat (no envelope) on some paths.
+	flat := []byte(`{"action":"loot_wreck","item_id":"gold_ore","quantity":3,"wreck_empty":true}`)
+	qty, empty, _, matched = lootOutcome(flat, "gold_ore")
+	if !matched || qty != 3 || !empty {
+		t.Errorf("flat outcome = qty %v empty %v matched %v", qty, empty, matched)
+	}
+
+	// A stale frame for a different item must not be reported as ours.
+	if _, _, _, matched = lootOutcome(raw, "gold_ore"); matched {
+		t.Error("stale frame matched the wrong stack")
+	}
+	if _, _, _, matched = lootOutcome(nil, "iron_ore"); matched {
+		t.Error("empty cache matched")
+	}
+	if _, _, _, matched = lootOutcome([]byte("junk"), "iron_ore"); matched {
+		t.Error("garbage matched")
+	}
+}
