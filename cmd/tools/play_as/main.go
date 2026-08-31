@@ -7809,6 +7809,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.LootWreck(ctx, parts[1], strings.ToLower(parts[2]), qty)
 		}, ctx, 3*time.Second, cmd, format)
 
+	case "loot_all":
+		wreckID := ""
+		if len(parts) > 1 {
+			wreckID = parts[1]
+		}
+		return runLootAll(ctx, client, wreckID)
+
 	case "salvage", "salvage_wreck":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: salvage <wreck-id>")
@@ -10126,6 +10133,7 @@ func printHelp() {
 	fmt.Println("\n=== WRECKS ===")
 	fmt.Println("  wrecks                    - List nearby wrecks")
 	fmt.Println("  loot <wreck> <item> <qty> - Loot from wreck")
+	fmt.Println("  loot_all [wreck]          - Loot every cargo stack (richest wreck first)")
 	fmt.Println("  salvage <wreck>           - Salvage entire wreck")
 
 	fmt.Println("\n=== QUERIES ===")

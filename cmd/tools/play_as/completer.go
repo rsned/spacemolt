@@ -11,7 +11,7 @@ import (
 
 // metaCommands are REPL-only commands not present in the OpenAPI spec.
 var metaCommands = []string{
-	"show_fitting", "fitting",
+	"show_fitting", "fitting", "loot_all",
 	"help", "exit", "quit", "set_format", "set_debug", "loop", "mbox", "nearest",
 	"update_market", "find_item", "show_system", "where_facility", "build",
 	"dispatch", "plan_status", "plan_pause", "plan_resume", "plan_cancel", "plan_retry",
