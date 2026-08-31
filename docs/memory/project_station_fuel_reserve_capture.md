@@ -45,3 +45,13 @@ nothing about stock). Ties into [[project_pirate_reputation_unlock_campaign]]
 where fuel_reserve=0`. When adding capabilities, plumb per-agent
 stronghold_access into the assist exclusion set. Consider a CRFT-member capture
 at grand_exchange to get bunker numbers into the table.
+
+
+**2026-08-31: faction bunkers are no longer member-only for CRFT.** v0.572.3
+alliances + `faction_edit --ally_fuel_access true` (run by craft_boss 03:28)
+let ALLIED members refuel free from CRFT's grand_exchange bunker
+(18.3k/50k). Allies: XPLR, YSMT, DB, HELP. Refuel order is own bunker ->
+allied bunkers -> paid station reserve. The toggle is per-faction opt-in
+(default off); `ally_facility_access` and intel sharing are siblings.
+CRFT's Faction Office at grand_exchange shows INACTIVE yet faction_edit
+worked from elsewhere — the admin-office requirement did not bite.
