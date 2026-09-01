@@ -75,10 +75,11 @@ func main() {
 		logger.Fatal(err)
 	}
 	defer botA.Close()
-	// Login gap: per the controller's ruling, use SleepLong (not
-	// SleepMedium+SleepShort, which undershoots the client's session-
-	// contention window) between agent logins.
-	time.Sleep(game.SleepLong)
+	// Login gap: the client enforces a 36s session-contention window
+	// between logins. game.SleepLong alone is only 20s (2*SleepTick), so
+	// this composes named constants to clear the window -- do not
+	// simplify this back down to a single SleepLong.
+	time.Sleep(2 * game.SleepLong)
 	botB, err := Login(ctx, *agentB, logger)
 	if err != nil {
 		logger.Fatal(err)
@@ -91,7 +92,8 @@ func main() {
 		if r.duel.Guest != "" {
 			g, ok := guests[r.duel.Guest]
 			if !ok {
-				time.Sleep(game.SleepLong)
+				// Same 36s session-contention window as the startup logins.
+				time.Sleep(2 * game.SleepLong)
 				g, err = Login(ctx, r.duel.Guest, logger)
 				if err != nil {
 					logger.Fatal(err)
