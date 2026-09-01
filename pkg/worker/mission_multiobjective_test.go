@@ -101,7 +101,7 @@ func TestRepeatedItemObjectivesMergeBeforeSubtractingProvided(t *testing.T) {
 // multi-item buy would mis-price. Refused explicitly rather than half-supported.
 func TestMultiItemMissionNeedingAPurchaseIsRefused(t *testing.T) {
 	e := anIntroduction()
-	e.Type = "delivery" // sidestep the smuggling contraband rule to reach the sourcing rule
+	e.Type = "delivery"                               // sidestep the smuggling contraband rule to reach the sourcing rule
 	e.ProvidedItems = map[string]int{"starshine": 10} // nerve_burn NOT provided
 
 	_, reason := buildMissionCandidate(e, map[string]int{"alhena": 4}, func(string) (float64, bool) { return 5, true }, func(int) float64 { return 0 }, true, 1, missionMinNet, 6, 1)

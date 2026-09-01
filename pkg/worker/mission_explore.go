@@ -262,7 +262,7 @@ func missionRunExplore(ctx context.Context, deps MissionDeps, out io.Writer, c m
 			}
 			if nerr := deps.nav(ctx, leg.SystemID, poi); nerr != nil {
 				fmt.Fprintf(out, "missions: explore transit to %s failed: %v; held for next pass\n", leg.SystemID, nerr) //nolint:errcheck
-				return // resume picks the mission up next pass
+				return                                                                                                   // resume picks the mission up next pass
 			}
 			at = leg.SystemID
 			if leg.BaseID != "" {
@@ -403,7 +403,7 @@ func missionAcceptAndExplore(ctx context.Context, deps MissionDeps, out io.Write
 	actives, aerr := missionFetchActiveMissions(ctx, deps)
 	if aerr != nil {
 		fmt.Fprintf(out, "missions: resolve active id: get_active_missions: %v; accepted exploration held for next pass\n", aerr) //nolint:errcheck
-		return nil // missionResume picks it up next pass
+		return nil                                                                                                                // missionResume picks it up next pass
 	}
 	resolved := resolveActiveMissionIDs([]missionCandidate{c}, actives)
 	if resolved[0].ActiveID == "" {

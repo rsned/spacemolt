@@ -83,7 +83,7 @@ func ExecuteLoop(
 					return err
 				}
 				errCount++
-				fmt.Fprintf(out, "%s❌ %v\n", indent, err)               //nolint:errcheck
+				fmt.Fprintf(out, "%s❌ %v\n", indent, err) //nolint:errcheck
 				if !force {
 					fmt.Fprintf(out, "%sStopping loop after %d/%d iterations\n", indent, i+1, count) //nolint:errcheck
 					return err

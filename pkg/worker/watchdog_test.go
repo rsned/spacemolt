@@ -48,9 +48,9 @@ func TestArrivalDecision(t *testing.T) {
 func TestBestRerouteChoosesReachableProfitableBuyer(t *testing.T) {
 	held, unitBuy := 10.0, 100.0 // buyCost 1000; default margin 150; continueNet 50 -> threshold 200
 	prices := []market.BestPrice{
-		{ListingType: "buy", SystemID: "g", StationID: "g-stn", Price: 130, Quantity: 50}, // net 300 ✓
-		{ListingType: "buy", SystemID: "f", StationID: "f-stn", Price: 200, Quantity: 50}, // unreachable
-		{ListingType: "buy", SystemID: "w", StationID: "w-stn", Price: 115, Quantity: 50}, // net 150 < threshold
+		{ListingType: "buy", SystemID: "g", StationID: "g-stn", Price: 130, Quantity: 50},  // net 300 ✓
+		{ListingType: "buy", SystemID: "f", StationID: "f-stn", Price: 200, Quantity: 50},  // unreachable
+		{ListingType: "buy", SystemID: "w", StationID: "w-stn", Price: 115, Quantity: 50},  // net 150 < threshold
 		{ListingType: "sell", SystemID: "g", StationID: "g-stn", Price: 999, Quantity: 50}, // ignored (ask)
 	}
 	jumps := map[string]int{"g": 2, "f": navigation.RouteInf, "w": 1}

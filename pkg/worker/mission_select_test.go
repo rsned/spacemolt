@@ -524,7 +524,10 @@ func TestSmugglingGateAgainstLiveBoard(t *testing.T) {
 		return e
 	}
 
-	for _, tc := range []struct{ id, item string; qty int }{
+	for _, tc := range []struct {
+		id, item string
+		qty      int
+	}{
 		{"gutter", "gutter_flux", 5},
 		{"nerve", "nerve_burn", 3},
 		{"star", "starshine", 3},

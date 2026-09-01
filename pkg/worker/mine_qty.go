@@ -146,7 +146,6 @@ func (d *WorkerDispatch) autopilotAndUndock(ctx context.Context, system, poi str
 	return nil
 }
 
-
 // mineCandidateSlate is how many nearest systems findMinePOI considers before
 // giving up. One was enough when every candidate was acceptable; with the
 // stronghold gate the nearest belt may be unusable, and 10 covers the ten

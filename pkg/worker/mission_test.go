@@ -47,9 +47,9 @@ type fakeMissionStore struct {
 	payoutRatio   float64
 	payoutSamples int
 	payoutScope   []string
-	asks      map[string]float64
-	refPrices map[string]float64
-	results   []market.MissionResult
+	asks          map[string]float64
+	refPrices     map[string]float64
+	results       []market.MissionResult
 }
 
 func (s *fakeMissionStore) RecordMissionResult(ctx context.Context, r market.MissionResult) error {

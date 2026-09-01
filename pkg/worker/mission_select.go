@@ -456,7 +456,6 @@ func missionJumpTicks(speed float64) int {
 	return max(1, missionMaxJumpTicks+1-int(speed))
 }
 
-
 func buildMissionCandidate(e serverapi.MissionBoardEntry, dist map[string]int, refAsk func(itemID string) (float64, bool), fuelCostFor func(jumps int) float64, allowSmuggling bool, fuelShare int, floor float64, jumpTicks int, payoutRatio float64) (missionCandidate, string) {
 	items, destBase, destSystem, shapeReason := deliverShape(e, allowSmuggling)
 	if shapeReason != "" {

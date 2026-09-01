@@ -268,7 +268,7 @@ func (a *StationAccess) Fuel(stationID string) (sells, known bool) {
 // Both markers are matched because the code is the durable contract while the
 // message is what survives the client's error wrapping; either alone is proof.
 const (
-	invalidPOICodeMarker    = "invalid_poi"
+	invalidPOICodeMarker     = "invalid_poi"
 	unknownDestinationMarker = "unknown destination"
 )
 

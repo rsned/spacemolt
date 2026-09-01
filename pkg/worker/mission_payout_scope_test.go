@@ -62,7 +62,7 @@ func TestMissionPayoutScopeNarrowsToTheDockedEmpire(t *testing.T) {
 // that loses money.
 func TestMissionPayoutScopeFallsBackToGalaxy(t *testing.T) {
 	for _, tc := range []struct {
-		name  string
+		name   string
 		docked string
 	}{
 		{"undocked", ""},

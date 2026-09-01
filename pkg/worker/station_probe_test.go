@@ -27,7 +27,7 @@ type probeFakeClient struct {
 	// desk's verdict is the measurement, and cells are scarce.
 	cargoBurns int
 	docked     bool
-	refuelTo  float64 // fuel level a successful refuel fills to
+	refuelTo   float64 // fuel level a successful refuel fills to
 	// nilStateAfter makes GetState return nil after this many calls, modelling a
 	// connection lost partway through a run.
 	nilStateAfter int
