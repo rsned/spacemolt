@@ -21,6 +21,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -51,6 +52,8 @@ func main() {
 	pretty := flag.Bool("pretty", false, "indent the output JSON")
 	raw := flag.String("raw-out", "", "also write the unmodified log pages here, for fixtures")
 	gz := flag.Bool("gzip", false, "gzip the output (a 373-participant battle is ~24MB raw, ~5MB gzipped)")
+	outDir := flag.String("out-dir", "", "batch mode: --battle takes comma-separated ids; each is written to "+
+		"<out-dir>/<id>.json plus <id>.raw.json, all under one login")
 	flag.Parse()
 
 	if *agent == "" || *battleID == "" {
@@ -72,37 +75,78 @@ func main() {
 	defer client.Close() //nolint:errcheck
 	time.Sleep(settleDelay)
 
-	summary, err := fetchSummary(ctx, client, *battleID)
+	if *limit < 1 || *limit > maxLimit {
+		logger.Fatalf("--limit must be between 1 and %d, got %d", maxLimit, *limit)
+	}
+
+	if *outDir != "" {
+		if err := os.MkdirAll(*outDir, 0o755); err != nil {
+			logger.Fatalf("create %s: %v", *outDir, err)
+		}
+		var okCount, failCount int
+		for i, id := range strings.Split(*battleID, ",") {
+			id = strings.TrimSpace(id)
+			if id == "" {
+				continue
+			}
+			if i > 0 {
+				time.Sleep(game.SleepQuick)
+			}
+			err := exportOne(ctx, client, id,
+				filepath.Join(*outDir, id+".json"),
+				filepath.Join(*outDir, id+".raw.json"),
+				*limit, *pretty, *gz, logger)
+			if err != nil {
+				logger.Printf("battle %s FAILED: %v", id, err)
+				failCount++
+				continue
+			}
+			okCount++
+		}
+		logger.Printf("batch done: %d exported, %d failed", okCount, failCount)
+		if failCount > 0 {
+			os.Exit(1)
+		}
+		return
+	}
+
+	if err := exportOne(ctx, client, *battleID, outPath, *raw, *limit, *pretty, *gz, logger); err != nil {
+		logger.Fatalf("%v", err)
+	}
+}
+
+// exportOne fetches one battle and writes the replay model (and, when rawPath
+// is non-empty, the unmodified log pages) to disk.
+func exportOne(ctx context.Context, client game.GameClient, battleID, outPath, rawPath string,
+	limit int, pretty, gz bool, logger *log.Logger) error {
+	summary, err := fetchSummary(ctx, client, battleID)
 	if err != nil {
 		// A missing summary is not fatal: everything needed to draw the battle
 		// is in the log itself. Losing the system NAME is the only real cost.
 		logger.Printf("summary unavailable (%v); continuing from the log alone", err)
 	}
 
-	if *limit < 1 || *limit > maxLimit {
-		logger.Fatalf("--limit must be between 1 and %d, got %d", maxLimit, *limit)
-	}
-	pages, err := fetchLog(ctx, client, *battleID, *limit, logger)
+	pages, err := fetchLog(ctx, client, battleID, limit, logger)
 	if err != nil {
-		logger.Fatalf("fetch log: %v", err)
+		return fmt.Errorf("fetch log: %w", err)
 	}
 	if len(pages) == 0 {
-		logger.Fatalf("battle %s returned no log entries", *battleID)
+		return fmt.Errorf("battle %s returned no log entries", battleID)
 	}
 
-	if *raw != "" {
-		if err := writeJSON(*raw, pages, *pretty); err != nil {
-			logger.Fatalf("write raw: %v", err)
+	if rawPath != "" {
+		if err := writeJSON(rawPath, pages, pretty); err != nil {
+			return fmt.Errorf("write raw: %w", err)
 		}
-		logger.Printf("wrote raw pages to %s", *raw)
+		logger.Printf("wrote raw pages to %s", rawPath)
 	}
 
 	model := battlereplay.Adapt(pages, summary)
-	if *gz && !strings.HasSuffix(outPath, ".gz") {
+	if gz && !strings.HasSuffix(outPath, ".gz") {
 		outPath += ".gz"
 	}
-	if err := writeJSONMaybeGzip(outPath, model, *pretty, *gz); err != nil {
-		logger.Fatalf("write model: %v", err)
+	if err := writeJSONMaybeGzip(outPath, model, pretty, gz); err != nil {
+		return fmt.Errorf("write model: %w", err)
 	}
 
 	var shots, kills int
@@ -112,6 +156,7 @@ func main() {
 	}
 	logger.Printf("wrote %s: %d ticks, %d participants, %d shots, %d kills (%s in %s)",
 		outPath, model.TickCount, len(model.Participants), shots, kills, model.Outcome, model.SystemName)
+	return nil
 }
 
 // fetchLog pages through the whole battle, shrinking the page size when a page
