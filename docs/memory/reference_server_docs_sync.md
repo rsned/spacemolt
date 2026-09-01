@@ -60,3 +60,10 @@ Absorbed: capacitor fields deleted; GetBaseResponse.Repairs
 (StationRepair{Response,Entry,Material}, v0.573.1 repair ledger with material
 bills) and GetShipResponse.DroneBay (DroneBayView/DroneBaySlot). openapi.v2.json
 refresh got HTTP 429 — retry pending.
+
+
+**2026-08-31: refreshed at v0.573.2** (openapi/api/skill .20260831). Absorbed:
+typed payloads for 8 push frames (ServerRestartWarning w/
+seconds_until_restart, DroneAdrift, 6 faction diplomacy pushes) — structs +
+5 new protocol constants + client cases, `feac0e82`. openapi.v2.json has now
+429'd on two consecutive refreshes — v2 spec is stale on disk.
