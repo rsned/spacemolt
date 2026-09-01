@@ -1,5 +1,7 @@
 package serverapi
 
+import "encoding/json"
+
 // Battle replay wire types for get_battle_log / get_battle_summary.
 //
 // These are the spectator endpoints: they answer for ANY battle, active or
