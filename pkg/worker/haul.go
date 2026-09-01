@@ -1303,6 +1303,10 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 	}
 
 	if err := deps.Client.Sell(ctx, opp.ItemID, held); err != nil {
+		if haulGoodsGone(err) {
+			haulCompleteVanished(ctx, deps, out, opp, bookClaimID, err)
+			return nil
+		}
 		fmt.Fprintf(out, "haul: opp %d sell failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
 		return nil
 	}
@@ -1392,6 +1396,31 @@ func haulSystemInEmpire(ctx context.Context, deps HaulDeps, systemID, empire str
 	return false
 }
 
+// haulGoodsGone reports whether a sell/list failure means the goods are
+// FACTUALLY ABSENT server-side (insufficient_items) rather than transiently
+// unsellable. The client cargo cache can lie — a single-form create_sell_order
+// escrow historically never updated it — and retrying a claim whose goods are
+// gone livelocked ten workers for twenty minutes on 2026-08-31 (one futile
+// undock/travel/dock/list cycle every pass until claim expiry).
+func haulGoodsGone(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "insufficient_items")
+}
+
+// haulCompleteVanished closes out a claim whose goods the server says no
+// longer exist: nothing is left to deliver, so complete the opportunity and
+// free the book slot rather than leaving the claim to be resumed forever.
+func haulCompleteVanished(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, bookClaimID int64, cause error) {
+	fmt.Fprintf(out, "haul: opp %d goods gone server-side (%v); completing claim — nothing left to deliver\n", opp.ID, cause) //nolint:errcheck
+	if _, err := deps.Market.CompleteOpportunity(ctx, opp.ID, deps.AgentID); err != nil {
+		fmt.Fprintf(out, "haul: opp %d complete-vanished failed: %v\n", opp.ID, err) //nolint:errcheck
+	}
+	if bookClaimID > 0 {
+		if err := deps.Market.CompleteBookClaim(ctx, bookClaimID, deps.AgentID); err != nil {
+			fmt.Fprintf(out, "haul: opp %d complete book claim (vanished) failed: %v\n", opp.ID, err) //nolint:errcheck
+		}
+	}
+}
+
 // haulPostCostOrder lists held cargo at the buy price instead of dumping it into thin
 // demand (watchdog Tier 3), then completes the claim so it is not re-hauled. The eventual
 // fill is captured by the server action log; no haul_result is recorded here (no sale yet).
@@ -1403,6 +1432,10 @@ func haulPostCostOrder(ctx context.Context, deps HaulDeps, out io.Writer, opp ma
 		"price_each": int(math.Round(unitBuy)),
 	}
 	if err := deps.Client.CreateSellOrder(ctx, payload); err != nil {
+		if haulGoodsGone(err) {
+			haulCompleteVanished(ctx, deps, out, opp, bookClaimID, err)
+			return nil
+		}
 		fmt.Fprintf(out, "haul: opp %d cost-order failed: %v; leaving claimed\n", opp.ID, err) //nolint:errcheck
 		return nil
 	}

@@ -48,6 +48,7 @@ type fakeClient struct {
 	acceptErr      error   // when set, AcceptMission returns it instead of recording success
 	buyErr         error   // when set, Buy returns it instead of recording success
 	sellErr        error   // when set, Sell returns it (models "no local buyer")
+	sellOrderErr   error   // when set, CreateSellOrder returns it (models desynced cargo)
 	completeReward float64 // credited to state.Credits on CompleteMission (mission tests)
 
 	viewStorageErr error // when set, ViewStorage returns it instead of recording success
@@ -115,7 +116,7 @@ func (f *fakeClient) Sell(ctx context.Context, itemID string, qty float64) error
 }
 func (f *fakeClient) CreateSellOrder(ctx context.Context, payload map[string]any) error {
 	f.calls = append(f.calls, fmt.Sprintf("sell_order:%v@%v", payload["item_id"], payload["price_each"]))
-	return nil
+	return f.sellOrderErr
 }
 func (f *fakeClient) Refuel(ctx context.Context) error {
 	f.calls = append(f.calls, "refuel")

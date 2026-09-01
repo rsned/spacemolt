@@ -4363,6 +4363,38 @@ func (c *Client) parseActionResult(payload map[string]any) {
 			c.state.Ship.CargoUsed = cargoUsed
 
 			c.debugLogger.Printf("Action result: create_sell_order (%d listed, %d failed)", successCount, failCount)
+		} else if itemID, _ := result["item_id"].(string); itemID != "" {
+			// Single-form order (no "results" array). The escrow removed
+			// from_cargo units from the hold server-side; mirror it here or
+			// the cargo cache reports phantom inventory forever (the
+			// 2026-08-31 power_cell relisting livelock).
+			fromCargo, ok := result["from_cargo"].(float64)
+			if !ok {
+				// Older replies lack from_cargo; the full quantity came from
+				// cargo on any reply that does not say otherwise.
+				fromCargo, _ = result["quantity"].(float64)
+			}
+			if fromCargo > 0 {
+				for i := range c.state.Ship.Cargo {
+					if c.state.Ship.Cargo[i].ItemID == itemID {
+						c.state.Ship.Cargo[i].Quantity -= fromCargo
+						break
+					}
+				}
+				filtered := c.state.Ship.Cargo[:0]
+				for _, item := range c.state.Ship.Cargo {
+					if item.Quantity > 0 {
+						filtered = append(filtered, item)
+					}
+				}
+				c.state.Ship.Cargo = filtered
+				var cargoUsed float64
+				for _, item := range c.state.Ship.Cargo {
+					cargoUsed += item.Quantity
+				}
+				c.state.Ship.CargoUsed = cargoUsed
+			}
+			c.debugLogger.Printf("Action result: create_sell_order (single: %s x%.0f escrowed)", itemID, fromCargo)
 		}
 
 	case "create_buy_order":
