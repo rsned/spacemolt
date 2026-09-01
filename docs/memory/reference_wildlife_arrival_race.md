@@ -51,3 +51,14 @@ the same observations as creatures wandering and was wrong.
 Related: [[reference_wildlife_second_look_species_yield]] ·
 [[reference_idle_loop_ran_3x_per_tick]] (call volume is what trips the per-IP
 limiter, which is why the fleet-side retry is conditional)
+
+
+**v0.574.4 (2026-08-31) FIXED THIS SERVER-SIDE**: wildlife materialises
+before the arrival frame on every arrival path. The hunt-fleet re-read
+workaround (`238f73a7`, hunt.go:709) is now vestigial — kept, it only
+costs one extra get_nearby on a genuinely barren ground. **NEW RISK the
+same patch introduced: aggressive species engage ON the arrival tick.**
+Landing at a POI in a predator system = a fight you can be pulled into
+immediately. Miners (zero combat code) land on belts constantly;
+crusher_mantis sighted in ACTIVE mining systems frostfeld (09-01!),
+nashira, rigel.

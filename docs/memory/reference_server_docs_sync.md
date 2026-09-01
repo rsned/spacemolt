@@ -67,3 +67,12 @@ typed payloads for 8 push frames (ServerRestartWarning w/
 seconds_until_restart, DroneAdrift, 6 faction diplomacy pushes) — structs +
 5 new protocol constants + client cases, `feac0e82`. openapi.v2.json has now
 429'd on two consecutive refreshes — v2 spec is stale on disk.
+
+
+**2026-09-01: refreshed at v0.574.4.** Absorbed `e39df6b7`+`966deeba`:
+wreck-location fields on player_kill/player_died/pirate_destroyed (the
+per-death loss capture link), ParticipantSnapshot.is_npc/is_boss,
+BattleLogEntry.recovered_summary. v0.574.2 documented the battle outcome
+enum (victory/stalemate/mutual_destruction; winning_side -1 = ANY draw;
+REST calls it 'outcome', WS battle_ended calls it 'reason').
+openapi.v2.json 429'd a THIRD consecutive refresh.

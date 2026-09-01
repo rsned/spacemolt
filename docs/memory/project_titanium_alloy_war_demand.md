@@ -76,3 +76,11 @@ trader-10 run: Last Light -> Haven, 14 jumps, 11m45s, bought 675 @7,380
 -> 675 cells max). If the order fills: ~20.5M gross. Possible haul
 improvement (operator's call): price the thin-market fallback listing at
 a recent reference bid instead of cost.
+
+**v0.574.0 changed the wall mechanics**: empire stations draw treasury
+funds and COMPETE for reconstruction supplies — "repair bids respond to
+new competing orders and available supplies". The wall is now a dynamic
+bidder, not a fixed cycle: a standing ask (like trader-10's 675 @30,900)
+is exactly what it responds to. Also new: donate materials directly to a
+docked empire station — send_gift recipient="station:<base-or-POI-id>"
+or storage action="deposit" — counts toward reconstruction.
