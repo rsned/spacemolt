@@ -33,20 +33,20 @@ const (
 	// battle_id, and the departing combatant may be a CREATURE (crt_ prefix)
 	// with an empty username. One participant leaving is NOT the battle ending;
 	// that is TypeBattleEnded.
-	TypeBattleLeft         = "battle_left"
-	TypeBattleUpdate       = "battle_update"
-	TypeBattleDamage       = "battle_damage"
-	TypeBattleEnded        = "battle_ended"
-	TypePlayerDied         = "player_died"
-	TypePlayerKill         = "player_kill" // we destroyed another player; carries the wreck id
+	TypeBattleLeft   = "battle_left"
+	TypeBattleUpdate = "battle_update"
+	TypeBattleDamage = "battle_damage"
+	TypeBattleEnded  = "battle_ended"
+	TypePlayerDied   = "player_died"
+	TypePlayerKill   = "player_kill" // we destroyed another player; carries the wreck id
 	// v0.572.0 boarding pushes. ship_captured is the terminal boarding event
 	// (sent to captor, former owner, and remaining participants);
 	// prize_update is the private claimant update as a prize is recovered;
 	// personnel_update is sent to an ally whose ship received remote
 	// treatment or a personnel transfer.
-	TypeShipCaptured    = "ship_captured"
-	TypePrizeUpdate     = "prize_update"
-	TypePersonnelUpdate = "personnel_update"
+	TypeShipCaptured       = "ship_captured"
+	TypePrizeUpdate        = "prize_update"
+	TypePersonnelUpdate    = "personnel_update"
 	TypeMining             = "mining"
 	TypeMiningYield        = "mining_yield"
 	TypeScanResult         = "scan_result"
@@ -79,6 +79,7 @@ const (
 	// Drone system events
 	TypeDroneUpdate    = "drone_update"
 	TypeDroneDestroyed = "drone_destroyed"
+	TypeDroneAdrift    = "drone_adrift"
 
 	// Base building and raiding events
 	TypeBaseRaidUpdate = "base_raid_update"
@@ -104,6 +105,10 @@ const (
 	TypeFactionInvite           = "faction_invite"
 	TypeFactionAllianceProposal = "faction_alliance_proposal"
 	TypeFactionAllianceFormed   = "faction_alliance_formed"
+	TypeFactionAllianceBroken   = "faction_alliance_broken"
+	TypeFactionWarDeclared      = "faction_war_declared"
+	TypeFactionPeaceProposal    = "faction_peace_proposal"
+	TypeFactionPeaceAccepted    = "faction_peace_accepted"
 
 	// Achievement events
 	TypeAchievementUnlocked = "achievement_unlocked"

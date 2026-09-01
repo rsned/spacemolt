@@ -2714,8 +2714,8 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		// is coming, and it is the hook a future graceful pre-restart drain
 		// would hang off rather than letting workers eat an EOF.
 		//
-		// The event has no schema in openapi.json or ws.md, so every field is
-		// read defensively with a whole-payload fallback.
+		// v0.573.2 published the payload shape (serverapi.ServerRestartWarning);
+		// fields are still read defensively for older servers.
 		msg, _ := resp.Payload["message"].(string)
 		target, _ := resp.Payload["target_version"].(string)
 		secs, hasSecs := resp.Payload["seconds_until_restart"].(float64)
@@ -3047,6 +3047,41 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		withFactionTag, _ := resp.Payload["with_faction_tag"].(string)
 		withFactionTag = strings.TrimSpace(withFactionTag)
 		c.debugLogger.Printf("[FACTION ALLIANCE FORMED] alliance formed with %s [%s] (%s)", withFactionName, withFactionTag, withFactionID)
+
+	case protocol.TypeFactionAllianceBroken:
+		var ev serverapi.FactionAllianceBroken
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.debugLogger.Printf("[FACTION ALLIANCE BROKEN] %s [%s] (%s) dissolved the alliance", ev.ByFactionName, strings.TrimSpace(ev.ByFactionTag), ev.ByFactionID)
+
+	case protocol.TypeFactionWarDeclared:
+		var ev serverapi.FactionWarDeclared
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.debugLogger.Printf("⚔️ [FACTION WAR DECLARED] %s vs %s (reason: %s)", ev.AggressorFactionName, ev.DefenderFactionName, ev.Reason)
+
+	case protocol.TypeFactionPeaceProposal:
+		var ev serverapi.FactionPeaceProposal
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.debugLogger.Printf("🕊️ [FACTION PEACE PROPOSAL] from %s (terms: %s)", ev.FromFactionName, ev.Terms)
+
+	case protocol.TypeFactionPeaceAccepted:
+		var ev serverapi.FactionPeaceAccepted
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.debugLogger.Printf("🕊️ [FACTION PEACE ACCEPTED] peace with %s", ev.FactionName)
+
+	case protocol.TypeDroneAdrift:
+		var ev serverapi.DroneAdrift
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		c.debugLogger.Printf("🛸 DRONE ADRIFT: %s (%s) out of fuel at %s/%s", ev.DroneID, ev.DroneType, ev.SystemID, ev.POIID)
 
 	case protocol.TypeCompleteMission:
 		// Server-initiated notification that a mission completed without an
@@ -4617,6 +4652,11 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeFactionInvite:           {},
 	protocol.TypeFactionAllianceProposal: {},
 	protocol.TypeFactionAllianceFormed:   {},
+	protocol.TypeFactionAllianceBroken:   {},
+	protocol.TypeFactionWarDeclared:      {},
+	protocol.TypeFactionPeaceProposal:    {},
+	protocol.TypeFactionPeaceAccepted:    {},
+	protocol.TypeDroneAdrift:             {},
 	protocol.TypeFacilityRentWarning:     {},
 	protocol.TypeAchievementUnlocked:     {},
 	protocol.TypeCraftingUpdate:          {},

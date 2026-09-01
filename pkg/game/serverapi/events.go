@@ -455,3 +455,72 @@ type BattleJoined struct {
 	SideID   int    `json:"side_id"`
 	Username string `json:"username,omitempty"`
 }
+
+// ServerRestartWarning is the push announcing an imminent server restart
+// (payload shape published in v0.573.2). SecondsUntilRestart is the window
+// to finish or park in-flight actions before the brief disconnect.
+type ServerRestartWarning struct {
+	Message             string `json:"message,omitempty"`
+	SecondsUntilRestart int    `json:"seconds_until_restart"`
+	TargetVersion       string `json:"target_version,omitempty"`
+}
+
+// DroneAdrift tells the owner which drone ran out of fuel and where it
+// stopped (v0.573.2).
+type DroneAdrift struct {
+	DroneID   string `json:"drone_id"`
+	DroneType string `json:"drone_type,omitempty"`
+	OwnerID   string `json:"owner_id,omitempty"`
+	SystemID  string `json:"system_id"`
+	POIID     string `json:"poi_id,omitempty"`
+}
+
+// FactionAllianceProposal — another faction proposes a mutual alliance
+// (documented v0.573.2; tags may arrive space-padded).
+type FactionAllianceProposal struct {
+	FromFactionID   string `json:"from_faction_id"`
+	FromFactionName string `json:"from_faction_name,omitempty"`
+	FromFactionTag  string `json:"from_faction_tag,omitempty"`
+	Message         string `json:"message,omitempty"`
+}
+
+// FactionAllianceFormed — an alliance was ratified (documented v0.573.2).
+type FactionAllianceFormed struct {
+	WithFactionID   string `json:"with_faction_id"`
+	WithFactionName string `json:"with_faction_name,omitempty"`
+	WithFactionTag  string `json:"with_faction_tag,omitempty"`
+	Message         string `json:"message,omitempty"`
+}
+
+// FactionAllianceBroken — an ally dissolved the alliance (v0.573.2).
+type FactionAllianceBroken struct {
+	ByFactionID   string `json:"by_faction_id"`
+	ByFactionName string `json:"by_faction_name,omitempty"`
+	ByFactionTag  string `json:"by_faction_tag,omitempty"`
+	Message       string `json:"message,omitempty"`
+}
+
+// FactionWarDeclared — war declared involving our faction (v0.573.2).
+type FactionWarDeclared struct {
+	AggressorFactionID   string `json:"aggressor_faction_id"`
+	AggressorFactionName string `json:"aggressor_faction_name,omitempty"`
+	DefenderFactionID    string `json:"defender_faction_id"`
+	DefenderFactionName  string `json:"defender_faction_name,omitempty"`
+	Reason               string `json:"reason,omitempty"`
+	Message              string `json:"message,omitempty"`
+}
+
+// FactionPeaceProposal — a warring faction proposes peace (v0.573.2).
+type FactionPeaceProposal struct {
+	FromFactionID   string `json:"from_faction_id"`
+	FromFactionName string `json:"from_faction_name,omitempty"`
+	Terms           string `json:"terms,omitempty"`
+	Message         string `json:"message,omitempty"`
+}
+
+// FactionPeaceAccepted — a peace proposal was accepted (v0.573.2).
+type FactionPeaceAccepted struct {
+	FactionID   string `json:"faction_id"`
+	FactionName string `json:"faction_name,omitempty"`
+	Message     string `json:"message,omitempty"`
+}
