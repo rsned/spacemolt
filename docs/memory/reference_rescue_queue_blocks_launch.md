@@ -31,3 +31,16 @@ launcher.
 `null_matter_anomaly` (assist-nexus, fighter-3).
 
 Related: [[reference_assist_fleet_is_dry]] — the rescuers are stranded too.
+
+## Operator clear procedure (VERIFIED 2026-09-01)
+Deleting a record releases the agent at the NEXT STATUS TICK — no overmind
+restart needed: `pollRescues` treats a quarantined worker with no record as
+"operator resolved" and calls ReleaseQuarantine. Procedure: under
+`flock rescue-queue.json.lock`, move `status:failed` records into
+rescue-history.jsonl and rewrite the queue. 14 agents freed this way in one
+pass; every overmind logged "no record for quarantined X; releasing" within
+seconds. Genuinely-still-stranded agents simply re-stall and re-file FRESH
+records with live positions — that is the self-healing path, use it.
+Docked-at-0-fuel agents never re-file (watchdog blind); hand-write a
+`status:pending` record for those (fields: copy a history row; target_username
+from data/agents/<id>/credentials.json).
