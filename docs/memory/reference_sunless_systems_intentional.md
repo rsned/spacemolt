@@ -1,6 +1,6 @@
 ---
 name: reference-sunless-systems-intentional
-description: 9 systems have no sun POI and the dev hints some are INTENTIONAL — likely hidden content; Redmarsh's collapsed wormhole has reveal_difficulty 30, and the galaxy's lone faint_signature POI sits unresolved in gsc_0026
+description: 9 systems have no sun POI — most likely a generation artifact (the map was LLM-generated ~a year ago), NOT hidden content; do not spend scanner runs chasing it
 metadata:
   type: reference
 ---
@@ -12,13 +12,19 @@ day (intercrus, wealth_lane, redmarsh, seginus) and still show only debris
 (belts / gas clouds / ice fields; blackthorn alone has a station; redmarsh
 and wealth_lane hold collapsed wormholes).
 
-**The dev suggested some are intentional.** Treat sunless as a content
-marker, not an anomaly:
+**OPERATOR VERDICT (2026-09-01): probably UNINTENTIONAL.** The dev floated
+that some might be deliberate, but the operator notes the map was generated
+by an LLM about a year ago, so a missing star is an easy generation slip.
+Treat sunless as a **cosmetic data artifact**, not a content marker, and do
+NOT spend scanner runs or trek detours chasing it.
+
+Two incidental facts found while checking, worth keeping on their own merits
+(they are NOT evidence of hidden content in the nine):
 - Redmarsh's Collapsed Wormhole is the only POI in the nine with a nonzero
-  `reveal_difficulty` (30) — something there resists a basic survey.
+  `reveal_difficulty` (30).
 - The galaxy's ONE `faint_signature` POI ("a more powerful scanner may
   resolve it") sits in **gsc_0026**, last updated tick ~975k (very stale).
-  Faint signatures are proof the reveal mechanic exists; a high-tier scanner
-  pass over the sunless nine (and gsc_0026) is the obvious probe.
+  That one IS a real reveal-mechanic hook — unrelated to the sunless nine,
+  and the only known target for a higher-tier scanner probe.
 
 Related: [[reference_exploration_is_content_survey]] · [[project_survey_anomaly_capture]]
