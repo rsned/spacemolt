@@ -51,6 +51,25 @@ type BattleLogEntry struct {
 	Commands  []CommandLogEntry   `json:"commands"`
 
 	BattleEnded *BattleEndLogEntry `json:"battle_ended,omitempty"`
+
+	// RecoveredSummary (v0.574.2) appears on battles reconstructed after the
+	// fact rather than logged live.
+	RecoveredSummary *RecoveredBattleSummary `json:"recovered_summary,omitempty"`
+}
+
+// RecoveredBattleSummary is the after-the-fact reconstruction of a battle
+// whose live log was not retained (v0.574.2).
+type RecoveredBattleSummary struct {
+	Category         string          `json:"category,omitempty"`
+	StartTick        int64           `json:"start_tick,omitempty"`
+	Duration         int64           `json:"duration,omitempty"`
+	TotalDamage      int64           `json:"total_damage,omitempty"`
+	ShipsDestroyed   int             `json:"ships_destroyed,omitempty"`
+	ShipsCaptured    int             `json:"ships_captured,omitempty"`
+	ParticipantNames []string        `json:"participant_names,omitempty"`
+	Participants     json.RawMessage `json:"participants,omitempty"`
+	Captures         json.RawMessage `json:"captures,omitempty"`
+	SideFactions     json.RawMessage `json:"side_factions,omitempty"`
 }
 
 // ParticipantSnapshot is one combatant's full state at one tick.
@@ -63,6 +82,9 @@ type ParticipantSnapshot struct {
 	FactionID string `json:"faction_id,omitempty"`
 	// ShipClass is the join key to ship art (lowercase, e.g. "vigil").
 	ShipClass string `json:"ship_class"`
+	// IsNPC and IsBoss (v0.574.2) mark server-controlled combatants.
+	IsNPC  bool `json:"is_npc,omitempty"`
+	IsBoss bool `json:"is_boss,omitempty"`
 
 	// X is position along the engagement axis and Y is lateral spread. The
 	// sides face each other along X: in the reference battle side 1 held

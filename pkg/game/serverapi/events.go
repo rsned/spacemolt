@@ -27,6 +27,11 @@ type PlayerKill struct {
 	WreckID         string `json:"wreck_id"`
 	WreckHasCargo   bool   `json:"wreck_has_cargo"`
 	WreckHasModules bool   `json:"wreck_has_modules"`
+	// Wreck location (v0.574.x) — where the kill left its wreck.
+	WreckSystemID   string `json:"wreck_system_id,omitempty"`
+	WreckSystemName string `json:"wreck_system_name,omitempty"`
+	WreckPOIID      string `json:"wreck_poi_id,omitempty"`
+	WreckPOIName    string `json:"wreck_poi_name,omitempty"`
 }
 
 type PlayerDied struct {
@@ -40,6 +45,12 @@ type PlayerDied struct {
 	ShipLost        string           `json:"ship_lost"`
 	NewShipClass    string           `json:"new_ship_class"`
 	WreckID         string           `json:"wreck_id"`
+	// Wreck location (v0.574.x); WreckSuppressed means no wreck was left.
+	WreckSystemID   string `json:"wreck_system_id,omitempty"`
+	WreckSystemName string `json:"wreck_system_name,omitempty"`
+	WreckPOIID      string `json:"wreck_poi_id,omitempty"`
+	WreckPOIName    string `json:"wreck_poi_name,omitempty"`
+	WreckSuppressed bool   `json:"wreck_suppressed,omitempty"`
 }
 
 // BattleStarted is broadcast when a tactical battle the player is part of
@@ -361,6 +372,13 @@ type PirateDestroyed struct {
 	XPGained      float64 `json:"xp_gained"`
 	WreckID       string  `json:"wreck_id"`
 	Message       string  `json:"message"`
+	// Wreck location + contents flags (v0.574.x).
+	WreckSystemID   string `json:"wreck_system_id,omitempty"`
+	WreckSystemName string `json:"wreck_system_name,omitempty"`
+	WreckPOIID      string `json:"wreck_poi_id,omitempty"`
+	WreckPOIName    string `json:"wreck_poi_name,omitempty"`
+	WreckHasCargo   bool   `json:"wreck_has_cargo,omitempty"`
+	WreckHasModules bool   `json:"wreck_has_modules,omitempty"`
 }
 
 // PirateSpawn is sent when a pirate NPC respawns at your current POI.
