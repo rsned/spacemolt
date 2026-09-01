@@ -8,6 +8,7 @@
 - ⭐🔴 [NO stronghold routing without pirate unlock](feedback_stronghold_routing_requires_pirate_unlock.md) — per-agent rule; strongholds are dead ends; 8 of 24 losses incl. assist-sol's tanker
 - Archives: [Aug](project_status_archive_2026_08.md) · [Jul 22–29](project_status_archive_2026_07.md) · [Jul 4–10](project_current_status.md) — misnamed: the OLDEST archive, 81 KB
 - [Shipped-feature index](reference_shipped_history.md) — check before rebuilding anything
+- [Sunless systems are intentional content](reference_sunless_systems_intentional.md) — 9 systems, dev-hinted; scanner-reveal probe: redmarsh + gsc_0026
 
 ## Fleet ops — live problems
 - [Player sightings timeline](project_player_sightings_timeline.md) — `2dfd83e9` DEPLOYED 08-29 to mb/assist/hunt/craft/shuttle; haul/unlock/mission-learn OLD binary; marketbot sensor net `2340e637` awaits mb restart
