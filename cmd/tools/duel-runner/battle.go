@@ -82,20 +82,21 @@ func runDuel(a, b side, d Duel, wait func(), logger *log.Logger) (duelResult, er
 			return res, nil
 		}
 		phase := d.PhaseAt(va.Tick)
-		stanceA, stanceB, hold := phase.StanceA, phase.StanceB, phase.HoldRing
+		stanceA, stanceB := phase.StanceA, phase.StanceB
+		holdA, holdB := phase.HoldA(), phase.HoldB()
 		if va.ParticipantCount > 2 && !voided {
 			voided = true
 			logger.Printf("duel %s: %d participants — voiding, fleeing out", d.ID, va.ParticipantCount)
 		}
 		if voided || va.Tick > d.MaxTicks {
-			stanceA, stanceB, hold = "flee", "flee", nil
+			stanceA, stanceB, holdA, holdB = "flee", "flee", nil, nil
 		}
-		if err := applyOrders(a, stanceA, hold, &lastA, va, logger); err != nil {
+		if err := applyOrders(a, stanceA, holdA, &lastA, va, logger); err != nil {
 			return res, fmt.Errorf("side A orders: %w", err)
 		}
 		vb, okB := b.View()
 		if okB {
-			if err := applyOrders(b, stanceB, hold, &lastB, vb, logger); err != nil {
+			if err := applyOrders(b, stanceB, holdB, &lastB, vb, logger); err != nil {
 				return res, fmt.Errorf("side B orders: %w", err)
 			}
 		}

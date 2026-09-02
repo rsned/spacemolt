@@ -17,12 +17,38 @@ type FitSpec struct {
 
 // Phase is one segment of a duel's stance script. HoldRing, when set,
 // pins the shared separation ring (0=engaged .. 3=outer) by issuing
-// advance/retreat corrections.
+// advance/retreat corrections to both sides.
+//
+// HoldRingA / HoldRingB independently override HoldRing for one side only
+// (needed for S1-odd's asymmetric-hold duels, where the two sides must
+// converge on different rings to land on an odd total zone_distance). When
+// set, a per-side field always wins for that side; HoldRing is the
+// both-sides default.
 type Phase struct {
-	FromTick int    `json:"from_tick"`
-	StanceA  string `json:"stance_a"`
-	StanceB  string `json:"stance_b"`
-	HoldRing *int   `json:"hold_ring,omitempty"`
+	FromTick  int    `json:"from_tick"`
+	StanceA   string `json:"stance_a"`
+	StanceB   string `json:"stance_b"`
+	HoldRing  *int   `json:"hold_ring,omitempty"`
+	HoldRingA *int   `json:"hold_ring_a,omitempty"`
+	HoldRingB *int   `json:"hold_ring_b,omitempty"`
+}
+
+// HoldA returns the effective ring-hold for side A: HoldRingA if set,
+// otherwise the shared HoldRing (nil if neither is set).
+func (p Phase) HoldA() *int {
+	if p.HoldRingA != nil {
+		return p.HoldRingA
+	}
+	return p.HoldRing
+}
+
+// HoldB returns the effective ring-hold for side B: HoldRingB if set,
+// otherwise the shared HoldRing (nil if neither is set).
+func (p Phase) HoldB() *int {
+	if p.HoldRingB != nil {
+		return p.HoldRingB
+	}
+	return p.HoldRing
 }
 
 // Duel is one scenario entry; it runs Repeats times.
@@ -89,6 +115,12 @@ func LoadCampaign(path string) (*Campaign, error) {
 			}
 			if p.HoldRing != nil && (*p.HoldRing < 0 || *p.HoldRing > 3) {
 				return nil, fmt.Errorf("duel %q: hold_ring %d out of range 0..3", d.ID, *p.HoldRing)
+			}
+			if p.HoldRingA != nil && (*p.HoldRingA < 0 || *p.HoldRingA > 3) {
+				return nil, fmt.Errorf("duel %q: hold_ring_a %d out of range 0..3", d.ID, *p.HoldRingA)
+			}
+			if p.HoldRingB != nil && (*p.HoldRingB < 0 || *p.HoldRingB > 3) {
+				return nil, fmt.Errorf("duel %q: hold_ring_b %d out of range 0..3", d.ID, *p.HoldRingB)
 			}
 		}
 	}

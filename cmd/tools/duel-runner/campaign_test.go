@@ -71,6 +71,65 @@ func TestPhaseAtPicksLatestPhase(t *testing.T) {
 	}
 }
 
+const asymmetricHoldCampaign = `{
+  "arena_system": "gsc_test",
+  "staging_system": "sys_x",
+  "staging_station": "station_x",
+  "duels": [{
+    "id": "S1-odd-ring1",
+    "purpose": "hit table @ zone_distance 1 (one-side hold)",
+    "attacker": "battle_bot1",
+    "fit_a": {"hull": "prospect", "modules": ["pulse_laser_i"]},
+    "fit_b": {"hull": "prospect", "modules": ["pulse_laser_i"]},
+    "script": [
+      {"from_tick": 1, "stance_a": "fire", "stance_b": "fire", "hold_ring_a": 0, "hold_ring_b": 1},
+      {"from_tick": 21, "stance_a": "flee", "stance_b": "flee"}
+    ],
+    "max_ticks": 25,
+    "repeats": 1
+  }]
+}`
+
+func TestLoadCampaignParsesAsymmetricHoldRing(t *testing.T) {
+	c, err := LoadCampaign(writeCampaign(t, asymmetricHoldCampaign))
+	if err != nil {
+		t.Fatalf("LoadCampaign: %v", err)
+	}
+	phase := c.Duels[0].Script[0]
+	if phase.HoldRingA == nil || *phase.HoldRingA != 0 {
+		t.Fatalf("hold_ring_a not parsed: %+v", phase)
+	}
+	if phase.HoldRingB == nil || *phase.HoldRingB != 1 {
+		t.Fatalf("hold_ring_b not parsed: %+v", phase)
+	}
+	if phase.HoldRing != nil {
+		t.Errorf("hold_ring must be nil when only per-side fields are set: %+v", phase)
+	}
+	// HoldA/HoldB resolve to the per-side override.
+	if got := phase.HoldA(); got == nil || *got != 0 {
+		t.Errorf("HoldA() = %v, want 0", got)
+	}
+	if got := phase.HoldB(); got == nil || *got != 1 {
+		t.Errorf("HoldB() = %v, want 1", got)
+	}
+	// The plain hold_ring phase falls back to the shared value on both sides.
+	shared := c.Duels[0].Script[1]
+	if shared.HoldA() != nil || shared.HoldB() != nil {
+		t.Errorf("flee phase (no hold_ring set) must resolve to nil holds: %+v", shared)
+	}
+}
+
+func TestPhaseHoldFallsBackToSharedHoldRing(t *testing.T) {
+	r := ringPtr(2)
+	p := Phase{HoldRing: r}
+	if got := p.HoldA(); got == nil || *got != 2 {
+		t.Errorf("HoldA() = %v, want 2 (fallback to shared hold_ring)", got)
+	}
+	if got := p.HoldB(); got == nil || *got != 2 {
+		t.Errorf("HoldB() = %v, want 2 (fallback to shared hold_ring)", got)
+	}
+}
+
 func TestLoadCampaignRejectsBadInput(t *testing.T) {
 	cases := map[string]string{
 		"empty duels":    `{"arena_system":"a","staging_station":"s","duels":[]}`,
@@ -79,6 +138,8 @@ func TestLoadCampaignRejectsBadInput(t *testing.T) {
 		"no script":      `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1}]}`,
 		"zero max_ticks": `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":0,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]}]}`,
 		"dup id":         `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]},{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]}]}`,
+		"bad hold_ring_a": `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire","hold_ring_a":4}]}]}`,
+		"bad hold_ring_b": `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire","hold_ring_b":-1}]}]}`,
 	}
 	for name, body := range cases {
 		if _, err := LoadCampaign(writeCampaign(t, body)); err == nil {

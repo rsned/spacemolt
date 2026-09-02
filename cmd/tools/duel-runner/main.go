@@ -22,8 +22,8 @@ func main() {
 	agentB := flag.String("b", "battle_bot2", "side B agent id (per-duel guest overrides)")
 	// guest is accepted for CLI-surface compatibility with the brief's
 	// documented flag set, but per-duel guests come from the campaign
-	// file's Duel.Guest field, not a global CLI override; unused here.
-	_ = flag.String("guest", "", "unused: per-duel guest agent comes from the campaign file")
+	// file's Duel.Guest field, not a global CLI override; ignored here.
+	_ = flag.String("guest", "", "ignored: per-duel guest agent id comes from each duel's campaign \"guest\" field, not this flag")
 	only := flag.String("only", "", "comma-separated scenario ids to run (default: all)")
 	dryRun := flag.Bool("dry-run", false, "print the run list and exit without logging in")
 	flag.Parse()
@@ -120,8 +120,23 @@ func main() {
 // executeDuel runs preflight, the battle, and recovery for one repeat.
 func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logger) (Record, error) {
 	rec := Record{ScenarioID: d.ID, Repeat: repeat, Started: time.Now().UTC()}
-	// Preflight: both at staging, correct fits, then into the arena.
+	// Reset battle-view tracking on both bots before the new fight starts:
+	// without this, a bot's seenBattle stays true from the previous duel and
+	// View() reports the new duel as instantly "Ended" (carrying the
+	// PREVIOUS duel's battle id) on its very first poll, because
+	// State.InBattle does not flip true until the new battle's first server
+	// push arrives.
+	a.ResetBattleTracking()
+	b.ResetBattleTracking()
+	// Preflight: both at staging, correct fits, then into the arena. A
+	// duel's guest (e.g. S6c's craftsman-1) keeps their own ship/fit --
+	// the runner must never refit them, so EnsureFit is skipped for
+	// whichever side carries the guest agent.
 	for _, bot := range []*Bot{a, b} {
+		if d.Guest != "" && bot.Name() == d.Guest {
+			logger.Printf("%s: guest side for %s, skipping EnsureFit (keeps own fit)", bot.Name(), d.ID)
+			continue
+		}
 		fit := d.FitA
 		if bot != a {
 			fit = d.FitB

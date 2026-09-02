@@ -79,6 +79,51 @@ func TestRunDuelAppliesStancesAndHoldsRing(t *testing.T) {
 	}
 }
 
+func TestRunDuelAppliesAsymmetricHoldRingIndependently(t *testing.T) {
+	// A holds ring 1 (inner), B holds ring 2 (mid); both start at outer
+	// (ring 3), so both must advance -- but each stops at its own target
+	// ring, independently of the other side's hold.
+	viewsA := append(mkViews(3, "outer", 2)[:3], mkViews(3, "inner", 2)...)
+	viewsB := append(mkViews(3, "outer", 2)[:3], mkViews(3, "mid", 2)...)
+	a := &fakeSide{name: "A", views: viewsA}
+	b := &fakeSide{name: "B", views: viewsB}
+	d := Duel{ID: "t", Attacker: "A", MaxTicks: 10,
+		Script: []Phase{{FromTick: 1, StanceA: "fire", StanceB: "fire", HoldRingA: ringPtr(1), HoldRingB: ringPtr(2)}}}
+	res, err := runDuel(a, b, d, func() {}, testLogger())
+	if err != nil {
+		t.Fatalf("runDuel: %v", err)
+	}
+	if res.Outcome != "stalemate" || res.BattleID != "bx" || res.Void {
+		t.Errorf("result = %+v", res)
+	}
+
+	countAdvance := func(actions []string) int {
+		n := 0
+		for _, act := range actions {
+			if act == "advance" {
+				n++
+			}
+		}
+		return n
+	}
+	if countAdvance(a.actions) == 0 {
+		t.Errorf("A holding ring 1 from outer: expected advance orders, got %v", a.actions)
+	}
+	if countAdvance(b.actions) == 0 {
+		t.Errorf("B holding ring 2 from outer: expected advance orders, got %v", b.actions)
+	}
+	for _, act := range a.actions {
+		if act == "retreat" {
+			t.Errorf("A holding ring 1 from outer must never retreat: %v", a.actions)
+		}
+	}
+	for _, act := range b.actions {
+		if act == "retreat" {
+			t.Errorf("B holding ring 2 from outer must never retreat: %v", b.actions)
+		}
+	}
+}
+
 func TestRunDuelVoidsOnThirdParticipant(t *testing.T) {
 	views := []BattleView{
 		{BattleID: "bx", Tick: 1, MyZone: "outer", ParticipantCount: 2},

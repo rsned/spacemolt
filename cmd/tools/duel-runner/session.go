@@ -42,6 +42,17 @@ func Login(ctx context.Context, agentID string, logger *log.Logger) (*Bot, error
 	return b, nil
 }
 
+// ResetBattleTracking clears the seen-battle bookkeeping. Callers MUST call
+// this on both bots before issuing the Attack that starts a new duel:
+// without it, seenBattle stays true from the previous duel and View() will
+// instantly report Ended (with the PREVIOUS duel's battle id) on the very
+// first poll, because State.InBattle does not flip true until the new
+// battle's first server push arrives.
+func (b *Bot) ResetBattleTracking() {
+	b.seenBattle = false
+	b.battleFirstSeen = time.Time{}
+}
+
 func (b *Bot) Close() { _ = b.client.Close() }
 
 func (b *Bot) Name() string { return b.agentID }
@@ -83,6 +94,18 @@ type battleStatusPayload struct {
 	} `json:"participants"`
 }
 
+// battleEnded is the pure ended-decision extracted from View() so it is
+// testable without a live client: once a battle has been seen (seenBattle),
+// a poll reporting InBattle==false means that battle has ended. Before the
+// first battle is seen (seenBattle==false), InBattle==false just means no
+// battle has started yet -- not "ended". This is the crux of the
+// cross-duel bug: without Bot.ResetBattleTracking() between duels,
+// seenBattle stays true from the prior duel and this returns true on the
+// very first poll of the next one.
+func battleEnded(seenBattle, inBattle bool) bool {
+	return seenBattle && !inBattle
+}
+
 // View reads the latest battle state via a fresh get_battle_status query
 // (a free info query, not a mutation). It runs once per control-loop
 // iteration; the loop's own pacing keeps the poll rate around 1 per 2-4s.
@@ -109,7 +132,7 @@ func (b *Bot) View() (BattleView, bool) {
 	// Ended: once a battle has been seen, InBattle flipping false means the
 	// fight is over. The authoritative outcome comes later from the
 	// exported battle log; "ended" is a placeholder the manifest can use.
-	if b.seenBattle && !st.InBattle {
+	if battleEnded(b.seenBattle, st.InBattle) {
 		return BattleView{BattleID: st.LastBattleID, Ended: true, Outcome: "ended"}, true
 	}
 
