@@ -150,7 +150,13 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 			logger.Printf("%s undock: %v (may already be in space)", bot.Name(), err)
 		}
 		if err := bot.Jump(camp.ArenaSystem); err != nil {
-			return rec, err
+			// Idempotent preflight: a bot left in the arena by an aborted
+			// run is already where it needs to be.
+			if strings.Contains(err.Error(), "already in") {
+				logger.Printf("%s: already in the arena", bot.Name())
+			} else {
+				return rec, err
+			}
 		}
 	}
 	attacker, defender := a, b
