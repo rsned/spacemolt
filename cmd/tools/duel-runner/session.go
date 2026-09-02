@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -111,6 +112,17 @@ func battleEnded(seenBattle, inBattle bool) bool {
 // iteration; the loop's own pacing keeps the poll rate around 1 per 2-4s.
 func (b *Bot) View() (BattleView, bool) {
 	if err := b.client.RawCommand(b.ctx, "get_battle_status", nil); err != nil {
+		// "No active battle" after we HAVE seen one is the end signal:
+		// once every participant escapes or dies, the status query itself
+		// errors (measured live in the S0 probe) and no battle_update push
+		// ever announces the end to a side that already disengaged.
+		if b.seenBattle && strings.Contains(err.Error(), "No active battle") {
+			return BattleView{
+				BattleID: b.client.GetState().LastBattleID,
+				Ended:    true,
+				Outcome:  "ended",
+			}, true
+		}
 		b.logger.Printf("%s: get_battle_status: %v", b.agentID, err)
 		return BattleView{}, false
 	}
