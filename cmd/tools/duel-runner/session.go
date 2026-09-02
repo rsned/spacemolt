@@ -239,6 +239,11 @@ func (b *Bot) EnsureFit(fit FitSpec) error {
 		// buy is a no-op cost-wise if cargo already holds one from a spare.
 		if err := b.Raw("buy", map[string]any{"item_id": typeID, "quantity": 1}); err != nil {
 			b.logger.Printf("%s: buy %s failed (may already own one): %v", b.agentID, typeID, err)
+			// Fall back to station storage: campaign hardware is often
+			// ferried in by the owner rather than sold on a lawless market.
+			if werr := b.Raw("withdraw_items", map[string]any{"item_id": typeID, "quantity": 1}); werr != nil {
+				b.logger.Printf("%s: withdraw %s from storage also failed: %v (install may still find cargo)", b.agentID, typeID, werr)
+			}
 		}
 		if err := b.Raw("install_mod", map[string]any{"module_id": typeID}); err != nil {
 			return err
