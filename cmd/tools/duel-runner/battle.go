@@ -37,9 +37,19 @@ var ringOf = map[string]int{"engaged": 0, "inner": 1, "mid": 2, "outer": 3}
 // battleGone reports whether an order failed because the battle is already
 // over (both sides escaped/disengaged) — a terminal outcome, not an error.
 // Measured live: the server answers a post-battle stance order with
-// "You are not in a battle. Use attack to engage a target."
+// "You are not in a battle. Use attack to engage a target." When a side
+// escapes on the very tick an order is in flight, the battle ends before
+// the server replies and the order instead times out ("timeout waiting
+// for battle"); that is the same terminal condition, not a real failure,
+// so treat it as battle-gone rather than aborting the (already-recorded)
+// duel.
 func battleGone(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "not in a battle")
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "not in a battle") ||
+		strings.Contains(msg, "timeout waiting for battle")
 }
 
 // applyOrders issues the phase's stance for one side and, when a ring hold
