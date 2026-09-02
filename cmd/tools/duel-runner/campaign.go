@@ -54,16 +54,19 @@ func (p Phase) HoldB() *int {
 
 // Duel is one scenario entry; it runs Repeats times.
 type Duel struct {
-	ID          string  `json:"id"`
-	Purpose     string  `json:"purpose"`
-	Attacker    string  `json:"attacker"`
-	Guest       string  `json:"guest,omitempty"` // replaces bot B when set (S6c)
-	FitA        FitSpec `json:"fit_a"`
-	FitB        FitSpec `json:"fit_b"`
-	Script      []Phase `json:"script"`
-	MaxTicks    int     `json:"max_ticks"`
-	Repeats     int     `json:"repeats"`
-	ReloadEvery int     `json:"reload_every,omitempty"` // reload every N ticks (0 = no reload)
+	ID       string  `json:"id"`
+	Purpose  string  `json:"purpose"`
+	Attacker string  `json:"attacker"`
+	Guest    string  `json:"guest,omitempty"` // replaces bot B when set (S6c)
+	FitA     FitSpec `json:"fit_a"`
+	FitB     FitSpec `json:"fit_b"`
+	Script   []Phase `json:"script"`
+	MaxTicks int     `json:"max_ticks"`
+	// RequireFull makes preflight wait for full shield+hull pools (regen
+	// and armor-law scenarios need clean starting state).
+	RequireFull bool `json:"require_full,omitempty"`
+	Repeats     int  `json:"repeats"`
+	ReloadEvery int  `json:"reload_every,omitempty"` // reload every N ticks (0 = no reload)
 }
 
 // Campaign is the whole scenario matrix plus its geography.

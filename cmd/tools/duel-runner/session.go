@@ -385,3 +385,43 @@ func (b *Bot) Dock(poi string) error {
 }
 
 func (b *Bot) Undock() error { return b.Raw("undock", nil) }
+
+// WaitReady polls get_ship until shield and hull both read full (or the
+// budget runs out), issuing a station "repair" once if hull is short.
+// Scenarios that measure regen (S4/S5) or per-volley hull damage (S7)
+// need full pools at tick one; hit-table scenarios do not care.
+func (b *Bot) WaitReady(maxPolls int) error {
+	repaired := false
+	for i := range maxPolls {
+		if err := b.Raw("get_ship", nil); err != nil {
+			return err
+		}
+		var st struct {
+			Ship struct {
+				Hull      float64 `json:"hull"`
+				MaxHull   float64 `json:"max_hull"`
+				Shield    float64 `json:"shield"`
+				MaxShield float64 `json:"max_shield"`
+			} `json:"ship"`
+		}
+		if err := json.Unmarshal(b.client.GetRawJSON("ship"), &st); err != nil {
+			return fmt.Errorf("%s: parse get_ship: %w", b.agentID, err)
+		}
+		if st.Ship.Shield >= st.Ship.MaxShield && st.Ship.Hull >= st.Ship.MaxHull {
+			return nil
+		}
+		if st.Ship.Hull < st.Ship.MaxHull && !repaired {
+			repaired = true
+			if err := b.Raw("repair", nil); err != nil {
+				b.logger.Printf("%s: repair: %v", b.agentID, err)
+			}
+			continue
+		}
+		if i%10 == 0 {
+			b.logger.Printf("%s: waiting for full pools (hull %.0f/%.0f shield %.0f/%.0f)",
+				b.agentID, st.Ship.Hull, st.Ship.MaxHull, st.Ship.Shield, st.Ship.MaxShield)
+		}
+		time.Sleep(game.SleepTick)
+	}
+	return fmt.Errorf("%s: pools not full after %d polls", b.agentID, maxPolls)
+}
