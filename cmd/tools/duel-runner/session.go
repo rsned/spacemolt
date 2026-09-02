@@ -355,21 +355,22 @@ func (b *Bot) EnsureFit(fit FitSpec) error {
 	return nil
 }
 
-// ammoStockQty is how many ammo units to put on board per weapon in
-// preflight. A hit-table duel fires ~1 volley/tick for ~20 ticks and a
-// magazine holds only a few rounds, so a single unit runs dry after a
-// couple of volleys (observed: S1-odd-ring5 fired 3 shots then
-// no_ammo_in_cargo, leaving too few range-5 samples). Stock a full
-// battle's worth up front; the owner ferries boxes into storage in bulk.
-const ammoStockQty = 20
+// ammoStockQty is how many ammo units to top up to per weapon in
+// preflight. It only has to cover a handful of shots: the raw battle log
+// records the server's exact hit_chance on every shot, so a few volleys
+// pin the value -- no need to sustain fire for statistics. Keep it small
+// so one scenario does not drain a bot's whole storage stack and starve
+// the next (observed: stocking 20 emptied battle_bot1's 20 rounds boxes
+// in one duel, aborting the following one).
+const ammoStockQty = 6
 
-// EnsureAmmo puts a battle's worth of ammo (ammoStockQty units) on board
-// for each weapon in fit.Ammo, buying if possible (with fallback to
-// withdraw from storage), then reloading all cached weapon instances with
-// their ammo. Errors on buy and withdraw are logged non-fatally if either
-// succeeds; if both fail, a hard error is returned naming the ammo item.
-// Reload errors within the same ammo type are logged non-fatally (a full
-// magazine errors harmlessly).
+// EnsureAmmo tops up ammoStockQty units of ammo on board for each weapon
+// in fit.Ammo, buying if possible (with fallback to withdraw from storage,
+// down to whatever storage holds), then reloading all cached weapon
+// instances. Every step is non-fatal: if neither market nor storage can
+// supply more, the bot fights with whatever is already in cargo, and a
+// reload against a full or empty magazine is logged and skipped. An
+// ammo-starved scenario yields a short measurement, never an aborted run.
 func (b *Bot) EnsureAmmo(fit FitSpec) error {
 	if len(fit.Ammo) == 0 {
 		return nil
@@ -395,11 +396,15 @@ func (b *Bot) EnsureAmmo(fit FitSpec) error {
 			if withdrawErr == nil {
 				b.logger.Printf("%s: withdrew ammo %s for weapon %s from storage", b.agentID, ammoItem, weaponType)
 			} else {
-				b.logger.Printf("%s: withdraw ammo %s also failed: %v", b.agentID, ammoItem, withdrawErr)
-				if buyErr != nil && withdrawErr != nil {
-					return fmt.Errorf("%s: could not obtain ammo %s for weapon %s (buy and withdraw both failed)",
-						b.agentID, ammoItem, weaponType)
-				}
+				// Neither market nor storage could supply more. Non-fatal:
+				// the bot may still hold rounds in cargo from a prior scenario
+				// (the reload below uses cargo), and even an ammo-starved
+				// scenario should produce whatever shots it can rather than
+				// aborting the whole batch. A truly empty magazine just yields
+				// a short/empty measurement, which the exact-hit_chance log
+				// still captures for any shot that does fire.
+				b.logger.Printf("%s: could not restock ammo %s (buy+withdraw failed); relying on cargo on hand: %v",
+					b.agentID, ammoItem, withdrawErr)
 			}
 		}
 		// Reload all instances of this weapon type with the ammo.
