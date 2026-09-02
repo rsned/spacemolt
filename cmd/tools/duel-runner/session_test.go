@@ -74,3 +74,20 @@ func TestResetBattleTrackingClearsStaleEnded(t *testing.T) {
 		t.Errorf("after ResetBattleTracking, a not-yet-in-battle poll must not read as ended")
 	}
 }
+
+func TestParseAvailable(t *testing.T) {
+	cases := []struct {
+		msg  string
+		want int
+	}{
+		{"battle_bot2 withdraw_items: insufficient_storage: Storage only has 4 x standard_guided_missiles. Use 'view_storage' to check.", 4},
+		{"Storage only has 20 x standard_rounds_box.", 20},
+		{"some unrelated error with no count", 0},
+		{"", 0},
+	}
+	for _, c := range cases {
+		if got := parseAvailable(c.msg); got != c.want {
+			t.Errorf("parseAvailable(%q) = %d, want %d", c.msg, got, c.want)
+		}
+	}
+}

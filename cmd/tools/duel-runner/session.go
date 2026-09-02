@@ -5,11 +5,31 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 )
+
+// storageCountRe pulls the available quantity out of a withdraw_items
+// insufficient_storage error ("Storage only has 4 x standard_guided_missiles").
+var storageCountRe = regexp.MustCompile(`only has (\d+)`)
+
+// parseAvailable returns the quantity named in an insufficient_storage
+// error, or 0 if none is found.
+func parseAvailable(errMsg string) int {
+	m := storageCountRe.FindStringSubmatch(errMsg)
+	if m == nil {
+		return 0
+	}
+	n, err := strconv.Atoi(m[1])
+	if err != nil {
+		return 0
+	}
+	return n
+}
 
 // Bot wraps a logged-in client as a duel `side` plus the out-of-battle
 // logistics the campaign needs (refit, travel, recovery).
@@ -362,6 +382,16 @@ func (b *Bot) EnsureAmmo(fit FitSpec) error {
 		} else {
 			b.logger.Printf("%s: buy ammo %s failed: %v (trying withdraw)", b.agentID, ammoItem, buyErr)
 			withdrawErr := b.Raw("withdraw_items", map[string]any{"item_id": ammoItem, "quantity": ammoStockQty})
+			if withdrawErr != nil {
+				// withdraw_items hard-fails (insufficient_storage) rather than
+				// partial-filling when asked for more than storage holds. Pull
+				// whatever IS there instead of aborting the duel -- the count
+				// is in the error text ("Storage only has N x ...").
+				if avail := parseAvailable(withdrawErr.Error()); avail > 0 {
+					b.logger.Printf("%s: only %d %s in storage, withdrawing that", b.agentID, avail, ammoItem)
+					withdrawErr = b.Raw("withdraw_items", map[string]any{"item_id": ammoItem, "quantity": avail})
+				}
+			}
 			if withdrawErr == nil {
 				b.logger.Printf("%s: withdrew ammo %s for weapon %s from storage", b.agentID, ammoItem, weaponType)
 			} else {
