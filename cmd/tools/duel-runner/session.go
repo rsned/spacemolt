@@ -397,6 +397,13 @@ func (b *Bot) Dock(poi string) error {
 
 func (b *Bot) Undock() error { return b.Raw("undock", nil) }
 
+// Refuel tops off the tank at the current station. Each duel spans two
+// jumps plus arena manoeuvring, so a bot that is never refuelled slowly
+// drains and eventually strands itself in the arena with too little fuel
+// to jump back to staging (observed: battle_bot2 hit 0 in ashford). Call
+// it in preflight while docked at staging; harmless when already full.
+func (b *Bot) Refuel() error { return b.Raw("refuel", nil) }
+
 // WaitReady polls get_ship until shield and hull both read full (or the
 // budget runs out), issuing a station "repair" once if hull is short.
 // Scenarios that measure regen (S4/S5) or per-volley hull damage (S7)

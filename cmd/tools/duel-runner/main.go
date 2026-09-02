@@ -146,6 +146,14 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 		if err := bot.Dock(camp.StagingStation); err != nil && !strings.Contains(err.Error(), "already docked") {
 			logger.Printf("%s staging dock: %v (may already be docked)", bot.Name(), err)
 		}
+		// Top off while docked: a duel burns fuel over two jumps plus arena
+		// manoeuvring, and an un-refuelled bot eventually strands itself in
+		// the arena with too little fuel to return. Non-fatal -- a bot that
+		// failed the staging dock (e.g. already stranded) just can't refuel
+		// here.
+		if err := bot.Refuel(); err != nil {
+			logger.Printf("%s refuel: %v (continuing)", bot.Name(), err)
+		}
 		fit := d.FitA
 		if bot != a {
 			fit = d.FitB
