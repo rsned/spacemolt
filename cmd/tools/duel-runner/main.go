@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -128,74 +129,95 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 	// push arrives.
 	a.ResetBattleTracking()
 	b.ResetBattleTracking()
-	// Preflight: give each non-guest bot the correct fit, then put everyone
-	// in the arena. The bots deal no real damage in calibration duels, and
-	// attack works from anywhere in the arena system, so the staging
-	// round-trip is pure overhead EXCEPT when a bot actually needs something
-	// only a station provides: a fit change, ammo, or a full-pool repair.
-	// Skip staging whenever none of those apply -- most consecutive duels
-	// reuse the same fit and can fight in place with zero jumps. A duel's
-	// guest (e.g. S6c's craftsman-1) keeps their own ship/fit, so it never
-	// visits staging at all.
-	for _, bot := range []*Bot{a, b} {
-		if d.Guest != "" && bot.Name() == d.Guest {
+	// Preflight: bring each side to its correct fit and into the arena. Each
+	// bot drives its own game session, so the two sides prep CONCURRENTLY --
+	// when both need a staging refit their round-trips overlap instead of
+	// stacking, and a bot that can skip staging doesn't idle while the other
+	// refits. Barrier on both before the attack.
+	fitFor := func(bot *Bot) FitSpec {
+		if bot == a {
+			return d.FitA
+		}
+		return d.FitB
+	}
+	prep := func(bot *Bot) error {
+		// The bots deal no real damage and attack works from anywhere in the
+		// arena system, so the staging round-trip is pure overhead EXCEPT
+		// when a bot needs something only a station provides: a fit change,
+		// ammo, or a full-pool repair. A duel's guest keeps their own
+		// ship/fit and never visits staging.
+		isGuest := d.Guest != "" && bot.Name() == d.Guest
+		if isGuest {
 			logger.Printf("%s: guest side for %s, skipping refit (keeps own fit)", bot.Name(), d.ID)
-			continue
-		}
-		fit := d.FitA
-		if bot != a {
-			fit = d.FitB
-		}
-		needsFit, err := bot.NeedsFit(fit)
-		if err != nil {
-			return rec, err
-		}
-		needStaging := d.RequireFull || len(fit.Ammo) > 0 || needsFit
-		if !needStaging {
-			logger.Printf("%s: fit already current, no ammo/repair needed -- skipping staging", bot.Name())
-			continue
-		}
-		// Refits require a dock: get the bot to the staging station first,
-		// tolerating every already-there condition (a prior run's recovery
-		// may have failed any leg of the trip quietly).
-		if err := bot.Jump(camp.StagingSystem); err != nil && !strings.Contains(err.Error(), "already in") {
-			logger.Printf("%s staging jump: %v (continuing)", bot.Name(), err)
-		}
-		if err := bot.Dock(camp.StagingStation); err != nil && !strings.Contains(err.Error(), "already docked") {
-			logger.Printf("%s staging dock: %v (may already be docked)", bot.Name(), err)
-		}
-		// Top off while docked: the staging detour itself costs fuel, and an
-		// un-refuelled bot eventually strands itself with too little fuel to
-		// return. Non-fatal -- a bot that failed the staging dock (e.g.
-		// already stranded) just can't refuel here.
-		if err := bot.Refuel(); err != nil {
-			logger.Printf("%s refuel: %v (continuing)", bot.Name(), err)
-		}
-		if err := bot.EnsureFit(fit); err != nil {
-			return rec, err
-		}
-		if err := bot.EnsureAmmo(fit); err != nil {
-			return rec, err
-		}
-		if d.RequireFull {
-			if err := bot.WaitReady(60); err != nil {
-				return rec, err
+		} else {
+			fit := fitFor(bot)
+			needsFit, err := bot.NeedsFit(fit)
+			if err != nil {
+				return err
+			}
+			if d.RequireFull || len(fit.Ammo) > 0 || needsFit {
+				// Refits require a dock: get the bot to the staging station
+				// first, tolerating every already-there condition (a prior
+				// run's recovery may have failed any leg of the trip).
+				if err := bot.Jump(camp.StagingSystem); err != nil && !strings.Contains(err.Error(), "already in") {
+					logger.Printf("%s staging jump: %v (continuing)", bot.Name(), err)
+				}
+				if err := bot.Dock(camp.StagingStation); err != nil && !strings.Contains(err.Error(), "already docked") {
+					logger.Printf("%s staging dock: %v (may already be docked)", bot.Name(), err)
+				}
+				// Top off while docked: the detour itself costs fuel, and an
+				// un-refuelled bot eventually strands itself. Non-fatal.
+				if err := bot.Refuel(); err != nil {
+					logger.Printf("%s refuel: %v (continuing)", bot.Name(), err)
+				}
+				if err := bot.EnsureFit(fit); err != nil {
+					return err
+				}
+				if err := bot.EnsureAmmo(fit); err != nil {
+					return err
+				}
+				if d.RequireFull {
+					if err := bot.WaitReady(60); err != nil {
+						return err
+					}
+				}
+			} else {
+				logger.Printf("%s: fit already current, no ammo/repair needed -- skipping staging", bot.Name())
 			}
 		}
-	}
-	for _, bot := range []*Bot{a, b} {
+		// Into the arena. Idempotent: a bot already there (survivor of the
+		// last duel, or one that skipped staging) just reports "already in".
 		if err := bot.Undock(); err != nil {
 			logger.Printf("%s undock: %v (may already be in space)", bot.Name(), err)
 		}
 		if err := bot.Jump(camp.ArenaSystem); err != nil {
-			// Idempotent preflight: a bot left in the arena by an aborted
-			// run is already where it needs to be.
 			if strings.Contains(err.Error(), "already in") {
 				logger.Printf("%s: already in the arena", bot.Name())
 			} else {
-				return rec, err
+				return err
 			}
 		}
+		return nil
+	}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var prepErr error
+	for _, bot := range []*Bot{a, b} {
+		wg.Add(1)
+		go func(bot *Bot) {
+			defer wg.Done()
+			if err := prep(bot); err != nil {
+				mu.Lock()
+				if prepErr == nil {
+					prepErr = fmt.Errorf("%s preflight: %w", bot.Name(), err)
+				}
+				mu.Unlock()
+			}
+		}(bot)
+	}
+	wg.Wait()
+	if prepErr != nil {
+		return rec, prepErr
 	}
 	attacker, defender := a, b
 	if d.Attacker == b.Name() {
