@@ -340,6 +340,26 @@ type AdvanceResponse struct {
 	Message string `json:"message"`
 }
 
+// StanceResponse wraps the response from the battle "stance" sub-action — the
+// move that sets how you trade damage this tick. Like retreat and advance, the
+// reply echoes the SUB-action ("stance"), not "battle", which is why it needs
+// its own entry in actionResponseTypes.
+//
+// Unlike its siblings it carries a third field: Stance echoes the stance now in
+// effect, so a caller can confirm the change landed without a follow-up
+// get_battle_status (which reports stance for yourself only).
+//
+// Known values are "fire" (stance_mult 1, full damage both ways), "brace"
+// (incoming x0.25 but ZERO outgoing — useful only for unarmed hulls, which give
+// up nothing) and "flee". Observed live 2026-09-02:
+// {"action":"stance","message":"Firing weapons at target. Full damage dealt and
+// received.","stance":"fire"}
+type StanceResponse struct {
+	Action  string `json:"action"`
+	Message string `json:"message"`
+	Stance  string `json:"stance"`
+}
+
 // ViewMarketResponse wraps the response from view_market command.
 type ViewMarketResponse struct {
 	Action      string           `json:"action"`

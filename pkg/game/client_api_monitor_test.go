@@ -231,3 +231,31 @@ func TestListActionUnionCoversFacilityAndShipping(t *testing.T) {
 		t.Error("union must not accept fields absent from every registered struct")
 	}
 }
+
+// TestExpectedFieldsForAction_Stance pins the live payload that the API monitor
+// flagged on 2026-09-02:
+//
+//	{"action":"stance","message":"Firing weapons at target. Full damage dealt
+//	 and received.","stance":"fire"}
+//
+// "stance" is a battle SUB-action whose reply echoes the sub-action rather than
+// "battle", so — like retreat and advance — it needs its own actionResponseTypes
+// entry or every stance change logs an unhandled-action warning. Unlike those
+// two it carries a third field, so a bare {action,message} struct would still
+// warn on "stance".
+func TestExpectedFieldsForAction_Stance(t *testing.T) {
+	actionFieldsCache.Range(func(key, _ any) bool {
+		actionFieldsCache.Delete(key)
+		return true
+	})
+
+	fields, known := expectedFieldsForAction("stance")
+	if !known {
+		t.Fatal("stance should be a known action")
+	}
+	for _, f := range []string{"action", "message", "stance"} {
+		if !fields[f] {
+			t.Errorf("expected %q in the stance response fields", f)
+		}
+	}
+}

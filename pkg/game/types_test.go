@@ -311,3 +311,58 @@ func TestStateClone_Independence(t *testing.T) {
 		t.Error("Clone mutation leaked to original TravelProgress")
 	}
 }
+
+// TestStateClone_DeepCopiesShipCargo pins the aliasing bug that made deposit_all
+// skip items. Clone() copies Ship by value, so before this fix Ship.Cargo — a
+// slice — shared its backing array with live state. removeShipCargo() compacts
+// that array IN PLACE (`kept := c.state.Ship.Cargo[:0]`), so every deposit
+// shifted the caller's snapshot left underneath it: DepositAllItems ranged over
+// a 5-item header while the contents slid, visiting items 0, 2, 4 and then
+// reading two stale tail entries. Live 2026-09-02 on battle_bot1, which left
+// missile_launcher_i and standard_rounds_box in the hold while reporting
+// "3 successful, 0 failed".
+func TestStateClone_DeepCopiesShipCargo(t *testing.T) {
+	original := &State{
+		Ship: Ship{
+			Cargo: []CargoItem{
+				{ItemID: "pulse_laser_i", Quantity: 3},
+				{ItemID: "missile_launcher_i", Quantity: 2},
+				{ItemID: "autocannon_i", Quantity: 2},
+				{ItemID: "standard_rounds_box", Quantity: 19},
+				{ItemID: "afterburner_ii", Quantity: 1},
+			},
+			Modules: []string{"shield_i", "cargo_expander_i"},
+		},
+	}
+	snapshot := original.Clone()
+
+	// Simulate removeShipCargo's in-place compaction of the LIVE hold: drop the
+	// head entry by rewriting the same backing array.
+	kept := original.Ship.Cargo[:0]
+	for _, item := range original.Ship.Cargo {
+		if item.ItemID == "pulse_laser_i" {
+			continue
+		}
+		kept = append(kept, item)
+	}
+	original.Ship.Cargo = kept
+
+	want := []string{
+		"pulse_laser_i", "missile_launcher_i", "autocannon_i",
+		"standard_rounds_box", "afterburner_ii",
+	}
+	if len(snapshot.Ship.Cargo) != len(want) {
+		t.Fatalf("snapshot cargo length = %d, want %d", len(snapshot.Ship.Cargo), len(want))
+	}
+	for i, id := range want {
+		if got := snapshot.Ship.Cargo[i].ItemID; got != id {
+			t.Errorf("snapshot.Ship.Cargo[%d].ItemID = %q, want %q (live compaction shifted the clone)", i, got, id)
+		}
+	}
+
+	// Modules is a slice on the same value-copied struct and aliases the same way.
+	original.Ship.Modules[0] = "MUTATED"
+	if snapshot.Ship.Modules[0] != "shield_i" {
+		t.Errorf("snapshot.Ship.Modules[0] = %q, want %q", snapshot.Ship.Modules[0], "shield_i")
+	}
+}

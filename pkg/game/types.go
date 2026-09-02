@@ -593,6 +593,25 @@ func (s *State) Clone() *State {
 	nearbyCopy := make([]NearbyPlayer, len(s.Nearby))
 	copy(nearbyCopy, s.Nearby)
 
+	// Ship is copied by value below, which duplicates its scalar fields but
+	// leaves its slices aliased to the live state — and the client mutates the
+	// hold IN PLACE (removeShipCargo compacts with `Cargo[:0]`), so a caller
+	// iterating a "snapshot" would watch its own contents shift left underneath
+	// it. That is exactly what made deposit_all visit items 0, 2, 4 of a 5-item
+	// hold and then read stale tail entries. Copy them out explicitly.
+	//
+	// Both preserve nil-ness: a nil hold must clone as nil, not as an empty
+	// slice, or reflect.DeepEqual comparisons against a fresh Ship stop matching.
+	shipCopy := s.Ship
+	if s.Ship.Cargo != nil {
+		shipCopy.Cargo = make([]CargoItem, len(s.Ship.Cargo))
+		copy(shipCopy.Cargo, s.Ship.Cargo)
+	}
+	if s.Ship.Modules != nil {
+		shipCopy.Modules = make([]string, len(s.Ship.Modules))
+		copy(shipCopy.Modules, s.Ship.Modules)
+	}
+
 	cloned := &State{
 		Username:        s.Username,
 		Password:        s.Password,
@@ -614,7 +633,7 @@ func (s *State) Clone() *State {
 		LastPrizeUpdate: s.LastPrizeUpdate,
 		ServerTimestamp: s.ServerTimestamp,
 		Player:          s.Player,
-		Ship:            s.Ship,
+		Ship:            shipCopy,
 		System: SystemData{
 			ID:              s.System.ID,
 			Name:            s.System.Name,
