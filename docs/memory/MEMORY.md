@@ -201,7 +201,7 @@
 - [Overmind launch commands](reference_overmind_launch_commands.md) — all fleets; `rm -f` stale socks; /proc scan not `pgrep -f`; relaunch market-prune too
 - ⭐ [fleet-watch health watcher](reference_fleet_watch.md) — alerts on log SILENCE + daemon census; relaunch with the fleets. Logs ~20GB unrotated
 - [Pending rollout queue](project_pending_rollout_queue.md) — what is deployed per fleet; haul is the one left behind
-- ⭐ [Park an agent: quiesce.json](reference_worker_quiesce_park.md) — survives restarts; `admin remove` force-kills after 4min
+- ⭐🔴 [Park an agent: quiesce.json](reference_worker_quiesce_park.md) — survives restarts; a park does NOT free the game session (play_as needs roster removal + SIGHUP)
 - [Graceful drain](project_overmind_graceful_drain.md) — SIGUSR1/USR2/TERM
 - [Dynamic exit/join](project_fleet_pool_dynamic_membership.md) — MERGED `8016cd8`
 - [Fleet manager](project_overmind_fleet_manager.md) — NEXT = Phase 2
