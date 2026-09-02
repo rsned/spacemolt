@@ -62,6 +62,17 @@ func (b *Bot) Close() { _ = b.client.Close() }
 
 func (b *Bot) Name() string { return b.agentID }
 
+// Username is the in-game player name from the server's own login state.
+// It can differ from the agent id (craftsman-1 plays as "Arthur
+// 'Artificer' Artis"), and attack's target_id resolves against it — an
+// agent id that isn't also the username yields "Target not in this
+// system" even with both ships in the arena.
+func (b *Bot) Username() string { return b.username }
+
+// PlayerID is the server's player id hash (get_nearby's player_id), the
+// canonical attack target_id. Empty only if login state never arrived.
+func (b *Bot) PlayerID() string { return b.client.GetState().Player.ID }
+
 // Raw issues a free-form command and waits for it to settle in the raw
 // response cache.
 func (b *Bot) Raw(cmd string, args map[string]any) error {

@@ -181,7 +181,12 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 	if d.Attacker == b.Name() {
 		attacker, defender = b, a
 	}
-	if err := attacker.Attack(defender.Name()); err != nil {
+	target := defender.PlayerID()
+	if target == "" {
+		target = defender.Username()
+	}
+	logger.Printf("%s attacking %s (player %q, target_id %q)", attacker.Name(), defender.Name(), defender.Username(), target)
+	if err := attacker.Attack(target); err != nil {
 		return rec, err
 	}
 	res, err := runDuel(a, b, d, func() { time.Sleep(game.SleepQuick) }, logger)
