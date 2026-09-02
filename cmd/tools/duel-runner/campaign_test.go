@@ -132,18 +132,66 @@ func TestPhaseHoldFallsBackToSharedHoldRing(t *testing.T) {
 
 func TestLoadCampaignRejectsBadInput(t *testing.T) {
 	cases := map[string]string{
-		"empty duels":    `{"arena_system":"a","staging_station":"s","duels":[]}`,
-		"no id":          `{"arena_system":"a","staging_station":"s","duels":[{"attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]}]}`,
-		"bad stance":     `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"charge","stance_b":"fire"}]}]}`,
-		"no script":      `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1}]}`,
-		"zero max_ticks": `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":0,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]}]}`,
-		"dup id":         `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]},{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]}]}`,
-		"bad hold_ring_a": `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire","hold_ring_a":4}]}]}`,
-		"bad hold_ring_b": `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire","hold_ring_b":-1}]}]}`,
+		"empty duels":           `{"arena_system":"a","staging_station":"s","duels":[]}`,
+		"no id":                 `{"arena_system":"a","staging_station":"s","duels":[{"attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]}]}`,
+		"bad stance":            `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"charge","stance_b":"fire"}]}]}`,
+		"no script":             `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1}]}`,
+		"zero max_ticks":        `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":0,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]}]}`,
+		"dup id":                `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]},{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]}]}`,
+		"bad hold_ring_a":       `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire","hold_ring_a":4}]}]}`,
+		"bad hold_ring_b":       `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire","hold_ring_b":-1}]}]}`,
+		"negative reload_every": `{"arena_system":"a","staging_station":"s","duels":[{"id":"d","attacker":"x","max_ticks":5,"repeats":1,"reload_every":-1,"script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}]}]}`,
 	}
 	for name, body := range cases {
 		if _, err := LoadCampaign(writeCampaign(t, body)); err == nil {
 			t.Errorf("%s: want error, got nil", name)
 		}
+	}
+}
+
+const ammoReloadCampaign = `{
+  "arena_system": "gsc_test",
+  "staging_system": "sys_x",
+  "staging_station": "station_x",
+  "duels": [{
+    "id": "S2-ammo",
+    "purpose": "test ammo and reload",
+    "attacker": "battle_bot1",
+    "fit_a": {
+      "hull": "prospect",
+      "modules": ["missile_launcher_i"],
+      "ammo": {"missile_launcher_i": "missile_standard"}
+    },
+    "fit_b": {
+      "hull": "prospect",
+      "modules": ["missile_launcher_i"],
+      "ammo": {"missile_launcher_i": "missile_standard"}
+    },
+    "script": [
+      {"from_tick": 1, "stance_a": "fire", "stance_b": "fire"}
+    ],
+    "max_ticks": 20,
+    "repeats": 1,
+    "reload_every": 3
+  }]
+}`
+
+func TestLoadCampaignParsesAmmoAndReloadEvery(t *testing.T) {
+	c, err := LoadCampaign(writeCampaign(t, ammoReloadCampaign))
+	if err != nil {
+		t.Fatalf("LoadCampaign: %v", err)
+	}
+	d := c.Duels[0]
+	if d.ReloadEvery != 3 {
+		t.Errorf("reload_every not parsed: %d, want 3", d.ReloadEvery)
+	}
+	if len(d.FitA.Ammo) == 0 {
+		t.Fatalf("FitA.Ammo not parsed: %+v", d.FitA.Ammo)
+	}
+	if ammo := d.FitA.Ammo["missile_launcher_i"]; ammo != "missile_standard" {
+		t.Errorf("FitA ammo for missile_launcher_i = %q, want missile_standard", ammo)
+	}
+	if ammo := d.FitB.Ammo["missile_launcher_i"]; ammo != "missile_standard" {
+		t.Errorf("FitB ammo for missile_launcher_i = %q, want missile_standard", ammo)
 	}
 }

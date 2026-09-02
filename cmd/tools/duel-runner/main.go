@@ -144,6 +144,10 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 		if err := bot.EnsureFit(fit); err != nil {
 			return rec, err
 		}
+		// Ensure ammo is on board if needed.
+		if err := bot.EnsureAmmo(fit); err != nil {
+			return rec, err
+		}
 	}
 	for _, bot := range []*Bot{a, b} {
 		if err := bot.Undock(); err != nil {

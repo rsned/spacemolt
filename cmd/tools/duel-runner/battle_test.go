@@ -10,7 +10,7 @@ type fakeSide struct {
 	name    string
 	views   []BattleView // consumed one per View() call; last repeats
 	i       int
-	actions []string // "stance:fire", "advance", "retreat"
+	actions []string // "stance:fire", "advance", "retreat", "reload"
 }
 
 func (f *fakeSide) Name() string { return f.name }
@@ -20,6 +20,10 @@ func (f *fakeSide) Battle(action string, kv map[string]any) error {
 	} else {
 		f.actions = append(f.actions, action)
 	}
+	return nil
+}
+func (f *fakeSide) Reload() error {
+	f.actions = append(f.actions, "reload")
 	return nil
 }
 func (f *fakeSide) View() (BattleView, bool) {
@@ -173,5 +177,54 @@ func TestRunDuelMaxTicksOrdersFleeOut(t *testing.T) {
 	}
 	if !sawFlee {
 		t.Errorf("past MaxTicks the loop must flee out: %v", a.actions)
+	}
+}
+
+func TestRunDuelReloadEveryTickTrigger(t *testing.T) {
+	// ReloadEvery=2 produces reload actions at ticks 2, 4 (multiples of 2
+	// while in fire stance), then no more after script switches to flee at tick 5.
+	views := append(mkViews(4, "outer", 2)[:4],
+		BattleView{BattleID: "bx", Tick: 5, MyZone: "outer", ParticipantCount: 2},
+		BattleView{BattleID: "bx", Tick: 6, MyZone: "outer", ParticipantCount: 2},
+		BattleView{BattleID: "bx", Tick: 7, Ended: true, Outcome: "stalemate", ParticipantCount: 2})
+	a := &fakeSide{name: "A", views: views}
+	b := &fakeSide{name: "B", views: views}
+	d := Duel{ID: "t", Attacker: "A", MaxTicks: 10, ReloadEvery: 2,
+		Script: []Phase{
+			{FromTick: 1, StanceA: "fire", StanceB: "fire"},
+			{FromTick: 5, StanceA: "flee", StanceB: "flee"},
+		}}
+	res, err := runDuel(a, b, d, func() {}, testLogger())
+	if err != nil {
+		t.Fatalf("runDuel: %v", err)
+	}
+	if res.Outcome != "stalemate" || res.Void {
+		t.Errorf("result = %+v", res)
+	}
+
+	// Count reloads before and after the flee stance.
+	reloadBeforeFlee := 0
+	reloadAfterFlee := false
+	sawFlee := false
+	for _, act := range a.actions {
+		if act == "stance:flee" {
+			sawFlee = true
+		}
+		if act == "reload" {
+			if sawFlee {
+				reloadAfterFlee = true
+			} else {
+				reloadBeforeFlee++
+			}
+		}
+	}
+
+	// Expect 2 reloads in fire stance (ticks 2, 4).
+	if reloadBeforeFlee != 2 {
+		t.Errorf("reloads while firing = %d, want 2: %v", reloadBeforeFlee, a.actions)
+	}
+	// No reloads should occur after the flee stance.
+	if reloadAfterFlee {
+		t.Errorf("no reloads should occur after flee stance: %v", a.actions)
 	}
 }

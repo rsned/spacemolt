@@ -11,8 +11,9 @@ import (
 
 // FitSpec is the exact hull + module list a bot must carry for a duel.
 type FitSpec struct {
-	Hull    string   `json:"hull"`
-	Modules []string `json:"modules"`
+	Hull    string            `json:"hull"`
+	Modules []string          `json:"modules"`
+	Ammo    map[string]string `json:"ammo,omitempty"` // weapon type_id -> ammo item_id
 }
 
 // Phase is one segment of a duel's stance script. HoldRing, when set,
@@ -53,15 +54,16 @@ func (p Phase) HoldB() *int {
 
 // Duel is one scenario entry; it runs Repeats times.
 type Duel struct {
-	ID       string  `json:"id"`
-	Purpose  string  `json:"purpose"`
-	Attacker string  `json:"attacker"`
-	Guest    string  `json:"guest,omitempty"` // replaces bot B when set (S6c)
-	FitA     FitSpec `json:"fit_a"`
-	FitB     FitSpec `json:"fit_b"`
-	Script   []Phase `json:"script"`
-	MaxTicks int     `json:"max_ticks"`
-	Repeats  int     `json:"repeats"`
+	ID          string  `json:"id"`
+	Purpose     string  `json:"purpose"`
+	Attacker    string  `json:"attacker"`
+	Guest       string  `json:"guest,omitempty"` // replaces bot B when set (S6c)
+	FitA        FitSpec `json:"fit_a"`
+	FitB        FitSpec `json:"fit_b"`
+	Script      []Phase `json:"script"`
+	MaxTicks    int     `json:"max_ticks"`
+	Repeats     int     `json:"repeats"`
+	ReloadEvery int     `json:"reload_every,omitempty"` // reload every N ticks (0 = no reload)
 }
 
 // Campaign is the whole scenario matrix plus its geography.
@@ -105,6 +107,9 @@ func LoadCampaign(path string) (*Campaign, error) {
 		}
 		if d.Repeats <= 0 {
 			return nil, fmt.Errorf("duel %q: repeats must be > 0", d.ID)
+		}
+		if d.ReloadEvery < 0 {
+			return nil, fmt.Errorf("duel %q: reload_every must be >= 0", d.ID)
 		}
 		if len(d.Script) == 0 {
 			return nil, fmt.Errorf("duel %q: empty script", d.ID)

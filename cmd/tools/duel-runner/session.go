@@ -24,6 +24,10 @@ type Bot struct {
 	// with InBattle==false means the battle ended.
 	seenBattle      bool
 	battleFirstSeen time.Time
+
+	// ammo tracking: cached after EnsureFit for use in Reload()
+	weaponInstances map[string][]string // type_id -> instance ids (weapons only)
+	ammoMap         map[string]string   // type_id -> ammo item_id
 }
 
 // settle mirrors battle-export: a reply lands in the raw cache ~2s after
@@ -270,11 +274,78 @@ func (b *Bot) EnsureFit(fit FitSpec) error {
 		return err
 	}
 	now := make([]string, 0, len(after.Modules))
+	afterByType := map[string][]string{}
 	for _, m := range after.Modules {
 		now = append(now, m.TypeID)
+		afterByType[m.TypeID] = append(afterByType[m.TypeID], m.ID)
 	}
 	if rem, inst := computeFitActions(now, fit.Modules); len(rem)+len(inst) > 0 {
 		return fmt.Errorf("%s: fit verify failed: extra=%v missing=%v", b.agentID, rem, inst)
+	}
+	// Cache weapon instances and ammo map for later use in Reload().
+	b.weaponInstances = afterByType
+	b.ammoMap = fit.Ammo
+	return nil
+}
+
+// EnsureAmmo ensures one ammo item is on board for each weapon in fit.Ammo,
+// buying if needed (with fallback to withdraw from storage), then reloading
+// all cached weapon instances with their ammo. Errors on buy and withdraw
+// are logged non-fatally if either succeeds; if both fail, a hard error is
+// returned naming the ammo item. Reload errors within the same ammo type are
+// logged non-fatally (a full magazine errors harmlessly).
+func (b *Bot) EnsureAmmo(fit FitSpec) error {
+	if len(fit.Ammo) == 0 {
+		return nil
+	}
+	for weaponType, ammoItem := range fit.Ammo {
+		// Ensure one ammo item is on board.
+		buyErr := b.Raw("buy", map[string]any{"item_id": ammoItem, "quantity": 1})
+		if buyErr == nil {
+			b.logger.Printf("%s: bought ammo %s for weapon %s", b.agentID, ammoItem, weaponType)
+		} else {
+			b.logger.Printf("%s: buy ammo %s failed: %v (trying withdraw)", b.agentID, ammoItem, buyErr)
+			withdrawErr := b.Raw("withdraw_items", map[string]any{"item_id": ammoItem, "quantity": 1})
+			if withdrawErr == nil {
+				b.logger.Printf("%s: withdrew ammo %s for weapon %s from storage", b.agentID, ammoItem, weaponType)
+			} else {
+				b.logger.Printf("%s: withdraw ammo %s also failed: %v", b.agentID, ammoItem, withdrawErr)
+				if buyErr != nil && withdrawErr != nil {
+					return fmt.Errorf("%s: could not obtain ammo %s for weapon %s (buy and withdraw both failed)",
+						b.agentID, ammoItem, weaponType)
+				}
+			}
+		}
+		// Reload all instances of this weapon type with the ammo.
+		if instances, ok := b.weaponInstances[weaponType]; ok {
+			for _, inst := range instances {
+				if err := b.Raw("reload", map[string]any{"weapon_instance_id": inst, "ammo_item_id": ammoItem}); err != nil {
+					b.logger.Printf("%s: reload weapon %s instance %s: %v", b.agentID, weaponType, inst, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// Reload reloads all cached weapon instances using the cached ammo map
+// (called from within a battle). Returns the first error whose message
+// contains "not in a battle" and logs other errors non-fatally.
+func (b *Bot) Reload() error {
+	if b.weaponInstances == nil || b.ammoMap == nil {
+		return nil
+	}
+	for weaponType, ammoItem := range b.ammoMap {
+		if instances, ok := b.weaponInstances[weaponType]; ok {
+			for _, inst := range instances {
+				if err := b.Raw("reload", map[string]any{"weapon_instance_id": inst, "ammo_item_id": ammoItem}); err != nil {
+					if strings.Contains(err.Error(), "not in a battle") {
+						return err
+					}
+					b.logger.Printf("%s: mid-battle reload weapon %s instance %s: %v", b.agentID, weaponType, inst, err)
+				}
+			}
+		}
 	}
 	return nil
 }

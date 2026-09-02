@@ -21,6 +21,7 @@ type BattleView struct {
 type side interface {
 	Name() string
 	Battle(action string, kv map[string]any) error
+	Reload() error
 	View() (BattleView, bool)
 }
 
@@ -117,6 +118,28 @@ func runDuel(a, b side, d Duel, wait func(), logger *log.Logger) (duelResult, er
 					return res, nil
 				}
 				return res, fmt.Errorf("side B orders: %w", err)
+			}
+		}
+		// Reload logic: trigger on every tick where tick % reload_every == 0,
+		// but only if not voided and not fleeing.
+		if d.ReloadEvery > 0 && va.Tick > 0 && va.Tick%d.ReloadEvery == 0 {
+			if !voided && stanceA != "flee" {
+				if err := a.Reload(); err != nil {
+					if battleGone(err) {
+						res.Outcome, res.Void = "ended", voided
+						return res, nil
+					}
+					logger.Printf("duel %s: side A reload: %v", d.ID, err)
+				}
+			}
+			if okB && !voided && stanceB != "flee" {
+				if err := b.Reload(); err != nil {
+					if battleGone(err) {
+						res.Outcome, res.Void = "ended", voided
+						return res, nil
+					}
+					logger.Printf("duel %s: side B reload: %v", d.ID, err)
+				}
 			}
 		}
 		wait()
