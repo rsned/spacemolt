@@ -93,13 +93,25 @@ func main() {
 		if r.duel.Guest != "" {
 			g, ok := guests[r.duel.Guest]
 			if !ok {
-				// Same 36s session-contention window as the startup logins.
-				time.Sleep(2 * game.SleepLong)
-				g, err = Login(ctx, r.duel.Guest, logger)
-				if err != nil {
-					logger.Fatal(err)
+				switch {
+				case botB.Name() == r.duel.Guest:
+					// The guest is already logged in as side B (e.g. run with
+					// --b <guest>). Reuse that session -- logging the same
+					// agent in a second time replace-wars with the first and
+					// trips the contention detector.
+					g = botB
+				case botA.Name() == r.duel.Guest:
+					g = botA
+				default:
+					// A genuinely separate third agent. Same 36s
+					// session-contention window as the startup logins.
+					time.Sleep(2 * game.SleepLong)
+					g, err = Login(ctx, r.duel.Guest, logger)
+					if err != nil {
+						logger.Fatal(err)
+					}
+					defer g.Close()
 				}
-				defer g.Close()
 				guests[r.duel.Guest] = g
 			}
 			bSide = g
