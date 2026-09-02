@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 )
 
 // BattleView is the per-tick snapshot the control loop consumes. session.go
@@ -31,6 +32,14 @@ type duelResult struct {
 }
 
 var ringOf = map[string]int{"engaged": 0, "inner": 1, "mid": 2, "outer": 3}
+
+// battleGone reports whether an order failed because the battle is already
+// over (both sides escaped/disengaged) — a terminal outcome, not an error.
+// Measured live: the server answers a post-battle stance order with
+// "You are not in a battle. Use attack to engage a target."
+func battleGone(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "not in a battle")
+}
 
 // applyOrders issues the phase's stance for one side and, when a ring hold
 // is set, an advance/retreat correction toward it. Stance orders are
@@ -92,11 +101,19 @@ func runDuel(a, b side, d Duel, wait func(), logger *log.Logger) (duelResult, er
 			stanceA, stanceB, holdA, holdB = "flee", "flee", nil, nil
 		}
 		if err := applyOrders(a, stanceA, holdA, &lastA, va, logger); err != nil {
+			if battleGone(err) {
+				res.Outcome, res.Void = "ended", voided
+				return res, nil
+			}
 			return res, fmt.Errorf("side A orders: %w", err)
 		}
 		vb, okB := b.View()
 		if okB {
 			if err := applyOrders(b, stanceB, holdB, &lastB, vb, logger); err != nil {
+				if battleGone(err) {
+					res.Outcome, res.Void = "ended", voided
+					return res, nil
+				}
 				return res, fmt.Errorf("side B orders: %w", err)
 			}
 		}
