@@ -46,12 +46,14 @@ func battleGone(err error) bool {
 // is set, an advance/retreat correction toward it. Stance orders are
 // re-issued only on change (they queue for the next tick and are free).
 func applyOrders(s side, stance string, hold *int, lastStance *string, v BattleView, logger *log.Logger) error {
-	if *lastStance != stance {
-		if err := s.Battle("stance", map[string]any{"stance": stance}); err != nil {
-			return err
-		}
-		*lastStance = stance
+	// Re-issue the stance EVERY tick: the server autopilot flips idle or
+	// unarmed ships to its own stances (measured in the S5 duels — an
+	// unarmed defender oscillated fire/flee against our orders). Battle
+	// actions are free, so out-shouting the autopilot costs nothing.
+	if err := s.Battle("stance", map[string]any{"stance": stance}); err != nil {
+		return err
 	}
+	*lastStance = stance
 	if hold == nil || stance == "flee" { // flee auto-retreats; never fight it
 		return nil
 	}
