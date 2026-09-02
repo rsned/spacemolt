@@ -468,13 +468,7 @@ func repositionShuttle(ctx context.Context, deps ShuttleDeps, out io.Writer, cur
 		fmt.Fprintf(out, "shuttle: reposition aborted (pois for %s: %v)\n", name, err) //nolint:errcheck
 		return
 	}
-	station := ""
-	for _, p := range pois {
-		if p.Type == "station" {
-			station = p.ID
-			break
-		}
-	}
+	station := freshestStation(pois)
 	if station == "" {
 		fmt.Fprintf(out, "shuttle: no known station in %s; staying put\n", name) //nolint:errcheck
 		return
@@ -495,6 +489,38 @@ func repositionShuttle(ctx context.Context, deps ShuttleDeps, out io.Writer, cur
 		return
 	}
 	fmt.Fprintf(out, "shuttle: repositioned to %s; will hunt passengers next pass\n", name) //nolint:errcheck
+}
+
+// freshestStation returns the id of the station POI in pois observed most
+// recently, or "" when pois holds no station.
+//
+// Ordering is the whole point. GetPOIs sorts by name, so the obvious "take the
+// first station" pick is really "take the alphabetically first station" — and
+// an alphabetically-early station our KB has not refreshed in a million ticks
+// is very likely one the server has since deleted. RememberPOI is upsert-only
+// and never prunes a POI that has vanished server-side, so those ghosts sit in
+// the table forever looking exactly like live stations.
+//
+// Frontier is the case that cost us a shuttle: the server dropped Expedition
+// Launch and Scout Docks some time after 2026-03-19 (both are present in the
+// archived get_system captures), leaving Mobile Capital as its only real
+// station. Name order picked "Expedition Launch" — last observed at tick 19
+// against Mobile Capital's 1775261 — travel answered "Unknown destination:
+// expedition_launch", and johnny_cab retried that same phantom every pass until
+// the stall watchdog quarantined it. Preferring the freshest observation picks
+// a station we have actually seen recently, and degrades sanely if the KB is
+// wrong: the strand recovery simply tries again next pass.
+func freshestStation(pois []knowledge.POI) string {
+	best, bestTick := "", int64(-1)
+	for _, p := range pois {
+		if p.Type != "station" {
+			continue
+		}
+		if p.LastUpdatedTick > bestTick {
+			best, bestTick = p.ID, p.LastUpdatedTick
+		}
+	}
+	return best
 }
 
 // shuttleAlreadyAtStation reports whether the shuttle is already sitting at the
@@ -549,12 +575,7 @@ func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writ
 	// POI-type lookups, so query the KB directly (as repositionShuttle does).
 	station := ""
 	if pois, perr := deps.KB.GetPOIs(ctx, dest.SystemID); perr == nil {
-		for _, p := range pois {
-			if p.Type == "station" {
-				station = p.ID
-				break
-			}
-		}
+		station = freshestStation(pois)
 	}
 
 	// Already at the target station POI: the dock is just pending, not a strand.

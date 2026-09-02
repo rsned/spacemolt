@@ -10,6 +10,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
@@ -342,5 +343,54 @@ func TestAboardDestinationSkipsDeniedStations(t *testing.T) {
 	// is what makes the difference, not the routing.
 	if _, _, routable := mostUrgentAboardDestination(aboard, "the_levy", graph, map[string]string{}, map[string]bool{}, 8, nil); !routable {
 		t.Error("with no access map the destination must stay routable (nil is permissive)")
+	}
+}
+
+// TestFreshestStation covers the ghost-station trap that quarantined johnny_cab:
+// GetPOIs orders by name, so a station the server deleted long ago can sit at
+// the head of the list and win a "first station" pick forever. Frontier is the
+// live shape — Expedition Launch (tick 19) and Scout Docks (tick 26) are gone
+// server-side; Mobile Capital (tick 1775261) is the only real station left.
+func TestFreshestStation(t *testing.T) {
+	frontier := []knowledge.POI{
+		{ID: "drifters_haze", Name: "Drifter's Haze", Type: "gas_cloud", LastUpdatedTick: 1775261},
+		{ID: "expedition_launch", Name: "Expedition Launch", Type: "station", LastUpdatedTick: 19},
+		{ID: "mobile_capital", Name: "Mobile Capital", Type: "station", LastUpdatedTick: 1775261},
+		{ID: "scout_docks", Name: "Scout Docks", Type: "station", LastUpdatedTick: 26},
+	}
+
+	tests := []struct {
+		name string
+		pois []knowledge.POI
+		want string
+	}{
+		{
+			name: "ghost stations sort first by name but lose on freshness",
+			pois: frontier,
+			want: "mobile_capital",
+		},
+		{
+			name: "no stations at all",
+			pois: []knowledge.POI{{ID: "veil_nebula", Type: "nebula", LastUpdatedTick: 1775261}},
+			want: "",
+		},
+		{
+			name: "empty system",
+			pois: nil,
+			want: "",
+		},
+		{
+			name: "single station wins even with a zero tick",
+			pois: []knowledge.POI{{ID: "only_station", Type: "station", LastUpdatedTick: 0}},
+			want: "only_station",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := freshestStation(tt.pois); got != tt.want {
+				t.Errorf("freshestStation() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
