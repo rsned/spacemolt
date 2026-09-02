@@ -19,14 +19,14 @@ import (
 // running update_poi at each and update_all at stations. Refuels at every
 // station dock.
 func explore(client game.GameClient, ctx context.Context, format outputFormat) error {
-	return exploreSystem(client, ctx, true, format)
+	return exploreSystem(client, ctx, true, false, format)
 }
 
 // exploreSystem runs the explore loop. When refuelAtStations is true, every
 // station dock is followed by a refuel command (which uses station credits
 // if a refuel service is available, or cargo fuel cells otherwise). Used
 // by auto_explore so long exploration runs can replenish opportunistically.
-func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations bool, format outputFormat) error {
+func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations, stopOnUnscanned bool, format outputFormat) error {
 	if err := client.GetSystem(ctx); err != nil {
 		return fmt.Errorf("get_system failed: %w", err)
 	}
@@ -136,7 +136,13 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 		// The same reply lists any wildlife here. This is the only headcount
 		// that names a POI — survey_system's census is system-wide — so it is
 		// what ties a species to a habitat.
-		captureWildlifeAtPOI(client, ctx, poi.ID, poi.Type, format)
+		unscanned := captureWildlifeAtPOI(client, ctx, poi.ID, poi.Type, format)
+		// Halt BEFORE the POI's dock/update work: creatures drift or despawn
+		// (ashford went 0→3 creatures in 101s), so the moment of sighting is
+		// the moment to hand control back for a scan.
+		if stopOnUnscanned && len(unscanned) > 0 {
+			return &unscannedHalt{Species: unscanned, POIID: poi.ID, POIName: poi.Name}
+		}
 
 		if poi.Type == "station" {
 			// Dock and run full update.
@@ -212,7 +218,10 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 
 		// Second wildlife reading, now that the POI's work has put real time
 		// between the two samples. See captureWildlifeSecondLook.
-		captureWildlifeSecondLook(client, ctx, poi.ID, poi.Type, format)
+		unscanned = captureWildlifeSecondLook(client, ctx, poi.ID, poi.Type, format)
+		if stopOnUnscanned && len(unscanned) > 0 {
+			return &unscannedHalt{Species: unscanned, POIID: poi.ID, POIName: poi.Name}
+		}
 	}
 
 	// Refresh state for statusline.
@@ -576,15 +585,15 @@ func captureSightings(client game.GameClient, ctx context.Context, fn func(conte
 // get_nearby is a query and costs no tick. It is still a call, so this doubles
 // the per-POI nearby volume -- acceptable at operator-session scale, and worth
 // re-checking against the coverage rows before any fleet role adopts it.
-func captureWildlifeSecondLook(client game.GameClient, ctx context.Context, poiID, poiType string, format outputFormat) {
+func captureWildlifeSecondLook(client game.GameClient, ctx context.Context, poiID, poiType string, format outputFormat) []string {
 	if err := client.GetNearby(ctx); err != nil {
 		if format == formatStyled {
 			fmt.Printf("  (second wildlife look failed: %v)\n", err)
 		}
-		return
+		return nil
 	}
 	time.Sleep(game.SleepQuick)
-	captureWildlifeAtPOI(client, ctx, poiID, poiType, format)
+	return captureWildlifeAtPOI(client, ctx, poiID, poiType, format)
 }
 
 // captureWildlifeAtPOI records the creatures listed in the get_nearby reply
@@ -595,14 +604,14 @@ func captureWildlifeSecondLook(client game.GameClient, ctx context.Context, poiI
 // poiType becomes the species' habitat. It is passed in rather than looked up
 // because the explore loop already holds the POI it travelled to, and the KB may
 // not know a belt that a survey only just revealed.
-func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, poiType string, format outputFormat) {
+func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, poiType string, format outputFormat) []string {
 	raw := client.GetRawJSON("nearby")
 	if len(raw) == 0 {
-		return
+		return nil
 	}
 	var nearby serverapi.GetNearbyResponse
 	if err := json.Unmarshal(raw, &nearby); err != nil {
-		return
+		return nil
 	}
 	// NO early return on an empty creature list. CaptureWildlifeNearby records
 	// its coverage row first and unconditionally, precisely so a look that
@@ -631,12 +640,14 @@ func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, po
 		if format == formatStyled {
 			fmt.Printf("  (wildlife not saved: %v)\n", err)
 		}
-		return
+		return nil
 	}
 	if n > 0 && format == formatStyled {
 		fmt.Printf("  Wildlife: %d creature(s), %d species\n", len(nearby.Creatures), n)
 	}
 	reportUnscannedSpecies(ctx, nearby.Creatures, poiID, format)
+
+	return detectUnscanned(ctx, globalKB, nearby.Creatures)
 }
 
 // reportUnscannedSpecies flags species present here that no scan has ever

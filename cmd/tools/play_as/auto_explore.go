@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -37,10 +38,18 @@ const (
 //   - fuel is exhausted with no cargo fuel_cells to burn.
 func autoExplore(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
 	maxHops := autoExploreDefaultMaxHops
+	stopOnUnscanned := true
 	if len(parts) > 1 {
-		flags, err := parseFlagArgs(parts[1:], "max_hops", "max-hops")
+		flags, err := parseFlagArgs(parts[1:], "max_hops", "max-hops", "no-stop-unscanned", "no_stop_unscanned")
 		if err != nil {
 			return err
+		}
+		for _, k := range []string{"no-stop-unscanned", "no_stop_unscanned"} {
+			if v, ok := flags[k]; ok {
+				if s, ok := v.(string); !ok || s != "false" {
+					stopOnUnscanned = false
+				}
+			}
 		}
 		if v, ok := flags["max_hops"]; ok {
 			if n, ok := v.(int); ok && n > 0 {
@@ -102,7 +111,21 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 			fmt.Printf("━━━ Hop %d/%d: exploring %s ━━━\n", hop+1, maxHops, currentSystemName)
 		}
 
-		if err := exploreSystem(client, ctx, true, format); err != nil {
+		if err := exploreSystem(client, ctx, true, stopOnUnscanned, format); err != nil {
+			var halt *unscannedHalt
+			if errors.As(err, &halt) {
+				// A clean stop, not a failure: the ship is parked at the POI
+				// with the unscanned creature(s) so the operator can decide
+				// whether to spend the tick on a scan.
+				if format == formatStyled {
+					fmt.Printf("\n🛑 Stopping at %s: unscanned wildlife present — %s\n",
+						halt.POIName, strings.Join(halt.Species, ", "))
+					fmt.Printf("   `get_nearby` for creature ids, then `scan <creature_id>` to characterise.\n")
+					fmt.Printf("   (%d system(s) toured; rerun auto_explore to continue, or --no-stop-unscanned to tour through.)\n",
+						systemsExplored+1)
+				}
+				return nil
+			}
 			if format == formatStyled {
 				fmt.Printf("  Explore reported: %v (continuing)\n", err)
 			}

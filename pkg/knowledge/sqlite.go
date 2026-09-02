@@ -132,7 +132,12 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
-			description = excluded.description,
+			-- description is sticky, like is_stronghold below. It is server
+			-- chart lore that ONLY get_system carries (v0.576.0 gave the nine
+			-- starless systems theirs), and most capture paths build a System
+			-- without it, so a plain overwrite erases the text on the next
+			-- visit. Accept a new description, never blank an existing one.
+			description = CASE WHEN excluded.description != '' THEN excluded.description ELSE systems.description END,
 			position_x = CASE WHEN excluded.position_x != 0 THEN excluded.position_x ELSE systems.position_x END,
 			position_y = CASE WHEN excluded.position_y != 0 THEN excluded.position_y ELSE systems.position_y END,
 			police_level = excluded.police_level,

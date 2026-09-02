@@ -10054,7 +10054,7 @@ func printHelp() {
 	fmt.Println("  autopilot <system> [poi]  - Auto-navigate to system (and optional POI)")
 	fmt.Println("  plan_route [--return] <systems...>  - Optimal jump order to visit systems; prints autopilot cmds")
 	fmt.Println("  explore                   - Visit all POIs in current system (nearest-first)")
-	fmt.Println("  auto_explore [--max-hops N]")
+	fmt.Println("  auto_explore [--max-hops N] [--no-stop-unscanned]  (stops at POIs with never-scanned wildlife)")
 	fmt.Println("                            - Tour multiple systems: explore + jump outward, refuel at stations")
 	fmt.Println("  find_arbitrage <dest> [--detour N] [--near N] [--limit N]")
 	fmt.Println("                            - Arbitrage on the way to <dest>: buy near current OR sell near dest")

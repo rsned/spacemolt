@@ -288,6 +288,7 @@ func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Ba
 	kbSystem := knowledge.System{
 		ID:              state.System.ID,
 		Name:            state.System.Name,
+		Description:     state.System.Description,
 		PoliceLevel:     state.System.PoliceLevel,
 		SecurityStatus:  state.System.SecurityStatus,
 		Empire:          state.System.Empire,

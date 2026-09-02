@@ -186,6 +186,7 @@ func collectSystemData(client game.GameClient, ctx context.Context, logger *log.
 	kbSystem := knowledge.System{
 		ID:              state.System.ID,
 		Name:            state.System.Name,
+		Description:     state.System.Description,
 		PoliceLevel:     state.System.PoliceLevel,
 		SecurityStatus:  state.System.SecurityStatus,
 		Empire:          state.System.Empire,

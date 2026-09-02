@@ -976,6 +976,7 @@ func (m *KBMemory) RememberSystem(ctx context.Context, sys game.SystemData) erro
 	kbSys := knowledge.System{
 		ID:              sys.ID,
 		Name:            sys.Name,
+		Description:     sys.Description,
 		Position:        sys.Position,
 		PoliceLevel:     sys.PoliceLevel,
 		SecurityStatus:  sys.SecurityStatus,
