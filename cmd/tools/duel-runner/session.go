@@ -232,6 +232,42 @@ type shipInfo struct {
 	} `json:"modules"`
 }
 
+// NeedsFit reports whether the ship's current modules differ from the
+// FitSpec (or the hull is wrong). get_ship is a free info query that works
+// undocked, so the preflight can call this from the arena to decide whether
+// a staging detour is even required — most consecutive duels reuse the same
+// fit and can skip staging entirely. A hull mismatch counts as "needs fit"
+// so the caller routes to staging and surfaces EnsureFit's clear error.
+func (b *Bot) NeedsFit(fit FitSpec) (bool, error) {
+	if err := b.Raw("get_ship", nil); err != nil {
+		return false, err
+	}
+	var info shipInfo
+	if err := json.Unmarshal(b.client.GetRawJSON("ship"), &info); err != nil {
+		return false, fmt.Errorf("%s: parse get_ship: %w", b.agentID, err)
+	}
+	if fit.Hull != "" && info.Ship.ClassID != fit.Hull {
+		return true, nil
+	}
+	current := make([]string, 0, len(info.Modules))
+	for _, m := range info.Modules {
+		current = append(current, m.TypeID)
+	}
+	toRemove, toInstall := computeFitActions(current, fit.Modules)
+	if len(toRemove)+len(toInstall) > 0 {
+		return true, nil
+	}
+	// Fit already matches: cache weapon instances so Reload() works without
+	// EnsureFit having run this duel.
+	byType := map[string][]string{}
+	for _, m := range info.Modules {
+		byType[m.TypeID] = append(byType[m.TypeID], m.ID)
+	}
+	b.weaponInstances = byType
+	b.ammoMap = fit.Ammo
+	return false, nil
+}
+
 // EnsureFit docks (caller guarantees at staging), buys and installs until
 // get_ship matches the FitSpec exactly, and errors on any mismatch it
 // cannot resolve (wrong hull requires manual intervention — hull swaps are

@@ -128,40 +128,52 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 	// push arrives.
 	a.ResetBattleTracking()
 	b.ResetBattleTracking()
-	// Preflight: both at staging, correct fits, then into the arena. A
-	// duel's guest (e.g. S6c's craftsman-1) keeps their own ship/fit --
-	// the runner must never refit them, so EnsureFit is skipped for
-	// whichever side carries the guest agent.
+	// Preflight: give each non-guest bot the correct fit, then put everyone
+	// in the arena. The bots deal no real damage in calibration duels, and
+	// attack works from anywhere in the arena system, so the staging
+	// round-trip is pure overhead EXCEPT when a bot actually needs something
+	// only a station provides: a fit change, ammo, or a full-pool repair.
+	// Skip staging whenever none of those apply -- most consecutive duels
+	// reuse the same fit and can fight in place with zero jumps. A duel's
+	// guest (e.g. S6c's craftsman-1) keeps their own ship/fit, so it never
+	// visits staging at all.
 	for _, bot := range []*Bot{a, b} {
 		if d.Guest != "" && bot.Name() == d.Guest {
-			logger.Printf("%s: guest side for %s, skipping EnsureFit (keeps own fit)", bot.Name(), d.ID)
+			logger.Printf("%s: guest side for %s, skipping refit (keeps own fit)", bot.Name(), d.ID)
 			continue
 		}
-		// Refits require a dock: get the bot back to the staging station
-		// first, tolerating every already-there condition (a prior run's
-		// recovery may have failed any leg of the trip quietly).
+		fit := d.FitA
+		if bot != a {
+			fit = d.FitB
+		}
+		needsFit, err := bot.NeedsFit(fit)
+		if err != nil {
+			return rec, err
+		}
+		needStaging := d.RequireFull || len(fit.Ammo) > 0 || needsFit
+		if !needStaging {
+			logger.Printf("%s: fit already current, no ammo/repair needed -- skipping staging", bot.Name())
+			continue
+		}
+		// Refits require a dock: get the bot to the staging station first,
+		// tolerating every already-there condition (a prior run's recovery
+		// may have failed any leg of the trip quietly).
 		if err := bot.Jump(camp.StagingSystem); err != nil && !strings.Contains(err.Error(), "already in") {
 			logger.Printf("%s staging jump: %v (continuing)", bot.Name(), err)
 		}
 		if err := bot.Dock(camp.StagingStation); err != nil && !strings.Contains(err.Error(), "already docked") {
 			logger.Printf("%s staging dock: %v (may already be docked)", bot.Name(), err)
 		}
-		// Top off while docked: a duel burns fuel over two jumps plus arena
-		// manoeuvring, and an un-refuelled bot eventually strands itself in
-		// the arena with too little fuel to return. Non-fatal -- a bot that
-		// failed the staging dock (e.g. already stranded) just can't refuel
-		// here.
+		// Top off while docked: the staging detour itself costs fuel, and an
+		// un-refuelled bot eventually strands itself with too little fuel to
+		// return. Non-fatal -- a bot that failed the staging dock (e.g.
+		// already stranded) just can't refuel here.
 		if err := bot.Refuel(); err != nil {
 			logger.Printf("%s refuel: %v (continuing)", bot.Name(), err)
-		}
-		fit := d.FitA
-		if bot != a {
-			fit = d.FitB
 		}
 		if err := bot.EnsureFit(fit); err != nil {
 			return rec, err
 		}
-		// Ensure ammo is on board if needed.
 		if err := bot.EnsureAmmo(fit); err != nil {
 			return rec, err
 		}
@@ -202,15 +214,11 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 		return rec, err
 	}
 	rec.BattleID, rec.Outcome, rec.Void, rec.Ended = res.BattleID, res.Outcome, res.Void, time.Now().UTC()
-	// Recovery: both bots return to staging and dock (a destroyed bot has
-	// already respawned there with a free starter hull).
-	for _, bot := range []*Bot{a, b} {
-		if err := bot.Jump(camp.StagingSystem); err != nil {
-			logger.Printf("%s return jump: %v (bot may have respawned at staging already)", bot.Name(), err)
-		}
-		if err := bot.Dock(camp.StagingStation); err != nil {
-			logger.Printf("%s dock: %v", bot.Name(), err)
-		}
-	}
+	// No forced return to staging: survivors stay in the arena ready for the
+	// next duel (the next preflight pulls them to staging only if it needs a
+	// refit), and a destroyed bot has already respawned at its home station
+	// with a free starter hull -- the next preflight's arena jump collects it
+	// from there. Skipping the round-trip is the whole point of the
+	// conditional staging above.
 	return rec, nil
 }
