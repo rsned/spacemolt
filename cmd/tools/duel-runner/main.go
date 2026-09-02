@@ -137,6 +137,15 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 			logger.Printf("%s: guest side for %s, skipping EnsureFit (keeps own fit)", bot.Name(), d.ID)
 			continue
 		}
+		// Refits require a dock: get the bot back to the staging station
+		// first, tolerating every already-there condition (a prior run's
+		// recovery may have failed any leg of the trip quietly).
+		if err := bot.Jump(camp.StagingSystem); err != nil && !strings.Contains(err.Error(), "already in") {
+			logger.Printf("%s staging jump: %v (continuing)", bot.Name(), err)
+		}
+		if err := bot.Dock(camp.StagingStation); err != nil && !strings.Contains(err.Error(), "already docked") {
+			logger.Printf("%s staging dock: %v (may already be docked)", bot.Name(), err)
+		}
 		fit := d.FitA
 		if bot != a {
 			fit = d.FitB
