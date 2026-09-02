@@ -335,24 +335,33 @@ func (b *Bot) EnsureFit(fit FitSpec) error {
 	return nil
 }
 
-// EnsureAmmo ensures one ammo item is on board for each weapon in fit.Ammo,
-// buying if needed (with fallback to withdraw from storage), then reloading
-// all cached weapon instances with their ammo. Errors on buy and withdraw
-// are logged non-fatally if either succeeds; if both fail, a hard error is
-// returned naming the ammo item. Reload errors within the same ammo type are
-// logged non-fatally (a full magazine errors harmlessly).
+// ammoStockQty is how many ammo units to put on board per weapon in
+// preflight. A hit-table duel fires ~1 volley/tick for ~20 ticks and a
+// magazine holds only a few rounds, so a single unit runs dry after a
+// couple of volleys (observed: S1-odd-ring5 fired 3 shots then
+// no_ammo_in_cargo, leaving too few range-5 samples). Stock a full
+// battle's worth up front; the owner ferries boxes into storage in bulk.
+const ammoStockQty = 20
+
+// EnsureAmmo puts a battle's worth of ammo (ammoStockQty units) on board
+// for each weapon in fit.Ammo, buying if possible (with fallback to
+// withdraw from storage), then reloading all cached weapon instances with
+// their ammo. Errors on buy and withdraw are logged non-fatally if either
+// succeeds; if both fail, a hard error is returned naming the ammo item.
+// Reload errors within the same ammo type are logged non-fatally (a full
+// magazine errors harmlessly).
 func (b *Bot) EnsureAmmo(fit FitSpec) error {
 	if len(fit.Ammo) == 0 {
 		return nil
 	}
 	for weaponType, ammoItem := range fit.Ammo {
-		// Ensure one ammo item is on board.
-		buyErr := b.Raw("buy", map[string]any{"item_id": ammoItem, "quantity": 1})
+		// Stock a full battle's worth of ammo on board.
+		buyErr := b.Raw("buy", map[string]any{"item_id": ammoItem, "quantity": ammoStockQty})
 		if buyErr == nil {
-			b.logger.Printf("%s: bought ammo %s for weapon %s", b.agentID, ammoItem, weaponType)
+			b.logger.Printf("%s: bought %d ammo %s for weapon %s", b.agentID, ammoStockQty, ammoItem, weaponType)
 		} else {
 			b.logger.Printf("%s: buy ammo %s failed: %v (trying withdraw)", b.agentID, ammoItem, buyErr)
-			withdrawErr := b.Raw("withdraw_items", map[string]any{"item_id": ammoItem, "quantity": 1})
+			withdrawErr := b.Raw("withdraw_items", map[string]any{"item_id": ammoItem, "quantity": ammoStockQty})
 			if withdrawErr == nil {
 				b.logger.Printf("%s: withdrew ammo %s for weapon %s from storage", b.agentID, ammoItem, weaponType)
 			} else {
