@@ -83,7 +83,9 @@ func runDuel(a, b side, d Duel, wait func(), logger *log.Logger) (duelResult, er
 			wait()
 			continue
 		}
-		res.BattleID = va.BattleID
+		if va.BattleID != "" { // never clobber a captured id with an empty end-view
+			res.BattleID = va.BattleID
+		}
 		res.Ticks = va.Tick
 		if va.Ended {
 			res.Outcome = va.Outcome
