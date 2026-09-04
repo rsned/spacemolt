@@ -969,7 +969,28 @@ func (kb *SQLiteKB) GetSystems(ctx context.Context) ([]System, error) {
 
 // GetConnections retrieves all system connections (for graph building)
 func (kb *SQLiteKB) GetConnections(ctx context.Context) ([]Connection, error) {
-	query := `SELECT from_system, to_system, distance FROM connections`
+	// OneWay is derived here rather than stored, because the server never
+	// states it: a row's `distance` gives it away. An ordinary connection
+	// carries the two systems' spatial separation exactly, so a row whose
+	// distance disagrees with the geometry is a wormhole, which may only be
+	// flown in the stored direction. Measured against the live table this
+	// splits cleanly -- 2058 spatial-matching rows, every one of them stored in
+	// both directions, against 17 disagreeing rows, every one stored once.
+	//
+	// Rows with distance 0 (never populated) and rows missing either system's
+	// coordinates stay OneWay = false: unknown must not become "directional",
+	// or a half-surveyed region turns unreachable.
+	query := `
+		SELECT c.from_system, c.to_system, c.distance,
+		       CASE WHEN c.distance > 0
+		             AND f.position_x IS NOT NULL AND t.position_x IS NOT NULL
+		             AND ABS(c.distance -
+		                 SQRT((f.position_x - t.position_x) * (f.position_x - t.position_x) +
+		                      (f.position_y - t.position_y) * (f.position_y - t.position_y))) >= 1.0
+		            THEN 1 ELSE 0 END AS one_way
+		FROM connections c
+		LEFT JOIN systems f ON f.id = c.from_system
+		LEFT JOIN systems t ON t.id = c.to_system`
 
 	rows, err := kb.db.QueryContext(ctx, query)
 	if err != nil {
@@ -979,11 +1000,15 @@ func (kb *SQLiteKB) GetConnections(ctx context.Context) ([]Connection, error) {
 
 	var conns []Connection
 	for rows.Next() {
-		var c Connection
-		err := rows.Scan(&c.FromSystem, &c.ToSystem, &c.Distance)
+		var (
+			c      Connection
+			oneWay int
+		)
+		err := rows.Scan(&c.FromSystem, &c.ToSystem, &c.Distance, &oneWay)
 		if err != nil {
 			return nil, fmt.Errorf("scan connection: %w", err)
 		}
+		c.OneWay = oneWay != 0
 		conns = append(conns, c)
 	}
 

@@ -368,6 +368,17 @@ type Connection struct {
 	ToSystem        string
 	Distance        int
 	LastUpdatedTick int64
+	// OneWay marks a link that may be flown FromSystem -> ToSystem only, so
+	// routing must not infer the reverse. The Crimson wormholes revealed by the
+	// pirate reputation chains are the case that matters.
+	//
+	// This cannot be inferred from a missing reverse row, because an ordinary
+	// connection is ALSO stored one-way until both endpoints have been
+	// surveyed: RememberSystem writes only sys.ID -> conn.SystemID. The
+	// discriminator is Distance -- an ordinary row carries the systems' spatial
+	// separation exactly, while a wormhole carries its own traversal cost. Set
+	// by SQLiteKB.GetConnections; MemoryKB leaves it false.
+	OneWay bool
 }
 
 // ConnectionMetric represents aggregated travel metrics for a connection.
