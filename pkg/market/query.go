@@ -212,24 +212,33 @@ func (c *Collector) FindBestPrices(ctx context.Context, itemID, side string, lim
 // excluded (pass 0 for no floor). Rows are ordered cheapest-first; callers
 // that want distance ranking compose this with pkg/finditem.
 func (c *Collector) FindItemSellers(ctx context.Context, itemID string, minQty float64) ([]ItemSeller, error) {
+	// Rows are taken from each station's MOST RECENT capture, not from the most
+	// recent capture that happened to contain this item. Those differ the moment
+	// an item sells out: the newer capture simply carries no row for it, so
+	// keying off the item's own last sighting reports it as still on sale
+	// forever, and the freshness column reads reassuringly recent because it is
+	// the age of that last sighting. Observed 2026-09-04 with pathfinder_drive
+	// at Sirius Observatory Station -- listed 555041 "4m ago", while view_market
+	// at that very station answered "No orders for 'pathfinder_drive'".
+	//
+	// stations.last_updated_utc is the station's latest capture (verified equal
+	// to MAX(captured_at) for all 56 stations holding orders), so joining on it
+	// drops a sold-out listing without the GROUP BY aggregate that scan cost
+	// 4.7s across 1.9M rows. The join is inner, which is safe because every
+	// station_id in market_orders has a stations row.
 	query := `
 		SELECT mo.station_id, COALESCE(s.station_name, mo.station_id),
 		       COALESCE(s.system_id, ''), COALESCE(s.system_name, ''),
 		       MIN(mo.price_each), SUM(mo.quantity), COUNT(*), MAX(mo.captured_at)
 		FROM market_orders mo
-		JOIN (
-			SELECT station_id, MAX(captured_at) AS mx
-			FROM market_orders
-			WHERE item_id = ? AND side = 'sell'
-			GROUP BY station_id
-		) latest ON latest.station_id = mo.station_id AND latest.mx = mo.captured_at
-		LEFT JOIN stations s ON s.station_id = mo.station_id
+		JOIN stations s
+		  ON s.station_id = mo.station_id AND s.last_updated_utc = mo.captured_at
 		WHERE mo.item_id = ? AND mo.side = 'sell'
 		  AND mo.price_each < ` + notForSaleSQL + `
 		GROUP BY mo.station_id
 		HAVING SUM(mo.quantity) >= ?
 		ORDER BY MIN(mo.price_each) ASC, mo.station_id ASC`
-	rows, err := c.db.QueryContext(ctx, query, itemID, itemID, minQty)
+	rows, err := c.db.QueryContext(ctx, query, itemID, minQty)
 	if err != nil {
 		return nil, fmt.Errorf("query item sellers: %w", err)
 	}

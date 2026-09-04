@@ -699,3 +699,53 @@ func TestGetCaptureHealth(t *testing.T) {
 		}
 	}
 }
+
+// TestFindItemSellersDropsSoldOutListing pins the sold-out case. A later
+// capture of the same station simply carries no row for an item that sold, so
+// keying off the item's own last sighting keeps advertising it forever -- and
+// the freshness reads recent, because it is the age of that last sighting.
+// Observed live 2026-09-04: find_item offered pathfinder_drive at Sirius
+// Observatory Station "4m ago" while view_market there reported no orders.
+func TestFindItemSellersDropsSoldOutListing(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "test.db")})
+	if err != nil {
+		t.Fatalf("Open failed: %v", err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+
+	ctx := context.Background()
+	first := time.Now().UTC().Add(-10 * time.Minute)
+	later := first.Add(5 * time.Minute)
+
+	snap := func(stn string, at time.Time, orders []Order) {
+		for i := range orders {
+			orders[i].StationID = stn
+			orders[i].CapturedAt = at
+		}
+		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+			StationID: stn, StationName: stn + " Station", SystemID: "sysA", SystemName: "sysA",
+			CapturedAt: at, Orders: orders,
+		}); err != nil {
+			t.Fatalf("WriteSnapshot %s @ %s: %v", stn, at, err)
+		}
+	}
+
+	// stnGone listed the drive, then a later capture shows the station still
+	// trading (iron) but the drive gone: it sold.
+	snap("stnGone", first, []Order{{ItemID: "drive", Side: "sell", PriceEach: 555, Quantity: 1}})
+	snap("stnGone", later, []Order{{ItemID: "iron", Side: "sell", PriceEach: 5, Quantity: 9}})
+	// stnHas still lists it in its most recent capture.
+	snap("stnHas", later, []Order{{ItemID: "drive", Side: "sell", PriceEach: 900, Quantity: 2}})
+
+	sellers, err := c.FindItemSellers(ctx, "drive", 0)
+	if err != nil {
+		t.Fatalf("FindItemSellers: %v", err)
+	}
+	if len(sellers) != 1 {
+		t.Fatalf("want only the station still listing it, got %d: %+v", len(sellers), sellers)
+	}
+	if sellers[0].StationID != "stnHas" {
+		t.Errorf("StationID = %q, want stnHas (stnGone sold out and must not be offered)",
+			sellers[0].StationID)
+	}
+}
