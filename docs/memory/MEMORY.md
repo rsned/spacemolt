@@ -16,7 +16,7 @@
 - ⭐🔴 [Stronghold guard is re-written per role](reference_stronghold_guard_is_per_role.md) — 5 copies, ABSENT from assist/autopilot/hunt/explore/freight; 8 of 24 losses. Fix = one movement-layer gate
 - ⭐ [Tanker migration 08-14: how tankers work + hand-flown pickup](reference_assist_tanker_migration.md) — built-in pump, arrives full, 4 listings galaxy-wide, `switch_ship` is a SEPARATE step (nexus trap)
 - ⭐ [Assist pump gap + pump-blind claim election](project_assist_fleet_refueling_pump_gap.md) — pre-tanker history; stale `requested_at` defeats distance routing
-- ⭐🔴 [no_fuel_cells ≠ no_fuel_source](project_no_fuel_cells_refuel_deadlock.md) — credits do NOT fix it; usual cause is a station with no refuel SERVICE, worker retries forever
+- ⭐🔴 [no_fuel_cells ≠ no_fuel_source](project_no_fuel_cells_refuel_deadlock.md) — cargo-cell fallback vs credits; nothing ever BUYS a cell. Service list is live at /api/stations: 61 of 76 refuel
 - ⭐🔴 [The refuelling fleet is itself dry](reference_assist_fleet_is_dry.md) — 3 of 5 tankers immobile; assist-sol invisible 14 days at 0 fuel. `cargo_used: 0` is normal for a tanker
 - ⭐🔴 [Off-map == QUARANTINED, never launched](reference_rescue_queue_blocks_launch.md) — `restoreQuarantine` precedes the supervisor; `restarts:0` + zero `last_seen` is the tell
 - ⭐🔴 [Fleet overrides are removed-SETS](reference_secondment_overrides_are_removed_sets.md) — commenting out a rotating agent's yaml line makes release a NO-OP; list rotators in BOTH yamls
@@ -147,7 +147,7 @@
 - [docked_at_base lives on the PLAYER](reference_docked_at_base_gotcha.md) — never the ship; dock events historically never recorded it
 - [Pinned mission workers never refuel](reference_pinned_mission_workers_never_refuel.md) — refuelling is a ROLE property; FIXED `topUpAtPin`
 - ⭐ [Player stations can refuse your dock](reference_player_station_access.md) — access is LEARNED; unverified = closed
-- [Station ids are dual-named](reference_station_id_aliases.md) — joins under-report silently
+- [Station ids are dual-named](reference_station_id_aliases.md) — joins under-report silently; CANONICAL /api/stations (48 of 76 aliased, +services); our bases table has 32 and misses 16
 - [Lawless transit is safe; idling is not](reference_lawless_transit_vs_idle.md)
 - ⭐ [GSA auto-recovery](reference_gsa_ship_recovery.md) — a drifting ship gets docked FOR you for a fee; a QUARANTINED agent needs its rescue record deleted
 - [Jettison → loot transfer flow](reference_jettison_loot_transfer_flow.md) — hand cargo to a ship that cannot dock; verified working

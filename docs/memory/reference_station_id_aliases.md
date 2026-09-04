@@ -1,6 +1,6 @@
 ---
 name: reference_station_id_aliases
-description: "Stations have two live ids (base id vs poi id); 15 differ, incl. all 5 empire capitals. Authoritative map = bases(id, poi_id). Joining base ids against pois.id silently under-reports."
+description: "Stations have two live ids (base id vs poi id); canonically 48 of 76 differ. CANONICAL SOURCE = https://game.spacemolt.com/api/stations (no auth, has base_id+poi_id+services). Our bases table is stale: 32 aliases, only 60 of 76 stations."
 metadata: 
   node_type: memory
   type: reference
@@ -8,7 +8,7 @@ metadata:
   modified: 2026-08-09T10:45:00.572Z
 ---
 
-**Every station can appear under a BASE id or a POI id, and for 15 of them the
+**Every station can appear under a BASE id or a POI id, and for 32 of them the
 two differ.** The operator's explanation: legacy names they could not remove,
 so both stayed live and the server uses them interchangeably. Confirmed
 2026-08-01 against databot, prophet-1 and craftsman-1.
@@ -72,3 +72,44 @@ Then `autopilot <system_id>` and `travel <poi_id>`. Caught live 2026-08-09 on
 the shield_recharger_ii run [[reference_freight_unpriced_cargo_prime_gate]].
 
 Related: [[project_agent_capability_ledger]] · [[reference_docked_at_base_gotcha]] · [[reference_empire_field_semantics]]
+
+## 2026-09-04 — the population has shifted to PLAYER stations (3 -> 18)
+
+Recount: **32 aliases, of which 18 are hex-id player stations** and only 14 are
+named. Player stations are now the majority case, and they are the dangerous
+one: an empire or stronghold alias is guessable by eye
+(`frontier_station`/`mobile_capital`, the mechanical `_station` suffix), but a
+player station has **a hex id AND a name**, so BOTH ids are 32-char hex and the
+pairing is undetectable by inspection. All 18 are `public_access = 1`.
+
+**How it bit, concretely.** BD+20 2457's crystal depot was recorded in
+`agent_storage_items` under base id `59b102279f50..`. Querying `pois` and
+market.db `stations` for that id returned nothing, and it was reported as a
+depot "invisible to both catalogues" -- wrong. It is The Veil Anchor, a player
+station, catalogued under its POI id `9e0b4dbad76a..`; `bases` had the mapping
+the whole time. Go to `bases(id, poi_id)` FIRST when an id resolves to nothing,
+before concluding data is missing.
+
+Storage itself is consistent -- `agent_storage_items.base_id` always holds the
+BASE id (0 rows key off a poi_id), so holdings are never split across the pair.
+The breakage is in the lookup, not the data. Related:
+[[reference_player_station_access]] (access is LEARNED; unverified = closed).
+
+## 2026-09-04 — the CANONICAL source, and our table is behind
+
+**`https://game.spacemolt.com/api/stations` — public, no auth, ~87 KB.** Each of
+the 76 stations carries `id`, `base_id`, `poi_id`, `name`, `type`
+(station/outpost), `faction_id`/`faction_name`/`faction_tag`, `system_id`,
+**`services[]`**, `condition`, `satisfaction_pct`, `facility_count`,
+`weapon_dps`, `wrecked`. This is the authority for the alias map -- prefer it
+over the local `bases` table, and use it to refresh that table.
+
+**Canonically 48 of 76 stations are aliased** (`base_id != poi_id`), against
+only 32 in our `bases` table. Our table holds 60 of the 76 and is **missing 16
+outright** -- all faction outposts and new faction stations (the `ENDL:*` family,
+Argon Bank Range, Ashborne Reach, Copperbelt Range, Fortress Blackthorn,
+Frontier Vault, Frost Ring Range, Glintfin Range, Ironbelt Range). Those 16 are
+also exactly the stations reporting `services: []`, so they are invisible to us
+AND non-functional for refuel/repair -- a bad combination for an autopilot that
+routes to the nearest station. See
+[[project_no_fuel_cells_refuel_deadlock]] for the services angle.

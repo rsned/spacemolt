@@ -1,6 +1,6 @@
 ---
 name: project_no_fuel_cells_refuel_deadlock
-description: "A fuel-dry worker with plenty of credits at a station that sells fuel still cannot refuel: bare client.Refuel(ctx) fails no_fuel_cells and the worker never buys fuel cells, retrying every 30s forever"
+description: "A fuel-dry worker with credits at a service-less station cannot refuel: refuel falls back to burning a fuel_cell from CARGO, and nothing in the worker ever BUYS one. Cause confirmed 2026-09-04; buying the cell is the fix"
 metadata: 
   node_type: memory
   type: project
@@ -42,3 +42,53 @@ Next step: for one failing station and one working station, diff the facility/se
 **Scale when found:** 9 of 38 mission-learn workers bricked (credits<100 AND fuel<15%), 14 of 38 broke. It is a closed loop — no credits → no refuel → no movement → no earning. **PRE-EXISTING, not caused by a fleet restart** (engineer-4/explorer-4/explorer-8 already read ~0 credits before any restart that day). Nothing prevents recurrence once the gifted wallets drain.
 
 Also unrelated-but-adjacent: **engineer-4 was DETAINED by the Solarian Confederacy** with a 5,644 cr bounty — *"you will be detained again the next time you dock in their territory"* — so a bounty is a separate blocker from being broke, and Nova Terra is Solarian. Check for detention before diagnosing a stuck agent as merely poor.
+
+## 2026-09-04 — CAUSE CONFIRMED by the operator; the fix is to BUY the cell
+
+**Operator:** "if you buy a fuel_cell, it is used when you run 'refuel' if there
+are no fuel services."
+
+That settles the station-capability hypothesis above -- it was right. The
+mechanic in full:
+
+- Station HAS a refuel service -> `refuel` bills credits, no cargo needed.
+- Station has NO refuel service -> `refuel` falls back to consuming a
+  `fuel_cell` **from cargo**. Carrying none is what raises `no_fuel_cells`.
+
+**So amend the headline of this file.** "Credits do NOT fix this" is true only
+of handing over credits and walking away: nothing in the worker spends them on
+a cell. Credits + a market selling `fuel_cell` + something that BUYS one is a
+complete fix. Do not read the original claim as "money is irrelevant here".
+
+**Half the fix now exists, and it is the wrong half.** `pkg/worker/refuel_sync.go`
+detects a dry desk (`deskIsDry`: `no_fuel_source` / `station_fuel_empty` /
+"reserves are depleted") and calls `client.RefuelFromCargo(ctx, "fuel_cell", 1)`
+-- naming the item explicitly, because a bare `refuel` cannot reach cargo cells
+while docked. Its own comment calls `fuel_cell` "the id a gift or a market buy
+produces". But **no code anywhere buys one**: grep for a Buy of fuel across
+pkg/worker returns nothing. So a worker docked at a station listing thousands of
+cells, holding credits, still strands.
+
+**Live cost, 2026-09-04:** fighter-9 / random-2 / random-5 / random-8 sat at 0
+fuel and 0 credits at The Veil Anchor (BD+20 2457) and had to be recovered by
+tanker. **These four were NOT a service problem** -- the canonical endpoint
+shows The Veil Anchor carrying a full `refuel` service. They were simply broke,
+which is the `no_fuel_source` branch (credits), not `no_fuel_cells` (cargo).
+Do not cite them as evidence for the cargo-fallback bug; they are evidence that
+a 0-credit worker at a fully-serviced station still needs a tanker.
+
+**🟢 THE SERVICE LIST IS NOW DIRECTLY QUERYABLE — this file's "next step" is
+unblocked.** `https://game.spacemolt.com/api/stations` (public, no auth) returns
+every station with an explicit `services` array, so "does this station actually
+refuel?" no longer has to be inferred from `station_fuel_prices`. As of
+2026-09-04: **61 of 76 stations carry `refuel`**. The 15 that do not report
+`services: []` outright -- 13 faction `outpost`s plus 2 newly founded stations
+(Ashborne Reach, Fortress Blackthorn) -- so a service-less station is a faction
+outpost, not a normal trade station. Check this endpoint BEFORE diagnosing a
+refuel failure. See [[reference_station_id_aliases]] for the same endpoint's
+authoritative base_id/poi_id map.
+
+Remaining work: on `no_fuel_cells` (or a dry desk with an empty hold), buy
+`fuel_cell` from the local market and retry, then fall back to a rescue record.
+Related: [[reference_ship_to_ship_refuel_works_while_docked]] (the tanker path
+that does work), [[reference_station_fuel_reserve_capture]].
