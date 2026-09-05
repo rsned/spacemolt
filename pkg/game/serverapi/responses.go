@@ -1992,21 +1992,28 @@ type CraftJobQueued struct {
 
 // CraftJobEntry is a single job returned in a queue listing.
 type CraftJobEntry struct {
-	JobID         string          `json:"job_id"`
-	Recipe        string          `json:"recipe"`
-	Mode          string          `json:"mode"`
-	RunsTotal     int             `json:"runs_total"`
-	RunsDone      int             `json:"runs_done"`
-	RunsRemaining int             `json:"runs_remaining"`
-	Progress      float64         `json:"progress"`
-	ETATicks      int             `json:"eta_ticks"`
-	Position      int             `json:"position"`
-	Orderer       string          `json:"orderer"`
-	Status        string          `json:"status"`
-	FacilityID    string          `json:"facility_id"`
-	External      bool            `json:"external,omitempty"`
-	Venue         string          `json:"venue,omitempty"`
-	Produces      []CraftProduces `json:"produces,omitempty"`
+	JobID         string  `json:"job_id"`
+	Recipe        string  `json:"recipe"`
+	Mode          string  `json:"mode"`
+	RunsTotal     int     `json:"runs_total"`
+	RunsDone      int     `json:"runs_done"`
+	RunsRemaining int     `json:"runs_remaining"`
+	Progress      float64 `json:"progress"`
+	ETATicks      int     `json:"eta_ticks"`
+	Position      int     `json:"position"`
+	Orderer       string  `json:"orderer"`
+	Status        string  `json:"status"`
+	FacilityID    string  `json:"facility_id"`
+	External      bool    `json:"external,omitempty"`
+	Venue         string  `json:"venue,omitempty"`
+	// BaseID/BaseName/DeliverTo say WHERE a job runs and where its output
+	// lands. A facility job keeps running while its owner is away, so the
+	// station is not implied by the caller's position the way it is for
+	// hand-crafting at the Station Workshop.
+	BaseID    string          `json:"base_id,omitempty"`
+	BaseName  string          `json:"base_name,omitempty"`
+	DeliverTo string          `json:"deliver_to,omitempty"`
+	Produces  []CraftProduces `json:"produces,omitempty"`
 }
 
 // CraftQueueListing is the response when listing queued craft jobs.
@@ -2016,6 +2023,14 @@ type CraftQueueListing struct {
 	Kind      string          `json:"kind,omitempty"`
 	Jobs      []CraftJobEntry `json:"jobs"`
 	TotalJobs int             `json:"total_jobs,omitempty"`
+	// FacilityID and Venue echo the facility the listing was scoped to, and
+	// are present even when Jobs is empty -- which is the case that matters,
+	// because an empty listing is otherwise indistinguishable from "no such
+	// facility". Observed live 2026-09-05 querying the Polymer Extruder:
+	// {"action":"job_list","facility_id":"b659c360...","venue":"Polymer Extruder",
+	//  "jobs":[...],"total_jobs":1}
+	FacilityID string `json:"facility_id,omitempty"`
+	Venue      string `json:"venue,omitempty"`
 }
 
 // CraftBulkResult is the outcome of a single job in a bulk craft request.

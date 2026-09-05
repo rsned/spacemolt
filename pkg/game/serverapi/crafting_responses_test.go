@@ -104,3 +104,49 @@ func TestDecodeFacilityOwnedResponse(t *testing.T) {
 		t.Fatalf("bad rent: %+v", r.Rent)
 	}
 }
+
+// TestCraftQueueListing_FacilityScope decodes a real job_list reply from a
+// facility query. The top-level facility_id/venue were missing from the struct
+// until 2026-09-05, so a listing scoped to one facility decoded as if it were
+// unscoped -- and an empty one could not be told apart from "no such facility".
+// The job-level base_id/base_name/deliver_to were missing too: a facility job
+// keeps running while its owner is away, so the station it runs at is not
+// implied by the caller's position the way hand-crafting's is.
+func TestCraftQueueListing_FacilityScope(t *testing.T) {
+	const raw = `{"action":"job_list","facility_id":"b659c3602da933e414c9fa91a072968a",
+	"jobs":[{"base_id":"grand_exchange_station","base_name":"Grand Exchange Station",
+	"deliver_to":"storage","eta_ticks":8,"facility_id":"b659c3602da933e414c9fa91a072968a",
+	"job_id":"0c6507080966edae17615cc903670c8b","mode":"craft","orderer":"self","position":0,
+	"produces":[{"item_id":"nanoplastic_composite","name":"Nanoplastic Composite","quantity":3}],
+	"progress":0.878306878306878,"recipe":"Extrude Nanoplastic","runs_done":6,
+	"runs_remaining":28,"runs_total":34,"status":"active","venue":"Polymer Extruder"}],
+	"total_jobs":1,"venue":"Polymer Extruder"}`
+
+	var got CraftQueueListing
+	if err := json.Unmarshal([]byte(raw), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got.FacilityID != "b659c3602da933e414c9fa91a072968a" {
+		t.Errorf("FacilityID = %q, want the queried facility", got.FacilityID)
+	}
+	if got.Venue != "Polymer Extruder" {
+		t.Errorf("Venue = %q, want Polymer Extruder", got.Venue)
+	}
+	if len(got.Jobs) != 1 {
+		t.Fatalf("Jobs = %d, want 1", len(got.Jobs))
+	}
+	j := got.Jobs[0]
+	if j.BaseID != "grand_exchange_station" || j.BaseName != "Grand Exchange Station" {
+		t.Errorf("job base = %q/%q, want grand_exchange_station", j.BaseID, j.BaseName)
+	}
+	if j.DeliverTo != "storage" {
+		t.Errorf("DeliverTo = %q, want storage", j.DeliverTo)
+	}
+	// The counters the worker polls to decide a job is done.
+	if j.RunsTotal != 34 || j.RunsDone != 6 || j.RunsRemaining != 28 {
+		t.Errorf("runs = %d/%d/%d, want 34/6/28", j.RunsTotal, j.RunsDone, j.RunsRemaining)
+	}
+	if j.Status != "active" || j.Venue != "Polymer Extruder" {
+		t.Errorf("status/venue = %q/%q", j.Status, j.Venue)
+	}
+}
