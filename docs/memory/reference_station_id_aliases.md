@@ -1,6 +1,6 @@
 ---
 name: reference_station_id_aliases
-description: "Stations have two live ids (base id vs poi id); canonically 48 of 76 differ. CANONICAL SOURCE = https://game.spacemolt.com/api/stations (no auth, has base_id+poi_id+services). Our bases table is stale: 32 aliases, only 60 of 76 stations."
+description: "Stations have two live ids (base id vs poi id); 48 of 76 aliased, 34 hex player stations. bases(id,poi_id) is CURRENT as of 2026-09-06. find_item returns POI ids while docked_at_base/location_base_id return BASE ids -- never compare across commands."
 metadata: 
   node_type: memory
   type: reference
@@ -113,3 +113,41 @@ also exactly the stations reporting `services: []`, so they are invisible to us
 AND non-functional for refuel/repair -- a bad combination for an autopilot that
 routes to the nearest station. See
 [[project_no_fuel_cells_refuel_deadlock]] for the services angle.
+
+## 2026-09-06 — the gap is CLOSED, and the live trap is CROSS-COMMAND
+
+**The "missing 16" above is now stale.** After the `stations-refresh` tool ran
+with `--apply` (`92f5b635`), the local table matches the canonical source
+exactly: **`bases` = 76 rows, 48 aliased, 34 hex-id player stations.** Trust
+`bases(id, poi_id)` again for the full population; re-run the tool rather than
+falling back to the API for routine lookups.
+
+**⭐🔴 The trap that survives is that two commands report OPPOSITE SIDES of the
+pair, so comparing their output directly can never match.**
+
+| source | which id it gives you |
+|---|---|
+| `find_item` (station column) | **POI id** |
+| `agent_profile.docked_at_base`, `agent_hulls.location_base_id` | **BASE id** |
+| `agent_storage_items.base_id` | **BASE id** |
+
+Caught live 2026-09-06 on purified_xenon. `find_item` reported Ironlight
+Crossroads as `0321b3e4406021575337b7be26e53dd7`; `miner-2` showed
+`docked_at_base = 784309214f105860a16a0c100a70eb14`. Read side by side these
+look like two different stations, so the agent was written off as "in the right
+system but the wrong station" and given a `dock` command it did not need — it
+was **already docked at the station selling the item**.
+
+For a player station both sides are 32-char hex, so nothing about the strings
+hints they are a pair. This failure mode is quieter than a bad join: no row is
+missing and no query errors, you simply conclude an agent must travel somewhere
+it already is, and issue movement commands against a station it is standing in.
+
+**Rule: an id read out of one command is never comparable to an id from
+another. Resolve through `bases` first, every time:**
+
+```sql
+SELECT id, poi_id, name FROM bases WHERE id = ? OR poi_id = ?;
+```
+
+One row back means one station, whichever side each source handed you.
