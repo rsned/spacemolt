@@ -26,6 +26,25 @@ func recipientOrSelf(recipient string) string {
 	return recipient
 }
 
+// roleForKind returns the worker role a node kind needs. Only craft nodes are
+// pinned to an agent (NewRun rule 4); haul/buy/mine nodes always dispatch with
+// Agent == "", so RoleRequired is the ONLY field tasks.Store.pickWorker can
+// match them on. This was previously hardcoded to "craftsman" for every kind,
+// which made a plan queue useless on any fleet without craftsman workers: on
+// the haul fleet's 23 hauler workers nothing matched and every node parked.
+// An unknown kind keeps the old default rather than dispatching to the wrong
+// role.
+func roleForKind(k craftbrain.Kind) string {
+	switch k {
+	case craftbrain.KindHaul, craftbrain.KindBuy:
+		return "hauler"
+	case craftbrain.KindMine:
+		return "miner"
+	default:
+		return "craftsman"
+	}
+}
+
 // nodeTask maps a NodeRun to the tasks.Task the store should dispatch: the
 // script (data/scripts/<name>.smolt) and its $PARAM$ substitutions. This is
 // the single source of truth for the node-kind -> script/params mapping.
@@ -34,7 +53,7 @@ func recipientOrSelf(recipient string) string {
 func nodeTask(pr *PlanRun, n *NodeRun) tasks.Task {
 	t := tasks.Task{
 		ID:           taskIDFor(pr.Manifest.PlanID, n.Node.ID, n.Retries),
-		RoleRequired: "craftsman",
+		RoleRequired: roleForKind(n.Node.Kind),
 		AgentID:      n.Agent,
 	}
 

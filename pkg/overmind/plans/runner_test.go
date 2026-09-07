@@ -50,8 +50,12 @@ func TestTickIntakesAndDispatchesReady(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(r.QueueDir, "p1.json")); !os.IsNotExist(err) {
 		t.Error("queue file not consumed")
 	}
+	// RoleRequired follows the node kind (roleForKind): a mine node needs a
+	// miner, not a craftsman. This assertion previously read "craftsman",
+	// pinning the uniform-role bug that made haul/buy/mine nodes
+	// undispatchable on any fleet without craftsman workers.
 	task, ok := r.Store.Get("p1/mine-1/r0")
-	if !ok || task.Script != "mine_node" || task.RoleRequired != "craftsman" {
+	if !ok || task.Script != "mine_node" || task.RoleRequired != "miner" {
 		t.Fatalf("task = %+v, %v", task, ok)
 	}
 }
