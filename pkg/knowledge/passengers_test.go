@@ -5,19 +5,6 @@ import (
 	"time"
 )
 
-func TestPassengersMigrationCreatesTable(t *testing.T) {
-	kb := newTestKB(t)
-	var count int
-	if err := kb.db.QueryRow(
-		"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='passengers'",
-	).Scan(&count); err != nil {
-		t.Fatalf("query for passengers: %v", err)
-	}
-	if count != 1 {
-		t.Errorf("passengers table not created (count=%d)", count)
-	}
-}
-
 func TestRecordPassengersRoundTrip(t *testing.T) {
 	kb := newTestKB(t)
 	now := time.Date(2026, 6, 8, 12, 0, 0, 0, time.UTC)

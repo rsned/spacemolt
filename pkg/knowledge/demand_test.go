@@ -6,16 +6,6 @@ import (
 	"time"
 )
 
-func TestMigration36CreatesDemandTable(t *testing.T) {
-	kb := newTestKB(t)
-	ctx := context.Background()
-	var name string
-	if err := kb.db.QueryRowContext(ctx,
-		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, "market_buy_orders").Scan(&name); err != nil {
-		t.Fatalf("table market_buy_orders not found: %v", err)
-	}
-}
-
 func TestReplaceStationBuyOrdersRoundTrip(t *testing.T) {
 	kb := newTestKB(t)
 	ctx := context.Background()

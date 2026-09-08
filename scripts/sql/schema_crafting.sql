@@ -1,1 +1,0 @@
-../../../internal/crafting/db/schema.sql

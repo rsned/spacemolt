@@ -17,24 +17,6 @@ func newTestKB(t *testing.T) *SQLiteKB {
 	return kb
 }
 
-func TestSeenPlayersMigrationCreatesTables(t *testing.T) {
-	kb := newTestKB(t)
-
-	tables := []string{"seen_players", "seen_player_ships", "seen_player_sightings"}
-	for _, tbl := range tables {
-		var count int
-		err := kb.db.QueryRow(
-			"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", tbl,
-		).Scan(&count)
-		if err != nil {
-			t.Fatalf("query for %s: %v", tbl, err)
-		}
-		if count != 1 {
-			t.Errorf("table %s not created (count=%d)", tbl, count)
-		}
-	}
-}
-
 func mustRecord(t *testing.T, kb *SQLiteKB, obs ...SeenPlayer) {
 	t.Helper()
 	if err := kb.RecordSightings(obs); err != nil {

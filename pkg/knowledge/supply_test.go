@@ -6,18 +6,6 @@ import (
 	"time"
 )
 
-func TestMigration44CreatesSupplyTables(t *testing.T) {
-	kb := newTestKB(t)
-	ctx := context.Background()
-	for _, tbl := range []string{"market_sell_orders", "market_supply_history"} {
-		var name string
-		if err := kb.db.QueryRowContext(ctx,
-			`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, tbl).Scan(&name); err != nil {
-			t.Fatalf("table %s not found: %v", tbl, err)
-		}
-	}
-}
-
 func TestReplaceStationSellOrdersRoundTrip(t *testing.T) {
 	kb := newTestKB(t)
 	ctx := context.Background()
