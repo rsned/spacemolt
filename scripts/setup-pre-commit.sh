@@ -49,14 +49,13 @@ echo "  ✓ Build passed"
 echo "[2/3] Running tests with race detector..."
 for pkg in $PACKAGES; do
     if [ -d "${pkg#./}" ]; then
-        # pkg/game, pkg/knowledge, and pkg/worker have large race-instrumented
-        # suites (WebSocket teardown waits; hundreds of SQLite-backed cases;
-        # pkg/worker's full -race suite now runs ~200s) that exceed the default
-        # 120s budget; give them headroom.
+        # 120s is generous: the slowest package under -race is pkg/market at
+        # ~70s (one 51k-row prune test). pkg/game, pkg/knowledge and pkg/worker
+        # used to need 300-600s here; that was SQLite migration replay per
+        # test, real time.Sleep settle waits, and a Client.Close mutex bug,
+        # all fixed 2026-09-08 (they now run 22s/37s/12s). If a package trips
+        # this budget again, fix the test, do not raise the number.
         pkg_timeout=120s
-        case "$pkg" in
-            ./pkg/game | ./pkg/knowledge | ./pkg/worker) pkg_timeout=300s ;;
-        esac
         echo "  Testing $pkg (timeout ${pkg_timeout})..."
         if ! go test -race -count=1 -timeout="$pkg_timeout" "$pkg" 2>&1; then
             echo "  ✗ Tests failed for $pkg"
