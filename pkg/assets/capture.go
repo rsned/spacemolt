@@ -2,6 +2,8 @@ package assets
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -72,6 +74,23 @@ func CaptureProfile(ctx context.Context, client game.GameClient, st *Store, agen
 		InsurancePayoutsReceived: p.Stats.InsurancePayoutsRecvd,
 	}, now); err != nil {
 		return err
+	}
+
+	// XP comes only from get_skills. The get_status payload above carries each
+	// skill's LEVEL but not its XP, so capturing from it alone stored xp=0 on
+	// every row for every agent -- including a level-100 pilot -- which made
+	// progress rate unmeasurable and level crossings the only visible signal.
+	// get_skills writes xp AND level into this same state.Player.Skills map, so
+	// one extra query-class call (no tick cost) fills the column.
+	//
+	// Failure is deliberately non-fatal and does NOT bail the pass: levels from
+	// get_status are still worth recording, and this capture's contract is that
+	// a source failure leaves tables at their previous captured_at rather than
+	// losing the rest of the profile.
+	if err := client.GetSkills(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "capture_profile: get_skills for %s: %v (levels captured, xp will read 0)\n", agentID, err) //nolint:errcheck
+	} else {
+		p = client.GetState().Player
 	}
 
 	skills := make([]SkillRow, 0, len(p.Skills))

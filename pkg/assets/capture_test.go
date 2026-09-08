@@ -3,6 +3,7 @@ package assets
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -20,12 +21,30 @@ type fakeClient struct {
 	shipsErr    error
 	raw         map[string][]byte
 	calls       []string
+
+	skillsErr    error                 // when set, GetSkills fails
+	skillsWithXP map[string]game.Skill // what GetSkills writes into state
 }
 
 func (f *fakeClient) GetStatus(context.Context) error {
 	f.calls = append(f.calls, "get_status")
 
 	return f.statusErr
+}
+
+// GetSkills models the real split: get_status supplies each skill's LEVEL but
+// not its XP, and only get_skills fills the XP in. The fake therefore seeds
+// levels with xp=0 and this call is what supplies the real numbers.
+func (f *fakeClient) GetSkills(context.Context) error {
+	f.calls = append(f.calls, "get_skills")
+	if f.skillsErr != nil {
+		return f.skillsErr
+	}
+	if f.skillsWithXP != nil && f.state != nil {
+		f.state.Player.Skills = f.skillsWithXP
+	}
+
+	return nil
 }
 
 func (f *fakeClient) ShippingProfile(context.Context) error {
@@ -51,13 +70,16 @@ func newFakeClient() *fakeClient {
 	st.Player.Credits = 15135
 	st.Player.Empire = "haven"
 	st.Player.HomeBase = "grand_exchange_station"
-	st.Player.Skills = map[string]game.Skill{"smuggling": {Level: 3, XP: 12}}
+	// Levels only, xp 0 -- what get_status alone yields.
+	st.Player.Skills = map[string]game.Skill{"smuggling": {Level: 3}}
 	st.Player.Standings = map[string]game.EmpireStanding{
 		"pirates": {Reputation: 42, Baseline: 10},
 	}
 
 	return &fakeClient{
 		state: st,
+		// What get_skills adds on top: the same skill, now with XP.
+		skillsWithXP: map[string]game.Skill{"smuggling": {Level: 3, XP: 12}},
 		raw: map[string][]byte{
 			"owned_ships": []byte(`{"action":"list_ships","ships":[
 				{"ship_id":"s1","class_id":"reclaim","is_active":true,
@@ -411,5 +433,54 @@ func TestCaptureProfileFallsBackToStoredHulls(t *testing.T) {
 	}
 	if reason := capabilityReason(t, st, "abc123", "mission_delivery"); reason != "" {
 		t.Errorf("an eligible verdict must carry no blocking reason, got %q", reason)
+	}
+}
+
+// XP is only ever present in the get_skills payload: get_status carries level
+// alone. Capturing from status alone stored xp=0 on every row for every agent
+// -- a level-100 pilot included -- which left level crossings as the only
+// visible signal and made progress RATE unmeasurable.
+func TestCaptureProfileCapturesSkillXPFromGetSkills(t *testing.T) {
+	c := newFakeClient()
+	st := openTestStore(t)
+
+	if err := CaptureProfile(context.Background(), c, st, "craftsman-1", time.Now()); err != nil {
+		t.Fatalf("CaptureProfile: %v", err)
+	}
+	if !slices.Contains(c.calls, "get_skills") {
+		t.Fatalf("get_skills was never called; calls: %v", c.calls)
+	}
+
+	var level int
+	var xp float64
+	row := st.DB().QueryRow(`SELECT level, xp FROM agent_skills WHERE skill='smuggling'`)
+	if err := row.Scan(&level, &xp); err != nil {
+		t.Fatalf("read skill row: %v", err)
+	}
+	if level != 3 {
+		t.Errorf("level = %d, want 3", level)
+	}
+	if xp != 12 {
+		t.Errorf("xp = %v, want 12 -- the get_skills value, not the get_status zero", xp)
+	}
+}
+
+// A get_skills failure must not lose the rest of the profile: levels from
+// get_status are still worth recording.
+func TestCaptureProfileKeepsLevelsWhenGetSkillsFails(t *testing.T) {
+	c := newFakeClient()
+	c.skillsErr = errors.New("skills unavailable")
+	st := openTestStore(t)
+
+	if err := CaptureProfile(context.Background(), c, st, "craftsman-1", time.Now()); err != nil {
+		t.Fatalf("CaptureProfile should survive a get_skills failure: %v", err)
+	}
+	var level int
+	row := st.DB().QueryRow(`SELECT level FROM agent_skills WHERE skill='smuggling'`)
+	if err := row.Scan(&level); err != nil {
+		t.Fatalf("skill row missing after get_skills failure: %v", err)
+	}
+	if level != 3 {
+		t.Errorf("level = %d, want 3", level)
 	}
 }
