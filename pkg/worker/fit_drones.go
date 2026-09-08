@@ -74,7 +74,14 @@ func droneIDFromLoad(raw []byte) (string, error) {
 
 // FitDrones turns the agent's active ship into a drone platform: withdraw bays
 // and drones from THIS station's storage, install the bays, then load each
-// drone and give it SCRIPT, and finally deploy.
+// drone and give it SCRIPT, and finally deploy if deploy is true.
+//
+// deploy=false stops after the scripts are uploaded, leaving the drones loaded
+// and docked. That is the pre-travel case: a marketbot fitted at its origin must
+// carry its drones to the destination and launch them THERE, because deploying
+// here would put them to work in the wrong system moments before the ship jumps
+// out. Pair it with a pre-rendered script -- $TOKEN$s resolve against the
+// CURRENT system, which is not where the drones will fly.
 //
 // Deliberately NOT done: uninstalling an existing module to free a slot. The
 // manual runbook does that, but uninstall_mod takes a module *instance* id and
@@ -83,7 +90,7 @@ func droneIDFromLoad(raw []byte) (string, error) {
 //
 // Materials must already be in station storage -- withdraw_items only sees the
 // local station, so this runs downstream of delivering bays and drones.
-func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, drones int, bayItem, droneItem string) error {
+func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, drones int, bayItem, droneItem string, deploy bool) error {
 	if bays < 1 || drones < 1 {
 		return fmt.Errorf("fit_drones: bays and drones must be >= 1, got %d/%d", bays, drones)
 	}
@@ -133,6 +140,11 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 		}
 		loaded++
 		time.Sleep(game.SleepQuick)
+	}
+
+	if !deploy {
+		fmt.Fprintf(d.Out, "fit_drones: %d bay(s), %d drone(s) loaded and scripted %q, NOT deployed\n", bays, drones, script) //nolint:errcheck
+		return nil
 	}
 
 	// Deploy needs open space; re-dock after so the agent resumes its role.

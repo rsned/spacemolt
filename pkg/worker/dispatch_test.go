@@ -54,6 +54,11 @@ type fakeClient struct {
 	viewStorageErr error // when set, ViewStorage returns it instead of recording success
 	withdrawErr    error // when set, WithdrawItems returns it instead of recording success
 
+	installModErr   error    // when set, InstallMod returns it (models a full utility rack)
+	loadDroneErr    error    // when set, LoadDrone returns it
+	droneSeq        int      // increments per LoadDrone so each drone gets a unique id
+	uploadedScripts []string // script bodies passed to UploadDroneScript, in order
+
 	shippingErr   map[string]error // per-action error, keyed by shipping action
 	shippingCalls []string         // shipping actions issued, in order
 	// onShippingAccept fires after a successful ShippingAccept, letting a test
@@ -238,6 +243,36 @@ func (f *fakeClient) ViewStorage(ctx context.Context) error {
 func (f *fakeClient) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
 	f.calls = append(f.calls, fmt.Sprintf("withdraw:%s:%.0f", itemID, quantity))
 	return f.withdrawErr
+}
+
+// Drone-bay fitting. LoadDrone stamps a distinct drone_id into raw["_last"]
+// exactly as the server does, because FitDrones reads that reply to learn which
+// drone the matching upload_drone_script should target -- a fake returning one
+// fixed id would let a bug that scripts the same drone N times pass.
+func (f *fakeClient) InstallMod(ctx context.Context, moduleID string) error {
+	f.calls = append(f.calls, "install_mod:"+moduleID)
+	return f.installModErr
+}
+func (f *fakeClient) LoadDrone(ctx context.Context, itemID string) error {
+	f.calls = append(f.calls, "load_drone:"+itemID)
+	if f.loadDroneErr != nil {
+		return f.loadDroneErr
+	}
+	f.droneSeq++
+	if f.raw == nil {
+		f.raw = map[string][]byte{}
+	}
+	f.raw["_last"] = []byte(fmt.Sprintf(`{"action":"load_drone","drone_id":"drone-%d"}`, f.droneSeq))
+	return nil
+}
+func (f *fakeClient) UploadDroneScript(ctx context.Context, droneID, script string) error {
+	f.calls = append(f.calls, "upload_script:"+droneID)
+	f.uploadedScripts = append(f.uploadedScripts, script)
+	return nil
+}
+func (f *fakeClient) DeployDrone(ctx context.Context, droneID string, all bool) error {
+	f.calls = append(f.calls, fmt.Sprintf("deploy_drone:all=%t", all))
+	return nil
 }
 func (f *fakeClient) RawCommand(ctx context.Context, command string, args map[string]any) error {
 	f.calls = append(f.calls, "raw:"+command)

@@ -1,6 +1,8 @@
 package worker
 
 import (
+	"context"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -83,5 +85,86 @@ func TestDroneIDFromLoad(t *testing.T) {
 	}
 	if _, err := droneIDFromLoad(nil); err == nil {
 		t.Error("empty payload: want error, got nil")
+	}
+}
+
+// fitDronesDispatch wires a WorkerDispatch onto the shared fakeClient, docked at
+// Haven, for the deploy-flag tests.
+func fitDronesDispatch(t *testing.T) (*WorkerDispatch, *fakeClient) {
+	t.Helper()
+	// FitDrones resolves scripts from DefaultDroneScriptDir, a repo-relative
+	// path, so the shipped templates are only visible from the repo root.
+	t.Chdir(filepath.Join("..", ".."))
+	st := havenState()
+	st.Doc = true
+	fc := &fakeClient{state: st}
+	return &WorkerDispatch{Client: fc, Out: io.Discard}, fc
+}
+
+// deploy=false is the pre-travel case: a marketbot is fitted at its ORIGIN and
+// must carry the drones to its post. Undocking and launching them at the origin
+// would put them to work in the wrong system moments before the ship jumps out,
+// so the run has to stop cleanly after the last upload.
+func TestFitDronesNoDeployStopsAfterUpload(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 3, "", "", false); err != nil {
+		t.Fatalf("FitDrones: %v", err)
+	}
+
+	got := strings.Join(fc.calls, ",")
+	for _, forbidden := range []string{"undock", "deploy_drone", "dock"} {
+		if strings.Contains(got, forbidden) {
+			t.Errorf("deploy=false issued %q; calls: %v", forbidden, fc.calls)
+		}
+	}
+	// The fitting itself must still have happened in full.
+	for _, want := range []string{
+		"withdraw:advanced_drone_bay:1", "install_mod:advanced_drone_bay",
+		"withdraw:mining_drone:3",
+		"load_drone:mining_drone", "upload_script:drone-1", "upload_script:drone-3",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q; calls: %v", want, fc.calls)
+		}
+	}
+	if len(fc.uploadedScripts) != 3 {
+		t.Errorf("uploaded %d scripts, want 3", len(fc.uploadedScripts))
+	}
+}
+
+// deploy=true must keep behaving exactly as before the flag existed, since every
+// existing caller relies on the trailing undock/deploy/dock.
+func TestFitDronesDeployTrueStillLaunches(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", true); err != nil {
+		t.Fatalf("FitDrones: %v", err)
+	}
+
+	got := strings.Join(fc.calls, ",")
+	for _, want := range []string{"undock", "deploy_drone:all=true", "dock"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("deploy=true missing %q; calls: %v", want, fc.calls)
+		}
+	}
+	// Deploy must come after every upload, never interleaved.
+	if di, ui := strings.Index(got, "deploy_drone"), strings.LastIndex(got, "upload_script"); di < ui {
+		t.Errorf("deployed before the last upload; calls: %v", fc.calls)
+	}
+}
+
+// Each drone must get its OWN id from its own load reply. Scripting drone-1
+// three times would leave two drones idle and look like success.
+func TestFitDronesScriptsEachDroneOnce(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 4, "", "", false); err != nil {
+		t.Fatalf("FitDrones: %v", err)
+	}
+	for _, want := range []string{"drone-1", "drone-2", "drone-3", "drone-4"} {
+		if !strings.Contains(strings.Join(fc.calls, ","), "upload_script:"+want) {
+			t.Errorf("no upload to %s; calls: %v", want, fc.calls)
+		}
 	}
 }

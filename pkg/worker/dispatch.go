@@ -190,7 +190,7 @@ var supported = map[string]bool{
 	"hunt": true,
 	"mine": true, "mine_qty": true, "deliver": true, "buy_directed": true, "craft_node": true,
 	"fit_drones": true,
-	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
+	"refuel":     true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
 	"capture_storage": true, "capture_faction": true,
@@ -418,7 +418,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return d.MineQty(ctx, args[0], qty, args[2], args[3])
 	case "fit_drones":
 		if len(args) < 1 {
-			return fmt.Errorf("fit_drones: want SCRIPT [BAYS] [DRONES] [BAY_ITEM] [DRONE_ITEM], got %v", args)
+			return fmt.Errorf("fit_drones: want SCRIPT [BAYS] [DRONES] [BAY_ITEM] [DRONE_ITEM] [DEPLOY], got %v", args)
 		}
 		bays, drones := 1, 5
 		if len(args) >= 2 {
@@ -442,7 +442,17 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		if len(args) >= 5 {
 			droneItem = args[4]
 		}
-		return d.FitDrones(ctx, args[0], bays, drones, bayItem, droneItem)
+		// Defaults true so every existing caller keeps deploying. Pass false to
+		// stop after upload -- see FitDrones on the pre-travel case.
+		deploy := true
+		if len(args) >= 6 {
+			b, err := strconv.ParseBool(args[5])
+			if err != nil {
+				return fmt.Errorf("fit_drones: bad deploy %q (want true/false)", args[5])
+			}
+			deploy = b
+		}
+		return d.FitDrones(ctx, args[0], bays, drones, bayItem, droneItem, deploy)
 
 	case "craft_node":
 		if len(args) < 4 {
