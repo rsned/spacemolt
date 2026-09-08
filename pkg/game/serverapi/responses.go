@@ -3180,3 +3180,184 @@ type FactionCancelMissionResponse struct {
 	Message string `json:"message"`
 	Status  string `json:"status,omitempty"`
 }
+
+// ── Arena (server /arena) ────────────────────────────────────────────────────
+//
+// One command, eight actions: challenge, accept, decline, cancel, status,
+// challenges, fight, help. The spec models this as an ArenaResponse with an
+// `action` discriminator over seven concrete variants, so ArenaResponse below
+// is the flat union of their fields -- the same shape BattleResponse uses for
+// the battle command. Every field outside `action` is optional: read only the
+// ones documented for the action you sent.
+//
+// Arena combat is knockout, not death: a ship at 0 hull, a captured ship or a
+// destroyed drone leaves the fight and is restored on the spot, with hull,
+// shields, armor, crew casualties and module disables reversed. Ammo, fuel and
+// consumables are really spent. Results land in arena_wins/arena_losses/
+// arena_knockouts only -- no kill, loss, capture or casualty stats, no crime,
+// reputation or police.
+
+// ArenaParticipantInfo is one pilot in an arena match.
+type ArenaParticipantInfo struct {
+	PlayerID string `json:"player_id,omitempty"`
+	Username string `json:"username,omitempty"`
+	SideID   int    `json:"side_id,omitempty"`
+}
+
+// ArenaChallengeInfo is a pending player-vs-player challenge, incoming or
+// outgoing.
+type ArenaChallengeInfo struct {
+	ChallengeID  string `json:"challenge_id,omitempty"`
+	OpponentID   string `json:"opponent_id,omitempty"`
+	OpponentName string `json:"opponent_name,omitempty"`
+	POIID        string `json:"poi_id,omitempty"`
+	MaxSideSize  int    `json:"max_side_size,omitempty"`
+	ExpiresTick  int    `json:"expires_tick,omitempty"`
+}
+
+// ArenaObjective is a challenge's win condition when it is not simply "last
+// side standing". survive_ticks wins once your side has lasted that long,
+// time_limit_ticks loses if an enemy is still up at the deadline, and
+// no_enemy_escape loses the moment an enemy marked flees clears the ring.
+type ArenaObjective struct {
+	SurviveTicks   int  `json:"survive_ticks,omitempty"`
+	TimeLimitTicks int  `json:"time_limit_ticks,omitempty"`
+	NoEnemyEscape  bool `json:"no_enemy_escape,omitempty"`
+}
+
+// ArenaEnemyInfo is one enemy line in a challenge or wave.
+type ArenaEnemyInfo struct {
+	Name          string `json:"name,omitempty"`
+	ShipClass     string `json:"ship_class,omitempty"`
+	ShipClassName string `json:"ship_class_name,omitempty"`
+	Count         int    `json:"count,omitempty"`
+	IsBoss        bool   `json:"is_boss,omitempty"`
+	Flees         bool   `json:"flees,omitempty"`
+}
+
+// ArenaWaveInfo is a reinforcement wave: more enemies enter the SAME battle
+// after AfterTicks, or once only WhenEnemiesRemaining are left, or both. A
+// match cannot end while a wave is still due.
+type ArenaWaveInfo struct {
+	Name                 string           `json:"name,omitempty"`
+	AfterTicks           int              `json:"after_ticks,omitempty"`
+	WhenEnemiesRemaining int              `json:"when_enemies_remaining,omitempty"`
+	Enemies              []ArenaEnemyInfo `json:"enemies,omitempty"`
+}
+
+// ArenaRules is a challenge's loadout restrictions. A ship breaking one refuses
+// your WHOLE side with a rule_* error, so check these before committing a fleet.
+type ArenaRules struct {
+	AllowedShipClasses    []string `json:"allowed_ship_classes,omitempty"`
+	BannedShipClasses     []string `json:"banned_ship_classes,omitempty"`
+	AllowedShipCategories []string `json:"allowed_ship_categories,omitempty"`
+	BannedShipCategories  []string `json:"banned_ship_categories,omitempty"`
+	AllowedHullClasses    []string `json:"allowed_hull_classes,omitempty"`
+	BannedHullClasses     []string `json:"banned_hull_classes,omitempty"`
+	AllowedModules        []string `json:"allowed_modules,omitempty"`
+	BannedModules         []string `json:"banned_modules,omitempty"`
+	AllowedCargo          []string `json:"allowed_cargo,omitempty"`
+	BannedCargo           []string `json:"banned_cargo,omitempty"`
+	AllowedDamageTypes    []string `json:"allowed_damage_types,omitempty"`
+	BannedEffectTypes     []string `json:"banned_effect_types,omitempty"`
+	MinShipTier           int      `json:"min_ship_tier,omitempty"`
+	MaxShipTier           int      `json:"max_ship_tier,omitempty"`
+	MaxShipScale          int      `json:"max_ship_scale,omitempty"`
+	MinSideSize           int      `json:"min_side_size,omitempty"`
+	MaxSideSize           int      `json:"max_side_size,omitempty"`
+	MaxCrew               int      `json:"max_crew,omitempty"`
+	MaxMarines            int      `json:"max_marines,omitempty"`
+	NoAmmoWeapons         bool     `json:"no_ammo_weapons,omitempty"`
+	NoBoarding            bool     `json:"no_boarding,omitempty"`
+	NoCloak               bool     `json:"no_cloak,omitempty"`
+	NoConsumables         bool     `json:"no_consumables,omitempty"`
+	NoDrones              bool     `json:"no_drones,omitempty"`
+	NoTackle              bool     `json:"no_tackle,omitempty"`
+	RequireEmptyCargo     bool     `json:"require_empty_cargo,omitempty"`
+}
+
+// ArenaChallengeDefInfo is one NPC challenge from action=challenges. Locked
+// stays true until every challenge in Requires has been won once.
+type ArenaChallengeDefInfo struct {
+	ChallengeID string           `json:"challenge_id,omitempty"`
+	Name        string           `json:"name,omitempty"`
+	Description string           `json:"description,omitempty"`
+	Series      string           `json:"series,omitempty"`
+	Stage       int              `json:"stage,omitempty"`
+	POIID       string           `json:"poi_id,omitempty"`
+	POIName     string           `json:"poi_name,omitempty"`
+	AtThisArena bool             `json:"at_this_arena,omitempty"`
+	Locked      bool             `json:"locked,omitempty"`
+	Requires    []string         `json:"requires,omitempty"`
+	Wins        int              `json:"wins,omitempty"`
+	Rules       *ArenaRules      `json:"rules,omitempty"`
+	Objective   *ArenaObjective  `json:"objective,omitempty"`
+	Enemies     []ArenaEnemyInfo `json:"enemies,omitempty"`
+	Waves       []ArenaWaveInfo  `json:"waves,omitempty"`
+}
+
+// ArenaMatchInfo is the live objective state of an NPC challenge in progress,
+// returned inside action=status.
+type ArenaMatchInfo struct {
+	ChallengeID      string          `json:"challenge_id,omitempty"`
+	Name             string          `json:"name,omitempty"`
+	ElapsedTicks     int             `json:"elapsed_ticks,omitempty"`
+	TicksRemaining   int             `json:"ticks_remaining,omitempty"`
+	EnemiesRemaining int             `json:"enemies_remaining,omitempty"`
+	WavesRemaining   int             `json:"waves_remaining,omitempty"`
+	Objective        *ArenaObjective `json:"objective,omitempty"`
+}
+
+// ArenaResponse is returned by arena — the union of every action's variant,
+// keyed by Action.
+//
+//   - arena
+//
+// Which fields are populated depends on Action:
+//
+//	challenge             ChallengeID, TargetID, TargetName, POIID, MaxSideSize, ExpiresTick
+//	accept                BattleID, YourSide, OpponentSide, Participants
+//	decline / cancel      ChallengeID
+//	status                AtArena, ArenaWins/Losses/Knockouts, XPUsedToday,
+//	                      XPCapPerSkill, BattleID, Incoming, Outgoing, Match
+//	challenges            Challenges
+//	fight                 ChallengeID, Name, BattleID, YourSide, EnemySide,
+//	                      Participants, Enemies, Objective, Waves
+//	help                  Message
+type ArenaResponse struct {
+	Action  string `json:"action"`
+	Message string `json:"message,omitempty"`
+
+	// challenge / decline / cancel / fight
+	ChallengeID string `json:"challenge_id,omitempty"`
+	TargetID    string `json:"target_id,omitempty"`
+	TargetName  string `json:"target_name,omitempty"`
+	POIID       string `json:"poi_id,omitempty"`
+	MaxSideSize int    `json:"max_side_size,omitempty"`
+	ExpiresTick int    `json:"expires_tick,omitempty"`
+
+	// accept / fight
+	BattleID     string                 `json:"battle_id,omitempty"`
+	Name         string                 `json:"name,omitempty"`
+	YourSide     int                    `json:"your_side,omitempty"`
+	OpponentSide int                    `json:"opponent_side,omitempty"`
+	EnemySide    int                    `json:"enemy_side,omitempty"`
+	Participants []ArenaParticipantInfo `json:"participants,omitempty"`
+	Enemies      []ArenaEnemyInfo       `json:"enemies,omitempty"`
+	Objective    *ArenaObjective        `json:"objective,omitempty"`
+	Waves        []ArenaWaveInfo        `json:"waves,omitempty"`
+
+	// status
+	AtArena        bool                `json:"at_arena,omitempty"`
+	ArenaWins      int                 `json:"arena_wins,omitempty"`
+	ArenaLosses    int                 `json:"arena_losses,omitempty"`
+	ArenaKnockouts int                 `json:"arena_knockouts,omitempty"`
+	XPUsedToday    map[string]int      `json:"xp_used_today,omitempty"`
+	XPCapPerSkill  int                 `json:"xp_cap_per_skill,omitempty"`
+	Incoming       *ArenaChallengeInfo `json:"incoming,omitempty"`
+	Outgoing       *ArenaChallengeInfo `json:"outgoing,omitempty"`
+	Match          *ArenaMatchInfo     `json:"match,omitempty"`
+
+	// challenges
+	Challenges []ArenaChallengeDefInfo `json:"challenges,omitempty"`
+}

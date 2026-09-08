@@ -45,7 +45,28 @@ import (
 // sell_ship from pkg/actionspace after the server retired it. Response-struct
 // verification is otherwise unchanged: still partial, still itemized in the
 // findings doc.
-const BuiltForAPIVersion = "v0.547.1"
+// The v0.547.1 -> v0.598.1 bump (2026-09-08) closes the last uncovered command:
+// `arena`. TestServerCommandsCoveredByClient had been red on it, which is what
+// blocked this constant for ~51 server versions. The spec models /arena as an
+// ArenaResponse with an `action` discriminator over seven variants, so the Go
+// side is one flat umbrella keyed on Action -- the same shape BattleResponse
+// uses for battle -- plus the seven sub-objects (participant, challenge,
+// objective, enemy, wave, rules, challenge-def, match).
+//
+// The value tracks server_docs/openapi.json -> openapi.20260907.json
+// (x-gameserver-version v0.598.1), the snapshot the structs were read from, per
+// the convention established by the v0.531.4 bump. The live server was already
+// on v0.598.3 that day; the constant follows the SNAPSHOT, not the server, so
+// it never claims coverage of a spec nobody has read.
+//
+// Response-struct verification is unchanged: still partial, still itemized in
+// the findings doc. Known gaps NOT closed here, all additive and none breaking
+// a guard: the mining fields too_sparse / lock_minimum_stock / mining_group are
+// absent from Go, and supported_power is int in serverapi against float64 in
+// play_as. Request-parameter drift stays unguarded -- 24 commands declare
+// parameters whose names appear nowhere in our Go, and no test looks in that
+// direction.
+const BuiltForAPIVersion = "v0.598.1"
 
 // SemVer represents a semantic version (Major.Minor.Patch)
 type SemVer struct {
