@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 )
@@ -175,6 +174,39 @@ func (d *WorkerDispatch) freeModuleSlot(ctx context.Context, bayItem string) (in
 	return victim, nil
 }
 
+// FitDronesOpts are the switches on a fit-out. They are a struct rather than
+// trailing parameters because Deploy, Strip and Resume are three adjacent bools
+// and a transposed pair would silently do the wrong thing on a live account.
+type FitDronesOpts struct {
+	// Deploy launches the drones at the end. False leaves them stowed for a
+	// ship that still has to travel to the post it will mine.
+	Deploy bool
+	// Strip allows ONE blocking module to be uninstalled; see freeModuleSlot.
+	Strip bool
+	// Resume fits only what is missing, reading the ship and drone roster first.
+	// A fit that failed partway leaves a hull with its bay installed and some
+	// drones loaded, and re-running from the top would try to withdraw a second
+	// bay that storage does not have. With Resume the verb is idempotent: run it
+	// again and it completes the fit rather than restarting it.
+	Resume bool
+}
+
+// installedBays counts fitted modules of bayItem's type. Requires a fresh
+// get_ship.
+func installedBays(raw []byte, bayItem string) (int, error) {
+	mods, err := shipModules(raw)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, m := range mods {
+		if m.TypeID == bayItem {
+			n++
+		}
+	}
+	return n, nil
+}
+
 // and drones from THIS station's storage, install the bays, then load each
 // drone and give it SCRIPT, and finally deploy if deploy is true.
 //
@@ -192,7 +224,7 @@ func (d *WorkerDispatch) freeModuleSlot(ctx context.Context, bayItem string) (in
 //
 // Materials must already be in station storage -- withdraw_items only sees the
 // local station, so this runs downstream of delivering bays and drones.
-func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, drones int, bayItem, droneItem string, deploy, strip bool) error {
+func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, drones int, bayItem, droneItem string, opts FitDronesOpts) error {
 	if bays < 1 || drones < 1 {
 		return fmt.Errorf("fit_drones: bays and drones must be >= 1, got %d/%d", bays, drones)
 	}
@@ -212,32 +244,73 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 		return err
 	}
 
-	if err := d.Client.WithdrawItems(ctx, bayItem, float64(bays)); err != nil {
-		return fmt.Errorf("fit_drones: withdraw %d %s: %w", bays, bayItem, err)
+	// Resume reads what is already fitted and subtracts it. Everything below
+	// then works on the SHORTFALL, so a clean hull runs exactly as before
+	// (nothing fitted, shortfall == the full ask) and a half-fitted one is
+	// completed instead of restarted.
+	baysNeeded, dronesNeeded := bays, drones
+	alreadyLoaded := 0
+	if opts.Resume {
+		if err := d.Client.GetShip(ctx); err != nil {
+			return fmt.Errorf("fit_drones: resume: get_ship: %w", err)
+		}
+		haveBays, err := installedBays(d.Client.GetRawJSON("ship"), bayItem)
+		if err != nil {
+			return fmt.Errorf("fit_drones: resume: %w", err)
+		}
+		baysNeeded = max(bays-haveBays, 0)
+
+		if err := d.Client.GetDrones(ctx); err != nil {
+			return fmt.Errorf("fit_drones: resume: get_drones: %w", err)
+		}
+		ids, err := droneIDsFromRoster(d.Client.GetRawJSON("drones"), droneItem)
+		if err != nil && !strings.Contains(err.Error(), "none match") {
+			return fmt.Errorf("fit_drones: resume: %w", err)
+		}
+		alreadyLoaded = len(ids)
+		dronesNeeded = max(drones-alreadyLoaded, 0)
+		msg := fmt.Sprintf("fit_drones: resume: %d/%d bay(s), %d/%d drone(s) already fitted; doing %d bay(s), %d drone(s)\n",
+			haveBays, bays, alreadyLoaded, drones, baysNeeded, dronesNeeded)
+		fmt.Fprint(d.Out, msg) //nolint:errcheck
+	}
+
+	if baysNeeded > 0 {
+		if err := d.Client.WithdrawItems(ctx, bayItem, float64(baysNeeded)); err != nil {
+			return fmt.Errorf("fit_drones: withdraw %d %s: %w", baysNeeded, bayItem, err)
+		}
 	}
 	stripped := false
-	for i := range bays {
+	for i := range baysNeeded {
 		err := d.Client.InstallMod(ctx, bayItem)
-		if err != nil && strip && !stripped {
+		if err != nil && opts.Strip && !stripped {
 			// A fresh hull's default module leaves too little CPU/power for the
 			// bay. Strip once, then retry this same install -- not the whole
 			// loop, so an earlier bay stays installed.
 			stripped = true
 			victim, ferr := d.freeModuleSlot(ctx, bayItem)
 			if ferr != nil {
-				return fmt.Errorf("fit_drones: install %s %d/%d failed (%v) and could not free a slot: %w", bayItem, i+1, bays, err, ferr)
+				return fmt.Errorf("fit_drones: install %s %d/%d failed (%v) and could not free a slot: %w", bayItem, i+1, baysNeeded, err, ferr)
 			}
 			fmt.Fprintf(d.Out, "fit_drones: uninstalled %s (%s) to free CPU/power for %s\n", victim.TypeID, victim.ID, bayItem) //nolint:errcheck
 			err = d.Client.InstallMod(ctx, bayItem)
 		}
 		if err != nil {
-			return fmt.Errorf("fit_drones: install %s %d/%d (utility slot or CPU full?): %w", bayItem, i+1, bays, err)
+			return fmt.Errorf("fit_drones: install %s %d/%d (utility slot or CPU full?): %w", bayItem, i+1, baysNeeded, err)
 		}
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 	}
 
-	if err := d.Client.WithdrawItems(ctx, droneItem, float64(drones)); err != nil {
-		return fmt.Errorf("fit_drones: withdraw %d %s: %w", drones, droneItem, err)
+	// Withdraw only what cargo does not already hold. A run that died after its
+	// withdraw left the drones in the hold, and asking storage for them a second
+	// time fails against stock that is no longer there.
+	toWithdraw := dronesNeeded
+	if opts.Resume {
+		toWithdraw = max(dronesNeeded-int(cargoQty(d.Client.GetState(), droneItem)), 0)
+	}
+	if toWithdraw > 0 {
+		if err := d.Client.WithdrawItems(ctx, droneItem, float64(toWithdraw)); err != nil {
+			return fmt.Errorf("fit_drones: withdraw %d %s: %w", toWithdraw, droneItem, err)
+		}
 	}
 
 	// Load every drone FIRST, then read the roster for their ids.
@@ -248,17 +321,19 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 	// the drone_id lands a tick later. Reading it inline always finds nothing.
 	// get_drones reports the settled roster, which is also how the manual
 	// bulk_upload_drone_script path works.
-	loaded := 0
-	for i := range drones {
+	loaded := alreadyLoaded
+	for i := range dronesNeeded {
 		if err := d.Client.LoadDrone(ctx, droneItem); err != nil {
-			return fmt.Errorf("fit_drones: load %s %d/%d: %w", droneItem, i+1, drones, err)
+			return fmt.Errorf("fit_drones: load %s %d/%d: %w", droneItem, i+1, dronesNeeded, err)
 		}
 		loaded++
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 	}
 
 	// Let the last load settle before asking for the roster.
-	time.Sleep(game.SleepTick)
+	if dronesNeeded > 0 {
+		settle(ctx, game.SleepTick)
+	}
 	if err := d.Client.GetDrones(ctx); err != nil {
 		return fmt.Errorf("fit_drones: get_drones after loading %d: %w", loaded, err)
 	}
@@ -273,10 +348,10 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 		if err := d.Client.UploadDroneScript(ctx, id, body); err != nil {
 			return fmt.Errorf("fit_drones: upload script to drone %s: %w", id, err)
 		}
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 	}
 
-	if !deploy {
+	if !opts.Deploy {
 		fmt.Fprintf(d.Out, "fit_drones: %d bay(s), %d drone(s) loaded and scripted %q, NOT deployed\n", bays, drones, script) //nolint:errcheck
 		return nil
 	}

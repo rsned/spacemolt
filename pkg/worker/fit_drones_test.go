@@ -98,7 +98,7 @@ func fitDronesDispatch(t *testing.T) (*WorkerDispatch, *fakeClient) {
 func TestFitDronesNoDeployStopsAfterUpload(t *testing.T) {
 	d, fc := fitDronesDispatch(t)
 
-	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 3, "", "", false, false); err != nil {
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 3, "", "", FitDronesOpts{Deploy: false, Strip: false}); err != nil {
 		t.Fatalf("FitDrones: %v", err)
 	}
 
@@ -128,7 +128,7 @@ func TestFitDronesNoDeployStopsAfterUpload(t *testing.T) {
 func TestFitDronesDeployTrueStillLaunches(t *testing.T) {
 	d, fc := fitDronesDispatch(t)
 
-	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", true, false); err != nil {
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", FitDronesOpts{Deploy: true, Strip: false}); err != nil {
 		t.Fatalf("FitDrones: %v", err)
 	}
 
@@ -149,7 +149,7 @@ func TestFitDronesDeployTrueStillLaunches(t *testing.T) {
 func TestFitDronesScriptsEachDroneOnce(t *testing.T) {
 	d, fc := fitDronesDispatch(t)
 
-	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 4, "", "", false, false); err != nil {
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 4, "", "", FitDronesOpts{Deploy: false, Strip: false}); err != nil {
 		t.Fatalf("FitDrones: %v", err)
 	}
 	for _, want := range []string{"drone-1", "drone-2", "drone-3", "drone-4"} {
@@ -219,7 +219,7 @@ func TestFitDronesStripRemovesTheSingleDefaultModule(t *testing.T) {
 	fc.installModErrUntilStrip = errors.New("insufficient CPU")
 	fc.raw = map[string][]byte{"ship": shipJSON([2]string{"inst-1", "survey_scanner_i"})}
 
-	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", false, true); err != nil {
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", FitDronesOpts{Deploy: false, Strip: true}); err != nil {
 		t.Fatalf("FitDrones with strip: %v", err)
 	}
 	got := strings.Join(fc.calls, ",")
@@ -242,7 +242,7 @@ func TestFitDronesWithoutStripNeverUninstalls(t *testing.T) {
 	fc.installModErrUntilStrip = errors.New("insufficient CPU")
 	fc.raw = map[string][]byte{"ship": shipJSON([2]string{"inst-1", "survey_scanner_i"})}
 
-	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", false, false)
+	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", FitDronesOpts{Deploy: false, Strip: false})
 	if err == nil {
 		t.Fatal("expected the install to fail")
 	}
@@ -261,7 +261,7 @@ func TestFitDronesStripRefusesWhenSeveralModulesFitted(t *testing.T) {
 		[2]string{"inst-2", "cargo_expander_iii"},
 	)}
 
-	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", false, true)
+	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", FitDronesOpts{Deploy: false, Strip: true})
 	if err == nil {
 		t.Fatal("expected a refusal when several modules are fitted")
 	}
@@ -283,7 +283,7 @@ func TestFitDronesStripIgnoresAlreadyInstalledBays(t *testing.T) {
 		[2]string{"inst-1", "survey_scanner_i"},
 	)}
 
-	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 1, "", "", false, true); err != nil {
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 1, "", "", FitDronesOpts{Deploy: false, Strip: true}); err != nil {
 		t.Fatalf("FitDrones: %v", err)
 	}
 	got := strings.Join(fc.calls, ",")
@@ -302,7 +302,7 @@ func TestFitDronesStripIgnoresAlreadyInstalledBays(t *testing.T) {
 func TestFitDronesReadsDroneIDsFromRosterNotLoadReply(t *testing.T) {
 	d, fc := fitDronesDispatch(t)
 
-	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 3, "", "", false, false); err != nil {
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 3, "", "", FitDronesOpts{Deploy: false, Strip: false}); err != nil {
 		t.Fatalf("FitDrones: %v", err)
 	}
 
@@ -330,11 +330,74 @@ func TestFitDronesFailsWhenRosterIsEmpty(t *testing.T) {
 	fc.raw = map[string][]byte{"drones": []byte(`{"drones":[]}`)}
 	fc.suppressRoster = true
 
-	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", false, false)
+	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", FitDronesOpts{Deploy: false, Strip: false})
 	if err == nil {
 		t.Fatal("expected an error when the roster lists no drones")
 	}
 	if !strings.Contains(err.Error(), "roster lists none") {
 		t.Errorf("unclear error: %v", err)
+	}
+}
+
+// Resume completes a half-finished fit instead of restarting it. The live
+// failures on 2026-09-08 left hulls with the bay installed and some drones
+// loaded; re-running from the top asked storage for a second bay it did not
+// have.
+func TestFitDronesResumeSkipsWhatIsAlreadyFitted(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+	// One bay fitted, two of the five drones already loaded.
+	fc.raw = map[string][]byte{"ship": shipJSON([2]string{"bay-1", "advanced_drone_bay"})}
+	fc.droneSeq = 2
+
+	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 5, "", "",
+		FitDronesOpts{Resume: true})
+	if err != nil {
+		t.Fatalf("FitDrones resume: %v", err)
+	}
+
+	got := strings.Join(fc.calls, ",")
+	if strings.Contains(got, "withdraw:advanced_drone_bay") {
+		t.Errorf("withdrew a second bay; calls: %v", fc.calls)
+	}
+	if strings.Contains(got, "install_mod") {
+		t.Errorf("re-installed an existing bay; calls: %v", fc.calls)
+	}
+	// Only the 3 missing drones get loaded, but all 5 get scripted.
+	if n := strings.Count(got, "load_drone"); n != 3 {
+		t.Errorf("loaded %d drones, want 3 (5 asked, 2 present); calls: %v", n, fc.calls)
+	}
+	if n := strings.Count(got, "upload_script"); n != 5 {
+		t.Errorf("scripted %d drones, want all 5; calls: %v", n, fc.calls)
+	}
+}
+
+// Drones a failed run already pulled into cargo must not be withdrawn twice --
+// storage no longer holds them.
+func TestFitDronesResumeDoesNotRewithdrawCargo(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+	fc.raw = map[string][]byte{"ship": shipJSON([2]string{"bay-1", "advanced_drone_bay"})}
+	fc.droneSeq = 1
+	fc.state.Ship.Cargo = []game.CargoItem{{ItemID: "mining_drone", Quantity: 4}}
+
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 5, "", "",
+		FitDronesOpts{Resume: true}); err != nil {
+		t.Fatalf("FitDrones resume: %v", err)
+	}
+	if strings.Contains(strings.Join(fc.calls, ","), "withdraw:mining_drone") {
+		t.Errorf("re-withdrew drones already in cargo; calls: %v", fc.calls)
+	}
+}
+
+// Without Resume the behaviour is unchanged: a full fit from scratch.
+func TestFitDronesWithoutResumeFitsFromScratch(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "",
+		FitDronesOpts{}); err != nil {
+		t.Fatalf("FitDrones: %v", err)
+	}
+	got := strings.Join(fc.calls, ",")
+	if !strings.Contains(got, "withdraw:advanced_drone_bay:1") || !strings.Contains(got, "install_mod") {
+		t.Errorf("did not fit from scratch; calls: %v", fc.calls)
 	}
 }
