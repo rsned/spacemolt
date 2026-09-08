@@ -47,3 +47,17 @@ legacy xp SQL scripts, the dangling schema_crafting.sql symlink. The old
 checkout (branch feature/agent-server, 8 commits not on main, 4 dirty
 files) still exists and `cmd/agent-server` no longer exists in the repo
 (CLAUDE.md is stale about it).
+
+**ROLLED OUT 2026-09-08 15:34 PDT.** `bin/kb-migrate -db data/spacemolt-knowledge.db`
+applied 60 in 54 ms with all 164 workers live; ledger 59,60; live == fresh on
+every column/index (pois.class default aside); kb-drift-audit clean except the
+six intentional legacy mining hulls. No worker restarted because of it (the
+two restarts in the window were the stall watchdog). Pre-migration snapshot:
+`data/backups/spacemolt-knowledge-pre-v60-20260908.db` (4.4 GB, integrity ok).
+**Backup lesson:** the sqlite3 shell's `.backup` RESTARTS on every external
+write and never finishes under 164 writers (sat at 3.9 GB for 15 min); use
+`sqlite3 -readonly <db> "VACUUM INTO '<file>'"` — 1m44s, one WAL snapshot.
+**Side finding:** `RecordSightings: upsert seen_players: database is locked
+(SQLITE_BUSY)` runs at ~6/min ALL DAY (2,700 by 15:40) across mb/unlock/
+mission-learn fleets — chronic, pre-existing, sightings silently dropped; a
+capture-loss mode for [[reference_capture_loss_taxonomy]].

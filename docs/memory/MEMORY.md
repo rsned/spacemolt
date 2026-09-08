@@ -106,7 +106,7 @@
 - [catalog_items omits `tradeable`](reference_catalog_items_tradeable_drift.md) — modules import as tradeable=0; bulk tools must default it
 - [Catalog refresh runbook](reference_catalog_refresh_runbook.md) — ships/items/recipes/skills from a scraper snapshot
 - [Legacy mining hulls erased by every catalog refresh](reference_legacy_ship_classes_erased_by_refresh.md) — `StoreShipClasses` is DELETE+INSERT
-- ⭐🟢 [Live KB drift FIXED: migration 60 + chain collapsed to a v59 baseline](reference_live_kb_schema_drift.md) — `d4350708`/`3c4536c6` LOCAL, unpushed; live gets 60 on first new-build open; DBs <59 refused. NEVER edit an applied migration
+- ⭐🟢 [Live KB at v60; chain collapsed to a v59 baseline](reference_live_kb_schema_drift.md) — applied 09-08 15:34 via `bin/kb-migrate` (54 ms, fleet live); backup = `VACUUM INTO`, never shell `.backup`; seen_players SQLITE_BUSY ~6/min is CHRONIC. NEVER edit an applied migration
 - [ships table migration trap](reference_ships_table_migration_trap.md) — MOOT since the 09-08 collapse (pre-59 DBs are refused)
 - ⭐ [Race suite 11m→2m (09-08)](reference_race_test_cost_sqlite_migrations.md) — SQLite migrations 3.5s/open under -race → `knowledgetest.Path(t)`; worker sleeps → `settle(ctx,d)` seam; `Client.Close` held the mutex = 5s per close. Never `time.Sleep` in pkg/worker
 - [GameClient interface → mocks](feedback_gameclient_interface_mocks.md) — `go build` misses it; run `go test ./...`
