@@ -81,9 +81,9 @@ CREATE TABLE "base_facilities" (
 -- DDL was tightened at some point (NOT NULL, DEFAULT 1) after the original
 -- tables were already live. The drift is cosmetic because every INSERT into
 -- base_market (see pkg/knowledge/sqlite.go RememberBase) provides both
--- columns explicitly — defaults are never used at runtime. No reconciliation
--- migration is needed; new DBs get the tightened shape and existing ones
--- keep working.
+-- columns explicitly — defaults are never used at runtime. Migration 60
+-- (reconcile_live_shapes) rebuilds the table on existing DBs so live and
+-- fresh match exactly.
 CREATE TABLE base_market (
 	id TEXT PRIMARY KEY,
 	base_id TEXT NOT NULL,

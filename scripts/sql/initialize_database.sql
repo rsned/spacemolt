@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 31
--- Last Regenerated: 2026-08-30
+-- Migrations applied: 32
+-- Last Regenerated: 2026-09-08
 
 -- ============================================================================
 -- TABLES
@@ -93,15 +93,15 @@ CREATE TABLE "base_facilities" (
 
 
 CREATE TABLE base_market (
-	id TEXT PRIMARY KEY,
-	base_id TEXT NOT NULL,
-	item_id TEXT NOT NULL,
-	price_each REAL NOT NULL,
-	quantity INTEGER NOT NULL,
-	is_npc BOOLEAN DEFAULT 1,
-	last_updated_tick INTEGER DEFAULT 0,
-	FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
-);
+					id TEXT PRIMARY KEY,
+					base_id TEXT NOT NULL,
+					item_id TEXT NOT NULL,
+					price_each REAL NOT NULL,
+					quantity INTEGER NOT NULL,
+					is_npc BOOLEAN DEFAULT 1,
+					last_updated_tick INTEGER DEFAULT 0,
+					FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
+				);
 
 
 CREATE TABLE base_services (
@@ -242,31 +242,31 @@ CREATE TABLE faction_members (
 
 
 CREATE TABLE faction_missions (
-					faction_id         TEXT NOT NULL,
-					base_id            TEXT NOT NULL,
-					mission_id         TEXT NOT NULL,
-					title              TEXT,
-					type               TEXT,
-					description        TEXT,
-					giver_name         TEXT,
-					rewards_json       TEXT,
-					objectives_json    TEXT,
+					faction_id TEXT NOT NULL,
+					base_id TEXT NOT NULL,
+					mission_id TEXT NOT NULL,
+					title TEXT,
+					type TEXT,
+					description TEXT,
+					giver_name TEXT,
+					rewards_json TEXT,
+					objectives_json TEXT,
 					assigned_player_id TEXT,
-					expiration_utc     TEXT,
-					captured_utc       TEXT NOT NULL,
+					expiration_utc TEXT,
+					captured_utc TEXT NOT NULL,
 					PRIMARY KEY (faction_id, base_id, mission_id)
 				);
 
 
 CREATE TABLE faction_orders (
-					faction_id   TEXT NOT NULL,
-					base_id      TEXT NOT NULL,
-					order_id     TEXT NOT NULL,
-					side         TEXT,
-					item_id      TEXT,
-					item_name    TEXT,
-					price_each   REAL NOT NULL DEFAULT 0,
-					quantity     REAL NOT NULL DEFAULT 0,
+					faction_id TEXT NOT NULL,
+					base_id TEXT NOT NULL,
+					order_id TEXT NOT NULL,
+					side TEXT,
+					item_id TEXT,
+					item_name TEXT,
+					price_each REAL NOT NULL DEFAULT 0,
+					quantity REAL NOT NULL DEFAULT 0,
 					captured_utc TEXT NOT NULL,
 					PRIMARY KEY (faction_id, base_id, order_id)
 				);
@@ -1095,9 +1095,9 @@ CREATE INDEX faction_facilities_faction ON faction_facilities(faction_id);
 
 CREATE INDEX faction_members_faction   ON faction_members(faction_id);
 
-CREATE INDEX faction_missions_faction   ON faction_missions(faction_id);
+CREATE INDEX faction_missions_faction ON faction_missions(faction_id);
 
-CREATE INDEX faction_orders_faction     ON faction_orders(faction_id);
+CREATE INDEX faction_orders_faction ON faction_orders(faction_id);
 
 CREATE INDEX faction_relations_faction  ON faction_relations(faction_id);
 
@@ -1305,4 +1305,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (56, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (57, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (58, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (59, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (60, datetime('now'));
 

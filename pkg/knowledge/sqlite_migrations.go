@@ -965,6 +965,123 @@ func migrations() []Migration {
 		// ensureCollapseMissingTables runs *after* this loop. They are applied by
 		// ensureShipClassPrestigeCols instead, which runs once the table is
 		// guaranteed to exist.
+		{
+			// Reconciles the LIVE database with what a fresh one gets.
+			// Commit fff8e9cb (2026-05-20) changed the faction_orders /
+			// faction_missions primary keys by editing migration 35 in
+			// place after the live DB had already applied it, so live kept
+			// the old two-column keys; base_market on live still has the
+			// pre-collapse column defaults. Audit 2026-09-08: these three
+			// tables were the only column-level drift. Each table is
+			// rebuilt by copy so any rows present survive (all three were
+			// empty on live at audit time).
+			version: 60,
+			name:    "reconcile_live_shapes",
+			sql: `
+				-- Hand-built pre-collapse fixtures may lack these tables entirely;
+				-- create them in their final shape first so the copy below
+				-- always has a source.
+				CREATE TABLE IF NOT EXISTS faction_orders (
+					faction_id TEXT NOT NULL,
+					base_id TEXT NOT NULL,
+					order_id TEXT NOT NULL,
+					side TEXT,
+					item_id TEXT,
+					item_name TEXT,
+					price_each REAL NOT NULL DEFAULT 0,
+					quantity REAL NOT NULL DEFAULT 0,
+					captured_utc TEXT NOT NULL,
+					PRIMARY KEY (faction_id, base_id, order_id)
+				);
+				CREATE TABLE IF NOT EXISTS faction_missions (
+					faction_id TEXT NOT NULL,
+					base_id TEXT NOT NULL,
+					mission_id TEXT NOT NULL,
+					title TEXT,
+					type TEXT,
+					description TEXT,
+					giver_name TEXT,
+					rewards_json TEXT,
+					objectives_json TEXT,
+					assigned_player_id TEXT,
+					expiration_utc TEXT,
+					captured_utc TEXT NOT NULL,
+					PRIMARY KEY (faction_id, base_id, mission_id)
+				);
+				CREATE TABLE IF NOT EXISTS base_market (
+					id TEXT PRIMARY KEY,
+					base_id TEXT NOT NULL,
+					item_id TEXT NOT NULL,
+					price_each REAL NOT NULL,
+					quantity INTEGER NOT NULL,
+					is_npc BOOLEAN DEFAULT 1,
+					last_updated_tick INTEGER DEFAULT 0,
+					FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
+				);
+
+				CREATE TABLE faction_orders_v60_copy AS SELECT * FROM faction_orders;
+				DROP TABLE faction_orders;
+				CREATE TABLE faction_orders (
+					faction_id TEXT NOT NULL,
+					base_id TEXT NOT NULL,
+					order_id TEXT NOT NULL,
+					side TEXT,
+					item_id TEXT,
+					item_name TEXT,
+					price_each REAL NOT NULL DEFAULT 0,
+					quantity REAL NOT NULL DEFAULT 0,
+					captured_utc TEXT NOT NULL,
+					PRIMARY KEY (faction_id, base_id, order_id)
+				);
+				INSERT OR IGNORE INTO faction_orders
+					SELECT faction_id, base_id, order_id, side, item_id, item_name, price_each, quantity, captured_utc
+					FROM faction_orders_v60_copy;
+				DROP TABLE faction_orders_v60_copy;
+				CREATE INDEX IF NOT EXISTS faction_orders_faction ON faction_orders(faction_id);
+
+				CREATE TABLE faction_missions_v60_copy AS SELECT * FROM faction_missions;
+				DROP TABLE faction_missions;
+				CREATE TABLE faction_missions (
+					faction_id TEXT NOT NULL,
+					base_id TEXT NOT NULL,
+					mission_id TEXT NOT NULL,
+					title TEXT,
+					type TEXT,
+					description TEXT,
+					giver_name TEXT,
+					rewards_json TEXT,
+					objectives_json TEXT,
+					assigned_player_id TEXT,
+					expiration_utc TEXT,
+					captured_utc TEXT NOT NULL,
+					PRIMARY KEY (faction_id, base_id, mission_id)
+				);
+				INSERT OR IGNORE INTO faction_missions
+					SELECT faction_id, base_id, mission_id, title, type, description, giver_name, rewards_json, objectives_json, assigned_player_id, expiration_utc, captured_utc
+					FROM faction_missions_v60_copy;
+				DROP TABLE faction_missions_v60_copy;
+				CREATE INDEX IF NOT EXISTS faction_missions_faction ON faction_missions(faction_id);
+
+				CREATE TABLE base_market_v60_copy AS SELECT * FROM base_market;
+				DROP TABLE base_market;
+				CREATE TABLE base_market (
+					id TEXT PRIMARY KEY,
+					base_id TEXT NOT NULL,
+					item_id TEXT NOT NULL,
+					price_each REAL NOT NULL,
+					quantity INTEGER NOT NULL,
+					is_npc BOOLEAN DEFAULT 1,
+					last_updated_tick INTEGER DEFAULT 0,
+					FOREIGN KEY (base_id) REFERENCES bases(id) ON DELETE CASCADE
+				);
+				INSERT OR IGNORE INTO base_market
+					SELECT id, base_id, item_id, price_each, COALESCE(quantity, 0), COALESCE(is_npc, 0), last_updated_tick
+					FROM base_market_v60_copy;
+				DROP TABLE base_market_v60_copy;
+				CREATE INDEX IF NOT EXISTS idx_base_market_base_id ON base_market(base_id);
+				CREATE INDEX IF NOT EXISTS idx_base_market_item_id ON base_market(item_id);
+			`,
+		},
 	}
 }
 
