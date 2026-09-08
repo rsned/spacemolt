@@ -1,0 +1,18 @@
+// mine asteroid tiaki - marketbot_012 @ Stellar Leap Station
+// Rendered from mine_asteroid.ds 2026-09-08. Station is the POI id for
+// Stellar Leap Station; belt is Dense Nickel Field - Tiaki.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("1e2d6bd532e06724b80851cff3d68e2e")
+    DEPOSIT
+  ELSE
+    MOVE "1e2d6bd532e06724b80851cff3d68e2e"
+  END
+ELSE
+  IF at("dense_nickel_field_tiaki")
+    MINE
+  ELSE
+    MOVE "dense_nickel_field_tiaki"
+  END
+END

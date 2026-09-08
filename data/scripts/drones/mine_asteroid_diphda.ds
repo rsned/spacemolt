@@ -1,0 +1,18 @@
+// mine asteroid diphda - marketbot_011 @ The Hush Chamber
+// Rendered from mine_asteroid.ds 2026-09-08. Station is the POI id for
+// The Hush Chamber; belt is Crystalline Field - Diphda.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("2574b16e0e18d90b98354bcae963854e")
+    DEPOSIT
+  ELSE
+    MOVE "2574b16e0e18d90b98354bcae963854e"
+  END
+ELSE
+  IF at("crystalline_field_diphda")
+    MINE
+  ELSE
+    MOVE "crystalline_field_diphda"
+  END
+END

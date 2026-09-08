@@ -139,6 +139,7 @@
 ## Gotchas — movement, docking, fuel
 - ⭐🔴 [Docked at 0 fuel is invisible to the watchdog](reference_docked_zero_fuel_invisible_to_watchdog.md) — `Stalled()` early-returns on Docked; hand-write a rescue record
 - ⭐🟢 [Ship-to-ship refuel WORKS dock-to-dock](reference_ship_to_ship_refuel_works_while_docked.md) — client fuel field stays 0 after; confirm via `tank_full` or a jump
+- ⭐🔴 [KB `connections` is a DIRECTED graph](reference_connections_graph_is_directed.md) — undirected BFS underestimates 5x (5 vs 26 jumps); 17 one-way lanes out of iron_reach/the_anvil
 - ⭐ [Jump time + fuel formulas](reference_ship_jump_time_and_fuel_formulas.md) — `jumpTicks=max(1,7−speed)`, fuel `ceil(scale^1.5×speed)`; every flat constant is wrong
 - [Travel is priced before it is measured](reference_travel_priced_before_measured.md) — zero-distance move to your own POI rejected as "Insufficient fuel"
 - [Refuel fallback vs measurement](reference_refuel_fallback_vs_measurement.md) — a cargo-cell fallback misreports a dry station as one that sells fuel

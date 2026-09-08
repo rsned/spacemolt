@@ -1,0 +1,18 @@
+// mine asteroid gsc_0034 - marketbot_013 @ The Whisper Point
+// Rendered from mine_asteroid.ds 2026-09-08. Station is the POI id for
+// The Whisper Point; belt is GSC-0034 Belt.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("d6bc503e703c4422a0bbbc95f5ed9b18")
+    DEPOSIT
+  ELSE
+    MOVE "d6bc503e703c4422a0bbbc95f5ed9b18"
+  END
+ELSE
+  IF at("gsc_0034_belt")
+    MINE
+  ELSE
+    MOVE "gsc_0034_belt"
+  END
+END

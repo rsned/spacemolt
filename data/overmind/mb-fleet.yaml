@@ -129,3 +129,30 @@ workers:
   - { agent_id: marketbot_treasure_cache, role: resident, station: "" }
   - { agent_id: marketbot_unknown_edge, role: resident, station: "" }
   - { agent_id: marketbot_void_gate, role: resident, station: "" }
+
+  # === FOUR NEW ACCOUNTS -> THE BELT PLAYER STATIONS (2026-09-08) ==========
+  # marketbot_010..013, all nebula, so all four start at Haven. Posted to the
+  # only four uncovered open player stations whose system has an asteroid_belt;
+  # the two gas-only leftovers (Echo Protocol Hub / lilii_borea, Plasma Echo
+  # Station / gsc_0010) are the next pair's, with mine_gas.ds.
+  #
+  # 22-26 jumps from Haven, server-measured at launch (010: 26, 011: 22, 012: 23,
+  # 013: 23), 1 fuel/jump against a 130 tank -- a 5x margin, so none of them ever
+  # has to buy fuel. NOT the 5-10 an undirected BFS over the KB `connections`
+  # table predicts: that table is DIRECTED and the naive read invents shortcuts
+  # ([[reference_connections_graph_is_directed]]).
+  # All four stations read `thriving`, defense 0,
+  # pirate_rep_required 0, and all four are docked-VERIFIED open in
+  # station-access.json -- not inferred from /api/stations, which does not
+  # report access at all.
+  #
+  # PINNED BY POI ID, per the warning above. Their ships already carry an
+  # advanced_drone_bay with 5 mining_drones LOADED but SCRIPTLESS; each needs
+  # data/scripts/drones/mine_asteroid_<system>.ds uploaded per drone once it has
+  # arrived and docked (bulk_upload_drone_script, 1 tick/drone). Until then the
+  # drones sit idle -- the post still captures market data, which is the point.
+  - { agent_id: marketbot_010, role: resident, station: b6007ea0d1b905492a17dcd5d3e72286 }  # Event Horizon Relay (alzirr) - 26 jumps; belt alzirr_belt (of 2)
+  - { agent_id: marketbot_011, role: resident, station: 2574b16e0e18d90b98354bcae963854e }  # The Hush Chamber (diphda) - 22 jumps; belt crystalline_field_diphda
+  - { agent_id: marketbot_012, role: resident, station: 1e2d6bd532e06724b80851cff3d68e2e }  # Stellar Leap Station (tiaki) - 23 jumps; belt dense_nickel_field_tiaki (of 2)
+  - { agent_id: marketbot_013, role: resident, station: d6bc503e703c4422a0bbbc95f5ed9b18 }  # The Whisper Point (gsc_0034) - 23 jumps; belt gsc_0034_belt
+  # =========================================================================
