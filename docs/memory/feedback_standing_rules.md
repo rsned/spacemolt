@@ -14,12 +14,10 @@ not facts), but that is a checked-in file and a separate decision.
 - **Haul MUST launch with `--stagger 10s`.**
 - **power_cell run-size = arbitrage buy-order DEPTH**, not hold size — see
   [[reference_haul_fleet_capacity_ceiling]].
-- **pkg/worker pre-commit race gate times out at its internal 300s.** Root
-  cause found 2026-09-08: SQLite migration replay under -race (fixed via the
-  migrated-template clone) plus ~215s of real `time.Sleep` in six verbs (still
-  open) — [[reference_race_test_cost_sqlite_migrations]]. Until the sleeps are
-  injectable, user-approved substitute: `--no-verify`, then run the gate by
-  hand — build, lint, targeted tests, scoped `-race`.
+- **pkg/worker pre-commit race gate (300s) — RESOLVED 2026-09-08.** Worker is
+  now ~12s under -race (template-clone KBs + the `settle` seam + the
+  `Client.Close` mutex fix) — [[reference_race_test_cost_sqlite_migrations]].
+  Let the hook run; `--no-verify` is no longer justified by test time.
 - **Never route a pirate-LOCKED agent to a stronghold** (algol, zaniah, ...);
   unlocked (baseline >= 10) may go — [[feedback_stronghold_routing_requires_pirate_unlock]].
 - **Tankers have a built-in pump; a bought hull is NOT boarded until `switch_ship`**

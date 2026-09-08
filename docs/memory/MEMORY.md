@@ -107,7 +107,7 @@
 - [Catalog refresh runbook](reference_catalog_refresh_runbook.md) — ships/items/recipes/skills from a scraper snapshot
 - [Legacy mining hulls erased by every catalog refresh](reference_legacy_ship_classes_erased_by_refresh.md) — `StoreShipClasses` is DELETE+INSERT
 - [ships table migration trap](reference_ships_table_migration_trap.md) — ALTER TABLE ships fails on pre-collapse DBs
-- ⭐ [Race tests: SQLite migrations cost 3.5s/open under -race](reference_race_test_cost_sqlite_migrations.md) — knowledge timed out at 10m; FIXED 09-08 via `knowledgetest.Path(t)` template clone; 215s of real sleeps in worker still open
+- ⭐ [Race suite 11m→2m (09-08)](reference_race_test_cost_sqlite_migrations.md) — SQLite migrations 3.5s/open under -race → `knowledgetest.Path(t)`; worker sleeps → `settle(ctx,d)` seam; `Client.Close` held the mutex = 5s per close. Never `time.Sleep` in pkg/worker
 - [GameClient interface → mocks](feedback_gameclient_interface_mocks.md) — `go build` misses it; run `go test ./...`
 - [Version constant](feedback_version_constant.md) — bump `BuiltForAPIVersion` with every struct/signature change
 - [Facility list strips level + rent](reference_facility_list_field_omissions.md) — default level=1 from catalog
