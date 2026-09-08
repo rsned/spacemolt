@@ -83,8 +83,13 @@ help-race:
 	@echo "  go test -race ./...     - Run tests with race detection"
 	@echo "  go run -race main.go    - Run program with race detection"
 	@echo ""
-	@echo "Note: Race detector adds ~5-10x overhead (slower, more memory)"
-	@echo "      Use only for testing, not production"
+	@echo "Note: Race detector adds ~5-10x CPU overhead and more memory;"
+	@echo "      use it for testing, never in production."
+	@echo "      The full suite runs in ~2 min under -race (measured 2026-09-08)."
+	@echo "      -timeout is PER PACKAGE; the slowest package is pkg/market (~70s)."
+	@echo "      Pure-Go SQLite is ~35x slower under -race: tests must open"
+	@echo "      knowledge bases via knowledgetest.Path(t), never a fresh :memory:."
+	@echo "      pkg/worker settle waits go through settle(ctx, d), never time.Sleep."
 
 # Update server documentation from spacemolt.com
 update-server-docs:
