@@ -132,6 +132,7 @@ data/scripts/*.smolt
 !data/scripts/track_station.smolt
 !data/scripts/explore.smolt
 !data/scripts/mining_run.smolt
+!data/scripts/fit_drones_once.smolt
 !data/scripts/mine_local.smolt
 !data/scripts/haul.smolt
 !data/scripts/idle_gas.smolt

@@ -418,7 +418,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return d.MineQty(ctx, args[0], qty, args[2], args[3])
 	case "fit_drones":
 		if len(args) < 1 {
-			return fmt.Errorf("fit_drones: want SCRIPT [BAYS] [DRONES] [BAY_ITEM] [DRONE_ITEM] [DEPLOY], got %v", args)
+			return fmt.Errorf("fit_drones: want SCRIPT [BAYS] [DRONES] [BAY_ITEM] [DRONE_ITEM] [DEPLOY] [STRIP], got %v", args)
 		}
 		bays, drones := 1, 5
 		if len(args) >= 2 {
@@ -452,7 +452,17 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			}
 			deploy = b
 		}
-		return d.FitDrones(ctx, args[0], bays, drones, bayItem, droneItem, deploy)
+		// strip defaults FALSE: uninstalling is the exception, and a caller that
+		// wants a module removed says so.
+		strip := false
+		if len(args) >= 7 {
+			b, err := strconv.ParseBool(args[6])
+			if err != nil {
+				return fmt.Errorf("fit_drones: bad strip %q (want true/false)", args[6])
+			}
+			strip = b
+		}
+		return d.FitDrones(ctx, args[0], bays, drones, bayItem, droneItem, deploy, strip)
 
 	case "launch_drones":
 		// No args deploys every loaded drone; an optional id deploys just one.

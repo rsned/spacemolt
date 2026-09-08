@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"path/filepath"
 	"slices"
@@ -77,19 +78,6 @@ func TestShippedTemplatesAreValid(t *testing.T) {
 	}
 }
 
-func TestDroneIDFromLoad(t *testing.T) {
-	id, err := droneIDFromLoad([]byte(`{"drone_id":"0fc88ae2","drone_type":"mining","bay_count":1}`))
-	if err != nil || id != "0fc88ae2" {
-		t.Fatalf("got %q, %v; want 0fc88ae2", id, err)
-	}
-	if _, err := droneIDFromLoad([]byte(`{"bay_count":1}`)); err == nil {
-		t.Error("reply with no drone_id: want error, got nil")
-	}
-	if _, err := droneIDFromLoad(nil); err == nil {
-		t.Error("empty payload: want error, got nil")
-	}
-}
-
 // fitDronesDispatch wires a WorkerDispatch onto the shared fakeClient, docked at
 // Haven, for the deploy-flag tests.
 func fitDronesDispatch(t *testing.T) (*WorkerDispatch, *fakeClient) {
@@ -110,7 +98,7 @@ func fitDronesDispatch(t *testing.T) (*WorkerDispatch, *fakeClient) {
 func TestFitDronesNoDeployStopsAfterUpload(t *testing.T) {
 	d, fc := fitDronesDispatch(t)
 
-	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 3, "", "", false); err != nil {
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 3, "", "", false, false); err != nil {
 		t.Fatalf("FitDrones: %v", err)
 	}
 
@@ -140,7 +128,7 @@ func TestFitDronesNoDeployStopsAfterUpload(t *testing.T) {
 func TestFitDronesDeployTrueStillLaunches(t *testing.T) {
 	d, fc := fitDronesDispatch(t)
 
-	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", true); err != nil {
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", true, false); err != nil {
 		t.Fatalf("FitDrones: %v", err)
 	}
 
@@ -161,7 +149,7 @@ func TestFitDronesDeployTrueStillLaunches(t *testing.T) {
 func TestFitDronesScriptsEachDroneOnce(t *testing.T) {
 	d, fc := fitDronesDispatch(t)
 
-	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 4, "", "", false); err != nil {
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 4, "", "", false, false); err != nil {
 		t.Fatalf("FitDrones: %v", err)
 	}
 	for _, want := range []string{"drone-1", "drone-2", "drone-3", "drone-4"} {
@@ -212,5 +200,141 @@ func TestLaunchDronesRedockFailureSaysDronesAreDeployed(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "drones ARE deployed") {
 		t.Errorf("error does not flag that the launch succeeded: %v", err)
+	}
+}
+
+// shipJSON builds a get_ship reply carrying the given fitted modules.
+func shipJSON(mods ...[2]string) []byte {
+	parts := make([]string, 0, len(mods))
+	for _, m := range mods {
+		parts = append(parts, fmt.Sprintf(`{"id":%q,"type_id":%q,"name":"m"}`, m[0], m[1]))
+	}
+	return []byte(`{"modules":[` + strings.Join(parts, ",") + `]}`)
+}
+
+// The fresh-account case: a starter hull's ONE default module leaves too little
+// CPU/power for the bay, so the install fails until it is stripped.
+func TestFitDronesStripRemovesTheSingleDefaultModule(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+	fc.installModErrUntilStrip = errors.New("insufficient CPU")
+	fc.raw = map[string][]byte{"ship": shipJSON([2]string{"inst-1", "survey_scanner_i"})}
+
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", false, true); err != nil {
+		t.Fatalf("FitDrones with strip: %v", err)
+	}
+	got := strings.Join(fc.calls, ",")
+	// It must uninstall the INSTANCE id, then retry the same install.
+	if !strings.Contains(got, "uninstall_mod:inst-1") {
+		t.Errorf("did not strip the default module; calls: %v", fc.calls)
+	}
+	if n := strings.Count(got, "install_mod:advanced_drone_bay"); n != 2 {
+		t.Errorf("install attempted %d times, want 2 (fail, strip, retry); calls: %v", n, fc.calls)
+	}
+	if !strings.Contains(got, "load_drone") {
+		t.Error("fitting did not continue past the install")
+	}
+}
+
+// Without the flag the original behaviour stands: report the full rack, strip
+// nothing.
+func TestFitDronesWithoutStripNeverUninstalls(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+	fc.installModErrUntilStrip = errors.New("insufficient CPU")
+	fc.raw = map[string][]byte{"ship": shipJSON([2]string{"inst-1", "survey_scanner_i"})}
+
+	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", false, false)
+	if err == nil {
+		t.Fatal("expected the install to fail")
+	}
+	if strings.Contains(strings.Join(fc.calls, ","), "uninstall_mod") {
+		t.Errorf("stripped a module without the flag; calls: %v", fc.calls)
+	}
+}
+
+// Two or more fitted modules is a deliberately fitted hull: we cannot tell which
+// one blocks the bay, and stripping the wrong one is silent and expensive.
+func TestFitDronesStripRefusesWhenSeveralModulesFitted(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+	fc.installModErrUntilStrip = errors.New("insufficient CPU")
+	fc.raw = map[string][]byte{"ship": shipJSON(
+		[2]string{"inst-1", "survey_scanner_i"},
+		[2]string{"inst-2", "cargo_expander_iii"},
+	)}
+
+	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", false, true)
+	if err == nil {
+		t.Fatal("expected a refusal when several modules are fitted")
+	}
+	if !strings.Contains(err.Error(), "refusing to guess") {
+		t.Errorf("error should say it refused to guess: %v", err)
+	}
+	if strings.Contains(strings.Join(fc.calls, ","), "uninstall_mod") {
+		t.Errorf("stripped a module despite ambiguity; calls: %v", fc.calls)
+	}
+}
+
+// A bay already installed by an earlier partial run must not be counted as the
+// blocker and stripped.
+func TestFitDronesStripIgnoresAlreadyInstalledBays(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+	fc.installModErrUntilStrip = errors.New("insufficient CPU")
+	fc.raw = map[string][]byte{"ship": shipJSON(
+		[2]string{"bay-1", "advanced_drone_bay"},
+		[2]string{"inst-1", "survey_scanner_i"},
+	)}
+
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 1, "", "", false, true); err != nil {
+		t.Fatalf("FitDrones: %v", err)
+	}
+	got := strings.Join(fc.calls, ",")
+	if strings.Contains(got, "uninstall_mod:bay-1") {
+		t.Errorf("stripped the drone bay it had installed; calls: %v", fc.calls)
+	}
+	if !strings.Contains(got, "uninstall_mod:inst-1") {
+		t.Errorf("did not strip the actual blocker; calls: %v", fc.calls)
+	}
+}
+
+// Regression, found live 2026-09-08: load_drone is action_result-wrapped, so its
+// immediate reply is "pending" and carries NO drone_id. Reading the id inline
+// failed every fit at drone 1/5. Ids must come from the get_drones roster, read
+// after ALL loads.
+func TestFitDronesReadsDroneIDsFromRosterNotLoadReply(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+
+	if err := d.FitDrones(context.Background(), "mine_asteroid", 1, 3, "", "", false, false); err != nil {
+		t.Fatalf("FitDrones: %v", err)
+	}
+
+	got := strings.Join(fc.calls, ",")
+	if !strings.Contains(got, "get_drones") {
+		t.Fatalf("never read the roster; calls: %v", fc.calls)
+	}
+	// Every load must precede the roster read, and every upload follow it.
+	roster := strings.Index(got, "get_drones")
+	if last := strings.LastIndex(got, "load_drone"); last > roster {
+		t.Errorf("loaded a drone after reading the roster; calls: %v", fc.calls)
+	}
+	if first := strings.Index(got, "upload_script"); first < roster {
+		t.Errorf("uploaded before reading the roster; calls: %v", fc.calls)
+	}
+	if n := strings.Count(got, "upload_script"); n != 3 {
+		t.Errorf("uploaded %d scripts, want 3; calls: %v", n, fc.calls)
+	}
+}
+
+// A roster that comes back empty must fail loudly: the drones are loaded but
+// scriptless, which would otherwise look like a clean fit and mine nothing.
+func TestFitDronesFailsWhenRosterIsEmpty(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+	fc.raw = map[string][]byte{"drones": []byte(`{"drones":[]}`)}
+	fc.suppressRoster = true
+
+	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", false, false)
+	if err == nil {
+		t.Fatal("expected an error when the roster lists no drones")
+	}
+	if !strings.Contains(err.Error(), "roster lists none") {
+		t.Errorf("unclear error: %v", err)
 	}
 }

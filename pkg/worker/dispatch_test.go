@@ -54,10 +54,18 @@ type fakeClient struct {
 	viewStorageErr error // when set, ViewStorage returns it instead of recording success
 	withdrawErr    error // when set, WithdrawItems returns it instead of recording success
 
-	installModErr   error    // when set, InstallMod returns it (models a full utility rack)
-	loadDroneErr    error    // when set, LoadDrone returns it
-	droneSeq        int      // increments per LoadDrone so each drone gets a unique id
-	uploadedScripts []string // script bodies passed to UploadDroneScript, in order
+	installModErr error // when set, InstallMod returns it (models a full utility rack)
+	// installModErrUntilStrip models a starter hull: the bay will not fit until
+	// the default module is uninstalled, then it will.
+	installModErrUntilStrip error
+	uninstallModErr         error    // when set, UninstallMod returns it
+	getShipErr              error    // when set, GetShip returns it
+	getDronesErr            error    // when set, GetDrones returns it
+	suppressRoster          bool     // when set, GetDrones leaves raw["drones"] as the test seeded it
+	modStripped             bool     // set once UninstallMod succeeds
+	loadDroneErr            error    // when set, LoadDrone returns it
+	droneSeq                int      // increments per LoadDrone so each drone gets a unique id
+	uploadedScripts         []string // script bodies passed to UploadDroneScript, in order
 
 	shippingErr   map[string]error // per-action error, keyed by shipping action
 	shippingCalls []string         // shipping actions issued, in order
@@ -251,18 +259,54 @@ func (f *fakeClient) WithdrawItems(ctx context.Context, itemID string, quantity 
 // fixed id would let a bug that scripts the same drone N times pass.
 func (f *fakeClient) InstallMod(ctx context.Context, moduleID string) error {
 	f.calls = append(f.calls, "install_mod:"+moduleID)
+	// installModErrUntilStrip models the real constraint: a starter hull has too
+	// little CPU/power for a drone bay while its default module is fitted, so the
+	// install fails until an uninstall frees the budget.
+	if f.installModErrUntilStrip != nil && !f.modStripped {
+		return f.installModErrUntilStrip
+	}
 	return f.installModErr
+}
+func (f *fakeClient) UninstallMod(ctx context.Context, moduleID string) error {
+	f.calls = append(f.calls, "uninstall_mod:"+moduleID)
+	if f.uninstallModErr != nil {
+		return f.uninstallModErr
+	}
+	f.modStripped = true
+	return nil
+}
+func (f *fakeClient) GetShip(ctx context.Context) error {
+	f.calls = append(f.calls, "get_ship")
+	return f.getShipErr
 }
 func (f *fakeClient) LoadDrone(ctx context.Context, itemID string) error {
 	f.calls = append(f.calls, "load_drone:"+itemID)
 	if f.loadDroneErr != nil {
 		return f.loadDroneErr
 	}
+	// The real load_drone is action_result-wrapped: its immediate reply carries
+	// only "pending" and NO drone_id, which is why fit_drones reads the roster
+	// instead. The fake reproduces that by never stamping an id here -- it only
+	// grows the roster get_drones will report.
 	f.droneSeq++
+	return nil
+}
+func (f *fakeClient) GetDrones(ctx context.Context) error {
+	f.calls = append(f.calls, "get_drones")
+	if f.getDronesErr != nil {
+		return f.getDronesErr
+	}
+	if f.suppressRoster {
+		return nil // keep whatever the test seeded in raw["drones"]
+	}
 	if f.raw == nil {
 		f.raw = map[string][]byte{}
 	}
-	f.raw["_last"] = []byte(fmt.Sprintf(`{"action":"load_drone","drone_id":"drone-%d"}`, f.droneSeq))
+	rows := make([]string, 0, f.droneSeq)
+	for i := 1; i <= f.droneSeq; i++ {
+		rows = append(rows, fmt.Sprintf(`{"id":"drone-%d","type":"mining_drone"}`, i))
+	}
+	f.raw["drones"] = []byte(`{"drones":[` + strings.Join(rows, ",") + `]}`)
 	return nil
 }
 func (f *fakeClient) UploadDroneScript(ctx context.Context, droneID, script string) error {

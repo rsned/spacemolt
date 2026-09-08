@@ -1,0 +1,7 @@
+# One-shot drone fit-out, run as an assigned task (never as an idle script --
+# it withdraws and installs, so repeating it every tick would strip storage).
+#
+# STRIP=true removes a fresh hull's single default module: a starter prospect
+# has too little CPU/power to run it alongside an advanced_drone_bay.
+# DEPLOY=false leaves the drones stowed for the trip; launch_drones at the post.
+fit_drones $SCRIPT$ $BAYS$ $DRONES$ $BAY_ITEM$ $DRONE_ITEM$ $DEPLOY$ $STRIP$
