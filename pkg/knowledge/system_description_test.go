@@ -7,7 +7,7 @@ import (
 
 func descKB(t *testing.T) *SQLiteKB {
 	t.Helper()
-	kb, err := NewSQLiteKB(Config{DBPath: ":memory:"})
+	kb, err := NewSQLiteKB(Config{DBPath: testDBPath(t)})
 	if err != nil {
 		t.Fatalf("NewSQLiteKB: %v", err)
 	}

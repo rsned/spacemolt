@@ -46,7 +46,7 @@ func TestShipListingsFromBrowseJSON(t *testing.T) {
 
 func TestStoreShipListingsReplacesPerStation(t *testing.T) {
 	ctx := context.Background()
-	kb, err := NewSQLiteKB(Config{DBPath: ":memory:"})
+	kb, err := NewSQLiteKB(Config{DBPath: testDBPath(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/knowledge/knowledgetest"
 )
 
 func TestUpsertPublicFromFacilityList(t *testing.T) {
@@ -16,7 +17,7 @@ func TestUpsertPublicFromFacilityList(t *testing.T) {
 		t.Fatalf("failed to read fixture: %v", err)
 	}
 
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatalf("failed to create in-memory KB: %v", err)
 	}
@@ -73,7 +74,7 @@ func TestUpsertPublicFromFacilityList_AllSections(t *testing.T) {
 		t.Fatalf("failed to read fixture: %v", err)
 	}
 
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatalf("failed to create in-memory KB: %v", err)
 	}
@@ -163,7 +164,7 @@ func facilityIDsAtStation(t *testing.T, kb *knowledge.SQLiteKB, station string) 
 // The bug this fixes: a facility that gets dismantled between two visits used
 // to stay on file forever, still answering "you can build this recipe here".
 func TestUpsertPublicFromFacilityList_PrunesFacilityThatVanished(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatalf("open kb: %v", err)
 	}
@@ -193,7 +194,7 @@ func TestUpsertPublicFromFacilityList_PrunesFacilityThatVanished(t *testing.T) {
 // public production ones. That is a real observation and must prune; before
 // the prune existed this path returned early and the row lived forever.
 func TestUpsertPublicFromFacilityList_PrunesWhenNoPublicLinesRemain(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatalf("open kb: %v", err)
 	}
@@ -235,7 +236,7 @@ func TestUpsertPublicFromFacilityList_IncompleteReplyNeverPrunes(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+			kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 			if err != nil {
 				t.Fatalf("open kb: %v", err)
 			}
@@ -260,7 +261,7 @@ func TestUpsertPublicFromFacilityList_IncompleteReplyNeverPrunes(t *testing.T) {
 
 // One station's scrape must not touch another station's catalog.
 func TestUpsertPublicFromFacilityList_PruneIsScopedToOneStation(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatalf("open kb: %v", err)
 	}

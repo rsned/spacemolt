@@ -8,6 +8,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/knowledge/knowledgetest"
 )
 
 // TestFormatFacilityFactionList_ShowsFacilityID guards that the facility_id
@@ -479,7 +480,7 @@ func TestFactionOwnerDisplay(t *testing.T) {
 	}
 
 	// Seeded KB → resolves to the bracketed tag.
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatalf("NewSQLiteKB: %v", err)
 	}

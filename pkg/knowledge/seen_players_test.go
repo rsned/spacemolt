@@ -9,7 +9,7 @@ import (
 // newTestKB returns an in-memory SQLiteKB for use in seen_players tests.
 func newTestKB(t *testing.T) *SQLiteKB {
 	t.Helper()
-	kb, err := NewSQLiteKB(Config{DBPath: ":memory:"})
+	kb, err := NewSQLiteKB(Config{DBPath: testDBPath(t)})
 	if err != nil {
 		t.Fatalf("NewSQLiteKB: %v", err)
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/knowledge/knowledgetest"
 )
 
 // buyCall records one Buy(ctx, itemID, quantity) invocation.
@@ -58,7 +59,7 @@ func (f *buyDirectedFakeClient) Buy(ctx context.Context, itemID string, quantity
 // base, so resolveBase has a real row to resolve for BuyDirected's STATION arg.
 func newBuyDirectedTestKB(t *testing.T) *knowledge.SQLiteKB {
 	t.Helper()
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatalf("NewSQLiteKB: %v", err)
 	}

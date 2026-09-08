@@ -14,13 +14,22 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// testDBPath is the path for the test database
-const testDBPath = ":memory:"
+// testDBPath returns the path of a fresh, fully migrated, empty database in
+// tb.TempDir(). It clones a template migrated once per process instead of
+// replaying the migration chain, which costs seconds under -race.
+func testDBPath(tb testing.TB) string {
+	tb.Helper()
+	path := filepath.Join(tb.TempDir(), "knowledge.db")
+	if err := WriteMigratedDB(path); err != nil {
+		tb.Fatalf("WriteMigratedDB: %v", err)
+	}
+	return path
+}
 
 func newTestSQLiteKB(t *testing.T) *SQLiteKB {
 	kb, err := NewSQLiteKB(Config{
-		DBPath:       testDBPath,
-		WAL:          false, // Disable WAL for in-memory tests
+		DBPath:       testDBPath(t),
+		WAL:          false,
 		MaxOpenConns: 1,
 		MaxIdleConns: 1,
 		BusyTimeout:  1 * time.Second,
@@ -39,12 +48,12 @@ func TestSQLiteKB_RememberSystem(t *testing.T) {
 	ctx := context.Background()
 
 	sys := System{
-		ID:           "SYS-001",
-		Name:         "Test System",
-		Position:     game.Position{X: 100.0, Y: 200.0, Z: 300.0},
-		PoliceLevel:  3,
-		Empire:       "test_empire",
-		Connections:  []SystemConnection{{SystemID: "SYS-002"}, {SystemID: "SYS-003"}},
+		ID:          "SYS-001",
+		Name:        "Test System",
+		Position:    game.Position{X: 100.0, Y: 200.0, Z: 300.0},
+		PoliceLevel: 3,
+		Empire:      "test_empire",
+		Connections: []SystemConnection{{SystemID: "SYS-002"}, {SystemID: "SYS-003"}},
 	}
 
 	if err := kb.RememberSystem(ctx, sys); err != nil {
@@ -278,12 +287,12 @@ func TestSQLiteKB_RememberPOI(t *testing.T) {
 	ctx := context.Background()
 
 	poi := POI{
-		ID:           "POI-001",
-		SystemID:     "SYS-001",
-		Name:         "Test Station",
-		Type:         "station",
-		Description:  "A test station",
-		Position:     game.Position{X: 10.0, Y: 20.0},
+		ID:          "POI-001",
+		SystemID:    "SYS-001",
+		Name:        "Test Station",
+		Type:        "station",
+		Description: "A test station",
+		Position:    game.Position{X: 10.0, Y: 20.0},
 	}
 
 	if err := kb.RememberPOI(ctx, poi); err != nil {
@@ -462,7 +471,7 @@ func TestSQLiteKB_ConcurrentAccess(t *testing.T) {
 // BenchmarkSQLiteKB_RememberSystem benchmarks RememberSystem
 func BenchmarkSQLiteKB_RememberSystem(b *testing.B) {
 	kb, err := NewSQLiteKB(Config{
-		DBPath:       ":memory:",
+		DBPath:       testDBPath(b),
 		WAL:          false,
 		MaxOpenConns: 1,
 		MaxIdleConns: 1,

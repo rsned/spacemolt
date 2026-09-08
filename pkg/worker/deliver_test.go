@@ -13,6 +13,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/knowledge/knowledgetest"
 )
 
 // deliverFakeClient wraps the package's fakeClient (dispatch_test.go) with
@@ -166,7 +167,7 @@ func (f *deliverFakeClient) drainCargo(itemID string, quantity float64) {
 // each in their own system, so resolveBase has real rows to resolve.
 func newDeliverTestKB(t *testing.T) *knowledge.SQLiteKB {
 	t.Helper()
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatalf("NewSQLiteKB: %v", err)
 	}

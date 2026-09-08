@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/knowledge/knowledgetest"
 )
 
 // station_id is a base id; jumps key on the POI's system. Four fleet stations
 // spell these differently, so a naive station_id == poi_id lookup silently
 // yields "" and every haul leg costs RouteInf.
 func TestCraftbrainSource_SystemOfResolvesBaseToPOISystem(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +43,7 @@ func TestCraftbrainSource_SystemOfResolvesBaseToPOISystem(t *testing.T) {
 
 // A station_id that is already a poi id must still resolve.
 func TestCraftbrainSource_SystemOfFallsBackToPOIID(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +71,7 @@ func TestCraftbrainSource_SystemOfFallsBackToPOIID(t *testing.T) {
 // origin system the source was constructed with. The literal string is the
 // wire value craftbrain emits in plan JSON — pin it, not a shared const.
 func TestCraftbrainSource_SystemOfResolvesCraftSentinelToOrigin(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +91,7 @@ func TestCraftbrainSource_SystemOfResolvesCraftSentinelToOrigin(t *testing.T) {
 // OutputPerRun at its Go zero value (0) instead of the safe default (1),
 // silently corrupting run-count arithmetic upstream.
 func TestCraftbrainSource_Facilities_ParsesProduction(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +129,7 @@ func TestCraftbrainSource_Facilities_ParsesProduction(t *testing.T) {
 // to 1 (ParseProduction's safety default), never leave it at the Go zero
 // value which would divide run counts by zero downstream.
 func TestCraftbrainSource_Facilities_DefaultsOutputPerRunWithoutDetails(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +160,7 @@ func TestCraftbrainSource_Facilities_DefaultsOutputPerRunWithoutDetails(t *testi
 // faction pool and the Holding model assumes at most one row per
 // (holder, base).
 func TestCraftbrainSource_OnHand_DedupesFactionStorageAcrossFactions(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +197,7 @@ func TestCraftbrainSource_OnHand_DedupesFactionStorageAcrossFactions(t *testing.
 // re-storing a snapshot for the same agent+base must still yield exactly one
 // Holding, never two, and the quantity must reflect the latest write.
 func TestCraftbrainSource_OnHand_PersonalStorageUpsertStaysSingleRow(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,7 +238,7 @@ func TestCraftbrainSource_OnHand_PersonalStorageUpsertStaysSingleRow(t *testing.
 // across repeated calls -- not dependent on Go map iteration or SQLite's
 // unspecified row order.
 func TestCraftbrainSource_OnHand_DeterministicOrder(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +302,7 @@ func TestCraftbrainSource_OnHand_DeterministicOrder(t *testing.T) {
 // entirely, not returned with those defaults, while a well-formed sibling
 // row for the same recipe still comes back.
 func TestCraftbrainSource_Facilities_SkipsMalformedDetailsJSON(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +338,7 @@ func TestCraftbrainSource_Facilities_SkipsMalformedDetailsJSON(t *testing.T) {
 // category would count as "covered" here while Facilities() returns nothing
 // for it and the node comes out BLOCKED.
 func TestCraftbrainSource_Coverage_ExcludesNonProductionFacilities(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +394,7 @@ func TestCraftbrainSource_Coverage_ExcludesNonProductionFacilities(t *testing.T)
 // contract is that callers own what they get back; the cache exists purely to
 // save the DB round-trip within one plan, not to be aliased out.
 func TestCraftbrainSource_Recipes_ReturnsIndependentCopy(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatal(err)
 	}

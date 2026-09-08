@@ -6,6 +6,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/knowledge/knowledgetest"
 )
 
 // v0.576.0 gave the nine starless systems chart descriptions. The description
@@ -19,7 +20,7 @@ func TestKBUpdateSystem_CapturesDescription(t *testing.T) {
 	st.System.Name = "Redmarsh"
 	st.System.Description = lore
 
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatalf("NewSQLiteKB: %v", err)
 	}

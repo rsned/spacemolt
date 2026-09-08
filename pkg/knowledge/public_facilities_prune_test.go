@@ -45,7 +45,7 @@ func stationFacilityIDs(t *testing.T, kb *SQLiteKB, station string) []string {
 // was upserted on sight and never deleted, so the catalog over-reported
 // coverage forever.
 func TestReplacePublicFacilitiesAtStation_PrunesVanishedRows(t *testing.T) {
-	kb, err := NewSQLiteKB(Config{DBPath: ":memory:"})
+	kb, err := NewSQLiteKB(Config{DBPath: testDBPath(t)})
 	if err != nil {
 		t.Fatalf("open kb: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestReplacePublicFacilitiesAtStation_PrunesVanishedRows(t *testing.T) {
 // The case that matters most: a station whose LAST public line is gone. An
 // empty row set is a real observation, not a no-op.
 func TestReplacePublicFacilitiesAtStation_EmptyRowsClearsStation(t *testing.T) {
-	kb, err := NewSQLiteKB(Config{DBPath: ":memory:"})
+	kb, err := NewSQLiteKB(Config{DBPath: testDBPath(t)})
 	if err != nil {
 		t.Fatalf("open kb: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestReplacePublicFacilitiesAtStation_EmptyRowsClearsStation(t *testing.T) {
 // and the insert scope disagree — the caller has mixed two scrapes together.
 // Refuse the whole call rather than half-apply it.
 func TestReplacePublicFacilitiesAtStation_RejectsForeignRow(t *testing.T) {
-	kb, err := NewSQLiteKB(Config{DBPath: ":memory:"})
+	kb, err := NewSQLiteKB(Config{DBPath: testDBPath(t)})
 	if err != nil {
 		t.Fatalf("open kb: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestReplacePublicFacilitiesAtStation_RejectsForeignRow(t *testing.T) {
 // An empty station id would scope the delete to nothing and silently do
 // nothing useful; it means the caller could not identify the station.
 func TestReplacePublicFacilitiesAtStation_RejectsEmptyStation(t *testing.T) {
-	kb, err := NewSQLiteKB(Config{DBPath: ":memory:"})
+	kb, err := NewSQLiteKB(Config{DBPath: testDBPath(t)})
 	if err != nil {
 		t.Fatalf("open kb: %v", err)
 	}

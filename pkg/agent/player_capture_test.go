@@ -6,10 +6,11 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/knowledge/knowledgetest"
 )
 
 func TestWirePlayerObserver_RecordsThroughKB(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatalf("NewSQLiteKB: %v", err)
 	}
@@ -49,7 +50,7 @@ type fakeEnqueuer struct{ ids []string }
 func (f *fakeEnqueuer) Enqueue(ids ...string) { f.ids = append(f.ids, ids...) }
 
 func TestWirePlayerObserver_EnqueuesDistinctFactionIDs(t *testing.T) {
-	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: ":memory:"})
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})
 	if err != nil {
 		t.Fatalf("NewSQLiteKB: %v", err)
 	}
