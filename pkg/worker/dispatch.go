@@ -189,6 +189,7 @@ var supported = map[string]bool{
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
 	"hunt": true,
 	"mine": true, "mine_qty": true, "deliver": true, "buy_directed": true, "craft_node": true,
+	"fit_drones": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
@@ -415,6 +416,34 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			return fmt.Errorf("mine_qty: bad qty %q", args[1])
 		}
 		return d.MineQty(ctx, args[0], qty, args[2], args[3])
+	case "fit_drones":
+		if len(args) < 1 {
+			return fmt.Errorf("fit_drones: want SCRIPT [BAYS] [DRONES] [BAY_ITEM] [DRONE_ITEM], got %v", args)
+		}
+		bays, drones := 1, 5
+		if len(args) >= 2 {
+			n, err := strconv.Atoi(args[1])
+			if err != nil || n < 1 {
+				return fmt.Errorf("fit_drones: bad bays %q", args[1])
+			}
+			bays = n
+		}
+		if len(args) >= 3 {
+			n, err := strconv.Atoi(args[2])
+			if err != nil || n < 1 {
+				return fmt.Errorf("fit_drones: bad drones %q", args[2])
+			}
+			drones = n
+		}
+		var bayItem, droneItem string
+		if len(args) >= 4 {
+			bayItem = args[3]
+		}
+		if len(args) >= 5 {
+			droneItem = args[4]
+		}
+		return d.FitDrones(ctx, args[0], bays, drones, bayItem, droneItem)
+
 	case "craft_node":
 		if len(args) < 4 {
 			return fmt.Errorf("craft_node: want RECIPE NUM_OUTPUTS STATION FACILITY [EST_FEE], got %v", args)

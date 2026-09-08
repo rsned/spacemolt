@@ -1,0 +1,20 @@
+// Ice mining: work $ICE_FIELD$, deposit at $STATION$.
+// Tokens are resolved by the worker at fit time (pkg/worker/tokens.go) and the
+// drone receives literal POI ids. Order matters: the first matching branch runs
+// and its action ends the tick, and a WAIT tick earns neither ore nor
+// drone_control XP -- so travel is kept to the two unavoidable legs.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("$STATION$")
+    DEPOSIT
+  ELSE
+    MOVE "$STATION$"
+  END
+ELSE
+  IF at("$ICE_FIELD$")
+    MINE
+  ELSE
+    MOVE "$ICE_FIELD$"
+  END
+END
