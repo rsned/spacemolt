@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,8 +54,9 @@ func NewSQLiteKB(config Config) (*SQLiteKB, error) {
 		config.BusyTimeout = DefaultConfig().BusyTimeout
 	}
 
-	// Open database connection
-	db, err := sql.Open("sqlite", config.DBPath)
+	// Open database connection. PRAGMAs travel in the DSN (see sqliteDSN)
+	// so every connection the pool opens inherits them.
+	db, err := sql.Open("sqlite", sqliteDSN(config))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -63,18 +65,11 @@ func NewSQLiteKB(config Config) (*SQLiteKB, error) {
 	db.SetMaxOpenConns(config.MaxOpenConns)
 	db.SetMaxIdleConns(config.MaxIdleConns)
 
-	// Set busy timeout
-	if _, err := db.Exec(fmt.Sprintf("PRAGMA busy_timeout = %d", int(config.BusyTimeout.Milliseconds()))); err != nil {
+	// Touch the database once so a bad path or a refused pragma surfaces
+	// here rather than on the first query.
+	if err := db.Ping(); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
-	}
-
-	// Enable WAL mode for better concurrency
-	if config.WAL {
-		if _, err := db.Exec("PRAGMA journal_mode = WAL"); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
-		}
+		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
 	// Run migrations
@@ -84,6 +79,31 @@ func NewSQLiteKB(config Config) (*SQLiteKB, error) {
 	}
 
 	return &SQLiteKB{db: db}, nil
+}
+
+// sqliteDSN builds the connection string for config.
+//
+// PRAGMAs go through the DSN, never db.Exec("PRAGMA ..."): a pragma is
+// per connection, and db.Exec reaches only the one pool connection the
+// statement happens to land on. With multi-connection pools in ~170 fleet
+// processes, the untimed connections failed instantly with SQLITE_BUSY on
+// any contention — ~8k dropped sighting batches a day before 2026-09-08.
+//
+// _txlock=immediate takes the write lock at BEGIN. Every transaction in
+// this package writes, and an immediate BEGIN waits for the lock under
+// busy_timeout instead of failing with SQLITE_BUSY_SNAPSHOT when a
+// deferred transaction tries to upgrade read->write after another writer
+// committed (busy_timeout cannot help with that case).
+func sqliteDSN(config Config) string {
+	sep := "?"
+	if strings.Contains(config.DBPath, "?") {
+		sep = "&"
+	}
+	dsn := config.DBPath + sep + "_pragma=busy_timeout(" + strconv.Itoa(int(config.BusyTimeout.Milliseconds())) + ")"
+	if config.WAL {
+		dsn += "&_pragma=journal_mode(WAL)"
+	}
+	return dsn + "&_txlock=immediate"
 }
 
 // Close closes the database connection

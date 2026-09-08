@@ -232,16 +232,11 @@ func main() {
 
 // openDatabase opens the SQLite database connection
 func openDatabase(dbPath string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(5000)") // per-connection, unlike db.Exec("PRAGMA ...")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Set busy timeout
-	if _, err := db.Exec("PRAGMA busy_timeout = 5000"); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
-	}
 
 	// Enable WAL mode for better concurrency
 	if _, err := db.Exec("PRAGMA journal_mode = WAL"); err != nil {
