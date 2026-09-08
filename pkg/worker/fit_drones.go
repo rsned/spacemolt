@@ -147,16 +147,41 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 		return nil
 	}
 
-	// Deploy needs open space; re-dock after so the agent resumes its role.
-	if err := d.Client.Undock(ctx); err != nil {
-		return fmt.Errorf("fit_drones: undock before deploy (%d drone(s) loaded, scripts uploaded): %w", loaded, err)
-	}
-	if err := d.Client.DeployDrone(ctx, "", true); err != nil {
-		return fmt.Errorf("fit_drones: deploy: %w", err)
-	}
-	if err := d.Client.Dock(ctx); err != nil {
-		return fmt.Errorf("fit_drones: re-dock after deploy (drones ARE deployed): %w", err)
+	if err := d.LaunchDrones(ctx, ""); err != nil {
+		return fmt.Errorf("fit_drones: %d drone(s) loaded, scripts uploaded: %w", loaded, err)
 	}
 	fmt.Fprintf(d.Out, "fit_drones: %d bay(s), %d drone(s) deployed on script %q\n", bays, drones, script) //nolint:errcheck
+	return nil
+}
+
+// LaunchDrones undocks, deploys, and re-docks. droneID empty deploys ALL loaded
+// drones; naming one deploys just that drone.
+//
+// This is the other half of fit_drones deploy=false: an agent fitted at its
+// origin arrives with its drones loaded and scripted but stowed, and this is
+// what puts them to work once it is docked at the post they will actually mine.
+//
+// Re-docking matters beyond tidiness -- a resident's whole role is to sit docked
+// capturing market data, so a launch that left it in open space would park it
+// outside the station indefinitely. The re-dock failure is called out loudly
+// because the drones ARE already deployed at that point: the launch succeeded
+// and only the agent's own position needs fixing, which is the opposite of what
+// a bare error here would suggest.
+func (d *WorkerDispatch) LaunchDrones(ctx context.Context, droneID string) error {
+	all := droneID == ""
+	if err := d.Client.Undock(ctx); err != nil {
+		return fmt.Errorf("launch_drones: undock before deploy: %w", err)
+	}
+	if err := d.Client.DeployDrone(ctx, droneID, all); err != nil {
+		return fmt.Errorf("launch_drones: deploy: %w", err)
+	}
+	if err := d.Client.Dock(ctx); err != nil {
+		return fmt.Errorf("launch_drones: re-dock after deploy (drones ARE deployed; agent is adrift): %w", err)
+	}
+	target := "all loaded drone(s)"
+	if !all {
+		target = droneID
+	}
+	fmt.Fprintf(d.Out, "launch_drones: deployed %s\n", target) //nolint:errcheck
 	return nil
 }

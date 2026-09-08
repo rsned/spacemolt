@@ -2,8 +2,10 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"io"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -166,5 +168,49 @@ func TestFitDronesScriptsEachDroneOnce(t *testing.T) {
 		if !strings.Contains(strings.Join(fc.calls, ","), "upload_script:"+want) {
 			t.Errorf("no upload to %s; calls: %v", want, fc.calls)
 		}
+	}
+}
+
+// launch_drones is the arrival half of fit_drones deploy=false. Order is the
+// whole contract: deploy must happen between the undock and the re-dock.
+func TestLaunchDronesUndocksDeploysRedocks(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+
+	if err := d.LaunchDrones(context.Background(), ""); err != nil {
+		t.Fatalf("LaunchDrones: %v", err)
+	}
+	if got, want := fc.calls, []string{"undock", "deploy_drone:all=true", "dock"}; !slices.Equal(got, want) {
+		t.Errorf("calls = %v, want %v", got, want)
+	}
+	if !fc.state.Doc {
+		t.Error("agent left undocked; a resident must end docked to keep capturing")
+	}
+}
+
+// A named drone deploys alone -- all=false -- so one drone can be relaunched
+// without disturbing the rest of the bay.
+func TestLaunchDronesSingleDroneIsNotAll(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+
+	if err := d.LaunchDrones(context.Background(), "drone-2"); err != nil {
+		t.Fatalf("LaunchDrones: %v", err)
+	}
+	if got := strings.Join(fc.calls, ","); !strings.Contains(got, "deploy_drone:all=false") {
+		t.Errorf("named drone deployed with all=true; calls: %v", fc.calls)
+	}
+}
+
+// A failed re-dock must NOT read as a failed launch: the drones are already
+// deployed and only the agent's position is wrong.
+func TestLaunchDronesRedockFailureSaysDronesAreDeployed(t *testing.T) {
+	d, fc := fitDronesDispatch(t)
+	fc.dockErr = errors.New("docking bay full")
+
+	err := d.LaunchDrones(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected an error when the re-dock fails")
+	}
+	if !strings.Contains(err.Error(), "drones ARE deployed") {
+		t.Errorf("error does not flag that the launch succeeded: %v", err)
 	}
 }

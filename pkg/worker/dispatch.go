@@ -189,8 +189,8 @@ var supported = map[string]bool{
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
 	"hunt": true,
 	"mine": true, "mine_qty": true, "deliver": true, "buy_directed": true, "craft_node": true,
-	"fit_drones": true,
-	"refuel":     true, "repair": true, "deposit_all": true, "sell_all": true,
+	"fit_drones": true, "launch_drones": true,
+	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
 	"capture_storage": true, "capture_faction": true,
@@ -453,6 +453,14 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			deploy = b
 		}
 		return d.FitDrones(ctx, args[0], bays, drones, bayItem, droneItem, deploy)
+
+	case "launch_drones":
+		// No args deploys every loaded drone; an optional id deploys just one.
+		var droneID string
+		if len(args) >= 1 {
+			droneID = args[0]
+		}
+		return d.LaunchDrones(ctx, droneID)
 
 	case "craft_node":
 		if len(args) < 4 {
