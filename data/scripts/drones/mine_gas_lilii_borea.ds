@@ -1,0 +1,18 @@
+// mine gas lilii_borea - marketbot_016 @ Echo Protocol Hub
+// Rendered from mine_gas.ds 2026-09-08. Station POI for Echo Protocol Hub;
+// resource lilii_borea_gas_cloud.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("56da4dcca499808b0e76ab482fdfa71c")
+    DEPOSIT
+  ELSE
+    MOVE "56da4dcca499808b0e76ab482fdfa71c"
+  END
+ELSE
+  IF at("lilii_borea_gas_cloud")
+    MINE
+  ELSE
+    MOVE "lilii_borea_gas_cloud"
+  END
+END

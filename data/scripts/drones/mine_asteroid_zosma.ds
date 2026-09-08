@@ -1,0 +1,18 @@
+// mine asteroid zosma - marketbot_014 @ Hex Wellspring
+// Rendered from mine_asteroid.ds 2026-09-08. Station POI for Hex Wellspring;
+// resource zosma_belt.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("abd3b90fdfb39304f5996c8bfaf7645d")
+    DEPOSIT
+  ELSE
+    MOVE "abd3b90fdfb39304f5996c8bfaf7645d"
+  END
+ELSE
+  IF at("zosma_belt")
+    MINE
+  ELSE
+    MOVE "zosma_belt"
+  END
+END

@@ -1,0 +1,18 @@
+// mine gas gsc_0010 - marketbot_017 @ Plasma Echo Station
+// Rendered from mine_gas.ds 2026-09-08. Station POI for Plasma Echo Station;
+// resource gsc_0010_gas_pocket.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("ef377cbdf4962c2b8c8a8b4e4665742e")
+    DEPOSIT
+  ELSE
+    MOVE "ef377cbdf4962c2b8c8a8b4e4665742e"
+  END
+ELSE
+  IF at("gsc_0010_gas_pocket")
+    MINE
+  ELSE
+    MOVE "gsc_0010_gas_pocket"
+  END
+END

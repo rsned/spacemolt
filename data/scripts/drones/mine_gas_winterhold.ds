@@ -1,0 +1,18 @@
+// mine gas winterhold - marketbot_018 @ Carnegie Hall
+// Rendered from mine_gas.ds 2026-09-08. Station POI for Carnegie Hall;
+// resource winterhold_gas_pocket.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("6a286d5d8c48468a8d50e57da6cb3690")
+    DEPOSIT
+  ELSE
+    MOVE "6a286d5d8c48468a8d50e57da6cb3690"
+  END
+ELSE
+  IF at("winterhold_gas_pocket")
+    MINE
+  ELSE
+    MOVE "winterhold_gas_pocket"
+  END
+END
