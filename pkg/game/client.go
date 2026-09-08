@@ -100,6 +100,10 @@ type Client struct {
 	goroutineCancel context.CancelFunc
 	goroutineWg     sync.WaitGroup
 
+	// authTimeout bounds one login/register round trip; zero means
+	// defaultAuthTimeout. Tests shorten it so timeout paths run in seconds.
+	authTimeout time.Duration
+
 	// Map data cache - get_map data is static and changes less than once per hour
 	mapFetchedAt time.Time
 	mapFetchedMu sync.RWMutex
@@ -1131,7 +1135,7 @@ func (c *Client) Login(ctx context.Context) error {
 		Timestamp: time.Now().UnixMilli(),
 	}
 
-	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(10*time.Second))
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(c.authTimeoutOrDefault()))
 	if err != nil {
 		return fmt.Errorf("failed to send login: %w", err)
 	}
@@ -1162,7 +1166,7 @@ func (c *Client) Register(ctx context.Context, empire, registrationCode string) 
 		Timestamp: time.Now().UnixMilli(),
 	}
 
-	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(10*time.Second))
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(c.authTimeoutOrDefault()))
 	if err != nil {
 		return fmt.Errorf("failed to send register: %w", err)
 	}
@@ -4546,6 +4550,17 @@ func containsIgnoreCase(text string, substrings []string) bool {
 }
 
 // Close closes the connection and cleans up all resources
+// defaultAuthTimeout is how long Login and Register wait for the server's
+// acknowledgement.
+const defaultAuthTimeout = 10 * time.Second
+
+func (c *Client) authTimeoutOrDefault() time.Duration {
+	if c.authTimeout > 0 {
+		return c.authTimeout
+	}
+	return defaultAuthTimeout
+}
+
 func (c *Client) Close() error {
 	// Grab the cancel func under the lock to avoid racing with Reconnect
 	// which replaces goroutineCancel.
@@ -4571,15 +4586,15 @@ func (c *Client) Close() error {
 	}
 
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if c.conn != nil {
-		err := c.conn.Close(websocket.StatusNormalClosure, "")
+		_ = c.conn.Close(websocket.StatusNormalClosure, "")
 		c.connected = false
 		c.conn = nil
-		// Wait for goroutines outside the lock
-		_ = err
 	}
+	// Release the lock before waiting: the listen goroutine takes c.mu to
+	// record the disconnect on its way out, so waiting while holding it
+	// turns every Close into the full safety timeout below.
+	c.mu.Unlock()
 
 	// Wait for goroutines to exit (with timeout)
 	done := make(chan struct{})

@@ -433,13 +433,13 @@ func autopilotUseFuelCells(ctx context.Context, client game.GameClient, out io.W
 			fmt.Fprintf(out, "  Warning: use_item %s failed: %v\n", item.ItemID, err) //nolint:errcheck
 			continue
 		}
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 		used = true
 	}
 	if used {
 		// Refresh state — RawCommand doesn't update internal fuel/cargo state.
 		_ = client.GetStatus(ctx)
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 		if state = client.GetState(); state != nil && state.MaxFuel > 0 {
 			fmt.Fprintf(out, "  Fuel now: %.0f/%.0f (%.0f%%)\n", state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100) //nolint:errcheck
 		}
@@ -466,9 +466,9 @@ func autopilotRefuelIfNeeded(ctx context.Context, client game.GameClient, out io
 			fmt.Fprintf(out, "  Warning: use_item %s failed: %v\n", item.ItemID, err) //nolint:errcheck
 			return
 		}
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 		_ = client.GetStatus(ctx)
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 		if state = client.GetState(); state != nil && state.MaxFuel > 0 {
 			fmt.Fprintf(out, "  Fuel now: %.0f/%.0f (%.0f%%)\n", state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100) //nolint:errcheck
 		}

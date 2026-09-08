@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -160,7 +159,7 @@ func huntNearbyCreatures(ctx context.Context, deps HuntDeps, out io.Writer, poi 
 		return nearby, err
 	}
 
-	time.Sleep(game.SleepTick)
+	settle(ctx, game.SleepTick)
 
 	// A failed re-read is not a reason to fail the pass: the first look stands
 	// on its own, having found nothing, which the caller already handles.

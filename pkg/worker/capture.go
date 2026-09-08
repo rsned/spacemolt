@@ -278,7 +278,7 @@ func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Ba
 	if err := client.GetSystem(ctx); err != nil {
 		return fmt.Errorf("get_system failed: %w", err)
 	}
-	time.Sleep(game.SleepQuick)
+	settle(ctx, game.SleepQuick)
 
 	state := client.GetState()
 	if state.System.ID == "" {
@@ -357,7 +357,7 @@ func GetPOI(ctx context.Context, client game.GameClient) (game.POI, error) {
 	if err := client.GetPOI(ctx); err != nil {
 		return game.POI{}, fmt.Errorf("get_poi failed: %w", err)
 	}
-	time.Sleep(game.SleepQuick)
+	settle(ctx, game.SleepQuick)
 
 	rawJSON := client.GetRawJSON("poi")
 	if rawJSON == nil {
@@ -442,7 +442,7 @@ func GetLocationPOI(ctx context.Context, client game.GameClient) (game.POI, erro
 	if err := client.RawCommand(ctx, "get_location", nil); err != nil {
 		return game.POI{}, fmt.Errorf("get_location failed: %w", err)
 	}
-	time.Sleep(game.SleepQuick)
+	settle(ctx, game.SleepQuick)
 
 	rawJSON := client.GetRawJSON("location")
 	if rawJSON == nil {
@@ -647,7 +647,7 @@ func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.B
 	if err := client.GetBase(ctx); err != nil {
 		fmt.Printf("Warning: get_base failed: %v\n", err)
 	} else {
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 
 		rawJSON := client.GetRawJSON("base")
 		if rawJSON != nil {
@@ -680,7 +680,7 @@ func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.B
 	if err := client.GetListings(ctx); err != nil {
 		fmt.Printf("Warning: get_listings failed: %v\n", err)
 	} else {
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 
 		listings := client.GetMarketListings()
 		if mc != nil {
@@ -705,7 +705,7 @@ func KBUpdateStation(ctx context.Context, client game.GameClient, kb knowledge.B
 	if err := client.BrowseShips(ctx, nil); err != nil {
 		fmt.Printf("Warning: browse_ships failed: %v\n", err)
 	} else {
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 
 		rawJSON := client.GetRawJSON("ship_listings")
 		if rawJSON == nil {
@@ -886,7 +886,7 @@ func KBUpdateFacilities(ctx context.Context, client game.GameClient, kb knowledg
 	if err := client.RawCommand(ctx, "facility", map[string]any{"action": "list"}); err != nil {
 		return fmt.Errorf("facility list failed: %w", err)
 	}
-	time.Sleep(game.SleepQuick)
+	settle(ctx, game.SleepQuick)
 
 	rawJSON := client.GetRawJSON("_last")
 	if rawJSON == nil {
@@ -984,7 +984,7 @@ func KBUpdateMissions(ctx context.Context, client game.GameClient, kb knowledge.
 	if err := client.GetMissions(ctx); err != nil {
 		return fmt.Errorf("get_missions: %w", err)
 	}
-	time.Sleep(game.SleepQuick)
+	settle(ctx, game.SleepQuick)
 
 	raw := client.GetRawJSON("missions")
 	if len(raw) == 0 {

@@ -318,12 +318,7 @@ func craftJobDone(raw []byte, jobID string) (done bool, runsRemaining int, found
 // override the WorkerDispatch field with a zero-delay stand-in so polling
 // retries don't add real wall-clock time to the suite.
 func craftPollSleepFunc(ctx context.Context, d time.Duration) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(d):
-		return nil
-	}
+	return sleepFunc(ctx, d)
 }
 
 // recipeOutputItemID looks up the output item id produced by recipeID from
@@ -349,7 +344,7 @@ func (d *WorkerDispatch) craftOutputsOwned(ctx context.Context, itemID string) (
 	if err := d.Client.ViewStorage(ctx); err != nil {
 		return 0, fmt.Errorf("view storage: %w", err)
 	}
-	time.Sleep(game.SleepQuick)
+	settle(ctx, game.SleepQuick)
 	storageQty := storageItemCount(d.Client.GetRawJSON("storage"), itemID)
 	if err := d.Client.GetCargo(ctx); err != nil {
 		return 0, fmt.Errorf("refresh cargo: %w", err)

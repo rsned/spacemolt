@@ -26,6 +26,10 @@ type mockServer struct {
 }
 
 // newMockServer creates a new mock WebSocket server
+// testAuthTimeout replaces the 10s production login/register timeout so the
+// timeout-path tests finish in seconds.
+const testAuthTimeout = time.Second
+
 func newMockServer() *mockServer {
 	ms := &mockServer{
 		connections:  make([]*websocket.Conn, 0),
@@ -263,11 +267,12 @@ func TestLogin_Failure_Timeout(t *testing.T) {
 	// Override login handler to never respond
 	server.setHandler("login", func(msg protocol.Message) protocol.Response {
 		// Don't send response - simulate timeout
-		time.Sleep(15 * time.Second)
+		time.Sleep(2 * testAuthTimeout)
 		return protocol.Response{}
 	})
 
 	client := NewClient(server.url, "testuser", "valid_token", nil)
+	client.authTimeout = testAuthTimeout
 	ctx := context.Background()
 
 	// Connect
@@ -288,8 +293,8 @@ func TestLogin_Failure_Timeout(t *testing.T) {
 		t.Fatal("Expected login to timeout")
 	}
 
-	if elapsed < 9*time.Second || elapsed > 12*time.Second {
-		t.Errorf("Expected ~10s timeout, took %v", elapsed)
+	if elapsed < testAuthTimeout-100*time.Millisecond || elapsed > testAuthTimeout+time.Second {
+		t.Errorf("Expected ~%v timeout, took %v", testAuthTimeout, elapsed)
 	}
 
 	if !strings.Contains(err.Error(), "timeout") {
@@ -365,11 +370,12 @@ func TestRegister_Failure_Timeout(t *testing.T) {
 
 	// Override register handler to never respond
 	server.setHandler("register", func(msg protocol.Message) protocol.Response {
-		time.Sleep(15 * time.Second)
+		time.Sleep(2 * testAuthTimeout)
 		return protocol.Response{}
 	})
 
 	client := NewClient(server.url, "testuser", "", nil)
+	client.authTimeout = testAuthTimeout
 	ctx := context.Background()
 
 	// Connect
@@ -390,8 +396,8 @@ func TestRegister_Failure_Timeout(t *testing.T) {
 		t.Fatal("Expected registration to timeout")
 	}
 
-	if elapsed < 9*time.Second || elapsed > 12*time.Second {
-		t.Errorf("Expected ~10s timeout, took %v", elapsed)
+	if elapsed < testAuthTimeout-100*time.Millisecond || elapsed > testAuthTimeout+time.Second {
+		t.Errorf("Expected ~%v timeout, took %v", testAuthTimeout, elapsed)
 	}
 }
 
@@ -648,6 +654,7 @@ func TestDisconnectDuringAuth(t *testing.T) {
 	})
 
 	client := NewClient(server.url, "testuser", "valid_token", nil)
+	client.authTimeout = testAuthTimeout
 	ctx := context.Background()
 
 	// Connect
@@ -675,7 +682,7 @@ func TestContextCancellation(t *testing.T) {
 
 	// Make login slow
 	server.setHandler("login", func(msg protocol.Message) protocol.Response {
-		time.Sleep(5 * time.Second)
+		time.Sleep(time.Second)
 		return protocol.Response{Type: protocol.TypeLoggedIn}
 	})
 
@@ -851,3 +858,29 @@ func (h *testMessageHandler) OnMessage(resp protocol.Response) {
 	}
 }
 func (h *testMessageHandler) OnDisconnected(err error) {}
+
+// TestClose_ReturnsPromptly guards against Close holding the client mutex
+// while it waits for the listen goroutine, which needs that mutex to record
+// the disconnect: every Close used to sit out its full 5s safety timeout.
+func TestClose_ReturnsPromptly(t *testing.T) {
+	server := newMockServer()
+	defer server.close()
+
+	client := NewClient(server.url, "testuser", "valid_token", nil)
+	ctx := context.Background()
+	if err := client.Connect(ctx); err != nil {
+		t.Fatalf("Failed to connect: %v", err)
+	}
+	<-client.Ready()
+	if err := client.Login(ctx); err != nil {
+		t.Fatalf("Login failed: %v", err)
+	}
+
+	start := time.Now()
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Fatalf("Close took %v; the listen goroutine should exit as soon as the connection closes", elapsed)
+	}
+}

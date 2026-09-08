@@ -46,7 +46,8 @@ type MCPGameClient struct {
 	connectedMu sync.RWMutex
 
 	debug          bool
-	disablePolling bool // If true, don't poll get_status every 10s
+	disablePolling bool          // If true, don't poll get_status every 10s
+	pollInterval   time.Duration // Spacing between background polls; NewMCPGameClient sets SleepTick
 
 	latestListings []MarketListing
 	listingsMu     sync.RWMutex
@@ -133,9 +134,10 @@ func NewMCPGameClient(serverURL, username, password string, logger *log.Logger) 
 	}
 
 	return &MCPGameClient{
-		serverURL: serverURL,
-		username:  username,
-		password:  password,
+		serverURL:    serverURL,
+		username:     username,
+		password:     password,
+		pollInterval: SleepTick,
 		state: &State{
 			Username: username,
 			Password: password,
@@ -838,7 +840,7 @@ func (m *MCPGameClient) startPoller() {
 // This is much lighter than get_status — it only returns tick, timestamp,
 // and any pending notifications.
 func (m *MCPGameClient) pollLoop() {
-	ticker := time.NewTicker(SleepTick)
+	ticker := time.NewTicker(m.pollInterval)
 	defer ticker.Stop()
 
 	for {

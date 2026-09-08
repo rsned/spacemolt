@@ -467,6 +467,7 @@ func TestMCPGameClient_BackgroundPoller(t *testing.T) {
 
 	// Use a shorter poll interval for testing.
 	client := NewMCPGameClient(server.URL, "testuser", "testpass", nil)
+	client.pollInterval = 200 * time.Millisecond
 	ctx := context.Background()
 	if err := client.Connect(ctx); err != nil {
 		t.Fatalf("Connect failed: %v", err)
@@ -476,8 +477,8 @@ func TestMCPGameClient_BackgroundPoller(t *testing.T) {
 		t.Fatalf("Login failed: %v", err)
 	}
 
-	// Wait for at least one poll cycle.
-	time.Sleep(SleepTick + 2*time.Second)
+	// Wait for a few poll cycles.
+	time.Sleep(time.Second)
 
 	mu.Lock()
 	count := pollCount

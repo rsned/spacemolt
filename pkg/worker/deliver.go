@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -201,7 +200,7 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 		if err := giftOrDeposit(ctx, d, itemID, deliverQty, recipient, username); err != nil {
 			return fmt.Errorf("deliver: %w", err)
 		}
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 		remaining -= deliverQty
 
 		if short && remaining > 0 {
@@ -247,7 +246,7 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 	if cerr := d.Client.GetCargo(ctx); cerr != nil {
 		return 0, false, false, fmt.Errorf("deliver: refresh cargo after withdraw %s at %s: %w", itemID, baseLabel, cerr)
 	}
-	time.Sleep(game.SleepQuick)
+	settle(ctx, game.SleepQuick)
 	carrying = cargoCount(d.Client.GetState(), itemID)
 	short = carrying-before < want
 	if werr != nil {

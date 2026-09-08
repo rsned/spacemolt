@@ -3,7 +3,6 @@ package worker
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 )
@@ -64,7 +63,7 @@ func (d *WorkerDispatch) BuyDirected(ctx context.Context, itemID string, qty int
 		if err := giftOrDeposit(ctx, d, itemID, deliverQty, recipient, username); err != nil {
 			return fmt.Errorf("buy_directed: %w", err)
 		}
-		time.Sleep(game.SleepQuick)
+		settle(ctx, game.SleepQuick)
 		remaining -= deliverQty
 	}
 	return nil
@@ -90,7 +89,7 @@ func (d *WorkerDispatch) buyIntoCargo(ctx context.Context, itemID string, want i
 	if err := d.Client.GetCargo(ctx); err != nil {
 		return 0, fmt.Errorf("buy_directed: refresh cargo after buy %s at %s: %w", itemID, stationLabel, err)
 	}
-	time.Sleep(game.SleepQuick)
+	settle(ctx, game.SleepQuick)
 	return cargoCount(d.Client.GetState(), itemID), nil
 }
 
