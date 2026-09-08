@@ -1,6 +1,6 @@
 ---
 name: reference_station_id_aliases
-description: "Stations have two live ids (base id vs poi id); 48 of 76 aliased, 34 hex player stations. bases(id,poi_id) is CURRENT as of 2026-09-06. find_item returns POI ids while docked_at_base/location_base_id return BASE ids -- never compare across commands."
+description: "Stations have two live ids (base id vs poi id); 48 of 76 aliased, 34 hex player stations. bases(id,poi_id) CURRENT as of 2026-09-06. find_item returns POI ids while docked_at_base/location_base_id return BASE ids -- never compare across commands. Dronescript accepted POI ids only until v0.598.3; it now takes either."
 metadata: 
   node_type: memory
   type: reference
@@ -151,3 +151,39 @@ SELECT id, poi_id, name FROM bases WHERE id = ? OR poi_id = ?;
 ```
 
 One row back means one station, whichever side each source handed you.
+
+## 2026-09-07 — dronescript POI-id trap: REAL, then FIXED SERVER-SIDE same day
+
+**Status: RESOLVED in v0.598.3.** "DroneLang MOVE and at() now accept either a
+POI ID or its station/base ID... Drones recognize their current station by
+either ID without starting another trip." Do NOT rewrite existing .ds files and
+do NOT add a pre-upload id audit — both ids work now.
+
+**Kept because the failure mode is instructive and cost real production.**
+Before the fix, `at()`/`MOVE` took POI ids only. A base id is a valid string
+literal, so the script parsed, uploaded clean, and raised no runtime error --
+the drone simply never arrived. `marketbot_haven`'s five mining drones sat at
+Commerce Fields **stuck at 50/50 cargo**: their script used
+`grand_exchange_station` (BASE id) where `grand_exchange` (POI id) was needed.
+Because drone_control XP accrues only when a tick's action is not `WAIT`, the
+stalled drones earned **neither ore nor XP** -- a platform that looked
+configured and produced nothing.
+
+**The transferable lesson (still live everywhere else):** suffix shape is NOT a
+tell. All of these are correct POI ids despite reading like base ids --
+
+    gold_run_extraction_hub · treasure_cache_trading_post · gold_run_cryobelt
+
+-- because those stations have base_id == poi_id. `grand_exchange_station` has
+the identical shape and was wrong. Only `bases(id, poi_id)` distinguishes them,
+and every other command in this file still cares.
+
+**`$TOKEN$` remains the better path** even now that both ids are accepted:
+`resolveOneToken` (`pkg/worker/tokens.go`) resolves `$STATION$`,
+`$ASTEROID_BELT$`, `$ICE_FIELD$`, `$GAS_CLOUD$` from `state.System.POIs` and
+returns `p.ID`, so one template generates correct per-station scripts instead of
+N hand-written files. Caveat: it returns `matches[0]` after a sort -- a system
+with several belts gets the alphabetically-first, not the nearest, and travel
+ticks are `WAIT`, which earn nothing.
+
+Related: [[reference_drone_bay_is_agent_wide]]

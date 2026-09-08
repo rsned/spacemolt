@@ -147,7 +147,7 @@
 - [docked_at_base lives on the PLAYER](reference_docked_at_base_gotcha.md) — never the ship; dock events historically never recorded it
 - [Pinned mission workers never refuel](reference_pinned_mission_workers_never_refuel.md) — refuelling is a ROLE property; FIXED `topUpAtPin`
 - ⭐ [Player stations can refuse your dock](reference_player_station_access.md) — access is LEARNED; unverified = closed
-- ⭐🔴 [Station ids are dual-named](reference_station_id_aliases.md) — find_item gives POI ids, docked_at_base gives BASE ids: NEVER compare across commands; bases table refreshed 09-06 (76 rows, 48 aliased)
+- ⭐🔴 [Station ids are dual-named](reference_station_id_aliases.md) — find_item gives POI ids, docked_at_base gives BASE ids: never compare across commands; dronescript took POI-only until v0.598.3, now either
 - [Lawless transit is safe; idling is not](reference_lawless_transit_vs_idle.md)
 - ⭐ [GSA auto-recovery](reference_gsa_ship_recovery.md) — a drifting ship gets docked FOR you for a fee; a QUARANTINED agent needs its rescue record deleted
 - [Jettison → loot transfer flow](reference_jettison_loot_transfer_flow.md) — hand cargo to a ship that cannot dock; verified working
