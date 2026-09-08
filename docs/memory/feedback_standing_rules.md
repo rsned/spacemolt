@@ -25,6 +25,11 @@ not facts), but that is a checked-in file and a separate decision.
 - **Memory is mirrored into the repo at `docs/memory/`** (since 2026-08-29,
   `838ce625`). After writing or editing memories, run `make memory-sync` and
   commit `docs/memory` explicitly so the backup and changelog stay current.
+- **NEVER edit a migration that has run on the live DB; add a new numbered
+  one.** `fff8e9cb` edited v35 in place and live silently diverged for four
+  months — [[reference_live_kb_schema_drift]]. Regenerate
+  `scripts/sql/initialize_database.sql` after every migration (the sync test
+  enforces it).
 - **Bump `BuiltForAPIVersion` / `VersionID`** whenever response structs or
   command signatures change for a new server version — [[feedback_version_constant]].
 

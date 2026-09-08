@@ -1,6 +1,6 @@
 ---
 name: reference_live_kb_schema_drift
-description: "2026-09-08 audit: scripts/sql/initialize_database.sql == sum of migrations (tested), but the LIVE data/spacemolt-knowledge.db differs on 4 tables because migration v35 was edited IN PLACE after live had applied it. Includes the read-only diff recipe. Never edit an applied migration."
+description: "2026-09-08 audit + fix: live data/spacemolt-knowledge.db drifted on 4 tables because migration v35 was edited IN PLACE. Migration 60 reconciles (d4350708); chain 1..59 collapsed into a baseline with a floor guard (3c4536c6). Live is at 59 and gets 60 on first open by a new build. Never edit an applied migration."
 metadata:
   type: reference
 ---
@@ -33,3 +33,17 @@ live). To re-audit, build a fresh DB and diff column-level
 in a scratch shell function; worth shipping as scripts/sql/schema-diff.sh).
 See [[reference_capture_loss_taxonomy]] — empty faction tables may be one of
 the silent-drop modes. Related: [[reference_ships_table_migration_trap]].
+
+**Resolution (same day).** `d4350708` migration 60 rebuilds the three tables
+by copy. `3c4536c6` collapses 1..59 into `initial_schema.sql` (a dump of a
+fresh post-60 DB, ledger version 59) and adds `collapseFloor`: a DB with
+ledger 1..58 is refused naming commit d4350708 as the last build that can
+upgrade it. Fresh ledger = {59,60}; live = {2,4..59} + 60 once a new build
+opens it (milliseconds, three empty tables — no fleet stop needed, but apply
+it with ONE process first, e.g. `kb-drift-audit`, so no worker meets it
+cold). Deleted: 11 chain-only tests, six per-open self-heal helpers, two
+legacy xp SQL scripts, the dangling schema_crafting.sql symlink. The old
+`spacemolt-agent-server` checkout's v4 DB copy was removed 09-08; that
+checkout (branch feature/agent-server, 8 commits not on main, 4 dirty
+files) still exists and `cmd/agent-server` no longer exists in the repo
+(CLAUDE.md is stale about it).

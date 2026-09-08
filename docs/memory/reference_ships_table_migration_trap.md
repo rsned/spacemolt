@@ -20,3 +20,7 @@ Migration 42 (`add_catalog_stat_fields`) does bare `ALTER TABLE ships ...` and l
 This covers all three cohorts (fresh DBs, current DBs, pre-collapse DBs) uniformly.
 
 Then **regenerate `scripts/sql/initialize_database.sql`** (`./scripts/sql/regenerate_initialize_database.sh`) or `TestInitializeDatabaseSQLInSync` goes red — it diffs that generated file against the schema the migration runner actually produces.
+
+**MOOT since 2026-09-08:** the 1..59 chain was collapsed and databases below
+version 59 are refused outright, so no ALTER ever runs against a pre-collapse
+`ships` table again — see [[reference_live_kb_schema_drift]].
