@@ -106,6 +106,7 @@
 - [catalog_items omits `tradeable`](reference_catalog_items_tradeable_drift.md) — modules import as tradeable=0; bulk tools must default it
 - [Catalog refresh runbook](reference_catalog_refresh_runbook.md) — ships/items/recipes/skills from a scraper snapshot
 - [Legacy mining hulls erased by every catalog refresh](reference_legacy_ship_classes_erased_by_refresh.md) — `StoreShipClasses` is DELETE+INSERT
+- ⭐🔴 [Live KB schema ≠ fresh on 4 tables](reference_live_kb_schema_drift.md) — migration v35 edited IN PLACE (`fff8e9cb`); faction_missions/orders PK differs, 0 rows; master SQL itself is in sync. NEVER edit an applied migration
 - [ships table migration trap](reference_ships_table_migration_trap.md) — ALTER TABLE ships fails on pre-collapse DBs
 - ⭐ [Race suite 11m→2m (09-08)](reference_race_test_cost_sqlite_migrations.md) — SQLite migrations 3.5s/open under -race → `knowledgetest.Path(t)`; worker sleeps → `settle(ctx,d)` seam; `Client.Close` held the mutex = 5s per close. Never `time.Sleep` in pkg/worker
 - [GameClient interface → mocks](feedback_gameclient_interface_mocks.md) — `go build` misses it; run `go test ./...`
