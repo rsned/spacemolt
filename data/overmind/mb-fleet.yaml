@@ -138,9 +138,11 @@ workers:
   #
   # 22-26 jumps from Haven, server-measured at launch (010: 26, 011: 22, 012: 23,
   # 013: 23), 1 fuel/jump against a 130 tank -- a 5x margin, so none of them ever
-  # has to buy fuel. NOT the 5-10 an undirected BFS over the KB `connections`
-  # table predicts: that table is DIRECTED and the naive read invents shortcuts
-  # ([[reference_connections_graph_is_directed]]).
+  # has to buy fuel. NOT the 5-10 jumps a BFS over the KB `connections` table
+  # predicts: that table carries 19 PHANTOM edges -- copies of other systems'
+  # neighbour lists filed under the wrong origin, long-range and landing on hubs,
+  # which collapse the apparent diameter of the map. Trust the server's own
+  # `Route found: N jump(s)` ([[reference_connections_phantom_edges]]).
   # All four stations read `thriving`, defense 0,
   # pirate_rep_required 0, and all four are docked-VERIFIED open in
   # station-access.json -- not inferred from /api/stations, which does not
