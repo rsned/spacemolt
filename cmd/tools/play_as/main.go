@@ -7854,6 +7854,15 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, client.GetSystem, ctx, 2*time.Second, cmd, format)
 
 	case "ship", "get_ship":
+		shipID, err := shipIDFromArgs(parts[1:])
+		if err != nil {
+			return err
+		}
+		if shipID != "" {
+			return simpleCommand(client, func(ctx context.Context) error {
+				return client.RawCommand(ctx, "get_ship", map[string]any{"ship_id": shipID})
+			}, ctx, 2*time.Second, cmd, format)
+		}
 		return simpleCommand(client, client.GetShip, ctx, 2*time.Second, cmd, format)
 
 	case "show_fitting", "fitting":
@@ -9644,6 +9653,33 @@ func coerceBoolFlags(payload map[string]any, keys ...string) error {
 // `-category` is almost always a typo for `--category` and would otherwise be
 // silently dropped, so it returns an error pointing the operator at the two-dash
 // form. Negative-number values (e.g. `-5`) pass through untouched.
+// shipIDFromArgs extracts an optional --ship_id from a get_ship invocation.
+// Empty means "the ship you are flying" (the server omits ship_id for that).
+// A bare positional id is rejected rather than ignored: get_ship used to take
+// no arguments at all, so silently dropping one reported the ACTIVE ship under
+// a command line that named a different hull.
+func shipIDFromArgs(args []string) (string, error) {
+	flags, err := parseFlagArgs(args, "ship_id")
+	if err != nil {
+		return "", err
+	}
+	if id, ok := flags["ship_id"]; ok {
+		s, ok := id.(string)
+		if !ok {
+			return "", fmt.Errorf("get_ship: --ship_id must be a string, got %T", id)
+		}
+		return s, nil
+	}
+	// No --ship_id parsed. A leftover bare token is an operator writing
+	// `get_ship <id>`; report it instead of silently reading the active ship.
+	for _, a := range args {
+		if !strings.HasPrefix(a, "-") {
+			return "", fmt.Errorf("get_ship: pass the id as a flag: --ship_id=%s", a)
+		}
+	}
+	return "", nil
+}
+
 func parseFlagArgs(args []string, keys ...string) (map[string]any, error) {
 	allowed := make(map[string]bool, len(keys))
 	for _, k := range keys {
