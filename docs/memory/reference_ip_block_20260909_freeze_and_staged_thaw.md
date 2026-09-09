@@ -69,3 +69,27 @@ coarsen capture cadences ([[reference_capture_cadence_retune]]).
 See [[reference_sigstop_preserves_game_sessions]] ·
 [[reference_idle_loop_ran_3x_per_tick]] · [[reference_login_rate_limits]] ·
 [[reference_cold_start_runbook_drift]]
+
+## The fix for the cause: `idle_ticks` (2026-09-09, commit `094edfe0`, UNDEPLOYED)
+
+`Role.IdleTicks` (yaml `idle_ticks`) multiplies a role's idle-loop period in
+GAME TICKS. Set to **2 on the three POOL roles — `unlock`, `missionrunner`,
+`miner`** (66 of the 170 workers). Earning roles keep the one-tick loop.
+
+- **Ticks, not a duration**, because the loop's unit is the tick: the game
+  advances once per tick and a mutation is capped at one per tick per agent, so a
+  sub-tick period only emits redundant calls. A duration would desync if
+  `SleepTick` changed.
+- **Declarative** — it lives in `data/overmind/roles.yaml`, so future cadence
+  changes are a config edit, not a code change. `LoadRoles` REJECTS a negative
+  value (it would spin the loop with no delay).
+- **Scope, stated honestly:** this halves the IDLE-PASS rate for those three
+  roles only. Scheduled captures run on their own cadence and are untouched, and
+  commands-per-pass are unchanged. It is a cut to one component of fleet traffic,
+  **not a 50% cut overall.**
+
+**Deploying it costs 66 staggered logins** (~11 min at `--stagger 10s`, ~6/min,
+under the ~10/min limit) because the three pool fleets are SIGSTOPped and must be
+restarted onto a new binary — SIGCONT alone resumes them on the OLD cadence.
+Deliberately not done on the night of the block: a login burst is what escalates
+the next one ([[reference_rate_limit_buckets_and_escalation]]).
