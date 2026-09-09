@@ -36,11 +36,13 @@
 - [Capture cadence retune APPLIED 09-08](reference_capture_cadence_retune.md) — 128 agents hourly→twice_daily; it did NOT stick from 08-30, so dry-run the script at EVERY fleet stop
 - [Pirate unlock campaign](project_pirate_reputation_unlock_campaign.md) — raise every agent from -30 to 10; 45/161; NOMINATION is the bottleneck, not rotation
 - [Marketbot unlock hot-swap rotation](project_marketbot_unlock_hotswap_rotation.md) — ramens_rest = stand-in; runbook docs/runbooks/…; 2 logins/rotation; automate after 2 clean runs
+- [Drone marketbots 010-019](project_drone_marketbots.md) — drone_control 17-19 (trains drone_control NOT mining); 66.6k units; six bots at a ~9,250 ceiling worth checking
 - [Energy crystals RESERVED for drone project](project_drone_project_crystal_reserve.md) — ~6.1k held; never sell/craft them without asking
 - [Titanium-alloy war demand](project_titanium_alloy_war_demand.md) — OPTION 08-30: galaxy-wide repair demand; 374k top-tier at grand_exchange; sol_central 242-ask arbitrage first; krynn pipeline pre-positioned
 - [Mining fleet](project_mining_fleet.md) — created 08-21 as the unlock campaign's graduation destination; two-system loop, ore-selection refinements
 - [Outer Rim capital is MOBILE; marketbot homes ≠ names](reference_outer_rim_mobile_capital_and_marketbot_homes.md) — Frontier has no station now; station-less residents never move; market_prime sits in Haven
 - [Spare marketbot accounts for smuggling](reference_smuggling_spare_marketbot_accounts.md) — nine dormant, credentials present, in no fleet yaml
+- ⭐🟢 [Stale rescue records outlive the strand](reference_stale_rescue_records_outlive_the_strand.md) — 09-09: all 6 quarantined agents were ALREADY FINE; 170/170 healthy. Read the LIVE position first
 - [Rescue pipeline bug package](project_rescue_pipeline_bugs.md) — failed records never retry, wrong assister claims, gift-locked fees (Distant Light, 07-16)
 - [Worker heartbeat credits read stale 0](reference_worker_heartbeat_credits_stale.md) — gifts look failed when they landed; confirm in-game, not the status file
 
