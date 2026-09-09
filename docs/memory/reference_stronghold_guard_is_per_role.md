@@ -50,6 +50,17 @@ a join we never make.
 stronghold victims read baseline 10 today only because they graduated later.
 Do not correlate standings against past events without checking campaign dates.
 
-**FIX (not built):** one gate in the movement layer taking the agent's pirate
+**FIX — BUILT 2026-09-09, commit `096fd171`, NOT DEPLOYED.** The gate now lives
+in `Autopilot` (`pkg/worker/stronghold_gate.go`): `strongholdsOnRoute` checks the
+WHOLE route (transit hops kill too), matches on both id and name, returns
+`ErrRouteThroughStronghold` and leaves the agent DOCKED — the same contract as
+the insufficient-fuel refusal. The rule stays PER-AGENT by reusing haul.go's
+`strongholdRefsFor`, so an unlocked agent is unaffected. `AutopilotDeps.KB` is
+wired through all 17 call sites; a nil KB disables the gate with a LOUD log line
+so a future unwired role is visible rather than silent. **Needs a fleet roll to
+take effect.** The five per-role copies still exist and can now be retired one at
+a time behind the gate.
+
+**Original diagnosis (kept for the record):** one gate in the movement layer taking the agent's pirate
 baseline plus the route, replacing five copies and covering the five roles with
 none. haul.go already holds the correct logic — lift it out, do not reinvent.

@@ -472,3 +472,21 @@ all of them at once** — [[reference_stronghold_guard_is_per_role]].
 
 See [[feedback_stronghold_routing_requires_pirate_unlock]] ·
 [[reference_secondment_overrides_are_removed_sets]]
+
+## 2026-09-09 (later): the two blockers are fixed in code
+
+- **`fleet-secondment --nominate <ids>` exists** (commit `096fd171`), with
+  `--reason`. It appends home→away loan requests for agents that cannot nominate
+  themselves, which was every role but hauler. Idempotent per agent; reports
+  per-agent added/skipped so one open trip does not block a batch. Moving stays
+  the reconciler's job. Usage:
+  `bin/fleet-secondment --ledger data/overmind/secondments.json --home mb --away unlock --nominate marketbot_008,marketbot_009`
+- **The 8 idle graduates were released** (same commit). Role follows the agent-id
+  prefix (operator, 09-09): `miner-*`/`prophet-1` → mining, `pirate-*` → hunt
+  (`hunt` IS the pirate role; pirate-6..10 already fill it), `ramens_rest` → mb.
+  Result: unlock 23→15, mining 23→27, hunt 5→8, mb 64→65, all healthy.
+  **pirate-1/5/13 are the only UNLOCKED agents in the hunt fleet** — the other
+  five are still locked and hunt.go has no guard of its own until the movement-
+  layer gate is deployed.
+
+**Both are UNDEPLOYED — they need a fleet roll.**
