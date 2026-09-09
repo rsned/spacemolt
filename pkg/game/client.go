@@ -46,6 +46,12 @@ type Client struct {
 	connected   bool
 	debugLogger *log.Logger
 
+	// eventLogger carries operational events that must survive with debug OFF.
+	// SetDebug points debugLogger at io.Discard, so anything logged there exists
+	// only when someone already had --debug on — useless for a post-mortem of an
+	// event nobody predicted. Rate-limit precursors go here instead.
+	eventLogger *log.Logger
+
 	// debugOut is the debug logger's original output writer, captured at
 	// construction so SetDebugLogging(true) can restore it after a prior
 	// SetDebugLogging(false) redirected output to io.Discard.
@@ -470,6 +476,7 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		inflight:           newInflight(16),
 		actionLocks:        newActionLockMap(),
 		debugLogger:        debugLogger,
+		eventLogger:        log.New(debugLogger.Writer(), "[GAME] ", log.LstdFlags),
 		debugOut:           debugLogger.Writer(),
 		debugPayloadMaxLen: 200,
 		latestListings:     make([]MarketListing, 0),
@@ -3871,6 +3878,20 @@ func (c *Client) parseErrorState(payload map[string]any) {
 		c.lastError[k] = v
 	}
 	c.lastErrorMu.Unlock()
+
+	// Record the rate-limit PRECURSOR. These name the bucket the fleet
+	// exhausted (details.limit) and are the only evidence of what earns an IP
+	// block — the server exposes no view of it, and once blocked every command
+	// returns the same countdown. Logged unconditionally rather than to the
+	// debug logger: a tally of these after an incident is the whole diagnosis,
+	// and it is worthless if it only exists when someone had --debug on.
+	if ev, ok := rateLimitBucketFrom(payload); ok {
+		if c.eventLogger != nil {
+			c.eventLogger.Print(ev.String())
+		} else {
+			c.debugLogger.Print(ev.String())
+		}
+	}
 
 	// Handle IP rate limit block
 	if code, ok := payload["code"].(string); ok && code == "ip_timed_out" {
