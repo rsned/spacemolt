@@ -7,6 +7,7 @@
 - [Standing rules](feedback_standing_rules.md) — never `git add -A` with dirty data/*.json · haul `--stagger 10s` · unpushed? `git log origin/main..HEAD` · after memory edits: `make memory-sync` + commit docs/memory · NEVER edit an applied migration
 - ⭐🔴 [NO stronghold routing without pirate unlock](feedback_stronghold_routing_requires_pirate_unlock.md) — per-agent rule; strongholds are dead ends; 8 of 24 losses incl. assist-sol's tanker
 - Archives: [Aug](project_status_archive_2026_08.md) · [Jul 22–29](project_status_archive_2026_07.md) · [Jul 4–10](project_current_status.md) — misnamed: the OLDEST archive, 81 KB
+- ⭐ [Cold start: follow docs/COLD_START.md, but it lists 7 of 9 fleets](reference_cold_start_runbook_drift.md) — mining + shuttle + fleet-watch missing; pool ~90 is HEALTHY now, not starved
 - [Shipped-feature index](reference_shipped_history.md) — check before rebuilding anything
 - [Sunless systems = generation artifact](reference_sunless_systems_intentional.md) — 9 systems, LLM-map slip, do NOT chase; real reveal hook is gsc_0026 faint_signature
 
@@ -32,7 +33,7 @@
 - ⭐🔴 [15 of 22 haulers lost their freight hulls](project_haul_fleet_hull_attrition.md) — kill zones zaniah + goldcrest; do NOT re-equip before fixing routing
 - [Haul routes through station-less Lawless systems](project_haul_lawless_routing.md) — stuck→restart; plus a cosmetic stale-docked heartbeat flag; fix queued
 - [Haul fleet runs an old bin/worker](project_haul_fleet_worker_update_due.md) — needs drain+relaunch onto current build; requested 07-26, not done
-- ⭐🔴 [Capture cadence retune PENDING](reference_capture_cadence_retune_pending.md) — `--apply` at the next fleet stop; live workers revert schedule.json edits
+- [Capture cadence retune APPLIED 09-08](reference_capture_cadence_retune.md) — 128 agents hourly→twice_daily; it did NOT stick from 08-30, so dry-run the script at EVERY fleet stop
 - [Pirate unlock campaign](project_pirate_reputation_unlock_campaign.md) — raise every agent from -30 to 10; 45/161; NOMINATION is the bottleneck, not rotation
 - [Marketbot unlock hot-swap rotation](project_marketbot_unlock_hotswap_rotation.md) — ramens_rest = stand-in; runbook docs/runbooks/…; 2 logins/rotation; automate after 2 clean runs
 - [Energy crystals RESERVED for drone project](project_drone_project_crystal_reserve.md) — ~6.1k held; never sell/craft them without asking
