@@ -86,6 +86,29 @@ type StandingDeps struct {
 // temporarily blocked" stranding seven miners. Each command's own response time
 // is added on top of this interval by the blocking dispatch, so the real loop
 // period is a tick plus the work.
+// idleIntervalFor resolves the idle-loop period for a role. An explicit
+// override on deps wins (tests and operators pin it directly); otherwise the
+// role's IdleTicks multiplies one game tick, with 0 and 1 both meaning the
+// one-tick default.
+func idleIntervalFor(role Role, override time.Duration) time.Duration {
+	if override != 0 {
+		return override
+	}
+	if role.IdleTicks > 1 {
+		return time.Duration(role.IdleTicks) * game.SleepTick
+	}
+
+	return game.SleepTick
+}
+
+// applyStandingDefaultsForRole fills deps' zero values, taking the idle period
+// from the role. Kept separate from applyStandingDefaults so the role-free
+// callers (and their tests) keep the plain one-tick default.
+func applyStandingDefaultsForRole(role Role, deps *StandingDeps) {
+	deps.IdleInterval = idleIntervalFor(role, deps.IdleInterval)
+	applyStandingDefaults(deps)
+}
+
 func applyStandingDefaults(deps *StandingDeps) {
 	if deps.Out == nil {
 		deps.Out = io.Discard
@@ -114,7 +137,7 @@ func applyStandingDefaults(deps *StandingDeps) {
 }
 
 func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
-	applyStandingDefaults(&deps)
+	applyStandingDefaultsForRole(role, &deps)
 
 	// Register schedule entries (idempotent: skip a command already covered, so
 	// a restart does not duplicate it).

@@ -2,6 +2,15 @@
 # `every` uses the Scheduler frequency set: hourly | daily | weekly.
 # Commands and idle scripts may use $TOKEN$s resolved from live game state
 # ($SYSTEM$, $SHIP$, $CREDITS$, and POI-type tokens like $ASTEROID_BELT$, $STATION$).
+#
+# idle_ticks: multiplies the idle-loop period in GAME TICKS (unset/1 = one tick).
+# It trades idle responsiveness for shared-IP headroom: command volume scales
+# with worker count over this period and the per-IP budget is fixed. Set to 2 on
+# the three POOL roles (unlock, missionrunner, miner) on 2026-09-09, after a
+# 170-worker fleet earned a 31-minute block where ~144 had been fine — those
+# roles are 66 of those workers doing the fleet's lowest-value work, so they idle
+# at half rate instead of being shut off. Earning roles (hauler, resident,
+# assist, craftsman, hunt, shuttle) deliberately keep the one-tick loop.
 roles:
   # PAUSED 2026-06-30: idle was idle_mine, but the mine/harvest round-trip
   # stranded broke bots at 0 fuel (no credits to refuel — they store resources
@@ -72,6 +81,7 @@ roles:
   # and these agents came off the unlock chain with as little as 10/130.
   # $ASTEROID_BELT$/$STATION$ are state tokens resolved at dispatch, not params.
   miner:
+    idle_ticks: 2  # POOL ROLE — half idle rate, see the header note
     schedule:
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "capture_storage" }
@@ -117,6 +127,7 @@ roles:
       - { every: daily, command: "capture_faction" }
     idle: hunt
   missionrunner:
+    idle_ticks: 2  # POOL ROLE — half idle rate, see the header note
     schedule:
       - { every: hourly, command: "update_market" }
       - { every: hourly, command: "capture_fuel" }
@@ -157,6 +168,7 @@ roles:
   # unlock-fleet.yaml, NOT here: only agents that can physically reach the giver
   # get pinned, and that is a per-agent fuel-and-distance fact.
   unlock:
+    idle_ticks: 2  # POOL ROLE — half idle rate, see the header note
     schedule:
       - { every: hourly, command: "update_market" }
       - { every: hourly, command: "capture_fuel" }
