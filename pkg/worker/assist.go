@@ -124,7 +124,7 @@ func (d AssistDeps) navigate(ctx context.Context, system, poi string) error {
 	if d.Navigate != nil {
 		return d.Navigate(ctx, system, poi)
 	}
-	return Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out}, system, poi)
+	return Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out, KB: d.KB}, system, poi)
 }
 
 // Assist runs one pass of the assist standing behavior (the standing loop

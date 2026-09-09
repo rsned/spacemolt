@@ -312,7 +312,7 @@ func giftOrDeposit(ctx context.Context, d *WorkerDispatch, itemID string, qty in
 // shared "get to a base and dock" step both the source and destination hops
 // of Deliver use.
 func (d *WorkerDispatch) autopilotAndDock(ctx context.Context, system, poi string) error {
-	if err := Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out}, system, poi); err != nil {
+	if err := Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out, KB: d.KB}, system, poi); err != nil {
 		return err
 	}
 	return d.Client.Dock(ctx)

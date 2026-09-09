@@ -414,7 +414,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	}
 	if deps.nav == nil {
 		deps.nav = func(ctx context.Context, system, poi string) error {
-			return Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out}, system, poi)
+			return Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, system, poi)
 		}
 	}
 	if deps.sleep == nil {

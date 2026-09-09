@@ -49,3 +49,12 @@ workers:
   - { agent_id: pirate-8, role: hunt, station: frontier_station }
   - { agent_id: pirate-9, role: hunt, station: frontier_station }
   - { agent_id: pirate-10, role: hunt, station: frontier_station }
+
+  # UNLOCK GRADUATES 2026-09-09 — pirate-1/5/13 banked the pirate unlock and were
+  # idling in the unlock pool. Role follows the id prefix: pirate-* is `hunt`.
+  # They are the ONLY unlocked agents in this fleet — pirate-6..10 are all still
+  # pirate-locked, and hunt.go carries no stronghold guard, so these three are
+  # currently the safest hunters on the roster.
+  - { agent_id: pirate-1, role: hunt, station: frontier_station }
+  - { agent_id: pirate-5, role: hunt, station: frontier_station }
+  - { agent_id: pirate-13, role: hunt, station: frontier_station }

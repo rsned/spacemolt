@@ -34,14 +34,14 @@ import (
 
 func main() {
 	var (
-		ledger     = flag.String("ledger", "data/overmind/secondments.json", "Secondment ledger path")
-		homeName   = flag.String("home", "haul", "Home fleet name")
-		homeOv     = flag.String("home-overrides", "data/overmind/haul-overrides.json", "Home fleet membership sidecar")
-		homeSock   = flag.String("home-socket", "data/overmind/haul.sock", "Home fleet control socket")
-		awayName   = flag.String("away", "unlock", "Away fleet name")
-		awayOv     = flag.String("away-overrides", "data/overmind/unlock-overrides.json", "Away fleet membership sidecar")
-		awaySock   = flag.String("away-socket", "data/overmind/unlock.sock", "Away fleet control socket")
-		maxFlight  = flag.Int("max-in-flight", 1, "How many agents may be away from home at once")
+		ledger    = flag.String("ledger", "data/overmind/secondments.json", "Secondment ledger path")
+		homeName  = flag.String("home", "haul", "Home fleet name")
+		homeOv    = flag.String("home-overrides", "data/overmind/haul-overrides.json", "Home fleet membership sidecar")
+		homeSock  = flag.String("home-socket", "data/overmind/haul.sock", "Home fleet control socket")
+		awayName  = flag.String("away", "unlock", "Away fleet name")
+		awayOv    = flag.String("away-overrides", "data/overmind/unlock-overrides.json", "Away fleet membership sidecar")
+		awaySock  = flag.String("away-socket", "data/overmind/unlock.sock", "Away fleet control socket")
+		maxFlight = flag.Int("max-in-flight", 1, "How many agents may be away from home at once")
 		// Must outlast the supervisor's graceful drain, or every trip fails while
 		// the drain it is watching is still running. Measured live at 4m05s.
 		stopWait = flag.Duration("stop-timeout", supervisor.DefaultRemoveDrainTimeout+time.Minute,
@@ -50,8 +50,25 @@ func main() {
 		once       = flag.Bool("once", false, "Run a single sweep (default when --watch is unset)")
 		showStatus = flag.Bool("status", false, "Print the ledger and exit without changing anything")
 		assetsDB   = flag.String("assets-db-path", "data/assets.db", "Agent asset ledger, read to tell whether a seconded agent has earned the pirate unlock yet (empty = nobody is ever returned home)")
+		nominate   = flag.String("nominate", "", "Comma-separated agent ids to nominate for a --home -> --away loan, then exit. Only the hauler role can nominate itself, so this is how every other fleet enters the rotation.")
+		reason     = flag.String("reason", "operator nomination", "Reason recorded on a --nominate entry")
 	)
 	flag.Parse()
+
+	if *nominate != "" {
+		added, skipped, err := nominateAgents(*ledger, parseAgentList(*nominate), *homeName, *awayName, *reason)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "fleet-secondment: %v\n", err)
+			os.Exit(1)
+		}
+		for _, id := range added {
+			fmt.Printf("nominated %s: %s -> %s\n", id, *homeName, *awayName)
+		}
+		for _, id := range skipped {
+			fmt.Printf("skipped %s: already has a trip open\n", id)
+		}
+		return
+	}
 
 	if *showStatus {
 		if err := printStatus(*ledger); err != nil {

@@ -128,6 +128,7 @@ func main() {
 		Client:       client,
 		Out:          os.Stdout,
 		Access:       access,
+		KB:           kb,
 		FuelPerJump:  *fuelPerJump,
 		ApproachFuel: *approachFuel,
 		JumpsTo:      jumpCounter(kb, client),

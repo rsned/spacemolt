@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // CaptureFunc records knowledge-base state at a waypoint. Autopilot calls it
@@ -156,6 +157,12 @@ type AutopilotDeps struct {
 	// at AutopilotRefuelThreshold. nil (the default for every role that has not opted
 	// in) leaves the legacy price-blind behavior untouched.
 	FuelPriceAt FuelPriceAt
+	// KB powers the stronghold gate below. Every role should pass it: the guard
+	// used to live in the CALLERS, which meant each new role started unprotected
+	// and five of them still are — assist.go having none is how assist-sol lost a
+	// 1,500-fuel Tanker at algol. nil disables the gate with a loud line rather
+	// than silently, so a missing wire-up shows up in the worker log.
+	KB knowledge.Base
 }
 
 // fuelTimingFor resolves the endpoint fuel prices for a route into a refuel-timing
@@ -213,6 +220,20 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 		return nil
 	}
 	route = route[1:]
+
+	// Stronghold gate, at the movement layer so EVERY role inherits it. A
+	// pirate-locked agent is attacked on sight in a stronghold and cannot dock
+	// there, and 8 of 24 recorded ship losses were exactly this. Checked against
+	// the whole route, not just the destination, because the transit hops kill
+	// too. An unlocked agent gets an empty ref set and flies on unaffected —
+	// stronghold routes are the richest on the board.
+	//
+	// Refusing here leaves the agent DOCKED and alive, the same contract as the
+	// insufficient-fuel refusal below.
+	if blocking := strongholdsOnRoute(route, strongholdRefsForRoute(ctx, deps.KB, client, out)); len(blocking) > 0 {
+		fmt.Fprintf(out, "   NOT DEPARTING: route enters pirate stronghold(s): %s\n", strings.Join(blocking, ", ")) //nolint:errcheck
+		return routeStrongholdError(targetSystem, blocking)
+	}
 
 	fuelPerJump, estimatedFuel, fuelAvailable := parseFuelEstimates(client)
 	// Top up at the origin station if the route needs more fuel than we have. Without

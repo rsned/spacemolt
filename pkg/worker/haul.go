@@ -1615,6 +1615,7 @@ func haulAutopilot(ctx context.Context, deps HaulDeps, out io.Writer, system, po
 	return Autopilot(ctx, AutopilotDeps{
 		Client:        deps.Client,
 		Out:           out,
+		KB:            deps.KB,
 		OnWaypoint:    func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
 		WaypointCheck: check,
 		// Haul is the first role opted into price-aware refuel timing: it jumps the

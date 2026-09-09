@@ -137,7 +137,7 @@ func (d *WorkerDispatch) mineLoop(ctx context.Context, itemID string, qty int, p
 // Undock when the ship is still (or again) docked on arrival, e.g. a prior
 // task left it docked somewhere in the destination system.
 func (d *WorkerDispatch) autopilotAndUndock(ctx context.Context, system, poi string) error {
-	if err := Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out}, system, poi); err != nil {
+	if err := Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out, KB: d.KB}, system, poi); err != nil {
 		return err
 	}
 	if state := d.Client.GetState(); state != nil && state.IsDocked() {

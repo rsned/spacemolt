@@ -1431,7 +1431,7 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 		}
 	}
 	fmt.Fprintf(out, "hunt: heading to %s/%s (%s) to find wildlife\n", destSystem, destPOI, why) //nolint:errcheck
-	if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out}, destSystem, destPOI); err != nil {
+	if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, destSystem, destPOI); err != nil {
 		return "", fmt.Errorf("transit to %s: %w", destPOI, err)
 	}
 	return destPOI, nil
@@ -1736,7 +1736,7 @@ func huntRecoverToStation(ctx context.Context, deps HuntDeps, out io.Writer, cur
 		name = dest.SystemID
 	}
 	fmt.Fprintf(out, "hunt: relocating to %s (%s/%s, %d jump(s))\n", name, dest.SystemID, station, dest.Hops) //nolint:errcheck
-	if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out}, dest.SystemID, station); err != nil {
+	if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, dest.SystemID, station); err != nil {
 		return fmt.Errorf("relocation transit: %w", err)
 	}
 	if err := deps.Client.Dock(ctx); err != nil {

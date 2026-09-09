@@ -34,6 +34,7 @@ func autopilot(client game.GameClient, ctx context.Context, parts []string, form
 	return worker.Autopilot(ctx, worker.AutopilotDeps{
 		Client: client,
 		Out:    out,
+		KB:     globalKB,
 		// play_as preserves its per-waypoint intel-file writes via these wrappers.
 		OnWaypoint: func(ctx context.Context) error {
 			if globalKB == nil {

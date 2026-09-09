@@ -478,6 +478,7 @@ func repositionShuttle(ctx context.Context, deps ShuttleDeps, out io.Writer, cur
 	err = Autopilot(ctx, AutopilotDeps{
 		Client:     deps.Client,
 		Out:        out,
+		KB:         deps.KB,
 		OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
 	}, pick, station)
 	if err != nil {
@@ -593,6 +594,7 @@ func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writ
 	err = Autopilot(ctx, AutopilotDeps{
 		Client:     deps.Client,
 		Out:        out,
+		KB:         deps.KB,
 		OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
 	}, dest.SystemID, station)
 	if err != nil {
@@ -710,6 +712,7 @@ func shuttleDeliver(ctx context.Context, deps ShuttleDeps, out io.Writer, c shut
 	err := Autopilot(ctx, AutopilotDeps{
 		Client:     deps.Client,
 		Out:        out,
+		KB:         deps.KB,
 		OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
 	}, c.system, c.station)
 	if err != nil {

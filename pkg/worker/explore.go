@@ -159,6 +159,7 @@ func Explore(ctx context.Context, deps ExploreDeps) error {
 	return Autopilot(ctx, AutopilotDeps{
 		Client:     deps.Client,
 		Out:        out,
+		KB:         deps.KB,
 		OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
 	}, target, "")
 }

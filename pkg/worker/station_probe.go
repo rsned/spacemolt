@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // Surveying player stations is its own operation, not a side effect of hauling.
@@ -48,6 +49,10 @@ type ProbeDeps struct {
 	Client game.GameClient
 	Out    io.Writer // nil -> io.Discard
 	Access *StationAccess
+
+	// KB powers Autopilot's stronghold gate. nil leaves the probe's routes
+	// unchecked (and says so in the log) rather than failing the survey.
+	KB knowledge.Base
 
 	// FuelPerJump is the ship's cost per jump. The survey's whole safety margin
 	// is computed from it, so it is required rather than guessed: 0 disables the
@@ -221,7 +226,7 @@ func probeOne(ctx context.Context, deps ProbeDeps, out io.Writer, t ProbeTarget,
 	v := ProbeVerdict{Target: t}
 	fmt.Fprintf(out, "probe: -> %s (%s), %d jumps, %.0f fuel of %.0f\n", t.Name, t.SystemID, jumps, need, fuel) //nolint:errcheck
 
-	err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out}, t.SystemID, t.poi())
+	err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, t.SystemID, t.poi())
 	deps.Access.RecordTransit(t.StationID, err)
 	if err != nil {
 		// Most transit failures teach nothing about the station -- we never got

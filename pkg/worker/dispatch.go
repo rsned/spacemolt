@@ -176,7 +176,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 		handoffPersist: defaultHandoffPersist,
 	}
 	d.ensureHomeNav = func(ctx context.Context, system, poi string) error {
-		return Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out}, system, poi)
+		return Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out, KB: d.KB}, system, poi)
 	}
 	return d
 }
@@ -307,6 +307,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return Autopilot(ctx, AutopilotDeps{
 			Client:     d.Client,
 			Out:        d.Out,
+			KB:         d.KB,
 			OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, d.Client, d.KB) },
 		}, args[0], poi)
 	case "explore":

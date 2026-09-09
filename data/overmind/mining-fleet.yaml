@@ -32,6 +32,19 @@ workers:
   - { agent_id: random-clark, role: miner, station: "" }
 
   # ---------------------------------------------------------------------------
+  # UNLOCK GRADUATES 2026-09-09 — banked the pirate unlock (baseline 10 on all
+  # nine pirate_* factions) and were then left idling in the unlock pool with
+  # nothing left to win. Moved here per the policy above: productive beats idle.
+  # These use the SHARED idle_mine script (ordinary belts) — they are NOT crystal
+  # squad and have no per-agent script override. The three graduated pirate-*
+  # went to the hunt fleet instead: role follows the agent-id prefix, and `hunt`
+  # is the pirate role (pirate-6..10 already fill it).
+  - { agent_id: miner-3, role: miner, station: "" }
+  - { agent_id: miner-5, role: miner, station: "" }
+  - { agent_id: miner-6, role: miner, station: "" }
+  - { agent_id: prophet-1, role: miner, station: "" }
+
+  # ---------------------------------------------------------------------------
   # CRYSTAL SQUAD 2026-08-25 — 16 mining hulls moved out of mission-learn to mine
   # energy_crystal for the drone refit (3,607 short). Every one of these carries a
   # per-agent data/agents/<id>/scripts/idle_mine.smolt that overrides the shared
