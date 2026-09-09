@@ -67,3 +67,22 @@ trailing field, which is the **game tick** — see
 (sol) and **23,315** (krynn); the assist fleet is BROKE, not rich. assist-sol was
 additionally **detained by the Solarian Confederacy over a 192-credit bounty** it
 could not pay — the 0-credit spiral `PayBounty` exists to break.
+
+## Third instance the same night: pirate-1 (2026-09-09 03:12)
+
+Filed a genuine `fuel-dead` record at 2/90 fuel, POI `bharani_ember_field` —
+then showed the SAME divergence within the hour: the failed-rescue error said
+*"they are at **The Crucible Garrison**"*, a station with a **refuel** service,
+while pirate-1 sat on 48,743 credits. Two assist tankers had already failed
+against the stale POI.
+
+Deleted the record; it relaunched and was healthy in ~40 seconds, able to buy
+its own fuel. **The pattern is now three-for-three: whenever a rescue attempt
+fails with `different_location`, the error text itself carries the live position,
+and the live position is usually somewhere the agent can rescue itself.** Read it
+before dispatching anyone.
+
+Cheap pre-check before clearing: `bases` + `base_services` in the KB says whether
+the live station sells fuel, and `agent_profile.credits` says whether the agent
+can pay — but mind that a `refuel` service means the desk EXISTS, not that it has
+stock, and that credits row can be stale.
