@@ -34,8 +34,8 @@
 - [Haul routes through station-less Lawless systems](project_haul_lawless_routing.md) — stuck→restart; plus a cosmetic stale-docked heartbeat flag; fix queued
 - [Haul fleet runs an old bin/worker](project_haul_fleet_worker_update_due.md) — needs drain+relaunch onto current build; requested 07-26, not done
 - [Capture cadence retune APPLIED 09-08](reference_capture_cadence_retune.md) — 128 agents hourly→twice_daily; it did NOT stick from 08-30, so dry-run the script at EVERY fleet stop
-- [Pirate unlock campaign](project_pirate_reputation_unlock_campaign.md) — raise every agent from -30 to 10; 45/161; NOMINATION is the bottleneck, not rotation
-- [Marketbot unlock hot-swap rotation](project_marketbot_unlock_hotswap_rotation.md) — ramens_rest = stand-in; runbook docs/runbooks/…; 2 logins/rotation; automate after 2 clean runs
+- ⭐🔴 [Pirate unlock campaign](project_pirate_reputation_unlock_campaign.md) — 09-09: 48/172. ROOT CAUSE = only haul can self-nominate (haul is 16/16, everyone else frozen); assist+hunt are 0% AND have no stronghold guard
+- ⭐ [Marketbot unlock hot-swap rotation](project_marketbot_unlock_hotswap_rotation.md) — 09-09: stand-in GRADUATED but still parked in unlock; rotation #1 never started; 54 of 64 marketbots still locked
 - [Drone marketbots 010-019](project_drone_marketbots.md) — drone_control 17-19 (trains drone_control NOT mining); 66.6k units; six bots at a ~9,250 ceiling worth checking
 - [Energy crystals RESERVED for drone project](project_drone_project_crystal_reserve.md) — ~6.1k held; never sell/craft them without asking
 - [Titanium-alloy war demand](project_titanium_alloy_war_demand.md) — OPTION 08-30: galaxy-wide repair demand; 374k top-tier at grand_exchange; sol_central 242-ask arbitrage first; krynn pipeline pre-positioned

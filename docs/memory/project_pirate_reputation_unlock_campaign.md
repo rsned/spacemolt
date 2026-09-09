@@ -420,3 +420,55 @@ Operator decision 08-24: **a short-term haul plateau is worth the long-term
 safety and route access.** Note haul is already over-provisioned — 21 haulers
 saturate the fat tier at 34.4% of predicted [[reference_haul_fleet_capacity_ceiling]] —
 so dropping to ~15 should cost far less than proportionally.
+
+---
+
+## Fleet-wide census 2026-09-09 — 48 of 172, and WHY it is stuck
+
+Operator restated the goal: **every agent works the reputation unlock chains**,
+for galaxy access and to stop losing ships flying into strongholds.
+
+| fleet | live | unlocked | locked |
+|---|---:|---:|---:|
+| **haul** | 16 | **16** | **0** |
+| shuttle | 1 | 1 | 0 |
+| unlock | 23 | 8 | 15 |
+| mining | 23 | 8 | 15 |
+| mb | 64 | 10 | 54 |
+| mission-learn | 24 | 4 | 20 |
+| **craft** | 9 | **0** | 9 |
+| **assist** | 5 | **0** | 5 |
+| **hunt** | 5 | **0** | 5 |
+| **TOTAL** | **170** | **47** | **123** |
+
+(172 agents have pirate standings captured; 48 unlocked overall.)
+
+**⭐ ROOT CAUSE: only the hauler role can nominate itself.** `nominateForUnlock`
+lives in `pkg/worker/haul.go` and is called only from the haul path;
+`secondment_nominate.go` exposes a generic fn that nothing else invokes, and
+**there is no `nominate` CLI**. That single fact explains the whole table — haul
+is the one fleet at 100%, and every fleet without a nominator is frozen wherever
+it started. `bin/fleet-secondment` is already fully flag-parameterised
+(`--home`, `--away`, sockets, overrides, ledger), so a second mb↔unlock instance
+needs **no code** — only a way to enqueue nominations.
+
+**Cheapest unblocks, in order:**
+1. **Reclaim the 8 graduated agents idling in the unlock pool** — they hold
+   slots and have nothing left to win (ramens_rest among them, idling at
+   `gsc_0039_belt`). No code.
+2. **A `nominate` CLI (~30 lines)** to hand-enqueue any agent — unlocks mb,
+   craft, mission-learn and mining rotations against the existing daemon.
+3. Then run the marketbot rotation
+   ([[project_marketbot_unlock_hotswap_rotation]]); its stand-in is ready.
+
+**⭐🔴 The dangerous intersection: assist and hunt are 0% unlocked AND their
+roles have NO stronghold guard.** `pkg/worker/assist.go` and
+`pkg/worker/hunt.go` contain **zero** occurrences of "stronghold" (verified
+09-09). The guard exists only in dispatch/haul/mine_qty/mission*/shuttle. So
+those 10 agents fly with neither the reputation nor the routing check — exactly
+the combination behind the stronghold losses. craft (9, 0% unlocked) lacks it
+too but mostly sits docked. **Fixing the guard at the movement layer would cover
+all of them at once** — [[reference_stronghold_guard_is_per_role]].
+
+See [[feedback_stronghold_routing_requires_pirate_unlock]] ·
+[[reference_secondment_overrides_are_removed_sets]]

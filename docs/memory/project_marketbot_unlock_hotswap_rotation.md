@@ -30,7 +30,31 @@ remove X from unlock, readd to mb. Two logins per rotation.
 - Stand-in hull: cobble, 120 fuel, 14 jumps to the giver (~28 fuel) — pinned
   to `treasure_cache_trading_post` like the haul rotators.
 
-**State:** step 0 (stand-in's own unlock) started 08-29 after the mb restart
+**Purpose of the stand-in's own unlock** (operator, 2026-09-09): ramens_rest
+needs the pirate unlock for its own sake too — travel through dangerous space,
+smuggling missions for extra income — not merely as a prerequisite for standing
+in. The cycle is: every NON-STRONGHOLD marketbot rotates through the unlock one
+at a time, ramens_rest holds that bot's home station meanwhile, then moves on to
+the next station.
+
+**State 2026-09-09: step 0 is COMPLETE, and rotation #1 has never started.**
+
+- ramens_rest has **graduated**: baseline 10 on all nine `pirate_*` factions.
+- It is nevertheless **still in the unlock fleet**, idling at `gsc_0039_belt`
+  with nothing left to win — the exact waste this campaign already documented
+  (finished agents pinned in the pool). It holds ~598k credits.
+- Marketbot unlock progress: **10 of 64 unlocked** (the 9 stronghold bots +
+  ramens_rest); **54 still locked**. Only 1 marketbot is in the unlock fleet
+  (ramens_rest itself); 63 are in mb.
+- `mb-overrides.json` removes ONLY ramens_rest, so no resident is away.
+
+**Next action is rotation #1**: pick a locked non-stronghold resident X, set
+ramens_rest's `station:` (currently `""`, mb-fleet.yaml line ~117) to X's
+station, SIGHUP mb, then move X into unlock. Nearest posts make the cheapest
+first rotation — `marketbot_008` (The Zero Point Nexus, kornephoros, 5 jumps)
+or `marketbot_009` (Ghost Runner Terminal, thuban, 6 jumps).
+
+**History:** step 0 (stand-in's own unlock) started 08-29 after the mb restart
 that activated the sensor net; graduation check = `agent_standings.baseline
 >= 10` on all nine `pirate_*` factions. The four station pins (frontier →
 mobile_capital, market_prime, node_beta, the_telescope → unknown_edge_waystation)
