@@ -58,3 +58,12 @@ write time** so our joins stop depending on which name a given reply used.
 
 Related: [[reference_patch_notes_source]] · [[reference_server_api_history]] ·
 [[feedback_version_constant]]
+
+## Update 2026-09-09: pay_bounty IS implemented now
+
+`Client.PayBounty(ctx, empire, source)` exists at `pkg/game/client_commands.go`
+(with tests) — the "0 hits in our Go code" note is stale. It is **not exposed in
+`play_as`**, so drive it with
+`bin/server-cmd --agent <id> --cmd pay_bounty --payload empire=solarian`.
+Verified live on assist-sol: paid 192, `released_from_detention: true`,
+standing restored to 20, `outstanding_bounties: []`.

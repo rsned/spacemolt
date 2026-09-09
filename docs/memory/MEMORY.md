@@ -18,7 +18,7 @@
 - ⭐ [Tanker migration 08-14: how tankers work + hand-flown pickup](reference_assist_tanker_migration.md) — built-in pump, arrives full, 4 listings galaxy-wide, `switch_ship` is a SEPARATE step (nexus trap)
 - ⭐ [Assist pump gap + pump-blind claim election](project_assist_fleet_refueling_pump_gap.md) — pre-tanker history; stale `requested_at` defeats distance routing
 - ⭐🔴 [no_fuel_cells ≠ no_fuel_source](project_no_fuel_cells_refuel_deadlock.md) — cargo-cell fallback vs credits; nothing ever BUYS a cell. Service list is live at /api/stations: 61 of 76 refuel
-- ⭐🔴 [The refuelling fleet is itself dry](reference_assist_fleet_is_dry.md) — 3 of 5 tankers immobile; assist-sol invisible 14 days at 0 fuel. `cargo_used: 0` is normal for a tanker
+- ⭐🟢 [Assist fleet re-hulled 09-09 — RESOLVED](reference_assist_fleet_is_dry.md) — all five now fly real tankers (sol Capacity, krynn Morningstar); the fleet is BROKE though, and a 0-credit tanker gets detained
 - ⭐🔴 [Off-map == QUARANTINED, never launched](reference_rescue_queue_blocks_launch.md) — `restoreQuarantine` precedes the supervisor; `restarts:0` + zero `last_seen` is the tell
 - ⭐🔴 [Fleet overrides are removed-SETS](reference_secondment_overrides_are_removed_sets.md) — commenting out a rotating agent's yaml line makes release a NO-OP; list rotators in BOTH yamls
 - [Secondment drain must outlast RemoveDrainTimeout](reference_secondment_drain_and_rollback.md) — 4m; and must roll back on failure or the agent runs in no fleet
@@ -171,6 +171,7 @@
 - [Missions() vacuous-test trap](reference_missions_vacuous_test_trap.md) — bare `&game.State{}` early-returns before the code under test
 - [GameClock drifts forward](reference_gameclock_forward_drift.md) — syncs FORWARD only; no tight timeouts from it
 - [Exploration = content survey](reference_exploration_is_content_survey.md) — the map graph is fixed and known
+- ⭐🔴 [play_as statusline's last field is the GAME TICK, not credits](reference_play_as_statusline_last_field_is_the_tick.md) — misread it 09-09 and planned two ship buys on imaginary money; agent_profile.credits also goes stale
 - [Actual Sleep constants](reference_sleep_constants_actual.md) — CLAUDE.md's table is STALE
 - [spacemolt-kb shares the SQLite DB](reference_spacemolt_kb_shared_db.md) — poi_metadata_planets/stars are owned by the kb repo
 - [Ironlight Combine = the dev's faction](reference_ironlight_combine_dev_faction.md) — its charter describes our marketbot pattern

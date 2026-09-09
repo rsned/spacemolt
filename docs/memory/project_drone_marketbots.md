@@ -28,15 +28,17 @@ deploy pass completed 2026-09-08; all ten are live in the 64-worker mb fleet.
 | 019 | 18 | 4,200 | zosma ice |
 | 011 | 18 | 1,750 | silicon/neodymium — laggard |
 | 015 | **19** | 1,500 | ironhearth "struggling" scout, but mines the most valuable spread (platinum/rhodium/palladium) |
-| 013 / 010 / 014 / 018 / 016 / 017 | 17 | ~9,029–9,273 each | at the ceiling below |
+| 013 / 010 / 014 / 018 / 016 / 017 | 17 | ~9,029–9,273 each | the tight cluster explained below |
 
 Total **66,604 units** across the ten (storage capture 02:17–02:19Z, fresh).
 `craftsman-1` shows drone_control 100 with 0 xp — an anomaly, not a real level.
 
-**⚠ Six of ten cluster at 9,029–9,273 units — that looks like a ceiling, not a
-coincidence.** `agent_storage` has no capacity column so it is unconfirmed;
-if it is a storage cap, those six are producing into a full hold and the marginal
-drone time is being wasted. **Check before adding more drone bots.**
+**Six of ten cluster at 9,029–9,273 units — this is NOT a cap.** I flagged it as
+a probable storage ceiling; the operator corrected it 2026-09-09: **personal
+storage holds 100,000 units PER ITEM TYPE**, so these bots are at ~9% of one
+item's limit. The clustering is just similar yield over similar uptime since the
+09-08 deploy. There is a lot of headroom — the constraint on this project is not
+storage.
 
 **`xp` in `agent_skills` is xp-INTO-CURRENT-LEVEL, not cumulative** —
 marketbot_015 reads level 19 / 160 xp because it had just levelled, while

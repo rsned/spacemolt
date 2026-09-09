@@ -30,6 +30,8 @@ State 2026-08-29:
 | assist-krynn | siphon | Tanker | **4/140** | dry; tiny tank for a tanker |
 | assist-sol | theoria | **Miner t0** | **0/100** | lost its Tanker, see below |
 
+**RESOLVED 2026-09-09 — see the second migration in [[reference_assist_tanker_migration]]: all five now fly real tankers (sol Capacity, krynn Morningstar).** The historical state below stands as the record.
+
 **Three of five are immobile**, so nothing rescued krynn or nexus because the
 rescuers are stranded ([[reference_rescue_queue_blocks_launch]]). The real faults
 are a tanker that ran its own tank to zero, and assist-sol having LOST its

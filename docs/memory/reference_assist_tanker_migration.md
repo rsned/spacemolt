@@ -93,3 +93,52 @@ and it respawned in a Theoria Miner.
 could spare ~70 per rescue and stranded themselves doing it.
 **How to apply:** replacing a lost tanker = repeat the six steps; check the
 `ship_listings` table for Tanker class first, and never skip step 5.
+
+---
+
+## The second migration, 2026-09-09 — sol re-hulled, krynn upgraded
+
+Completed in one window; both verified by the login line, per step 5.
+
+| buyer | hull | price | where | jumps |
+|---|---|---|---|---|
+| assist-sol | **Capacity** (t2, 1,500 fuel) | 92,153 + 921 tax | Nova Terra Central | 2 (Sol → Sirius → Nova Terra) |
+| assist-krynn | **Morningstar** (t2, 1,500 fuel) | 114,191 | Crimson War Citadel — **its own home station** | 0 |
+
+assist-sol replaced the Theoria Miner it had flown since losing its Capacity at
+algol on 08-15; assist-krynn replaced the 140-fuel Siphon (a refueler, **not** a
+Tanker — see the correction above). **Every assist agent now flies a real
+tanker.** Old hulls are stored at the purchase stations.
+
+**⭐ `buy_listed_ship` AUTO-ACTIVATED the new hull — `switch_ship` was NOT
+needed.** `list_ships` showed the new ship as `active (with you)` immediately,
+with the old one `stored at <station>`, and both login lines read the new class
+(`Ship: Capacity`, `Ship: Morningstar`). This is the opposite of the 08-14
+assist-nexus trap, where a bought Capacity sat unboarded for a month. Do not
+conclude the trap is gone — nexus bought in a REMOTE system and flew home, which
+may be the distinguishing case. **Still verify with the login line every time**;
+that check is cheap and it is what catches either behaviour.
+
+**⭐ The assist fleet is BROKE, and that is an operational hazard, not a detail.**
+Real balances that day: sol **0**, krynn 23,315, haven 20,783, frontier 23,610,
+nexus 100,026. A 0-credit tanker cannot buy fuel and cannot pay a bounty —
+**assist-sol was DETAINED by the Solarian Confederacy over a 192-credit bounty**
+for ~24h, unable to jump, dock, or buy. Cleared with
+`bin/server-cmd --agent assist-sol --cmd pay_bounty --payload empire=solarian`
+(not exposed in `play_as`). Left sol 50,000 working capital afterwards so it
+cannot re-enter the spiral.
+
+**Funding source: `craftsman-1`** — 5,425,941 credits, in no fleet, session
+always free (it is reserved for the operator's own play_as). Gift by USERNAME
+(`shipside_assist_sol`). **Do NOT trust `agent_profile.credits` to pick a
+funder**: it showed craftsman-1 at 130,671 from a day-stale capture, which would
+have ruled it out. And **`marketbot_ramens_rest` is NOT parked** — it runs in the
+**unlock** fleet, so gifting from it dies with `session_replaced`.
+
+To free an agent for a play_as window without stopping its fleet: add it to
+`<fleet>-overrides.json` `removed`, `kill -HUP` that overmind (removal and
+re-add both work; the >half guard is the only limit), do the work, restore the
+sidecar, SIGHUP again. Took ~15s each way on assist.
+
+See [[reference_play_as_statusline_last_field_is_the_tick]] ·
+[[reference_api_v0564_v0565_bounty_station_ids]]

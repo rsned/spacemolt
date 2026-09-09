@@ -25,12 +25,13 @@ The two `status:pending` assist records were worse: **empty `system_id`**
 ("operator must fill it"), so no rescuer could ever claim them — and both agents
 were **fully functional** when inspected with `play_as`:
 
-- **assist-sol**: docked Procyon Colonial, **50/100 fuel, 1,834,595 credits**
+- **assist-sol**: docked Procyon Colonial, **50/100 fuel**, and **0 credits**
 - **assist-krynn**: docked The Crucible Garrison, **134/140 fuel**, Siphon
-  (a refueler, NOT a Tanker — fitted pump + 2 mining lasers), 1,834,597 credits
+  (a refueler, NOT a Tanker — fitted pump + 2 mining lasers), **23,315 credits**
 
 This **supersedes [[reference_assist_fleet_is_dry]]** for sol and krynn — both
-were refunded/refuelled at some point and the memory never caught up. All five
+were refuelled at some point and the memory never caught up (they were NOT
+refunded — see the credits correction below). All five
 assist tankers are now live; three completed rescues the same night
 (trader-10, trader-5, trader-1).
 
@@ -57,3 +58,12 @@ step 5, `switch_ship`**.
 
 See [[reference_rescue_queue_blocks_launch]] · [[reference_gsa_ship_recovery]] ·
 [[project_rescue_pipeline_bugs]]
+
+## Correction 2026-09-09: the credits figure was the GAME TICK
+
+The "1.83M credits" first reported for both agents was the `play_as` statusline's
+trailing field, which is the **game tick** — see
+[[reference_play_as_statusline_last_field_is_the_tick]]. Real balances were **0**
+(sol) and **23,315** (krynn); the assist fleet is BROKE, not rich. assist-sol was
+additionally **detained by the Solarian Confederacy over a 192-credit bounty** it
+could not pay — the 0-credit spiral `PayBounty` exists to break.
