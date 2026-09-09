@@ -35,8 +35,11 @@ when the operator hand-flies pilots, write the memory THAT session.
 - Burn is scale-based, not flat: predicted ~6/jump Capacity, ~11/jump Reserve
   (formula runs pessimistic) — the pipeline's flat `rescue.FuelPerJump=5`
   misprices tanker trips. [[reference_ship_jump_time_and_fuel_formulas]]
-- `siphon` (assist-krynn's 140-fuel hull) IS Tanker class — a small legacy one
-  missing from `catalog_ships.json`. It works; it is just tiny.
+- **`siphon` (assist-krynn's 140-fuel hull) is NOT a Tanker** — corrected by the
+  operator 2026-09-09. It is a refueler: an industrial hull with a FITTED
+  `refueling_pump` alongside two Mining Laser I's. It never appears in
+  `ship_listings`; real tankers list as category **Commercial**. It works as a
+  refueler, but it is not the class and the built-in-pump rule does not apply.
 
 ## The 08-14 migration — what the operator actually did
 

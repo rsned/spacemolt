@@ -60,6 +60,10 @@ efficiency) · `endowment` 11,500 · `sustenance` 11,000 · `warbarge` 10,000 �
 against `reserve` 4,000 and `capacity` 1,500. An upgrade path exists and is
 unbought; assist-nexus alone holds 123,345 credits.
 
-`siphon` is Tanker class but is NOT in `catalog_ships.json` — our catalogue gap,
-not a broken ship. **Every ship in the game works; if someone is flying it, it
+**CORRECTED 2026-09-09 (operator): `siphon` is NOT a Tanker — it is a refueler.**
+It is an industrial hull carrying a FITTED `refueling_pump`; its live module list
+is [Refueling Pump, Mining Laser I, Mining Laser I], and it has never appeared
+in `ship_listings` at all. Real tankers (Capacity, Morningstar) list as
+category **Commercial**. So krynn's pump is a fitted module, NOT a class
+default — do not generalise the built-in-pump rule to it. **Every ship in the game works; if someone is flying it, it
 is valid** (operator) — see [[reference_legacy_ship_classes_erased_by_refresh]].

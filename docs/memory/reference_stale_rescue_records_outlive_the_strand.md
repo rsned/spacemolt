@@ -27,7 +27,7 @@ were **fully functional** when inspected with `play_as`:
 
 - **assist-sol**: docked Procyon Colonial, **50/100 fuel, 1,834,595 credits**
 - **assist-krynn**: docked The Crucible Garrison, **134/140 fuel**, Siphon
-  tanker with its Refueling Pump, 1,834,597 credits
+  (a refueler, NOT a Tanker — fitted pump + 2 mining lasers), 1,834,597 credits
 
 This **supersedes [[reference_assist_fleet_is_dry]]** for sol and krynn — both
 were refunded/refuelled at some point and the memory never caught up. All five
