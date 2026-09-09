@@ -28,6 +28,7 @@
 - [Stall-watchdog kills workers during initial connect](project_overmind_stall_kill_connect_loop.md) — burns MaxRestarts in ~8min when the game is slow; FUTURE
 - ⭐🔴 [Settled-mission livelock](reference_settled_mission_livelock.md) — server lists a mission ACTIVE it refuses to complete; `abandon_mission` is the cure
 - ⭐🔴 [Idle loop ran 3x per tick](reference_idle_loop_ran_3x_per_tick.md) — SleepTick/3 → ~43 passes/sec fleet-wide, the floor under the IP blocks; fixed to one tick
+- ⭐🔴 [IP block 09-09 at 170 workers: freeze + staged-thaw runbook](reference_ip_block_20260909_freeze_and_staged_thaw.md) — STOP overminds BEFORE workers (a supervisor relaunch is a login); heartbeats/craft-spam ruled OUT; the fleet is just bigger than the per-IP budget
 - ⭐🔴 [SIGSTOP/SIGCONT preserves game sessions](reference_sigstop_preserves_game_sessions.md) — zero logins; the safe tool during an IP block
 - ⭐🔴 [CargoUsed drifts upward forever](reference_client_cargo_used_drifts_upward.md) — `deposit_items` never cleared the client cargo list; fixed 08-22, uncommitted
 - ⭐🔴 [15 of 22 haulers lost their freight hulls](project_haul_fleet_hull_attrition.md) — kill zones zaniah + goldcrest; do NOT re-equip before fixing routing
