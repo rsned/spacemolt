@@ -78,3 +78,50 @@ connect-time blocks and publishes them to the host-wide reconnect gate; and from
 the block, since a mass relogin is exactly what escalates the next one.
 
 See [[reference_login_rate_limits]] · [[reference_sigstop_preserves_game_sessions]]
+
+## ⭐🔴 Correction 2026-09-09: buckets are named in PROSE, and 170 is not too many
+
+**Two corrections to the section above, both from the operator.**
+
+**1. The message names the bucket in prose, not as an identifier.** Observed
+forms: **"OpenAPI spec fetches"**, **"catalog dump downloads"**, **"public API
+requests"**. The snake_case list (`game_query`, `game_mutation`, …) is what
+`details.limit` carries *when it is present*; the free-text name is different
+wording for the same idea and matches no identifier we could have guessed.
+
+So: **log the message VERBATIM and do not normalise it.** Any parser is a filter
+that silently drops the cases we did not anticipate, and an MCP tool error
+carries the text and nothing else. Implemented in `fc6f5d41` — the log line
+keeps `msg="…"` (bounded 300 chars) beside the structured bucket.
+
+Note those three examples are all **public-API/data-plane** names, not game
+commands. If our block came from that family, the culprit would be a
+catalog/OpenAPI fetcher, **not the workers at all** — checked 09-09 and no
+scraper or cron fetcher was running, so this is unconfirmed, but it is the first
+thing to check against the next captured message.
+
+**2. ⭐ Other operators run ~1000 agents on ONE IP with no blocks.** Our 170 are
+therefore not inherently too many, and **fleet size is not the cause**. My
+"steady-state volume from 170 workers" conclusion was the residue of an
+elimination, reported as an answer — it was wrong. Something *structural* is
+over-issuing, and `idle_ticks` is a mitigation that buys headroom, not a fix.
+
+**What finds it: `send_tally`** (`pkg/game/send_tally.go`, `fc6f5d41`). Every
+worker logs its outbound commands BY TYPE every 5 minutes
+(`game.SleepSendTally`), ordered by volume:
+
+```
+send_tally total=142 get_nearby=61 get_status=40 dock=21 ...
+```
+
+The pre-existing `messagesSent` counter says how MUCH we sent but never WHAT, so
+one wasteful command repeated by every worker looked exactly like healthy
+traffic. Fleet-wide tally:
+
+```
+grep -ho 'send_tally .*' data/overmind/*-overmind.log | tr ' ' '\n' \
+  | grep '=' | awk -F= '{a[$1]+=$2} END {for (k in a) print a[k], k}' | sort -rn
+```
+
+**The bucket names the METER; the tally names the COMMAND that filled it.** Both
+are needed — that is why they are two mechanisms and not one.

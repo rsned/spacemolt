@@ -55,14 +55,24 @@ Script kept at `scratchpad/thaw.sh`.
 | backfill bursts | **no** — minimal in the window |
 | my hunt-fleet restart | **no** — the block began 01:59, the restart was 02:27, near the END |
 
-**What remains is steady-state command volume from 170 concurrently active
-workers.** The idle loop is one pass per 10s tick per worker, so the floor scales
-linearly with the active count — and the count had grown: the runbook's proven
-baseline was ~144, the 09-09 cold start brought up **170**, then 6 quarantined
-agents were un-quarantined and 8 unlock graduates added. Nothing misbehaved;
-the fleet is simply larger than the per-IP budget tolerates.
+**~~What remains is steady-state command volume from 170 workers~~ — WRONG,
+corrected by the operator the same day.**
 
-**Levers, cheapest first:** run fewer workers (the pools are the obvious cut) ·
+> "other players run 1000 on 1 IP with no blocks"
+
+**So 170 workers is NOT inherently too many, and fleet size is not the cause.**
+The elimination was sound but the conclusion did not follow: ruling out four
+suspects left "volume" as the residue, and I reported that as the answer instead
+of as the absence of one. With a 1000-agent reference point, we are doing
+something *structurally* wasteful that other operators are not — a specific
+command over-issued, not a headcount problem.
+
+**This makes `idle_ticks` a mitigation, not a fix.** Halving the pool roles'
+idle rate buys headroom; it does not find the waste. The instrumentation is what
+finds it.
+
+**Levers, cheapest first:** ~~run fewer workers~~ (see the correction above —
+headcount is not the cause) ·
 raise `IdleInterval` above one tick for low-value roles (`standing.go:96`) ·
 coarsen capture cadences ([[reference_capture_cadence_retune]]).
 
