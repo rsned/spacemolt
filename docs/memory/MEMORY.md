@@ -46,7 +46,7 @@
 - [Mining fleet](project_mining_fleet.md) — created 08-21 as the unlock campaign's graduation destination; two-system loop, ore-selection refinements
 - [Outer Rim capital is MOBILE; marketbot homes ≠ names](reference_outer_rim_mobile_capital_and_marketbot_homes.md) — Frontier has no station now; station-less residents never move; market_prime sits in Haven
 - [Spare marketbot accounts for smuggling](reference_smuggling_spare_marketbot_accounts.md) — nine dormant, credentials present, in no fleet yaml
-- ⭐🟢 [Stale rescue records outlive the strand](reference_stale_rescue_records_outlive_the_strand.md) — 09-09: all 6 quarantined agents were ALREADY FINE; 170/170 healthy. Read the LIVE position first
+- ⭐🔴 [Rescue records with max_fuel=0 are STATE-READ FAILURES](reference_stale_rescue_records_outlive_the_strand.md) — 54 of 55 false after the 09-10 block; 12-for-13 historically. miner-3, the one real one, was parked AT a station and cost 146 credits. Gifts need target_username
 - [Rescue pipeline bug package](project_rescue_pipeline_bugs.md) — failed records never retry, wrong assister claims, gift-locked fees (Distant Light, 07-16)
 - [Worker heartbeat credits read stale 0](reference_worker_heartbeat_credits_stale.md) — gifts look failed when they landed; confirm in-game, not the status file
 
