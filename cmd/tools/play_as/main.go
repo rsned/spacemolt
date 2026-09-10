@@ -10041,42 +10041,18 @@ func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, 
 	} else {
 		fmt.Printf("🔁 Repeating %q %d time(s)...\n", loopCmd, count)
 	}
-	errs := 0
-	var stopErr error
-	for i := range count {
-		fmt.Printf("── [%d/%d] %s\n", i+1, count, loopCmd)
-		startTime := time.Now()
-		if cerr := executeCommand(client, ctx, loopParts, format); cerr != nil {
-			// Goal-reached is a positive exit (innermost only). -f does not
-			// override — re-running a satisfied command is pointless.
-			var goal *game.GoalReachedError
-			if errors.As(cerr, &goal) {
-				fmt.Printf("🎯 goal reached: %s → exiting loop\n", goal.Message)
-				break
-			}
-			var tokErr *worker.TokenError
-			if errors.As(cerr, &tokErr) {
-				fmt.Printf("❌ %s → aborting loop\n", tokErr)
-				stopErr = cerr
-				break
-			}
-			errs++
-			fmt.Printf("❌ %s\n", formatError(cerr, loopParts[0], format))
-			if !forceLoop {
-				fmt.Printf("Stopping loop after %d/%d iterations\n", i+1, count)
-				stopErr = cerr
-				break
-			}
-			fmt.Printf("⚠️  Error %d (continuing due to -f)...\n", errs)
-			continue
-		}
-		duration := time.Since(startTime)
-		fmt.Printf("✓ [%d/%d] Completed in %v\n", i+1, count, duration)
+	// Delegate to the shared executor rather than re-implementing the loop.
+	// This path used to carry its own copy of the goal-reached / TokenError /
+	// -f logic, and that copy silently missed both halves of the 2026-09-10
+	// fix: it swallowed rate limits under -f and paced nothing, so a REPL
+	// `loop -f 100 mine` could spin exactly the way the fleet did. One
+	// implementation means one place for those rules to live.
+	stmts := []worker.Statement{{Raw: loopCmd, Tokens: loopParts}}
+	runStatement := func(tokens []string) error {
+		return executeCommand(client, ctx, tokens, format)
 	}
-	if forceLoop && errs > 0 {
-		fmt.Printf("🔁 Loop finished with %d error(s) out of %d iterations\n", errs, count)
-	}
-	return stopErr
+
+	return worker.ExecuteLoop(ctx, os.Stdout, count, forceLoop, stmts, 0, runStatement)
 }
 
 func printHelp() {
