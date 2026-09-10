@@ -32,6 +32,7 @@ func ExecuteLoop(
 	for i := range count {
 		fmt.Fprintf(out, "%s── [%d/%d]\n", indent, i+1, count) //nolint:errcheck
 		iterFailed := false
+		iterErrored := false
 		for _, stmt := range body {
 			if ctx.Err() != nil {
 				return ctx.Err()
@@ -67,6 +68,17 @@ func ExecuteLoop(
 					fmt.Fprintf(out, "%s🎯 goal reached: %s → exiting loop\n", indent, goal.Message) //nolint:errcheck
 					return nil
 				}
+				// A rate limit is fatal even under -f. Force tolerates
+				// FAILURES; this is the server telling us to stop, and a
+				// refused command costs no game tick, so retrying past it
+				// spins the loop at full speed — the faster we are throttled,
+				// the harder we hammer. That feedback loop is what earned the
+				// 2026-09-10 IP block, and continuing only escalates the next
+				// one (the limiter ladders 2min -> 30min on violations).
+				if isRateLimit(err) {
+					fmt.Fprintf(out, "%s⛔ rate limited after %d/%d iterations → aborting loop: %v\n", indent, i+1, count, err) //nolint:errcheck
+					return fmt.Errorf("%w: %w", ErrRateLimited, err)
+				}
 				// A *TokenError is fatal: an unresolved $TOKEN$ aborts the entire
 				// loop immediately, even under -f (which only tolerates ordinary
 				// errors). Return it so every enclosing loop level aborts too.
@@ -83,6 +95,7 @@ func ExecuteLoop(
 					return err
 				}
 				errCount++
+				iterErrored = true
 				fmt.Fprintf(out, "%s❌ %v\n", indent, err) //nolint:errcheck
 				if !force {
 					fmt.Fprintf(out, "%sStopping loop after %d/%d iterations\n", indent, i+1, count) //nolint:errcheck
@@ -102,6 +115,19 @@ func ExecuteLoop(
 		}
 		if !iterFailed {
 			fmt.Fprintf(out, "%s✓ [%d/%d]\n", indent, i+1, count) //nolint:errcheck
+		}
+		// Pace an iteration that failed and was tolerated by -f. A SUCCESSFUL
+		// command already cost a server tick, so it self-paces and is left
+		// alone; a REFUSED one costs nothing and returns instantly, which is
+		// how `loop -f 100 mine` turns into a burst. Observed 2026-09-09:
+		// fighter-7 issued 51 mine attempts in one minute against "Another
+		// action is already pending" — a real round-trip each — and crossed
+		// the server's 30/min game_mutation cap for its session. Waiting a
+		// tick is also the only thing that can CLEAR that particular error.
+		if iterErrored && i+1 < count {
+			if serr := sleepFunc(ctx, game.SleepTick); serr != nil {
+				return serr
+			}
 		}
 	}
 	if force && errCount > 0 {
