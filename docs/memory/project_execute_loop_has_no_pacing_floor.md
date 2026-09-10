@@ -85,6 +85,36 @@ the retry is paced.
 Context: `loop -f 100 mine` in `data/scripts/idle_mine.smolt`; the `-f` count was
 raised 25 -> 100 on 2026-08-21, which quadrupled the burst ceiling.
 
+## ⭐🟢 VERIFIED IN PRODUCTION 2026-09-10 02:26
+
+Staged thaw of all 9 fleets onto the paced binaries (`scratchpad/thaw_fleet.sh`,
+one fleet at a time, `--stagger 10s`, abort if block lines climbed 15 over
+baseline). **126 workers up, ZERO blocks through the entire thaw.**
+
+| metric | before | after |
+|---|---:|---:|
+| peak `mine` iters / worker / **second** | **99** | **1** |
+| peak `mine` / worker / **minute** (fighter-7) | **51** | **6** |
+| `mine` per 5-min window (random-npc) | 72 | 15 |
+| three mission queries, share of all traffic | **63%** | **29.3%** |
+| `find_route` share | 26.2% | **4.1%** |
+
+Several workers settled at exactly `mine=30` per 5-min window = **6.0/min, the
+tick ceiling** — the loop now does as much work as the game can absorb and no
+more.
+
+⭐ **`rl_aborts=0`** — the rate-limit abort path never fired. Pacing alone held
+us under the cap. The abort is the backstop, not the mechanism; if it ever
+starts firing, something else regressed.
+
+**Thaw order that worked:** shuttle → assist → hunt → **mining** (the specimen,
+early and small so the fix is observed with a small blast radius) → craft →
+haul → mission-learn → unlock → **mb last** (51 workers ≈ 11 min of continuous
+logins, the only real `session_auth` risk in the run).
+
+**Rebuild ALL worker binaries, not just the one you are testing:** hunt was
+running a stale `bin/worker-gate` from 09-09 and would have kept the bug.
+
 Related: [[reference_rate_limit_buckets_and_escalation]] ·
 [[project_mission_query_loop_burns_the_ip_budget]] (the QUERY-side waste, a
 separate and much milder problem) · [[reference_sigstop_preserves_game_sessions]]
