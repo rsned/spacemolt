@@ -147,3 +147,48 @@ func TestIPTimeoutNotLoggedAsPrecursor(t *testing.T) {
 		t.Fatalf("ip_timed_out was logged as a bucket precursor: %q", buf.String())
 	}
 }
+
+// The server names its buckets in PROSE — "OpenAPI spec fetches", "catalog dump
+// downloads", "public API requests" — not as the snake_case identifiers a
+// details.limit carries. Those match no pattern we could have guessed, and an
+// MCP tool error carries the text and nothing else, so the message must survive
+// into the log verbatim or the event is unreadable.
+func TestRateLimitKeepsProseMessageVerbatim(t *testing.T) {
+	ev, ok := rateLimitBucketFrom(map[string]any{
+		"message": "Rate limit exceeded for OpenAPI spec fetches. Retry in 30s.",
+	})
+	if !ok {
+		t.Fatal("a prose rate-limit message was not recognised")
+	}
+	if ev.Bucket != "unknown" {
+		t.Fatalf("Bucket = %q; prose names are not identifiers and must not be forced into one", ev.Bucket)
+	}
+	if !strings.Contains(ev.String(), "OpenAPI spec fetches") {
+		t.Fatalf("the log line lost the server's own wording: %q", ev.String())
+	}
+}
+
+// A structured bucket still logs its message alongside, so the hint in the text
+// is never traded away for the identifier.
+func TestRateLimitKeepsMessageAlongsideStructuredBucket(t *testing.T) {
+	ev, _ := rateLimitBucketFrom(map[string]any{
+		"code":    "rate_limited",
+		"message": "Slow down: catalog dump downloads.",
+		"details": map[string]any{"limit": "public_api"},
+	})
+	line := ev.String()
+	if !strings.Contains(line, "bucket=public_api") || !strings.Contains(line, "catalog dump downloads") {
+		t.Fatalf("line %q must carry BOTH the identifier and the wording", line)
+	}
+}
+
+// An unbounded message must be truncated rather than pushed whole into the log.
+func TestRateLimitMessageTruncated(t *testing.T) {
+	ev, _ := rateLimitBucketFrom(map[string]any{
+		"code":    "rate_limited",
+		"message": strings.Repeat("x", 5000),
+	})
+	if len(ev.String()) > rateLimitMessageMax+200 {
+		t.Fatalf("log line was not truncated: %d chars", len(ev.String()))
+	}
+}

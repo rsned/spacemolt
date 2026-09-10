@@ -45,6 +45,12 @@ const (
 	SleepReconnect    = 30 * time.Second // Reconnection recovery wait
 	SleepRetry        = 1 * time.Second  // Retry delay for failed operations
 	SleepScanInterval = 5 * time.Minute  // Delay between scan_for_distress cycles
+
+	// SleepSendTally is how often a worker logs its per-command send tally.
+	// Purely local accounting — it issues no game call — so the only cost is
+	// log volume: one line per agent per window, ~34 lines/min across a
+	// 170-worker fleet, and six data points across a 30-minute IP block.
+	SleepSendTally = 30 * SleepTick // 5min per-command send tally window
 	// SleepKeepalive is how often an otherwise-silent worker proves liveness to
 	// the server. It is a liveness heartbeat, NOT a poll: an idle agent has
 	// nothing to learn from get_status, and at fleet scale a per-tick poll is

@@ -21,11 +21,26 @@ import (
 // leaving "170 workers is simply too many" as an inference rather than a
 // measurement).
 type rateLimitEvent struct {
-	Bucket      string // game_query, game_mutation, public_api, session_auth, connection
+	// Bucket is details.limit when the server sent it structurally.
+	Bucket      string
 	LimitPerMin int
 	Current     int
 	RetryAfter  int // seconds
+	// Message is the server's own text, logged VERBATIM.
+	//
+	// Do not try to normalise it. The bucket is named in prose and the wording
+	// is the server's to choose -- observed forms include "OpenAPI spec
+	// fetches", "catalog dump downloads" and "public API requests", which match
+	// no identifier we could have guessed. An MCP tool error carries ONLY this
+	// string: no code, no details. So the text is frequently the entire signal,
+	// and any parser we write is a filter that silently drops the cases we did
+	// not anticipate.
+	Message string
 }
+
+// rateLimitMessageMax bounds the quoted message so a hostile or broken server
+// cannot push an unbounded string into the logs.
+const rateLimitMessageMax = 300
 
 // String renders the event for the worker log. Format is deliberately greppable
 // and stable: `rate_limited bucket=<b> ...`, so an operator can tally an
@@ -41,6 +56,15 @@ func (e rateLimitEvent) String() string {
 	}
 	if e.RetryAfter > 0 {
 		fmt.Fprintf(&b, " retry_after=%ds", e.RetryAfter)
+	}
+	// Always last, always quoted: when Bucket is "unknown" this text is the
+	// only description of what we hit.
+	if e.Message != "" {
+		msg := e.Message
+		if len(msg) > rateLimitMessageMax {
+			msg = msg[:rateLimitMessageMax] + "..."
+		}
+		fmt.Fprintf(&b, " msg=%q", msg)
 	}
 
 	return b.String()
@@ -79,7 +103,7 @@ func rateLimitBucketFrom(payload map[string]any) (rateLimitEvent, bool) {
 		return rateLimitEvent{}, false
 	}
 
-	ev := rateLimitEvent{Bucket: "unknown"}
+	ev := rateLimitEvent{Bucket: "unknown", Message: msg}
 	details, _ := payload["details"].(map[string]any)
 	if limit, ok := details["limit"].(string); ok && limit != "" {
 		ev.Bucket = limit

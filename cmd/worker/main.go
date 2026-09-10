@@ -508,6 +508,14 @@ func main() {
 		}
 
 		// ── Step 8: Heartbeat loop ────────────────────────────────────────────
+		// Periodic per-command send tally. This is the diagnostic the 2026-09-09
+		// IP block lacked: the server keeps no record of what tripped a block,
+		// and a bare message total says how much we sent but never WHAT — so one
+		// wasteful command repeated fleet-wide is indistinguishable from healthy
+		// traffic. Local counting only; it issues no game call of its own.
+		tallyTicker := time.NewTicker(game.SleepSendTally)
+		defer tallyTicker.Stop()
+
 		ticker := time.NewTicker(game.SleepTick)
 		defer ticker.Stop()
 
@@ -518,6 +526,10 @@ func main() {
 				break heartbeat
 			case <-readerDone:
 				break heartbeat
+			case <-tallyTicker.C:
+				if snap := client.SendTallySnapshot(); snap.Total > 0 {
+					logger.Print(snap.String())
+				}
 			case <-ticker.C:
 				// Re-arm reconnection if the game connection dropped — a standing
 				// worker issues no command to wake the dormant handler on its own.

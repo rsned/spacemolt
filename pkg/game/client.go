@@ -46,6 +46,10 @@ type Client struct {
 	connected   bool
 	debugLogger *log.Logger
 
+	// sendTally counts outbound commands by type for the periodic send_tally
+	// line. See send_tally.go: the total counter alone cannot say WHAT we sent.
+	sendTally sendTally
+
 	// eventLogger carries operational events that must survive with debug OFF.
 	// SetDebug points debugLogger at io.Discard, so anything logged there exists
 	// only when someone already had --debug on — useless for a post-mortem of an
@@ -1095,6 +1099,7 @@ func (c *Client) send(ctx context.Context, msg protocol.Message) error {
 
 	// Track message for diagnostics
 	c.trackMessageSent()
+	c.sendTally.record(msg.Type)
 
 	// Track the latest action for XP observation attribution
 	if c.XPCallback != nil {
