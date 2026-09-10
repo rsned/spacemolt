@@ -23,8 +23,21 @@ answered the question within four minutes.
 | get_status | 6.0% |
 | everything else | ~22% |
 
-**Three mission queries = 63% of all traffic.** Rate: **9.3 commands/min per
-worker**, so ~1,580/min across 170 workers.
+**Three mission queries = 63% of all traffic.**
+
+**Rate, corrected.** The first pass measured 9.3 commands/min/worker, but that
+sampled mostly FIRST windows, which are inflated by login + scheduled-task
+backfill. Steady state (second windows onward):
+
+| worker kind | rate | example |
+|---|---|---|
+| caught in the loop | **~7/min, 90-100% waste** | `salvager-3` 36 cmds, ALL of them 12/12/12 |
+| healthy, doing work | **~3.6/min** | `explorer-12` 18 cmds: jump=6, accept_mission=1 |
+| healthy miner | ~6/min, productive | `miner-1` 32 cmds of which **mine=26** |
+
+**Always compare second windows.** A first window cannot distinguish a loop from
+a busy startup — `pirate-11` read 54 then 21, while `pirate-12` read 49 then 42
+with the same signature. The second number is the one that identifies a loop.
 
 **This is the answer to "why do we get blocked when others run 1000 agents on
 one IP".** An agent issuing ~1.5 useful commands/min lets 1000 agents coexist.
@@ -69,6 +82,17 @@ to complete) · the dry-board backoff in the missionrunner roster notes, which i
 supposed to park a worker that finds nothing acceptable ·
 [[reference_missions_vacuous_test_trap]] (the existing tests may not cover the
 loop at all).
+
+## Bug 1b — `find_route` has a SECOND source: freight
+
+Do not assume fixing the mission loop fixes `find_route`. `engineer-1` logged
+**`find_route=34` in five minutes — one every 9 seconds — with `get_missions=0`**
+and `shipping=16`. That is the freight/shipping route planner, not the mission
+board. `shipping` itself runs 10-25 per window on the engineer/explorer workers
+(`engineer-4` and `explorer-8` both at `shipping=25`).
+
+So `find_route` (26% of all traffic) is fed by at least two independent callers,
+and the freight one is the heavier of the two per worker.
 
 ## Bug 2 — the refuel loop
 
