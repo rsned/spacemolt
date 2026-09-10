@@ -12,6 +12,7 @@
 - [Sunless systems = generation artifact](reference_sunless_systems_intentional.md) — 9 systems, LLM-map slip, do NOT chase; real reveal hook is gsc_0026 faint_signature
 
 ## Fleet ops — live problems
+- ⭐🔴 [MEASURED: 3 mission queries = 63% of ALL fleet traffic](project_mission_query_loop_burns_the_ip_budget.md) — find_route+get_active_missions+get_missions every idle pass, accept_mission=0; identical tallies across 6 workers = deterministic loop. THE cause of the IP blocks
 - [Player sightings timeline](project_player_sightings_timeline.md) — `2dfd83e9` DEPLOYED 08-29 to mb/assist/hunt/craft/shuttle; haul/unlock/mission-learn OLD binary; marketbot sensor net `2340e637` awaits mb restart
 - ⭐ [MoltenOne: PLAYER hunter, KILLED 08-29 by hand-flown craftsman-1](reference_moltenone_player_hunter_ip_block_kills.md) — 10 losses in IP-block windows; wreck cc2128e8 has our ore; new `player_kill` event undecoded
 - ⭐🔴 [Stronghold guard is re-written per role](reference_stronghold_guard_is_per_role.md) — 5 copies, ABSENT from assist/autopilot/hunt/explore/freight; 8 of 24 losses. Fix = one movement-layer gate
@@ -28,7 +29,7 @@
 - [Stall-watchdog kills workers during initial connect](project_overmind_stall_kill_connect_loop.md) — burns MaxRestarts in ~8min when the game is slow; FUTURE
 - ⭐🔴 [Settled-mission livelock](reference_settled_mission_livelock.md) — server lists a mission ACTIVE it refuses to complete; `abandon_mission` is the cure
 - ⭐🔴 [Idle loop ran 3x per tick](reference_idle_loop_ran_3x_per_tick.md) — SleepTick/3 → ~43 passes/sec fleet-wide, the floor under the IP blocks; fixed to one tick
-- ⭐🔴 [Rate-limit buckets + escalation ladder](reference_rate_limit_buckets_and_escalation.md) — 5 buckets in details.limit; blocks escalate 2min→30min; server keeps NO record, get_action_log has only successes, so OUR log is the evidence
+- ⭐🔴 [Rate-limit buckets, prose names, escalation](reference_rate_limit_buckets_and_escalation.md) — 1000 agents/IP is fine for others so SIZE IS NOT THE CAUSE; buckets named in PROSE; send_tally names the over-issued command
 - ⭐🔴 [IP block 09-09 at 170 workers: freeze + staged-thaw runbook](reference_ip_block_20260909_freeze_and_staged_thaw.md) — STOP overminds BEFORE workers (a supervisor relaunch is a login); heartbeats/craft-spam ruled OUT; the fleet is just bigger than the per-IP budget
 - ⭐🔴 [SIGSTOP/SIGCONT preserves game sessions](reference_sigstop_preserves_game_sessions.md) — zero logins; the safe tool during an IP block
 - ⭐🔴 [CargoUsed drifts upward forever](reference_client_cargo_used_drifts_upward.md) — `deposit_items` never cleared the client cargo list; fixed 08-22, uncommitted
