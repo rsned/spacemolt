@@ -73,6 +73,10 @@ var _ MissionStore = (*market.Collector)(nil)
 type missionRunState struct {
 	dry    int
 	cursor int
+	// boardPoll/boardStation gate the two mission queries on a pass that
+	// would only re-ask what the last one answered. See missionBoardGated.
+	boardPoll    time.Time
+	boardStation string
 	// hopsDry counts repositions since the last executed work; reaching the
 	// pool size means a full circuit found nothing and triggers parking.
 	hopsDry int
@@ -588,11 +592,29 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		galGraph = nil
 	}
 
+	// Whether this pass spends its two mission queries. Decided once, here,
+	// so the resume read and the board read agree -- gating one but not the
+	// other would leave half the loop running. `current` is the base we are
+	// docked at, so docking elsewhere always reads the new board at once.
+	boardGated := missionBoardGated(deps, current, missionNow(deps))
+	if boardGated {
+		fmt.Fprintf(out, "missions: board at %s unchanged and last pass was dry; not re-reading for up to %v\n", //nolint:errcheck
+			current, game.SleepMissionBoardPoll)
+	} else {
+		missionRecordBoardPoll(deps, current, missionNow(deps))
+	}
+
 	// Resume held missions before accepting new ones: complete what's aboard,
 	// abandon what isn't (v1 keeps resume simple; a lost-cargo mission cannot
 	// be completed anyway).
-	if done := missionResume(ctx, deps, out, current, strongholds); done {
-		return nil
+	//
+	// Skipped when gated: a dry worker holds no mission, so there is nothing
+	// to resume and the read can only return the empty list it returned last
+	// pass.
+	if !boardGated {
+		if done := missionResume(ctx, deps, out, current, strongholds); done {
+			return nil
+		}
 	}
 
 	// Shed leftover cargo when we happen to be docked at home_base. Most pool
@@ -638,8 +660,15 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		freightBest = cand
 	}
 
-	// Read the live board.
-	board, baseID, ok := missionReadBoard(ctx, deps, out)
+	// Read the live board. A gated pass treats it as empty, which is the same
+	// path an actually-empty board takes -- straight through to freight, so a
+	// gated worker still earns.
+	var board []serverapi.MissionBoardEntry
+	var baseID string
+	ok := false
+	if !boardGated {
+		board, baseID, ok = missionReadBoard(ctx, deps, out)
+	}
 	if !ok || len(board) == 0 {
 		fmt.Fprintln(out, "missions: no board entries here") //nolint:errcheck
 		// An empty board is a prime freight opportunity, not a dry pass.
@@ -1326,6 +1355,49 @@ func tripSkillXP(trip []missionCandidate) int {
 	}
 
 	return total
+}
+
+// missionBoardGated reports whether this pass should SKIP its two mission
+// queries (get_active_missions and get_missions).
+//
+// Measured 2026-09-11: `unlock` and `missionrunner` both declare
+// `idle: missions`, so 63% of the fleet's mission-query traffic runs through
+// this one function, and workers like trader-6 emitted
+// `find_route=12 get_active_missions=12 get_missions=12` per five minutes with
+// no accept, no travel and no mutation of any kind.
+//
+// Safe because board entries are computed from the agent's own state at query
+// time and postings turn over on a server-owned timer -- a query never
+// triggers a refresh, so re-asking sooner returns the board already held.
+//
+// Keyed on deps.State.dry, which the pass resets to 0 whenever it executes
+// real work. That reuse is deliberate: a second, parallel notion of "idle"
+// could drift from the one the reposition/park logic already uses. dry == 0
+// therefore always polls, which also makes a nil State (gate disabled) and a
+// freshly-constructed State behave identically.
+//
+// Skipping the board read is NOT skipping the pass: missionReadBoard's empty
+// result already falls through to the freight path, which is where a dry
+// worker earns. Freight is evaluated before the board read and is untouched.
+func missionBoardGated(deps MissionDeps, station string, now time.Time) bool {
+	st := deps.State
+	if st == nil || st.dry == 0 || st.boardPoll.IsZero() {
+		return false
+	}
+	if station != st.boardStation {
+		return false // docked somewhere new: a different board, read it now
+	}
+
+	return now.Sub(st.boardPoll) < game.SleepMissionBoardPoll
+}
+
+// missionRecordBoardPoll stamps a pass that actually queried.
+func missionRecordBoardPoll(deps MissionDeps, station string, now time.Time) {
+	if deps.State == nil {
+		return
+	}
+	deps.State.boardPoll = now
+	deps.State.boardStation = station
 }
 
 // missionReadBoard fetches and parses the local mission board. ok=false on any
