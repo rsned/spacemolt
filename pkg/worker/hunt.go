@@ -225,6 +225,11 @@ type HuntDeps struct {
 	// action per server tick). Injected as ~0 by tests for the same reason as
 	// sleep: a multi-tick chase would otherwise cost the suite minutes.
 	tickSleep time.Duration
+	// boardGate suppresses the three mission queries on a pass that would
+	// only re-ask questions the previous pass already answered. One instance
+	// per worker process; nil means "always poll", which is what every caller
+	// that does not thread one through gets.
+	boardGate *huntBoardGate
 }
 
 // huntWildlifeOnly resolves the wildlife-only interlock: unset means on.
@@ -343,6 +348,25 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// follows.
 	huntRepairAtDock(ctx, deps, out, who, deps.Client.GetState())
 
+	// Where we are reading the board FROM. The gate keys on this so docking
+	// somewhere new always reads the new board immediately.
+	station := ""
+	if st := deps.Client.GetState(); st != nil {
+		station = st.CurrentPOI
+	}
+
+	// Skip the three mission queries when the previous pass already answered
+	// them and nothing on our side has moved since. Board entries are computed
+	// from our own state and postings turn over on a server-owned timer, so
+	// re-asking sooner returns the board we already hold -- see huntBoardGate.
+	// Measured 2026-09-11: pirate-6..10 spent 29 of each per five minutes and
+	// accepted nothing.
+	if !deps.boardGate.shouldPoll(station, huntNow(deps)) {
+		fmt.Fprintf(out, "hunt[%s]: board at %s unchanged and nothing admissible last pass; not re-reading for up to %v\n", //nolint:errcheck
+			who, station, game.SleepMissionBoardPoll)
+		return nil
+	}
+
 	// What the agent has already COMPLETED is what lets a chain continuation
 	// over the difficulty cap through. Read once per pass, before anything is
 	// scored, and treated as empty on any failure.
@@ -352,8 +376,13 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// off the board.
 	job, ok := huntSelectJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
 	if !ok {
+		// Dry: nothing to resume, nothing admissible. Arm the backoff.
+		deps.boardGate.record(station, huntNow(deps), true)
 		return nil
 	}
+	// Found work, so the agent is not idle -- keep reading every pass, or
+	// huntResumeJob would stop finding the mission it is holding.
+	deps.boardGate.record(station, huntNow(deps), false)
 	publishActivity(deps.SetActivity, huntActivityLabel(job))
 
 	// Whatever ends the pass — the objective met, the cap, a flee, an error —

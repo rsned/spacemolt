@@ -61,6 +61,11 @@ type WorkerDispatch struct {
 	// shuttle carries cross-pass shuttle memory (dry-pass streak + reposition
 	// cursor) so the idle→idle→reposition cadence survives between passes.
 	shuttle *shuttleState
+	// huntBoard suppresses the hunt role's three mission queries on a pass
+	// that would only re-ask what the last one answered. Held here, like
+	// treasury, so the backoff survives between command passes -- a per-pass
+	// instance would reset every time and suppress nothing.
+	huntBoard *huntBoardGate
 	// mission carries cross-pass mission-runner memory (dry-pass streak +
 	// reposition cursor), the shuttleState pattern.
 	mission *missionRunState
@@ -169,6 +174,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 	d := &WorkerDispatch{
 		Client: client, KB: kb, Market: mc, Out: out,
 		treasury:       &treasuryRescue{},
+		huntBoard:      &huntBoardGate{},
 		shuttle:        &shuttleState{},
 		mission:        &missionRunState{},
 		craftPollSleep: craftPollSleepFunc,
@@ -371,6 +377,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			// governs both; empty resolves to DefaultAgentsDir.
 			AgentsDir:   d.AgentsDir,
 			SetActivity: d.setActivity,
+			boardGate:   d.huntBoard,
 		})
 	case "shuttle":
 		return Shuttle(ctx, ShuttleDeps{

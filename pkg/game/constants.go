@@ -51,6 +51,13 @@ const (
 	// log volume: one line per agent per window, ~34 lines/min across a
 	// 170-worker fleet, and six data points across a 30-minute IP block.
 	SleepSendTally = 30 * SleepTick // 5min per-command send tally window
+	// SleepMissionBoardPoll bounds how often a PARKED, dry agent re-reads a
+	// mission board. Board contents are computed from the agent's own state and
+	// postings turn over on a server-owned timer, so re-asking sooner returns
+	// the board already held. Event-driven re-reads (docking elsewhere, a job
+	// finishing) bypass this entirely; it only governs noticing turnover while
+	// sitting still.
+	SleepMissionBoardPoll = 30 * SleepTick // 5min dry mission-board re-poll
 	// SleepKeepalive is how often an otherwise-silent worker proves liveness to
 	// the server. It is a liveness heartbeat, NOT a poll: an idle agent has
 	// nothing to learn from get_status, and at fleet scale a per-tick poll is
