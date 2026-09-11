@@ -179,6 +179,51 @@ new log line `board at <station> unchanged and last pass was dry`.
 
 **Deploy still needed** — the fleet is running binaries from 2026-09-10 01:32.
 
+## ⭐🟢 DEPLOYED 2026-09-11 15:14 — measured, with one gap found live
+
+All 9 fleets redeployed onto the 13:50 build (workers + OVERMIND, since
+`a35f94c5` is supervisor-side). **170 workers held throughout nine sequential
+fleet restarts, zero losses, zero blocks** — itself a change from the night
+before.
+
+Mission-query share of each fleet's traffic, measured AFTER its own redeploy:
+
+| fleet | before | after |
+|---|---:|---:|
+| hunt | 63% (pirates 100% waste) | **8%** |
+| mission-learn | ~35% | **17%** |
+| unlock | ~28% share, 56% of its own traffic | **56% — NOT improved** |
+
+`pirate-6..9` went from `completed_missions=29 get_active_missions=29
+get_missions=29` to **1 / 1 / 1**, and now show real work in the tally
+(`get_nearby`, `jump`, `dock`, `hunt`, `travel`) instead of four queries in a
+loop.
+
+### ⭐🔴 The gap: PARKED workers (fixed `dd10be5f`, undeployed)
+
+Unlock did not improve because its pinned workers never reposition — after
+`missionDryPassLimit` they park for `missionParkWindow` (30 min) and camp the
+local board. **`missionDryPass` returns BEFORE `dry++` while parked**, so a
+parked worker sits at `dry == 0` permanently and a gate keyed only on `dry`
+never fires for precisely the idlest agents. trader-2 was parked at
+treasure_cache_trading_post from 14:22 and re-read the same board every ~24s
+for the whole park.
+
+Fix: `parked` satisfies the gate alongside `dry > 0`; an expired park resumes
+reading. Deploying it needs only unlock + mission-learn (~55 logins), not the
+whole fleet.
+
+### Two things the measurement newly exposed
+
+- **`get_status` is now hunt's top command** (~31/window). The pass issues it
+  BEFORE the gate because the gate keys on `current`, the SYSTEM id, which it
+  needs get_status to learn. Cheaper to satisfy from cached state.
+- **The refuel loop is confirmed still live and separate**: `pirate-2`
+  `find_route=10 get_active_missions=10 refuel=10` — matching counts meaning
+  refuel is retried inside one failing pass. See
+  [[project_no_fuel_cells_refuel_deadlock]]; all five agents rescued on 09-11
+  were "docked at a pump with no credits", which is the same shape.
+
 ## Status (superseded — see FIXED above)
 
 NOT FIXED. Measured only. `idle_ticks: 2` on the pool roles (`094edfe0`) halves
