@@ -54,5 +54,56 @@ progress measure.
 uploads the script once and the drones execute server-side, so absence of log
 output is not absence of production. Verify via `agent_storage_items` growth.
 
+## ⭐ Status 2026-09-11 — the project is working, and the cap is now the story
+
+Two days on from the 09-08 deploy.
+
+**Skills: +18 levels in two days.** The cohort converged into a tight 35-37 band.
+
+| bot | 09-09 | 09-11 |
+|---|---:|---:|
+| marketbot_haven | 26 | **39** |
+| 011 / 012 / 015 / 019 | 18-19 | **37** |
+| 010 / 013 / 014 / 016 / 017 / 018 | 17 | **35** |
+
+⭐ **`011` was never a laggard** — it read low on 09-09 purely because it had
+less uptime, and it is now level 37 with the leaders. Drop that label.
+
+**Storage: 66,604 -> 480,240 units across the ten** (532,880 with haven), ~7x.
+The six-bot "~9,250 cluster" I once suspected was a ceiling now sits at
+70,000-74,000 each, which closes that question for good — the operator's
+100,000-per-ITEM-TYPE correction was right and there was never a cap there.
+
+**⭐🔴 The real cap is per item, and iron ore is the one to watch:**
+
+| bot | item | qty | % of the 100k per-item cap |
+|---|---|---:|---:|
+| 010 | Iron Ore | 46,965 | **47%** |
+| 014 | Iron Ore | 40,641 | 40% |
+| 013 | Iron Ore | 38,900 | 39% |
+| 017 | Neon Gas | 26,431 | 26% |
+
+At the observed two-day rate `010` caps its iron ore in roughly **2-4 days**.
+Plan a drain; do not discover it as a silent stall.
+
+**⭐ Measurement limits, so nobody re-derives a bad rate from this table:**
+- `agent_storage_items` keeps only the NEWEST capture per agent — there is no
+  time series to fit. The only baseline is whatever a previous note recorded.
+- Capture is daily, so any reading can be up to 24h stale (this one was 15h).
+- **Do NOT `server-cmd` these bots for a live read.** They are active in the mb
+  fleet and the login would `session_replaced` them out of it.
+
+**Output mix** (all ten + haven): Iron Ore 140,822 · Copper Ore 94,441 · Neon
+Gas 63,230 · Argon Gas 59,084 · Hydrogen Gas 35,375 · then a long tail incl.
+Platinum 3,036 / Rhodium 1,534 / Palladium 1,367 from 015.
+
+⭐ **No energy crystals, and that is CORRECT, not a miss.** Crystals are an
+INPUT to the drone refit, mined by `random-3` out of ivorygate — see
+[[project_drone_project_crystal_reserve]]. Nothing these bots produce advances
+the 3,607-crystal shortfall; do not conflate the two.
+
+Incidental: an **Advanced Drone Bay** and three **Mining Laser I** are sitting
+in drone-bot storage.
+
 See [[reference_drone_bay_is_agent_wide]] ·
 [[project_drone_project_crystal_reserve]] · [[reference_station_id_aliases]]
