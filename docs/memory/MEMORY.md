@@ -13,7 +13,7 @@
 
 ## Fleet ops — live problems
 - ⭐🟢 [ROOT CAUSE of the IP blocks — FIXED](project_execute_loop_has_no_pacing_floor.md) — mine timeout desyncs w/ server pending → unpaced `loop -f` retries into instant "already pending" at 51/min vs a **30/min PER-SESSION** cap. Tick is 10s so 6/min is useful
-- ⭐🔴 [MEASURED: 3 mission queries = 63% of ALL fleet traffic](project_mission_query_loop_burns_the_ip_budget.md) — find_route+get_active_missions+get_missions every idle pass, accept_mission=0; identical tallies across 6 workers = deterministic loop. THE cause of the IP blocks
+- ⭐🟢 [Mission-query loop FIXED, undeployed](project_mission_query_loop_burns_the_ip_budget.md) — 44% of traffic; board never refreshes on request so slow-poll is safe. **IP-block counter is SHARED across the address** (per-bot game_query is 300/min, never close)
 - [Player sightings timeline](project_player_sightings_timeline.md) — `2dfd83e9` DEPLOYED 08-29 to mb/assist/hunt/craft/shuttle; haul/unlock/mission-learn OLD binary; marketbot sensor net `2340e637` awaits mb restart
 - ⭐ [MoltenOne: PLAYER hunter, KILLED 08-29 by hand-flown craftsman-1](reference_moltenone_player_hunter_ip_block_kills.md) — 10 losses in IP-block windows; wreck cc2128e8 has our ore; new `player_kill` event undecoded
 - ⭐🔴 [Stronghold guard is re-written per role](reference_stronghold_guard_is_per_role.md) — 5 copies, ABSENT from assist/autopilot/hunt/explore/freight; 8 of 24 losses. Fix = one movement-layer gate

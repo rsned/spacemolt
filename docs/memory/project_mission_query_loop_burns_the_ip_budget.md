@@ -117,7 +117,69 @@ grep -ho 'send_tally .*' data/overmind/*-overmind.log | tr ' ' '\n' \
 **Watch for identical tallies across workers** — that is the loop signature, and
 it is far easier to spot than a raw rate.
 
-## Status
+## ⭐🟢 FIXED 2026-09-11 — `c1e4c169` (hunt) + `250634cd` (missions). NOT YET DEPLOYED.
+
+### The budget model, corrected by the operator
+
+`game_query` is **300/min per bot** (keyed on the character over WebSocket, on
+the session over HTTP/MCP) — we were never remotely close, peak 23.2/min. But
+**the counter that decides an IP block is shared across everything from the
+address.** So a loop that looks fine for one agent adds up across the fleet and
+blocks the whole lot. That, not the per-bot cap, is why the poll must be slow.
+My earlier "different bucket, so not dangerous" was wrong.
+
+Measured aggregate: **~630-765 requests/min fleet-wide**, ~44% of it these
+three queries.
+
+### Why skipping is safe (server team, 2026-09-11)
+
+Boards hold two kinds of offer, and **neither rewards fast polling**:
+- **Computed on request** from your own state — ship, skills, standing, what
+  you already finished. Asking again immediately returns the same answer. Only
+  a repeatable coming off cooldown or another player posting/cancelling moves
+  it.
+- **Postings that turn over** on a timer the SERVER owns. Your query does not
+  trigger a refresh.
+
+Prescribed shape: **slow poll while parked · keep last-seen mission ids and
+diff, react to new ids · re-check after something changes on YOUR side**
+(docked somewhere new, job finished or dropped, standing/skills moved).
+
+### What shipped
+
+Two gates, same reasoning, one constant
+(`game.SleepMissionBoardPoll = 30 * SleepTick`, 5 min, operator-chosen).
+
+| role | file | keyed on |
+|---|---|---|
+| hunt (35%) | `hunt_board_gate.go`, new `huntBoardGate` on WorkerDispatch | its own dry flag |
+| unlock + missionrunner (63%) | `mission.go` `missionBoardGated` | the EXISTING `State.dry` |
+
+⭐ **Reused `State.dry` rather than inventing a second idleness notion** — the
+reposition/park logic already owns that concept and a parallel one would drift.
+
+**Two bypasses, both load-bearing:**
+- **Different station** → read at once; a new dock is a different board.
+- **Last pass found work** → never gate. A worker holding an active mission is
+  not dry and needs `get_active_missions` to find it; gating it would strand
+  the job. Regression-tested in both roles.
+
+⭐ **Gating the board read is NOT skipping the pass.** `missionReadBoard`
+returning empty already falls through to freight ("an empty board is a prime
+freight opportunity"), and freight is evaluated BEFORE the board read. This
+matters because engineer-4/5 and explorer-8 run `shipping=24-36` per window
+while showing the same wasteful query signature — they are earning, and the
+gate leaves that untouched.
+
+### Expected effect
+
+A parked dry agent goes from ~12 board reads per 5 min to **1 per 5 min**.
+Verify after deploy with the usual second-window rule, and by watching for the
+new log line `board at <station> unchanged and last pass was dry`.
+
+**Deploy still needed** — the fleet is running binaries from 2026-09-10 01:32.
+
+## Status (superseded — see FIXED above)
 
 NOT FIXED. Measured only. `idle_ticks: 2` on the pool roles (`094edfe0`) halves
 how often these loops *start*, which buys headroom but leaves each loop just as
