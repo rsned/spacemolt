@@ -115,3 +115,59 @@ func TestMissions_NilStateAlwaysReadsTheBoard(t *testing.T) {
 		t.Errorf("nil State must not suppress board reads, got %d reads in 2 passes", got)
 	}
 }
+
+// ⭐ The case the first cut of this gate missed, found live on 2026-09-11.
+//
+// trader-2/6/8 are PINNED workers. A pinned worker that finds nothing does not
+// reposition -- after missionDryPassLimit it parks for missionParkWindow and
+// camps its local board. But missionDryPass returns BEFORE `dry++` while
+// parked, so a parked worker sits at dry == 0 forever, and a gate keyed only
+// on dry never fires for it. Live result: they kept the full
+// `find_route=12 get_active_missions=12 get_missions=12` signature on the new
+// binary while unpinned workers were being gated normally.
+//
+// Parked is the strongest possible statement that a worker is idle -- it has
+// already decided to camp rather than burn fuel. It must poll slowest of all,
+// not fastest.
+func TestMissions_ParkedWorkerIsGatedEvenWithDryZero(t *testing.T) {
+	fc := freightBoardClient(t, boardJSON(t), nil)
+	deps := missionDeps(fc, &fakeMissionStore{}, missionKB())
+	now := time.Unix(1000, 0)
+	deps.Now = func() time.Time { return now }
+	// Exactly the live shape: parked, and dry already reset to 0 by the park.
+	deps.State = &missionRunState{
+		dry:          0,
+		parkedUntil:  now.Add(30 * time.Minute),
+		boardPoll:    now.Add(-time.Second),
+		boardStation: "haven",
+	}
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+
+	if got := countCalls(fc.calls, "get_missions"); got != 0 {
+		t.Errorf("a parked worker re-read the board %d time(s); parking means camp, not poll", got)
+	}
+}
+
+// A park that has EXPIRED must read again, or a worker would camp forever.
+func TestMissions_ExpiredParkReadsTheBoardAgain(t *testing.T) {
+	fc := freightBoardClient(t, boardJSON(t), nil)
+	deps := missionDeps(fc, &fakeMissionStore{}, missionKB())
+	now := time.Unix(1000, 0)
+	deps.Now = func() time.Time { return now }
+	deps.State = &missionRunState{
+		dry:          0,
+		parkedUntil:  now.Add(-time.Second), // park is over
+		boardPoll:    now.Add(-time.Second),
+		boardStation: "haven",
+	}
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if got := countCalls(fc.calls, "get_missions"); got == 0 {
+		t.Error("an expired park must resume reading the board")
+	}
+}

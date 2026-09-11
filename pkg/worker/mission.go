@@ -594,8 +594,8 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 
 	// Whether this pass spends its two mission queries. Decided once, here,
 	// so the resume read and the board read agree -- gating one but not the
-	// other would leave half the loop running. `current` is the base we are
-	// docked at, so docking elsewhere always reads the new board at once.
+	// other would leave half the loop running. `current` is the SYSTEM id, so
+	// moving to another system always reads the new board at once.
 	boardGated := missionBoardGated(deps, current, missionNow(deps))
 	if boardGated {
 		fmt.Fprintf(out, "missions: board at %s unchanged and last pass was dry; not re-reading for up to %v\n", //nolint:errcheck
@@ -1381,7 +1381,21 @@ func tripSkillXP(trip []missionCandidate) int {
 // worker earns. Freight is evaluated before the board read and is untouched.
 func missionBoardGated(deps MissionDeps, station string, now time.Time) bool {
 	st := deps.State
-	if st == nil || st.dry == 0 || st.boardPoll.IsZero() {
+	if st == nil || st.boardPoll.IsZero() {
+		return false
+	}
+	// Parked counts as idle even though dry is 0. missionDryPass returns
+	// BEFORE `dry++` while parked, so a parked worker sits at dry == 0
+	// permanently -- and a gate keyed only on dry never fires for it. Live
+	// 2026-09-11: pinned workers trader-2/6/8 kept the full 12/12/12 query
+	// signature on the fixed binary for exactly this reason, while unpinned
+	// workers were gated normally.
+	//
+	// Parking is the strongest statement of idleness the role makes: the
+	// worker has already decided to camp rather than burn fuel. It should poll
+	// slowest of all.
+	parked := !st.parkedUntil.IsZero() && now.Before(st.parkedUntil)
+	if st.dry == 0 && !parked {
 		return false
 	}
 	if station != st.boardStation {
