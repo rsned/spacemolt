@@ -148,6 +148,10 @@ type Supervisor struct {
 	// crash-loop-cap refusal logged, so the reap loop reports a permanently
 	// parked worker once instead of every tick.
 	crashCapLogged map[string]bool
+	// disconnectLogged remembers which agents have already had their
+	// "disconnected past grace, not restarting" line printed, so a long
+	// outage logs once per agent per incident instead of every reap tick.
+	disconnectLogged map[string]bool
 
 	// Stranded-quarantine tuning (see Stranded in fleet.go). OnQuarantine is
 	// invoked (from the reap goroutine) after a worker is quarantined so the
@@ -200,17 +204,18 @@ type Supervisor struct {
 func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn SpawnFunc, logger *log.Logger) *Supervisor {
 	s := &Supervisor{
 		server: server, fleet: fleet, specs: specs, spawn: spawn, logger: logger,
-		SilenceTimeout:  9 * game.SleepTick,   // 90s: heartbeat-gap tolerance for established workers
-		StallTimeout:    90 * game.SleepTick,  // 15min: undocked-and-frozen tolerance (stall watchdog)
-		DisconnectGrace: 180 * game.SleepTick, // 30min: leave a reconnecting worker to the gate before restarting
-		BootTimeout:     30 * game.SleepTick,  // 5min: max alive-but-no-Hello before a boot is "wedged"
-		StaggerInterval: game.SleepMedium,     // 5s between initial spawns (per-IP /login pacing)
-		KillGrace:       game.SleepMedium,     // 5s SIGTERM->SIGKILL window
-		RestartBatch:    1,                    // 1 relaunch per reap tick (~12/min, mirrors stagger)
-		MaxRestarts:     100,
-		restarts:        make(map[string]int),
-		crashCapLogged:  make(map[string]bool),
-		procs:           make(map[string]*workerProc),
+		SilenceTimeout:   9 * game.SleepTick,   // 90s: heartbeat-gap tolerance for established workers
+		StallTimeout:     90 * game.SleepTick,  // 15min: undocked-and-frozen tolerance (stall watchdog)
+		DisconnectGrace:  180 * game.SleepTick, // 30min: leave a reconnecting worker to the gate before restarting
+		BootTimeout:      30 * game.SleepTick,  // 5min: max alive-but-no-Hello before a boot is "wedged"
+		StaggerInterval:  game.SleepMedium,     // 5s between initial spawns (per-IP /login pacing)
+		KillGrace:        game.SleepMedium,     // 5s SIGTERM->SIGKILL window
+		RestartBatch:     1,                    // 1 relaunch per reap tick (~12/min, mirrors stagger)
+		MaxRestarts:      100,
+		restarts:         make(map[string]int),
+		crashCapLogged:   make(map[string]bool),
+		disconnectLogged: make(map[string]bool),
+		procs:            make(map[string]*workerProc),
 
 		FuelStrandFraction: 0.10, // fuel-dead when fuel < max(10% of tank, floor)
 		FuelStrandFloor:    10,
@@ -410,14 +415,38 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 				// budget-gated and retried next tick if deferred.
 				s.kill(proc)
 				s.tryRestart(ctx, spec, true, &budget)
-			case seen && w.LastStatus.Disconnected && s.DisconnectGrace > 0 && now.Sub(w.DisconnectedSince) <= s.DisconnectGrace:
+			case seen && w.LastStatus.Disconnected:
 				// Game-disconnected but still heartbeating over the control socket:
 				// it self-heals via the fleet-wide reconnect gate, which paces logins
 				// and honors any per-IP block. A restart here forces a fresh login
 				// that cannot succeed during a block and deepens it — the storm that
-				// turns a brief server hiccup into a multi-hour outage. Leave it to
-				// the gate until DisconnectGrace elapses; only then does it fall
-				// through (next ticks) to the stall watchdog as genuinely wedged.
+				// turns a brief server hiccup into a multi-hour outage.
+				//
+				// This case has NO upper bound, deliberately. It used to fall
+				// through to the stall watchdog after DisconnectGrace, and on
+				// 2026-09-11 that converted a recoverable blip into a fleet-wide
+				// outage: a server-side event disconnected 70 workers at once, 70
+				// workers cannot re-enter through a paced host-wide gate inside 30
+				// minutes, so the grace expired for the tail of the queue and they
+				// were restarted — discarding each process and sending it to the
+				// BACK of the same queue. haul went 16 workers -> 0 over seven
+				// hours and ended with 29 agents falsely quarantined as fuel-dead.
+				//
+				// Restarting cannot fix a disconnection; only the gate can. The
+				// case that CAN be fixed by a restart — a wedged or dead process —
+				// is a silent one, and the SilenceTimeout branch above catches it
+				// first regardless of connection state.
+				//
+				// DisconnectGrace now governs only when this becomes loud, so a
+				// worker that never comes back is visible instead of silently
+				// parked.
+				if s.logger != nil && s.DisconnectGrace > 0 &&
+					now.Sub(w.DisconnectedSince) > s.DisconnectGrace &&
+					!s.disconnectLogged[spec.AgentID] {
+					s.disconnectLogged[spec.AgentID] = true
+					s.logger.Printf("%s disconnected for >%s and still waiting on the reconnect gate; NOT restarting (a restart cannot reconnect it)",
+						spec.AgentID, s.DisconnectGrace)
+				}
 			case seen && Stalled(w, now, s.StallTimeout):
 				if stranded, reason := Stranded(w, now, s.StallTimeout, s.FuelStrandFraction, s.FuelStrandFloor, s.StallRestartLimit); stranded {
 					// Beyond what a restart can fix: pull it from the fleet. The
@@ -458,6 +487,7 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 				// restarts-per-incident, not lifetime restarts.
 				delete(s.restarts, spec.AgentID)
 				delete(s.crashCapLogged, spec.AgentID)
+				delete(s.disconnectLogged, spec.AgentID)
 			default:
 				// Still booting (alive, no Hello yet, within BootTimeout): leave it.
 			}

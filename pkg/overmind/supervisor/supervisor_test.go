@@ -574,30 +574,78 @@ func TestDefaultSpawnAssetsDBPath(t *testing.T) {
 
 // Past DisconnectGrace the worker is treated as genuinely wedged (its reconnect
 // never recovered) and falls through to the stall watchdog's restart.
-func TestDisconnectedWorkerRestartedAfterGrace(t *testing.T) {
+// Replaces TestDisconnectedWorkerRestartedAfterGrace, whose behaviour caused a
+// fleet-wide outage on 2026-09-11.
+//
+// A server-side event at 00:12 disconnected 70 workers at once (haul 16,
+// mission-learn 24, unlock 15, craft 9, assist 5, shuttle 1). They kept
+// heartbeating, so DisconnectGrace correctly left them to the reconnect gate --
+// for exactly 30 minutes. But 70 workers cannot get back through a paced,
+// host-wide gate in 30 minutes, so the grace expired for the tail of the queue
+// and the supervisor restarted them. A restart cannot fix a disconnection: it
+// discards the process, forces a FRESH login into the same contended gate, and
+// sends the worker to the back of the queue. haul went 16 workers -> 0 over the
+// next seven hours, restart counters reaching 12, and ended with 29 agents
+// falsely quarantined as fuel-dead.
+//
+// The code already knew this -- its own comment says "a restart here forces a
+// fresh login that cannot succeed during a block and deepens it" -- it just did
+// it anyway once the timer ran out. So the remedy is withdrawn for this state:
+// a disconnected worker that is still heartbeating is left to the gate for as
+// long as it keeps reporting in.
+//
+// The safety net is unchanged and lives one case earlier: a worker that stops
+// heartbeating is caught by SilenceTimeout regardless of connection state (see
+// TestDisconnectedAndSilentWorkerIsStillRestarted).
+func TestDisconnectedWorkerIsNotRestartedEvenPastGrace(t *testing.T) {
 	var spawned atomic.Int32
-	specs := []WorkerSpec{{AgentID: "wedged"}}
+	specs := []WorkerSpec{{AgentID: "reconnecting"}}
 	fleet := NewFleet()
 	sup := NewSupervisor(nil, fleet, specs, aliveSpawn(&spawned), log.New(io.Discard, "", 0))
 	sup.StallTimeout = time.Nanosecond
-	sup.DisconnectGrace = time.Millisecond // tiny grace so the past timestamp exceeds it
+	sup.DisconnectGrace = time.Millisecond // long past, by a wide margin
 	sup.KillGrace = time.Second
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	sup.launch(ctx, specs[0])
-	past := time.Now().Add(-time.Second) // disconnected a full second ago (>> 1ms grace)
-	// Backdate the launch so the report comes AFTER it. A heartbeat cannot
-	// predate the process that sent it, and the silence check now says so: a
-	// LastSeen older than launchedAt belongs to a previous incarnation and is
-	// treated as not-yet-seen. A disconnected-but-heartbeating worker (this
-	// case) always has a recent LastSeen in production, so it is unaffected.
-	procOf(sup, "wedged").launchedAt = past.Add(-time.Second)
-	fleet.ApplyHello(control.Hello{AgentID: "wedged", Role: "hauler"}, 1, past)
-	fleet.ApplyStatus("wedged", control.Status{Fuel: 300, MaxFuel: 420, Disconnected: true}, past)
+	now := time.Now()
+	procOf(sup, "reconnecting").launchedAt = now.Add(-time.Hour)
+	fleet.ApplyHello(control.Hello{AgentID: "reconnecting", Role: "hauler"}, 1, now.Add(-time.Hour))
+	fleet.ApplyStatus("reconnecting", control.Status{Fuel: 300, MaxFuel: 420, Disconnected: true}, now.Add(-time.Hour))
+	// Heartbeating NOW, but disconnected since long before the grace expired.
+	fleet.ApplyStatus("reconnecting", control.Status{Fuel: 300, MaxFuel: 420, Disconnected: true}, now)
 
 	sup.reapAndRestart(ctx)
-	if spawned.Load() != 2 {
-		t.Fatalf("worker disconnected past grace must restart, got %d spawns", spawned.Load())
+
+	if got := spawned.Load(); got != 1 {
+		t.Fatalf("a disconnected but heartbeating worker must be left to the reconnect gate, got %d spawns", got)
+	}
+}
+
+// The safety net that makes withdrawing the restart above acceptable: a worker
+// that stops reporting in is still killed and relaunched, disconnected or not.
+// Silence means the process is wedged or dead, which a restart CAN fix.
+func TestDisconnectedAndSilentWorkerIsStillRestarted(t *testing.T) {
+	var spawned atomic.Int32
+	specs := []WorkerSpec{{AgentID: "silent"}}
+	fleet := NewFleet()
+	sup := NewSupervisor(nil, fleet, specs, aliveSpawn(&spawned), log.New(io.Discard, "", 0))
+	sup.SilenceTimeout = time.Millisecond
+	sup.DisconnectGrace = time.Hour // generous: silence must win anyway
+	sup.KillGrace = time.Second
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sup.launch(ctx, specs[0])
+	past := time.Now().Add(-time.Second) // far beyond the 1ms silence tolerance
+	procOf(sup, "silent").launchedAt = past.Add(-time.Second)
+	fleet.ApplyHello(control.Hello{AgentID: "silent", Role: "hauler"}, 1, past)
+	fleet.ApplyStatus("silent", control.Status{Fuel: 300, MaxFuel: 420, Disconnected: true}, past)
+
+	sup.reapAndRestart(ctx)
+
+	if got := spawned.Load(); got != 2 {
+		t.Fatalf("a silent worker must still be restarted even while disconnected, got %d spawns", got)
 	}
 }
