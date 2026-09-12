@@ -134,6 +134,22 @@ roles:
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
+      # Iron -> steel conversion, added 2026-09-11 alongside the resident
+      # roles. The mining fleet holds MORE ore than the drone marketbots do:
+      # the `overmind` agent sits at 99,887 iron at the_anvil_arsenal, i.e. AT
+      # the 100,000-per-ITEM-TYPE cap and unable to store another unit, with
+      # miner-9 (73,937) and random-clark (73,270) close behind.
+      #
+      # QUANTITY IS OUTPUT ITEMS: 500 out = 1,250 iron/hr = 30k/day, matching
+      # the resident rate. Whether that outpaces an actively-lasering miner is
+      # UNMEASURED -- agent_storage_items keeps only the newest row per
+      # (player, base, item), so there is no history to fit a rate to. Check
+      # the next capture against these figures and raise the quantity if the
+      # backlog is not falling.
+      #
+      # Expect failures on the cycles where the miner is out at a belt rather
+      # than docked at its station storage. One request, harmless.
+      - { every: hourly, command: "craft refine_steel 500" }
       - { every: hourly, command: "capture_fuel" }
     idle: idle_mine
   hauler:
