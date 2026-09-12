@@ -44,6 +44,25 @@ roles:
       # cheap (one request); do not "fix" it by dropping the quantity, which
       # would stop the drawdown.
       - { every: hourly, command: "craft refine_steel 500" }
+      # Copper conversions, added 2026-09-11 beside refine_steel. Copper is the
+      # BIGGER pile: 773,572 units fleet-wide vs ~420k iron, and the `overmind`
+      # agent is at 99,983 copper as well as 99,887 iron -- capped on both, so
+      # it cannot store another unit of either.
+      #
+      # process_copper_wiring: 4 copper_ore -> 2 copper_wiring. 600 out/hr =
+      # 1,200 copper/hr = 29k/day, matching the steel line's draw.
+      #
+      # draw_copper_piping: 12 copper_ore + 2 STEEL_PLATE -> 4 copper_piping.
+      # Note it CONSUMES the steel the line above produces: 200 out/hr costs
+      # 600 copper + 100 steel per hour, i.e. 20% of the 500/hr steel output,
+      # leaving +400/hr net steel for the haulers. It is listed last so steel
+      # exists before piping asks for it; on an agent with copper but no steel
+      # yet it simply fails, which is one cheap request.
+      #
+      # Both outputs are bulk components used across facilities and recipes, so
+      # like steel plate they are worth more to the fleet than the ore was.
+      - { every: hourly, command: "craft process_copper_wiring 600" }
+      - { every: hourly, command: "craft draw_copper_piping 200" }
     idle: resident_market
     idle_params:
       N: "20"
@@ -78,6 +97,25 @@ roles:
       # cheap (one request); do not "fix" it by dropping the quantity, which
       # would stop the drawdown.
       - { every: hourly, command: "craft refine_steel 500" }
+      # Copper conversions, added 2026-09-11 beside refine_steel. Copper is the
+      # BIGGER pile: 773,572 units fleet-wide vs ~420k iron, and the `overmind`
+      # agent is at 99,983 copper as well as 99,887 iron -- capped on both, so
+      # it cannot store another unit of either.
+      #
+      # process_copper_wiring: 4 copper_ore -> 2 copper_wiring. 600 out/hr =
+      # 1,200 copper/hr = 29k/day, matching the steel line's draw.
+      #
+      # draw_copper_piping: 12 copper_ore + 2 STEEL_PLATE -> 4 copper_piping.
+      # Note it CONSUMES the steel the line above produces: 200 out/hr costs
+      # 600 copper + 100 steel per hour, i.e. 20% of the 500/hr steel output,
+      # leaving +400/hr net steel for the haulers. It is listed last so steel
+      # exists before piping asks for it; on an agent with copper but no steel
+      # yet it simply fails, which is one cheap request.
+      #
+      # Both outputs are bulk components used across facilities and recipes, so
+      # like steel plate they are worth more to the fleet than the ore was.
+      - { every: hourly, command: "craft process_copper_wiring 600" }
+      - { every: hourly, command: "craft draw_copper_piping 200" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_gas); see resident note
   resident_ice:
     schedule:
@@ -107,6 +145,25 @@ roles:
       # cheap (one request); do not "fix" it by dropping the quantity, which
       # would stop the drawdown.
       - { every: hourly, command: "craft refine_steel 500" }
+      # Copper conversions, added 2026-09-11 beside refine_steel. Copper is the
+      # BIGGER pile: 773,572 units fleet-wide vs ~420k iron, and the `overmind`
+      # agent is at 99,983 copper as well as 99,887 iron -- capped on both, so
+      # it cannot store another unit of either.
+      #
+      # process_copper_wiring: 4 copper_ore -> 2 copper_wiring. 600 out/hr =
+      # 1,200 copper/hr = 29k/day, matching the steel line's draw.
+      #
+      # draw_copper_piping: 12 copper_ore + 2 STEEL_PLATE -> 4 copper_piping.
+      # Note it CONSUMES the steel the line above produces: 200 out/hr costs
+      # 600 copper + 100 steel per hour, i.e. 20% of the 500/hr steel output,
+      # leaving +400/hr net steel for the haulers. It is listed last so steel
+      # exists before piping asks for it; on an agent with copper but no steel
+      # yet it simply fails, which is one cheap request.
+      #
+      # Both outputs are bulk components used across facilities and recipes, so
+      # like steel plate they are worth more to the fleet than the ore was.
+      - { every: hourly, command: "craft process_copper_wiring 600" }
+      - { every: hourly, command: "craft draw_copper_piping 200" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_ice); see resident note
   explorer:
     schedule:
@@ -150,6 +207,25 @@ roles:
       # Expect failures on the cycles where the miner is out at a belt rather
       # than docked at its station storage. One request, harmless.
       - { every: hourly, command: "craft refine_steel 500" }
+      # Copper conversions, added 2026-09-11 beside refine_steel. Copper is the
+      # BIGGER pile: 773,572 units fleet-wide vs ~420k iron, and the `overmind`
+      # agent is at 99,983 copper as well as 99,887 iron -- capped on both, so
+      # it cannot store another unit of either.
+      #
+      # process_copper_wiring: 4 copper_ore -> 2 copper_wiring. 600 out/hr =
+      # 1,200 copper/hr = 29k/day, matching the steel line's draw.
+      #
+      # draw_copper_piping: 12 copper_ore + 2 STEEL_PLATE -> 4 copper_piping.
+      # Note it CONSUMES the steel the line above produces: 200 out/hr costs
+      # 600 copper + 100 steel per hour, i.e. 20% of the 500/hr steel output,
+      # leaving +400/hr net steel for the haulers. It is listed last so steel
+      # exists before piping asks for it; on an agent with copper but no steel
+      # yet it simply fails, which is one cheap request.
+      #
+      # Both outputs are bulk components used across facilities and recipes, so
+      # like steel plate they are worth more to the fleet than the ore was.
+      - { every: hourly, command: "craft process_copper_wiring 600" }
+      - { every: hourly, command: "craft draw_copper_piping 200" }
       - { every: hourly, command: "capture_fuel" }
     idle: idle_mine
   hauler:
