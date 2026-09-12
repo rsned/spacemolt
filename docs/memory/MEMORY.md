@@ -40,6 +40,7 @@
 - [Capture cadence retune APPLIED 09-08](reference_capture_cadence_retune.md) — 128 agents hourly→twice_daily; it did NOT stick from 08-30, so dry-run the script at EVERY fleet stop
 - ⭐🔴 [Pirate unlock campaign](project_pirate_reputation_unlock_campaign.md) — 09-09: 48/172. ROOT CAUSE = only haul can self-nominate (haul is 16/16, everyone else frozen); assist+hunt are 0% AND have no stronghold guard
 - ⭐ [Marketbot unlock hot-swap rotation](project_marketbot_unlock_hotswap_rotation.md) — 09-09: stand-in GRADUATED but still parked in unlock; rotation #1 never started; 54 of 64 marketbots still locked
+- ⭐ [Ore→component conversion, hourly](project_ore_to_component_conversion.md) — refine_steel + copper wiring/piping on miners & residents; beats the 100k/item cap (overmind was capped on iron AND copper). `quantity`=OUTPUT items; new hourly tasks fire an hour AFTER restart
 - ⭐ [Drone marketbots 010-019](project_drone_marketbots.md) — 09-11: drone_control 35-37 (+18 in 2 days), storage 66k→480k units. Watch **iron ore on 010 at 47% of the 100k PER-ITEM cap**; storage table keeps only the newest capture
 - [Energy crystals RESERVED for drone project](project_drone_project_crystal_reserve.md) — ~6.1k held; never sell/craft them without asking
 - [Titanium-alloy war demand](project_titanium_alloy_war_demand.md) — OPTION 08-30: galaxy-wide repair demand; 374k top-tier at grand_exchange; sol_central 242-ask arbitrage first; krynn pipeline pre-positioned
