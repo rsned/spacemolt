@@ -194,7 +194,7 @@ var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true, "ensure_home": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
 	"hunt": true,
-	"mine": true, "mine_qty": true, "deliver": true, "buy_directed": true, "craft_node": true,
+	"mine": true, "mine_qty": true, "deliver": true, "buy_directed": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "launch_drones": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
@@ -490,6 +490,25 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		}
 		return d.LaunchDrones(ctx, droneID)
 
+	case "craft":
+		// Hand-craft in place: the agent converts stock it already holds at
+		// the station it is already docked at. Distinct from craft_node,
+		// which is the crafting-CHAIN executor and takes a station and a
+		// facility and may travel to reach them.
+		//
+		// quantity is the number of OUTPUT items wanted; the server rounds up
+		// to whole runs. For the 5:2 refine_steel that means `craft
+		// refine_steel 1000` consumes 2500 iron_ore. Getting that backwards
+		// would spend 5x the intended ore on an irreversible conversion, so
+		// the arg is validated rather than defaulted.
+		if len(args) < 2 {
+			return fmt.Errorf("craft: want RECIPE QUANTITY (quantity = OUTPUT items), got %v", args)
+		}
+		qty, err := strconv.Atoi(args[1])
+		if err != nil || qty < 1 {
+			return fmt.Errorf("craft: bad QUANTITY %q: want a positive integer count of OUTPUT items", args[1])
+		}
+		return d.Client.CraftWithQuantity(ctx, args[0], qty)
 	case "craft_node":
 		if len(args) < 4 {
 			return fmt.Errorf("craft_node: want RECIPE NUM_OUTPUTS STATION FACILITY [EST_FEE], got %v", args)
