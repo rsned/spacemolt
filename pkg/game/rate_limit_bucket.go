@@ -113,9 +113,20 @@ func rateLimitBucketFrom(payload map[string]any) (rateLimitEvent, bool) {
 	ev.LimitPerMin = intFromAny(details["limit_per_min"])
 	ev.Current = intFromAny(details["current"])
 
-	// retry_after rides at the payload root on some endpoints and inside the
-	// error object on others; take whichever is present.
-	ev.RetryAfter = intFromAny(payload["retry_after"])
+	// v0.601.6 names details.retry_after as THE field carrying the wait, so it
+	// is checked FIRST. We previously looked only at the payload root and the
+	// error object, and the cost shows in the 950 precursor lines captured on
+	// 2026-09-11: every one lacked a retry_after, dropping the single number
+	// that says how long to wait from the only record we get of a block.
+	//
+	// The other two placements are kept because HTTP and WebSocket have
+	// historically differed and losing a wait we can already read would be a
+	// regression. (v0.601.6 also confirms `wait_seconds` was never sent; we
+	// never read it.)
+	ev.RetryAfter = intFromAny(details["retry_after"])
+	if ev.RetryAfter == 0 {
+		ev.RetryAfter = intFromAny(payload["retry_after"])
+	}
 	if ev.RetryAfter == 0 {
 		if errObj, ok := payload["error"].(map[string]any); ok {
 			ev.RetryAfter = intFromAny(errObj["retry_after"])

@@ -192,3 +192,82 @@ func TestRateLimitMessageTruncated(t *testing.T) {
 		t.Fatalf("log line was not truncated: %d chars", len(ev.String()))
 	}
 }
+
+// v0.601.6 pinned down where the wait actually lives: details.retry_after.
+// (It also confirmed `wait_seconds` was NEVER sent by the server -- we do not
+// read it anywhere, so nothing to undo there.)
+//
+// We only looked at the payload root and the error object, and the proof is in
+// the 950 precursor lines captured during the 2026-09-11 incident: every one
+// read
+//
+//	rate_limited bucket=game_mutation limit_per_min=30 current=30 msg="..."
+//
+// with no retry_after at all. The one number that says how long to wait was
+// being dropped on the floor of the only record we have of a block.
+func TestRateLimitRetryAfterFromDetails(t *testing.T) {
+	ev, ok := rateLimitBucketFrom(map[string]any{
+		"code":    "rate_limited",
+		"message": "Rate limit reached: game actions are capped at 30/min for this session",
+		"details": map[string]any{
+			"limit":         "game_mutation",
+			"limit_per_min": float64(30),
+			"current":       float64(30),
+			"retry_after":   float64(55),
+		},
+	})
+	if !ok {
+		t.Fatal("must classify as a rate-limit precursor")
+	}
+	if ev.RetryAfter != 55 {
+		t.Errorf("RetryAfter = %d, want 55 read from details", ev.RetryAfter)
+	}
+	if ev.Bucket != "game_mutation" || ev.LimitPerMin != 30 || ev.Current != 30 {
+		t.Errorf("other fields regressed: %+v", ev)
+	}
+}
+
+// The root and error-object placements still have to work: the docs describe
+// details as canonical, but HTTP and WebSocket have historically differed and
+// dropping a wait we can already read would be a regression.
+func TestRateLimitRetryAfterStillReadFromRootAndErrorObject(t *testing.T) {
+	root, ok := rateLimitBucketFrom(map[string]any{
+		"code": "rate_limited", "retry_after": float64(7),
+	})
+	if !ok || root.RetryAfter != 7 {
+		t.Errorf("root placement: got %+v", root)
+	}
+	nested, ok := rateLimitBucketFrom(map[string]any{
+		"code":  "rate_limited",
+		"error": map[string]any{"retry_after": float64(9)},
+	})
+	if !ok || nested.RetryAfter != 9 {
+		t.Errorf("error-object placement: got %+v", nested)
+	}
+}
+
+// details wins when more than one is present: v0.601.6 names it as the field
+// that carries the wait.
+func TestRateLimitDetailsRetryAfterWins(t *testing.T) {
+	ev, _ := rateLimitBucketFrom(map[string]any{
+		"code":        "rate_limited",
+		"retry_after": float64(1),
+		"details":     map[string]any{"retry_after": float64(42)},
+	})
+	if ev.RetryAfter != 42 {
+		t.Errorf("RetryAfter = %d, want 42 (details is canonical)", ev.RetryAfter)
+	}
+}
+
+// action_pending is a SEPARATE code (v0.601.6): it means this tick's action is
+// already queued, not that we are being throttled. Counting it as a rate-limit
+// precursor would inflate every incident tally -- and we saw a lot of it on
+// 2026-09-11 while gifting from actively-mining workers.
+func TestActionPendingIsNotARateLimit(t *testing.T) {
+	if _, ok := rateLimitBucketFrom(map[string]any{
+		"code":    "action_pending",
+		"message": "Another action is already pending (mine). Wait for it to complete.",
+	}); ok {
+		t.Error("action_pending must not be classified as a rate-limit precursor")
+	}
+}
