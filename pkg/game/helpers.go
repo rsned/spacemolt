@@ -117,9 +117,9 @@ func WithDocked(client *Client, ctx context.Context, stationID string, action fu
 
 // TimestampFormat constants for consistent filename generation
 const (
-	TimestampDaily     = "20060102"           // YYYYMMDD - daily snapshots
-	TimestampPrecise   = "20060102150405"     // YYYYMMDDHHMMSS - precise timestamps
-	TimestampISO8601   = time.RFC3339         // ISO8601 format for data fields
+	TimestampDaily   = "20060102"       // YYYYMMDD - daily snapshots
+	TimestampPrecise = "20060102150405" // YYYYMMDDHHMMSS - precise timestamps
+	TimestampISO8601 = time.RFC3339     // ISO8601 format for data fields
 )
 
 // SaveJSONToFile saves JSON data to a file in the specified directory

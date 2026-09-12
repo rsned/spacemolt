@@ -6,14 +6,14 @@ import "strings"
 // Routes are grouped in round-trip pairs (outbound + return).
 type TradeRoute struct {
 	Name             string  `json:"name"`               // Human-readable name
-	BuyEmpire        string  `json:"buy_empire"`          // Empire to buy from (lowercase)
-	SellEmpire       string  `json:"sell_empire"`         // Empire to sell at (lowercase)
-	OreID            string  `json:"ore_id"`              // Item to trade (e.g., "silicon_ore")
-	OreName          string  `json:"ore_name"`            // Display name
-	ExpectedBuy      float64 `json:"expected_buy"`        // Expected buy price per unit
-	ExpectedSell     float64 `json:"expected_sell"`       // Expected sell price per unit
-	Priority         int     `json:"priority"`            // Route priority (higher = better)
-	ReturnRouteIndex int     `json:"return_route_index"`  // Index of the paired return leg (-1 if none)
+	BuyEmpire        string  `json:"buy_empire"`         // Empire to buy from (lowercase)
+	SellEmpire       string  `json:"sell_empire"`        // Empire to sell at (lowercase)
+	OreID            string  `json:"ore_id"`             // Item to trade (e.g., "silicon_ore")
+	OreName          string  `json:"ore_name"`           // Display name
+	ExpectedBuy      float64 `json:"expected_buy"`       // Expected buy price per unit
+	ExpectedSell     float64 `json:"expected_sell"`      // Expected sell price per unit
+	Priority         int     `json:"priority"`           // Route priority (higher = better)
+	ReturnRouteIndex int     `json:"return_route_index"` // Index of the paired return leg (-1 if none)
 }
 
 // Margin returns the expected profit per unit.

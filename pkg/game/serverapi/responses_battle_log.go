@@ -137,9 +137,19 @@ type AttackLogEntry struct {
 	AttackerID string `json:"attacker_id"`
 	TargetID   string `json:"target_id"`
 
-	HitChance  float64 `json:"hit_chance"`
-	HitRoll    float64 `json:"hit_roll"`
-	HitSuccess bool    `json:"hit_success"`
+	// HitChance is the ship-level chance every gun starts from. Since
+	// v0.593.0 each weapon rolls separately against its own adjusted
+	// chance, so this no longer describes the volley on its own — read
+	// Weapons[].HitChance for what an individual gun actually faced.
+	HitChance float64 `json:"hit_chance"`
+	// HitRoll is the single volley-level roll used before v0.593.0, which
+	// replaced it with a roll per weapon. Nil on any log from v0.593.0 on;
+	// the pre-0.593 fixtures still carry it.
+	HitRoll *float64 `json:"hit_roll,omitempty"`
+	// HitSuccess means "at least one weapon hit" from v0.593.0 (before
+	// that, the whole volley hit or missed together). A true here no longer
+	// implies every gun landed — see WeaponsHit.
+	HitSuccess bool `json:"hit_success"`
 
 	// DamageType is kinetic, energy, void, or explosive.
 	DamageType string `json:"damage_type"`
@@ -148,11 +158,17 @@ type AttackLogEntry struct {
 	Splash       bool `json:"splash,omitempty"`
 	Disrupted    bool `json:"disrupted,omitempty"`
 
-	RawDamage    int `json:"raw_damage"`
-	PreHitDamage int `json:"pre_hit_damage"`
-	ShieldDamage int `json:"shield_damage"`
-	HullDamage   int `json:"hull_damage"`
-	FinalDamage  int `json:"final_damage"`
+	RawDamage int `json:"raw_damage"`
+	// LandedDamage (v0.593.0+) and PreHitDamage (before it) are the same
+	// quantity under two names: damage after mitigation, before the hit
+	// check discards it. Exactly one is present per log vintage, so both
+	// are pointers — zero is a real reading on a miss and must not be
+	// confused with an absent key. Read them through Landed().
+	LandedDamage *int `json:"landed_damage,omitempty"`
+	PreHitDamage *int `json:"pre_hit_damage,omitempty"`
+	ShieldDamage int  `json:"shield_damage"`
+	HullDamage   int  `json:"hull_damage"`
+	FinalDamage  int  `json:"final_damage"`
 
 	ShieldResistPct  int     `json:"shield_resist_pct,omitempty"`
 	TypeResistPct    int     `json:"type_resist_pct,omitempty"`
@@ -187,6 +203,49 @@ type WeaponFireDetail struct {
 	CritChance      float64 `json:"crit_chance"`
 	CritRoll        float64 `json:"crit_roll"`
 	CritFired       bool    `json:"crit_fired"`
+
+	// Per-weapon to-hit, added in v0.593.0: every gun rolls its own hit, so
+	// a rack lands some of its guns on most ticks instead of all or none.
+	// HitChance here is this gun's own chance — its loaded ammo accuracy,
+	// guidance and the target's missile evasion apply to it alone — and the
+	// module's on-hit effect (EMP disable, CPU damage, shield drain, armor
+	// melt, burn, mine payload) lands only when this gun hits. Absent on
+	// pre-0.593 logs, where the volley shared one roll.
+	HitChance  float64 `json:"hit_chance,omitempty"`
+	HitRoll    float64 `json:"hit_roll,omitempty"`
+	HitSuccess bool    `json:"hit_success,omitempty"`
+}
+
+// Landed returns the post-mitigation damage and whether the log recorded it,
+// reading v0.593.0's landed_damage or the older pre_hit_damage. The bool
+// matters: a miss legitimately lands zero, so a bare 0 cannot be read as
+// "missing". Callers that silently defaulted to 0 produced garbage fits
+// against v0.593 logs, which is what this exists to prevent.
+func (a AttackLogEntry) Landed() (int, bool) {
+	if a.LandedDamage != nil {
+		return *a.LandedDamage, true
+	}
+	if a.PreHitDamage != nil {
+		return *a.PreHitDamage, true
+	}
+	return 0, false
+}
+
+// WeaponsHit counts the guns that landed out of those that fired — the
+// compact view's "hit 2/6". Both counts are zero on a pre-0.593 log, where
+// individual guns carry no hit data: reporting the volley's own hit_success
+// per weapon there would invent a measurement that was never made.
+func (a AttackLogEntry) WeaponsHit() (hit, total int) {
+	for _, w := range a.Weapons {
+		if w.HitChance == 0 && !w.HitSuccess && w.HitRoll == 0 {
+			continue // no per-weapon hit data: pre-0.593 entry
+		}
+		total++
+		if w.HitSuccess {
+			hit++
+		}
+	}
+	return hit, total
 }
 
 // AutoPilotLogEntry is one NPC/auto decision and the reason it was taken

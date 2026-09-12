@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,13 +35,13 @@ func getMCPManager(logger *log.Logger) *MCPManager {
 
 // CraftableRecipe represents a recipe that can be crafted
 type CraftableRecipe struct {
-	RecipeID          string     `json:"id"`
-	RecipeName        string     `json:"name"`
-	CanCraftQuantity  int        `json:"can_craft_quantity"` // How many can be crafted
-	Components        []Component `json:"components"`        // Required components
-	CanCraft          bool        `json:"-"`
-	SkillGaps         []string    `json:"-"`
-	Profit            float64     `json:"-"`
+	RecipeID         string      `json:"id"`
+	RecipeName       string      `json:"name"`
+	CanCraftQuantity int         `json:"can_craft_quantity"` // How many can be crafted
+	Components       []Component `json:"components"`         // Required components
+	CanCraft         bool        `json:"-"`
+	SkillGaps        []string    `json:"-"`
+	Profit           float64     `json:"-"`
 }
 
 // Component represents a crafting component
@@ -52,12 +54,12 @@ type Component struct {
 type MCPCraftQueryResponse struct {
 	Craftable []struct {
 		Recipe struct {
-			ID          string `json:"id"`
-			Name        string `json:"name"`
-			Description string `json:"description"`
-			Category    string `json:"category"`
-			CraftTimeSec int   `json:"craft_time_sec"`
-			Components []struct {
+			ID           string `json:"id"`
+			Name         string `json:"name"`
+			Description  string `json:"description"`
+			Category     string `json:"category"`
+			CraftTimeSec int    `json:"craft_time_sec"`
+			Components   []struct {
 				ComponentID string  `json:"component_id"`
 				Quantity    float64 `json:"quantity"`
 			} `json:"components"`
@@ -66,8 +68,8 @@ type MCPCraftQueryResponse struct {
 	} `json:"craftable"`
 	PartialComponents []struct {
 		Recipe struct {
-			ID          string `json:"id"`
-			Name        string `json:"name"`
+			ID   string `json:"id"`
+			Name string `json:"name"`
 		} `json:"recipe"`
 	} `json:"partial_components"`
 	BlockedBySkills []struct {
@@ -81,8 +83,8 @@ type MCPCraftQueryResponse struct {
 // CraftQueryResult is the simplified response from craft_query
 type CraftQueryResult struct {
 	FullyCraftable []CraftableRecipe `json:"fully_craftable"`
-	PartialMatches  []CraftableRecipe `json:"partial_matches"`
-	SkillBlocked    []CraftableRecipe `json:"skill_blocked"`
+	PartialMatches []CraftableRecipe `json:"partial_matches"`
+	SkillBlocked   []CraftableRecipe `json:"skill_blocked"`
 }
 
 // Craft executes a crafting command for a specific recipe
@@ -104,7 +106,52 @@ func (c *Client) CraftWithQuantity(ctx context.Context, recipeID string, quantit
 // facility and manage-treasury permission, pulling inputs from faction storage).
 // Crafting is async: the server replies with a single ok job frame and delivers
 // output later via crafting_update; this method returns once the job is queued.
+// CraftRoutingPresets are the server's facility-routing presets (v0.601.3).
+//
+//   - fast       (server DEFAULT) soonest finish across your own, faction,
+//     ally-granted and, for facility-only recipes, PUBLIC facilities.
+//     Ownership only breaks ties, so this can pick another player's facility
+//     and PREPAY their per-run rental fee.
+//   - prefer_own stay on own/faction/ally facilities; rent a public one only
+//     when none can run the job.
+//   - cheap      lowest fee you pay. Own and faction facilities are FREE, so
+//     this is the right choice wherever we own the mill.
+//   - workshop   force hand-crafting at the Station Workshop; also the
+//     fallback when no facility exists.
+var CraftRoutingPresets = []string{"fast", "prefer_own", "cheap", "workshop"}
+
+// validateCraftPreset accepts "" (meaning "send no preset, take the server
+// default") and the documented set. A typo must NOT silently fall through to
+// the default, because the default is the one that can spend credits at a
+// stranger's facility.
+func validateCraftPreset(preset string) error {
+	if preset == "" {
+		return nil
+	}
+	if slices.Contains(CraftRoutingPresets, preset) {
+		return nil
+	}
+
+	return fmt.Errorf("invalid craft preset %q: want one of %s", preset, strings.Join(CraftRoutingPresets, ", "))
+}
+
+// CraftWithPreset queues a craft job with an explicit routing preset. See
+// CraftRoutingPresets; an empty preset takes the server default (fast).
+func (c *Client) CraftWithPreset(ctx context.Context, recipeID string, quantity int, preset string) error {
+	if err := validateCraftPreset(preset); err != nil {
+		return err
+	}
+
+	return c.craftJob(ctx, recipeID, quantity, "", preset)
+}
+
 func (c *Client) CraftWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error {
+	return c.craftJob(ctx, recipeID, quantity, deliverTo, "")
+}
+
+// craftJob is the one place the craft payload is built, so deliver_to and
+// preset cannot drift apart between callers.
+func (c *Client) craftJob(ctx context.Context, recipeID string, quantity int, deliverTo, preset string) error {
 	if quantity < 1 {
 		return fmt.Errorf("invalid quantity: %d (must be >= 1)", quantity)
 	}
@@ -115,6 +162,9 @@ func (c *Client) CraftWithOptions(ctx context.Context, recipeID string, quantity
 	}
 	if deliverTo != "" {
 		payload["deliver_to"] = deliverTo
+	}
+	if preset != "" {
+		payload["preset"] = preset
 	}
 
 	msg := protocol.Message{
@@ -285,10 +335,10 @@ func (c *Client) callCraftingServer(ctx context.Context, config *CraftingConfig,
 
 	// Build craft_query request
 	params := map[string]interface{}{
-		"components":           components,
-		"skills":               skills,
-		"include_partial":      true,
-		"min_match_ratio":      0.25,
+		"components":            components,
+		"skills":                skills,
+		"include_partial":       true,
+		"min_match_ratio":       0.25,
 		"optimization_strategy": "USE_INVENTORY_FIRST",
 	}
 
@@ -303,8 +353,8 @@ func (c *Client) callCraftingServer(ctx context.Context, config *CraftingConfig,
 	if !ok || len(contentBytes) == 0 {
 		return &CraftQueryResult{
 			FullyCraftable: []CraftableRecipe{},
-			PartialMatches:  []CraftableRecipe{},
-			SkillBlocked:    []CraftableRecipe{},
+			PartialMatches: []CraftableRecipe{},
+			SkillBlocked:   []CraftableRecipe{},
 		}, nil
 	}
 
@@ -338,16 +388,16 @@ func (c *Client) callCraftingServer(ctx context.Context, config *CraftingConfig,
 		c.debugLogger.Printf("Failed to parse craft query result: %v", err)
 		return &CraftQueryResult{
 			FullyCraftable: []CraftableRecipe{},
-			PartialMatches:  []CraftableRecipe{},
-			SkillBlocked:    []CraftableRecipe{},
+			PartialMatches: []CraftableRecipe{},
+			SkillBlocked:   []CraftableRecipe{},
 		}, nil
 	}
 
 	// Convert MCP response to simplified format
 	craftResult := &CraftQueryResult{
 		FullyCraftable: make([]CraftableRecipe, 0, len(mcpResponse.Craftable)),
-		PartialMatches:  make([]CraftableRecipe, 0),
-		SkillBlocked:    make([]CraftableRecipe, 0, len(mcpResponse.BlockedBySkills)),
+		PartialMatches: make([]CraftableRecipe, 0),
+		SkillBlocked:   make([]CraftableRecipe, 0, len(mcpResponse.BlockedBySkills)),
 	}
 
 	for _, craftable := range mcpResponse.Craftable {
@@ -516,4 +566,3 @@ func (c *Client) CraftItems(ctx context.Context, logger *log.Logger, config *Cra
 		totalQueued, len(result.FullyCraftable))
 	return totalQueued, nil
 }
-

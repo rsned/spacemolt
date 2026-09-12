@@ -29,8 +29,8 @@ func TestClientConcurrentAccess(t *testing.T) {
 		// Simulate listen loop checking conn and handler
 		for range 100 {
 			client.mu.RLock()
-			_ = client.conn     // Read conn
-			_ = client.handler  // Read handler
+			_ = client.conn    // Read conn
+			_ = client.handler // Read handler
 			client.mu.RUnlock()
 			time.Sleep(1 * time.Millisecond)
 		}

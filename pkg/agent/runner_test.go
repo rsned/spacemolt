@@ -175,6 +175,10 @@ func (m *mockGameClient) GetTrades(ctx context.Context) error {
 }
 
 // Crafting
+func (m *mockGameClient) CraftWithPreset(ctx context.Context, recipeID string, quantity int, preset string) error {
+	return m.CraftWithQuantity(ctx, recipeID, quantity)
+}
+
 func (m *mockGameClient) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error {
 	m.actionsRecorded = append(m.actionsRecorded, "craft:"+recipeID)
 	return nil

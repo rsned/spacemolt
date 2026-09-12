@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -508,6 +509,22 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		if err != nil || qty < 1 {
 			return fmt.Errorf("craft: bad QUANTITY %q: want a positive integer count of OUTPUT items", args[1])
 		}
+		// Optional PRESET (v0.601.3). Omitted means the SERVER default,
+		// `fast`, which can route to another player's public facility and
+		// prepay their per-run rental fee. Pass `cheap` wherever we own the
+		// mill -- own and faction facilities are free.
+		if len(args) >= 3 {
+			// Validated HERE as well as in the client: a bad preset must fail
+			// before any network call, and the script author needs the valid
+			// set named at the point the typo was made.
+			if !slices.Contains(game.CraftRoutingPresets, args[2]) {
+				return fmt.Errorf("craft: invalid PRESET %q: want one of %s",
+					args[2], strings.Join(game.CraftRoutingPresets, ", "))
+			}
+
+			return d.Client.CraftWithPreset(ctx, args[0], qty, args[2])
+		}
+
 		return d.Client.CraftWithQuantity(ctx, args[0], qty)
 	case "craft_node":
 		if len(args) < 4 {

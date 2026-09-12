@@ -453,9 +453,9 @@ func TestMCPGameClient_BackgroundPoller(t *testing.T) {
 
 				notifJSON, _ := json.Marshal(map[string]any{
 					"current_tick":  tick,
-					"timestamp":    time.Now().Unix(),
+					"timestamp":     time.Now().Unix(),
 					"notifications": nil,
-					"count":        0,
+					"count":         0,
 				})
 				return toolResult(string(notifJSON)), nil
 			}

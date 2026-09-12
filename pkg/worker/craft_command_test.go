@@ -91,3 +91,54 @@ func TestDispatchCraftUsageNamesTheArgs(t *testing.T) {
 		t.Errorf("usage %q should name RECIPE and QUANTITY", err.Error())
 	}
 }
+
+// v0.601.3: the server's DEFAULT routing preset is `fast`, which can pick
+// another player's public facility and PREPAY their per-run rental fee.
+// `cheap` makes our own and faction facilities free -- and CRFT owns Bob's
+// Iron Smeltery (refine_steel at grand_exchange_station), so the preset is
+// the difference between free and paying a stranger.
+func TestDispatchCraftPassesThePreset(t *testing.T) {
+	f := &craftFakeClient{fakeClient: &fakeClient{state: &game.State{}}}
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
+
+	if err := d.Run(context.Background(), []string{"craft", "refine_steel", "500", "cheap"}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(f.craftPresetCalls) != 1 {
+		t.Fatalf("CraftWithPreset calls = %d, want 1", len(f.craftPresetCalls))
+	}
+	got := f.craftPresetCalls[0]
+	if got.recipeID != "refine_steel" || got.quantity != 500 || got.preset != "cheap" {
+		t.Fatalf("call = %+v, want refine_steel x500 preset=cheap", got)
+	}
+}
+
+// Omitting the preset must keep the existing behaviour (server default), so
+// the argument is additive and no existing schedule entry changes meaning.
+func TestDispatchCraftWithoutPresetUsesTheQuantityPath(t *testing.T) {
+	f := &craftFakeClient{fakeClient: &fakeClient{state: &game.State{}}}
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
+
+	if err := d.Run(context.Background(), []string{"craft", "refine_steel", "500"}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(f.craftQuantityCalls) != 1 || len(f.craftPresetCalls) != 0 {
+		t.Fatalf("want the plain quantity path, got quantity=%d preset=%d",
+			len(f.craftQuantityCalls), len(f.craftPresetCalls))
+	}
+}
+
+// A misspelled preset must fail loudly. Silently falling back to `fast` is
+// the expensive outcome, and it would be invisible until credits vanished.
+func TestDispatchCraftRejectsUnknownPreset(t *testing.T) {
+	f := &craftFakeClient{fakeClient: &fakeClient{state: &game.State{}}}
+	d := NewWorkerDispatch(f, nil, nil, io.Discard)
+
+	err := d.Run(context.Background(), []string{"craft", "refine_steel", "500", "cheapest"})
+	if err == nil {
+		t.Fatal("an unknown preset must error")
+	}
+	if len(f.craftPresetCalls) != 0 || len(f.craftQuantityCalls) != 0 {
+		t.Fatal("nothing may be crafted with an unknown preset")
+	}
+}

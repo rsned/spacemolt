@@ -474,6 +474,10 @@ func (m *mockGameClient) SellAllBulk(ctx context.Context, reservedItems []string
 func (m *mockGameClient) Buy(ctx context.Context, itemID string, quantity float64) error  { return nil }
 func (m *mockGameClient) GetListings(ctx context.Context) error                           { return nil }
 func (m *mockGameClient) GetTrades(ctx context.Context) error                             { return nil }
+func (m *mockGameClient) CraftWithPreset(ctx context.Context, recipeID string, quantity int, preset string) error {
+	return m.CraftWithQuantity(ctx, recipeID, quantity)
+}
+
 func (m *mockGameClient) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error {
 	return nil
 }

@@ -80,4 +80,3 @@ func matchAll(cs ...Classifier) Classifier {
 		return true
 	}
 }
-

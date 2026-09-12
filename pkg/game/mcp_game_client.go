@@ -758,8 +758,8 @@ func (m *MCPGameClient) parseLoginResult(result json.RawMessage) error {
 
 	// The login tool returns JSON with session info and player state.
 	var loginResp struct {
-		SessionID    string `json:"session_id"`
-		CurrentTick  *int64 `json:"current_tick,omitempty"` // Try to get tick from login
+		SessionID   string `json:"session_id"`
+		CurrentTick *int64 `json:"current_tick,omitempty"` // Try to get tick from login
 		// Player state fields that may be present.
 		Player json.RawMessage `json:"player,omitempty"`
 		Ship   json.RawMessage `json:"ship,omitempty"`
@@ -1061,27 +1061,26 @@ func (m *MCPGameClient) updateStateFromResult(result json.RawMessage) error {
 			}
 		}
 	}
-		if payload.Modules != nil && !bytes.Equal(payload.Modules, m.lastModulesRaw) {
-			// Parse module definitions from get_ship response. Cached by raw
-			// bytes — modules only change via switch_ship / install_mod /
-			// uninstall_mod, so skip re-parsing when the payload is unchanged.
-			var modules []serverapi.ShipModule
-			if err := json.Unmarshal(payload.Modules, &modules); err == nil {
-				if m.state.ModuleDefinitions == nil {
-					m.state.ModuleDefinitions = make(map[string]ModuleDefinition)
-				}
-				for _, extMod := range modules {
-					if extMod.ID != "" {
-						m.state.ModuleDefinitions[extMod.ID] = ModuleDefinitionFromShipModule(extMod)
-						if m.debug {
-							m.logger.Printf("[MCP DEBUG] Parsed module %s: %s (type_id: %s)", extMod.ID, extMod.Name, extMod.TypeID)
-						}
+	if payload.Modules != nil && !bytes.Equal(payload.Modules, m.lastModulesRaw) {
+		// Parse module definitions from get_ship response. Cached by raw
+		// bytes — modules only change via switch_ship / install_mod /
+		// uninstall_mod, so skip re-parsing when the payload is unchanged.
+		var modules []serverapi.ShipModule
+		if err := json.Unmarshal(payload.Modules, &modules); err == nil {
+			if m.state.ModuleDefinitions == nil {
+				m.state.ModuleDefinitions = make(map[string]ModuleDefinition)
+			}
+			for _, extMod := range modules {
+				if extMod.ID != "" {
+					m.state.ModuleDefinitions[extMod.ID] = ModuleDefinitionFromShipModule(extMod)
+					if m.debug {
+						m.logger.Printf("[MCP DEBUG] Parsed module %s: %s (type_id: %s)", extMod.ID, extMod.Name, extMod.TypeID)
 					}
 				}
-				m.lastModulesRaw = append(m.lastModulesRaw[:0], payload.Modules...)
 			}
+			m.lastModulesRaw = append(m.lastModulesRaw[:0], payload.Modules...)
 		}
-
+	}
 
 	if payload.Nearby != nil {
 		var nearby []NearbyPlayer

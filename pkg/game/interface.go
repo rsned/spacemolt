@@ -56,6 +56,7 @@ type GameClient interface {
 
 	// Crafting
 	CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error
+	CraftWithPreset(ctx context.Context, recipeID string, quantity int, preset string) error
 	CraftWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error
 	CraftBulk(ctx context.Context, jobs []map[string]any) error
 	CraftDryRun(ctx context.Context, recipeID string, quantity int, facilityID string) (*serverapi.CraftDryRunResponse, error)

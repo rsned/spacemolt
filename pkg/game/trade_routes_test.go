@@ -45,10 +45,10 @@ func TestEmpireHomeSystem(t *testing.T) {
 		{"nebula", "haven"},
 		{"solarian", "sol"},
 		{"voidborn", "nexus_prime"},
-		{"CRIMSON", "krynn"},   // case-insensitive
-		{"Nebula", "haven"},    // mixed case
-		{"unknown", ""},        // unknown empire
-		{"", ""},               // empty
+		{"CRIMSON", "krynn"}, // case-insensitive
+		{"Nebula", "haven"},  // mixed case
+		{"unknown", ""},      // unknown empire
+		{"", ""},             // empty
 	}
 
 	for _, tt := range tests {

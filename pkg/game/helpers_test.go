@@ -8,10 +8,10 @@ import (
 
 func TestFindStation(t *testing.T) {
 	tests := []struct {
-		name     string
-		state    *State
-		wantNil  bool
-		wantID   string
+		name    string
+		state   *State
+		wantNil bool
+		wantID  string
 	}{
 		{
 			name: "finds station",

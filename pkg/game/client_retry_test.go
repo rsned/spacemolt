@@ -11,9 +11,9 @@ import (
 func TestConnectRetryLogic(t *testing.T) {
 	// Test the retry detection logic
 	testCases := []struct {
-		name          string
-		errorMsg      string
-		shouldRetry   bool
+		name        string
+		errorMsg    string
+		shouldRetry bool
 	}{
 		{
 			name:        "429 error in middle",

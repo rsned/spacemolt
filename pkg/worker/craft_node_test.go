@@ -26,6 +26,7 @@ type craftFakeClient struct {
 	dryRunErr    error
 
 	craftQuantityCalls []craftQuantityCall
+	craftPresetCalls   []craftPresetCall
 	craftBulkCalls     [][]map[string]any
 
 	// queueJobID is the job_id carried in the queued-craft response cached
@@ -78,6 +79,19 @@ func (f *craftFakeClient) setQueuedRaw(bulk bool) {
 		f.raw = map[string][]byte{}
 	}
 	f.raw["_last"] = body
+}
+
+type craftPresetCall struct {
+	recipeID string
+	quantity int
+	preset   string
+}
+
+func (f *craftFakeClient) CraftWithPreset(ctx context.Context, recipeID string, quantity int, preset string) error {
+	f.calls = append(f.calls, fmt.Sprintf("craft:%s:%d:%s", recipeID, quantity, preset))
+	f.craftPresetCalls = append(f.craftPresetCalls, craftPresetCall{recipeID: recipeID, quantity: quantity, preset: preset})
+	f.setQueuedRaw(false)
+	return nil
 }
 
 func (f *craftFakeClient) CraftWithQuantity(ctx context.Context, recipeID string, quantity int) error {

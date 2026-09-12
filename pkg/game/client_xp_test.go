@@ -8,13 +8,13 @@ import (
 // This verifies the fix for spurious XP detection when beforeXP or beforeSkills are nil.
 func TestCheckXPChanges_NilBaselines(t *testing.T) {
 	tests := []struct {
-		name           string
-		beforeSkills   map[string]Skill
-		beforeXP       map[string]float64
-		currentSkills  map[string]Skill
-		currentXP      map[string]float64
-		shouldFire     bool // whether XPCallback should be invoked
-		description    string
+		name          string
+		beforeSkills  map[string]Skill
+		beforeXP      map[string]float64
+		currentSkills map[string]Skill
+		currentXP     map[string]float64
+		shouldFire    bool // whether XPCallback should be invoked
+		description   string
 	}{
 		{
 			name:         "both_baselines_nil_returns_early",
@@ -30,7 +30,7 @@ func TestCheckXPChanges_NilBaselines(t *testing.T) {
 			description: "Should return early when both baselines are nil (first call)",
 		},
 		{
-			name:         "beforeXP_nil_with_non_nil_beforeSkills_returns_early",
+			name: "beforeXP_nil_with_non_nil_beforeSkills_returns_early",
 			beforeSkills: map[string]Skill{
 				"smuggling": {Level: 0, XP: 0},
 			},
@@ -161,10 +161,10 @@ func TestCheckXPChanges_NilBaselines(t *testing.T) {
 					},
 					SkillXP: tt.currentXP,
 				},
-				xpLastSkills: tt.beforeSkills,
-				xpLastXP:     tt.beforeXP,
-				xpLastAction: "test_action",
-				xpLastTarget: "test_target",
+				xpLastSkills:   tt.beforeSkills,
+				xpLastXP:       tt.beforeXP,
+				xpLastAction:   "test_action",
+				xpLastTarget:   "test_target",
 				xpLastQuantity: 1,
 			}
 
@@ -211,8 +211,8 @@ func TestCheckXPChanges_MultipleSkills(t *testing.T) {
 			},
 			currentSkills: map[string]Skill{
 				"smuggling": {Level: 0, XP: 50}, // +50 XP
-				"mining":    {Level: 1, XP: 50},  // No change
-				"trading":   {Level: 0, XP: 0},   // No change
+				"mining":    {Level: 1, XP: 50}, // No change
+				"trading":   {Level: 0, XP: 0},  // No change
 			},
 			currentXP: map[string]float64{
 				"smuggling": 50,
@@ -235,7 +235,7 @@ func TestCheckXPChanges_MultipleSkills(t *testing.T) {
 				"mining":    50,
 			},
 			currentSkills: map[string]Skill{
-				"smuggling": {Level: 0, XP: 50}, // +50 XP
+				"smuggling": {Level: 0, XP: 50},  // +50 XP
 				"mining":    {Level: 1, XP: 100}, // +50 XP
 			},
 			currentXP: map[string]float64{
@@ -259,10 +259,10 @@ func TestCheckXPChanges_MultipleSkills(t *testing.T) {
 					},
 					SkillXP: tt.currentXP,
 				},
-				xpLastSkills: tt.beforeSkills,
-				xpLastXP:     tt.beforeXP,
-				xpLastAction: "test_action",
-				xpLastTarget: "test_target",
+				xpLastSkills:   tt.beforeSkills,
+				xpLastXP:       tt.beforeXP,
+				xpLastAction:   "test_action",
+				xpLastTarget:   "test_target",
 				xpLastQuantity: 1,
 			}
 
@@ -334,10 +334,10 @@ func TestCheckXPChanges_CallbackStateUpdate(t *testing.T) {
 				"smuggling": 50,
 			},
 		},
-		xpLastSkills: beforeSkills,
-		xpLastXP:     beforeXP,
-		xpLastAction: "test_action",
-		xpLastTarget: "test_target",
+		xpLastSkills:   beforeSkills,
+		xpLastXP:       beforeXP,
+		xpLastAction:   "test_action",
+		xpLastTarget:   "test_target",
 		xpLastQuantity: 1,
 	}
 

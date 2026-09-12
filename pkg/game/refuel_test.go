@@ -83,7 +83,7 @@ func TestParseActionResult_RefuelClampsToMax(t *testing.T) {
 
 	client.parseActionResult(map[string]any{
 		"command": "refuel",
-		"result": map[string]any{"action": "refuel", "fuel": float64(56)},
+		"result":  map[string]any{"action": "refuel", "fuel": float64(56)},
 	})
 
 	if got := client.GetState().Ship.Fuel; got != 240 {

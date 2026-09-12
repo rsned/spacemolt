@@ -44,13 +44,13 @@ type ShipDef struct {
 // RoleCategories maps agent roles to their upgrade-eligible ship classes.
 // Ships are queried from the knowledge DB filtered by these classes.
 var RoleCategories = map[string][]string{
-	"miner":    {"Mining", "Mining Capital"},
-	"fighter":  {"Fighter", "Heavy Fighter", "Interceptor", "Cruiser"},
-	"trader":   {"Freighter", "Bulk Hauler", "Armed Freighter", "Armored Transport"},
-	"explorer": {"Explorer", "Expedition", "Scout", "Armed Explorer"},
-	"pirate":   {"Raider", "Boarding Craft", "Assault", "Assault Cruiser"},
-	"salvager": {"Salvager"},
-	"engineer": {"Repair", "Construction", "Field Repair"},
+	"miner":     {"Mining", "Mining Capital"},
+	"fighter":   {"Fighter", "Heavy Fighter", "Interceptor", "Cruiser"},
+	"trader":    {"Freighter", "Bulk Hauler", "Armed Freighter", "Armored Transport"},
+	"explorer":  {"Explorer", "Expedition", "Scout", "Armed Explorer"},
+	"pirate":    {"Raider", "Boarding Craft", "Assault", "Assault Cruiser"},
+	"salvager":  {"Salvager"},
+	"engineer":  {"Repair", "Construction", "Field Repair"},
 	"craftsman": {"Refinery", "Gas Refinery", "Ice Refinery"},
 }
 
@@ -77,37 +77,37 @@ var combatClasses = map[string]bool{
 
 // roleEmojis maps agent roles to display emojis for upgrade log messages.
 var roleEmojis = map[string]string{
-	"miner":    "⛏️",
-	"fighter":  "⚔️",
-	"trader":   "💰",
-	"explorer": "🔭",
-	"pirate":   "🏴‍☠️",
-	"salvager": "💎",
-	"engineer": "🔧",
+	"miner":     "⛏️",
+	"fighter":   "⚔️",
+	"trader":    "💰",
+	"explorer":  "🔭",
+	"pirate":    "🏴‍☠️",
+	"salvager":  "💎",
+	"engineer":  "🔧",
 	"craftsman": "⚒️",
 }
 
 // roleEquipment maps agent roles to their default equipment item IDs.
 var roleEquipment = map[string]string{
-	"miner":    "mining_laser_i",
-	"fighter":  "pulse_laser_i",
-	"trader":   "pulse_laser_i",
-	"explorer": "ship_scanner_i",
-	"pirate":   "pulse_laser_i",
-	"salvager": "basic_tow_rig",
-	"engineer": "remote_armor_repairer_i",
+	"miner":     "mining_laser_i",
+	"fighter":   "pulse_laser_i",
+	"trader":    "pulse_laser_i",
+	"explorer":  "ship_scanner_i",
+	"pirate":    "pulse_laser_i",
+	"salvager":  "basic_tow_rig",
+	"engineer":  "remote_armor_repairer_i",
 	"craftsman": "cargo_expander_i",
 }
 
 // roleCareerNames maps agent roles to display career names.
 var roleCareerNames = map[string]string{
-	"miner":    "Mining",
-	"fighter":  "Combat",
-	"trader":   "Trading",
-	"explorer": "Exploration",
-	"pirate":   "Piracy",
-	"salvager": "Salvage",
-	"engineer": "Engineering",
+	"miner":     "Mining",
+	"fighter":   "Combat",
+	"trader":    "Trading",
+	"explorer":  "Exploration",
+	"pirate":    "Piracy",
+	"salvager":  "Salvage",
+	"engineer":  "Engineering",
 	"craftsman": "Crafting",
 }
 

@@ -164,8 +164,8 @@ func TestXpToLevel(t *testing.T) {
 		{600, 4},
 		{999, 4},
 		{1000, 5},
-		{5000, 5},  // capped at 5
-		{-1, 1},    // negative XP
+		{5000, 5}, // capped at 5
+		{-1, 1},   // negative XP
 	}
 
 	for _, tt := range tests {

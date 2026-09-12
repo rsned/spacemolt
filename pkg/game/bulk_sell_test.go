@@ -40,10 +40,10 @@ func TestPrepareBulkSellOrder(t *testing.T) {
 			},
 			reservedItems: nil,
 			pricePerItem: map[string]int{
-				"iron_ore":        5,
-				"copper_ore":      8,
-				"salvage_metal":   3,
-				"mining_laser_i":  100, // Should be skipped (equipment)
+				"iron_ore":       5,
+				"copper_ore":     8,
+				"salvage_metal":  3,
+				"mining_laser_i": 100, // Should be skipped (equipment)
 				"pulse_laser_i":  200, // Should be skipped (equipment)
 			},
 			wantOrders:  3, // Only ores and salvage
@@ -66,7 +66,7 @@ func TestPrepareBulkSellOrder(t *testing.T) {
 			wantSkipped: 2, // Reserved items
 		},
 		{
-			name: "empty cargo",
+			name:          "empty cargo",
 			cargo:         []CargoItem{},
 			reservedItems: nil,
 			pricePerItem:  nil,
@@ -110,9 +110,9 @@ func TestPrepareBulkSellOrder(t *testing.T) {
 			},
 			reservedItems: nil,
 			pricePerItem: map[string]int{
-				"gas_helium":   10,
-				"scrap_metal":  2,
-				"iron_ore":     5,
+				"gas_helium":  10,
+				"scrap_metal": 2,
+				"iron_ore":    5,
 			},
 			wantOrders:  3,
 			wantSkipped: 0,

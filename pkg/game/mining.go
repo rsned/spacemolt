@@ -22,10 +22,10 @@ const (
 
 // miningTypeConfig holds POI types and equipment prefixes for each mining type.
 type miningTypeConfig struct {
-	poiTypes       []string
-	equipPrefixes  []string // module name prefixes (lowercase) to count
+	poiTypes          []string
+	equipPrefixes     []string // module name prefixes (lowercase) to count
 	equipTypePrefixes []string // module type prefixes (lowercase) to count
-	label          string   // display label for logs
+	label             string   // display label for logs
 }
 
 var miningTypeConfigs = map[MiningType]miningTypeConfig{

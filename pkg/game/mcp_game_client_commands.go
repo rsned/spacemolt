@@ -403,13 +403,31 @@ func (m *MCPGameClient) CraftWithQuantity(ctx context.Context, recipeID string, 
 	return m.CraftWithOptions(ctx, recipeID, quantity, "")
 }
 
+// CraftWithPreset queues a craft job with an explicit facility-routing preset
+// (v0.601.3). See CraftRoutingPresets: the server default is `fast`, which can
+// route to another player's public facility and prepay their per-run fee.
+func (m *MCPGameClient) CraftWithPreset(ctx context.Context, recipeID string, quantity int, preset string) error {
+	if err := validateCraftPreset(preset); err != nil {
+		return err
+	}
+
+	return m.craftWithOptionsAndPreset(ctx, recipeID, quantity, "", preset)
+}
+
 func (m *MCPGameClient) CraftWithOptions(ctx context.Context, recipeID string, quantity int, deliverTo string) error {
+	return m.craftWithOptionsAndPreset(ctx, recipeID, quantity, deliverTo, "")
+}
+
+func (m *MCPGameClient) craftWithOptionsAndPreset(ctx context.Context, recipeID string, quantity int, deliverTo, preset string) error {
 	payload := map[string]any{
 		"recipe_id": recipeID,
 		"quantity":  quantity,
 	}
 	if deliverTo != "" {
 		payload["deliver_to"] = deliverTo
+	}
+	if preset != "" {
+		payload["preset"] = preset
 	}
 	result, err := m.callTool(ctx, "craft", payload)
 	if err != nil {

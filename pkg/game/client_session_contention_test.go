@@ -3,8 +3,8 @@ package game
 import (
 	"context"
 	"fmt"
-	"log"
 	"io"
+	"log"
 	"sync/atomic"
 	"testing"
 	"time"
