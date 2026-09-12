@@ -28,6 +28,22 @@ roles:
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
+      # Iron -> steel conversion, added 2026-09-11. The drone marketbots are
+      # filling up on ore against the 100,000-per-ITEM-TYPE storage cap:
+      # marketbot_010 went 46,965 -> 68,396 iron in one day (+21k/day), and the
+      # `overmind` agent hit 99,887. refine_steel is 5 iron_ore -> 2 steel_plate,
+      # so this frees 60% of the space AND moves the rest into a separate item
+      # type with its own cap -- and steel plate is the component nearly
+      # everything needs, so haulers can distribute it.
+      #
+      # QUANTITY IS OUTPUT ITEMS: 500 out = 1,250 iron/hr = 30k/day, against
+      # ~21k/day intake. That stays above production so the backlog actually
+      # falls (~7 days to clear 010) instead of holding flat.
+      #
+      # Ore-poor residents will fail this call most hours. That is expected and
+      # cheap (one request); do not "fix" it by dropping the quantity, which
+      # would stop the drawdown.
+      - { every: hourly, command: "craft refine_steel 500" }
     idle: resident_market
     idle_params:
       N: "20"
@@ -46,6 +62,22 @@ roles:
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
+      # Iron -> steel conversion, added 2026-09-11. The drone marketbots are
+      # filling up on ore against the 100,000-per-ITEM-TYPE storage cap:
+      # marketbot_010 went 46,965 -> 68,396 iron in one day (+21k/day), and the
+      # `overmind` agent hit 99,887. refine_steel is 5 iron_ore -> 2 steel_plate,
+      # so this frees 60% of the space AND moves the rest into a separate item
+      # type with its own cap -- and steel plate is the component nearly
+      # everything needs, so haulers can distribute it.
+      #
+      # QUANTITY IS OUTPUT ITEMS: 500 out = 1,250 iron/hr = 30k/day, against
+      # ~21k/day intake. That stays above production so the backlog actually
+      # falls (~7 days to clear 010) instead of holding flat.
+      #
+      # Ore-poor residents will fail this call most hours. That is expected and
+      # cheap (one request); do not "fix" it by dropping the quantity, which
+      # would stop the drawdown.
+      - { every: hourly, command: "craft refine_steel 500" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_gas); see resident note
   resident_ice:
     schedule:
@@ -59,6 +91,22 @@ roles:
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
+      # Iron -> steel conversion, added 2026-09-11. The drone marketbots are
+      # filling up on ore against the 100,000-per-ITEM-TYPE storage cap:
+      # marketbot_010 went 46,965 -> 68,396 iron in one day (+21k/day), and the
+      # `overmind` agent hit 99,887. refine_steel is 5 iron_ore -> 2 steel_plate,
+      # so this frees 60% of the space AND moves the rest into a separate item
+      # type with its own cap -- and steel plate is the component nearly
+      # everything needs, so haulers can distribute it.
+      #
+      # QUANTITY IS OUTPUT ITEMS: 500 out = 1,250 iron/hr = 30k/day, against
+      # ~21k/day intake. That stays above production so the backlog actually
+      # falls (~7 days to clear 010) instead of holding flat.
+      #
+      # Ore-poor residents will fail this call most hours. That is expected and
+      # cheap (one request); do not "fix" it by dropping the quantity, which
+      # would stop the drawdown.
+      - { every: hourly, command: "craft refine_steel 500" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_ice); see resident note
   explorer:
     schedule:
