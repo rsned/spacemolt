@@ -28,41 +28,6 @@ roles:
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
-      # Iron -> steel conversion, added 2026-09-11. The drone marketbots are
-      # filling up on ore against the 100,000-per-ITEM-TYPE storage cap:
-      # marketbot_010 went 46,965 -> 68,396 iron in one day (+21k/day), and the
-      # `overmind` agent hit 99,887. refine_steel is 5 iron_ore -> 2 steel_plate,
-      # so this frees 60% of the space AND moves the rest into a separate item
-      # type with its own cap -- and steel plate is the component nearly
-      # everything needs, so haulers can distribute it.
-      #
-      # QUANTITY IS OUTPUT ITEMS: 500 out = 1,250 iron/hr = 30k/day, against
-      # ~21k/day intake. That stays above production so the backlog actually
-      # falls (~7 days to clear 010) instead of holding flat.
-      #
-      # Ore-poor residents will fail this call most hours. That is expected and
-      # cheap (one request); do not "fix" it by dropping the quantity, which
-      # would stop the drawdown.
-      - { every: hourly, command: "craft refine_steel 500" }
-      # Copper conversions, added 2026-09-11 beside refine_steel. Copper is the
-      # BIGGER pile: 773,572 units fleet-wide vs ~420k iron, and the `overmind`
-      # agent is at 99,983 copper as well as 99,887 iron -- capped on both, so
-      # it cannot store another unit of either.
-      #
-      # process_copper_wiring: 4 copper_ore -> 2 copper_wiring. 600 out/hr =
-      # 1,200 copper/hr = 29k/day, matching the steel line's draw.
-      #
-      # draw_copper_piping: 12 copper_ore + 2 STEEL_PLATE -> 4 copper_piping.
-      # Note it CONSUMES the steel the line above produces: 200 out/hr costs
-      # 600 copper + 100 steel per hour, i.e. 20% of the 500/hr steel output,
-      # leaving +400/hr net steel for the haulers. It is listed last so steel
-      # exists before piping asks for it; on an agent with copper but no steel
-      # yet it simply fails, which is one cheap request.
-      #
-      # Both outputs are bulk components used across facilities and recipes, so
-      # like steel plate they are worth more to the fleet than the ore was.
-      - { every: hourly, command: "craft process_copper_wiring 600" }
-      - { every: hourly, command: "craft draw_copper_piping 200" }
     idle: resident_market
     idle_params:
       N: "20"
@@ -81,41 +46,6 @@ roles:
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
-      # Iron -> steel conversion, added 2026-09-11. The drone marketbots are
-      # filling up on ore against the 100,000-per-ITEM-TYPE storage cap:
-      # marketbot_010 went 46,965 -> 68,396 iron in one day (+21k/day), and the
-      # `overmind` agent hit 99,887. refine_steel is 5 iron_ore -> 2 steel_plate,
-      # so this frees 60% of the space AND moves the rest into a separate item
-      # type with its own cap -- and steel plate is the component nearly
-      # everything needs, so haulers can distribute it.
-      #
-      # QUANTITY IS OUTPUT ITEMS: 500 out = 1,250 iron/hr = 30k/day, against
-      # ~21k/day intake. That stays above production so the backlog actually
-      # falls (~7 days to clear 010) instead of holding flat.
-      #
-      # Ore-poor residents will fail this call most hours. That is expected and
-      # cheap (one request); do not "fix" it by dropping the quantity, which
-      # would stop the drawdown.
-      - { every: hourly, command: "craft refine_steel 500" }
-      # Copper conversions, added 2026-09-11 beside refine_steel. Copper is the
-      # BIGGER pile: 773,572 units fleet-wide vs ~420k iron, and the `overmind`
-      # agent is at 99,983 copper as well as 99,887 iron -- capped on both, so
-      # it cannot store another unit of either.
-      #
-      # process_copper_wiring: 4 copper_ore -> 2 copper_wiring. 600 out/hr =
-      # 1,200 copper/hr = 29k/day, matching the steel line's draw.
-      #
-      # draw_copper_piping: 12 copper_ore + 2 STEEL_PLATE -> 4 copper_piping.
-      # Note it CONSUMES the steel the line above produces: 200 out/hr costs
-      # 600 copper + 100 steel per hour, i.e. 20% of the 500/hr steel output,
-      # leaving +400/hr net steel for the haulers. It is listed last so steel
-      # exists before piping asks for it; on an agent with copper but no steel
-      # yet it simply fails, which is one cheap request.
-      #
-      # Both outputs are bulk components used across facilities and recipes, so
-      # like steel plate they are worth more to the fleet than the ore was.
-      - { every: hourly, command: "craft process_copper_wiring 600" }
-      - { every: hourly, command: "craft draw_copper_piping 200" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_gas); see resident note
   resident_ice:
     schedule:
@@ -129,41 +59,6 @@ roles:
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
-      # Iron -> steel conversion, added 2026-09-11. The drone marketbots are
-      # filling up on ore against the 100,000-per-ITEM-TYPE storage cap:
-      # marketbot_010 went 46,965 -> 68,396 iron in one day (+21k/day), and the
-      # `overmind` agent hit 99,887. refine_steel is 5 iron_ore -> 2 steel_plate,
-      # so this frees 60% of the space AND moves the rest into a separate item
-      # type with its own cap -- and steel plate is the component nearly
-      # everything needs, so haulers can distribute it.
-      #
-      # QUANTITY IS OUTPUT ITEMS: 500 out = 1,250 iron/hr = 30k/day, against
-      # ~21k/day intake. That stays above production so the backlog actually
-      # falls (~7 days to clear 010) instead of holding flat.
-      #
-      # Ore-poor residents will fail this call most hours. That is expected and
-      # cheap (one request); do not "fix" it by dropping the quantity, which
-      # would stop the drawdown.
-      - { every: hourly, command: "craft refine_steel 500" }
-      # Copper conversions, added 2026-09-11 beside refine_steel. Copper is the
-      # BIGGER pile: 773,572 units fleet-wide vs ~420k iron, and the `overmind`
-      # agent is at 99,983 copper as well as 99,887 iron -- capped on both, so
-      # it cannot store another unit of either.
-      #
-      # process_copper_wiring: 4 copper_ore -> 2 copper_wiring. 600 out/hr =
-      # 1,200 copper/hr = 29k/day, matching the steel line's draw.
-      #
-      # draw_copper_piping: 12 copper_ore + 2 STEEL_PLATE -> 4 copper_piping.
-      # Note it CONSUMES the steel the line above produces: 200 out/hr costs
-      # 600 copper + 100 steel per hour, i.e. 20% of the 500/hr steel output,
-      # leaving +400/hr net steel for the haulers. It is listed last so steel
-      # exists before piping asks for it; on an agent with copper but no steel
-      # yet it simply fails, which is one cheap request.
-      #
-      # Both outputs are bulk components used across facilities and recipes, so
-      # like steel plate they are worth more to the fleet than the ore was.
-      - { every: hourly, command: "craft process_copper_wiring 600" }
-      - { every: hourly, command: "craft draw_copper_piping 200" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_ice); see resident note
   explorer:
     schedule:
@@ -191,41 +86,6 @@ roles:
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
-      # Iron -> steel conversion, added 2026-09-11 alongside the resident
-      # roles. The mining fleet holds MORE ore than the drone marketbots do:
-      # the `overmind` agent sits at 99,887 iron at the_anvil_arsenal, i.e. AT
-      # the 100,000-per-ITEM-TYPE cap and unable to store another unit, with
-      # miner-9 (73,937) and random-clark (73,270) close behind.
-      #
-      # QUANTITY IS OUTPUT ITEMS: 500 out = 1,250 iron/hr = 30k/day, matching
-      # the resident rate. Whether that outpaces an actively-lasering miner is
-      # UNMEASURED -- agent_storage_items keeps only the newest row per
-      # (player, base, item), so there is no history to fit a rate to. Check
-      # the next capture against these figures and raise the quantity if the
-      # backlog is not falling.
-      #
-      # Expect failures on the cycles where the miner is out at a belt rather
-      # than docked at its station storage. One request, harmless.
-      - { every: hourly, command: "craft refine_steel 500" }
-      # Copper conversions, added 2026-09-11 beside refine_steel. Copper is the
-      # BIGGER pile: 773,572 units fleet-wide vs ~420k iron, and the `overmind`
-      # agent is at 99,983 copper as well as 99,887 iron -- capped on both, so
-      # it cannot store another unit of either.
-      #
-      # process_copper_wiring: 4 copper_ore -> 2 copper_wiring. 600 out/hr =
-      # 1,200 copper/hr = 29k/day, matching the steel line's draw.
-      #
-      # draw_copper_piping: 12 copper_ore + 2 STEEL_PLATE -> 4 copper_piping.
-      # Note it CONSUMES the steel the line above produces: 200 out/hr costs
-      # 600 copper + 100 steel per hour, i.e. 20% of the 500/hr steel output,
-      # leaving +400/hr net steel for the haulers. It is listed last so steel
-      # exists before piping asks for it; on an agent with copper but no steel
-      # yet it simply fails, which is one cheap request.
-      #
-      # Both outputs are bulk components used across facilities and recipes, so
-      # like steel plate they are worth more to the fleet than the ore was.
-      - { every: hourly, command: "craft process_copper_wiring 600" }
-      - { every: hourly, command: "craft draw_copper_piping 200" }
       - { every: hourly, command: "capture_fuel" }
     idle: idle_mine
   hauler:
@@ -254,6 +114,29 @@ roles:
       - { every: daily, command: "kb_update" }
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
+      # Ore -> component conversion, moved here 2026-09-12 from the resident
+      # and miner roles, where it could not work: these recipes need a mill,
+      # and remote belt/gas stations have none (marketbot_010 -- 68,396 iron --
+      # answered no_facility), while roaming miners are rarely docked at the
+      # station holding their own ore (162 cannot_craft in one hour, 0
+      # successes fleet-wide).
+      #
+      # The craftsmen sit at hub stations that DO have the mills, hold ore
+      # there already, and have credits for the labor fee. craftsman-1 alone
+      # has 14,303 iron + 42,718 copper at grand_exchange_station.
+      #
+      # ⭐ preset `cheap`: own and faction facilities are FREE, and our faction
+      # (CRFT) owns Bob's Iron Smeltery -- refine_steel at grand_exchange. The
+      # SERVER DEFAULT is `fast`, which optimises finish time and will happily
+      # rent another player's public facility and prepay their per-run fee
+      # (draw_copper_piping rents at 30/run). Never omit the preset here.
+      #
+      # QUANTITY IS OUTPUT ITEMS: refine_steel 500 consumes 1,250 iron_ore.
+      # draw_copper_piping also eats 2 steel_plate per 4 output, so it is
+      # ordered last, after the steel line has produced some.
+      - { every: hourly, command: "craft refine_steel 500 cheap" }
+      - { every: hourly, command: "craft process_copper_wiring 600 cheap" }
+      - { every: hourly, command: "craft draw_copper_piping 200 cheap" }
     idle: idle_market
   # Wildlife-cull fleet (pkg/worker/hunt.go). Like the miner role, the asset
   # captures are the only schedule it carries: a hunt pass reads the mission
