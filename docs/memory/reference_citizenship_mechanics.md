@@ -51,9 +51,18 @@ hold (checked at grant time only).
 - **voidborn is the only auto-approve empire, free and unrestricted** — the one
   instant, zero-gate citizenship available. Worth pricing against outerrim.
 
-⚠ The server's own `rules` text says citizenship "**will later** gate features
-such as taxation" (future tense) while the command description says it decides
-taxation today. **Confirm on one agent before migrating the fleet.**
+## ⭐🟢 RESOLVED 2026-09-13: the rules text no longer hedges
+
+It previously said citizenship "**will later** gate features such as taxation",
+contradicting the command description. Live `citizenship list` now reads:
+
+> "Citizenship decides taxation today: an empire charges its own citizens one
+> sales-tax rate, citizens of other empires another, and the stateless a third.
+> Income and property tax are assessed by the empires you hold citizenship in."
+
+The "confirm before migrating the fleet" caveat is discharged — **citizenship is
+the tax lever, today.** (The later-gating language now applies only to listing
+fees, facility eligibility and ship/goods access.)
 
 ## Client gotcha (fixed `add77a85`)
 The command is flagged `x-is-mutation`, so `Client.Citizenship` waited for an
@@ -61,6 +70,24 @@ action frame on every action — `list` hung for the full 30s AND held the
 `citizenship` action lock, so the next call failed with a lock error. `list`
 now terminates on the ack. Driven from `play_as`: `citizenship [action] [empire]`.
 
-Live test subject: **explorer-7** (crimson origin, held out of mission-learn),
-petition to outerrim filed 2026-08-19T00:38Z, id `afe037f4…`, status pending.
+## Live test subject: explorer-7 — STILL PENDING AFTER 25 DAYS
+
+`Nova 'Navigator' Nash`, crimson origin, back in mission-learn (GSC-0019).
+Petition `afe037f4ca853808bea8bfcb86ff988f` to **outerrim**, filed
+2026-08-19T00:38:00Z. Checked 2026-09-13: **status still `pending`,
+`recent_decisions: null`, fee_paid 0, reputation 10.**
+
+Outer Rim is not auto-approve and its queue appears unattended — 25 days, no
+decisions of any kind. **Operator filed a bug 2026-09-13 to see if review gets
+restarted; we are WAITING, not switching.** Nothing is bleeding: the fee is 0,
+so a stalled petition costs only the opportunity.
+
+Meanwhile explorer-7 remains crimson-only, i.e. on the most expensive rates in
+the game (10% income, 1.0% property). If the bug does not move it, **voidborn
+is the fallback** — the only auto-approve empire, free and ungated, granting on
+the spot. Same renounce-crimson step afterwards either way, since neither
+outerrim nor voidborn is exclusive.
+
+⭐ Check it with `citizenship action=list` — a free query, no tick. On a live
+fleet worker, SIGSTOP the worker first or the session is replaced mid-command.
 [[reference_tax_bounties_and_rates]] · [[reference_empire_field_semantics]]

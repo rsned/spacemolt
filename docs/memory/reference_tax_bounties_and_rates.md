@@ -104,3 +104,35 @@ levy is small; the income levy is what matters. Biggest bills: fighter-4 380,907
 **Capture shipped `9b32b067`:** `capture_tax` → `agent_tax` + `agent_tax_ships`,
 with `Store.TaxShortfalls()` listing agents whose credits cannot cover the next
 levy. NOT yet scheduled on any agent.
+
+## ⭐🔴 Two traps when reading a tax bill (2026-09-13)
+
+**1. Property tax is assessed on OWNED SHIPS ONLY — not stored goods.**
+Confirmed by the operator and by `agent_tax_ships`, whose per-ship `value` rows
+sum EXACTLY to `agent_tax.assessed_property_value` (salvager-1: 8,654 + 6,517 +
+3,827 + 1,827 = 20,825). So the drone marketbots sitting on 140k units of ore
+owe NOTHING on it, and "who is hoarding the most units" is the wrong query for
+tax exposure. The right one is ship value vs credits.
+
+This also means the **~170 idle hulls** are a standing, recurring cost —
+property tax on ships doing nothing. See [[reference_module_wear_removed]].
+
+**2. Do NOT derive a rate from the captured totals.** `taxable_income_to_date`
+and `income_tax_total` are CUMULATIVE and net of `market_loss_carryforward` and
+`tax_prepaid`, so their ratio is not the rate. Observed craftsman-1 at
+314,932/6,618,648 = 4.76% and salvager-1 at 5,404/320,243 = 1.69%, while
+nebula's published income rate is 3% for both. **The published bps from
+`get_empire_info` (table above) is authoritative; the ratio is an artifact.**
+
+## ⭐🔴 capture_tax is scheduled in NO role
+
+`grep -c capture_tax data/overmind/roles.yaml` = **0**. It is a supported
+dispatch command that nothing ever runs, so on tax day we hold records for
+**4 of 172 agents** — and none of them are the high-income ones. The 4 rows we
+do have are leftovers from manual runs.
+
+Given tax is the fleet's largest expense (16x the fuel bill), this is the
+cheapest observability gap to close: one daily query per agent. Adding it is
+additive, so it takes effect at the next natural restart with no deploy of its
+own — see [[reference_schedule_seeding_is_additive_only]] (removals are the
+thing that does not propagate).
