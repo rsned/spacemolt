@@ -40,7 +40,45 @@ to `iron_reach`. A bad one-off import cannot do that; a per-arrival defect can.
 changes. Safe because every reader calls `GetSystem` first (`exploreSystem`,
 `KBUpdateSystem`), and an empty list writes nothing rather than writing lies.
 
-### ⭐ Still open: the 38 stored rows
+### ⭐🟢 DELETED 2026-09-14 — and validated against the canonical map
+All 38 removed. Backup taken first with `VACUUM INTO`, audit CSV of every
+deleted row + its donor kept. The DELETE embedded the donor-attribution rule
+rather than deleting on one-wayness alone.
+
+**`data/game-api/latest/get_map.json` is the canonical public connection map**
+(505 systems, `connections` is a plain list of system ids). After the delete the
+KB matched it EXACTLY: 2,130 edges, **0 in the KB but not canonical, 0 canonical
+but missing**. Use this diff as the standing check — it is far stronger than
+donor attribution:
+
+```python
+canon={(s['system_id'],c) for s in json.load(open('data/game-api/latest/get_map.json'))['systems']
+       for c in (s.get('connections') or [])}
+kb=set(db.execute("SELECT from_system,to_system FROM connections"))
+```
+`iron_reach` came out at exactly the 4 lanes the operator confirmed on 09-08.
+
+### ⭐🔴 The OneWay heuristic was a PHANTOM detector, not a wormhole detector
+`GetConnections` derived `OneWay` from a distance/geometry mismatch and called
+those wormholes. The 38 geometry-mismatch rows were *precisely* the 38 phantoms
+— a donor's distance under a different origin cannot match the geometry. After
+the delete **zero rows are OneWay**. Comment corrected in `2f9d068d`; kept as a
+phantom canary.
+
+### ⭐🔴 Permanent wormholes DO exist (operator, 2026-09-14)
+A few are permanent; **two are discovered through the smuggling chain**. They
+are POIs (`wormhole_entrance` / `wormhole_exit`, shared id suffix), never
+connection rows. **`UpsertSystemFromMap` DELETES any stored lane absent from the
+public map**, so storing a wormhole as a connection row would destroy it on the
+next import — give such rows a protected marker first. Pinned by
+`TestUpsertSystemFromMap_PrunesLanesAbsentFromTheMap`.
+
+### `last_updated_tick` is now a real freshness marker (`2f9d068d`)
+Was a literal 0 on all 2,168 rows. Both write paths stamp it now, advancing with
+MAX so it never regresses and a tickless capture cannot blank it. Re-importing
+the whole map self-heals the table.
+
+### Superseded: the old "still open" note
 Not cleaned. They keep breaking routing — they wedged `auto-explore` into a
 `horizon <-> first_step` oscillation for 30+ hops on 2026-09-14 (fixed
 separately in `ee818b60` with a per-run frontier memory). Deleting them needs
