@@ -1,6 +1,6 @@
 ---
 name: reference_connections_phantom_edges
-description: "The KB connections table carries 19 phantom edges (copied neighbour lists) and omits wormhole lanes entirely, so it errs in BOTH directions"
+description: "The KB connections table GROWS phantom edges (38 by 2026-09-14, was 19) because a jump arrival carried the departed system's neighbour list; producer fixed e55077fc, rows not yet cleaned"
 metadata:
   type: reference
 ---
@@ -8,7 +8,47 @@ metadata:
 `connections` is wrong in two opposite ways at once. It invents lanes that do
 not exist, and it omits the only real one-way lanes in the game.
 
-## 1. Phantom rows — 19 lanes that do not exist
+## ⭐🔴 2026-09-14: they GROW. 19 -> 38 in six days, and the cause is found
+
+Counted again 2026-09-14: **38** one-way rows across **five** systems, not 19
+across three. Two of the polluted systems are new.
+
+| polluted | 09-08 | 09-14 | copied from |
+|---|---:|---:|---|
+| `iron_reach`   | 11 | **15** | ironhearth, sol, treasure_cache, **first_step** |
+| `the_crucible` | – | **9**  | gold_run, treasure_cache |
+| `the_anvil`    | 6  | **8**  | sol, treasure_cache, haven |
+| `first_step`   | – | **4**  | saiph |
+| `blood_forge`  | 2  | 2      | haven |
+
+**Every one of the 38 passes the donor-attribution test** (same target, same
+distance as some other system's real bidirectional edge), so none is a wormhole
+and all 38 are safe to delete by this file's own rule.
+
+### Root cause — FIXED `e55077fc`
+A jump arrival carries only the new system's id and name. The client wrote them
+over `state.System.ID/.Name` while leaving `.Connections` and `.POIs` holding
+**the system just departed**. Any capture running before the next `get_system`
+reply then wrote the old neighbours under the new id — and since the
+`connections` upsert never deletes, every one is permanent. Hence monotonic
+growth.
+
+The chain proves it: `first_step` is polluted BY `saiph` and then itself donates
+to `iron_reach`. A bad one-off import cannot do that; a per-arrival defect can.
+
+`Client.enterSystem` now clears the per-system fields when the id actually
+changes. Safe because every reader calls `GetSystem` first (`exploreSystem`,
+`KBUpdateSystem`), and an empty list writes nothing rather than writing lies.
+
+### ⭐ Still open: the 38 stored rows
+Not cleaned. They keep breaking routing — they wedged `auto-explore` into a
+`horizon <-> first_step` oscillation for 30+ hops on 2026-09-14 (fixed
+separately in `ee818b60` with a per-run frontier memory). Deleting them needs
+the operator's call since `connections` is shared fleet-wide.
+`last_updated_tick` is **0 on all 2,168 rows**, so the table carries no age
+signal to triage with.
+
+## 1. Phantom rows — the original 2026-09-08 finding (19 lanes)
 
 Each is a verbatim copy of another system's neighbour list written under the
 wrong `from_system`, betrayed by naming the same target at the same `distance`
