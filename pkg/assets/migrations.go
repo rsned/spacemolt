@@ -16,6 +16,18 @@ func runMigrations(db *sql.DB) error {
 		return fmt.Errorf("assets: run schema: %w", err)
 	}
 
+	// schema.sql uses CREATE TABLE IF NOT EXISTS, so columns added to an
+	// existing table never reach a database created before they existed. The
+	// live assets.db predates v0.605.0.
+	for _, c := range []struct{ table, column, colType string }{
+		{"agent_tax", "outstanding_bounty_total", "INTEGER NOT NULL DEFAULT 0"},
+		{"agent_tax", "inactivity_exempt", "INTEGER NOT NULL DEFAULT 0"},
+	} {
+		if err := ensureColumn(db, c.table, c.column, c.colType); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -24,7 +36,7 @@ func runMigrations(db *sql.DB) error {
 // via PRAGMA table_info first. Idempotent. schema.sql uses CREATE TABLE IF NOT
 // EXISTS, so a column added to an existing table does not apply to databases
 // created before that column existed — add those here.
-func ensureColumn(db *sql.DB, table, column, colType string) error { //nolint:unused // called by later tasks' schema additions
+func ensureColumn(db *sql.DB, table, column, colType string) error {
 	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
 	if err != nil {
 		return fmt.Errorf("assets: table_info(%s): %w", table, err)

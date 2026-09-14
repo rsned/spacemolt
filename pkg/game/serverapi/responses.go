@@ -2640,11 +2640,9 @@ type FactionRemoveEnemyResponse struct {
 }
 
 // PayBountyOutstandingRow is one empire's remaining debt after a pay_bounty.
-type PayBountyOutstandingRow struct {
-	Empire string `json:"empire"`
-	// Bounty is the credits still owed to this empire.
-	Bounty int `json:"bounty"`
-}
+// pay_bounty and get_tax_estimate report debt in the identical shape, so this
+// is an alias rather than a second near-duplicate type.
+type PayBountyOutstandingRow = OutstandingBounty
 
 // PayBountyResponse is returned by pay_bounty (v0.564.0). Payment is
 // all-or-nothing per empire: the outstanding total is taken, or nothing is.

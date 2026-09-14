@@ -1,8 +1,10 @@
 package assets
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
@@ -27,6 +29,23 @@ type TaxEstimate struct {
 	// empire is added.
 	SalesTaxRates string
 	Ships         []TaxShipValue
+
+	// OutstandingBountyTotal is debt ALREADY owed, summed over empires. It is
+	// not the same thing as the *_tax_total fields above, which are the next
+	// levy: an agent can afford next week's bill and still be detained today.
+	// Paying clears that empire's whole criminal record, so this is not purely
+	// a tax figure.
+	OutstandingBountyTotal int64
+	Bounties               []TaxBounty
+	// InactivityExempt distinguishes "owes nothing" from "not being billed".
+	InactivityExempt bool
+}
+
+// TaxBounty is one empire's outstanding debt against an agent. pay_bounty
+// settles a single empire at a time, so this is the payable unit.
+type TaxBounty struct {
+	Empire string
+	Bounty int64
 }
 
 // TaxShipValue is one hull's contribution to the assessed property value.
@@ -67,6 +86,16 @@ func TaxEstimateFrom(raw []byte) (TaxEstimate, bool, error) {
 		t.SalesTaxRates = string(resp.SalesTaxRates)
 	}
 	t.Ships = taxShipsFrom(resp.AssessedPropertyByShip)
+
+	t.InactivityExempt = resp.InactivityExempt
+	for _, b := range resp.OutstandingBounties {
+		if b.Empire == "" {
+			continue
+		}
+		t.Bounties = append(t.Bounties, TaxBounty{Empire: b.Empire, Bounty: b.Bounty})
+		t.OutstandingBountyTotal += b.Bounty
+	}
+	sortTaxBounties(t.Bounties)
 
 	return t, true, nil
 }
@@ -130,4 +159,16 @@ func sortTaxShips(rows []TaxShipValue) {
 			rows[j-1], rows[j] = b, a
 		}
 	}
+}
+
+// sortTaxBounties orders by descending debt, ties by empire, so the empire that
+// most needs paying is first.
+func sortTaxBounties(rows []TaxBounty) {
+	slices.SortFunc(rows, func(a, b TaxBounty) int {
+		if a.Bounty != b.Bounty {
+			return cmp.Compare(b.Bounty, a.Bounty)
+		}
+
+		return cmp.Compare(a.Empire, b.Empire)
+	})
 }

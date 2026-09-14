@@ -319,7 +319,27 @@ CREATE TABLE IF NOT EXISTS agent_tax (
     collection_active        INTEGER NOT NULL DEFAULT 0,
     note                     TEXT    NOT NULL DEFAULT '',
     sales_tax_rates          TEXT    NOT NULL DEFAULT '',
+    -- v0.605.0. outstanding_bounty_total is debt ALREADY owed, distinct from
+    -- the forward-looking *_tax_total columns above: an unpaid assessment
+    -- becomes an empire bounty and a bountied pilot is detained. It is also not
+    -- purely a tax figure — paying clears that empire's full criminal record.
+    outstanding_bounty_total INTEGER NOT NULL DEFAULT 0,
+    -- True when the server has stopped assessing a fully inactive character.
+    -- Needed to tell "owes nothing" apart from "not being billed".
+    inactivity_exempt        INTEGER NOT NULL DEFAULT 0,
     captured_at              TEXT    NOT NULL DEFAULT ''
+);
+
+-- Per-empire breakdown behind agent_tax.outstanding_bounty_total. Separate
+-- because pay_bounty settles ONE empire at a time, so the per-empire figure is
+-- the payable unit. Replace-set like agent_tax_ships: a settled bounty must
+-- stop appearing, or we chase debts that are already cleared.
+CREATE TABLE IF NOT EXISTS agent_tax_bounties (
+    player_id   TEXT    NOT NULL,
+    empire      TEXT    NOT NULL,
+    bounty      INTEGER NOT NULL DEFAULT 0,
+    captured_at TEXT    NOT NULL DEFAULT '',
+    PRIMARY KEY (player_id, empire)
 );
 
 -- Per-ship assessed value behind agent_tax.assessed_property_value. Kept

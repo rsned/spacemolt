@@ -47,5 +47,9 @@ func CaptureTaxEstimate(ctx context.Context, client game.GameClient, st *Store, 
 		return err
 	}
 
-	return st.ReplaceTaxShips(ctx, playerID, t.Ships, now)
+	if err := st.ReplaceTaxShips(ctx, playerID, t.Ships, now); err != nil {
+		return err
+	}
+
+	return st.ReplaceTaxBounties(ctx, playerID, t.Bounties, now)
 }

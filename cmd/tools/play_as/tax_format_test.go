@@ -123,9 +123,9 @@ func TestFormatTaxBreakdown_UnknownShapeIsShownNotDropped(t *testing.T) {
 
 // realTaxEstimateV605 is a get_tax_estimate reply captured live from explorer-8
 // on 2026-09-14, the day v0.605.0 landed. The three fields the API monitor
-// flagged as new are reproduced verbatim: an agent with 1.8M credits was
-// carrying a 9,267-credit crimson bounty for missed taxes and nothing in our
-// tooling showed it.
+// flagged as new are reproduced verbatim: an agent holding ~136k credits — far
+// more than the 9,267-credit crimson bounty it was carrying — was in debt
+// anyway, and nothing in our tooling showed it.
 const realTaxEstimateV605 = `{
   "action": "get_tax_estimate",
   "assessed_property_value": 829935,
