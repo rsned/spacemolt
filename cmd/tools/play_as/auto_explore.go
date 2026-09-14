@@ -20,6 +20,12 @@ const (
 	// Fuel threshold (percentage) under which we attempt to refuel from
 	// cargo fuel_cells between system hops while NOT docked at a station.
 	autoExploreLowFuelPct = 30.0
+
+	// autoExploreMaxRevisits bounds how often one system may be chosen as the
+	// next hop in a single run before the walk is declared stuck. Three allows
+	// a legitimate there-and-back-again through a corridor hub; a fourth is a
+	// cycle.
+	autoExploreMaxRevisits = 3
 )
 
 // autoExplore drives a tour across multiple systems, running a full explore
@@ -102,6 +108,13 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 	visited := map[string]bool{anchorSystemID: true}
 	systemsExplored := 0
 	currentSystemName := state.System.Name
+	mem := newFrontierMemory()
+	// hopCount detects a walk that is going nowhere. The frontier memory
+	// should prevent it, but a phantom edge deeper in the stored graph — in a
+	// system this run never stands in, so never corrects — can still form a
+	// longer cycle. Burning 200 hops on one is worse than stopping and saying
+	// so.
+	hopCount := map[string]int{}
 
 	// Collect raw responses for non-styled formats
 	var allResponses []json.RawMessage
@@ -142,11 +155,23 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 		}
 
 		// Pick next system.
-		next, reason := pickNextSystem(ctx, state, visited)
+		next, reason := pickNextSystem(ctx, state, visited, mem)
 		if next == "" {
 			if format == formatStyled {
 				fmt.Printf("\n🛑 Stopping: %s\n", reason)
 			}
+			break
+		}
+		hopCount[next]++
+		if hopCount[next] > autoExploreMaxRevisits {
+			if format == formatStyled {
+				fmt.Printf("\n🛑 Stopping: the walk keeps returning to %s (%d times) — %s.\n",
+					next, hopCount[next], reason)
+				fmt.Printf("   That means the target is reachable only over a connection the\n")
+				fmt.Printf("   server does not honor: a phantom edge in the stored graph.\n")
+				fmt.Printf("   Survey the systems on that route to correct it, or explore from elsewhere.\n")
+			}
+
 			break
 		}
 
@@ -284,7 +309,7 @@ func refuelFromCargoIfLow(client game.GameClient, ctx context.Context, format ou
 //
 // Falling back to the old immediate-neighbour behaviour when the KB is
 // unavailable is deliberate: an explorer with no graph should still explore.
-func pickNextSystem(ctx context.Context, state *game.State, visited map[string]bool) (string, string) {
+func pickNextSystem(ctx context.Context, state *game.State, visited map[string]bool, mem *frontierMemory) (string, string) {
 	connections := state.System.Connections
 	if len(connections) == 0 {
 		return "", "no connections from current system"
@@ -304,7 +329,11 @@ func pickNextSystem(ctx context.Context, state *game.State, visited map[string]b
 	if from == "" {
 		from = state.CurrentSystem
 	}
-	adjacency = liveAdjacency(adjacency, from, connections)
+	// Remember it for the rest of the run, not just this hop. Forgetting is
+	// what made the walk oscillate between horizon and first_step: see
+	// frontierMemory.
+	mem.learn(from, connections)
+	adjacency = mem.adjacency(adjacency, from)
 
 	hop, target, jumps, ok := nextHopToward(adjacency, from, elig)
 	if !ok {

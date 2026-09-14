@@ -172,3 +172,84 @@ func loadFrontier(ctx context.Context, visited map[string]bool) (map[string][]st
 
 	return buildAdjacency(conns), elig, nil
 }
+
+// cloneAdjacency copies the adjacency map so a live correction applied to one
+// row cannot be seen by a caller still holding the stored graph.
+func cloneAdjacency(adj map[string][]string) map[string][]string {
+	out := make(map[string][]string, len(adj))
+	for k, v := range adj {
+		out[k] = append([]string(nil), v...)
+	}
+
+	return out
+}
+
+// frontierMemory remembers the AUTHORITATIVE connection list for every system
+// the ship has stood in during this run.
+//
+// It exists because the stored graph carries edges the server no longer honors
+// — phantom rows produced by copied neighbour lists, and one-way rows left by
+// expired wormholes. liveAdjacency corrects the row for the system we are
+// standing in, but that correction used to be discarded on the next hop, and
+// discarding it makes the walk oscillate: each end of a pair believes the
+// eligible target lies behind the other.
+//
+// Observed on explorer-8, 2026-09-14, bouncing horizon <-> first_step for 30+
+// hops of a 200-hop run:
+//
+//	at horizon:    stale gsc_0010 looks 2 jumps away via first_step (phantom)
+//	at first_step: live says no gsc_0010 — but horizon's row is stored again,
+//	               so stale deep_range looks 2 jumps away via horizon (phantom)
+//
+// Keeping the corrections is enough to break it: once both rows are known to
+// be real, neither phantom target is reachable and the walk routes somewhere it
+// can actually get to.
+//
+// Corrections are per-run, not persisted. The stored graph is shared with the
+// rest of the fleet and a single agent's view of one system is not grounds for
+// rewriting it — that is a separate repair with its own evidence bar.
+type frontierMemory struct {
+	rows map[string][]string
+}
+
+func newFrontierMemory() *frontierMemory {
+	return &frontierMemory{rows: make(map[string][]string)}
+}
+
+// learn records what the server says the given system connects to. An empty
+// list is ignored: a system genuinely has neighbours, so an empty reply is a
+// failed read, and trusting it would strand the walk.
+func (m *frontierMemory) learn(systemID string, connections []game.ConnectionInfo) {
+	if m == nil || systemID == "" || len(connections) == 0 {
+		return
+	}
+	ids := make([]string, 0, len(connections))
+	seen := make(map[string]bool, len(connections))
+	for _, c := range connections {
+		if c.SystemID == "" || seen[c.SystemID] {
+			continue
+		}
+		seen[c.SystemID] = true
+		ids = append(ids, c.SystemID)
+	}
+	if len(ids) == 0 {
+		return
+	}
+	m.rows[systemID] = ids
+}
+
+// adjacency overlays every learned row onto the stored graph, leaving the
+// stored graph untouched. `from` is accepted for symmetry with the caller and
+// needs no special handling: it was learned on arrival like any other.
+func (m *frontierMemory) adjacency(stored map[string][]string, from string) map[string][]string {
+	out := cloneAdjacency(stored)
+	if m == nil {
+		return out
+	}
+	for id, row := range m.rows {
+		out[id] = append([]string(nil), row...)
+	}
+	_ = from
+
+	return out
+}
