@@ -424,6 +424,10 @@ type MapSystemData struct {
 	PositionY    float64
 	IsStronghold bool
 	Connections  []string
+	// LastUpdatedTick stamps when this map snapshot was taken, so the lanes it
+	// writes carry an age. The map payload has no tick of its own — the
+	// importer supplies the current one.
+	LastUpdatedTick int64
 }
 
 // POI represents knowledge about a Point of Interest

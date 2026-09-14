@@ -176,13 +176,25 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 		return fmt.Errorf("failed to upsert system: %w", err)
 	}
 
-	// Store connections
+	// Store connections.
+	//
+	// last_updated_tick was written as a literal 0 here and never touched, so
+	// every one of the live table's 2,168 rows read 0 and the column carried no
+	// information. It now stamps when the lane was last OBSERVED, which is what
+	// makes a row's age answerable — the question that could not be answered on
+	// 2026-09-14 when the table was found to be accumulating phantom rows.
+	//
+	// Sticky, like description and is_stronghold above: MAX never moves the
+	// marker backwards, and a capture carrying no tick (a map import) leaves an
+	// existing stamp alone rather than blanking it. MAX is NULL-safe.
 	for _, conn := range sys.Connections {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO connections (from_system, to_system, distance, last_updated_tick)
-			VALUES (?, ?, ?, 0)
-			ON CONFLICT(from_system, to_system) DO UPDATE SET distance = excluded.distance
-		`, sys.ID, conn.SystemID, conn.Distance); err != nil {
+			VALUES (?, ?, ?, ?)
+			ON CONFLICT(from_system, to_system) DO UPDATE SET
+				distance = excluded.distance,
+				last_updated_tick = MAX(connections.last_updated_tick, excluded.last_updated_tick)
+		`, sys.ID, conn.SystemID, conn.Distance, sys.LastUpdatedTick); err != nil {
 			return fmt.Errorf("failed to store connection %s -> %s: %w", sys.ID, conn.SystemID, err)
 		}
 	}
@@ -232,7 +244,15 @@ func (kb *SQLiteKB) UpsertSystemFromMap(ctx context.Context, data MapSystemData)
 	// Delete any stored edge (data.ID -> X) where X is no longer in the map,
 	// otherwise stale topology from prior imports accumulates forever and
 	// corrupts BFS hop counts (e.g. phantom shortcut edges from old galaxy
-	// layouts). Then insert/ignore the current set.
+	// layouts). Then insert the current set.
+	//
+	// This reconciliation is what makes the map self-healing: re-importing all
+	// 505 systems from data/game-api/latest/get_map.json restores the table to
+	// exactly the server's 2,130 edges. It is also the hazard — ⭐🔴 PERMANENT
+	// WORMHOLES ARE NOT PUBLIC MAP EDGES (two are discovered through the
+	// smuggling chain), so if a wormhole lane is ever stored as a connection
+	// row, this DELETE will silently destroy it on the next import. Give such
+	// rows a protected marker BEFORE storing any.
 	if len(data.Connections) == 0 {
 		if _, err := tx.ExecContext(ctx, `
 			DELETE FROM connections WHERE from_system = ?
@@ -256,10 +276,16 @@ func (kb *SQLiteKB) UpsertSystemFromMap(ctx context.Context, data MapSystemData)
 	}
 
 	for _, connID := range data.Connections {
+		// Not INSERT OR IGNORE: that cannot advance the freshness marker on a
+		// lane we already hold, so a re-import would leave every existing row
+		// reading its original age forever. Distance is left alone because the
+		// map does not carry one — only RememberSystem knows it.
 		if _, err := tx.ExecContext(ctx, `
-			INSERT OR IGNORE INTO connections (from_system, to_system, distance, last_updated_tick)
-			VALUES (?, ?, 0, 0)
-		`, data.ID, connID); err != nil {
+			INSERT INTO connections (from_system, to_system, distance, last_updated_tick)
+			VALUES (?, ?, 0, ?)
+			ON CONFLICT(from_system, to_system) DO UPDATE SET
+				last_updated_tick = MAX(connections.last_updated_tick, excluded.last_updated_tick)
+		`, data.ID, connID, data.LastUpdatedTick); err != nil {
 			return fmt.Errorf("failed to store connection %s -> %s: %w", data.ID, connID, err)
 		}
 	}
@@ -989,19 +1015,29 @@ func (kb *SQLiteKB) GetSystems(ctx context.Context) ([]System, error) {
 
 // GetConnections retrieves all system connections (for graph building)
 func (kb *SQLiteKB) GetConnections(ctx context.Context) ([]Connection, error) {
-	// OneWay is derived here rather than stored, because the server never
-	// states it: a row's `distance` gives it away. An ordinary connection
-	// carries the two systems' spatial separation exactly, so a row whose
-	// distance disagrees with the geometry is a wormhole, which may only be
-	// flown in the stored direction. Measured against the live table this
-	// splits cleanly -- 2058 spatial-matching rows, every one of them stored in
-	// both directions, against 17 disagreeing rows, every one stored once.
+	// ⭐🔴 OneWay's geometry heuristic detected PHANTOM ROWS, not wormholes.
+	//
+	// The claim used to be that a row whose distance disagrees with the two
+	// systems' spatial separation must be a wormhole. That was falsified on
+	// 2026-09-14: all 38 disagreeing rows (17 when first measured, growing as
+	// the bug that made them kept running) were copied neighbour lists — a
+	// donor system's distance to a target, written under a different origin, so
+	// of course the geometry does not match. Deleting them left ZERO disagreeing
+	// rows, and the table then matched data/game-api/latest/get_map.json
+	// exactly: 2,130 edges, none missing, none extra.
+	//
+	// So this now evaluates to false for every row, and that is correct:
+	// permanent wormholes exist (two are discovered through the smuggling
+	// chain) but they are POIs — a wormhole_entrance paired to a wormhole_exit
+	// by a shared id suffix — and have never been connection rows. Keep the
+	// derivation as a phantom canary: any row it flags is a lane the server
+	// does not have.
 	//
 	// Rows with distance 0 (never populated) and rows missing either system's
 	// coordinates stay OneWay = false: unknown must not become "directional",
 	// or a half-surveyed region turns unreachable.
 	query := `
-		SELECT c.from_system, c.to_system, c.distance,
+		SELECT c.from_system, c.to_system, c.distance, c.last_updated_tick,
 		       CASE WHEN c.distance > 0
 		             AND f.position_x IS NOT NULL AND t.position_x IS NOT NULL
 		             AND ABS(c.distance -
@@ -1024,7 +1060,7 @@ func (kb *SQLiteKB) GetConnections(ctx context.Context) ([]Connection, error) {
 			c      Connection
 			oneWay int
 		)
-		err := rows.Scan(&c.FromSystem, &c.ToSystem, &c.Distance, &oneWay)
+		err := rows.Scan(&c.FromSystem, &c.ToSystem, &c.Distance, &c.LastUpdatedTick, &oneWay)
 		if err != nil {
 			return nil, fmt.Errorf("scan connection: %w", err)
 		}
