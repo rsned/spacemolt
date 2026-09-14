@@ -176,8 +176,37 @@ Gameplay and economic activity count even without a fresh login, so parked
 agents are not automatically exempt. Existing debt stays due, and skipped taxes
 never come back as a catch-up bill.
 
-### Still blind fleet-wide
-`capture_tax` remains scheduled in **zero roles**, and `agent_tax` has no
-bounty column — so the 9,267 above is a single hand-taken sample, not a fleet
-measurement. Adding the column + scheduling the capture is the open work.
+### ⭐ FIXED `7676685e`: bounties captured, capture_tax scheduled
+- `agent_tax.outstanding_bounty_total` + `agent_tax.inactivity_exempt`
+- new `agent_tax_bounties (player_id, empire, bounty)` — **replace-set**, so a
+  settled bounty's row disappears rather than sending us after cleared debt.
+  Per-empire because `pay_bounty` settles one empire at a time.
+- `capture_tax` now `daily` in **all 13 roles** (was zero; `agent_tax` held 4
+  rows for 172 agents). 7 reads per weekly cycle, 1 query/agent/day.
+- `TaxShortfalls` now counts outstanding debt in what an agent owes. It
+  previously read only the NEXT levy, so an indebted-but-solvent agent read as
+  healthy — exactly the explorer-8 case.
+- `ensureColumn` got its first real caller; verified against a `VACUUM INTO`
+  copy of the live 341MB assets.db.
+
+**Needs the new `bin/worker` + a restart to take effect** — schedule seeding is
+additive at worker start ([[reference_schedule_seeding_is_additive_only]]).
+
+### ⭐🔴 CORRECTION: explorer-8 had ~136k credits, not 1.88M
+The trailing number on the `play_as` status line is the **game TICK**, not
+credits. I read `| 1881906` as a balance; the `pay_bounty` reply a few minutes
+later showed `tick: 1881983` and `credits: 127367` after paying 9,267 — so the
+real balance was ~136,634. Never read credits off the status line; use
+`get_status` or the command reply.
+
+### `pay_bounty` takes NO arguments and clears everything
+Operator-confirmed 2026-09-14. A bare `pay_bounty` settled explorer-8's full
+9,267 crimson debt from the wallet. The reply is the authoritative after-state:
+```json
+{"amount_paid":9267,"credits":127367,"empire":"crimson","paid_from":"wallet",
+ "outstanding_bounties":[],"released_from_detention":false,"reputation_after":20}
+```
+Note `reputation_after: 20` — exactly crimson's `rep_baseline_citizen`. **The
+bounty was suppressing standing**, so clearing it restores baseline rep, not
+just freedom of movement. `PayBountyResponse` already had every field.
 [[reference_citizenship_mechanics]]
