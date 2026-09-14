@@ -2658,9 +2658,11 @@ func formatFacilityFactionList(raw []byte) string {
 	if resp.FactionID != "" {
 		fmt.Fprintf(&b, "    Faction:  %s\n", resp.FactionID)
 	}
-	fmt.Fprintf(&b, "    Storage:  %s cr | %d item type(s) | %d room(s)\n\n",
+	fmt.Fprintf(&b, "    Storage:  %s cr | %d item type(s) | %d room(s)\n",
 		formatCredits(float64(resp.FactionStorage.Credits)),
 		resp.FactionStorage.ItemTypes, resp.FactionStorage.Rooms)
+	b.WriteString(factionRentSummary(resp.FactionFacilities, "    "))
+	b.WriteString("\n")
 
 	if len(resp.FactionFacilities) == 0 {
 		fmt.Fprintln(&b, "  (no faction facilities built)")
@@ -2681,6 +2683,40 @@ func formatFacilityFactionList(raw []byte) string {
 	return b.String()
 }
 
+// factionRentSummary renders the per-cycle and per-day rent totalled over a
+// faction's facilities, mirroring the "Rent (all your facilities)" line that
+// `facility list` gets for free from the server's player_rent block.
+//
+// The faction reply carries no such block, so this is summed client-side from
+// the rows — which means it covers ONLY the station in this response, not the
+// faction's whole estate. The wording has to say so, or a faction with
+// facilities at several stations reads its bill as far smaller than it is.
+//
+// Rows the server reports without a rent figure are excluded from both the
+// total and the count, so the count always describes what was actually summed
+// rather than implying the unpriced ones are free.
+func factionRentSummary(facilities []factionFacilityRow, indent string) string {
+	var perCycle int64
+	var n int
+	for _, f := range facilities {
+		if f.RentPerCycle <= 0 {
+			continue
+		}
+		perCycle += f.RentPerCycle
+		n++
+	}
+	if n == 0 {
+		return ""
+	}
+	noun := "facilities"
+	if n == 1 {
+		noun = "facility"
+	}
+
+	return fmt.Sprintf("%sRent (faction, at this station): %d/cycle, ~%s/day across %d %s\n",
+		indent, perCycle, formatCredits(float64(dailyRent(perCycle))), n, noun)
+}
+
 // facilityLevelOrDefault renders an instance level. The server's facility
 // list response currently omits `level` per-instance (it's in the catalog
 // but not echoed back), defaulting our struct field to 0. Per the catalog,
@@ -2693,13 +2729,20 @@ func facilityLevelOrDefault(level int) int {
 	return level
 }
 
-// dailyRent converts a per-cycle rent value to a per-real-day amount. A
-// rent cycle is 100 game ticks; with SleepTick=10s that's 1000s/cycle,
-// or 86.4 cycles per real-time day. Integer-safe: perCycle * 86400 / 1000.
+// dailyRent converts a per-cycle rent value to a per-real-day amount.
+//
+// A rent cycle is 100 game ticks, which at 10s/tick is 1000s — arithmetically
+// 86.4 cycles per real-time day. The SERVER, however, bills 86. Two
+// independent figures from grand_exchange_station on 2026-09-14 agree exactly:
+// player_rent priced 159/cycle at 13,674/day and faction_rent priced
+// 2,390/cycle at 205,540/day, both ×86. It evidently floors the cycle count.
+//
+// We used 86.4 until then, which overstated every Rent/day cell by 0.47%.
+// Match the server: its number is the one that leaves the treasury.
 func dailyRent(perCycle int64) int64 {
-	const secondsPerCycle = 100 * 10 // 100 ticks × 10s/tick
-	const secondsPerDay = 24 * 60 * 60
-	return perCycle * int64(secondsPerDay) / int64(secondsPerCycle)
+	const cyclesPerDay = 86
+
+	return perCycle * cyclesPerDay
 }
 
 // formatFacilityList renders a plain `facility list` response — the three
@@ -2765,6 +2808,18 @@ func formatFacilityList(raw []byte) string {
 			GraceCycles       int    `json:"grace_cycles"`
 			Note              string `json:"note"`
 		} `json:"player_rent"`
+		// FactionRent is the same aggregate for the faction's facilities at
+		// this station, drawn from the faction treasury rather than the
+		// wallet. Present on `facility list` but NOT on `facility faction_list`,
+		// which has to be totalled client-side.
+		FactionRent struct {
+			Facilities        int    `json:"facilities"`
+			TotalRentPerCycle int64  `json:"total_rent_per_cycle"`
+			EstRentPerDay     int64  `json:"est_rent_per_day"`
+			ArrearsOwed       int64  `json:"arrears_owed"`
+			GraceCycles       int    `json:"grace_cycles"`
+			Note              string `json:"note"`
+		} `json:"faction_rent"`
 		Hint string `json:"hint"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
@@ -2833,6 +2888,26 @@ func formatFacilityList(raw []byte) string {
 			return strings.Compare(a.Name, c.Name)
 		})
 		fmt.Fprintf(&b, "\n  Faction:\n")
+		// The server's own total covers every faction facility at the station
+		// and correctly excludes any whose rent is paused (damaged, under
+		// construction, dismantling) — neither of which a sum of the echoed
+		// rows can know. Fall back to summing only when it is absent.
+		if resp.FactionRent.Facilities > 0 {
+			noun := "facilities"
+			if resp.FactionRent.Facilities == 1 {
+				noun = "facility"
+			}
+			fmt.Fprintf(&b, "    Rent (faction, at this station): %d/cycle, ~%s/day across %d %s\n",
+				resp.FactionRent.TotalRentPerCycle,
+				formatCredits(float64(resp.FactionRent.EstRentPerDay)),
+				resp.FactionRent.Facilities, noun)
+			if resp.FactionRent.ArrearsOwed > 0 {
+				fmt.Fprintf(&b, "    ⚠ Faction arrears owed: %d (grace: %d cycles)\n",
+					resp.FactionRent.ArrearsOwed, resp.FactionRent.GraceCycles)
+			}
+		} else {
+			b.WriteString(factionRentSummary(resp.FactionFacilities, "    "))
+		}
 		renderFactionFacilities(&b, resp.FactionFacilities, "    ")
 	}
 	if len(resp.PublicFacilities) > 0 {
