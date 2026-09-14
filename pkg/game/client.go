@@ -2392,6 +2392,34 @@ func (c *Client) updateTickFromPayload(payload map[string]any) {
 }
 
 // handleResponse updates the game state based on server responses
+// enterSystem points state.System at a newly arrived-in system, discarding the
+// per-system data that belonged to the one just left.
+//
+// A jump arrival carries the new system's id and name and nothing else. Leaving
+// the previous system's Connections and POIs in place makes state.System a
+// chimera — a new id wearing old neighbours — and any capture that runs before
+// the next get_system reply lands writes those neighbours to the KB under the
+// new id. Because the connections upsert never deletes, each one is permanent:
+// by 2026-09-14 the table held 38 such phantom rows across five systems, every
+// one donor-attributable to a system the ship had jumped FROM.
+//
+// Clearing is safe because every reader refreshes first: exploreSystem and
+// KBUpdateSystem both call GetSystem before touching state.System. An empty
+// list makes a capture write nothing, which is strictly better than writing
+// another system's lanes.
+//
+// A repeated arrival frame for the system we are already in changes nothing.
+func (c *Client) enterSystem(id, name string) {
+	if id != "" && id != c.state.System.ID {
+		c.state.System.Connections = nil
+		c.state.System.POIs = nil
+		c.state.System.ID = id
+	}
+	if name != "" {
+		c.state.System.Name = name
+	}
+}
+
 func (c *Client) handleResponse(resp protocol.Response) {
 	// Store raw JSON for key response types (has its own locking)
 	c.storeRawJSON(resp)
@@ -3988,11 +4016,11 @@ func (c *Client) parseTravelAction(payload map[string]any) {
 			c.state.TravelProgress = nil
 			c.state.Doc = false
 			if sysID, ok := payload["system_id"].(string); ok {
-				c.state.System.ID = sysID
+				c.enterSystem(sysID, "")
 				c.state.CurrentSystem = sysID
 			}
 			if sysName, ok := payload["system"].(string); ok {
-				c.state.System.Name = sysName
+				c.enterSystem("", sysName)
 				c.state.CurrentSystem = sysName
 			}
 			if poi, ok := payload["poi"].(string); ok {
@@ -4131,11 +4159,11 @@ func (c *Client) parseActionResult(payload map[string]any) {
 		// Jump arrival may include a new system
 		if command == "jump" {
 			if sysID, ok := result["system_id"].(string); ok {
-				c.state.System.ID = sysID
+				c.enterSystem(sysID, "")
 				c.state.CurrentSystem = sysID
 			}
 			if sysName, ok := result["system"].(string); ok {
-				c.state.System.Name = sysName
+				c.enterSystem("", sysName)
 				c.state.CurrentSystem = sysName
 			}
 		}
