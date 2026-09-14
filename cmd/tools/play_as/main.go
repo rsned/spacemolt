@@ -2103,20 +2103,7 @@ func formatFacilityOwned(raw []byte) string {
 // (gameserver v0.347.0+): the faction's facilities everywhere, with per-run
 // labor cost and any idle reason.
 func formatFacilityFactionOwned(raw []byte) string {
-	var resp struct {
-		FactionID  string `json:"faction_id"`
-		Note       string `json:"note"`
-		Facilities []struct {
-			Name              string `json:"name"`
-			Type              string `json:"type"`
-			BaseName          string `json:"base_name"`
-			SystemID          string `json:"system_id"`
-			LaborPerRun       int    `json:"labor_per_run"`
-			IdleReason        string `json:"idle_reason"`
-			Active            bool   `json:"active"`
-			UnderConstruction bool   `json:"under_construction"`
-		} `json:"facilities"`
-	}
+	var resp serverapi.FacilityFactionOwnedResponse
 	if err := json.Unmarshal(unwrapActionResult(raw), &resp); err != nil {
 		return ""
 	}
@@ -2129,37 +2116,110 @@ func formatFacilityFactionOwned(raw []byte) string {
 	fmt.Fprintf(&b, "🏭 Faction Facilities — %d total | labor %d/run\n", len(resp.Facilities), totalLabor)
 	if len(resp.Facilities) == 0 {
 		fmt.Fprintf(&b, "  (none)\n")
+
 		return b.String()
 	}
 
-	nameW, typeW, baseW := len("Name"), len("Type"), len("Base")
-	for _, f := range resp.Facilities {
-		nameW = max(nameW, len(f.Name))
-		typeW = max(typeW, len(f.Type))
-		baseW = max(baseW, len(f.BaseName))
+	// The treasury's whole bill. total_rent_per_cycle is the server's own and
+	// already excludes paused facilities, so never recompute it from the rows.
+	fmt.Fprintf(&b, "  Rent (all stations): %d/cycle, ~%s/day\n",
+		resp.TotalRentPerCycle, formatCredits(float64(dailyRent(int64(resp.TotalRentPerCycle)))))
+	if resp.ArrearsOwed > 0 {
+		fmt.Fprintf(&b, "  ⚠ Arrears owed: %d (grace: %d cycles before the station repossesses)\n",
+			resp.ArrearsOwed, resp.GraceCycles)
 	}
-	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %5s | Status\n",
-		nameW, "Name", typeW, "Type", baseW, "Base", "Labor")
-	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+--------\n",
-		strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", baseW), strings.Repeat("-", 5))
+
+	// Group by station: the treasury drains wherever the facilities sit, and a
+	// station with fewer facilities can easily be the more expensive half.
+	order := make([]string, 0, len(resp.Facilities))
+	byBase := map[string][]serverapi.FactionOwnedFacilityEntry{}
 	for _, f := range resp.Facilities {
-		status := "active"
-		switch {
-		case f.UnderConstruction:
-			status = "building"
-		case !f.Active:
-			status = "idle"
-			if f.IdleReason != "" {
-				status += " (" + f.IdleReason + ")"
-			}
+		if _, seen := byBase[f.BaseID]; !seen {
+			order = append(order, f.BaseID)
 		}
-		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %5d | %s\n",
-			nameW, f.Name, typeW, f.Type, baseW, f.BaseName, f.LaborPerRun, status)
+		byBase[f.BaseID] = append(byBase[f.BaseID], f)
 	}
+
+	nameW, typeW := len("Name"), len("Type")
+	for _, f := range resp.Facilities {
+		nameW = max(nameW, len(factionOwnedName(f)))
+		typeW = max(typeW, len(f.Type))
+	}
+
+	for _, baseID := range order {
+		rows := byBase[baseID]
+		var subtotal, subLabor int
+		for _, f := range rows {
+			if !factionOwnedPaused(f) {
+				subtotal += f.RentPerCycle
+			}
+			subLabor += f.LaborPerRun
+		}
+		fmt.Fprintf(&b, "\n  %s (%s) — %d/cycle, ~%s/day | labor %d/run\n",
+			rows[0].BaseName, rows[0].SystemID, subtotal,
+			formatCredits(float64(dailyRent(int64(subtotal)))), subLabor)
+		fmt.Fprintf(&b, "    %-*s | %-*s | %10s | %5s | %s\n",
+			nameW, "Name", typeW, "Type", "Rent/cycle", "Labor", "Status")
+		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+-%s-+--------\n",
+			strings.Repeat("-", nameW), strings.Repeat("-", typeW),
+			strings.Repeat("-", 10), strings.Repeat("-", 5))
+		for _, f := range rows {
+			fmt.Fprintf(&b, "    %-*s | %-*s | %10d | %5d | %s\n",
+				nameW, factionOwnedName(f), typeW, f.Type,
+				f.RentPerCycle, f.LaborPerRun, factionOwnedStatus(f))
+		}
+	}
+
 	if resp.Note != "" {
-		fmt.Fprintf(&b, "  %s\n", resp.Note)
+		fmt.Fprintf(&b, "\n  %s\n", resp.Note)
 	}
+	if resp.Hint != "" {
+		fmt.Fprintf(&b, "  💡 %s\n", resp.Hint)
+	}
+
 	return b.String()
+}
+
+// factionOwnedName prefers the operator-assigned name over the generic type
+// name, so a renamed facility shows as "Bob's Iron Smeltery", not "Iron
+// Refinery".
+func factionOwnedName(f serverapi.FactionOwnedFacilityEntry) string {
+	if f.CustomName != "" {
+		return f.CustomName
+	}
+
+	return f.Name
+}
+
+// factionOwnedPaused reports whether rent is currently NOT being billed. The
+// faction_owned entry carries no "active" field — only these pause flags — so
+// anything without one set is live and billing.
+func factionOwnedPaused(f serverapi.FactionOwnedFacilityEntry) bool {
+	return f.Damaged || f.UnderConstruction || f.Dismantling
+}
+
+// factionOwnedStatus renders why a facility is or is not billing. Arrears are
+// appended because a paused facility still owes what it missed.
+func factionOwnedStatus(f serverapi.FactionOwnedFacilityEntry) string {
+	status := "active"
+	switch {
+	case f.UnderConstruction:
+		status = "building"
+	case f.Dismantling:
+		status = "dismantling"
+	case f.Damaged:
+		status = "damaged"
+		if f.RepairCompleteTick > 0 {
+			status = fmt.Sprintf("repairing (until tick %d)", f.RepairCompleteTick)
+		}
+	case f.PowerThrottled:
+		status = "power-throttled"
+	}
+	if f.MissedRentCycles > 0 {
+		status += fmt.Sprintf(" ⚠ %d missed cycle(s)", f.MissedRentCycles)
+	}
+
+	return status
 }
 
 // formatFacilityForSale renders a `facility browse_for_sale` response — the

@@ -1061,6 +1061,52 @@ type FacilityOwnedResponse struct {
 	Rent       FacilityRentSummary `json:"rent"`
 }
 
+// FactionOwnedFacilityEntry is one facility in a FacilityFactionOwnedResponse.
+//
+// Note there is NO "active" field: a facility is billing unless one of the
+// pause flags is set. Rent is not billed while Damaged, UnderConstruction or
+// Dismantling, but the stored RentPerCycle still applies once it resumes and
+// any MissedRentCycles remain owed.
+type FactionOwnedFacilityEntry struct {
+	FacilityID string `json:"facility_id"`
+	Type       string `json:"type"`
+	Name       string `json:"name"`
+	CustomName string `json:"custom_name,omitempty"`
+	BaseID     string `json:"base_id"`
+	BaseName   string `json:"base_name"`
+	SystemID   string `json:"system_id,omitempty"`
+	// RentPerCycle is the stored rate per 100-tick cycle, billed only when no
+	// pause flag is set. Legacy inactive facilities remain billable.
+	RentPerCycle int `json:"rent_per_cycle"`
+	// LaborPerRun is billed to the treasury per production run, on top of rent.
+	LaborPerRun        int  `json:"labor_per_run"`
+	RentalFeePerRun    int  `json:"rental_fee_per_run,omitempty"`
+	ArrearsOwed        int  `json:"arrears_owed,omitempty"`
+	MissedRentCycles   int  `json:"missed_rent_cycles,omitempty"`
+	Damaged            bool `json:"damaged,omitempty"`
+	UnderConstruction  bool `json:"under_construction,omitempty"`
+	Dismantling        bool `json:"dismantling,omitempty"`
+	PowerThrottled     bool `json:"power_throttled,omitempty"`
+	RepairCompleteTick int  `json:"repair_complete_tick,omitempty"`
+}
+
+// FacilityFactionOwnedResponse models `facility action=faction_owned`: every
+// facility the faction owns, across all stations, with the treasury's whole
+// rent bill. The per-station `faction_list` view sees only one station's worth.
+//
+// TotalRentPerCycle counts only facilities with no pause flag set, and excludes
+// existing arrears — ArrearsOwed carries those separately.
+type FacilityFactionOwnedResponse struct {
+	Action            string                      `json:"action"`
+	FactionID         string                      `json:"faction_id"`
+	Facilities        []FactionOwnedFacilityEntry `json:"facilities"`
+	TotalRentPerCycle int                         `json:"total_rent_per_cycle"`
+	ArrearsOwed       int                         `json:"arrears_owed,omitempty"`
+	GraceCycles       int                         `json:"grace_cycles,omitempty"`
+	Note              string                      `json:"note,omitempty"`
+	Hint              string                      `json:"hint,omitempty"`
+}
+
 // FacilityTypesResponse wraps the response from facility action="types" which
 // returns a paginated list of facility type details.
 type FacilityTypesResponse struct {

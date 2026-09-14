@@ -260,6 +260,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	"list":            reflect.TypeOf(serverapi.FacilityListResponse{}), // shipping's "list" too — see actionExtraResponseTypes
 	"browse_for_sale": reflect.TypeOf(serverapi.BrowseForSaleResponse{}),
 	"owned":           reflect.TypeOf(serverapi.FacilityOwnedResponse{}),
+	"faction_owned":   reflect.TypeOf(serverapi.FacilityFactionOwnedResponse{}),
 	"job_list":        reflect.TypeOf(serverapi.CraftQueueListing{}),
 
 	// Wrecks and salvage
