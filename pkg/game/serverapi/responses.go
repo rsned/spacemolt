@@ -2731,6 +2731,35 @@ type GetTaxEstimateResponse struct {
 	MarketLossCarryforward    int64 `json:"market_loss_carryforward,omitempty"`
 	TaxableMarketIncome       int64 `json:"taxable_market_income"`
 	TaxPrepaid                int64 `json:"tax_prepaid"`
+
+	// v0.605.0 folded the weekly statement into this reply.
+	//
+	// InactivityExempt reports that a fully inactive character has stopped
+	// being assessed. Gameplay counts even without a fresh login, and
+	// existing debt stays due — exemption is not forgiveness.
+	//
+	// OutstandingBounties is the consequential one: an unpaid assessment
+	// becomes an empire bounty, and a bountied character gets detained.
+	// PaymentGuidance is the server's own prose on clearing it (pay_bounty
+	// with source=self or source=faction; prepay_tax does NOT clear debt).
+	// LatestStatement is the saved weekly statement for the completed cycle
+	// (v0.605.0's "machine-readable data"), omitted before the first one. It
+	// is a historical record: it does NOT change when an old bounty is later
+	// paid, so current debt comes from OutstandingBounties, never from here.
+	// Left raw to match the other nested blocks in this struct.
+	LatestStatement json.RawMessage `json:"latest_statement,omitempty"`
+
+	InactivityExempt    bool                `json:"inactivity_exempt,omitempty"`
+	OutstandingBounties []OutstandingBounty `json:"outstanding_bounties,omitempty"`
+	PaymentGuidance     string              `json:"payment_guidance,omitempty"`
+}
+
+// OutstandingBounty is one empire's unpaid balance against a character, as
+// reported by get_tax_estimate. Paying it clears that empire's FULL bounty,
+// including non-tax crimes — so the figure is not purely a tax debt.
+type OutstandingBounty struct {
+	Empire string `json:"empire"`
+	Bounty int64  `json:"bounty"`
 }
 
 // FactionTaxEstimateResponse is returned by get_faction_tax_estimate: the

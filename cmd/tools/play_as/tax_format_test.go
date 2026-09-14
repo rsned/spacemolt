@@ -120,3 +120,67 @@ func TestFormatTaxBreakdown_UnknownShapeIsShownNotDropped(t *testing.T) {
 		t.Errorf("empty breakdown should render nothing, got %q", out)
 	}
 }
+
+// realTaxEstimateV605 is a get_tax_estimate reply captured live from explorer-8
+// on 2026-09-14, the day v0.605.0 landed. The three fields the API monitor
+// flagged as new are reproduced verbatim: an agent with 1.8M credits was
+// carrying a 9,267-credit crimson bounty for missed taxes and nothing in our
+// tooling showed it.
+const realTaxEstimateV605 = `{
+  "action": "get_tax_estimate",
+  "assessed_property_value": 829935,
+  "property_tax_total": 8299,
+  "income_tax_total": 0,
+  "taxable_income_to_date": 0,
+  "market_sales_to_date": 0,
+  "market_cost_of_goods_deducted": 0,
+  "market_loss_carryforward": 434933,
+  "taxable_market_income": 0,
+  "tax_prepaid": 0,
+  "tax_collection_active": true,
+  "inactivity_exempt": false,
+  "outstanding_bounties": [{"empire": "crimson", "bounty": 9267}],
+  "payment_guidance": "Pay missed taxes with pay_bounty using empire and source=self (wallet), or source=faction with ManageTreasury permission."
+}`
+
+// TestFormatGetTaxEstimate_ShowsOutstandingBounties: an unpaid tax balance
+// becomes an empire bounty, which gets the character detained. It is the single
+// most consequential number in the reply, so it must not be dropped the way the
+// market basis was.
+func TestFormatGetTaxEstimate_ShowsOutstandingBounties(t *testing.T) {
+	got := formatGetTaxEstimate([]byte(realTaxEstimateV605))
+	for _, want := range []string{
+		"Outstanding bounties",
+		"crimson",
+		"9267",
+		"pay_bounty", // the guidance text names the remedy
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("output is missing %q:\n%s", want, got)
+		}
+	}
+}
+
+// TestFormatGetTaxEstimate_NoBountiesRendersNoSection mirrors the existing
+// empty-breakdown rule: a clean agent must not grow a scary empty table.
+func TestFormatGetTaxEstimate_NoBountiesRendersNoSection(t *testing.T) {
+	got := formatGetTaxEstimate([]byte(realTaxEstimate))
+	if strings.Contains(got, "Outstanding bounties") {
+		t.Errorf("rendered an empty bounty table:\n%s", got)
+	}
+}
+
+// TestFormatGetTaxEstimate_InactivityExemptIsShown: v0.605.0 stops assessing
+// fully inactive characters. We park dozens of agents, so "no bill" needs to be
+// distinguishable from "we failed to read the bill".
+func TestFormatGetTaxEstimate_InactivityExemptIsShown(t *testing.T) {
+	exempt := strings.Replace(realTaxEstimateV605,
+		`"inactivity_exempt": false`, `"inactivity_exempt": true`, 1)
+	got := formatGetTaxEstimate([]byte(exempt))
+	if !strings.Contains(got, "INACTIVE") {
+		t.Errorf("an inactivity-exempt agent is not marked:\n%s", got)
+	}
+	if strings.Contains(formatGetTaxEstimate([]byte(realTaxEstimateV605)), "INACTIVE") {
+		t.Error("an active agent was marked inactivity-exempt")
+	}
+}

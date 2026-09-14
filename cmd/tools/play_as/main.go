@@ -1475,6 +1475,9 @@ func formatGetTaxEstimate(raw []byte) string {
 	if resp.TaxCollectionActive {
 		status = "ACTIVE"
 	}
+	if resp.InactivityExempt {
+		status += " — INACTIVE, not being assessed"
+	}
 	fmt.Fprintf(&b, "=== Tax Estimate (%s) ===\n", status)
 	fmt.Fprintf(&b, "Assessed property:  %d cr (income-to-date: %d cr)\n",
 		resp.AssessedPropertyValue, resp.TaxableIncomeToDate)
@@ -1514,6 +1517,18 @@ func formatGetTaxEstimate(raw []byte) string {
 	b.WriteString(formatTaxBreakdown("Property tax by empire", resp.PropertyTax))
 	b.WriteString(formatTaxBreakdown("Income tax by empire", resp.IncomeTax))
 	b.WriteString(formatAssessedPropertyByShip(resp.AssessedPropertyByShip))
+
+	// An unpaid assessment becomes an empire bounty and the character gets
+	// detained, so this outranks everything above it.
+	if len(resp.OutstandingBounties) > 0 {
+		fmt.Fprintf(&b, "\nOutstanding bounties (UNPAID — detention risk):\n")
+		for _, ob := range resp.OutstandingBounties {
+			fmt.Fprintf(&b, "  %-12s %8d cr\n", ob.Empire, ob.Bounty)
+		}
+		if resp.PaymentGuidance != "" {
+			fmt.Fprintf(&b, "  %s\n", resp.PaymentGuidance)
+		}
+	}
 
 	if resp.Note != "" {
 		fmt.Fprintf(&b, "\nNote: %s\n", resp.Note)
