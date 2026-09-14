@@ -210,3 +210,60 @@ Note `reputation_after: 20` — exactly crimson's `rep_baseline_citizen`. **The
 bounty was suppressing standing**, so clearing it restores baseline rep, not
 just freedom of movement. `PayBountyResponse` already had every field.
 [[reference_citizenship_mechanics]]
+
+## ⭐ Official guide: https://spacemolt.com/docs/guides/taxes (read 2026-09-14)
+
+### What is taxable income — six categories only
+mission rewards (incl. distress) · market sales (incl. exchange fills) ·
+salvaged wreck sales · ship sales · facility sales · rescue payouts.
+
+**NOT taxable: gifts, refunds, insurance payouts, faction treasury subsidies.**
+That is why our gift-based funding and rescue transfers cost nothing in tax.
+Mining is not itself taxable — only the market *sale* of the ore is.
+
+Market purchases and carried losses **offset market sales ONLY**, never the
+other five categories. Unused deduction carries into the next period.
+
+### Property tax
+Hull **and fitted modules** of every owned ship, **including stored ships**.
+Cargo and loose items excluded. Module value is estimated crafting material
+cost; **uncraftable modules contribute zero**. Each citizenship empire assesses
+the full fleet **independently, with no foreign-tax credit** — a second
+citizenship doubles the bill. (Income tax *does* get foreign-tax credits.)
+
+### Cycle and collection order
+Weekly, following game ticks; Sunday currently, but downtime and tick duration
+shift it. **Income is collected before property.** Prepaid credits are spent
+before wallet credits, and unused prepayment returns to the wallet after.
+When funds are short, each pass **divides available credits proportionally
+among the assessing empires**. Unpaid personal tax **creates a delinquency
+crime** — which is why an outstanding bounty is never purely a tax figure.
+
+### ⭐🔴 Detention is triggered by DOCKING
+> "Docking at a non-pirate empire base triggers collection of your bounty with
+> that empire. If you cannot cover that bounty, detention can follow."
+
+So a bountied agent is not seized in flight — it is seized when it docks at a
+non-pirate base. A broke, bountied agent is safest staying undocked or at a
+pirate base until funded.
+
+### pay_bounty — the omit-empire rule
+Requires the **FULL** outstanding bounty for that empire; **no partial
+payments**. `{"empire":"solarian"}`, or `{"empire":"solarian","source":"faction"}`
+for the treasury. **`empire` may be omitted only when exactly ONE empire has an
+outstanding bounty** — that is why a bare `pay_bounty` cleared explorer-8. An
+agent owing two empires must name each one.
+
+### Inactivity exemption — stricter than it sounds
+Judged on **activity during the assessment period, not login age**.
+Counts: repeated travel routes, mining, trading, crafting, faction management,
+standing-order fills, completed queued production.
+**Does NOT count: login alone, automatic rent, incoming gifts, passive skill
+advancement.** Begins only after one full tracked period. Skipped weeks never
+come back as a catch-up bill, but existing unpaid tax stays due.
+
+### Faction tax is walled off from members
+Domicile empire taxes worldwide profit; empires hosting faction facilities tax
+locally sourced profit. Deductible: eligible market purchases, treasury-funded
+facility construction and upgrades, facility rent. **Unpaid corporate tax
+carries as faction debt and never becomes a member's personal bounty.**

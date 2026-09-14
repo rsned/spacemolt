@@ -29,6 +29,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
     idle: resident_market
     idle_params:
       N: "20"
@@ -48,6 +49,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_gas); see resident note
   resident_ice:
     schedule:
@@ -62,6 +64,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
     idle: resident_market  # PAUSED 2026-06-30 (was idle_ice); see resident note
   explorer:
     schedule:
@@ -70,6 +73,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
     idle: explore
   # The asset captures are the only schedule a miner carries: everything else a
   # miner does is idle-loop work, but the ledger is meant to cover every agent,
@@ -91,6 +95,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
       - { every: hourly, command: "capture_fuel" }
     idle: idle_mine
   hauler:
@@ -99,6 +104,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
     idle: haul
   shuttle:
     schedule:
@@ -106,6 +112,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
     idle: shuttle
   assist:
     schedule:
@@ -113,6 +120,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
     idle: assist
   craftsman:
     schedule:
@@ -123,6 +131,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
       # Ore -> component conversion, moved here 2026-09-12 from the resident
       # and miner roles, where it could not work: these recipes need a mill,
       # and remote belt/gas stations have none (marketbot_010 -- 68,396 iron --
@@ -158,6 +167,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
     idle: hunt
   missionrunner:
     idle_ticks: 2  # POOL ROLE — half idle rate, see the header note
@@ -169,6 +179,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
     idle: missions
   # Ledger-only. The agent logs in, captures itself, and does nothing else:
   # there is deliberately no `idle:` key, so no idle script ever runs and the
@@ -188,6 +199,7 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
   # Pirate-reputation UNLOCK pool. Mission running with one objective: complete
   # smuggling chain 2 mission 1 (`an_introduction`), which raises the pirate
   # baseline from the -30 hostile default to 10. At baseline 10 an agent can dock
@@ -212,4 +224,5 @@ roles:
       - { every: daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
     idle: missions

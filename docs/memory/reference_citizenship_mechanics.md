@@ -12,7 +12,32 @@ mutable, multi-valued* membership. Counting `agent_profile.empire` tells you
 birthrights, NOT who taxes whom.
 
 **Income and property tax are assessed by every empire you hold citizenship
-in.** Holding zero ("stateless") is legal and does NOT mean paying nothing.
+in.**
+
+## ⭐🔴 CORRECTION 2026-09-14: STATELESS OWES NO PERSONAL INCOME OR PROPERTY TAX
+
+This file previously said holding zero citizenships "does NOT mean paying
+nothing". **That was wrong.** The official guide
+(https://spacemolt.com/docs/guides/taxes) states plainly:
+
+> "Stateless characters owe no personal income or property tax."
+
+Which is also the plain reading of the live `citizenship list` rules text
+already quoted below — no empires hold you, so no empire assesses you. Only
+**sales tax** still applies to the stateless, at each empire's third (worst)
+rate, paid per transaction rather than weekly.
+
+**Strategic consequence:** renouncing is not a step on the way to another
+citizenship, it is a destination. An agent that mostly holds hulls and rarely
+sells pays *less* stateless than under any empire. We carry ~170 idle hulls
+being property-taxed weekly for producing nothing.
+
+**Property tax has NO foreign-tax credit** — "each citizenship empire assesses
+the full fleet value independently". Income tax does get credits between
+assessments; property does not. So a second citizenship *doubles* the property
+bill outright. This makes the exclusivity asymmetry below worse than recorded:
+`apply outerrim` while holding crimson means paying BOTH fleets' worth of
+property tax until the renounce lands.
 
 ## The command
 `citizenship` with `action` = list | apply | renounce | withdraw.
@@ -83,10 +108,20 @@ restarted; we are WAITING, not switching.** Nothing is bleeding: the fee is 0,
 so a stalled petition costs only the opportunity.
 
 Meanwhile explorer-7 remains crimson-only, i.e. on the most expensive rates in
-the game (10% income, 1.0% property). If the bug does not move it, **voidborn
-is the fallback** — the only auto-approve empire, free and ungated, granting on
-the spot. Same renounce-crimson step afterwards either way, since neither
-outerrim nor voidborn is exclusive.
+the game (10% income, 1.0% property).
+
+**Reconsider the whole plan given the stateless correction above.** Three
+options, not two:
+1. wait for outerrim → then renounce crimson (1.5% / 0.25%)
+2. voidborn (auto-approve, instant) → then renounce crimson
+3. **`renounce crimson` and stop there** — zero personal income and property
+   tax, only per-transaction sales tax at the stateless rate
+
+For an agent that flies and holds hulls rather than trading, (3) is cheapest
+and needs no one's approval. Price the stateless sales-tax rate against the
+citizen rate before committing for market-facing agents — crimson citizens pay
+**0.00%** sales tax at crimson stations (seen live on explorer-8), so a heavy
+seller inside its own empire can be better off a citizen.
 
 ⭐ Check it with `citizenship action=list` — a free query, no tick. On a live
 fleet worker, SIGSTOP the worker first or the session is replaced mid-command.
