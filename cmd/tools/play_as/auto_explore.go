@@ -98,9 +98,11 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 		fmt.Printf("\n   Max hops: %d\n", maxHops)
 		// Coverage, not position, is what the walk is steering by now, so
 		// report that instead of the anchor's coordinates.
-		if surveyed, total, ok := surveyCoverage(ctx); ok {
-			fmt.Printf("   Coverage: %d of %d systems surveyed (%.0f%%)\n",
-				surveyed, total, 100*float64(surveyed)/float64(total))
+		if ever, fresh, eligible, total, ok := surveyCoverage(ctx); ok {
+			fmt.Printf("   Coverage: %d of %d ever surveyed (%.0f%%), %d still fresh\n",
+				ever, total, 100*float64(ever)/float64(total), fresh)
+			fmt.Printf("   To visit: %d eligible (never surveyed, or older than %s)\n",
+				eligible, (time.Duration(game.FreshnessSystem) * time.Second))
 		}
 		fmt.Println()
 	}
@@ -387,18 +389,47 @@ func systemPosition(ctx context.Context, systemID string) (game.Position, bool) 
 // surveyCoverage reports how much of the known galaxy has been surveyed, for
 // the opening line of an auto-explore run. Best-effort: a KB that cannot answer
 // produces no line rather than an error.
-func surveyCoverage(ctx context.Context) (surveyed, total int, ok bool) {
+func surveyCoverage(ctx context.Context) (ever, fresh, eligible, total int, ok bool) {
 	if globalKB == nil {
-		return 0, 0, false
+		return 0, 0, 0, 0, false
 	}
 	systems, err := globalKB.GetSystems(ctx)
 	if err != nil || len(systems) == 0 {
-		return 0, 0, false
+		return 0, 0, 0, 0, false
 	}
 	seen, err := knowledge.SystemsLastSurveyed(ctx, globalKB)
 	if err != nil {
-		return 0, 0, false
+		return 0, 0, 0, 0, false
+	}
+	ever, fresh, eligible = coverageCounts(len(systems), seen, time.Now().UTC())
+
+	return ever, fresh, eligible, len(systems), true
+}
+
+// coverageCounts splits "surveyed" into the two different questions the banner
+// used to conflate.
+//
+// ever is how many systems have ANY survey on record; fresh is how many were
+// surveyed inside game.FreshnessSystem. eligible — total minus fresh — is the
+// one that matters, because it is what systemEligible.eligible actually
+// targets: a system surveyed a fortnight ago is as much a destination as one
+// never visited.
+//
+// Reporting only `ever` read as near-done when it was not. On 2026-09-14 the
+// banner said "406 of 505 surveyed (80%)" while 425 of those 505 were eligible
+// to visit — an operator would reasonably read 99 systems left, not 425.
+func coverageCounts(total int, surveyed map[string]time.Time, now time.Time) (ever, fresh, eligible int) {
+	ever = len(surveyed)
+	cutoff := time.Duration(game.FreshnessSystem) * time.Second
+	for _, at := range surveyed {
+		if now.Sub(at) < cutoff {
+			fresh++
+		}
+	}
+	eligible = total - fresh
+	if eligible < 0 {
+		eligible = 0
 	}
 
-	return len(seen), len(systems), true
+	return ever, fresh, eligible
 }
