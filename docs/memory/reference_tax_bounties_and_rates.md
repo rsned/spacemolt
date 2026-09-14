@@ -136,3 +136,48 @@ cheapest observability gap to close: one daily query per agent. Adding it is
 additive, so it takes effect at the next natural restart with no deploy of its
 own — see [[reference_schedule_seeding_is_additive_only]] (removals are the
 thing that does not propagate).
+
+## ⭐🔴 v0.605.0 (2026-09-14): unpaid tax shows up as a BOUNTY, and we were blind to it
+
+`get_tax_estimate` gained four fields, all now on `GetTaxEstimateResponse`
+(absorbed `a4bd05cd`, `BuiltForAPIVersion` → v0.605.0):
+
+| field | meaning |
+|---|---|
+| `outstanding_bounties` | `[{empire, bounty}]` — **current** debt. The one that matters. |
+| `payment_guidance` | server prose naming `pay_bounty` as the remedy |
+| `inactivity_exempt` | fully inactive characters stop being assessed |
+| `latest_statement` | last completed weekly cycle; **historical, does not change when an old bounty is paid** |
+
+**Read current debt ONLY from `outstanding_bounties`.** `latest_statement` is a
+frozen record of a finished cycle and will keep showing the old unpaid figure
+after you clear it.
+
+### The finding: having money does not mean you are paid up
+`explorer-8` on 2026-09-14 held **1,881,906 credits** and was carrying a
+**9,267-credit crimson bounty** anyway. It had *also* paid its property
+assessment (`owed 8299 / paid 0 / unpaid 0` on the current cycle). So a bounty
+is not simply "this week's bill went unpaid" — and per the server's own
+guidance, **paying clears that empire's FULL bounty including non-tax crimes**,
+so the figure is not purely a tax debt. Do not report it as one.
+
+Before v0.605 nothing in our tooling could have shown this: there was no field.
+`play_as get_tax_estimate` now prints an "Outstanding bounties (UNPAID —
+detention risk)" table ahead of the Note.
+
+### Clearing it
+`pay_bounty` with `empire` + `source=self` (wallet) or `source=faction`
+(needs ManageTreasury). **Works remotely and while detained; docking is not
+required.** `prepay_tax` reserves credits against the NEXT assessment and does
+**not** touch existing debt — do not confuse the two.
+
+### Inactivity exemption is not forgiveness
+Gameplay and economic activity count even without a fresh login, so parked
+agents are not automatically exempt. Existing debt stays due, and skipped taxes
+never come back as a catch-up bill.
+
+### Still blind fleet-wide
+`capture_tax` remains scheduled in **zero roles**, and `agent_tax` has no
+bounty column — so the 9,267 above is a single hand-taken sample, not a fleet
+measurement. Adding the column + scheduling the capture is the open work.
+[[reference_citizenship_mechanics]]

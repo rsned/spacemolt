@@ -16,6 +16,29 @@ marketbot_bellatrix   marketbot_gliese_581  marketbot_gsc_0008
 marketbot_sheratan    marketbot_xamidimura  marketbot_zaniah
 ```
 
+## ⭐🔴 STALE 2026-07-25 → CORRECTED 2026-09-14: all nine are now IN mb-fleet
+
+Re-checked 2026-09-14: every one of the nine appears in
+`data/overmind/mb-fleet.yaml` as a `resident`. **None is dormant any more.**
+Driving one with `play_as` kills the live worker's session
+(`StatusCode(4001) session_replaced`) — confirmed the hard way on
+`marketbot_algol`; the worker won the race and reconnected, but it cost a
+login during a period when we are managing an IP budget.
+
+**Before using ANY of these, re-run the membership check, don't trust this
+list:**
+```
+for a in marketbot_algol marketbot_alhena ... ; do
+  grep -l "agent_id: $a\b" data/overmind/*-fleet.yaml || echo "$a DORMANT"; done
+```
+A genuinely free agent is one pulled via a `<fleet>-overrides.json` removed-set
+with no `bin/worker` process — e.g. `explorer-8` on 2026-09-14
+(`pgrep -af '[b]in/worker.*explorer-8'` empty). Use one of those instead.
+
+---
+
+The original 2026-07-25 note follows, kept for the smuggling thresholds:
+
 All nine verified 2026-07-25: `data/agents/<id>/` exists **with `credentials.json`**, and none appear in any `data/overmind/*-fleet.yaml` — they are **dormant, not fleet-managed**. That means no supervisor owns their game session, so `go run ./cmd/tools/play_as <id>` can drive them directly with **no SIGSTOP/freeze dance** (unlike a live worker — see [[feedback_play_as_go_run]]).
 
 **Why this matters:** smuggling progression is per-character, and until now `engineer-2` was the single smuggling pilot — parked out of the mission-learn fleet precisely so it could be driven by hand. These nine give parallel capacity to grind the tier chain without pulling any earner out of a fleet.
