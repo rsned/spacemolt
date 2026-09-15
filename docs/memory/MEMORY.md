@@ -174,6 +174,7 @@
 - [Reconnect wakes on input](project_reconnect_wake_on_input.md) — bounded burst then dormant, woken by REPL input
 
 ## Gotchas — code & data
+- ⭐🔴 [SimpleHandler drops EVERY push](reference_simplehandler_drops_every_push.md) — combat/death/warnings decoded then discarded; invisible without set_debug. Fixed in play_as only (`fe600938`); 15 other binaries incl. the worker still blind
 - ⭐ [storeRawJSON key drift](reference_rawjson_key_drift.md) — cache keys reachable only via the action switch die when a reply omits `action`. Audit the rest
 - [Missions() vacuous-test trap](reference_missions_vacuous_test_trap.md) — bare `&game.State{}` early-returns before the code under test
 - [GameClock drifts forward](reference_gameclock_forward_drift.md) — syncs FORWARD only; no tight timeouts from it
