@@ -428,6 +428,16 @@ type OwnedShip struct {
 	IsActive bool   `json:"is_active"`
 }
 
+// WreckSite is where a destroyed ship left its cargo, plus where the pilot
+// came back. Reported by the player_died event.
+type WreckSite struct {
+	SystemID    string
+	SystemName  string
+	POIID       string
+	POIName     string
+	RespawnBase string
+}
+
 // State represents the current game state
 type State struct {
 	Mu             sync.Mutex
@@ -439,6 +449,18 @@ type State struct {
 	Traveling      bool
 	TravelProgress *TravelProgress // nil when not traveling
 	ServerVersion  string          // Server API version
+
+	// Died is set when the server reports this character destroyed and stays
+	// set until the caller clears it. Automation must be able to tell a death
+	// from an ordinary command error: auto-explore treated them alike and so
+	// kept touring a system it was no longer in after explorer-8 was killed at
+	// Fuyue on 2026-09-14.
+	Died bool
+	// LastWreck is where the destroyed ship's cargo went. The server began
+	// reporting it with player_died (wreck_system_id / wreck_poi_id and their
+	// names), and it is the only record of the loss location — without it the
+	// cargo is simply gone.
+	LastWreck WreckSite
 
 	// Player data
 	Player  Player
@@ -619,6 +641,8 @@ func (s *State) Clone() *State {
 		CurrentSystem:   s.CurrentSystem,
 		CurrentPOI:      s.CurrentPOI,
 		Traveling:       s.Traveling,
+		Died:            s.Died,
+		LastWreck:       s.LastWreck,
 		ServerVersion:   s.ServerVersion,
 		Credits:         s.Credits,
 		Fuel:            s.Fuel,

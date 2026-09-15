@@ -126,6 +126,29 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 			fmt.Printf("━━━ Hop %d/%d: exploring %s ━━━\n", hop+1, maxHops, currentSystemName)
 		}
 
+		// A death is not a recoverable error. The ship is gone, the pilot is
+		// somewhere else entirely, and the tour's premise no longer holds —
+		// continuing is how explorer-8 kept "exploring Fuyue" after it was
+		// destroyed there and respawned at war_citadel.
+		if st := client.GetState(); st != nil && st.Died {
+			if format == formatStyled {
+				fmt.Printf("\n💀 Stopping: destroyed. ")
+				if w := st.LastWreck; w.SystemID != "" {
+					fmt.Printf("Wreck at %s in %s", firstNonEmpty(w.POIName, w.POIID),
+						firstNonEmpty(w.SystemName, w.SystemID))
+					if w.RespawnBase != "" {
+						fmt.Printf("; respawned at %s", w.RespawnBase)
+					}
+					fmt.Println(".")
+				} else {
+					fmt.Println()
+				}
+				fmt.Printf("   %d system(s) toured. Recover the cargo before re-running.\n", systemsExplored)
+			}
+
+			return nil
+		}
+
 		if err := exploreSystem(client, ctx, true, stopOnUnscanned, format); err != nil {
 			var halt *unscannedHalt
 			if errors.As(err, &halt) {
@@ -139,6 +162,16 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 					fmt.Printf("   (%d system(s) toured; rerun auto_explore to continue, or --no-stop-unscanned to tour through.)\n",
 						systemsExplored+1)
 				}
+				return nil
+			}
+			if isInBattle(err) {
+				if format == formatStyled {
+					fmt.Printf("\n⚔️  Stopping: in combat — %v\n", err)
+					fmt.Printf("   auto-explore has no combat code and will not fly a losing fight.\n")
+					fmt.Printf("   Use `battle` to fight or flee, then re-run. (%d system(s) toured.)\n",
+						systemsExplored+1)
+				}
+
 				return nil
 			}
 			if format == formatStyled {
@@ -201,6 +234,15 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 		}
 		result, err := client.Jump(ctx, next)
 		if err != nil {
+			if isInBattle(err) {
+				if format == formatStyled {
+					fmt.Printf("\n⚔️  Stopping: in combat, cannot jump — %v\n", err)
+					fmt.Printf("   Use `battle` to fight or flee, then re-run.\n")
+				}
+
+				return nil
+			}
+
 			return fmt.Errorf("jump to %s failed: %w", next, err)
 		}
 		if result != nil && result.Canceled {
@@ -432,4 +474,33 @@ func coverageCounts(total int, surveyed map[string]time.Time, now time.Time) (ev
 	}
 
 	return ever, fresh, eligible
+}
+
+// firstNonEmpty returns the first non-empty string, for preferring a display
+// name over an id without repeating the check at every call site.
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+
+	return ""
+}
+
+// isInBattle reports whether an error is the server refusing an action because
+// the ship is in combat.
+//
+// The tour must stop on this rather than retry. auto-explore has no combat
+// code, and fight-or-flee is not a judgement a survey walk can make — but
+// "(continuing)" turns every refusal into another doomed attempt. explorer-8
+// was killed at Fuyue on 2026-09-14 doing exactly that: travel refused, POI
+// travel refused, jump to taygeta refused, then destroyed.
+func isInBattle(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.Contains(err.Error(), "in_battle") ||
+		strings.Contains(err.Error(), "while in combat")
 }

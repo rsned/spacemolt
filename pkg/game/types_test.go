@@ -98,6 +98,12 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 			ArrivalTick: 99999,
 		},
 		ServerVersion: "0.100.3",
+		Died:          true,
+		LastWreck: WreckSite{
+			SystemID: "fuyue", SystemName: "Fuyue",
+			POIID: "fuyue_i", POIName: "Fuyue I",
+			RespawnBase: "war_citadel",
+		},
 		Player: Player{
 			ID:            "player-abc",
 			Username:      "TestPlayer",

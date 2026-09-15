@@ -602,7 +602,13 @@ var eventExpectedFields = map[string]map[string]bool{
 		"ship_lost":        true,
 		"new_ship_class":   true,
 		"wreck_id":         true,
-		"combat_log":       true,
+		// v0.605-era addition: where the wreck actually is, so the cargo can
+		// be recovered rather than merely mourned.
+		"wreck_poi_id":      true,
+		"wreck_poi_name":    true,
+		"wreck_system_id":   true,
+		"wreck_system_name": true,
+		"combat_log":        true,
 	},
 	protocol.TypeBattleStarted: {
 		"battle_id":    true,

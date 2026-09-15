@@ -2878,6 +2878,38 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.state.PirateTier = ""
 		c.state.PirateID = ""
 		c.state.LastDamage = 0
+
+		// Death RELOCATES the pilot, and the event says where the wreck is but
+		// not, reliably, where the clone woke up. Everything we hold about the
+		// current system therefore describes a place we are no longer in, so
+		// drop it rather than guess: every reader calls GetSystem before using
+		// System, and an empty list writes nothing instead of writing another
+		// system's data (the same rule as enterSystem).
+		//
+		// Leaving it stale is what kept explorer-8's status line reading
+		// fuyue_i after it respawned at war_citadel, and kept auto-explore
+		// touring a system it had already left.
+		c.state.System = SystemData{}
+		c.state.CurrentSystem = ""
+		c.state.CurrentPOI = ""
+		c.state.Traveling = false
+		c.state.TravelProgress = nil
+		c.state.Doc = false
+		c.state.Died = true
+
+		// The wreck holds whatever the ship was carrying. This is the only
+		// notice of where it went.
+		w := WreckSite{}
+		w.SystemID, _ = resp.Payload["wreck_system_id"].(string)
+		w.SystemName, _ = resp.Payload["wreck_system_name"].(string)
+		w.POIID, _ = resp.Payload["wreck_poi_id"].(string)
+		w.POIName, _ = resp.Payload["wreck_poi_name"].(string)
+		if base, ok := resp.Payload["respawn_base"].(string); ok {
+			w.RespawnBase = base
+		} else if at, ok := resp.Payload["respawn_at"].(string); ok {
+			w.RespawnBase = at
+		}
+		c.state.LastWreck = w
 		c.mu.Unlock()
 
 	case protocol.TypeCombatUpdate:
