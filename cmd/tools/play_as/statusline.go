@@ -10,16 +10,17 @@ import (
 
 // ANSI color codes.
 const (
-	ansiReset       = "\033[0m"
-	ansiRed         = "\033[31m"
-	ansiBrightRed   = "\033[91m"
-	ansiYellow      = "\033[33m"
-	ansiGreen       = "\033[32m"
-	ansiBrightGreen = "\033[92m"
-	ansiMagenta     = "\033[35m"
-	ansiCyan        = "\033[36m"
-	ansiWhite       = "\033[37m"
-	ansiGray        = "\033[90m"
+	ansiReset        = "\033[0m"
+	ansiRed          = "\033[31m"
+	ansiBrightRed    = "\033[91m"
+	ansiYellow       = "\033[33m"
+	ansiBrightYellow = "\033[93m"
+	ansiGreen        = "\033[32m"
+	ansiBrightGreen  = "\033[92m"
+	ansiMagenta      = "\033[35m"
+	ansiCyan         = "\033[36m"
+	ansiWhite        = "\033[37m"
+	ansiGray         = "\033[90m"
 )
 
 // colorCode maps color names from config to ANSI escape sequences.

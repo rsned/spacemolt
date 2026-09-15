@@ -427,6 +427,22 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 				fmt.Printf("\r\033[36m🔨 %s\033[0m\n", line)
 			}
 		})
+
+		// Server pushes — the combat family above all — are decoded by the
+		// client and then logged at debug level only, so a session watching a
+		// fight saw nothing but its own command echoes until `set_debug true`.
+		// Render them above the prompt instead. `set_events off` mutes them.
+		showPushEvents.Store(true)
+		wsClient.SetOnPushEvent(func(resp protocol.Response) {
+			if !showPushEvents.Load() {
+				return
+			}
+			selfID := ""
+			if st := wsClient.GetState(); st != nil {
+				selfID = st.Player.ID
+			}
+			printPushEvent(resp, selfID)
+		})
 	}
 
 	format := outputFormat(cfg.OutputFormat)
@@ -601,6 +617,28 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			continue
 		}
 
+		// Handle set_events (toggle server push rendering at runtime). Long
+		// battles push a battle_update plus a battle_damage every tick, which
+		// is exactly what you want while fighting and noise while scripting.
+		if command == "set_events" {
+			if len(parts) < 2 {
+				fmt.Printf("Server push events are %s\n", enabledWord(showPushEvents.Load()))
+				fmt.Println("Usage: set_events <true|false|on|off>")
+				fmt.Println()
+				continue
+			}
+			enabled, perr := parseOnOff(parts[1])
+			if perr != nil {
+				fmt.Printf("set_events: unrecognized value %q (use true/false/on/off)\n", parts[1])
+				fmt.Println()
+				continue
+			}
+			showPushEvents.Store(enabled)
+			fmt.Printf("Server push events %s\n", enabledWord(enabled))
+			fmt.Println()
+			continue
+		}
+
 		// Handle set_debug (toggle game client debug logging at runtime).
 		if command == "set_debug" {
 			toggler, ok := client.(interface{ SetDebugLogging(bool) })
@@ -614,27 +652,14 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 				fmt.Println()
 				continue
 			}
-			var enabled bool
-			switch strings.ToLower(parts[1]) {
-			case "on":
-				enabled = true
-			case "off":
-				enabled = false
-			default:
-				b, perr := strconv.ParseBool(parts[1])
-				if perr != nil {
-					fmt.Printf("set_debug: unrecognized value %q (use true/false/on/off)\n", parts[1])
-					fmt.Println()
-					continue
-				}
-				enabled = b
+			enabled, perr := parseOnOff(parts[1])
+			if perr != nil {
+				fmt.Printf("set_debug: unrecognized value %q (use true/false/on/off)\n", parts[1])
+				fmt.Println()
+				continue
 			}
 			toggler.SetDebugLogging(enabled)
-			if enabled {
-				fmt.Println("Debug logging enabled")
-			} else {
-				fmt.Println("Debug logging disabled")
-			}
+			fmt.Printf("Debug logging %s\n", enabledWord(enabled))
 			fmt.Println()
 			continue
 		}
@@ -10401,6 +10426,7 @@ func printHelp() {
 	fmt.Println("  view_scheduled            - List scheduled commands")
 	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
 	fmt.Println("  set_debug <true|false>    - Toggle game client debug logging at runtime")
+	fmt.Println("  set_events <true|false>   - Toggle rendering of server push events (combat, deaths, warnings)")
 	fmt.Println("  help                      - Show this help")
 	fmt.Println("  exit, quit                - Exit terminal")
 	fmt.Println()
