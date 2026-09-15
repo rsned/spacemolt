@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -193,5 +194,128 @@ func TestLoadCampaignParsesAmmoAndReloadEvery(t *testing.T) {
 	}
 	if ammo := d.FitB.Ammo["missile_launcher_i"]; ammo != "missile_standard" {
 		t.Errorf("FitB ammo for missile_launcher_i = %q, want missile_standard", ammo)
+	}
+}
+
+// --- modes ----------------------------------------------------------------
+
+// arenaCampaign exercises the v0.586.0 geography: a real arena POI in
+// Krynn for consequence-free scenarios, lawless Ashford for the ones that
+// measure flee (which forfeits in the arena) or the emergency modules
+// (which never trigger there).
+const arenaCampaign = `{
+  "arena_system": "krynn",
+  "arena_poi": "blood_arena",
+  "lawless_system": "ashford",
+  "staging_system": "sys_x",
+  "staging_station": "station_x",
+  "default_mode": "arena",
+  "duels": [{
+    "id": "S7-armor-4", "attacker": "battle_bot1",
+    "fit_a": {"hull": "prospect"}, "fit_b": {"hull": "prospect"},
+    "script": [{"from_tick": 1, "stance_a": "fire", "stance_b": "brace"}],
+    "max_ticks": 36, "repeats": 1
+  }, {
+    "id": "S6a-flee-base", "attacker": "battle_bot1", "mode": "lawless",
+    "fit_a": {"hull": "prospect"}, "fit_b": {"hull": "prospect"},
+    "script": [{"from_tick": 1, "stance_a": "fire", "stance_b": "flee"}],
+    "max_ticks": 30, "repeats": 1
+  }]
+}`
+
+func TestDuelModeResolution(t *testing.T) {
+	c, err := LoadCampaign(writeCampaign(t, arenaCampaign))
+	if err != nil {
+		t.Fatalf("LoadCampaign: %v", err)
+	}
+	if got := c.ModeOf(c.Duels[0]); got != ModeArena {
+		t.Errorf("S7 mode = %q, want arena (from default_mode)", got)
+	}
+	if got := c.ModeOf(c.Duels[1]); got != ModeLawless {
+		t.Errorf("S6a mode = %q, want lawless (per-duel override)", got)
+	}
+}
+
+// A campaign written before v0.586.0 has no mode fields at all. It must
+// keep running exactly as it did: every duel lawless, fought in the system
+// its arena_system named.
+func TestLegacyCampaignDefaultsToLawless(t *testing.T) {
+	c, err := LoadCampaign(writeCampaign(t, validCampaign))
+	if err != nil {
+		t.Fatalf("LoadCampaign: %v", err)
+	}
+	if got := c.ModeOf(c.Duels[0]); got != ModeLawless {
+		t.Errorf("legacy duel mode = %q, want lawless", got)
+	}
+	sys, err := c.FightSystem(c.Duels[0])
+	if err != nil {
+		t.Fatalf("FightSystem: %v", err)
+	}
+	if sys != "gsc_test" {
+		t.Errorf("legacy fight system = %q, want the arena_system fallback gsc_test", sys)
+	}
+}
+
+func TestFightSystemByMode(t *testing.T) {
+	c, err := LoadCampaign(writeCampaign(t, arenaCampaign))
+	if err != nil {
+		t.Fatalf("LoadCampaign: %v", err)
+	}
+	if sys, err := c.FightSystem(c.Duels[0]); err != nil || sys != "krynn" {
+		t.Errorf("arena fight system = %q, %v; want krynn", sys, err)
+	}
+	if sys, err := c.FightSystem(c.Duels[1]); err != nil || sys != "ashford" {
+		t.Errorf("lawless fight system = %q, %v; want ashford", sys, err)
+	}
+}
+
+func TestLoadCampaignRejectsUnknownMode(t *testing.T) {
+	body := `{"arena_system":"a","staging_system":"s","staging_station":"st","duels":[{
+	  "id":"X","attacker":"bot","fit_a":{},"fit_b":{},
+	  "script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}],
+	  "max_ticks":5,"repeats":1,"mode":"sandbox"}]}`
+	if _, err := LoadCampaign(writeCampaign(t, body)); err == nil {
+		t.Errorf("LoadCampaign accepted mode \"sandbox\", want an error naming the duel")
+	}
+}
+
+func TestLoadCampaignArenaModeRequiresPOI(t *testing.T) {
+	body := `{"arena_system":"krynn","staging_system":"s","staging_station":"st","duels":[{
+	  "id":"X","attacker":"bot","fit_a":{},"fit_b":{},
+	  "script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}],
+	  "max_ticks":5,"repeats":1,"mode":"arena"}]}`
+	if _, err := LoadCampaign(writeCampaign(t, body)); err == nil {
+		t.Errorf("LoadCampaign accepted an arena duel with no arena_poi, want an error")
+	}
+}
+
+// The dangerous half-migration: arena_system has been repointed at Krynn
+// for the arena duels, but lawless_system was never added -- so the legacy
+// fallback would silently send the flee scenarios to Krynn, where fleeing
+// forfeits and the measurement is garbage. That must not load.
+func TestLoadCampaignRejectsAmbiguousLawlessSystem(t *testing.T) {
+	body := `{"arena_system":"krynn","arena_poi":"blood_arena","staging_system":"s","staging_station":"st","duels":[{
+	  "id":"A","attacker":"bot","fit_a":{},"fit_b":{},
+	  "script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}],
+	  "max_ticks":5,"repeats":1,"mode":"arena"},{
+	  "id":"B","attacker":"bot","fit_a":{},"fit_b":{},
+	  "script":[{"from_tick":1,"stance_a":"fire","stance_b":"flee"}],
+	  "max_ticks":5,"repeats":1,"mode":"lawless"}]}`
+	_, err := LoadCampaign(writeCampaign(t, body))
+	if err == nil {
+		t.Fatalf("LoadCampaign accepted a mixed campaign with no lawless_system, want an error")
+	}
+	if !strings.Contains(err.Error(), "lawless_system") {
+		t.Errorf("error = %v, want it to name lawless_system", err)
+	}
+}
+
+func TestLoadCampaignRejectsUnknownDefaultMode(t *testing.T) {
+	body := `{"arena_system":"a","staging_system":"s","staging_station":"st","default_mode":"nope","duels":[{
+	  "id":"X","attacker":"bot","fit_a":{},"fit_b":{},
+	  "script":[{"from_tick":1,"stance_a":"fire","stance_b":"fire"}],
+	  "max_ticks":5,"repeats":1}]}`
+	if _, err := LoadCampaign(writeCampaign(t, body)); err == nil {
+		t.Errorf("LoadCampaign accepted default_mode \"nope\", want an error")
 	}
 }

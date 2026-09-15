@@ -80,9 +80,24 @@ func applyOrders(s side, stance string, hold *int, lastStance *string, v BattleV
 	return nil
 }
 
-// runDuel drives one battle from first view to battle end. The attack that
-// creates the battle has already been issued by the caller; runDuel only
-// applies the script, voids on interference, and flees out past MaxTicks.
+// runDuel drives one battle from first view to battle end. The attack (or,
+// in arena mode, the accepted challenge) that creates the battle has
+// already been issued by the caller; runDuel only applies the script,
+// voids on interference, and flees out past MaxTicks.
+//
+// The loop is mode-agnostic by design, but flee means different things in
+// the two modes. In lawless space it escapes the fight; in an arena match
+// it FORFEITS -- the match ends immediately with the fleeing side losing.
+// Both are acceptable terminators here (every scripted duel already ends
+// with a flee phase, and an arena forfeit costs only the arena_losses
+// counter, which no measurement reads), but a scenario that MEASURES flee
+// itself must run in lawless mode or it measures the forfeit instead. That
+// is enforced upstream, by the campaign's per-duel mode.
+//
+// The interference void below is likewise near-unreachable in arena mode,
+// where max_side_size 1 forbids a third participant and pirates and police
+// will not open on a pilot already in an arena match. It is kept as a
+// shared safety net rather than being made mode-conditional.
 func runDuel(a, b side, d Duel, wait func(), logger *log.Logger) (duelResult, error) {
 	var res duelResult
 	lastA, lastB := "", ""

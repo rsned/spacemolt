@@ -18,6 +18,18 @@ type Record struct {
 	Ended      time.Time `json:"ended"`
 	Outcome    string    `json:"outcome"`
 	Void       bool      `json:"void"`
+	// Mode is "arena" or "lawless" -- which fighting rules produced this
+	// run. Analysis must not pool the two blindly: an arena run's ship
+	// state is restored afterwards, and its terminal flee is a forfeit
+	// rather than an escape.
+	Mode string `json:"mode,omitempty"`
+	// XPUsedToday is the challenger's arena XP ledger at the moment this
+	// duel started (skill id -> XP earned from arena fights today), read
+	// from `arena status`. Arena fights grant combat XP normally up to a
+	// daily per-skill cap, so a long campaign can level the duelling bots
+	// underneath the measurements -- crit alone moves 1% per level. This
+	// snapshot is what makes that drift auditable after the fact.
+	XPUsedToday map[string]int `json:"xp_used_today,omitempty"`
 }
 
 // DoneKey identifies one (scenario, repeat) run.

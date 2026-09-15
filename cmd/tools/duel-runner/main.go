@@ -16,6 +16,12 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
+// arenaAcceptPolls bounds the wait for a challenge to reach the defender.
+// Each poll sleeps one tick, so this is ~2 minutes -- long enough for a
+// slow tick, short enough that a lapsed challenge fails the run instead of
+// hanging it.
+const arenaAcceptPolls = 12
+
 func main() {
 	campaignPath := flag.String("campaign", "", "campaign JSON (required)")
 	manifestPath := flag.String("manifest", "", "manifest JSONL to append to (required)")
@@ -65,7 +71,7 @@ func main() {
 	logger.Printf("%d runs pending", len(runs))
 	if *dryRun {
 		for _, r := range runs {
-			logger.Printf("  %s repeat %d (%s)", r.duel.ID, r.repeat, r.duel.Purpose)
+			logger.Printf("  [%s] %s repeat %d (%s)", camp.ModeOf(r.duel), r.duel.ID, r.repeat, r.duel.Purpose)
 		}
 		return
 	}
@@ -116,7 +122,7 @@ func main() {
 			}
 			bSide = g
 		}
-		logger.Printf("=== %s repeat %d: %s", r.duel.ID, r.repeat, r.duel.Purpose)
+		logger.Printf("=== %s repeat %d [%s]: %s", r.duel.ID, r.repeat, camp.ModeOf(r.duel), r.duel.Purpose)
 		rec, err := executeDuel(camp, botA, bSide, r.duel, r.repeat, logger)
 		if err != nil {
 			logger.Fatalf("%s repeat %d: %v (manifest is consistent; re-run to resume)", r.duel.ID, r.repeat, err)
@@ -146,6 +152,12 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 	// when both need a staging refit their round-trips overlap instead of
 	// stacking, and a bot that can skip staging doesn't idle while the other
 	// refits. Barrier on both before the attack.
+	mode := camp.ModeOf(d)
+	rec.Mode = mode
+	fightSystem, err := camp.FightSystem(d)
+	if err != nil {
+		return rec, err
+	}
 	fitFor := func(bot *Bot) FitSpec {
 		if bot == a {
 			return d.FitA
@@ -197,17 +209,46 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 				logger.Printf("%s: fit already current, no ammo/repair needed -- skipping staging", bot.Name())
 			}
 		}
-		// Into the arena. Idempotent: a bot already there (survivor of the
-		// last duel, or one that skipped staging) just reports "already in".
+		// Into the fighting system. Idempotent: a bot already there
+		// (survivor of the last duel, or one that skipped staging) just
+		// reports "already in".
 		if err := bot.Undock(); err != nil {
 			logger.Printf("%s undock: %v (may already be in space)", bot.Name(), err)
 		}
-		if err := bot.Jump(camp.ArenaSystem); err != nil {
+		if err := bot.Jump(fightSystem); err != nil {
 			if strings.Contains(err.Error(), "already in") {
-				logger.Printf("%s: already in the arena", bot.Name())
+				logger.Printf("%s: already in %s", bot.Name(), fightSystem)
 			} else {
 				return err
 			}
+		}
+		if mode != ModeArena {
+			return nil
+		}
+		// Arena mode: the challenge handshake requires both sides undocked
+		// AT the arena POI, so a system-level arrival is not enough.
+		if err := bot.Travel(camp.ArenaPOI); err != nil {
+			return fmt.Errorf("travel to arena poi %s: %w", camp.ArenaPOI, err)
+		}
+		st, err := bot.ArenaStatus()
+		if err != nil {
+			return err
+		}
+		if !st.AtArena {
+			return fmt.Errorf("%s: at_arena is false after travelling to %s -- that POI does not host arena matches",
+				bot.Name(), camp.ArenaPOI)
+		}
+		// Clear a challenge left pending by a killed run; only one is
+		// allowed per player, so a stale one blocks this duel's.
+		if st.Outgoing != nil {
+			logger.Printf("%s: cancelling stale outgoing challenge %s", bot.Name(), st.Outgoing.ChallengeID)
+			if err := bot.ArenaCancel(); err != nil {
+				logger.Printf("%s: cancel stale challenge: %v (continuing)", bot.Name(), err)
+			}
+		}
+		if capped := st.CappedSkills(); len(capped) > 0 {
+			logger.Printf("%s: WARNING arena XP cap reached today for %v -- these bots have been levelling; "+
+				"re-check skills before trusting further runs", bot.Name(), capped)
 		}
 		return nil
 	}
@@ -239,8 +280,14 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 	if target == "" {
 		target = defender.Username()
 	}
-	logger.Printf("%s attacking %s (player %q, target_id %q)", attacker.Name(), defender.Name(), defender.Username(), target)
-	if err := attacker.Attack(target); err != nil {
+	var startedBattleID string
+	if mode == ModeArena {
+		startedBattleID, rec.XPUsedToday, err = startArenaMatch(attacker, defender, target, logger)
+	} else {
+		logger.Printf("%s attacking %s (player %q, target_id %q)", attacker.Name(), defender.Name(), defender.Username(), target)
+		err = attacker.Attack(target)
+	}
+	if err != nil {
 		return rec, err
 	}
 	res, err := runDuel(a, b, d, func() { time.Sleep(game.SleepQuick) }, logger)
@@ -248,6 +295,16 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 		return rec, err
 	}
 	rec.BattleID, rec.Outcome, rec.Void, rec.Ended = res.BattleID, res.Outcome, res.Void, time.Now().UTC()
+	// The accept reply names the battle authoritatively; the view-scraped
+	// id is a fallback that can be empty if the fight ended before the
+	// first poll landed.
+	if startedBattleID != "" {
+		if res.BattleID != "" && res.BattleID != startedBattleID {
+			logger.Printf("%s: battle id mismatch -- accept said %s, views said %s; keeping the accept id",
+				d.ID, startedBattleID, res.BattleID)
+		}
+		rec.BattleID = startedBattleID
+	}
 	// No forced return to staging: survivors stay in the arena ready for the
 	// next duel (the next preflight pulls them to staging only if it needs a
 	// refit), and a destroyed bot has already respawned at its home station
@@ -255,4 +312,62 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 	// from there. Skipping the round-trip is the whole point of the
 	// conditional staging above.
 	return rec, nil
+}
+
+// startArenaMatch runs the v0.586.0 challenge/accept handshake and returns
+// the started battle's id plus the challenger's arena XP ledger.
+//
+// Both sides must already be undocked at the arena POI (preflight puts
+// them there). max_side_size 1 makes it a solo duel, which also makes a
+// third-party join impossible -- the interference case the lawless
+// campaign needed its void rule for.
+func startArenaMatch(attacker, defender *Bot, target string, logger *log.Logger) (string, map[string]int, error) {
+	logger.Printf("%s challenging %s to an arena match (player %q, player_id %q)",
+		attacker.Name(), defender.Name(), defender.Username(), target)
+	ch, err := attacker.ArenaChallenge(target, 1)
+	if err != nil {
+		return "", nil, fmt.Errorf("%s challenge %s: %w", attacker.Name(), defender.Name(), err)
+	}
+	logger.Printf("%s: challenge %s issued to %s at %s (expires tick %d)",
+		attacker.Name(), ch.ChallengeID, ch.TargetName, ch.POIID, ch.ExpiresTick)
+
+	// The challenge is a mutation (1 per tick), and the defender's view of
+	// it only appears once the server has processed it -- so poll status
+	// rather than accepting blind.
+	var incoming bool
+	for i := range arenaAcceptPolls {
+		st, err := defender.ArenaStatus()
+		if err != nil {
+			return "", nil, fmt.Errorf("%s arena status: %w", defender.Name(), err)
+		}
+		if st.Incoming != nil {
+			incoming = true
+			break
+		}
+		if i == 0 {
+			logger.Printf("%s: waiting for the challenge to appear", defender.Name())
+		}
+		time.Sleep(game.SleepTick)
+	}
+	if !incoming {
+		return "", nil, fmt.Errorf("%s: no incoming challenge after %d polls (it may have lapsed, or the bots are at different POIs)",
+			defender.Name(), arenaAcceptPolls)
+	}
+	acc, err := defender.ArenaAccept()
+	if err != nil {
+		return "", nil, fmt.Errorf("%s accept: %w", defender.Name(), err)
+	}
+	logger.Printf("%s accepted: battle %s, sides %d vs %d, %d participants",
+		defender.Name(), acc.BattleID, acc.YourSide, acc.OpponentSide, len(acc.Participants))
+
+	// XP ledger snapshot for the manifest: arena fights grant combat XP
+	// normally, so a campaign long enough to level a bot invalidates the
+	// zero-skill baseline the measurements assume.
+	var xp map[string]int
+	if st, err := attacker.ArenaStatus(); err != nil {
+		logger.Printf("%s: arena XP snapshot: %v (continuing)", attacker.Name(), err)
+	} else {
+		xp = st.XPUsedToday
+	}
+	return acc.BattleID, xp, nil
 }
