@@ -16,11 +16,11 @@ import (
 // the next hop. So each end of the pair believes the eligible target lies
 // behind the other:
 //
-//   at horizon:    stored first_step->gsc_0010 is a phantom, so gsc_0010 looks
-//                  2 jumps away via first_step  -> hop to first_step
-//   at first_step: live says no gsc_0010; but horizon's row is stored again,
-//                  so stale deep_range looks 2 jumps away via horizon
-//                                                  -> hop back to horizon
+//	at horizon:    stored first_step->gsc_0010 is a phantom, so gsc_0010 looks
+//	               2 jumps away via first_step  -> hop to first_step
+//	at first_step: live says no gsc_0010; but horizon's row is stored again,
+//	               so stale deep_range looks 2 jumps away via horizon
+//	                                               -> hop back to horizon
 //
 // visitedThisRun does not help: both are ROUTE systems, not destinations, and
 // routing through ineligible systems is deliberate.

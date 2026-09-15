@@ -417,6 +417,25 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		poller.displayMessage(msg.Channel, msg)
 	})
 
+	format := outputFormat(cfg.OutputFormat)
+
+	// execMu serializes command execution so a background scheduled command
+	// never interleaves with a foreground REPL command (or vice-versa).
+	var execMu sync.Mutex
+
+	// Auto-reload answers the server's out_of_ammo notification rather than
+	// counting rounds locally. The pass runs on its own goroutine holding
+	// execMu, because the push callback that triggers it runs inside the
+	// router's dispatch path and must not issue commands.
+	autoReload := newAutoReloader(func(ctx context.Context) error {
+		execMu.Lock()
+		defer execMu.Unlock()
+		fmt.Printf("\r%s⟳ out of ammo — reloading%s\n", ansiYellow, ansiReset)
+		return reloadAll(ctx, client, format)
+	})
+	autoReload.SetEnabled(true)
+	go autoReload.Run(ctx)
+
 	// Crafting progress is delivered via push (WS) as runs complete over the
 	// ticks following a craft command. Surface each job's deposit + remaining
 	// runs instead of leaving it to the debug log only. Push is WS-only, so this
@@ -434,6 +453,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		// Render them above the prompt instead. `set_events off` mutes them.
 		showPushEvents.Store(true)
 		wsClient.SetOnPushEvent(func(resp protocol.Response) {
+			autoReload.Notify(resp)
 			if !showPushEvents.Load() {
 				return
 			}
@@ -444,12 +464,6 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			printPushEvent(resp, selfID)
 		})
 	}
-
-	format := outputFormat(cfg.OutputFormat)
-
-	// execMu serializes command execution so a background scheduled command
-	// never interleaves with a foreground REPL command (or vice-versa).
-	var execMu sync.Mutex
 
 	// Scheduler: user-registered recurring commands (hourly/daily/weekly).
 	scheduler, err := worker.LoadScheduler(filepath.Join("data", "agents", agentID, "scheduled_commands.json"))
@@ -635,6 +649,26 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			}
 			showPushEvents.Store(enabled)
 			fmt.Printf("Server push events %s\n", enabledWord(enabled))
+			fmt.Println()
+			continue
+		}
+
+		// Handle set_autoreload (answer the server's out_of_ammo notification).
+		if command == "set_autoreload" {
+			if len(parts) < 2 {
+				fmt.Printf("Auto-reload is %s\n", enabledWord(autoReload.Enabled()))
+				fmt.Println("Usage: set_autoreload <true|false|on|off>")
+				fmt.Println()
+				continue
+			}
+			enabled, perr := parseOnOff(parts[1])
+			if perr != nil {
+				fmt.Printf("set_autoreload: unrecognized value %q (use true/false/on/off)\n", parts[1])
+				fmt.Println()
+				continue
+			}
+			autoReload.SetEnabled(enabled)
+			fmt.Printf("Auto-reload %s\n", enabledWord(enabled))
 			fmt.Println()
 			continue
 		}
@@ -6938,6 +6972,15 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}, ctx, battleWait, cmd, format)
 
 	case "reload":
+		// Bare `reload` and `reload all` resolve the two ids themselves: the
+		// module instance id from get_ship and a fitting ammo item from cargo.
+		// Asking the pilot for them mid-fight was unanswerable.
+		if len(parts) == 1 {
+			return showReloadPlan(ctx, client)
+		}
+		if len(parts) == 2 && strings.EqualFold(parts[1], "all") {
+			return reloadAll(ctx, client, format)
+		}
 		// Accepts both the positional and the --flag form; see reloadArgs.
 		weaponID, ammoID, err := reloadArgs(parts)
 		if err != nil {
@@ -10427,6 +10470,7 @@ func printHelp() {
 	fmt.Println("  set_format <mode>         - Set output: raw, json, or styled")
 	fmt.Println("  set_debug <true|false>    - Toggle game client debug logging at runtime")
 	fmt.Println("  set_events <true|false>   - Toggle rendering of server push events (combat, deaths, warnings)")
+	fmt.Println("  set_autoreload <true|false> - Reload automatically when the server reports an empty magazine")
 	fmt.Println("  help                      - Show this help")
 	fmt.Println("  exit, quit                - Exit terminal")
 	fmt.Println()
