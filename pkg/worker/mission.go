@@ -692,6 +692,17 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	}
 	dist := navigation.BFSJumps(graph, current, targets)
 
+	// The leash binds only while STANDING AT the pin, which is both sufficient
+	// and exact. Sufficient because that is where the outbound drift starts: a
+	// worker only leaves the giver by accepting a mission from the giver's own
+	// board, and the dry-pass return walks it back from anywhere else. Exact
+	// because `dist` is BFS from `current`, so at the pin it already IS
+	// distance-from-pin — no second graph walk, and no POI-to-system lookup
+	// that the knowledge base cannot answer anyway.
+	pinLeashed := deps.HomeStation != "" &&
+		!smugglingUnlocked(deps.Client.GetState()) &&
+		atPinnedStation(ctx, deps, deps.Client.GetState())
+
 	fuelCostFor = ensureFuelModel()
 	refAsk := func(itemID string) (float64, bool) {
 		ra, found, aerr := deps.Market.GetReferenceAsk(ctx, itemID)
@@ -757,6 +768,22 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 				fmt.Fprintf(out, "missions: skip %s: already attempted this session\n", e.MissionID) //nolint:errcheck
 			}
 			continue
+		}
+		if pinLeashed {
+			if _, _, destSys, shapeErr := deliverShape(e, true); shapeErr == "" {
+				jumps, known := dist[destSys]
+				if !known {
+					jumps = -1
+				}
+				if missionPinLeashRejects(true, false, e.Type, jumps) {
+					if deps.State.shouldLogSkip(e.MissionID, "pin leash") {
+						fmt.Fprintf(out, "missions: skip %s: %d jumps from the pinned station %s, and this worker still lacks the pirate unlock\n", //nolint:errcheck
+							e.MissionID, jumps, deps.HomeStation)
+					}
+
+					continue
+				}
+			}
 		}
 		var c missionCandidate
 		var reason string
