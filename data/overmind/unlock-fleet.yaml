@@ -356,3 +356,24 @@ workers:
   - { agent_id: trader-9, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }     # 23j x2 = 46 of 120
   - { agent_id: trader-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: explorer-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+
+  # ── Wave 2026-09-14: mission-learn rotators ───────────────────────────────
+  # mission-learn is the fleet the pirates are actually killing: 27 pirate
+  # deaths across 27 agents (1.00 each), against ZERO across mb's 64. The
+  # campaign is a safety property, so exposure ranks the queue — residents
+  # barely travel and go last.
+  #
+  # PINNED, because the chain is sold at treasure_cache_trading_post and
+  # nowhere else; an unpinned rotator stages locally and never reaches the
+  # giver. Pinning is the hazard that stranded engineer-5, so this wave is
+  # sized on MEASURED departure fuel (agent_hulls.fuel_current), never tank
+  # capacity, with a >=3.5x margin on a 2/jump estimate. Every one also
+  # carries credits to refuel on arrival — treasure_cache sells fuel.
+  # These agents are listed in BOTH yamls permanently; membership switches
+  # only via the removed-sets.
+  - { agent_id: explorer-3, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 21 jumps, fuel 332, 1.09M cr
+  - { agent_id: explorer-4, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 24 jumps, fuel 290, 266k cr
+  - { agent_id: engineer-3, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 24 jumps, fuel 233, 20k cr
+  - { agent_id: engineer-6, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 21 jumps, fuel 220, 1.37M cr
+  - { agent_id: engineer-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 24 jumps, fuel 174, 3.14M cr
+  - { agent_id: explorer-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 24 jumps, fuel 171, 12.7k cr

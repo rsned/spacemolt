@@ -23,6 +23,73 @@ behaviour + full capture schedule) and `data/overmind/unlock-fleet.yaml`, 33 wor
 which **replaces `idle-fleet.yaml`** (`git mv`). Guarded by
 `pkg/worker/unlock_fleet_test.go`.
 
+## ⭐🔴 2026-09-14: EXPOSURE ranks the queue, and the real blocker is the BOARD
+
+**Measured pirate deaths per fleet** (`agent_stats.deaths_by_pirate`, 57 total):
+
+| fleet | deaths | per agent | locked |
+|---|---:|---:|---:|
+| mission-learn | 27 | **1.00** | 20 |
+| unlock | 27 | 0.56 | 20 |
+| assist | 1 | 0.20 | 5 |
+| mining | 2 | 0.05 | 26 |
+| hunt / craft / **mb** | 0 | 0.00 | 5 / 9 / **54** |
+
+**mb has ZERO pirate deaths across 64 agents** — residents do not travel, and the
+9 stronghold bots already hold the unlock. Operator's call: **marketbots go
+LAST.** The campaign is a safety property, so exposure ranks the queue, not
+distance. `mission-learn` is where the dying happens (explorer-8 died there
+2026-09-14 while hand-flown).
+
+### Wave 1 dispatched 2026-09-14 — arrival is NOT the bottleneck
+Six mission-learn agents added to `unlock-fleet.yaml` **pinned** to
+treasure_cache_trading_post (unpinned rotators stage locally and never reach the
+giver), removed from `mission` via the dashboard API, unlock overmind SIGHUPed.
+explorer-3/4/5, engineer-3/5/6. All six connected; four reached the giver inside
+an hour, zero strandings.
+
+**⭐ Distances from `agent_profile.current_system` are STALE** (hourly
+capture_profile): it said 21-24 jumps, the live overmind status file said 4-16.
+For anything time-sensitive read `data/overmind/<fleet>-status.json`, not
+assets.db.
+
+### ⭐🔴 THE BOOTSTRAP IS CONFIRMED LIVE — `a_word_in_private` is not on the board
+With four agents sitting ON the giver's station, the board offered only:
+- `smuggling_courier_*` → `skill_required: Smuggling missions require smuggling level 1`
+- `smuggling_black_*` → skipped, must source contraband itself
+- `smugglers_circuit` (delivery) → accepted; a 4-station loop Treasure Cache →
+  Factory Belt → the Levy → Cargo Lanes. **This is why pinned agents appear to
+  wander — it is a legitimate multi-stop delivery, not drift.**
+
+Zero sightings of `a_word_in_private` in 200MB of unlock log. **The agents are
+correctly positioned and correctly configured; they are waiting on board
+rotation.** Nothing to fix.
+
+### ⭐🟢 The old "not a plain deliver mission" skip is FIXED — do not re-chase it
+`mission-overmind.log` (2026-07-16) shows `a_word_in_private` skipped as "not a
+plain deliver mission". Its objective is `dock_at_base`, and the runner now
+handles that (`mission_select.go:284`, test at
+`mission_multiobjective_test.go:257` calling it "the whole bootstrap"). The code
+CAN take it.
+
+### ⭐🔴 Mission rewards at treasure_cache are near zero
+Same `smugglers_circuit`, same tick: engineer-6 paid 5,576 of 8,000 (70%),
+explorer-4 845 (11%), **engineer-3 paid 0**. Worse than the ~37% in
+[[project_empire_treasury_payout_collapse]]. Agents waiting for board rotation
+are working for free.
+
+### ⭐🔴 THREE worker binaries, and the copies go stale
+`bin/worker-pools` (mining, mission-learn, unlock) and `bin/worker-gate` (hunt)
+are byte-identical COPIES of `bin/worker`, and were two days stale on 09-14 —
+those fleets would have relaunched old code. Refresh all three
+(`cp bin/worker bin/X.new && mv bin/X.new bin/X` — rename, so running processes
+are undisturbed). Check `--worker-bin` per overmind before trusting a rollout.
+
+### The dashboard was SIGSTOPped since the 09-09 freeze
+`STAT Tsl`, listening but never responding — and it is the runbook's required
+writer for the overrides sidecars. `kill -CONT` restored it; it holds no game
+session so it costs nothing. Check `ps -o stat` before assuming a hang.
+
 ## ⭐✅ 2026-08-21: johnny_cab GRADUATED and went home to the shuttle fleet
 
 The loan is repaid. johnny_cab holds **baseline 10 on all nine pirate factions**
