@@ -53,6 +53,28 @@ capture_profile): it said 21-24 jumps, the live overmind status file said 4-16.
 For anything time-sensitive read `data/overmind/<fleet>-status.json`, not
 assets.db.
 
+### ⭐🟢 FIX `9476eacd`: the pin leash (built, UNDEPLOYED)
+A still-locked **pinned** worker now refuses a NON-CHAIN mission whose
+destination is more than `missionPinLeashJumps` (1) from its pin. Exempt:
+smuggling missions (they ARE the chain and run long — 17 jumps for
+`across_the_line`), workers that already hold the unlock (so graduates are not
+left idling at the giver), and an unmeasurable distance (a missing BFS entry
+means unmeasured, not far).
+
+**It binds only while STANDING AT the pin**, which is sufficient and exact: a
+worker only leaves the giver by accepting from the giver's own board, and the
+dry-pass return walks it back from anywhere else; and `dist` is already
+`BFSJumps(graph, current, targets)`, so at the pin it IS distance-from-pin.
+
+⭐ **A pin CANNOT be resolved to its system**: `knowledge.SpaceBase` carries
+`POIID` but no `SystemID`, and the Base interface has only `GetPOIs(systemID)`
+— the wrong direction. Any design needing pin→system must add that lookup
+first. This is why the leash is at-pin rather than distance-from-pin.
+
+This makes the wait RELIABLE, not fast. It puts agents in front of the board
+when `a_word_in_private` rotates in; it cannot make it rotate sooner.
+Undeployed: the 21 live unlock workers run the previous build.
+
 ### ⭐🔴 THE BOOTSTRAP IS CONFIRMED LIVE — `a_word_in_private` is not on the board
 With four agents sitting ON the giver's station, the board offered only:
 - `smuggling_courier_*` → `skill_required: Smuggling missions require smuggling level 1`
