@@ -1,6 +1,6 @@
 ---
 name: project_pirate_reputation_unlock_campaign
-description: "Fleet-wide campaign to raise every agent's pirate baseline from -30 to 10; the unlock role, why only 4 of 33 are pinned, and the two blockers"
+description: "Fleet-wide campaign to raise every agent's pirate baseline from -30 to 10; the CHAIN MAP and its givers (2026-09-16 correction), the unlock role, and the pin leash"
 metadata: 
   node_type: memory
   type: project
@@ -14,14 +14,68 @@ is **attacked on sight**. Completing smuggling chain 2 mission 1 (`an_introducti
 raises the BASELINE to 10 permanently, which grants docking AND stops the attacks. So
 this is a safety property, not a trade perk. **7 of 122 agents hold it; 115 do not.**
 
-Chain: `a_word_in_private` (dock_at_base, +50 XP → L1) → `no_questions_asked` →
-`across_the_line` → couriers to smuggling **L3** → `an_introduction`. Runs unattended
-in ~3h. The bar is low — engineer-2 unlocked at smuggling L4.
+Chain (**corrected 2026-09-16, see the chain map below**): `no_questions_asked` →
+`across_the_line` → `an_introduction` → `supply_run` → … `a_word_in_private` is a
+standalone bootstrap, NOT a chain link. Runs unattended in ~3h. The bar is low —
+engineer-2 unlocked at smuggling L4.
 
 **SHIPPED `c31371c0`:** `unlock` role in `data/overmind/roles.yaml` (missionrunner
 behaviour + full capture schedule) and `data/overmind/unlock-fleet.yaml`, 33 workers,
 which **replaces `idle-fleet.yaml`** (`git mv`). Guarded by
 `pkg/worker/unlock_fleet_test.go`.
+
+## ⭐🔴 2026-09-16: THE CHAIN MAP — reconstructed, with its givers
+
+Operator-supplied locations, chain links read out of `mission_templates.chain_next`
+(8 smuggling links, all verified against the live KB). **This supersedes every
+earlier "the blocker is the board" claim in this file.**
+
+```
+treasure_cache (Frontier, is_stronghold=0, police 30 — a -30 agent CAN dock)
+  no_questions_asked → across_the_line → an_introduction → supply_run
+    → expanding_operations → building_trust → a_meeting_at_sable_port
+barnard_44 / sable_port_station  (ONLY giver for this step)
+  through_the_fire → leap_of_faith
+separate link, giver unknown:  smugglers_route → end_of_the_line
+```
+
+**`an_introduction` is the unlock** — it raises the pirate BASELINE from -30 to 10.
+So the whole campaign only needs the first three steps, all at **treasure_cache**.
+Everything from `supply_run` onward is chain progression, not unlock.
+
+### What was wrong, and what it cost
+- `a_word_in_private` is `type: delivery`, has **no `chain_next`**, and **nothing
+  points to it**. It is a standalone +50 smuggling XP job, not the chain head.
+  Four agents did unlock via it on 2026-08-11 — that part is real — but it is a
+  shortcut around the courier gate, not the road itself.
+- The chain proper (`no_questions_asked` → `across_the_line` → `an_introduction`)
+  has **empty `requirements`** on all three. Nothing gates them but standing at
+  the giver. The "you need smuggling 1 to earn smuggling XP" circularity applies
+  only to the *courier* missions, never to the chain.
+- ⭐ Net: the campaign spent five weeks waiting for one delivery mission to
+  rotate onto the board while the actual chain was sitting at the same station.
+
+### Consequence for the pin
+Pinning wave 1 to `treasure_cache_trading_post` was **correct** and is now
+justified by the map: seven of the nine chain steps are given there. The pin
+leash (`9476eacd`, still UNDEPLOYED) is the right fix — the agents were never
+blocked, they were drifting off the one station that offers the chain.
+`through_the_fire` is the first step that requires leaving, and it is far past
+the unlock.
+
+### ⭐🔴 `chain_next` has exactly ONE source: the `complete_mission` reply
+Verified 2026-09-16 against both stores:
+- `action_log_events` (`data/assets.db`) carries **no chain key at all** on any
+  of the five `mission.*` event types. `mission.completed` has credits,
+  credits_promised, credits_shortfall, items_received, skill_xp,
+  reputation_changes, mission_id, title, type — and no chain.
+- `mission_templates.chain_next` is populated on **76 of 11,080 rows (0.7%)**.
+
+`play_as` renders the hint in `formatCompleteMission` and then **discards the
+bytes** — there is no capture wiring in play_as at all. Every other completion
+fact is recoverable from the action log on the next `capture_action_log`; the
+chain link is not. Losing a chain hint loses it permanently.
+[[project_action_log_capture]]
 
 ## ⭐🔴 2026-09-14: EXPOSURE ranks the queue, and the real blocker is the BOARD
 
@@ -75,7 +129,7 @@ This makes the wait RELIABLE, not fast. It puts agents in front of the board
 when `a_word_in_private` rotates in; it cannot make it rotate sooner.
 Undeployed: the 21 live unlock workers run the previous build.
 
-### ⭐🔴 THE BOOTSTRAP IS CONFIRMED LIVE — `a_word_in_private` is not on the board
+### ⭐🟡 `a_word_in_private` is not on the board (TRUE, but it is NOT the blocker — see 2026-09-16)
 With four agents sitting ON the giver's station, the board offered only:
 - `smuggling_courier_*` → `skill_required: Smuggling missions require smuggling level 1`
 - `smuggling_black_*` → skipped, must source contraband itself
@@ -83,9 +137,13 @@ With four agents sitting ON the giver's station, the board offered only:
   Factory Belt → the Levy → Cargo Lanes. **This is why pinned agents appear to
   wander — it is a legitimate multi-stop delivery, not drift.**
 
-Zero sightings of `a_word_in_private` in 200MB of unlock log. **The agents are
-correctly positioned and correctly configured; they are waiting on board
-rotation.** Nothing to fix.
+Zero sightings of `a_word_in_private` in 200MB of unlock log.
+
+**⭐🔴 SUPERSEDED 2026-09-16.** "Waiting on board rotation, nothing to fix" was
+wrong. `a_word_in_private` is a *shortcut*, not the road: the CHAIN
+(`no_questions_asked` → …) needs no smuggling level and is given at the same
+station. Waiting for one delivery mission to rotate in, while the chain sat
+available, is what cost the campaign five weeks.
 
 ### ⭐🟢 The old "not a plain deliver mission" skip is FIXED — do not re-chase it
 `mission-overmind.log` (2026-07-16) shows `a_word_in_private` skipped as "not a
@@ -227,7 +285,7 @@ other via `kb.GetBaseByPOI` (already used at `mission.go:1204`) in the arrival
 check. Affects all 12 dual-named stations
 ([[reference_station_id_aliases]]).
 
-## ⭐ THE BOOTSTRAP IS CIRCULAR — `a_word_in_private` is the ONLY way in
+## ⭐🟡 THE COURIERS ARE CIRCULAR — `a_word_in_private` is *a* way in, not the only one
 
 Every mission that grants smuggling XP is a smuggling courier (*Courier Run*,
 *Special Delivery*, *Off the Books*, *Border Job*) and **the server gates all of
@@ -236,7 +294,8 @@ level 1`. You need the skill to earn the skill. Verified 2026-08-12: of 78
 smuggling-XP grants in the fleet logs, every one went to an agent that already
 held the unlock.
 
-**`a_word_in_private` ("A Word in Private", +500cr) is the break in the loop.**
+**`a_word_in_private` ("A Word in Private", +500cr) breaks that loop** — and so
+does the chain proper, which is not typed-gated either (2026-09-16).
 It is not typed smuggling, so it needs no skill. Exactly the four wave-1 agents
 that unlocked completed it, on 2026-08-11 between 12:32 and 12:58 — alhena,
 miner-1, miner-2, sheratan — at treasure_cache under the `unlock` role, with no

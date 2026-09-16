@@ -38,7 +38,7 @@
 - [Haul routes through station-less Lawless systems](project_haul_lawless_routing.md) — stuck→restart; plus a cosmetic stale-docked heartbeat flag; fix queued
 - [Haul fleet runs an old bin/worker](project_haul_fleet_worker_update_due.md) — needs drain+relaunch onto current build; requested 07-26, not done
 - [Capture cadence retune APPLIED 09-08](reference_capture_cadence_retune.md) — 128 agents hourly→twice_daily; it did NOT stick from 08-30, so dry-run the script at EVERY fleet stop
-- ⭐🔴 [Pirate unlock campaign](project_pirate_reputation_unlock_campaign.md) — 09-09: 48/172. ROOT CAUSE = only haul can self-nominate (haul is 16/16, everyone else frozen); assist+hunt are 0% AND have no stronghold guard
+- ⭐🔴 [Pirate unlock campaign + CHAIN MAP](project_pirate_reputation_unlock_campaign.md) — 09-16: chain is `no_questions_asked`→`across_the_line`→**`an_introduction`**(=the unlock), ALL at treasure_cache; `a_word_in_private` is NOT the chain head and was never the blocker
 - ⭐ [Marketbot unlock hot-swap rotation](project_marketbot_unlock_hotswap_rotation.md) — 09-09: stand-in GRADUATED but still parked in unlock; rotation #1 never started; 54 of 64 marketbots still locked
 - ⭐🔴 [Schedule seeding is ADDITIVE ONLY](reference_schedule_seeding_is_additive_only.md) — deleting a command from roles.yaml never removes it from agents; it fires forever. Pruning-by-absence is UNSAFE (per-agent tasks like capture_action_log exist)
 - ⭐ [Ore→component conversion, hourly](project_ore_to_component_conversion.md) — refine_steel + copper wiring/piping on miners & residents; beats the 100k/item cap (overmind was capped on iron AND copper). `quantity`=OUTPUT items; new hourly tasks fire an hour AFTER restart

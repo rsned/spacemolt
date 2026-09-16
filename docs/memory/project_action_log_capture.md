@@ -97,3 +97,18 @@ undocumented `tax.*` category), `combat.pirate_attacking`, and
 `salvage.ship_recovered` — the GSA tow event [[reference_gsa_ship_recovery]]
 listed as "not yet captured" — all arrive for free, category derived from the
 event_type prefix.
+
+## ⭐🔴 The action log does NOT carry mission chain links (2026-09-16)
+`mission.completed` payload keys are exactly: credits, credits_promised,
+credits_shortfall, items_received, skill_xp, reputation_changes, mission_id,
+title, type. **No chain key on any of the five `mission.*` event types.**
+`chain_next` arrives only in the live `complete_mission` reply, which `play_as`
+prints and drops. Everything else about a completion survives the next
+`capture_action_log`; the chain link does not.
+
+Volumes (`data/assets.db`, 2026-09-16): mission.expired 103,432 · objective_completed
+24,876 · accepted 12,852 · **completed 12,190** (92 agents, from 2026-06-26) ·
+abandoned 519. `credits_shortfall` makes the treasury payout collapse measurable
+per-completion — two rows minutes apart on the same title paid 2000/2000 and
+160/2000. [[project_empire_treasury_payout_collapse]] ·
+[[project_pirate_reputation_unlock_campaign]]
