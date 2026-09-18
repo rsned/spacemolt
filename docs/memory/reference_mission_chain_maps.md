@@ -46,9 +46,30 @@ first_links (HEAD, nothing points to it) -> crossing_borders
   navigation 15, trading 25, nebula rep +2). Its giver flavour names
   **Market Prime and Cargo Lanes** as the first two links, and says the next
   test is "extending the route beyond Federation space".
-- ⭐🔴 **`frontier_extension` has NEVER been observed** — zero hits across
-  630,257 action-log events, and it is absent from `mission_templates`. Its
-  `chain_next` is learnable ONLY from the reply when someone completes it.
-  **craftsman-1 is two completions away.** Capture it live or the link is gone.
+- ⭐ **`frontier_extension` is given at `alpha_centauri_colonial_station`**
+  (system `alpha_centauri`, solarian, police 80, is_stronghold=0) — learned
+  2026-09-18 from the REFUSAL, see the technique below. It is still absent
+  from `mission_templates` and has 0 rows in `mission_template_locations`;
+  its `chain_next` is learnable only from the completion reply.
+- Route 2026-09-18: craftsman-1 was at `cargo_lanes`, **12 jumps out**
+  (cargo_lanes → bunda → copernicus → keelbreak → zibal → gsc_0009 → alfirk
+  → dubhe → maplevale → miaplacidus → mimosa → tau_ceti → alpha_centauri).
+  No stronghold on the route, and craftsman-1 holds the pirate unlock
+  (baseline 10 on all nine), so the routing rule does not bite here.
 - `closing_the_circuit` exists with no `chain_next` and no predecessor, so at
   least one step between `frontier_extension` and it is also unmapped.
+
+## ⭐ TECHNIQUE: `mission_not_available` names the giver
+`accept_mission <id>` for a mission you are not standing at is refused with
+`code: mission_not_available` and a message that **names the station**:
+
+> "This mission is only available at Alpha Centauri Colonial Station."
+
+That is a free, one-tick probe for any mission id, and the ONLY way we have
+found a giver for a mission that has never appeared on an observed board.
+`mission_template_locations` is populated from board captures only, so a
+mission nobody has seen listed has no location row — but it will still answer
+this probe. The reply names the station in PROSE (display name, not the id);
+resolve it via `pois.name` ([[reference_station_id_aliases]]).
+
+Nothing captures these refusals today.
