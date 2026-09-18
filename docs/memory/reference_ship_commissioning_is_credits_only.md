@@ -21,6 +21,17 @@ the 336 components four hulls would need.
 **58% cheaper**, at the price of 320 ticks (~53 min) of build time. Buy when
 you need the hull NOW; commission otherwise.
 
+**A finished commission goes to STORAGE at that shipyard — it does NOT
+auto-switch.** `switch_ship <id>` is a required separate step and the agent
+must be docked at that station to take it; the old hull then drops to storage
+there. This differs from `buy_listed_ship`, which DOES auto-switch and stores
+the old hull immediately (proven with trader-3 at First Step, same day).
+
+So the per-agent sequence is: travel to an Outer Rim yard -> commission_ship
+-> wait 320 ticks (~53 min) -> be docked there again -> switch_ship. The
+53-minute gap, not the 5,723 cr, is the real cost: an agent that commissions
+and wanders off has to come back.
+
 **Constraint that DOES bite:** faction-locked hulls. `congregation` has
 `faction = outerrim`, so it can only be commissioned at an Outer Rim shipyard.
 All seven Outer Rim stations have one — deep_range_outpost,
