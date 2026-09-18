@@ -38,26 +38,75 @@ steps matter and all three are at treasure_cache.
 
 ## Grand Circuit — trading/delivery, nebula reputation
 ```
-first_links (HEAD, nothing points to it) -> crossing_borders
-  -> frontier_extension -> ??? UNKNOWN
-  ... -> closing_the_circuit (orphan TERMINUS, nothing points to it)
+first_links (HEAD) -> crossing_borders -> frontier_extension
+  -> closing_the_loop  <- NEXT UNKNOWN (no mission_templates row yet)
 ```
+**A SEPARATE chain, not part of this one** (corrected 2026-09-18 — they were
+previously conflated because `closing_the_circuit` looked like an orphan):
+```
+neural_matrix_delivery -> sensor_data_exchange -> federation_payment
+  -> closing_the_circuit (TERMINUS, no chain_next)   difficulty 4->5->5->6
+```
+Note `closing_the_loop` != `closing_the_circuit`. Two different missions with
+confusable names; only the latter has a template row.
 - `first_links` completed by **craftsman-1, 2026-09-17 17:29** (+4000cr,
   navigation 15, trading 25, nebula rep +2). Its giver flavour names
   **Market Prime and Cargo Lanes** as the first two links, and says the next
   test is "extending the route beyond Federation space".
 - ⭐ **`frontier_extension` is given at `alpha_centauri_colonial_station`**
   (system `alpha_centauri`, solarian, police 80, is_stronghold=0) — learned
-  2026-09-18 from the REFUSAL, see the technique below. It is still absent
-  from `mission_templates` and has 0 rows in `mission_template_locations`;
-  its `chain_next` is learnable only from the completion reply.
+  2026-09-18 from the REFUSAL, see the technique below. **RECORDED** in the DB
+  2026-09-18 22:02 via `bin/mission-bind` (the first and so far only row with
+  `exclusive_base_id` set); source stamped `accept_mission_refusal`, tick
+  1916322. It now HAS a full `mission_templates` row plus 2
+  `mission_objectives` rows (8 power_battery -> deep_range_outpost,
+  12 silicon_ore -> starfall_salvage_station), giver **Route Planner Maren,
+  Federation Commerce Bureau**, 8000cr / navigation 25 / trading 55.
+- ⭐🔴 **A refusal-learned constraint is lost once the mission is accepted.**
+  `recordMissionRefusal` only fires on the refusal path, so a mission accepted
+  before the binding was written can never be bound automatically — it will
+  never be refused again. That is why frontier_extension needed
+  `bin/mission-bind -mission X -station "<display name>" -tick N` by hand.
+  The tool resolves the display name to a base id and refuses to write if it
+  does not resolve, so a bad name cannot become a binding.
 - Route 2026-09-18: craftsman-1 was at `cargo_lanes`, **12 jumps out**
   (cargo_lanes → bunda → copernicus → keelbreak → zibal → gsc_0009 → alfirk
   → dubhe → maplevale → miaplacidus → mimosa → tau_ceti → alpha_centauri).
   No stronghold on the route, and craftsman-1 holds the pirate unlock
   (baseline 10 on all nine), so the routing rule does not bite here.
-- `closing_the_circuit` exists with no `chain_next` and no predecessor, so at
-  least one step between `frontier_extension` and it is also unmapped.
+- `frontier_extension` COMPLETED by craftsman-1 2026-09-18 23:30 (tick
+  1918673): full 8000cr (no shortfall), navigation 25 / trading 55,
+  **solarian +3**. chain_next confirmed `closing_the_loop`.
+- ⭐🔴 **`closing_the_loop` is given at `starfall_salvage_station`**
+  (system `starfall`, OUTER RIM) — learned 2026-09-18 23:32 from the refusal
+  at tick 1918684. **NOT YET IN THE DB**: it has no `mission_templates` row,
+  so `mission-bind` fails with ErrMissionUnknown and the binding lives only
+  here. To record it: get an agent to Starfall Salvage Station so the board
+  capture creates the row, THEN run
+  `bin/mission-bind -mission closing_the_loop -station "Starfall Salvage Station"
+   -source accept_mission_refusal -tick 1918684` BEFORE accepting — once
+  accepted it will never be refused again.
+- 🔴 **Do not read completion flavour as the giver.** The frontier_extension
+  completion said "bring it home to Grand Exchange" and the next mission is
+  given at STARFALL, not Grand Exchange. The flavour names the DELIVERY
+  target of the next leg, not where to pick it up. Only the refusal is
+  authoritative about the giver.
+- ⭐ **`replacement_survey_lens` is locked to `starfall_salvage_station`**
+  (type equipment, difficulty 1, giver **Sinter**, no chain_next) — operator-
+  supplied 2026-09-18, RECORDED with source `operator` (not
+  accept_mission_refusal: the refusal text was not observed here). One
+  location row, starfall only, continuously 2026-09-01..09-18.
+- So **Starfall Salvage Station gives at least two exclusive missions**
+  (`closing_the_loop`, `replacement_survey_lens`). Outer Rim stations are
+  worth probing for more.
+- 🔴 Single-location is NOT evidence of exclusivity: 11,365 of 11,389
+  templates have exactly one `mission_template_locations` row, so one row is
+  the DEFAULT. Only a refusal (or the operator) is authoritative.
+- This is the THIRD time the "giver resolved but no template row" gap has
+  bitten (frontier_extension, then closing_the_loop). The template row only
+  appears once someone SEES the mission on a board, but the refusal that
+  names the giver happens when you are NOT there. The two facts are
+  structurally never available at the same moment.
 
 ## ⭐ TECHNIQUE: `mission_not_available` names the giver
 `accept_mission <id>` for a mission you are not standing at is refused with
