@@ -25,18 +25,18 @@ import (
 func BaseDataFromRawJSON(rawJSON []byte, discoveredBy string, lastUpdatedTick int64) (*SpaceBase, error) {
 	var response struct {
 		Base struct {
-			ID           string            `json:"id"`
-			POIID        string            `json:"poi_id"`
-			Name         string            `json:"name"`
-			Description  string            `json:"description"`
-			Empire       string            `json:"empire"`
-			DefenseLevel int               `json:"defense_level"`
+			ID                string            `json:"id"`
+			POIID             string            `json:"poi_id"`
+			Name              string            `json:"name"`
+			Description       string            `json:"description"`
+			Empire            string            `json:"empire"`
+			DefenseLevel      int               `json:"defense_level"`
 			HasDrones         bool              `json:"has_drones"`
 			PublicAccess      bool              `json:"public_access"`
 			PirateRepRequired int               `json:"pirate_rep_required"`
-			Services     map[string]bool   `json:"services"`
-			Facilities   []string          `json:"facilities"`
-			Market       []json.RawMessage `json:"market"`
+			Services          map[string]bool   `json:"services"`
+			Facilities        []string          `json:"facilities"`
+			Market            []json.RawMessage `json:"market"`
 		} `json:"base"`
 		Condition *struct {
 			Condition         string `json:"condition"`
@@ -120,13 +120,13 @@ func BaseDataFromRawJSON(rawJSON []byte, discoveredBy string, lastUpdatedTick in
 	}
 
 	base := &SpaceBase{
-		ID:              response.Base.ID,
-		POIID:           response.Base.POIID,
-		Name:            response.Base.Name,
-		Description:     response.Base.Description,
-		Story:           response.Story,
-		Empire:          response.Base.Empire,
-		DefenseLevel:    response.Base.DefenseLevel,
+		ID:                response.Base.ID,
+		POIID:             response.Base.POIID,
+		Name:              response.Base.Name,
+		Description:       response.Base.Description,
+		Story:             response.Story,
+		Empire:            response.Base.Empire,
+		DefenseLevel:      response.Base.DefenseLevel,
 		HasDrones:         response.Base.HasDrones,
 		PublicAccess:      response.Base.PublicAccess,
 		PirateRepRequired: response.Base.PirateRepRequired,

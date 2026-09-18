@@ -86,7 +86,7 @@ func TestGetStaticSkills(t *testing.T) {
 
 	// Check for known skills
 	knownSkills := map[string]bool{
-		"mining":    false,
+		"mining":          false,
 		"advanced_mining": false,
 		"exploration":     false,
 		"trading":         false,

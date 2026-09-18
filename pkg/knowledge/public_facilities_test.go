@@ -7,7 +7,7 @@ import (
 )
 
 // last_seen_utc existed in migration 48 but nothing ever wrote it, so every row
-// carried ''. It is the only wall-clock freshness signal on the table:
+// carried ”. It is the only wall-clock freshness signal on the table:
 // last_seen_tick is a GameClock value, and the GameClock only ever drifts
 // forward, so tick deltas understate real age.
 func TestUpsertPublicFacilities_PopulatesLastSeenUTC(t *testing.T) {

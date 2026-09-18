@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 2
--- Last Regenerated: 2026-09-08
+-- Migrations applied: 3
+-- Last Regenerated: 2026-09-18
 
 -- ============================================================================
 -- TABLES
@@ -568,7 +568,7 @@ CREATE TABLE mission_templates (
     last_seen_tick      INTEGER DEFAULT 0,
     first_seen_at       TEXT,
     last_seen_at        TEXT
-);
+, exclusive_base_id TEXT, exclusive_system_id TEXT, exclusive_source TEXT, exclusive_seen_tick INTEGER, exclusive_seen_at TEXT);
 
 
 CREATE TABLE passengers (
@@ -1159,6 +1159,9 @@ CREATE INDEX idx_mission_locations_base    ON mission_template_locations(base_id
 
 CREATE INDEX idx_mission_objectives_mission ON mission_objectives(mission_id);
 
+CREATE INDEX idx_mission_templates_exclusive_base
+					ON mission_templates(exclusive_base_id);
+
 CREATE INDEX idx_mission_templates_faction ON mission_templates(faction_id);
 
 CREATE INDEX idx_mission_templates_type    ON mission_templates(type);
@@ -1276,4 +1279,5 @@ CREATE INDEX seen_sightings_system ON seen_player_sightings(system_id, bucket_ho
 
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (59, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (60, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (61, datetime('now'));
 

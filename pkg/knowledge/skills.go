@@ -6,16 +6,16 @@ import (
 
 // Skill represents a skill in SpaceMolt with its XP requirements
 type Skill struct {
-	ID             string         `json:"id"`
-	Name           string         `json:"name"`
-	Category       string         `json:"category"`
-	Description    string         `json:"description"`
-	MaxLevel       int            `json:"max_level"`
-	TrainingSource string         `json:"training_source,omitempty"`
-	XPPerLevel     []int          `json:"xp_per_level"`
-	BonusPerLevel  map[string]int `json:"bonus_per_level,omitempty"`
-	RequiredSkills   map[string]int `json:"required_skills,omitempty"`
-	EmpireRestriction string        `json:"empire_restriction,omitempty"`
+	ID                string         `json:"id"`
+	Name              string         `json:"name"`
+	Category          string         `json:"category"`
+	Description       string         `json:"description"`
+	MaxLevel          int            `json:"max_level"`
+	TrainingSource    string         `json:"training_source,omitempty"`
+	XPPerLevel        []int          `json:"xp_per_level"`
+	BonusPerLevel     map[string]int `json:"bonus_per_level,omitempty"`
+	RequiredSkills    map[string]int `json:"required_skills,omitempty"`
+	EmpireRestriction string         `json:"empire_restriction,omitempty"`
 }
 
 // GetSkill retrieves a single skill by ID, reading from the database first
@@ -155,4 +155,3 @@ func (s *Skill) GetNextLevelXP(currentLevel int) int {
 	}
 	return s.GetXPForLevel(currentLevel + 1)
 }
-

@@ -9089,9 +9089,27 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: accept_mission <mission-id>")
 		}
-		return simpleCommand(client, func(ctx context.Context) error {
+		err := simpleCommand(client, func(ctx context.Context) error {
 			return client.AcceptMission(ctx, parts[1])
 		}, ctx, 2*time.Second, cmd, format)
+		if err != nil {
+			// A mission_not_available refusal NAMES the only station that
+			// offers the mission — the one source we have for the giver of a
+			// mission that has never appeared on an observed board, since
+			// mission_template_locations is written from board captures only.
+			recordMissionRefusal(ctx, parts[1], err, currentTick(client.GetState()))
+			return err
+		}
+		// The accept reply carries template_id, which the completion reply
+		// omits; capturing it is what lets a completion be joined to its
+		// template by id instead of by title.
+		if raw := client.GetRawJSON("accept_mission"); len(raw) > 0 {
+			if cerr := captureMissionEvent(missionCompletionLedgerPath(globalAgentID),
+				globalAgentID, missionEventAccepted, raw); cerr != nil {
+				fmt.Printf("(mission ledger: %v)\n", cerr)
+			}
+		}
+		return nil
 
 	case "complete_mission":
 		if len(parts) < 2 {

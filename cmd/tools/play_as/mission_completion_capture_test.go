@@ -80,3 +80,61 @@ func TestCaptureMissionCompletionSkipsUnparseable(t *testing.T) {
 		t.Error("nothing should have been written")
 	}
 }
+
+// The accept reply carries BOTH ids: the procedural instance hash and the
+// template_id the completion reply omits. Capturing acceptances is therefore
+// what makes a completion joinable to its template by id instead of by title.
+// Verbatim from craftsman-1, 2026-09-18.
+const crimsonVintageAccept = `{
+  "command":"accept_mission",
+  "result":{
+    "expires_at":"2026-09-23T16:58:34Z",
+    "message":"Blood Forge is deep Crimson territory and they're not known for their hospitality.",
+    "mission_id":"9198e04fc3c0862ee34d0a05ae393df9",
+    "template_id":"crimson_vintage",
+    "title":"Crimson Vintage",
+    "type":"delivery"
+  },
+  "tick":1916322
+}`
+
+func TestCaptureMissionAcceptanceKeepsBothIDs(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mission_completions.jsonl")
+	if err := captureMissionEvent(path, "craftsman-1", missionEventAccepted, []byte(crimsonVintageAccept)); err != nil {
+		t.Fatalf("capture: %v", err)
+	}
+	data, _ := os.ReadFile(path)
+	var rec missionCompletionRecord
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(data))), &rec); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if rec.Event != missionEventAccepted {
+		t.Errorf("event: got %q", rec.Event)
+	}
+	if rec.MissionID != "9198e04fc3c0862ee34d0a05ae393df9" {
+		t.Errorf("instance id: got %q", rec.MissionID)
+	}
+	if rec.TemplateID != "crimson_vintage" {
+		t.Errorf("template id: got %q", rec.TemplateID)
+	}
+	if rec.ExpiresAt != "2026-09-23T16:58:34Z" {
+		t.Errorf("expires_at: got %q", rec.ExpiresAt)
+	}
+	if rec.Title != "Crimson Vintage" || rec.Type != "delivery" {
+		t.Errorf("title/type: %+v", rec)
+	}
+}
+
+// Completions keep being tagged as completions.
+func TestCaptureMissionCompletionTagsEvent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mission_completions.jsonl")
+	if err := captureMissionCompletion(path, "craftsman-1", []byte(crossingBordersReply)); err != nil {
+		t.Fatalf("capture: %v", err)
+	}
+	data, _ := os.ReadFile(path)
+	var rec missionCompletionRecord
+	_ = json.Unmarshal([]byte(strings.TrimSpace(string(data))), &rec)
+	if rec.Event != missionEventCompleted {
+		t.Errorf("event: got %q", rec.Event)
+	}
+}

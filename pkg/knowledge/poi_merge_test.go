@@ -84,12 +84,12 @@ func TestRememberPOI_MaxRichnessLatestRemaining(t *testing.T) {
 	first := POI{
 		ID: "belt2", SystemID: "sysA", Type: "asteroid_belt",
 		LastUpdatedTick: 1000, DetectedBy: "agentA",
-		Resources:       []game.POIResource{{ResourceID: "ore_x", Richness: 0.9, Remaining: 1000}},
+		Resources: []game.POIResource{{ResourceID: "ore_x", Richness: 0.9, Remaining: 1000}},
 	}
 	second := POI{
 		ID: "belt2", SystemID: "sysA", Type: "asteroid_belt",
 		LastUpdatedTick: 1050, DetectedBy: "agentB",
-		Resources:       []game.POIResource{{ResourceID: "ore_x", Richness: 0.5, Remaining: 600}},
+		Resources: []game.POIResource{{ResourceID: "ore_x", Richness: 0.5, Remaining: 600}},
 	}
 	if err := kb.RememberPOI(ctx, first); err != nil {
 		t.Fatal(err)
@@ -125,12 +125,12 @@ func TestRememberPOI_OlderWriteDoesNotDowngrade(t *testing.T) {
 	newer := POI{
 		ID: "belt3", SystemID: "sysA", Type: "asteroid_belt",
 		LastUpdatedTick: 1050, DetectedBy: "agentB",
-		Resources:       []game.POIResource{{ResourceID: "ore_x", Richness: 0.9, Remaining: 600}},
+		Resources: []game.POIResource{{ResourceID: "ore_x", Richness: 0.9, Remaining: 600}},
 	}
 	older := POI{
 		ID: "belt3", SystemID: "sysA", Type: "asteroid_belt",
 		LastUpdatedTick: 1000, DetectedBy: "agentA",
-		Resources:       []game.POIResource{{ResourceID: "ore_x", Richness: 0.5, Remaining: 1000}},
+		Resources: []game.POIResource{{ResourceID: "ore_x", Richness: 0.5, Remaining: 1000}},
 	}
 	if err := kb.RememberPOI(ctx, newer); err != nil {
 		t.Fatal(err)

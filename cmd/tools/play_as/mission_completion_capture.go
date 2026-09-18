@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // A mission's chain link exists in exactly one place: the `complete_mission`
@@ -20,15 +24,28 @@ import (
 // back to mission_templates is the title. Recording first and reconciling later
 // keeps a fragile join out of the write path -- and never risks the catalogue.
 
+// Ledger event kinds.
+const (
+	missionEventAccepted  = "accepted"
+	missionEventCompleted = "completed"
+)
+
 // missionCompletionRecord is one line of the ledger.
 type missionCompletionRecord struct {
 	AgentID     string `json:"agent_id"`
+	Event       string `json:"event"`
 	ObservedUTC string `json:"observed_utc"`
 	Tick        int64  `json:"tick,omitempty"`
 
 	MissionID string `json:"mission_id,omitempty"` // procedural instance hash
-	Title     string `json:"title,omitempty"`      // the only join to the catalogue
-	ChainNext string `json:"chain_next,omitempty"`
+	// TemplateID is present on the ACCEPT reply and absent from the completion
+	// reply, so capturing acceptances is what lets a completion be joined to
+	// its template by id rather than by title.
+	TemplateID string `json:"template_id,omitempty"`
+	Title      string `json:"title,omitempty"`
+	Type       string `json:"type,omitempty"`
+	ExpiresAt  string `json:"expires_at,omitempty"`
+	ChainNext  string `json:"chain_next,omitempty"`
 
 	CreditsEarned    int `json:"credits_earned,omitempty"`
 	CreditsPromised  int `json:"credits_promised,omitempty"`
@@ -42,8 +59,13 @@ type missionCompletionRecord struct {
 }
 
 // captureMissionCompletion appends one completion to the ledger at path.
-// Returns an error without writing anything when the reply cannot be parsed.
 func captureMissionCompletion(path, agentID string, raw []byte) error {
+	return captureMissionEvent(path, agentID, missionEventCompleted, raw)
+}
+
+// captureMissionEvent appends one mission event to the ledger at path.
+// Returns an error without writing anything when the reply cannot be parsed.
+func captureMissionEvent(path, agentID, event string, raw []byte) error {
 	var outer struct {
 		Tick   int64           `json:"tick"`
 		Result json.RawMessage `json:"result"`
@@ -55,7 +77,10 @@ func captureMissionCompletion(path, agentID string, raw []byte) error {
 
 	var r struct {
 		MissionID         string         `json:"mission_id"`
+		TemplateID        string         `json:"template_id"`
 		Title             string         `json:"title"`
+		Type              string         `json:"type"`
+		ExpiresAt         string         `json:"expires_at"`
 		ChainNext         string         `json:"chain_next"`
 		Message           string         `json:"message"`
 		CreditsEarned     int            `json:"credits_earned"`
@@ -74,10 +99,14 @@ func captureMissionCompletion(path, agentID string, raw []byte) error {
 
 	rec := missionCompletionRecord{
 		AgentID:           agentID,
+		Event:             event,
 		ObservedUTC:       time.Now().UTC().Format(time.RFC3339),
 		Tick:              outer.Tick,
 		MissionID:         r.MissionID,
+		TemplateID:        r.TemplateID,
 		Title:             r.Title,
+		Type:              r.Type,
+		ExpiresAt:         r.ExpiresAt,
 		ChainNext:         r.ChainNext,
 		CreditsEarned:     r.CreditsEarned,
 		CreditsPromised:   r.CreditsPromised,
@@ -111,4 +140,38 @@ func captureMissionCompletion(path, agentID string, raw []byte) error {
 // missionCompletionLedgerPath is the per-agent ledger location.
 func missionCompletionLedgerPath(agentID string) string {
 	return filepath.Join("data", "agents", agentID, "mission_completions.jsonl")
+}
+
+// recordMissionRefusal persists the giver named by a mission_not_available
+// refusal. Best-effort and non-fatal: the accept has already failed, and a
+// bookkeeping miss must not change what the operator sees. Quiet when the
+// error is a different refusal, or when there is no knowledge base.
+func recordMissionRefusal(ctx context.Context, missionID string, acceptErr error, tick int64) {
+	if acceptErr == nil || globalKB == nil {
+		return
+	}
+	sqliteKB, ok := globalKB.(*knowledge.SQLiteKB)
+	if !ok {
+		return
+	}
+	msg := acceptErr.Error()
+	if knowledge.ParseMissionOnlyAvailableAt(msg) == "" {
+		return
+	}
+	recorded, err := sqliteKB.RecordMissionRefusal(ctx, missionID, msg, tick)
+	switch {
+	case errors.Is(err, knowledge.ErrStationUnknown):
+		// The station is real but we have never charted it; say so rather
+		// than storing an unresolved display name in an id column.
+		fmt.Printf("(giver named %q but that station is not in the knowledge base yet)\n",
+			knowledge.ParseMissionOnlyAvailableAt(msg))
+	case errors.Is(err, knowledge.ErrMissionUnknown):
+		fmt.Printf("(giver resolved, but %s has no mission_templates row to record it on)\n", missionID)
+	case err != nil:
+		fmt.Printf("(mission giver: %v)\n", err)
+	case recorded:
+		if b, e := sqliteKB.MissionExclusiveBase(ctx, missionID); e == nil && b != nil {
+			fmt.Printf("📍 Recorded: %s is only available at %s (%s)\n", missionID, b.BaseID, b.SystemID)
+		}
+	}
 }

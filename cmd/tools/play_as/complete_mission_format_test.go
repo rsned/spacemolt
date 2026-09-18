@@ -30,9 +30,9 @@ func TestFormatCompleteMissionShowsShortfallAndReputation(t *testing.T) {
 	for _, want := range []string{
 		"Crossing Borders",
 		"+2557 cr",
-		"of 5500 promised",  // the advertised figure must be visible
-		"2943 unpaid",       // and so must the gap
-		"nebula",            // reputation movement
+		"of 5500 promised", // the advertised figure must be visible
+		"2943 unpaid",      // and so must the gap
+		"nebula",           // reputation movement
 		"+3",
 		"frontier_extension",
 	} {

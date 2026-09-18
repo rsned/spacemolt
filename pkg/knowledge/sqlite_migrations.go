@@ -9,10 +9,35 @@ import (
 )
 
 // Migration represents a database schema migration.
+//
+// Exactly one of sql or fn carries the change. Use fn when the change cannot
+// be expressed idempotently in SQLite SQL -- ADD COLUMN being the case that
+// matters, since runMigrations decides what to apply from MAX(version), so
+// replaying any migration replays every one above it.
 type Migration struct {
 	version int
 	name    string
 	sql     string
+	fn      func(tx *sql.Tx) error
+}
+
+// ensureColumn adds a column only when the table lacks it. SQLite has no
+// ADD COLUMN IF NOT EXISTS, and a bare ALTER fails the whole migration on a
+// replay.
+func ensureColumn(tx *sql.Tx, table, column, decl string) error {
+	var n int
+	if err := tx.QueryRow(
+		`SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?`, table, column,
+	).Scan(&n); err != nil {
+		return fmt.Errorf("inspect %s.%s: %w", table, column, err)
+	}
+	if n > 0 {
+		return nil
+	}
+	if _, err := tx.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", table, column, decl)); err != nil {
+		return fmt.Errorf("add %s.%s: %w", table, column, err)
+	}
+	return nil
 }
 
 // collapseFloor is the ledger version a database must have reached to be
@@ -160,6 +185,40 @@ func migrations() []Migration {
 				CREATE INDEX IF NOT EXISTS idx_base_market_item_id ON base_market(item_id);
 			`,
 		},
+		{
+			version: 61,
+			name:    "mission_exclusive_base",
+			sql: `
+				-- mission_template_locations records where a mission has been
+				-- SEEN on a board. It cannot express where a mission can be
+				-- TAKEN: single-station is the overwhelming default (11,365 of
+				-- 11,389 templates have exactly one row), so a row count is no
+				-- evidence of a binding, and a mission nobody has seen listed
+				-- has no row at all even when the server states its giver.
+				--
+				-- These columns hold the authoritative statement instead,
+				-- written only from a source that ASSERTS exclusivity -- today
+				-- the accept_mission refusal ("This mission is only available
+				-- at X"). exclusive_base_id is a RESOLVED base id, never the
+				-- display name the refusal quotes.
+			`,
+			fn: func(tx *sql.Tx) error {
+				for _, c := range []struct{ name, decl string }{
+					{"exclusive_base_id", "TEXT"},
+					{"exclusive_system_id", "TEXT"},
+					{"exclusive_source", "TEXT"},
+					{"exclusive_seen_tick", "INTEGER"},
+					{"exclusive_seen_at", "TEXT"},
+				} {
+					if err := ensureColumn(tx, "mission_templates", c.name, c.decl); err != nil {
+						return err
+					}
+				}
+				_, err := tx.Exec(`CREATE INDEX IF NOT EXISTS idx_mission_templates_exclusive_base
+					ON mission_templates(exclusive_base_id)`)
+				return err
+			},
+		},
 	}
 }
 
@@ -193,9 +252,17 @@ func runMigrations(db *sql.DB) error {
 		if err != nil {
 			return fmt.Errorf("failed to begin transaction for migration %d: %w", m.version, err)
 		}
-		if _, err := tx.Exec(m.sql); err != nil {
-			_ = tx.Rollback()
-			return fmt.Errorf("failed to apply migration %d (%s): %w", m.version, m.name, err)
+		if m.sql != "" {
+			if _, err := tx.Exec(m.sql); err != nil {
+				_ = tx.Rollback()
+				return fmt.Errorf("failed to apply migration %d (%s): %w", m.version, m.name, err)
+			}
+		}
+		if m.fn != nil {
+			if err := m.fn(tx); err != nil {
+				_ = tx.Rollback()
+				return fmt.Errorf("failed to apply migration %d (%s): %w", m.version, m.name, err)
+			}
 		}
 		if _, err := tx.Exec(
 			"INSERT INTO schema_migrations (version, applied_at) VALUES (?, datetime('now'))",

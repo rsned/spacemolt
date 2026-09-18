@@ -110,11 +110,15 @@ func TestMigration60_ReconcilesLiveShapes(t *testing.T) {
 	if qty != 0 || npc != 0 {
 		t.Errorf("bm1 quantity/is_npc = %d/%d, want 0/0 (live defaults preserved for existing rows)", qty, npc)
 	}
+	// The ledger must reach the newest migration, not a hardcoded 60: clearing
+	// version >= 60 replays everything above it too, since runMigrations works
+	// from MAX(version).
 	var version int
 	if err := kb.db.QueryRow("SELECT MAX(version) FROM schema_migrations").Scan(&version); err != nil {
 		t.Fatalf("version: %v", err)
 	}
-	if version != 60 {
-		t.Errorf("ledger = %d, want 60", version)
+	want := migrations()[len(migrations())-1].version
+	if version != want {
+		t.Errorf("ledger = %d, want %d", version, want)
 	}
 }
