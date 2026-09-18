@@ -110,6 +110,7 @@
 - [get_poi retirement](project_get_poi_retirement.md)
 - [mbox backfill stopped at the first known row; private never backfilled](reference_mbox_backfill_holes.md) — a June DM invisible 3 months; FIXED 08-30, run `mbox backfill` once per parked pilot
 - ⭐🔴 [private chat target_id is a conversation key](reference_chat_target_id_conversation_key.md) — `"<recipient>:<sender>"`; killed databot silently for 2 months. FIXED
+- ⭐🔴 [Mission chain maps](reference_mission_chain_maps.md) — `chain_next` comes ONLY from the complete_mission reply and play_as drops it; smuggling chain mapped, Grand Circuit breaks at `frontier_extension` (never observed, craftsman-1 is 2 steps away)
 - [Mission board wire shape](reference_mission_board_wire_shape.md) — NO `requirements`
 - [craft is action_result-wrapped](reference_craft_action_result_wrapping.md) — job body arrives next tick in `{command,tick,result}`
 - [catalog(recipes) decode quirk](reference_catalog_recipes_shape.md) — full Recipe shape inside items[], not CatalogItem
