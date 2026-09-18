@@ -5536,6 +5536,12 @@ func formatCompleteMission(raw []byte) string {
 		ItemsReceived map[string]int `json:"items_received,omitempty"`
 		SkillXPGained map[string]int `json:"skill_xp_gained,omitempty"`
 		ChainNext     string         `json:"chain_next,omitempty"`
+		// The server states the advertised figure and the unpaid remainder
+		// alongside what it actually paid (the empire-treasury shortfall).
+		// Rendering only credits_earned hid a mission paying 46% of face value.
+		CreditsPromised   int            `json:"credits_promised,omitempty"`
+		CreditsShortfall  int            `json:"credits_shortfall,omitempty"`
+		ReputationChanges map[string]int `json:"reputation_changes,omitempty"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -5554,11 +5560,17 @@ func formatCompleteMission(raw []byte) string {
 		fmt.Fprintf(&b, "%q\n\n", resp.Message)
 	}
 
-	hasRewards := resp.CreditsEarned > 0 || len(resp.ItemsReceived) > 0 || len(resp.SkillXPGained) > 0
+	hasRewards := resp.CreditsEarned > 0 || len(resp.ItemsReceived) > 0 ||
+		len(resp.SkillXPGained) > 0 || len(resp.ReputationChanges) > 0
 	if hasRewards {
 		b.WriteString("Rewards:\n")
 		if resp.CreditsEarned > 0 {
-			fmt.Fprintf(&b, "  credits:  %20s +%d cr\n", "", resp.CreditsEarned)
+			fmt.Fprintf(&b, "  credits:  %20s +%d cr", "", resp.CreditsEarned)
+			// Only call out the gap when the empire actually underpaid.
+			if resp.CreditsShortfall > 0 && resp.CreditsPromised > 0 {
+				fmt.Fprintf(&b, "  (of %d promised — %d unpaid)", resp.CreditsPromised, resp.CreditsShortfall)
+			}
+			b.WriteString("\n")
 		}
 		if len(resp.ItemsReceived) > 0 {
 			itemNames := make([]string, 0, len(resp.ItemsReceived))
@@ -5578,6 +5590,18 @@ func formatCompleteMission(raw []byte) string {
 			slices.Sort(skillNames)
 			for _, skill := range skillNames {
 				fmt.Fprintf(&b, "  skills:   %20s %s +%4d xp\n", "", skill, resp.SkillXPGained[skill])
+			}
+		}
+		// Standing moves are a reward too, and a chain can quietly cost
+		// standing with a rival empire while paying the issuing one.
+		if len(resp.ReputationChanges) > 0 {
+			empires := make([]string, 0, len(resp.ReputationChanges))
+			for e := range resp.ReputationChanges {
+				empires = append(empires, e)
+			}
+			slices.Sort(empires)
+			for _, e := range empires {
+				fmt.Fprintf(&b, "  standing: %20s %s %+d\n", "", e, resp.ReputationChanges[e])
 			}
 		}
 	}
@@ -9028,9 +9052,18 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: complete_mission <mission-id>")
 		}
-		return simpleCommand(client, func(ctx context.Context) error {
+		err := simpleCommand(client, func(ctx context.Context) error {
 			return client.CompleteMission(ctx, parts[1])
 		}, ctx, 3*time.Second, cmd, format)
+		// chain_next lives ONLY in this reply -- the action log carries no
+		// chain key -- so persist it before the bytes go out of scope. A
+		// capture failure must not fail the completion, which already landed.
+		if raw := client.GetRawJSON("complete_mission"); len(raw) > 0 {
+			if cerr := captureMissionCompletion(missionCompletionLedgerPath(globalAgentID), globalAgentID, raw); cerr != nil {
+				fmt.Printf("(mission ledger: %v)\n", cerr)
+			}
+		}
+		return err
 
 	case "abandon_mission":
 		if len(parts) < 2 {
