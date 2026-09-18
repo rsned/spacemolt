@@ -170,6 +170,7 @@
 - [Ship replacement workflow](reference_ship_replacement_workflow.md) — insurance pays credits, not a ship
 - [Cargo liquidation](project_cargo_liquidation_cut_losses.md) — best bid, else DEPOSIT (never jettison)
 - [drone_bay is an agent-wide ledger](reference_drone_bay_is_agent_wide.md) — drones keep mining across a ship switch; capacity fields report 0
+- ⭐🔴 [commission_ship is CREDITS ONLY](reference_ship_commissioning_is_credits_only.md) — shipyard supplies the materials; Congregation 5,723 cr vs 13,674 to buy; outerrim hulls need an Outer Rim yard
 - ⭐ [Rank freight hulls FITTED, not by base stats](reference_prayer_class_freight_hulls.md) — `cargo_expander_iii` = +100/slot; congregation = 1900 cargo, tier 1
 - [Refueler ship roadmap](project_refueler_ship_roadmap.md) — Tanker step DONE 08-14 for 4 of 5 (see migration); tier-4 hulls next
 - [Idle script authoring traps](reference_idle_script_authoring_traps.md) — dead idle_params, stale POI cache after jump, first-belt selection, override path
