@@ -1041,7 +1041,19 @@ type OwnedFacility struct {
 	UnderConstruction bool   `json:"under_construction,omitempty"`
 }
 
-// FacilityRentSummary is the rent summary block in a FacilityOwnedResponse.
+// FacilityRentSummary is the shared rent aggregate. It is the `rent` block on
+// `facility owned`, the `player_rent` / `faction_rent` blocks on
+// `facility list`, and — from server v0.606.2 — `faction_rent` on both
+// `facility faction_list` and `facility faction_owned`.
+//
+// TotalRentPerCycle counts only facilities with every pause flag false
+// (damaged, under_construction, dismantling) and EXCLUDES existing arrears;
+// ArrearsOwed carries those and survives a pause. Facilities counts paused
+// ones too, so it can exceed what TotalRentPerCycle bills for.
+// EstRentPerDay is the server's own figure (TotalRentPerCycle * 86 cycles at
+// the default 10s tick) — prefer it over recomputing; the multiplier is the
+// server's to change. GraceCycles is how many consecutive unpayable cycles
+// the station allows before repossession; arrears keep accruing during it.
 type FacilityRentSummary struct {
 	Facilities        int    `json:"facilities"`
 	TotalRentPerCycle int    `json:"total_rent_per_cycle"`
@@ -1097,14 +1109,42 @@ type FactionOwnedFacilityEntry struct {
 // TotalRentPerCycle counts only facilities with no pause flag set, and excludes
 // existing arrears — ArrearsOwed carries those separately.
 type FacilityFactionOwnedResponse struct {
-	Action            string                      `json:"action"`
-	FactionID         string                      `json:"faction_id"`
-	Facilities        []FactionOwnedFacilityEntry `json:"facilities"`
-	TotalRentPerCycle int                         `json:"total_rent_per_cycle"`
-	ArrearsOwed       int                         `json:"arrears_owed,omitempty"`
-	GraceCycles       int                         `json:"grace_cycles,omitempty"`
-	Note              string                      `json:"note,omitempty"`
-	Hint              string                      `json:"hint,omitempty"`
+	Action     string                      `json:"action"`
+	FactionID  string                      `json:"faction_id"`
+	Facilities []FactionOwnedFacilityEntry `json:"facilities"`
+	// FactionRent is the whole treasury rent bill (server v0.606.2, REQUIRED
+	// by the schema). Before that release total_rent_per_cycle, arrears_owed,
+	// grace_cycles and note sat at the top level; they were relocated here,
+	// not removed, and the object gained facilities and est_rent_per_day.
+	FactionRent *FacilityRentSummary `json:"faction_rent,omitempty"`
+	Hint        string               `json:"hint,omitempty"`
+
+	// Deprecated: pre-v0.606.2 top-level placements. Read them only as a
+	// fallback when FactionRent is nil -- a server mid-rollout, or a replayed
+	// capture. Reading them against a current server yields a silent zero.
+	TotalRentPerCycle int    `json:"total_rent_per_cycle,omitempty"`
+	ArrearsOwed       int    `json:"arrears_owed,omitempty"`
+	GraceCycles       int    `json:"grace_cycles,omitempty"`
+	Note              string `json:"note,omitempty"`
+}
+
+// RentSummary returns the rent aggregate from wherever this reply carries it,
+// preferring the v0.606.2 faction_rent object and falling back to the legacy
+// top-level fields. Never nil.
+func (r FacilityFactionOwnedResponse) RentSummary() FacilityRentSummary {
+	if r.FactionRent != nil {
+		return *r.FactionRent
+	}
+	return FacilityRentSummary{
+		Facilities:        len(r.Facilities),
+		TotalRentPerCycle: r.TotalRentPerCycle,
+		// Pre-v0.606.2 replies carried no est_rent_per_day; 86 cycles/day is
+		// the figure the server documents for the current tick rate.
+		EstRentPerDay: r.TotalRentPerCycle * 86,
+		ArrearsOwed:   r.ArrearsOwed,
+		GraceCycles:   r.GraceCycles,
+		Note:          r.Note,
+	}
 }
 
 // FacilityTypesResponse wraps the response from facility action="types" which

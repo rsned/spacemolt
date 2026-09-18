@@ -66,7 +66,7 @@ import (
 // play_as. Request-parameter drift stays unguarded -- 24 commands declare
 // parameters whose names appear nowhere in our Go, and no test looks in that
 // direction.
-const BuiltForAPIVersion = "v0.605.0"
+const BuiltForAPIVersion = "v0.606.2"
 
 // SemVer represents a semantic version (Major.Minor.Patch)
 type SemVer struct {

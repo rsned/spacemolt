@@ -101,3 +101,58 @@ func TestFormatFacilityFactionOwned_WarnsOnArrears(t *testing.T) {
 		}
 	}
 }
+
+// v0.606.2 relocated total_rent_per_cycle, arrears_owed and note into a
+// faction_rent object, and that object now also carries the facility count,
+// an estimated rent per day and the eviction grace window. Per the OpenAPI
+// schema faction_rent is REQUIRED on this reply and the top-level fields are
+// gone (additionalProperties: false), so reading them at the old path yields
+// a silent zero — the same failure mode as the phantom "active" field.
+const factionOwned_v0_606_2 = `{
+  "action": "faction_owned",
+  "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+  "facilities": [
+    {"base_id":"grand_exchange_station","base_name":"Grand Exchange Station","facility_id":"a1","labor_per_run":0,"name":"Intel Terminal","rent_per_cycle":159,"system_id":"haven","type":"intel_terminal"},
+    {"base_id":"voss_redoubt_station","base_name":"Voss Redoubt Station","facility_id":"b1","labor_per_run":15,"name":"Backstreet Chem Lab","rent_per_cycle":738,"system_id":"alhena","type":"backstreet_chem_lab"}
+  ],
+  "faction_rent": {
+    "facilities": 2,
+    "total_rent_per_cycle": 897,
+    "est_rent_per_day": 77142,
+    "arrears_owed": 3588,
+    "grace_cycles": 6,
+    "note": "Faction facilities pay rent from the treasury each cycle."
+  },
+  "hint": "Use action 'faction_list' while docked for full per-facility detail at that station."
+}`
+
+func TestFormatFacilityFactionOwned_ReadsRelocatedFactionRent(t *testing.T) {
+	out := formatFacilityFactionOwned([]byte(factionOwned_v0_606_2))
+	for _, want := range []string{
+		"897",    // total_rent_per_cycle, now nested
+		"77,142", // the SERVER's est_rent_per_day, not a client recomputation
+		"3588",   // arrears still owed
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+// The grace window is the whole point of the new field: it says how many
+// missed cycles remain before the station repossesses the facility.
+func TestFormatFacilityFactionOwned_ShowsGraceWindow(t *testing.T) {
+	out := formatFacilityFactionOwned([]byte(factionOwned_v0_606_2))
+	if !strings.Contains(out, "6") || !strings.Contains(strings.ToLower(out), "grace") {
+		t.Errorf("grace window not surfaced:\n%s", out)
+	}
+}
+
+// The pre-v0.606.2 shape must keep working: a worker may reach a server that
+// has not rolled yet, and a silent zero would misreport the treasury bill.
+func TestFormatFacilityFactionOwned_LegacyTopLevelStillWorks(t *testing.T) {
+	out := formatFacilityFactionOwned([]byte(realFactionOwned))
+	if !strings.Contains(out, "4973") {
+		t.Errorf("legacy top-level total lost:\n%s", out)
+	}
+}

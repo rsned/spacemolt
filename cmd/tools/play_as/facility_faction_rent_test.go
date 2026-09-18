@@ -142,3 +142,44 @@ func TestFormatFacilityList_PrefersServerFactionRent(t *testing.T) {
 		t.Errorf("client-side sum overrode the server's faction_rent:\n%s", out)
 	}
 }
+
+// v0.606.2 added the faction_rent summary to `facility faction_list` too, so
+// the per-station view no longer has to total the rows itself — and must not,
+// because the server's figure already excludes paused facilities that the
+// client-side sum cannot see the flags for.
+const factionList_v0_606_2 = `{
+  "action": "faction_list",
+  "base_id": "grand_exchange_station",
+  "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+  "faction_facilities": [
+    {"facility_id":"a1","name":"Intel Terminal","type":"intel_terminal","rent_per_cycle":159,"labor_per_run":0},
+    {"facility_id":"a2","name":"Carbon Arc Furnace","type":"carbon_arc_furnace","rent_per_cycle":319,"labor_per_run":8,"damaged":true}
+  ],
+  "faction_rent": {
+    "facilities": 2,
+    "total_rent_per_cycle": 159,
+    "est_rent_per_day": 13674,
+    "arrears_owed": 638,
+    "grace_cycles": 6
+  },
+  "faction_storage": {"credits": 1000, "item_types": 2, "rooms": 1},
+  "hint": "x"
+}`
+
+func TestFormatFacilityFactionList_PrefersServerRentSummary(t *testing.T) {
+	out := formatFacilityFactionList([]byte(factionList_v0_606_2))
+	// The damaged facility is NOT billing, so the server says 159 — a
+	// client-side sum of the rows would wrongly say 478.
+	if !strings.Contains(out, "159") {
+		t.Errorf("server total missing:\n%s", out)
+	}
+	if strings.Contains(out, "478") {
+		t.Errorf("client-side sum used instead of the server's figure:\n%s", out)
+	}
+	if !strings.Contains(out, "13,674") {
+		t.Errorf("server est_rent_per_day missing:\n%s", out)
+	}
+	if !strings.Contains(out, "638") {
+		t.Errorf("arrears missing:\n%s", out)
+	}
+}
