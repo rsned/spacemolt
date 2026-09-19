@@ -113,3 +113,35 @@ record and pass it as a list arg to subprocess, or quote it in the shell:
 Related: [[reference_rescue_queue_blocks_launch]] ·
 [[reference_docked_zero_fuel_invisible_to_watchdog]] ·
 [[project_execute_loop_has_no_pacing_floor]] (the block that manufactured these)
+
+## 2026-09-18: ALL FIVE haul rescue records were false — and the game self-heals
+
+Cleared all five. Every one was a phantom:
+
+- trader-3 100/100 fuel, salvager-1 130/130, salvager-9 96/120, trader-10
+  261/720 — full or near-full tanks recorded as strandees.
+- **hauler-0** was the one I judged genuine (record said "fuel-dead:
+  stalled >15m0s undocked, fuel 0/120"). It was false too. The asset ledger
+  captured **fuel 102/120 at 17:23:42**, 92 minutes before the 18:55:33
+  record claimed 0/120, and the server's own refusal said it was docked at
+  **Mobile Capital**, not adrift at the recorded `icecap_drift`. On clearing
+  the record it launched instantly: First Step / mobile_capital, **23.28M
+  credits**, healthy. It had been docked and idle for 6 days.
+
+**⭐ WHY the records are almost always false: stuck ships get TOWED back to
+stations** (GSA auto-recovery, [[reference_gsa_ship_recovery]]). The game
+resolves the strand on its own, usually faster than a rescuer can fly there
+— but the record persists, keeps its stale POI, and misdirects every
+rescuer. hauler-0's record had `attempts: 5` and
+`failed_by: [assist-krynn, assist-haven, assist-sol, assist-nexus]`, all
+bouncing off `different_location` because the recorded POI was wrong.
+
+**So treat an open rescue record as suspect by default.** Before dispatching
+anyone: check `agent_hulls.fuel_current` in assets.db against the record's
+`fuel`, and check whether the server error mentions a DIFFERENT location. A
+docked agent with credits self-recovers; a towed one already has.
+
+`bin/rescue-clear -agents <ids> -dry-run` lists them; without -dry-run it
+removes them through the flock-protected queue and the owning overmind
+releases the agent on its next poll ("no record for quarantined X;
+releasing").
