@@ -18,6 +18,16 @@ Compare buying the same hull listed at First Step Memorial Station:
 **13,279 cr** (a previous unit went for 13,406 + 268 sales tax = 13,674; the
 station manager RESTOCKS — a replacement appeared within ~35 min).
 
+**Why the gap:** credits-only means the shipyard buys the components on the
+market itself, and it charges you **2.0x their market value** to do it:
+38,603 - 5,939 labour = 32,664 for materials worth ~16,332. Supplying your
+own avoids that 32,664/hull premium entirely. Our components come from the
+engineers' ore->component conversion
+([[project_ore_to_component_conversion]]), so our marginal cost on them is
+near zero — over 15 hulls the markup avoided is ~490,000 cr. It also explains
+why a LISTED hull (~13,300) undercuts credits-only so badly: no bespoke
+panic-buy of components is priced in.
+
 **So the ranking by cash outlay is:**
 1. `provide-materials` — 5,939, if you already hold the components
 2. buy a listed hull — ~13,300, instant, but stock is thin and unreliable
