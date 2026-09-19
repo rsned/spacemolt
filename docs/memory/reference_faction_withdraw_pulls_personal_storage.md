@@ -1,6 +1,6 @@
 ---
 name: reference_faction_withdraw_pulls_personal_storage
-description: "faction_withdraw_items target is an enum: self = YOUR storage, faction = the lockbox. --target=self succeeds silently against personal stock and leaves faction untouched; use target=faction"
+description: "faction_withdraw_items: target names the SOURCE (omit=faction lockbox, self=your own storage) and the destination is ALWAYS cargo, so the lockbox is bounded by hull size"
 metadata:
   node_type: memory
   type: reference
@@ -40,10 +40,36 @@ faction_withdraw_items trade_cipher 15 --target=storage
    storage. Use target=\"self\" or target=\"faction\"."
 ```
 
-| target | source |
+| `target` value | SOURCE it reads |
 |---|---|
-| `self` | **your own** station storage (the default-looking trap) |
-| `faction` | **the faction lockbox** — what the command name implies |
+| *(omitted)* | **the faction lockbox** — this is the default |
+| `self` | **your own** station storage (the trap) |
+| `faction` | the lockbox, stated explicitly |
+| anything else | `invalid_target`, parsed as another player's storage |
+
+**`target` names the SOURCE, never the destination.** The destination is
+ALWAYS your cargo hold. Proven by three calls on `trade_cipher`, which the
+faction had 15 of and the agent 0 of personally:
+
+```
+--target=storage -> invalid_target: "Cannot withdraw from another player's
+                    storage. Use target="self" or target="faction"."
+--target=self    -> insufficient_storage: "Storage only has 0 x trade_cipher"
+                    (read PERSONAL: 0, not the faction's 15)
+(no target)      -> cargo_full: "Need 15 but only 0 available"
+                    (found the faction's 15; failed on the HOLD)
+```
+
+⭐ **Because withdrawals land in CARGO, the lockbox is bounded by hull size.**
+Draining 38,097 liquid_hydrogen is ~20 Congregation loads, not one command --
+and a small hull (craftsman-boss's prospector) fills after a single withdraw.
+Deposit or sell between pulls.
+
+⭐ **A `pending: true` ack is NOT success.** The real verdict arrives ~3s later
+as a SEPARATE frame on the SAME request_id, often `action_error`. Anything that
+reads only the first response records these failures as successes -- which is
+how the `--target=storage` attempt looked like silence when it had already
+failed.
 
 So nothing was broken: `self` did exactly what it says. The trap is purely that
 the command is NAMED `faction_withdraw_items`, so `--target=self` reads as
