@@ -506,6 +506,7 @@ type fakeStore struct {
 	scanned        int
 	claims         map[int]bool                  // id -> claim succeeds
 	claimedByAgent []market.ArbitrageOpportunity // returned by GetClaimedByAgent (resume)
+	claimedErr     error                         // when set, GetClaimedByAgent fails
 	completed      []int
 	released       []int
 	prices         []market.ItemStationPrice
@@ -548,6 +549,9 @@ func (f *fakeStore) GetOpportunities(_ context.Context, status string, _ int) ([
 	return f.available, nil
 }
 func (f *fakeStore) GetClaimedByAgent(_ context.Context, _ string) ([]market.ArbitrageOpportunity, error) {
+	if f.claimedErr != nil {
+		return nil, f.claimedErr
+	}
 	return f.claimedByAgent, nil
 }
 func (f *fakeStore) ClaimOpportunity(_ context.Context, id int, _ string) (bool, error) {

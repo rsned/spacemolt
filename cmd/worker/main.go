@@ -483,6 +483,10 @@ func main() {
 						}
 						return t
 					},
+					// Stand down at the role's own boundary, not wherever the
+					// last pass ended: a hauler mid-claim keeps working until
+					// its haul completes, then reports drained and is stopped.
+					SafeToStandDown: dispatch.AtSafePoint,
 					OnCommandTimeout: func(tokens []string, waited time.Duration) {
 						n := cmdTimeouts.Add(1)
 						cmd := strings.Join(tokens, " ")

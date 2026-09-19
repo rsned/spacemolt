@@ -1747,6 +1747,27 @@ type DockResponse struct {
 	// PassengerArrivals reports any aboard passengers bound for this station
 	// who were automatically delivered (and their fares collected) on docking.
 	PassengerArrivals *PassengerArrivals `json:"passenger_arrivals,omitempty"`
+	// Messages is the station mailbox handed over on docking -- operational
+	// notices from NPC authorities rather than player chat (which is
+	// UnreadChat). MessagesCount is the server's own count, which may exceed
+	// len(Messages) if the list is ever truncated, so prefer it for totals.
+	//
+	// These are not decorative: the first ones observed (2026-09-19) were
+	// Station Authority rent-arrears warnings counting toward facility
+	// repossession at 260 missed cycles. A notice delivered only here is lost
+	// entirely if the struct has no field for it.
+	Messages      []StationMessage `json:"messages,omitempty"`
+	MessagesCount int              `json:"messages_count,omitempty"`
+}
+
+// StationMessage is one notice from a station's authorities, delivered in the
+// dock reply. From is the sending authority ("Station Authority"), not a
+// player. Timestamp is RFC3339 with nanoseconds, kept as a string because it
+// is displayed and logged rather than computed on.
+type StationMessage struct {
+	Body      string `json:"body,omitempty"`
+	From      string `json:"from,omitempty"`
+	Timestamp string `json:"timestamp,omitempty"`
 }
 
 // PassengerArrivals summarizes passengers delivered when docking at their

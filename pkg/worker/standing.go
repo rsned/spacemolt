@@ -60,6 +60,23 @@ type StandingDeps struct {
 	NextTask     func() *AssignedTask
 	OnTaskResult func(taskID string, err error)
 
+	// SafeToStandDown, when set, reports whether the ROLE is between units of
+	// work and may therefore be stopped. It is consulted only once a hold has
+	// been requested (pause, drain or park) and gates solely the PUBLICATION of
+	// Drained/Quiesced -- the flags the supervisor's readyToStop watches.
+	//
+	// Without it a hold lands at a PASS boundary, which is not a unit boundary:
+	// a haul spans many passes (claim, buy, jump, jump, ..., sell), so draining
+	// a hauler mid-run stops it holding cargo against a live claim while the
+	// supervisor records a clean exit. That is why rolling the haul fleet onto
+	// a new binary has meant choosing between aborting in-flight hauls and not
+	// rolling at all.
+	//
+	// While it reports false the worker keeps taking passes, so it can finish
+	// what it started and reach the boundary on its own. nil means the role has
+	// no in-flight unit to protect and a hold takes effect immediately.
+	SafeToStandDown func() bool
+
 	// OnCommandTimeout, when set, fires when a dispatched command exceeded
 	// CommandTimeout -- OUR bound expiring, not the caller cancelling. That
 	// distinction is the point: a client-side timeout says nothing about
@@ -221,15 +238,26 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 			parked, parkReason = deps.Quiesced()
 		}
 		if paused || draining || parked {
-			deps.SetDrained(draining)            // drained only when held *because* of drain
-			deps.SetQuiesced(parked, parkReason) // likewise, parked only when held by the park
-			if sleepCtx(ctx, deps.IdleInterval) {
-				return nil
+			// A hold is a request to stop at the next SAFE point, not wherever
+			// the last pass happened to end. While the role reports itself
+			// mid-unit, fall through and take the pass so it can finish -- and
+			// publish neither flag, since those are exactly what the supervisor
+			// stops on.
+			if deps.SafeToStandDown != nil && !deps.SafeToStandDown() {
+				deps.SetDrained(false)
+				deps.SetQuiesced(false, "")
+			} else {
+				deps.SetDrained(draining)            // drained only when held *because* of drain
+				deps.SetQuiesced(parked, parkReason) // likewise, parked only when held by the park
+				if sleepCtx(ctx, deps.IdleInterval) {
+					return nil
+				}
+				continue
 			}
-			continue
+		} else {
+			deps.SetDrained(false)
+			deps.SetQuiesced(false, "")
 		}
-		deps.SetDrained(false)
-		deps.SetQuiesced(false, "")
 		deps.ExecMu.Lock()
 		var before uint64
 		if wire != nil {

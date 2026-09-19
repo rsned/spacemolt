@@ -36,6 +36,8 @@ func main() {
 	tasksPath := flag.String("tasks", "data/overmind/tasks.yaml", "Path to the assigned-task seed file")
 	stagger := flag.Duration("stagger", game.SleepMedium, "Delay between initial worker launches (per-IP /login pacing)")
 	restartBatch := flag.Int("restart-batch", 1, "Max worker relaunches per reap tick (per-IP /login pacing for mass restarts; <=0 disables)")
+	removeDrainTimeout := flag.Duration("remove-drain-timeout", supervisor.DefaultRemoveDrainTimeout,
+		"How long a removed worker may drain before it is force-stopped; 0 waits indefinitely for it to stand down at its role's safe point (use for zero-abort rolling upgrades of long-running fleets like haul)")
 	statusPath := flag.String("status-file", "data/overmind/fleet-status.json", "Live fleet status snapshot file (rewritten each tick)")
 	historyPath := flag.String("history-file", "data/overmind/fleet-history.jsonl", "Append-only daily balance history (one row per agent per UTC day)")
 	marketDBPath := flag.String("market-db-path", "data/market.db", "Path to market.db for quarter-hourly fleet_timeseries snapshots")
@@ -94,6 +96,7 @@ func main() {
 		FleetName:        *fleetName,
 	}), logger)
 	sup.StaggerInterval = *stagger
+	sup.RemoveDrainTimeout = *removeDrainTimeout
 	sup.RestartBatch = *restartBatch
 	srv.SetAdminHook(makeAdminHook(rs, sup, *overridesPath, logger))
 

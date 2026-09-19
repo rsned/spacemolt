@@ -161,7 +161,7 @@ func (s *Supervisor) memberRemove(agentID string, relaunch *WorkerSpec, now time
 		return // removal already in progress
 	}
 	s.fleet.MarkLeaving(agentID)
-	s.leaving[agentID] = &leavingState{deadline: now.Add(s.RemoveDrainTimeout), relaunch: relaunch}
+	s.leaving[agentID] = &leavingState{deadline: drainDeadline(now, s.RemoveDrainTimeout), relaunch: relaunch}
 	if s.Sender != nil {
 		if err := s.Sender.Send(agentID, control.Envelope{Type: control.TypeDrain, AgentID: agentID}); err != nil {
 			s.logger.Printf("membership: drain to %q failed (%v); will force-stop at deadline", agentID, err)
@@ -182,6 +182,30 @@ func readyToStop(s control.Status) bool {
 	return s.Drained || s.Quiesced
 }
 
+// drainDeadline converts a drain timeout into an absolute force-stop time. A
+// zero timeout disables the force-stop entirely (the zero time), which is what
+// a stand-down-at-the-safe-point roll needs: the worker is deliberately still
+// working while it finishes its unit, so any fixed clock would kill it
+// mid-unit. Such a roll is bounded by the longest in-flight unit instead.
+func drainDeadline(now time.Time, timeout time.Duration) time.Time {
+	if timeout == 0 {
+		return time.Time{}
+	}
+	// A negative timeout stays an already-past deadline (force-stop at once)
+	// rather than becoming "never": only an explicit zero disables the clock.
+	return now.Add(timeout)
+}
+
+// forceStopDue reports whether a drain's force-stop deadline has passed. The
+// zero deadline never comes due -- treating it as "already expired" would
+// force-stop every drain instantly, the exact inverse of a disabled timeout.
+func forceStopDue(now, deadline time.Time) bool {
+	if deadline.IsZero() {
+		return false
+	}
+	return !now.Before(deadline)
+}
+
 // progressLeaving advances in-flight removals: stop when drained or past the
 // deadline, then complete (and relaunch updates through the budget).
 // Reap-goroutine only.
@@ -198,7 +222,7 @@ func (s *Supervisor) progressLeaving(ctx context.Context, now time.Time, budget 
 		drained := seen && readyToStop(w.LastStatus)
 		proc := procSnapshot(s, agentID)
 		gone := proc == nil || !proc.alive()
-		if !gone && !drained && now.Before(st.deadline) {
+		if !gone && !drained && !forceStopDue(now, st.deadline) {
 			continue // still draining
 		}
 		if !gone {

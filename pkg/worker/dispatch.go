@@ -264,6 +264,19 @@ func (d *WorkerDispatch) redundant(cmd string, args []string) (why string, skip 
 // Run dispatches one tokenized command. Token resolution ($SYSTEM$, $STATION$,
 // POI-type tokens) is the caller's responsibility (RunStanding resolves before
 // calling) — Run treats tokens as literal.
+// AtSafePoint reports whether this worker is between units of work, for the
+// standing loop's SafeToStandDown gate. Only haul currently has an in-flight
+// unit that outlives a pass; every other role is stoppable whenever its pass
+// ends, so they report safe.
+func (d *WorkerDispatch) AtSafePoint() bool {
+	if d.Market == nil {
+		return true
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), game.SleepShort)
+	defer cancel()
+	return HaulAtSafePoint(ctx, d.Market, d.AgentID)
+}
+
 func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 	if len(tokens) == 0 {
 		return nil
