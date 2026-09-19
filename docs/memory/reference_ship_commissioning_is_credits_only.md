@@ -1,52 +1,54 @@
 ---
-name: reference-ship-commissioning-is-credits-only
-description: commission_ship charges credits only — the shipyard supplies the ship_build_materials; do NOT haul components to a shipyard
+name: reference-ship-commissioning-modes-and-costs
+description: commission_ship has TWO modes — credits-only (expensive) or provide-materials (cheap labour + your components); buying a listed hull often beats both
 metadata:
   type: reference
 ---
 
-`commission_ship` at a shipyard charges **credits only**. The shipyard
-supplies the components. The `ship_build_materials` table lists a hull's bill
-of materials, but that is the RECIPE, not a list of things the commissioner
-must deliver.
+`commission_ship` quotes **two options**. Observed 2026-09-18 for a
+Congregation at Starfall Salvage Station (shipyard tier here=1, required=0,
+build 320 ticks ~53 min):
 
-Proven 2026-09-18 at **Starfall Salvage Station**: four Congregations
-commissioned at **5,723 cr each**, with **zero** aluminum_sheet /
-cargo_container / flex_polymer / fuel_tank / hull_plating ever stored at that
-base by any agent, and the commissioning ship's cargo far too small to carry
-the 336 components four hulls would need.
+```
+credits-only:       38,603 cr
+provide-materials:   5,939 cr labour  (+ materials worth ~16,332 cr)
+```
 
-**Costs vs buying:** a listed Congregation at First Step Memorial Station cost
-**13,674** (13,406 + 268 sales tax, 2%) on the same day. Commissioning is
-**58% cheaper**, at the price of 320 ticks (~53 min) of build time. Buy when
-you need the hull NOW; commission otherwise.
+Compare buying the same hull listed at First Step Memorial Station:
+**13,279 cr** (a previous unit went for 13,406 + 268 sales tax = 13,674; the
+station manager RESTOCKS — a replacement appeared within ~35 min).
 
-**A finished commission goes to STORAGE at that shipyard — it does NOT
-auto-switch.** `switch_ship <id>` is a required separate step and the agent
-must be docked at that station to take it; the old hull then drops to storage
-there. This differs from `buy_listed_ship`, which DOES auto-switch and stores
-the old hull immediately (proven with trader-3 at First Step, same day).
+**So the ranking by cash outlay is:**
+1. `provide-materials` — 5,939, if you already hold the components
+2. buy a listed hull — ~13,300, instant, but stock is thin and unreliable
+3. `credits-only` — 38,603, nearly 3x the purchase price. Rarely correct.
 
-So the per-agent sequence is: travel to an Outer Rim yard -> commission_ship
--> wait 320 ticks (~53 min) -> be docked there again -> switch_ship. The
-53-minute gap, not the 5,723 cr, is the real cost: an agent that commissions
-and wanders off has to come back.
+The bill of materials is in `ship_build_materials` (Congregation: 50
+aluminum_sheet, 12 cargo_container, 14 flex_polymer, 5 fuel_tank, 3
+hull_plating = 84 items, 133 volume). For the provide-materials rate those
+components must be AT that yard.
 
-**Constraint that DOES bite:** faction-locked hulls. `congregation` has
-`faction = outerrim`, so it can only be commissioned at an Outer Rim shipyard.
-All seven Outer Rim stations have one — deep_range_outpost,
+🔴 **Two mistakes to avoid, both made 2026-09-18:**
+1. Do NOT assume the recipe means you must always supply components — the
+   credits-only mode exists.
+2. Do NOT assume the shipyard always supplies them either. I concluded that
+   from finding zero materials in `agent_storage_items` at Starfall AFTER
+   four hulls were built there. That table keeps only the NEWEST capture
+   ([[project_fleet_asset_snapshots]]), so absence now is not absence then.
+   The commission quote is the authority, not a storage snapshot.
+
+**Constraint that does bite:** faction-locked hulls. `congregation` has
+`faction = outerrim`, so it can only be commissioned at an Outer Rim
+shipyard. All seven have one — deep_range_outpost,
 first_step_memorial_station, frontier_station (= the MOBILE capital, poi
-`mobile_capital`, currently in void_gate, NOT frontier), ramens_rest,
+`mobile_capital`; the KB's location for it goes stale), ramens_rest,
 starfall_salvage_station, unknown_edge_waystation, void_gate_outpost.
 
-🔴 **The mistake this replaces:** on 2026-09-18 I read `ship_build_materials`,
-assumed the commissioner supplies the components, and produced a whole plan to
-consolidate 5,866 units of volume (2,399 aluminum_sheet, 505 cargo_container,
-599 flex_polymer, 250 fuel_tank, 49 hull_plating) into Outer Rim space —
-including a fictitious "bootstrap trap" about needing freighters to move the
-parts that build the freighters, and alarm that the Outer Rim held zero fuel
-tanks. All of it was wrong. Verify what a command actually consumes before
-planning logistics around a recipe table.
+**A finished commission goes to STORAGE at that shipyard — it does NOT
+auto-switch.** `switch_ship <id>` is required and the agent must be docked
+there. This differs from `buy_listed_ship`, which DOES auto-switch and stores
+the old hull immediately (proven with trader-3 at First Step, same day).
+Builds serialise PER YARD, so spreading across the seven yards parallelises.
 
-See [[reference_prayer_class_freight_hulls]] for ranking freight hulls, and
-[[project_haul_fleet_hull_attrition]] for why the fleet needed re-hulling.
+See [[reference_send_gift_ship_transfer]]: gifting a built hull is free but
+it stays parked where it was built.
