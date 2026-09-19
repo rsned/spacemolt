@@ -65,6 +65,38 @@ Draining 38,097 liquid_hydrogen is ~20 Congregation loads, not one command --
 and a small hull (craftsman-boss's prospector) fills after a single withdraw.
 Deposit or sell between pulls.
 
+## THE AUTHORITATIVE MATRIX — plain `withdraw_items` takes source AND target
+
+`faction_withdraw_items` is the narrow front-end. The real command is
+`withdraw_items` with a source/target PAIR, and the server lists every legal
+combination when you get one wrong:
+
+```
+withdraw_items trade_cipher 15 --source=faction --target=storage
+-> invalid_source: Invalid source="faction" with target="storage". Use
+   source="storage" target="faction"   (personal -> faction),
+   source="faction" target="self"      (faction -> personal),
+   source="faction" target="faction"   (move between faction compartments),
+   or source="storage" target="<player>" (gift from storage).
+```
+
+| source | target | moves |
+|---|---|---|
+| `storage` | `faction` | personal -> faction lockbox (DEPOSIT) |
+| `faction` | `self` | **faction lockbox -> personal** (the one you usually want) |
+| `faction` | `faction` | between faction compartments |
+| `storage` | `<player>` | **gift straight out of storage** |
+
+Two things here are bigger than the withdrawal itself:
+- faction storage has multiple COMPARTMENTS you can move stock between.
+- `source="storage" target="<player>"` is a gift from storage without loading
+  cargo -- the same capability as `send_gift --source=storage`
+  ([[reference_send_gift_ship_transfer]]). Likely two front-ends on one
+  mechanism; prefer whichever the agent's build supports.
+
+Not every pair is legal, and an illegal one fails only on the SECOND frame
+(see below), so probe with a small quantity before scripting a bulk move.
+
 ⭐ **A `pending: true` ack is NOT success.** The real verdict arrives ~3s later
 as a SEPARATE frame on the SAME request_id, often `action_error`. Anything that
 reads only the first response records these failures as successes -- which is
