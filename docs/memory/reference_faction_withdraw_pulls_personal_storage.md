@@ -1,6 +1,6 @@
 ---
 name: reference_faction_withdraw_pulls_personal_storage
-description: "faction_withdraw_items --target=self silently withdraws from PERSONAL storage, not faction storage — it succeeds, returns a plausible result, and leaves faction stock untouched"
+description: "faction_withdraw_items target is an enum: self = YOUR storage, faction = the lockbox. --target=self succeeds silently against personal stock and leaves faction untouched; use target=faction"
 metadata:
   node_type: memory
   type: reference
@@ -29,11 +29,31 @@ faction_withdraw_items trade_crystal 100 --target=self
    echo back the faction variant it was asked for.
 3. Faction stock re-read afterwards is byte-identical.
 
-So `--target=self` names the DESTINATION (your hold), not the source. There is
-currently no confirmed way in our tooling to draw faction stock; before relying
-on one, test with an item held in faction storage and **absent** personally
-(e.g. `optical_fiber_bundle`, 194 in the lockbox) — then the result is
-unambiguous: it either works or fails `insufficient_storage`.
+## RESOLVED the same day: the answer is `target="faction"`
+
+`target` is an ENUM with exactly two legal values, and the server names them
+when you get it wrong:
+
+```
+faction_withdraw_items trade_cipher 15 --target=storage
+-> action_error invalid_target: "Cannot withdraw from another player's
+   storage. Use target=\"self\" or target=\"faction\"."
+```
+
+| target | source |
+|---|---|
+| `self` | **your own** station storage (the default-looking trap) |
+| `faction` | **the faction lockbox** — what the command name implies |
+
+So nothing was broken: `self` did exactly what it says. The trap is purely that
+the command is NAMED `faction_withdraw_items`, so `--target=self` reads as
+"from the faction, to me" when it actually means "from my own storage". Faction
+stock IS reachable — use `target=faction`.
+
+Wire shape: `{"item_id":...,"quantity":N,"target":"faction"}`. The reply
+normalises `action` to plain `withdraw_items` either way, so **the action name
+cannot tell you which source was used** — only `storage_remaining` against a
+known balance can, and that is what made the mistake invisible.
 
 Same failure class as [[reference_chat_target_id_conversation_key]] and
 [[reference_station_id_aliases]]: the command is accepted, the reply looks
