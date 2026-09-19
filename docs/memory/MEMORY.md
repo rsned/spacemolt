@@ -110,7 +110,7 @@
 - [request_id rollout](project_request_id_rollout.md) — LONG-TERM: fire-and-forget → Submit correlation
 - [get_poi retirement](project_get_poi_retirement.md)
 - [mbox backfill stopped at the first known row; private never backfilled](reference_mbox_backfill_holes.md) — a June DM invisible 3 months; FIXED 08-30, run `mbox backfill` once per parked pilot
-- ⭐ [withdraw_items takes source+target: faction->self, storage->faction, storage-><player> = gift](reference_faction_withdraw_pulls_personal_storage.md) — full matrix from the server; faction has COMPARTMENTS; `pending` ack ≠ success (verdict is a 2nd frame)
+- ⭐🟢 [withdraw_items source+target: `faction`->`self` is STORAGE-to-STORAGE, no hull limit](reference_faction_withdraw_pulls_personal_storage.md) — 38k liquid_hydrogen in ONE call ≈ 19k fuel cells; `storage`-><player> gifts from storage; faction has COMPARTMENTS; `pending` ack ≠ success
 - ⭐🔴 [private chat target_id is a conversation key](reference_chat_target_id_conversation_key.md) — `"<recipient>:<sender>"`; killed databot silently for 2 months. FIXED
 - ⭐🔴 [Mission chain maps](reference_mission_chain_maps.md) — `chain_next` comes ONLY from the complete_mission reply and play_as drops it; smuggling chain mapped, Grand Circuit breaks at `frontier_extension` (never observed, craftsman-1 is 2 steps away)
 - [Mission board wire shape](reference_mission_board_wire_shape.md) — NO `requirements`

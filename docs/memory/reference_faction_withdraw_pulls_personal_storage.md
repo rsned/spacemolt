@@ -1,6 +1,6 @@
 ---
 name: reference_faction_withdraw_pulls_personal_storage
-description: "faction_withdraw_items: target names the SOURCE (omit=faction lockbox, self=your own storage) and the destination is ALWAYS cargo, so the lockbox is bounded by hull size"
+description: "withdraw_items --source=faction --target=self moves lockbox->personal STORAGE in one call, no cargo/hull limit; full source/target matrix, and the narrow faction_withdraw_items front-end forces cargo"
 metadata:
   node_type: memory
   type: reference
@@ -60,10 +60,10 @@ faction had 15 of and the agent 0 of personally:
                     (found the faction's 15; failed on the HOLD)
 ```
 
-⭐ **Because withdrawals land in CARGO, the lockbox is bounded by hull size.**
-Draining 38,097 liquid_hydrogen is ~20 Congregation loads, not one command --
-and a small hull (craftsman-boss's prospector) fills after a single withdraw.
-Deposit or sell between pulls.
+⭐ **This front-end always lands in CARGO, so IT is hull-bounded** -- a
+prospector fills after one withdraw. The plain `withdraw_items` below is NOT:
+`--source=faction --target=self` goes storage-to-storage and moves any
+quantity in one call. Prefer it for bulk; this front-end only to load a hold.
 
 ## THE AUTHORITATIVE MATRIX — plain `withdraw_items` takes source AND target
 
@@ -96,6 +96,26 @@ Two things here are bigger than the withdrawal itself:
 
 Not every pair is legal, and an illegal one fails only on the SECOND frame
 (see below), so probe with a small quantity before scripting a bulk move.
+
+⭐🟢 **VERIFIED `faction -> self` is STORAGE-TO-STORAGE, no cargo involved:**
+
+```
+withdraw_items trade_cipher 15 --source=faction --target=self
+-> action_result {"action":"transfer","source":"faction","source_remaining":0,
+                  "destination":"storage","dest_total":15,"quantity":15}
+```
+
+`"destination":"storage"` -- NOT cargo. So bulk moves out of the lockbox need
+no hull and no trips: **38,097 liquid_hydrogen is one command**, and
+`craft_fuel_cell` (2 LH -> 1 cell, hand-craftable, free, reads storage) then
+turns it into ~19,000 fuel cells in place. See
+[[project_no_fuel_cells_refuel_deadlock]].
+
+Note the reply shape on success: `action` is **`transfer`** (a third name,
+after `withdraw_items` and `faction_withdraw_items`), and it reports BOTH
+ledgers -- `source_remaining` and `dest_total`. That is unambiguous, unlike the
+lone `storage_remaining` that made the original `--target=self` mistake
+invisible. Trust these two fields.
 
 ⭐ **A `pending: true` ack is NOT success.** The real verdict arrives ~3s later
 as a SEPARATE frame on the SAME request_id, often `action_error`. Anything that
