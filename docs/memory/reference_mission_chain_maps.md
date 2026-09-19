@@ -37,10 +37,18 @@ steps matter and all three are at treasure_cache.
 [[project_pirate_reputation_unlock_campaign]]
 
 ## Grand Circuit — trading/delivery, nebula reputation
+✅ **FULLY MAPPED AND COMPLETED 2026-09-18 by craftsman-1.**
 ```
-first_links (HEAD) -> crossing_borders -> frontier_extension
-  -> closing_the_loop  <- NEXT UNKNOWN (no mission_templates row yet)
+first_links -> crossing_borders -> frontier_extension -> closing_the_loop
+  diff 3         4                  5                    5  (TERMINUS, no chain_next)
+  4000cr         5500cr*            8000cr               10000cr
+  * crossing_borders paid only 2557 of 5500 (shortfall 2943); the other
+    three paid in full.
 ```
+Givers: `frontier_extension` and `closing_the_loop` share the SAME giver NPC,
+**Route Planner Maren (Federation Commerce Bureau)**, at DIFFERENT stations
+(alpha_centauri_colonial_station vs starfall_salvage_station) — a giver name
+does not identify a station.
 **A SEPARATE chain, not part of this one** (corrected 2026-09-18 — they were
 previously conflated because `closing_the_circuit` looked like an orphan):
 ```
@@ -77,7 +85,13 @@ confusable names; only the latter has a template row.
 - `frontier_extension` COMPLETED by craftsman-1 2026-09-18 23:30 (tick
   1918673): full 8000cr (no shortfall), navigation 25 / trading 55,
   **solarian +3**. chain_next confirmed `closing_the_loop`.
-- ⭐🔴 **`closing_the_loop` is given at `starfall_salvage_station`**
+- ✅ **`closing_the_loop` RECORDED** (source accept_mission_refusal, tick
+  1918684) once craftsman-1 saw it on the Starfall board, which finally
+  created its `mission_templates` row. Completed for 10,000cr. The
+  "giver resolved but no template row" deadlock resolves itself the moment
+  an agent visits the giving station — you do not need a stub row, you need
+  a visit.
+- (historical) **`closing_the_loop` is given at `starfall_salvage_station`**
   (system `starfall`, OUTER RIM) — learned 2026-09-18 23:32 from the refusal
   at tick 1918684. **NOT YET IN THE DB**: it has no `mission_templates` row,
   so `mission-bind` fails with ErrMissionUnknown and the binding lives only
