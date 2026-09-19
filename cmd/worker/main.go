@@ -129,6 +129,12 @@ func main() {
 	standing := "idle"
 	var pendingTask atomic.Pointer[worker.AssignedTask]
 	var activeTaskID atomic.Pointer[string]
+	// Client-side command-bound expiries. Counted (not just logged) because a
+	// single one is a maybe-desync worth a glance while a climbing count is a
+	// worker losing sync with the server repeatedly — the state that precedes a
+	// strand, and which every existing health check reads as green.
+	var cmdTimeouts atomic.Int64
+	var lastCmdTimeout atomic.Pointer[string]
 	// activity carries the role goroutine's current human-readable unit of work
 	// (set via WorkerDispatch.setActivity) for the heartbeat goroutine to report.
 	var activity atomic.Pointer[string]
@@ -477,6 +483,18 @@ func main() {
 						}
 						return t
 					},
+					OnCommandTimeout: func(tokens []string, waited time.Duration) {
+						n := cmdTimeouts.Add(1)
+						cmd := strings.Join(tokens, " ")
+						last := fmt.Sprintf("%s @ %s", cmd, time.Now().UTC().Format(time.RFC3339))
+						lastCmdTimeout.Store(&last)
+						// Distinct and greppable on purpose: this is the moment the
+						// worker stopped waiting for a command the server may well
+						// have executed, so anything it believes about position,
+						// cargo or claims from here on may be stale.
+						logger.Printf("COMMAND TIMEOUT after %s: %q (total %d); server may have executed it — state may be desynced",
+							waited.Round(time.Millisecond), cmd, n)
+					},
 					PayDebts: debtPayer.Pay,
 					OnTaskResult: func(taskID string, err error) {
 						kind := "task_done"
@@ -558,11 +576,17 @@ func main() {
 				if p := activity.Load(); p != nil {
 					act = *p
 				}
+				lct := ""
+				if p := lastCmdTimeout.Load(); p != nil {
+					lct = *p
+				}
 				status := buildStatus(nowState, standing, tid, act, statusFlags{
-					Drained:       drained.Load(),
-					Connected:     client.IsConnected(),
-					Quiesced:      quiesced.Load(),
-					QuiesceReason: quiesceReason.Load().(string),
+					Drained:            drained.Load(),
+					Connected:          client.IsConnected(),
+					Quiesced:           quiesced.Load(),
+					QuiesceReason:      quiesceReason.Load().(string),
+					CommandTimeouts:    int(cmdTimeouts.Load()),
+					LastCommandTimeout: lct,
 				}, time.Now())
 				if sendErr := sendEnvelope(enc, control.TypeStatus, *agentID, status); sendErr != nil {
 					logger.Printf("warning: send status: %v", sendErr)
@@ -660,6 +684,10 @@ type statusFlags struct {
 	Connected     bool   // game-server connection is up
 	Quiesced      bool   // held idle by an operator park (data/agents/<id>/quiesce.json)
 	QuiesceReason string // operator's note, surfaced on the dashboard
+	// CommandTimeouts is the process-lifetime count of dispatched commands that
+	// blew the worker's own command bound; LastCommandTimeout names the newest.
+	CommandTimeouts    int
+	LastCommandTimeout string
 }
 
 func buildStatus(st *game.State, standing, taskID, activity string, f statusFlags, now time.Time) control.Status {
@@ -671,24 +699,26 @@ func buildStatus(st *game.State, standing, taskID, activity string, f statusFlag
 		// some POI": st.Doc is the server flag (true only at station/outpost,
 		// false at gas clouds/suns/planets and during transit), so a hauler
 		// passing through a station-less system no longer reports a phantom dock.
-		Docked:           st.Doc && !st.Traveling,
-		Hull:             st.Hull,
-		MaxHull:          st.MaxHull,
-		Fuel:             st.Fuel,
-		MaxFuel:          st.MaxFuel,
-		Credits:          st.Credits,
-		CargoUsed:        st.Ship.CargoUsed,
-		CargoCapacity:    st.Ship.CargoCapacity,
-		ShipClass:        st.Ship.ClassID,
-		StandingBehavior: standing,
-		ActiveTaskID:     taskID,
-		Activity:         activity,
-		FactionID:        st.Player.FactionID,
-		FactionTag:       st.Player.FactionTag,
-		Drained:          f.Drained,
-		Quiesced:         f.Quiesced,
-		QuiesceReason:    f.QuiesceReason,
-		Timestamp:        now.Format(time.RFC3339Nano),
+		Docked:             st.Doc && !st.Traveling,
+		Hull:               st.Hull,
+		MaxHull:            st.MaxHull,
+		Fuel:               st.Fuel,
+		MaxFuel:            st.MaxFuel,
+		Credits:            st.Credits,
+		CargoUsed:          st.Ship.CargoUsed,
+		CargoCapacity:      st.Ship.CargoCapacity,
+		ShipClass:          st.Ship.ClassID,
+		StandingBehavior:   standing,
+		ActiveTaskID:       taskID,
+		Activity:           activity,
+		FactionID:          st.Player.FactionID,
+		FactionTag:         st.Player.FactionTag,
+		Drained:            f.Drained,
+		Quiesced:           f.Quiesced,
+		QuiesceReason:      f.QuiesceReason,
+		CommandTimeouts:    f.CommandTimeouts,
+		LastCommandTimeout: f.LastCommandTimeout,
+		Timestamp:          now.Format(time.RFC3339Nano),
 	}
 }
 

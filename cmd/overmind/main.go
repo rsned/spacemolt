@@ -276,6 +276,7 @@ func recordBalances(ctx context.Context, logger *log.Logger, recorder *balances.
 			CargoUsed: st.CargoUsed, CargoCapacity: st.CargoCapacity, ShipClass: st.ShipClass,
 			StandingBehavior: st.StandingBehavior, Activity: st.Activity,
 			Quiesced: st.Quiesced, QuiesceReason: st.QuiesceReason,
+			CommandTimeouts: st.CommandTimeouts, LastCommandTimeout: st.LastCommandTimeout,
 			ActiveTaskID: st.ActiveTaskID, FactionID: st.FactionID, FactionTag: st.FactionTag,
 			Healthy: w.Healthy, Restarts: w.Restarts,
 			Quarantined: w.Quarantined, QuarantineReason: w.QuarantineReason,

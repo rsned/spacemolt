@@ -1598,3 +1598,53 @@ func TestHaulClaimExpiryEdgeCases(t *testing.T) {
 		}
 	}
 }
+
+// A haul spans many idle passes: claim, buy, jump, jump, ..., sell. Haul clears
+// last pass's activity up front so the idle-return paths report blank, and the
+// fresh-claim site republishes it — but the RESUME path (goods already aboard,
+// the common case for all but the first pass) returned without republishing.
+// The label therefore survived only until the buy completed and then vanished
+// for the rest of the run.
+//
+// Live on 2026-09-19: explorer-1 at 0/540 cargo displayed "Opportunity
+// #1218791 · buying up to 3 of 3 Solar Lance", while hauler-0 sitting on a full
+// 1900/1900 hold showed nothing at all. Same fleet, same build — the only
+// difference was that hauler-0 had already bought. An operator watching the
+// board could not tell a loaded hauler mid-haul from an idle one.
+func TestHaulResumePublishesActivity(t *testing.T) {
+	held := opp(1217824, "b", "c", 784)
+	held.ItemName = "Steel Plate"
+	held.FromStationName = "Node Beta Industrial Station"
+	held.ToStationName = "Kael Arsenal"
+
+	f := &fakeStore{claimedByAgent: []market.ArbitrageOpportunity{held}}
+	fc := &fakeClient{state: &game.State{
+		System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100,
+		Ship: game.Ship{CargoCapacity: 1900},
+	}}
+	kb := &fakeKB{
+		systems: []knowledge.System{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+		conns:   undirected([2]string{"a", "b"}, [2]string{"b", "c"}),
+	}
+
+	var published []string
+	if err := Haul(context.Background(), HaulDeps{
+		Client: fc, KB: kb, Market: f, AgentID: "hauler-0", Out: io.Discard,
+		SetActivity: func(s string) { published = append(published, s) },
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(published) == 0 {
+		t.Fatal("resume published no activity at all")
+	}
+	last := published[len(published)-1]
+	if last == "" {
+		t.Fatalf("resume left activity blank (published %q); a loaded hauler reports nothing", published)
+	}
+	for _, want := range []string{"1217824", "Steel Plate"} {
+		if !strings.Contains(last, want) {
+			t.Errorf("activity %q missing %q", last, want)
+		}
+	}
+}

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -58,6 +59,16 @@ type StandingDeps struct {
 	// finished task's id and error (nil = success).
 	NextTask     func() *AssignedTask
 	OnTaskResult func(taskID string, err error)
+
+	// OnCommandTimeout, when set, fires when a dispatched command exceeded
+	// CommandTimeout -- OUR bound expiring, not the caller cancelling. That
+	// distinction is the point: a client-side timeout says nothing about
+	// whether the server ran the command, so the worker's view of position,
+	// cargo and claims may now be wrong while every health check still reads
+	// green. Reporting it is what makes a desync visible before it becomes a
+	// quarantine. Caller cancellation (drain, shutdown) is routine and is not
+	// reported.
+	OnCommandTimeout func(tokens []string, waited time.Duration)
 
 	// PayDebts, when set, runs once per non-drained idle pass under ExecMu to
 	// pay any outstanding rescue-fee debt. nil for workers with no fee wiring.
@@ -366,6 +377,15 @@ func (deps StandingDeps) runLine(ctx context.Context, line string) error {
 	return lastErr
 }
 
+// now reads the injectable clock, defaulting when dispatch is called directly
+// (tests, and any caller that did not go through applyStandingDefaults).
+func (deps StandingDeps) now() time.Time {
+	if deps.NowFn == nil {
+		return time.Now().UTC()
+	}
+	return deps.NowFn()
+}
+
 // dispatch resolves tokens against live state, then runs them.
 func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
 	var st *game.State
@@ -384,12 +404,24 @@ func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
 	// registers a context.AfterFunc that broadcasts the cond on cancel, so the
 	// existing cancellation path does the waking. A zero value here means a
 	// direct caller (tests) opted out.
+	parent := ctx
+	started := deps.now()
 	if deps.CommandTimeout > 0 {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, deps.CommandTimeout)
 		defer cancel()
 	}
-	return deps.Runner.Run(ctx, resolved)
+	err = deps.Runner.Run(ctx, resolved)
+
+	// Distinguish our bound expiring from the caller cancelling. Only the
+	// former means the command's fate is unknown: the server may have run it
+	// and we stopped listening, so state read after this point is suspect.
+	// parent.Err() == nil rules out a caller that cancelled or carried its own
+	// (earlier) deadline, leaving only the ceiling we imposed here.
+	if deps.OnCommandTimeout != nil && errors.Is(err, context.DeadlineExceeded) && parent.Err() == nil {
+		deps.OnCommandTimeout(resolved, deps.now().Sub(started))
+	}
+	return err
 }
 
 // nextTask returns the pending assigned task, or nil when there is no task hook

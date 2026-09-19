@@ -58,6 +58,10 @@ type LiveRecord struct {
 	// fault -- it survives a restart because the flag lives on disk.
 	Quiesced      bool   `json:"quiesced,omitempty"`
 	QuiesceReason string `json:"quiesce_reason,omitempty"`
+	// CommandTimeouts / LastCommandTimeout mirror control.Status: client-side
+	// command bounds that expired, each one a possible state desync.
+	CommandTimeouts    int    `json:"command_timeouts,omitempty"`
+	LastCommandTimeout string `json:"last_command_timeout,omitempty"`
 	// Quarantined mirrors the supervisor's pulled-from-fleet state; the reason
 	// says why (e.g. "fuel-dead: ..."). Omitted for healthy workers.
 	Quarantined      bool   `json:"quarantined,omitempty"`

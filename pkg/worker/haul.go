@@ -654,6 +654,18 @@ type HaulDeps struct {
 // capping the shown quantity to what the ship will actually attempt (min of ship cargo
 // and book depth) alongside the book's total source depth, so it never shows a
 // physically impossible order-book quantity.
+// haulCargoCap reads the active hull's cargo capacity, 0 when state is
+// unreadable (which haulActivityLabel treats as "no slice cap known").
+func haulCargoCap(deps HaulDeps) float64 {
+	if deps.Client == nil {
+		return 0
+	}
+	if st := deps.Client.GetState(); st != nil {
+		return st.Ship.CargoCapacity
+	}
+	return 0
+}
+
 func haulActivityLabel(opp market.ArbitrageOpportunity, cargoCap float64) string {
 	item := opp.ItemName
 	if item == "" {
@@ -820,6 +832,13 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 			return abandonClaim(ctx, deps, out, held[0], fmt.Sprintf("claim expired %s", held[0].ExpiresAt))
 		}
 		fmt.Fprintf(out, "haul: resuming claimed opp %d (%s)\n", held[0].ID, held[0].ItemID) //nolint:errcheck
+		// Republish the activity label. Haul clears it up front each pass so the
+		// idle-return paths read blank, and only the fresh-claim site below set it
+		// again -- so the label died the moment the buy leg finished and the run
+		// switched to this resume path, which is every pass of a multi-jump haul
+		// but the first. A loaded hauler then looked identical to an idle one on
+		// the board (hauler-0, 1900/1900 aboard, blank; 2026-09-19).
+		publishActivity(deps.SetActivity, haulActivityLabel(held[0], haulCargoCap(deps)))
 		// Recover the book-claim id so a resumed completion still frees the cap slot
 		// (0 when none is found — safe: the >0 guards degrade to TTL cleanup).
 		resumedClaimID, _, gerr := deps.Market.GetActiveBookClaim(ctx, held[0].ItemID, held[0].FromStationID, deps.AgentID)

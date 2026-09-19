@@ -85,7 +85,16 @@ type Status struct {
 	// per-IP rate-limit block and deepens it. Omitted (false) means connected,
 	// so an older worker binary that never sets it is treated as connected.
 	Disconnected bool   `json:"disconnected,omitempty"`
-	Timestamp    string `json:"timestamp"`
+	// CommandTimeouts counts dispatched commands that blew the worker's own
+	// command bound since process start, and LastCommandTimeout names the most
+	// recent one ("jump xamidimura @ 09:12:04Z"). A client-side timeout says
+	// nothing about whether the SERVER ran the command, so each one is a point
+	// where the worker's position, cargo and claims may have silently diverged
+	// from the truth -- the failure mode that stranded salvager-10 while every
+	// health check still read green. Omitted (0) by an older worker binary.
+	CommandTimeouts    int    `json:"command_timeouts,omitempty"`
+	LastCommandTimeout string `json:"last_command_timeout,omitempty"`
+	Timestamp          string `json:"timestamp"`
 }
 
 // Event is a notable worker-side occurrence (action result, danger signal).

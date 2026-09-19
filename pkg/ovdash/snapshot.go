@@ -72,11 +72,16 @@ type AgentState struct {
 	// deliberately idle, so the dashboard must not read it as a dead worker.
 	Quiesced      bool   `json:"quiesced,omitempty"`
 	QuiesceReason string `json:"quiesce_reason,omitempty"`
-	Healthy       bool   `json:"healthy"`
-	Seen          bool   `json:"seen"`
-	Restarts      int    `json:"restarts"`
-	LastSeen      string `json:"last_seen"`
-	Leaving       bool   `json:"leaving,omitempty"`
+	// CommandTimeouts counts client-side command bounds that expired since the
+	// worker started; LastCommandTimeout names the newest. A rising count means
+	// the worker keeps losing sync with the server while still reading healthy.
+	CommandTimeouts    int    `json:"command_timeouts,omitempty"`
+	LastCommandTimeout string `json:"last_command_timeout,omitempty"`
+	Healthy            bool   `json:"healthy"`
+	Seen               bool   `json:"seen"`
+	Restarts           int    `json:"restarts"`
+	LastSeen           string `json:"last_seen"`
+	Leaving            bool   `json:"leaving,omitempty"`
 	// Build identity (from the worker's Hello, via the status file). Tier is
 	// this build's color vs the current (newest) fleet build. Modified is the
 	// cosmetic raw vcs.modified flag; CodeDirty drives the tier.
@@ -209,6 +214,7 @@ func ReadSnapshot(dir string, g *Galaxy, now time.Time, staleAfter time.Duration
 				Fuel: w.Fuel, MaxFuel: w.MaxFuel,
 				CargoUsed: w.CargoUsed, CargoCap: w.CargoCapacity, ShipClass: w.ShipClass,
 				Activity: w.Activity, Quiesced: w.Quiesced, QuiesceReason: w.QuiesceReason,
+				CommandTimeouts: w.CommandTimeouts, LastCommandTimeout: w.LastCommandTimeout,
 				Healthy: w.Healthy, Seen: w.Seen,
 				Restarts: w.Restarts, LastSeen: w.LastSeen,
 				Leaving: w.Leaving,
