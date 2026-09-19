@@ -212,15 +212,36 @@ func TestAssistRunsClaimedRescue(t *testing.T) {
 	}
 }
 
+// withMobileHome registers agentID as a mobile-home assist for the duration
+// of one test and restores the production map afterwards. The tests below
+// exercise the mobile-capital machinery, which is still live code; they used
+// to reach for assist-frontier, but that agent was re-pinned to a fixed home
+// on 2026-09-18 (see TestAssistFrontierIsPinnedToAFixedHome). Binding these
+// tests to a synthetic id keeps them testing the mechanism rather than the
+// current roster.
+func withMobileHome(t *testing.T, agentID, poi string) {
+	t.Helper()
+	prev, had := assistMobileHomes[agentID]
+	assistMobileHomes[agentID] = poi
+	t.Cleanup(func() {
+		if had {
+			assistMobileHomes[agentID] = prev
+			return
+		}
+		delete(assistMobileHomes, agentID)
+	})
+}
+
 func TestResolveAssistHomesMobile(t *testing.T) {
 	ctx := context.Background()
+	withMobileHome(t, "assist-mobile-test", "mobile_capital")
 
 	// The mobile capital's current system is the last route step; static
 	// entries pass through untouched.
 	client := &fakeClient{route: []game.RouteStep{{SystemID: "m2"}, {SystemID: "altais"}}}
 	homes := resolveAssistHomes(ctx, AssistDeps{Client: client, Out: io.Discard})
-	if homes["assist-frontier"] != "altais" {
-		t.Errorf("assist-frontier home = %q, want altais", homes["assist-frontier"])
+	if homes["assist-mobile-test"] != "altais" {
+		t.Errorf("assist-mobile-test home = %q, want altais", homes["assist-mobile-test"])
 	}
 	if homes["assist-sol"] != "sol" {
 		t.Errorf("static home assist-sol = %q, want sol", homes["assist-sol"])
@@ -230,15 +251,15 @@ func TestResolveAssistHomesMobile(t *testing.T) {
 	client = &fakeClient{state: &game.State{}}
 	client.state.System.ID = "altais"
 	homes = resolveAssistHomes(ctx, AssistDeps{Client: client, Out: io.Discard})
-	if homes["assist-frontier"] != "altais" {
-		t.Errorf("empty-route home = %q, want current system altais", homes["assist-frontier"])
+	if homes["assist-mobile-test"] != "altais" {
+		t.Errorf("empty-route home = %q, want current system altais", homes["assist-mobile-test"])
 	}
 
 	// find_route failure drops the mobile home for this pass; the four
 	// static capitals still elect.
 	client = &fakeClient{routeErr: errors.New("route service down")}
 	homes = resolveAssistHomes(ctx, AssistDeps{Client: client, Out: io.Discard})
-	if _, ok := homes["assist-frontier"]; ok {
+	if _, ok := homes["assist-mobile-test"]; ok {
 		t.Error("unresolvable mobile home must be dropped for the pass")
 	}
 	if len(homes) != len(assistHomes) {
@@ -251,6 +272,7 @@ func TestResolveAssistHomesMobile(t *testing.T) {
 // from the strandee while every static capital is unreachable in the graph,
 // so it must win the election, rescue, and head home to the resolved system.
 func TestAssistClaimsPendingNearMobileCapital(t *testing.T) {
+	withMobileHome(t, "assist-mobile-test", "mobile_capital")
 	ctx := context.Background()
 	// MemoryKB's GetConnections reads systems[].Connections, so seed via
 	// RememberSystem rather than RememberConnection.
@@ -269,7 +291,7 @@ func TestAssistClaimsPendingNearMobileCapital(t *testing.T) {
 	var visited []string
 	deps := AssistDeps{
 		Client: client, KB: kb, Queue: q, Out: io.Discard,
-		AgentID: "assist-frontier", HomeStation: "mobile_capital",
+		AgentID: "assist-mobile-test", HomeStation: "mobile_capital",
 		Navigate: func(ctx context.Context, system, poi string) error {
 			visited = append(visited, system+"/"+poi)
 			return nil
@@ -278,8 +300,8 @@ func TestAssistClaimsPendingNearMobileCapital(t *testing.T) {
 	if err := Assist(ctx, deps); err != nil {
 		t.Fatal(err)
 	}
-	if q.recs[0].Status != rescue.StatusDone || q.recs[0].ClaimedBy != "assist-frontier" {
-		t.Fatalf("record = %+v, want done claimed by assist-frontier", q.recs[0])
+	if q.recs[0].Status != rescue.StatusDone || q.recs[0].ClaimedBy != "assist-mobile-test" {
+		t.Fatalf("record = %+v, want done claimed by assist-mobile-test", q.recs[0])
 	}
 	if len(visited) != 2 || visited[0] != "strand/strand_star" || visited[1] != "altais/mobile_capital" {
 		t.Fatalf("visited = %v, want strandee then resolved mobile home", visited)
@@ -290,12 +312,13 @@ func TestAssistClaimsPendingNearMobileCapital(t *testing.T) {
 // out — ensure-home must navigate to the freshly resolved system, not the one
 // the rescuer last saw.
 func TestAssistEnsureHomeMobileRetarget(t *testing.T) {
+	withMobileHome(t, "assist-mobile-test", "mobile_capital")
 	client := &fakeClient{route: []game.RouteStep{{SystemID: "vega"}}, state: &game.State{}}
 	client.state.System.ID = "altais" // where the capital used to be
 	var visited []string
 	deps := AssistDeps{
 		Client: client, Out: io.Discard,
-		AgentID: "assist-frontier", HomeStation: "mobile_capital",
+		AgentID: "assist-mobile-test", HomeStation: "mobile_capital",
 		Navigate: func(ctx context.Context, system, poi string) error {
 			visited = append(visited, system+"/"+poi)
 			return nil
@@ -325,7 +348,7 @@ func TestAssistEnsureHomeMobileRetarget(t *testing.T) {
 // rather than re-travel. Autopilot's travel auto-undocks, so re-navigating to a
 // POI we already occupy thrashes undock<->dock forever and the ship is never
 // aboard (docked) for the capital's daily jump. Regression for the 2026-07-07
-// assist-frontier stuck-at-mobile_capital, fuel-pinned incident.
+// assist-mobile-test stuck-at-mobile_capital, fuel-pinned incident.
 func TestAssistEnsureHomeAtMobileCapitalDocksInPlace(t *testing.T) {
 	client := &fakeClient{
 		route: []game.RouteStep{{SystemID: "altais"}},
@@ -360,6 +383,7 @@ func TestAssistEnsureHomeAtMobileCapitalDocksInPlace(t *testing.T) {
 // strand-altais is 1 jump; rescuer has 120 fuel; strandee tank 200 empty.
 // spare = 120 - (5*1 + 5) = 110; need = 200 -> transfer 110.
 func TestAssistDynamicFuelSizing(t *testing.T) {
+	withMobileHome(t, "assist-mobile-test", "mobile_capital")
 	ctx := context.Background()
 	kb := knowledge.NewMemoryKB()
 	if err := kb.RememberSystem(ctx, knowledge.System{
@@ -371,12 +395,12 @@ func TestAssistDynamicFuelSizing(t *testing.T) {
 	q := &fakeRescueQueue{recs: []rescue.Record{{
 		AgentID: "trader-8", TargetUsername: "Big Jim", SystemID: "strand",
 		POI: "strand_star", RescueFuel: 10, Fuel: 0, MaxFuel: 200,
-		Status: rescue.StatusClaimed, ClaimedBy: "assist-frontier",
+		Status: rescue.StatusClaimed, ClaimedBy: "assist-mobile-test",
 	}}}
 	client := &fakeClient{route: []game.RouteStep{{SystemID: "altais"}}, state: &game.State{Fuel: 120, MaxFuel: 120}}
 	deps := AssistDeps{
 		Client: client, KB: kb, Queue: q, Out: io.Discard,
-		AgentID: "assist-frontier", HomeStation: "mobile_capital",
+		AgentID: "assist-mobile-test", HomeStation: "mobile_capital",
 		Navigate: func(ctx context.Context, system, poi string) error { return nil },
 	}
 	if err := Assist(ctx, deps); err != nil {
@@ -394,6 +418,7 @@ func TestAssistDynamicFuelSizing(t *testing.T) {
 // fuel without eating its trip home refuses the transfer and returns the claim
 // to pending (ClaimedBy cleared) instead of stranding itself.
 func TestAssistReleasesWhenCannotSpare(t *testing.T) {
+	withMobileHome(t, "assist-mobile-test", "mobile_capital")
 	ctx := context.Background()
 	kb := knowledge.NewMemoryKB()
 	if err := kb.RememberSystem(ctx, knowledge.System{
@@ -405,13 +430,13 @@ func TestAssistReleasesWhenCannotSpare(t *testing.T) {
 	q := &fakeRescueQueue{recs: []rescue.Record{{
 		AgentID: "trader-8", TargetUsername: "Big Jim", SystemID: "strand",
 		POI: "strand_star", RescueFuel: 10, Fuel: 0, MaxFuel: 200,
-		Status: rescue.StatusClaimed, ClaimedBy: "assist-frontier",
+		Status: rescue.StatusClaimed, ClaimedBy: "assist-mobile-test",
 	}}}
 	// spare = 8 - (5*1 + 5) -> clamps to 0, so no transfer.
 	client := &fakeClient{route: []game.RouteStep{{SystemID: "altais"}}, state: &game.State{Fuel: 8, MaxFuel: 120}}
 	deps := AssistDeps{
 		Client: client, KB: kb, Queue: q, Out: io.Discard,
-		AgentID: "assist-frontier", HomeStation: "mobile_capital",
+		AgentID: "assist-mobile-test", HomeStation: "mobile_capital",
 		Navigate: func(ctx context.Context, system, poi string) error { return nil },
 	}
 	if err := Assist(ctx, deps); err != nil {
@@ -558,5 +583,37 @@ func TestAssistGivesUpAfterMaxAttempts(t *testing.T) {
 	}
 	if q.recs[0].Attempts != RescueMaxAttempts {
 		t.Errorf("Attempts = %d, want %d", q.recs[0].Attempts, RescueMaxAttempts)
+	}
+}
+
+// assist-frontier was re-pinned off the mobile capital on 2026-09-18 after a
+// 76-day livelock: assistEnsureHome guards re-travel with a single string
+// equality (st.CurrentPOI != deps.HomeStation), and CurrentPOI never equals
+// the literal "mobile_capital", so the worker re-issued travel every ~6s —
+// 1,258,126 no-op commands at 11.5/min against a shared per-IP budget. A
+// restart does not clear it. Pinning to a FIXED station sidesteps the moving
+// POI until the arrival check itself is widened to id/base/name.
+func TestAssistFrontierIsPinnedToAFixedHome(t *testing.T) {
+	if poi, mobile := assistMobileHomes["assist-frontier"]; mobile {
+		t.Errorf("assist-frontier still pinned to mobile POI %q; it must use a fixed home", poi)
+	}
+	home, ok := assistHomes["assist-frontier"]
+	if !ok {
+		t.Fatal("assist-frontier has no fixed home system")
+	}
+	if home != "first_step" {
+		t.Errorf("home = %q, want first_step", home)
+	}
+}
+
+// Every assist agent must have exactly one home, fixed or mobile: the claim
+// election needs all five distances computable locally.
+func TestEveryAssistAgentHasExactlyOneHome(t *testing.T) {
+	for _, id := range []string{"assist-haven", "assist-sol", "assist-krynn", "assist-nexus", "assist-frontier"} {
+		_, fixed := assistHomes[id]
+		_, mobile := assistMobileHomes[id]
+		if fixed == mobile { // both or neither
+			t.Errorf("%s: fixed=%v mobile=%v, want exactly one", id, fixed, mobile)
+		}
 	}
 }

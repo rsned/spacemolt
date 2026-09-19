@@ -25,7 +25,7 @@
 - ⭐🔴 [Fleet overrides are removed-SETS](reference_secondment_overrides_are_removed_sets.md) — commenting out a rotating agent's yaml line makes release a NO-OP; list rotators in BOTH yamls
 - [Secondment drain must outlast RemoveDrainTimeout](reference_secondment_drain_and_rollback.md) — 4m; and must roll back on failure or the agent runs in no fleet
 - ⭐🔴 [Health checks miss a wedged worker](reference_standing_loop_wedge_after_reconnect.md) — 6 workers, 3.5 days, dead scheduler; fix = bound every dispatched command
-- ⭐🔴 [assist-frontier: 1.26M no-op travels, 76 days, 11.5/min](project_assist_frontier_mobile_capital_livelock.md) — pin equality vs dual-named MOBILE capital; RESTART DOES NOT FIX; pins hauler-0's rescue; ran through every IP block
+- ⭐🟢 [assist-frontier livelock FIXED 09-18](project_assist_frontier_mobile_capital_livelock.md) — 1.26M find_route (a QUERY, ~1/tick, not 11.5/min) vs dual-named MOBILE capital; restart doesn't fix, re-pin does; SIGHUP reloads a fleet yaml without restarting the overmind
 - ⭐🔴 [Health checks miss a livelocked worker](reference_livelock_invisible_to_health_checks.md) — 47h on "Already docked"; find one: grep 'held for next pass' at tick cadence
 - ⭐🔴 [MaxRestarts=100 parks an agent FOREVER](reference_crash_loop_cap_parks_agents_forever.md) — dashboard remove/readd does NOT free it; fixed `2114df0e`, undeployed
 - [Stall-watchdog kills workers during initial connect](project_overmind_stall_kill_connect_loop.md) — burns MaxRestarts in ~8min when the game is slow; FUTURE

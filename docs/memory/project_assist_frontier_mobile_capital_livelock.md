@@ -10,9 +10,17 @@ metadata:
 "You are already at the target system", and it repeats.
 
 ```
-1,258,126 no-op travels   2026-07-04 -> 2026-09-18   11.5/min sustained
+1,258,126 no-op find_route calls  2026-07-04 -> 2026-09-18
 assist-overmind.log = 1.5 GB
 ```
+⚠️ **Rate correction.** The spammed command is `find_route` — a QUERY
+(300/min per-session cap), NOT a mutation (30/min). `send_tally` proved it:
+`total=29 find_route=29` over 5 min = **~5.8/min, i.e. one per tick**, which
+is the correct loop cadence. The 11.5/min figure is a 76-day AVERAGE and
+reflects the era when the idle loop ran 3x per tick (~18/min) before that was
+fixed ([[reference_idle_loop_ran_3x_per_tick]]). The paired log lines 3s
+apart are one find_route plus one LOCAL heartbeat write, not two server
+calls. Do not repeat "11.5 req/min sustained" — it overstates the severity.
 
 Other assists show the same shape only in flickers: haven 18,317 (0.2/min),
 nexus 343, krynn 130, sol 129. One agent, not a fleet behaviour.
@@ -71,13 +79,26 @@ restart; the pre-restart `credits 0` was the known stale heartbeat, see
 [[reference_worker_heartbeat_credits_stale]]) and still cannot refuel,
 because the loop never lets its scheduler reach the refuel step.
 
-## Fix options (NONE APPLIED)
+## RESOLVED 2026-09-18 by re-pinning (mitigation, not the real fix)
 
-1. **Mitigation now:** stop or unpin assist-frontier. It performs no useful
-   work, so stopping loses nothing and returns ~11.5 req/min to the budget.
-   Re-pinning to a FIXED Outer Rim station (e.g. first_step_memorial_station,
-   which has refuel and is where it already sits) sidesteps the mobile
-   capital entirely.
-2. **Real fix:** make the arrival check accept POI id OR base id OR name, per
-   [[reference_pin_arrival_check_four_directions]], and refresh the mobile
-   capital's location from live state rather than the stale KB row.
+Moved `assist-frontier` out of `assistMobileHomes` into `assistHomes` at
+`first_step`, and changed its `--station` in `data/overmind/assist-fleet.yaml`
+from `mobile_capital` to `first_step_memorial_station`. BOTH are required:
+the yaml sets `deps.HomeStation` (the POI compared against CurrentPOI) while
+the map sets the home SYSTEM, and changing only one leaves them inconsistent.
+
+Applied with **SIGHUP to the overmind** (`kill -HUP <overmind pid>`), which
+re-reads the fleet yaml and restarts only the changed worker — no overmind
+restart, so the other four tankers kept their sessions and no extra logins
+were spent. `cmd/overmind/membership.go` refuses a reload that would empty
+the roster or remove >half the live workers, so SIGHUP is safe to use.
+
+Result within 90s: fuel 2/1500 -> **1500/1500** (spent 4,497 cr of the 50,000
+gifted, at 3/unit all-in), poi `first_step_memorial_station`, and **zero**
+no-op calls since. `assistMobileHomes` is now empty but retained.
+
+**STILL OPEN — the real fix:** make the arrival check accept POI id OR base
+id OR name, per [[reference_pin_arrival_check_four_directions]], and resolve
+the mobile capital from live state rather than the stale KB row (the KB had
+it in `void_gate` while it was live in `first_step`). Until then, nothing can
+be pinned to the mobile capital.

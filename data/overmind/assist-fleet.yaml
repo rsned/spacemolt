@@ -7,7 +7,11 @@ workers:
   - { agent_id: assist-haven, role: assist, station: grand_exchange }
   - { agent_id: assist-sol, role: assist, station: sol_central }
   - { agent_id: assist-krynn, role: assist, station: war_citadel }
-# assist-frontier's home is Outerrim's mobile_capital, which hyperspace-jumps
-# systems daily; its system is resolved live via find_route (assistMobileHomes).
-  - { agent_id: assist-frontier, role: assist, station: mobile_capital }
+# assist-frontier was pinned to Outerrim's mobile_capital until 2026-09-18.
+# That livelocked it for 76 days: assistEnsureHome guards re-travel with
+# st.CurrentPOI != deps.HomeStation, which never matches the dual-named
+# moving POI, so it re-resolved and re-travelled every tick -- 1,258,126
+# find_route calls. Re-pinned to a FIXED Outer Rim station that sells fuel.
+# Restore the mobile pin only once the arrival check accepts id/base/name.
+  - { agent_id: assist-frontier, role: assist, station: first_step_memorial_station }
   - { agent_id: assist-nexus, role: assist, station: the_core }

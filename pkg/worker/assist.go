@@ -48,6 +48,18 @@ var assistHomes = map[string]string{
 	"assist-sol":   "sol",
 	"assist-krynn": "krynn",
 	"assist-nexus": "nexus_prime",
+	// assist-frontier was moved off the mobile capital 2026-09-18. Pinning it
+	// to a moving POI livelocked it for 76 days: assistEnsureHome guards
+	// re-travel with st.CurrentPOI != deps.HomeStation, and CurrentPOI never
+	// equals the literal "mobile_capital" (the base id is frontier_station),
+	// so it re-issued travel every ~6s -- 1,258,126 no-op commands at
+	// 11.5/min against a SHARED per-IP budget, through every IP block we
+	// investigated, while health checks reported it 100% healthy. A restart
+	// does not clear it; the guard is structural. first_step is a fixed
+	// Outer Rim system whose station sells fuel, so the rescuer can re-tank
+	// at home. Revert this only once the arrival check accepts POI id OR
+	// base id OR name rather than one string compare.
+	"assist-frontier": "first_step",
 }
 
 // assistMobileHomes maps assist agents whose home capital is a moving POI to
@@ -55,9 +67,12 @@ var assistHomes = map[string]string{
 // empire's systems once a day, so its system is resolved per pass via the
 // server's find_route (which always knows the POI's current location) instead
 // of being hardcoded.
-var assistMobileHomes = map[string]string{
-	"assist-frontier": "mobile_capital",
-}
+// Empty since 2026-09-18: assist-frontier, its only entry, was re-pinned to
+// the fixed first_step after the livelock described in assistHomes above. The
+// machinery is retained because the mobile capital is still the Outer Rim's
+// real capital and this is the correct way to follow it -- once
+// assistEnsureHome can recognise arrival at a dual-named POI.
+var assistMobileHomes = map[string]string{}
 
 // resolveAssistHomes returns this pass's agent->home-system map: the static
 // capitals plus each mobile home resolved via find_route. A mobile home that
