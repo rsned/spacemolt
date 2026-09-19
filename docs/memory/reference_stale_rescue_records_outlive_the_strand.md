@@ -114,19 +114,26 @@ Related: [[reference_rescue_queue_blocks_launch]] ·
 [[reference_docked_zero_fuel_invisible_to_watchdog]] ·
 [[project_execute_loop_has_no_pacing_floor]] (the block that manufactured these)
 
-## 2026-09-18: ALL FIVE haul rescue records were false — and the game self-heals
+## 2026-09-18: all five haul rescue records were UNACTIONABLE — the tow is why
 
-Cleared all five. Every one was a phantom:
+Cleared all five. Four were phantoms; the fifth was overtaken by a tow:
 
 - trader-3 100/100 fuel, salvager-1 130/130, salvager-9 96/120, trader-10
   261/720 — full or near-full tanks recorded as strandees.
-- **hauler-0** was the one I judged genuine (record said "fuel-dead:
-  stalled >15m0s undocked, fuel 0/120"). It was false too. The asset ledger
-  captured **fuel 102/120 at 17:23:42**, 92 minutes before the 18:55:33
-  record claimed 0/120, and the server's own refusal said it was docked at
-  **Mobile Capital**, not adrift at the recorded `icecap_drift`. On clearing
-  the record it launched instantly: First Step / mobile_capital, **23.28M
-  credits**, healthy. It had been docked and idle for 6 days.
+- **hauler-0 was DIFFERENT and I initially got it wrong twice.** Its record
+  was TRUE at creation: `QUARANTINED 09-12 11:55 fuel-dead: stalled >15m
+  undocked, fuel 0/120 @ Frontier/icecap_drift`. It really was adrift and
+  really is still at 0/120. What invalidated the record was the TOW: the log
+  shows `09-18 19:48 reconcile diverged: system "frontier"->"First Step";
+  docked false->true`. The game towed it to a station; the record kept the
+  original POI; all 5 rescuers flew to Frontier while the ship sat at Mobile
+  Capital and died on `different_location`.
+  On clearing the record it launched fine: First Step / mobile_capital,
+  **23.28M credits**, docked at a base WITH a fuel desk — so it can buy its
+  own fuel and never needed a tanker at all.
+  (I first called it the one genuine strandee, then over-corrected to "never
+  dry" off a 102/120 asset capture taken 92 min before the strand. Both
+  wrong. Check the WORKER LOG's reconcile lines, not just assets.)
 
 **⭐ WHY the records are almost always false: stuck ships get TOWED back to
 stations** (GSA auto-recovery, [[reference_gsa_ship_recovery]]). The game
