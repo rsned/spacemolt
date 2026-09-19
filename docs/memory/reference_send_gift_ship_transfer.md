@@ -27,6 +27,27 @@ tick**. Normal gift unlock (1000 lifetime credits earned) applies.
 Response is `GiftShipResponse`: `action:"gift_ship"`, `ship_id`, `class_id`,
 `class_name`, `base_id`, `recipient`.
 
+🔴 **THE GIFT UNLOCK BLOCKS PARKED AGENTS.** Sending ANY gift requires
+**1,000 lifetime credits EARNED** — not balance. Parked marketbot residents
+never trade, so they have never earned it and CANNOT gift at all:
+
+```
+send_gift "Arthur 'Artificer' Artis" aluminum_ore 1089 --source=storage
+❌ gift_not_unlocked: You must earn at least 1000 credits before sending gifts.
+```
+
+marketbot_last_light failed this on 2026-09-18 while HOLDING 1,217 credits —
+balance is irrelevant. This strands the sensor net's materials: 1,550
+aluminum_ore across five Outer Rim marketbots that cannot hand any of it
+over. Workarounds: sell to the station market and have the buyer re-buy it
+(which also earns the marketbot its first credits toward the unlock), or
+skip the marketbots entirely and fund a trading agent to buy on the open
+market.
+
+**Gifted items land at the SENDER's station**, same as ships — confirmed by
+the operator 2026-09-18. So a gift never relocates anything; it only changes
+owner.
+
 **Planning consequence:** combined with
 [[reference_ship_commissioning_is_credits_only]] — `commission_ship` only
 works at the yard you are docked at, and a finished commission lands in
