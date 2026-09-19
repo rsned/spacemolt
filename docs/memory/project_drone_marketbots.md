@@ -31,7 +31,13 @@ deploy pass completed 2026-09-08; all ten are live in the 64-worker mb fleet.
 | 013 / 010 / 014 / 018 / 016 / 017 | 17 | ~9,029–9,273 each | the tight cluster explained below |
 
 Total **66,604 units** across the ten (storage capture 02:17–02:19Z, fresh).
-`craftsman-1` shows drone_control 100 with 0 xp — an anomaly, not a real level.
+⭐ **`craftsman-1` is drone_control 100 — the MAXIMUM skill level, fully capped.**
+The 0 xp beside it is not a broken capture: at 100 there is no next level to
+accumulate toward, so the counter reads zero. (Recorded here as "an anomaly, not
+a real level" until the operator corrected it 2026-09-19.) A level-100 reading
+with 0 xp is the signature of a MAXED skill, not a missing one — check the level
+before dismissing the xp. craftsman-1 is therefore our best drone operator by a
+wide margin and cannot advance further; the marketbots below are still climbing.
 
 **Six of ten cluster at 9,029–9,273 units — this is NOT a cap.** I flagged it as
 a probable storage ceiling; the operator corrected it 2026-09-09: **personal
@@ -107,3 +113,46 @@ in drone-bot storage.
 
 See [[reference_drone_bay_is_agent_wide]] ·
 [[project_drone_project_crystal_reserve]] · [[reference_station_id_aliases]]
+
+## Status 2026-09-19 — succeeding, now STORAGE-BOUND
+
+Ten days on the project works; the ceiling is logistics, not capability.
+
+- **Skills 3x:** `drone_control` 17-19 -> **53-57** across all eleven.
+  marketbot_haven leads (57 / 90,120 xp). Still climbing toward the 100 cap
+  craftsman-1 already holds.
+- **Production 27x:** ~**1,788,320 units** held, vs 66,604 on 09-09.
+  016 leads at 333,581.
+- **FIVE item slots are AT the 100,000-per-item cap** (99,974-99,998):
+  017 neon_gas, 018 argon_gas, and iron_ore on 013 / 014 / 010. Six more sit at
+  77-98% (argon on 017/016, copper_ore on 013/014, hydrogen on 018/016, neon on
+  018). Those bots are now mining into a full bucket.
+
+**The ore->component conversion is a NO-OP on these bots — 584 craft attempts,
+ZERO successes.** Scheduled hourly on all eleven (`refine_steel 500`,
+`process_copper_wiring 600`, `draw_copper_piping 200`), and it cannot work
+where it was deployed. Three stacked blockers:
+
+1. `no_facility` (282) — the bots are posted at remote belt/gas/ice stations
+   BECAUSE that is where the ore is, and those stations have no Iron Refinery
+   or Copper Wire Mill. 016/013 have a public one 1 jump away (Private Rain,
+   Crosshaven); 018's nearest is 4 jumps (Ramen's Rest, Last Light).
+2. `cannot_craft` (266) — downstream of (1): `draw_copper_piping` needs the
+   wiring the missing mill never made.
+3. `insufficient_credits` (36, marketbot_haven + iron_reach) — crafting charges
+   labor and the drone bots hold only ~1,000 cr each.
+
+So ~33 wasted craft mutations/hour fleet-wide, against a shared per-IP budget.
+Disable the schedules until facilities exist. See
+[[project_ore_to_component_conversion]].
+
+**Gases have no conversion at all** — the three scheduled recipes cover iron and
+copper only, yet neon/argon/hydrogen are three of the five capped slots. A
+working refinery would still not drain them; they need selling or their own
+recipe.
+
+Drain options ranked: sell locally (zero risk, funds the next step) -> build the
+facility on-site (`facility action=build`, needs funding first, permanent, and
+refined output is worth more than ore) -> use the 1-jump public facility for the
+close bots -> hauling is NOT viable (500k capped units is ~263 Congregation
+round trips).
