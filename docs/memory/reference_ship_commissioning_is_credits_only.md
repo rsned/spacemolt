@@ -5,7 +5,32 @@ metadata:
   type: reference
 ---
 
-`commission_ship` quotes **two options**. Observed 2026-09-18 for a
+`commission_ship` has **THREE material modes** (openapi `/commission_ship`):
+
+| flag | you supply | charged |
+|---|---|---|
+| *(default)* | nothing | labour + yard fee + **2.0x market on ALL materials** |
+| `provide_materials=true` | everything | labour + yard fee only |
+| `source_missing_materials=true` | whatever you have | labour + fee + 2.0x market **on the DEFICIT only** |
+
+"Do not combine the two material flags." All modes pay labour and a yard fee.
+The partial mode takes "as much as possible from cargo then station storage"
+— so a components run does not have to be complete or exact; a short
+delivery degrades into a proportional cash top-up rather than failing.
+
+Faction stations are funded via `fund_from_faction=true` and do NOT
+market-source shortfalls. `commission_quote` must be called with the SAME
+`bare_hull` and `source_missing_materials` choices or its numbers do not
+apply. On completion the server pushes `ship_commission_complete` — which as
+of 2026-09-18 has a protocol constant and NO handler anywhere in the Go
+codebase, so no worker ever learns its build finished.
+
+`bare_hull=true` omits the default module loadout. Irrelevant for
+Congregation: `default_modules` is null and it has 0 weapon/defense/utility
+slots, so its 1,900 cargo is fixed and unfittable (contrast
+[[reference_prayer_class_freight_hulls]], where fitting is what matters).
+
+Observed quote 2026-09-18. Observed 2026-09-18 for a
 Congregation at Starfall Salvage Station (shipyard tier here=1, required=0,
 build 320 ticks ~53 min):
 
