@@ -181,6 +181,25 @@ func FormatPlan(res *PlanResult) string {
 	default:
 		fmt.Fprintln(&b, "summary: ✗ blocked (see notes above)")
 	}
+	// Show the routes resolution passed over. The catalog has several recipes
+	// for common outputs and the right one depends on what is in stock, so
+	// listing them means an operator never has to remember recipe ids to
+	// reach an alternative. Ordered exactly as resolution ranked them:
+	// best-supplied first.
+	if len(res.Alternatives) > 0 {
+		fmt.Fprintf(&b, "\nother recipes for this item (%d):\n", len(res.Alternatives))
+		atw := tabwriter.NewWriter(&b, 0, 0, 2, ' ', 0)
+		_, _ = fmt.Fprintln(atw, "  RECIPE\tPER RUN\tCATEGORY\tWHERE")
+		for _, a := range res.Alternatives {
+			where := "hand-craftable"
+			if a.FacilityOnly {
+				where = "facility only"
+			}
+			_, _ = fmt.Fprintf(atw, "  %s\t%d\t%s\t%s\n", a.ID, outputPerRun(a), a.Category, where)
+		}
+		_ = atw.Flush()
+	}
+
 	return b.String()
 }
 

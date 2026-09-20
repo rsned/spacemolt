@@ -296,12 +296,12 @@ func handleCraftable(client game.GameClient, ctx context.Context, parts []string
 	}
 
 	opts := craftplan.CraftableOpts{
-		Reachable:           flagBool(flags["reachable"]),
-		IncludeFaction:      flagBool(flags["include-faction"]),
-		IncludeFacilityOnly: flagBool(flags["include-facility-only"]),
-		IncludeShipPassive:  flagBool(flags["include-ship-passive"]),
-		IncludeHidden:       flagBool(flags["include-hidden"]),
-		Refresh:             flagBool(flags["refresh"]),
+		Reachable:           flagBoolAny(flags, "reachable"),
+		IncludeFaction:      flagBoolAny(flags, "include-faction"),
+		IncludeFacilityOnly: flagBoolAny(flags, "include-facility-only"),
+		IncludeShipPassive:  flagBoolAny(flags, "include-ship-passive"),
+		IncludeHidden:       flagBoolAny(flags, "include-hidden"),
+		Refresh:             flagBoolAny(flags, "refresh"),
 	}
 	if v, ok := flags["sort"]; ok {
 		if s, ok := flagString(v); ok {

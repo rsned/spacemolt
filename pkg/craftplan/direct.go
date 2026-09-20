@@ -193,12 +193,13 @@ func (e *Engine) Plan(ctx context.Context, opts PlanOpts) (*PlanResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	r, err := e.resolveRecipe(opts.ID, recs)
+	// Inventory first: resolution ranks candidate recipes by which inputs we
+	// actually hold, so it cannot run before we know what that is.
+	inv, err := e.src.Inventory(ctx, opts.IncludeFaction)
 	if err != nil {
 		return nil, err
 	}
-
-	inv, err := e.src.Inventory(ctx, opts.IncludeFaction)
+	r, alternatives, err := e.resolveRecipe(opts.ID, recs, inv, opts.IncludeFaction)
 	if err != nil {
 		return nil, err
 	}
@@ -223,11 +224,12 @@ func (e *Engine) Plan(ctx context.Context, opts PlanOpts) (*PlanResult, error) {
 	runs := runsFor(r, opts.Quantity)
 
 	res := &PlanResult{
-		Recipe:         r,
-		Quantity:       opts.Quantity,
-		Runs:           runs,
-		StationID:      stationID,
-		BlockedSkill:   skillGaps(r, skills),
+		Recipe:            r,
+		Alternatives:      alternatives,
+		Quantity:          opts.Quantity,
+		Runs:              runs,
+		StationID:         stationID,
+		BlockedSkill:      skillGaps(r, skills),
 		BlockedIllegal:    illegal[r.ID],
 		BlockedPassive:    strings.EqualFold(r.Category, "Ship Passive"),
 		FacilityOnlyNoAlt: facilityOnlyNoAlternative(r, recs),
@@ -305,5 +307,3 @@ func planDirect(r serverapi.Recipe, runs int, inv Inventory, includeFaction bool
 	}
 	return rows
 }
-
-

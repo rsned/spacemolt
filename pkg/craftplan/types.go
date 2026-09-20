@@ -85,6 +85,13 @@ type PlanResult struct {
 	// at a Station Workshop at all; a facility is required.
 	FacilityOnlyNoAlt bool
 	Ready             bool
+	// Alternatives are the other recipes producing the same primary output,
+	// in the same ranked order resolution used, when the caller asked by
+	// ITEM id rather than recipe id. Shown so an operator can see what was
+	// passed over without having to remember recipe ids -- the catalog has
+	// several routes to common items and the right one depends on what is
+	// in stock. Empty when the caller named a recipe explicitly.
+	Alternatives []serverapi.Recipe
 }
 
 // CraftableOpts controls Engine.Craftable.

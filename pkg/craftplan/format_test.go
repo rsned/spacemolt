@@ -4,6 +4,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -102,5 +103,34 @@ func checkGolden(t *testing.T, name, got string) {
 	}
 	if got != string(want) {
 		t.Errorf("%s mismatch.\nGOT:\n%s\nWANT:\n%s", name, got, string(want))
+	}
+}
+
+// The catalog offers several routes to common items and the right one depends
+// on stock, so an operator should not have to remember recipe ids to find the
+// others. FormatPlan lists what resolution passed over.
+func TestFormatPlanListsAlternatives(t *testing.T) {
+	res := &PlanResult{
+		Recipe:   serverapi.Recipe{ID: "craft_fuel_cell", Category: "Consumables"},
+		Quantity: 1000, Runs: 1000, Ready: true,
+		Alternatives: []serverapi.Recipe{
+			{ID: "catalyze_fuel_cells", Category: "Consumables", FacilityOnly: true,
+				Outputs: []serverapi.RecipeItem{{ItemID: "fuel_cell", Quantity: 50}}},
+			{ID: "biogas_fuel_synthesis", Category: "Refining",
+				Outputs: []serverapi.RecipeItem{{ItemID: "fuel_cell", Quantity: 2}}},
+		},
+	}
+	out := FormatPlan(res)
+	for _, want := range []string{"catalyze_fuel_cells", "biogas_fuel_synthesis", "facility"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestFormatPlanOmitsAlternativesWhenNone(t *testing.T) {
+	res := &PlanResult{Recipe: serverapi.Recipe{ID: "craft_fuel_cell"}, Quantity: 1, Runs: 1, Ready: true}
+	if strings.Contains(FormatPlan(res), "other recipes") {
+		t.Error("alternatives section printed with no alternatives")
 	}
 }

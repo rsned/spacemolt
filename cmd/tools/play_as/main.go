@@ -9929,7 +9929,7 @@ func flagBool(v any) bool {
 // is true; explicit `--dry_run=false`/`=0` is false; anything else falls
 // through flagBool's string rules.
 func partitionFlagBool(flags map[string]string, key string) bool {
-	v, ok := flags[key]
+	v, ok := flagLookup(flags, key)
 	if !ok {
 		return false
 	}
@@ -10050,6 +10050,43 @@ func parseFlagArgs(args []string, keys ...string) (map[string]any, error) {
 // / "--flag value" flags so flags may appear in any position. For the
 // space-separated form, the following token is consumed as the value unless it
 // is itself a flag.
+// flagLookup finds key in flags, accepting either separator. Option flags are
+// hyphenated (--include-faction, --dry-run) while payload flags are
+// underscored (--item_id, --faction_id), so the separator is easy to get
+// wrong -- and an unmatched flag is silently ignored, which is the dangerous
+// part: `plan craft_fuel_cell 1000 --include_faction` ran WITHOUT faction
+// stock and reported 2,000 liquid_hydrogen short while the lockbox held
+// 38,097 (2026-09-20).
+//
+// Aliasing happens at LOOKUP, deliberately not at parse time: several commands
+// build their server payload by ranging over the flags map, so storing both
+// spellings there would send duplicate keys.
+// Generic over the value type because the REPL carries flags as both
+// map[string]string (partitionFlags) and map[string]any (payload builders).
+func flagLookup[T any](flags map[string]T, key string) (T, bool) {
+	if v, ok := flags[key]; ok {
+		return v, true
+	}
+	if v, ok := flags[strings.ReplaceAll(key, "-", "_")]; ok {
+		return v, true
+	}
+	if v, ok := flags[strings.ReplaceAll(key, "_", "-")]; ok {
+		return v, true
+	}
+	var zero T
+	return zero, false
+}
+
+// flagBoolAny is flagBool over flagLookup: a boolean option flag readable
+// with either separator.
+func flagBoolAny[T any](flags map[string]T, key string) bool {
+	v, ok := flagLookup(flags, key)
+	if !ok {
+		return false
+	}
+	return flagBool(v)
+}
+
 func partitionFlags(args []string) (positional []string, flags map[string]string) {
 	flags = make(map[string]string)
 	for i := 0; i < len(args); i++ {

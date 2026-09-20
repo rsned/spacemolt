@@ -8,23 +8,45 @@ import (
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
 
-// resolveRecipe finds the Recipe that opts.ID refers to. Resolution order:
-//  1. recipe_id exact match (wins on tie).
-//  2. item_id exact match against any recipe's primary output. If multiple
-//     recipes output the item, pick the one with the lowest skill ceiling
-//     (max of required_skills values); ties broken alphabetically by
-//     recipe_id.
+// resolveRecipe finds the Recipe that id refers to, plus the other candidates
+// that produce the same item. Resolution order:
+//  1. recipe_id exact match (wins outright, and is never filtered -- naming a
+//     recipe explicitly is always honoured).
+//  2. item_id match against any recipe's primary output, ranked by:
+//     a. SUPPLYABILITY -- how many distinct inputs the agent actually holds.
+//     b. hand-craftable before facility_only (usable anywhere).
+//     c. lowest skill ceiling, then recipe_id, for determinism.
 //  3. No match → error with fuzzy suggestions.
 //
-// Replaces the stub in direct.go once this file is in the package.
-func (e *Engine) resolveRecipe(id string, recs map[string]serverapi.Recipe) (serverapi.Recipe, error) {
+// (a) is the whole point. Ranking by skill-then-alphabet picked recipes whose
+// inputs cannot be obtained: on 2026-09-20 `plan fuel_cell 1000` chose
+// biogas_fuel_synthesis, needing 500 crystallized_biogas (a wildlife drop we
+// hold none of), over craft_fuel_cell with 38,097 liquid_hydrogen in storage --
+// purely because every candidate had skill ceiling 0 and "biogas" sorts first.
+// Scoring by held inputs generalises past that one case: it demotes wildlife
+// drops, exotic intermediates and anything else we cannot feed, without having
+// to enumerate what those are.
+//
+// "Ship Passive" recipes are excluded from the item-id path entirely. They are
+// granted by a hull (onboard_alloy_synthesis comes with the alloy_synthesizer),
+// are hand_craftable:false with no producing facility, and so can never be
+// planned -- offering one is always a dead end. They remain reachable by
+// explicit id.
+//
+// The returned alternatives are the rejected candidates in ranked order, so a
+// caller can show what else exists rather than making the operator remember
+// recipe ids.
+func (e *Engine) resolveRecipe(id string, recs map[string]serverapi.Recipe, inv Inventory, includeFaction bool) (serverapi.Recipe, []serverapi.Recipe, error) {
 	if r, ok := recs[id]; ok {
-		return r, nil
+		return r, nil, nil
 	}
 
 	// Item-id path: scan outputs.
 	var matches []serverapi.Recipe
 	for _, r := range recs {
+		if isShipPassive(r) {
+			continue
+		}
 		for _, out := range r.Outputs {
 			if out.ItemID == id {
 				matches = append(matches, r)
@@ -34,13 +56,19 @@ func (e *Engine) resolveRecipe(id string, recs map[string]serverapi.Recipe) (ser
 	}
 	if len(matches) > 0 {
 		sort.Slice(matches, func(i, j int) bool {
-			si, sj := skillCeiling(matches[i]), skillCeiling(matches[j])
-			if si != sj {
+			a, b := matches[i], matches[j]
+			if ca, cb := suppliedInputs(a, inv, includeFaction), suppliedInputs(b, inv, includeFaction); ca != cb {
+				return ca > cb
+			}
+			if a.FacilityOnly != b.FacilityOnly {
+				return !a.FacilityOnly
+			}
+			if si, sj := skillCeiling(a), skillCeiling(b); si != sj {
 				return si < sj
 			}
-			return matches[i].ID < matches[j].ID
+			return a.ID < b.ID
 		})
-		return matches[0], nil
+		return matches[0], matches[1:], nil
 	}
 
 	// No exact match anywhere — fall back to suggestions.
@@ -50,9 +78,33 @@ func (e *Engine) resolveRecipe(id string, recs map[string]serverapi.Recipe) (ser
 	}
 	suggest := suggestCloseMatches(id, ids, 5)
 	if len(suggest) == 0 {
-		return serverapi.Recipe{}, fmt.Errorf("no recipe %q", id)
+		return serverapi.Recipe{}, nil, fmt.Errorf("no recipe %q", id)
 	}
-	return serverapi.Recipe{}, fmt.Errorf("no recipe %q. Did you mean: %s", id, strings.Join(suggest, ", "))
+	return serverapi.Recipe{}, nil, fmt.Errorf("no recipe %q. Did you mean: %s", id, strings.Join(suggest, ", "))
+}
+
+// isShipPassive reports whether r is granted by a hull rather than crafted.
+// Such a recipe runs automatically on a ship that has it (the catalog marks
+// them hand_craftable:false with an empty produced_by_facility_ids), so it can
+// never be queued by an agent that does not fly that hull.
+func isShipPassive(r serverapi.Recipe) bool {
+	return strings.EqualFold(r.Category, "Ship Passive")
+}
+
+// suppliedInputs counts how many of r's distinct inputs the agent holds at
+// least one of. It deliberately counts KINDS rather than whether the full
+// quantity is present: a recipe we can partly feed is worth planning (the
+// shortfall is what the plan is for), while one whose inputs we hold none of
+// is almost always the wrong branch -- a wildlife drop, an exotic
+// intermediate, or a chain we have never started.
+func suppliedInputs(r serverapi.Recipe, inv Inventory, includeFaction bool) int {
+	n := 0
+	for _, in := range r.Inputs {
+		if inv.total(in.ItemID, includeFaction) > 0 {
+			n++
+		}
+	}
+	return n
 }
 
 // facilityOnlyNoAlternative reports whether r is facility_only and no other
