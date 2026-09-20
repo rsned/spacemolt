@@ -657,6 +657,10 @@ var eventExpectedFields = map[string]map[string]bool{
 		"system_id":       true,
 		"poi_id":          true,
 		"empire_official": true,
+		// mission_id rides along on emergency-channel distress broadcasts: it
+		// is the rescue mission the signal generated, and the field a
+		// responder accepts. (observed 2026-09-20)
+		"mission_id": true,
 	},
 	protocol.TypeSkillLevelUp: {
 		"skill_id":   true,

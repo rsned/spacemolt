@@ -795,9 +795,19 @@ type ChatMessage struct {
 	// SenderID is the empire's own ID (solarian / voidborn / crimson /
 	// nebula / outerrim). Use it to detect player impersonation of empire
 	// officials. (server v0.294.0+)
-	EmpireOfficial bool   `json:"empire_official,omitempty"`
-	TimestampUTC   string `json:"timestamp_utc"`
-	Timestamp      string `json:"timestamp,omitempty"`
+	EmpireOfficial bool `json:"empire_official,omitempty"`
+	// Distress fields, set on "emergency"-channel broadcasts raised by
+	// distress_signal. DistressType is the need ("fuel", ...), System the
+	// human-readable name beside SystemID, and MissionID the rescue mission
+	// the signal generated -- the sender's side of that same event is
+	// DistressSignalResponse.MissionsSent. MissionID is what a responder
+	// accepts, so without it a listener sees the shout but cannot take the
+	// job. (mission_id observed 2026-09-20.)
+	DistressType string `json:"distress_type,omitempty"`
+	System       string `json:"system,omitempty"`
+	MissionID    string `json:"mission_id,omitempty"`
+	TimestampUTC string `json:"timestamp_utc"`
+	Timestamp    string `json:"timestamp,omitempty"`
 }
 
 // CaptainsLogEntry represents an entry in the captain's log.
