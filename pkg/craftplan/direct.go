@@ -199,7 +199,7 @@ func (e *Engine) Plan(ctx context.Context, opts PlanOpts) (*PlanResult, error) {
 	if err != nil {
 		return nil, err
 	}
-	r, alternatives, err := e.resolveRecipe(opts.ID, recs, inv, opts.IncludeFaction)
+	r, alternatives, err := e.resolveRecipe(opts.ID, recs, inv, opts.IncludeFaction, opts.Quantity)
 	if err != nil {
 		return nil, err
 	}

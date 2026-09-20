@@ -36,7 +36,7 @@ import (
 // The returned alternatives are the rejected candidates in ranked order, so a
 // caller can show what else exists rather than making the operator remember
 // recipe ids.
-func (e *Engine) resolveRecipe(id string, recs map[string]serverapi.Recipe, inv Inventory, includeFaction bool) (serverapi.Recipe, []serverapi.Recipe, error) {
+func (e *Engine) resolveRecipe(id string, recs map[string]serverapi.Recipe, inv Inventory, includeFaction bool, quantity int) (serverapi.Recipe, []serverapi.Recipe, error) {
 	if r, ok := recs[id]; ok {
 		return r, nil, nil
 	}
@@ -57,7 +57,7 @@ func (e *Engine) resolveRecipe(id string, recs map[string]serverapi.Recipe, inv 
 	if len(matches) > 0 {
 		sort.Slice(matches, func(i, j int) bool {
 			a, b := matches[i], matches[j]
-			if ca, cb := suppliedInputs(a, inv, includeFaction), suppliedInputs(b, inv, includeFaction); ca != cb {
+			if ca, cb := supplyScore(a, inv, quantity), supplyScore(b, inv, quantity); ca != cb {
 				return ca > cb
 			}
 			if a.FacilityOnly != b.FacilityOnly {
@@ -91,20 +91,48 @@ func isShipPassive(r serverapi.Recipe) bool {
 	return strings.EqualFold(r.Category, "Ship Passive")
 }
 
-// suppliedInputs counts how many of r's distinct inputs the agent holds at
-// least one of. It deliberately counts KINDS rather than whether the full
-// quantity is present: a recipe we can partly feed is worth planning (the
-// shortfall is what the plan is for), while one whose inputs we hold none of
-// is almost always the wrong branch -- a wildlife drop, an exotic
-// intermediate, or a chain we have never started.
-func suppliedInputs(r serverapi.Recipe, inv Inventory, includeFaction bool) int {
-	n := 0
+// supplyScore rates how much of r's input requirement for `quantity` output
+// units the agent can actually cover, as the fraction held of the SCARCEST
+// input, bucketed into percentage points so sorting is stable.
+//
+// Two things it deliberately does NOT do, both learned from getting them
+// wrong on 2026-09-20:
+//
+// It does not score by whether we hold ANY of each input. That ranked
+// drain_fuel_reserves top for 1,000 fuel cells -- it needs 2,500
+// salvage_components, we held 12, and as its only input that counted as
+// full coverage. Twelve of 2,500 is not a supply.
+//
+// It does not honour includeFaction. Faction stock is one
+// withdraw_items --source=faction --target=self away (a single call, no
+// cargo), so it is genuinely available for planning even when the caller
+// asked to display only personal holdings. Ignoring it ranked
+// craft_fuel_cell at zero while 38,097 liquid_hydrogen sat in the lockbox.
+//
+// The scarcest input decides, because a recipe is exactly as makeable as its
+// worst-covered ingredient: holding 100k of one input does not help when
+// another is missing outright.
+func supplyScore(r serverapi.Recipe, inv Inventory, quantity int) int {
+	if len(r.Inputs) == 0 {
+		return 100
+	}
+	runs := runsFor(r, quantity)
+	worst := 100
 	for _, in := range r.Inputs {
-		if inv.total(in.ItemID, includeFaction) > 0 {
-			n++
+		need := in.Quantity * runs
+		if need <= 0 {
+			continue
+		}
+		have := inv.total(in.ItemID, true)
+		pct := have * 100 / need
+		if pct > 100 {
+			pct = 100
+		}
+		if pct < worst {
+			worst = pct
 		}
 	}
-	return n
+	return worst
 }
 
 // facilityOnlyNoAlternative reports whether r is facility_only and no other

@@ -110,7 +110,7 @@ func TestResolvePrefersRecipesWeCanSupply(t *testing.T) {
 	inv := Inventory{Storage: map[string]int{"liquid_hydrogen": 38097, "steel_plate": 3535}}
 
 	e := &Engine{}
-	got, alts, err := e.resolveRecipe("fuel_cell", recs, inv, false)
+	got, alts, err := e.resolveRecipe("fuel_cell", recs, inv, false, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestResolveCountsFactionStockWhenIncluded(t *testing.T) {
 	inv := Inventory{Faction: map[string]int{"flex_polymer": 1940}}
 	e := &Engine{}
 
-	got, _, err := e.resolveRecipe("widget", recs, inv, true)
+	got, _, err := e.resolveRecipe("widget", recs, inv, true, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,14 +148,17 @@ func TestResolveCountsFactionStockWhenIncluded(t *testing.T) {
 		t.Errorf("picked %q, want zzz_from_faction — faction stock was included", got.ID)
 	}
 
-	// Without --include-faction neither is supplyable, so the old ordering
-	// (skill, then id) still applies and resolution stays deterministic.
-	got, _, err = e.resolveRecipe("widget", recs, inv, false)
+	// Ranking counts faction stock even WITHOUT --include-faction: it is one
+	// `withdraw_items --source=faction --target=self` away (single call, no
+	// cargo), so a recipe fed from the lockbox is genuinely makeable. The flag
+	// governs what the plan DISPLAYS, not what is reachable. Ignoring it here
+	// is what let an unobtainable recipe win by alphabet.
+	got, _, err = e.resolveRecipe("widget", recs, inv, false, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ID != "aaa_unobtainable" {
-		t.Errorf("picked %q, want the alphabetical fallback when nothing is supplyable", got.ID)
+	if got.ID != "zzz_from_faction" {
+		t.Errorf("picked %q, want zzz_from_faction — lockbox stock is one withdraw away", got.ID)
 	}
 }
 
@@ -177,7 +180,7 @@ func TestResolveExcludesShipPassives(t *testing.T) {
 	}
 	inv := Inventory{Storage: map[string]int{"titanium_ore": 4428}}
 	e := &Engine{}
-	got, alts, err := e.resolveRecipe("titanium_alloy", recs, inv, false)
+	got, alts, err := e.resolveRecipe("titanium_alloy", recs, inv, false, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,11 +201,79 @@ func TestResolveStillAllowsExplicitShipPassiveByID(t *testing.T) {
 		"onboard_alloy_synthesis": {ID: "onboard_alloy_synthesis", Category: "Ship Passive"},
 	}
 	e := &Engine{}
-	got, _, err := e.resolveRecipe("onboard_alloy_synthesis", recs, Inventory{}, false)
+	got, _, err := e.resolveRecipe("onboard_alloy_synthesis", recs, Inventory{}, false, 1)
 	if err != nil {
 		t.Fatalf("explicit id must still resolve: %v", err)
 	}
 	if got.ID != "onboard_alloy_synthesis" {
 		t.Errorf("got %q", got.ID)
+	}
+}
+
+// Scoring by "do we hold ANY of this input" ranked drain_fuel_reserves top for
+// `plan fuel_cell 1000`: it needs 2,500 salvage_components and we held 12, but
+// that was its only input so it scored a perfect 1/1. Meanwhile craft_fuel_cell
+// scored 0/2 because its inputs were in FACTION storage, which the score
+// ignored. Both judgements were wrong (2026-09-20).
+//
+// Score against the quantity actually required, by the SCARCEST input, and
+// count faction stock — it is one withdraw_items call away.
+func TestResolveScoresAgainstRequiredQuantity(t *testing.T) {
+	recs := map[string]serverapi.Recipe{
+		"drain_fuel_reserves": {
+			ID: "drain_fuel_reserves", Category: "Consumables",
+			Inputs:  []serverapi.RecipeItem{{ItemID: "salvage_components", Quantity: 5}},
+			Outputs: []serverapi.RecipeItem{{ItemID: "fuel_cell", Quantity: 2}},
+		},
+		"craft_fuel_cell": {
+			ID: "craft_fuel_cell", Category: "Consumables",
+			Inputs: []serverapi.RecipeItem{
+				{ItemID: "liquid_hydrogen", Quantity: 2},
+				{ItemID: "steel_plate", Quantity: 1},
+			},
+			Outputs: []serverapi.RecipeItem{{ItemID: "fuel_cell", Quantity: 1}},
+		},
+	}
+	inv := Inventory{
+		Storage: map[string]int{"salvage_components": 12},
+		Faction: map[string]int{"liquid_hydrogen": 38097, "steel_plate": 2883},
+	}
+
+	e := &Engine{}
+	got, _, err := e.resolveRecipe("fuel_cell", recs, inv, false, 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != "craft_fuel_cell" {
+		t.Errorf("picked %q, want craft_fuel_cell — 12 of 2,500 salvage_components is not a supply", got.ID)
+	}
+}
+
+// The scarcest input decides: holding plenty of one input does not rescue a
+// recipe whose other input we lack.
+func TestResolveScoresByScarcestInput(t *testing.T) {
+	recs := map[string]serverapi.Recipe{
+		"a_one_plentiful_one_missing": {
+			ID: "a_one_plentiful_one_missing", Category: "X",
+			Inputs: []serverapi.RecipeItem{
+				{ItemID: "have_lots", Quantity: 1},
+				{ItemID: "have_none", Quantity: 1},
+			},
+			Outputs: []serverapi.RecipeItem{{ItemID: "thing", Quantity: 1}},
+		},
+		"b_all_covered": {
+			ID: "b_all_covered", Category: "X",
+			Inputs:  []serverapi.RecipeItem{{ItemID: "have_lots", Quantity: 2}},
+			Outputs: []serverapi.RecipeItem{{ItemID: "thing", Quantity: 1}},
+		},
+	}
+	inv := Inventory{Storage: map[string]int{"have_lots": 100000}}
+	e := &Engine{}
+	got, _, err := e.resolveRecipe("thing", recs, inv, false, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != "b_all_covered" {
+		t.Errorf("picked %q, want b_all_covered — the other is missing an input entirely", got.ID)
 	}
 }
