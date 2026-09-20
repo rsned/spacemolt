@@ -70,3 +70,107 @@ func TestConsumeAsks(t *testing.T) {
 		})
 	}
 }
+
+// The scanner used to value a route as (bestBid - bestAsk) * qty, i.e. it
+// assumed every unit clears at the TOP of the book. Live on 2026-09-20,
+// opportunity #1224069 advertised platinum_ore Nova Terra -> Ironlight at
+// 140 -> 350 for 2,461 units and 516,810 gross. The destination's real bid
+// ladder was 252x1366, 175x3000, 105x2951: the 350 did not exist at all, and
+// hauler-0's 1,900-unit load realised 171,682 -- 43% of the advertised
+// pro-rata. Past ~4,366 units the bids fall to 105, BELOW the 140 ask, so
+// further volume loses money while still counting as "profit" to the scanner.
+func TestProceedsFromSale(t *testing.T) {
+	bids := []BidLevel{{252, 1366}, {175, 3000}, {105, 2951}}
+
+	t.Run("walks the ladder highest-first", func(t *testing.T) {
+		rev, filled, avg, enough := ProceedsFromSale(bids, 1900)
+		if want := 1366*252.0 + 534*175.0; rev != want {
+			t.Errorf("revenue = %v, want %v", rev, want)
+		}
+		if filled != 1900 {
+			t.Errorf("filled = %v, want 1900", filled)
+		}
+		if !enough {
+			t.Error("enoughDepth = false, want true")
+		}
+		if avg <= 175 || avg >= 252 {
+			t.Errorf("avg %v should sit between the two levels consumed", avg)
+		}
+	})
+
+	t.Run("reports shallow depth", func(t *testing.T) {
+		_, filled, _, enough := ProceedsFromSale(bids, 99999)
+		if enough {
+			t.Error("enoughDepth = true on a ladder that cannot fill")
+		}
+		if want := 1366 + 3000 + 2951.0; filled != want {
+			t.Errorf("filled = %v, want the whole ladder %v", filled, want)
+		}
+	})
+
+	t.Run("empty ladder yields nothing", func(t *testing.T) {
+		rev, filled, avg, enough := ProceedsFromSale(nil, 100)
+		if rev != 0 || filled != 0 || avg != 0 || enough {
+			t.Errorf("got (%v,%v,%v,%v), want all zero/false", rev, filled, avg, enough)
+		}
+	})
+}
+
+// OptimalArbitrage is the fix: walk both ladders together and stop at the unit
+// where the bid no longer beats the ask. It must never report a quantity whose
+// marginal unit loses money, and its profit must be the REALISABLE profit.
+func TestOptimalArbitrage(t *testing.T) {
+	t.Run("stops where the spread closes", func(t *testing.T) {
+		// asks 140 deep; bids fall through the ask price at the 105 level.
+		asks := []AskLevel{{140, 111778}}
+		bids := []BidLevel{{252, 1366}, {175, 3000}, {105, 2951}}
+
+		qty, cost, rev, profit := OptimalArbitrage(asks, bids)
+
+		if want := 1366 + 3000.0; qty != want {
+			t.Errorf("qty = %v, want %v (the 105 bid is below the 140 ask)", qty, want)
+		}
+		if wantCost := 4366 * 140.0; cost != wantCost {
+			t.Errorf("cost = %v, want %v", cost, wantCost)
+		}
+		if wantRev := 1366*252.0 + 3000*175.0; rev != wantRev {
+			t.Errorf("revenue = %v, want %v", rev, wantRev)
+		}
+		if profit != rev-cost {
+			t.Errorf("profit %v != revenue-cost %v", profit, rev-cost)
+		}
+		// The old top-of-book maths would have claimed far more than this.
+		if naive := (252 - 140) * qty; profit >= naive {
+			t.Errorf("depth-aware profit %v should be below the naive %v", profit, naive)
+		}
+	})
+
+	t.Run("rising asks also close the spread", func(t *testing.T) {
+		asks := []AskLevel{{100, 50}, {300, 500}}
+		bids := []BidLevel{{200, 1000}}
+		qty, _, _, profit := OptimalArbitrage(asks, bids)
+		if qty != 50 {
+			t.Errorf("qty = %v, want 50 (the 300 ask exceeds the 200 bid)", qty)
+		}
+		if want := 50 * (200 - 100.0); profit != want {
+			t.Errorf("profit = %v, want %v", profit, want)
+		}
+	})
+
+	t.Run("no profitable overlap", func(t *testing.T) {
+		qty, cost, rev, profit := OptimalArbitrage(
+			[]AskLevel{{500, 100}}, []BidLevel{{400, 100}})
+		if qty != 0 || cost != 0 || rev != 0 || profit != 0 {
+			t.Errorf("got (%v,%v,%v,%v), want all zero when the bid is under the ask", qty, cost, rev, profit)
+		}
+	})
+
+	t.Run("empty ladders are safe", func(t *testing.T) {
+		if q, _, _, _ := OptimalArbitrage(nil, []BidLevel{{10, 5}}); q != 0 {
+			t.Errorf("qty = %v with no asks, want 0", q)
+		}
+		if q, _, _, _ := OptimalArbitrage([]AskLevel{{10, 5}}, nil); q != 0 {
+			t.Errorf("qty = %v with no bids, want 0", q)
+		}
+	})
+}

@@ -134,6 +134,10 @@ func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanRe
 		if err != nil {
 			return ScanResult{}, fmt.Errorf("scan item %s: %w", itemID, err)
 		}
+		// Ladders are fetched once per station and reused across every pairing,
+		// keeping this at one query per (item, station) rather than per pair.
+		askLadders := make(map[string][]AskLevel)
+		bidLadders := make(map[string][]BidLevel)
 		for _, src := range prices { // src = where you BUY (a sell/ask)
 			if !src.HasSell || src.BestAsk < opts.MinPrice || src.AskQty < opts.MinQuantity {
 				continue
@@ -145,20 +149,46 @@ func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanRe
 				if !dst.HasBuy || dst.BestBid < opts.MinPrice || dst.BidQty < opts.MinQuantity {
 					continue
 				}
+				// Top-of-book prefilter: if the best bid cannot beat the best
+				// ask, no deeper level can either (asks rise, bids fall), so
+				// skip without touching the database.
 				if dst.BestBid <= src.BestAsk {
 					continue
 				}
-				qty := min(src.AskQty, dst.BidQty)
-				gross := (dst.BestBid - src.BestAsk) * qty
-				if gross < opts.MinProfit {
+
+				asks, ok := askLadders[src.StationID]
+				if !ok {
+					if asks, err = c.GetAskLadder(ctx, itemID, src.StationID); err != nil {
+						return ScanResult{}, fmt.Errorf("ask ladder %s@%s: %w", itemID, src.StationID, err)
+					}
+					askLadders[src.StationID] = asks
+				}
+				bids, ok := bidLadders[dst.StationID]
+				if !ok {
+					if bids, err = c.GetBidLadder(ctx, itemID, dst.StationID); err != nil {
+						return ScanResult{}, fmt.Errorf("bid ladder %s@%s: %w", itemID, dst.StationID, err)
+					}
+					bidLadders[dst.StationID] = bids
+				}
+
+				// Price against actual depth. Both books are stepped, so the
+				// naive (bestBid-bestAsk)*qty overstates revenue AND keeps
+				// counting units whose bid has already fallen below the ask.
+				qty, cost, revenue, gross := OptimalArbitrage(asks, bids)
+				if qty < opts.MinQuantity || gross < opts.MinProfit {
 					continue
 				}
+				// Record the achievable VWAPs rather than top-of-book, so a
+				// consumer reading buy_price/sell_price sees prices it can
+				// actually transact at across the whole quantity. A hauler
+				// taking only a prefix does better than this, never worse:
+				// it fills the cheapest asks against the highest bids first.
 				candidates = append(candidates, arbCandidate{
 					fromStation: src.StationID,
 					toStation:   dst.StationID,
 					itemID:      itemID,
-					buyPrice:    src.BestAsk,
-					sellPrice:   dst.BestBid,
+					buyPrice:    cost / qty,
+					sellPrice:   revenue / qty,
 					qty:         qty,
 					gross:       gross,
 					sourceUnits: src.AskQty,

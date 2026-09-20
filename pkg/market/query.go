@@ -634,7 +634,7 @@ func (c *Collector) GetItemPriceHistory(ctx context.Context, itemID string, limi
 		FROM market_ohlcv o
 		JOIN stations s ON s.station_id = o.station_id
 		WHERE o.item_id = ?
-		  AND o.high_price < ` + notForSaleSQL + `
+		  AND o.high_price < `+notForSaleSQL+`
 		ORDER BY o.bucket_utc DESC
 		LIMIT ?`, itemID, limit)
 	if err != nil {
@@ -666,7 +666,7 @@ func (c *Collector) GetAskLadder(ctx context.Context, itemID, stationID string) 
 			WHERE item_id = ? AND station_id = ?
 		) latest ON o.captured_at = latest.mx
 		WHERE o.item_id = ? AND o.station_id = ? AND o.side = 'sell'
-		  AND o.price_each > 0 AND o.quantity > 0 AND o.price_each < ` + notForSaleSQL + `
+		  AND o.price_each > 0 AND o.quantity > 0 AND o.price_each < `+notForSaleSQL+`
 		ORDER BY o.price_each ASC`, itemID, stationID, itemID, stationID)
 	if err != nil {
 		return nil, fmt.Errorf("query ask ladder: %w", err)
@@ -679,6 +679,40 @@ func (c *Collector) GetAskLadder(ctx context.Context, itemID, stationID string) 
 			return nil, fmt.Errorf("scan ask ladder: %w", err)
 		}
 		out = append(out, AskLevel{PriceEach: p, Quantity: q})
+	}
+	return out, rows.Err()
+}
+
+// GetBidLadder returns the buy-side price levels (DESCENDING by price) for an
+// item at a station's latest capture. Empty when nothing is bid there.
+// Callers pass the result straight to ProceedsFromSale or OptimalArbitrage.
+//
+// Unlike GetAskLadder this applies no not-for-sale sentinel filter: that
+// sentinel is an ASK-side convention (list at an absurd price to mean "not
+// selling"), and a high BID is simply a good bid.
+func (c *Collector) GetBidLadder(ctx context.Context, itemID, stationID string) ([]BidLevel, error) {
+	rows, err := c.db.QueryContext(ctx, `
+		SELECT o.price_each, o.quantity
+		FROM market_orders o
+		JOIN (
+			SELECT MAX(captured_at) AS mx
+			FROM market_orders
+			WHERE item_id = ? AND station_id = ?
+		) latest ON o.captured_at = latest.mx
+		WHERE o.item_id = ? AND o.station_id = ? AND o.side = 'buy'
+		  AND o.price_each > 0 AND o.quantity > 0
+		ORDER BY o.price_each DESC`, itemID, stationID, itemID, stationID)
+	if err != nil {
+		return nil, fmt.Errorf("query bid ladder: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []BidLevel
+	for rows.Next() {
+		var p, q float64
+		if err := rows.Scan(&p, &q); err != nil {
+			return nil, fmt.Errorf("scan bid ladder: %w", err)
+		}
+		out = append(out, BidLevel{PriceEach: p, Quantity: q})
 	}
 	return out, rows.Err()
 }

@@ -712,3 +712,61 @@ func TestGetOpportunitiesByAgent(t *testing.T) {
 		t.Fatalf("limit=2 returned %d rows (err %v)", len(capped), err)
 	}
 }
+
+// The scanner valued a route at (bestBid-bestAsk)*qty, pricing every unit at
+// the top of both books. This reproduces opportunity #1224069 (2026-09-20) in
+// miniature: a deep cheap ask against a STEPPED bid ladder whose lower rungs
+// fall below the ask price.
+//
+// Naive maths: qty=min(1000,300)=300 at (250-100) = 45,000 gross.
+// Reality: 100 units clear at 250 and 100 at 150; the 50-price rung is BELOW
+// the 100 ask, so those units lose money and must not be counted at all.
+// Correct: qty 200, revenue 40,000, cost 20,000, gross 20,000.
+func TestScanArbitragePricesAgainstBookDepth(t *testing.T) {
+	c := openArbDB(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnA", StationName: "Alpha", SystemID: "sysA", SystemName: "Sol", CapturedAt: now,
+		Orders: []Order{
+			{StationID: "stnA", ItemID: "platinum_ore", ItemName: "Platinum Ore", Side: "sell", PriceEach: 100, Quantity: 1000, CapturedAt: now},
+		},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnA: %v", err)
+	}
+	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stnB", StationName: "Beta", SystemID: "sysB", SystemName: "Sirius", CapturedAt: now,
+		Orders: []Order{
+			{StationID: "stnB", ItemID: "platinum_ore", ItemName: "Platinum Ore", Side: "buy", PriceEach: 250, Quantity: 100, CapturedAt: now},
+			{StationID: "stnB", ItemID: "platinum_ore", ItemName: "Platinum Ore", Side: "buy", PriceEach: 150, Quantity: 100, CapturedAt: now},
+			{StationID: "stnB", ItemID: "platinum_ore", ItemName: "Platinum Ore", Side: "buy", PriceEach: 50, Quantity: 100, CapturedAt: now},
+		},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot stnB: %v", err)
+	}
+
+	if _, err := c.ScanArbitrage(ctx, ScanOptions{MinProfit: 1, MinPrice: 1, MinQuantity: 1, ExpiresIn: time.Hour}); err != nil {
+		t.Fatalf("ScanArbitrage: %v", err)
+	}
+
+	var buyPrice, sellPrice, qty, gross float64
+	if err := c.db.QueryRow(`SELECT buy_price, sell_price, quantity, gross_profit
+		FROM arbitrage_opportunities WHERE item_id = ?`, "platinum_ore").
+		Scan(&buyPrice, &sellPrice, &qty, &gross); err != nil {
+		t.Fatalf("query opp: %v", err)
+	}
+
+	if qty != 200 {
+		t.Errorf("quantity = %v, want 200 — the 50 bid is below the 100 ask and must be excluded", qty)
+	}
+	if gross != 20000 {
+		t.Errorf("gross_profit = %v, want 20000 (realisable), not 45000 (top-of-book)", gross)
+	}
+	if buyPrice != 100 {
+		t.Errorf("buy_price = %v, want the 100 ask VWAP", buyPrice)
+	}
+	if sellPrice != 200 {
+		t.Errorf("sell_price = %v, want the 200 blended VWAP of the 250/150 rungs, not the 250 top", sellPrice)
+	}
+}
