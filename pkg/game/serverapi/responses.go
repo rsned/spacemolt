@@ -2852,11 +2852,86 @@ type GetTaxEstimateResponse struct {
 	// is a historical record: it does NOT change when an old bounty is later
 	// paid, so current debt comes from OutstandingBounties, never from here.
 	// Left raw to match the other nested blocks in this struct.
-	LatestStatement json.RawMessage `json:"latest_statement,omitempty"`
+	LatestStatement *TaxStatement `json:"latest_statement,omitempty"`
 
 	InactivityExempt    bool                `json:"inactivity_exempt,omitempty"`
 	OutstandingBounties []OutstandingBounty `json:"outstanding_bounties,omitempty"`
 	PaymentGuidance     string              `json:"payment_guidance,omitempty"`
+}
+
+// TaxStatement is one settled (or previewed) weekly tax assessment. It arrives
+// two ways: as GetTaxEstimateResponse.LatestStatement, and as the
+// tax_statement block on the Interstellar Revenue Service's weekly private
+// chat_message.
+//
+// It is a HISTORICAL record of the cycle named by Tick/AssessedAt, not current
+// debt: paying an old bounty later does not rewrite it. Preview is true when
+// the server is showing what the cycle WOULD cost rather than what it did.
+// Income and Property hold one entry per empire with a claim; TotalUnpaid
+// above zero is what becomes an empire bounty.
+type TaxStatement struct {
+	AssessedAt       string `json:"assessed_at,omitempty"`
+	PeriodStartedAt  string `json:"period_started_at,omitempty"`
+	Tick             int64  `json:"tick,omitempty"`
+	Preview          bool   `json:"preview,omitempty"`
+	InactivityExempt bool   `json:"inactivity_exempt,omitempty"`
+
+	// IncomeByCategory keys are income sources ("market", "mission", ...).
+	// IncomeGross is their sum, before MarketDeduction (the cost of goods
+	// on market sales) and the loss carryforward produce TaxableIncome.
+	IncomeGross              int64            `json:"income_gross,omitempty"`
+	IncomeByCategory         map[string]int64 `json:"income_by_category,omitempty"`
+	MarketPurchases          int64            `json:"market_purchases,omitempty"`
+	MarketDeduction          int64            `json:"market_deduction,omitempty"`
+	LossCarryforwardPrevious int64            `json:"loss_carryforward_previous,omitempty"`
+	LossCarryforwardNext     int64            `json:"loss_carryforward_next,omitempty"`
+	TaxableIncome            int64            `json:"taxable_income,omitempty"`
+
+	// PropertyValue is the assessed total of Ships.
+	PropertyValue int64           `json:"property_value,omitempty"`
+	Ships         []TaxShipValue  `json:"ships,omitempty"`
+	Income        []TaxAssessment `json:"income,omitempty"`
+	Property      []TaxAssessment `json:"property,omitempty"`
+
+	PaidFromPrepaid int64 `json:"paid_from_prepaid,omitempty"`
+	PaidFromWallet  int64 `json:"paid_from_wallet,omitempty"`
+	Refund          int64 `json:"refund,omitempty"`
+	TotalOwed       int64 `json:"total_owed,omitempty"`
+	TotalPaid       int64 `json:"total_paid,omitempty"`
+	TotalUnpaid     int64 `json:"total_unpaid,omitempty"`
+}
+
+// TaxAssessment is one empire's claim within a TaxStatement -- an income line
+// or a property line. RateBPS is the EFFECTIVE rate in basis points across the
+// whole assessment, not a bracket rate; Brackets is nil on property lines,
+// which are assessed flat.
+type TaxAssessment struct {
+	Empire   string       `json:"empire"`
+	Brackets []TaxBracket `json:"brackets,omitempty"`
+	Gross    int64        `json:"gross,omitempty"`
+	Credit   int64        `json:"credit,omitempty"`
+	RateBPS  int64        `json:"rate_bps,omitempty"`
+	Owed     int64        `json:"owed,omitempty"`
+	Paid     int64        `json:"paid,omitempty"`
+	Unpaid   int64        `json:"unpaid,omitempty"`
+}
+
+// TaxBracket is one progressive band of an income assessment. The top band is
+// open-ended: it omits upper_bound, so UpperBound reads 0 there rather than a
+// real ceiling -- check LowerBound to tell the two apart.
+type TaxBracket struct {
+	LowerBound      int64 `json:"lower_bound"`
+	UpperBound      int64 `json:"upper_bound,omitempty"`
+	IncomeInBracket int64 `json:"income_in_bracket,omitempty"`
+	RateBPS         int64 `json:"rate_bps,omitempty"`
+	TaxFromBracket  int64 `json:"tax_from_bracket,omitempty"`
+}
+
+// TaxShipValue is one hull's assessed worth in a TaxStatement. A value of 0 is
+// real -- a worthless or unassessed hull still appears.
+type TaxShipValue struct {
+	ShipID string `json:"ship_id"`
+	Value  int64  `json:"value"`
 }
 
 // OutstandingBounty is one empire's unpaid balance against a character, as

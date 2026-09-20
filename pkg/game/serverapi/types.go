@@ -806,8 +806,16 @@ type ChatMessage struct {
 	DistressType string `json:"distress_type,omitempty"`
 	System       string `json:"system,omitempty"`
 	MissionID    string `json:"mission_id,omitempty"`
-	TimestampUTC string `json:"timestamp_utc"`
-	Timestamp    string `json:"timestamp,omitempty"`
+	// TaxStatement rides on the weekly private message from the Interstellar
+	// Revenue Service (SenderID "npc_authority_revenue", EmpireOfficial set).
+	// Content is prose; this is the same machine-readable block
+	// GetTaxEstimateResponse returns as LatestStatement, and the only place
+	// the per-empire, per-bracket and per-ship breakdown of an already
+	// settled bill appears. Nil on every other message. (observed
+	// 2026-09-20.)
+	TaxStatement *TaxStatement `json:"tax_statement,omitempty"`
+	TimestampUTC string        `json:"timestamp_utc"`
+	Timestamp    string        `json:"timestamp,omitempty"`
 }
 
 // CaptainsLogEntry represents an entry in the captain's log.

@@ -661,6 +661,10 @@ var eventExpectedFields = map[string]map[string]bool{
 		// is the rescue mission the signal generated, and the field a
 		// responder accepts. (observed 2026-09-20)
 		"mission_id": true,
+		// tax_statement is the machine-readable weekly bill attached to the
+		// Interstellar Revenue Service's private message. (observed
+		// 2026-09-20)
+		"tax_statement": true,
 	},
 	protocol.TypeSkillLevelUp: {
 		"skill_id":   true,
