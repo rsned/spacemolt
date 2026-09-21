@@ -132,10 +132,11 @@ func TestParkWaitsForTheRoleSafePoint(t *testing.T) {
 	}
 }
 
-// HaulAtSafePoint defines the haul role's boundary: a hauler is stoppable only
-// when it holds no claim. Mid-claim it may be carrying goods it has already
-// paid for, and stopping there strands them (salvager-10, 784 steel_plate,
-// 2026-09-19).
+// The haul role's boundary: a hauler is stoppable only when it holds no claim.
+// Mid-claim it may be carrying goods it has already paid for, and stopping
+// there strands them (salvager-10, 784 steel_plate, 2026-09-19). An unreadable
+// store reads unsafe on the FIRST pass; the escalation after a sustained
+// outage is covered in safe_point_grace_test.go.
 func TestHaulAtSafePoint(t *testing.T) {
 	for name, tc := range map[string]struct {
 		store OpportunityStore
@@ -147,8 +148,9 @@ func TestHaulAtSafePoint(t *testing.T) {
 		"no store at all":  {nil, true},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := HaulAtSafePoint(context.Background(), tc.store, "hauler-0"); got != tc.want {
-				t.Fatalf("HaulAtSafePoint = %v, want %v", got, tc.want)
+			var fails safePointFailures
+			if got := safePointWithGrace(tc.store, "hauler-0", &fails, nil); got != tc.want {
+				t.Fatalf("safePointWithGrace = %v, want %v", got, tc.want)
 			}
 		})
 	}

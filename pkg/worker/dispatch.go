@@ -59,6 +59,9 @@ type WorkerDispatch struct {
 	// treasury rate-limits faction-treasury rescue withdrawals across idle passes.
 	// Held here (not per Run call) so the cooldown survives between command passes.
 	treasury *treasuryRescue
+	// safePoint counts consecutive unreadable safe-point checks so a store
+	// outage cannot disable the park and drain gates indefinitely.
+	safePoint safePointFailures
 	// desert tracks consecutive dry haul passes for the opportunity-desert
 	// escape (wider radius, then relocation to a capital). Per worker process.
 	desert *haulDesert
@@ -276,9 +279,8 @@ func (d *WorkerDispatch) AtSafePoint() bool {
 	if d.Market == nil {
 		return true
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), game.SleepShort)
-	defer cancel()
-	return HaulAtSafePoint(ctx, d.Market, d.AgentID)
+
+	return safePointWithGrace(d.Market, d.AgentID, &d.safePoint, d.Out)
 }
 
 func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {

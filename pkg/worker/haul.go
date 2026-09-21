@@ -659,25 +659,6 @@ type HaulDeps struct {
 // capping the shown quantity to what the ship will actually attempt (min of ship cargo
 // and book depth) alongside the book's total source depth, so it never shows a
 // physically impossible order-book quantity.
-// HaulAtSafePoint reports whether a hauler is between units of work and may
-// therefore be stopped for a binary roll or an operator park. The boundary is
-// "holds no claim": mid-claim a hauler may already have paid for goods that are
-// aboard or waiting at the buy station, and stopping there strands them.
-//
-// An unreadable claim table counts as UNSAFE. The asymmetry is the whole point:
-// guessing "safe" stops a loaded hauler and strands its cargo, while guessing
-// "busy" only delays a roll by one pass.
-func HaulAtSafePoint(ctx context.Context, store OpportunityStore, agentID string) bool {
-	if store == nil {
-		return true
-	}
-	held, err := store.GetClaimedByAgent(ctx, agentID)
-	if err != nil {
-		return false
-	}
-	return len(held) == 0
-}
-
 // haulCargoCap reads the active hull's cargo capacity, 0 when state is
 // unreadable (which haulActivityLabel treats as "no slice cap known").
 func haulCargoCap(deps HaulDeps) float64 {
