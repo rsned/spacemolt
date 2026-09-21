@@ -19,6 +19,14 @@ export interface AgentState {
       still running a build from before it was plumbed through. */
   ship_class?: string;
   activity?: string;
+  /** Capital this agent has converted into goods for its open claim, at claim
+      prices: cargo_value is what left the wallet, cargo_proceeds what the
+      claim expects back. Absent when the agent holds no claim. Credits alone
+      understate a working hauler by exactly cargo_value. */
+  cargo_value?: number;
+  cargo_proceeds?: number;
+  cargo_item?: string;
+  cargo_opp_id?: number;
   /** Set when an operator parked this worker at its next safe point via
       data/agents/<id>/quiesce.json. It is idle on purpose, not stuck. */
   quiesced?: boolean;
@@ -59,6 +67,15 @@ export interface SourceEarnings { total: number; per_hour: number; count: number
 
 export interface Accounting {
   total_credits: number;
+  /** Capital committed to goods rather than credits, and the two summed.
+      Credits alone fall whenever several haulers are mid-cycle; only
+      total_capital falling is actual loss. */
+  cargo_value?: number;
+  total_capital?: number;
+  /** Fleet-wide capital committed to goods rather than held as credits.
+      Counts every open claim, including agents absent from the status files
+      (a worker mid-roll still owns what it bought). */
+  cargo_value_total?: number;
   agents: number;
   healthy: number;
   unseen: number;

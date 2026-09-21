@@ -14,9 +14,9 @@ function Bar({ value, max, color }: { value: number; max: number; color: string 
     form a clean right-aligned column down the card instead of floating wherever
     the preceding text happened to end. tabular-nums keeps the digits from
     shifting the column as values change. */
-function Row({ label, value, bar }: { label: string; value: string; bar?: React.ReactNode }) {
+function Row({ label, value, bar, title }: { label: string; value: string; bar?: React.ReactNode; title?: string }) {
   return (
-    <div className="flex items-center justify-between gap-2 leading-snug">
+    <div className="flex items-center justify-between gap-2 leading-snug" title={title}>
       <span className="text-[#8a8570] shrink-0">{label}</span>
       <span className="flex items-center gap-1.5 min-w-0">
         {bar}
@@ -108,6 +108,17 @@ export const AgentCard = memo(function AgentCard({ agent, color, selected, stale
         bar={<Bar value={agent.fuel} max={agent.max_fuel} color="#22d3ee" />} />
       <Row label="Cargo" value={`${Math.round(agent.cargo_used)}/${Math.round(agent.cargo_capacity)}`}
         bar={<Bar value={agent.cargo_used} max={agent.cargo_capacity} color="#d4a017" />} />
+      {!!agent.cargo_value && (
+        /* Credits shown above exclude everything the agent has already spent
+           on this run. Without this line a working hauler reads as poorer
+           than an idle one, and the fleet total looks like it is bleeding
+           whenever several are mid-cycle. */
+        <Row
+          label="In cargo"
+          value={`₡ ${Math.round(agent.cargo_value).toLocaleString()}`}
+          title={`${agent.cargo_item ?? 'goods'}${agent.cargo_proceeds ? ` · expects ₡ ${Math.round(agent.cargo_proceeds).toLocaleString()} back` : ''}`}
+        />
+      )}
       {agent.quiesced && (
         /* A parked worker is idle on purpose. Without this it reads as a
            healthy agent doing nothing, which is exactly what a wedged one

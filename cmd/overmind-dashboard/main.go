@@ -68,6 +68,15 @@ func (s *server) refresh(ctx context.Context, now time.Time) {
 	if snap == nil {
 		return
 	}
+	// Value of goods in flight. Read every turn (it changes on the haul
+	// fleet's ~17-minute cycle) but never fatal: a market DB that is missing
+	// or briefly locked leaves the figures zero rather than dropping the
+	// snapshot.
+	if cargo, cerr := ovdash.LoadClaimedCargo(ctx, s.cfg.MarketPath); cerr != nil {
+		log.Printf("claimed cargo: %v", cerr)
+	} else {
+		snap.AttachClaimedCargo(cargo)
+	}
 	s.mu.Lock()
 	prev := s.snap
 	// AssetCoverage is refreshed on its own accountEvery cadence below;

@@ -85,12 +85,21 @@ type AgentState struct {
 	// Build identity (from the worker's Hello, via the status file). Tier is
 	// this build's color vs the current (newest) fleet build. Modified is the
 	// cosmetic raw vcs.modified flag; CodeDirty drives the tier.
-	Version   string `json:"version,omitempty"`
-	Commit    string `json:"commit,omitempty"`
-	BuiltAt   string `json:"built_at,omitempty"`
-	CodeDirty bool   `json:"code_dirty,omitempty"`
-	Modified  bool   `json:"modified,omitempty"`
-	Tier      Tier   `json:"tier,omitempty"`
+	// CargoValue is what this agent spent on the goods it is carrying for its
+	// open claim, and CargoProceeds what the claim expects back. Zero when the
+	// agent holds no claim. Wallet credits alone understate an agent mid-run
+	// by exactly CargoValue, which is why the dashboard total appeared to
+	// bleed while the fleet was merely working.
+	CargoValue    float64 `json:"cargo_value,omitempty"`
+	CargoProceeds float64 `json:"cargo_proceeds,omitempty"`
+	CargoItem     string  `json:"cargo_item,omitempty"`
+	CargoOppID    int     `json:"cargo_opp_id,omitempty"`
+	Version       string  `json:"version,omitempty"`
+	Commit        string  `json:"commit,omitempty"`
+	BuiltAt       string  `json:"built_at,omitempty"`
+	CodeDirty     bool    `json:"code_dirty,omitempty"`
+	Modified      bool    `json:"modified,omitempty"`
+	Tier          Tier    `json:"tier,omitempty"`
 }
 
 // OvermindInfo is one fleet's overmind build identity plus the rolled-up
@@ -122,6 +131,12 @@ type Snapshot struct {
 	// AssetCoverage is per-source freshness of the agent asset ledger. Empty
 	// when the ledger is not deployed.
 	AssetCoverage []assets.CoverageRow `json:"asset_coverage,omitempty"`
+	// CargoValueTotal is the fleet's capital currently committed to goods
+	// rather than held as credits, at claim prices. It counts EVERY open
+	// claim, including ones whose agent is absent from the status files (a
+	// worker mid-roll still owns what it bought), because the point of the
+	// figure is that the credits total alone is not the fleet's money.
+	CargoValueTotal float64 `json:"cargo_value_total,omitempty"`
 }
 
 // dedupeByFreshestFleet keeps one entry per agent id, preferring the fleet whose

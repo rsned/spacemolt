@@ -30,7 +30,15 @@ export function AccountingStrip({ accounting, agentCount, staleFleets, connected
   return (
     <div className="flex items-center bg-[#11100c] border-b border-[#2a2618] py-2">
       <div className="px-4 text-[#d4a017] font-bold tracking-widest text-base">FLEET ACCOUNTING</div>
-      <Stat label="credits" value={a ? `₡ ${cr(a.total_credits)}` : '—'} />
+      <Stat label="credits" value={a ? `₡ ${cr(a.total_credits)}` : '—'}
+        title="wallet credits only — excludes anything a hauler has already spent on goods in flight" />
+      {/* Capital in goods. Credits alone drop by exactly this whenever the
+          haul fleet is working, which is what made the fleet total look like
+          it was slowly bleeding. */}
+      <Stat label="in cargo" value={a ? `₡ ${cr(a.cargo_value ?? 0)}` : '—'}
+        title="cost basis of goods bought against open claims, including agents currently absent from a fleet" />
+      <Stat label="capital" value={a ? `₡ ${cr(a.total_capital ?? a.total_credits)}` : '—'}
+        title="credits + goods in flight — the figure to watch; only this falling is a real loss" />
       <Stat label="agents" value={a ? `${a.healthy}/${a.agents} healthy` : `${agentCount}`}
         warn={!!a && a.healthy < a.agents} />
       {/* All four rates share the same trailing-24h window; the first is

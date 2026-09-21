@@ -16,7 +16,12 @@ type SourceEarnings struct {
 
 // Accounting is the top-strip payload.
 type Accounting struct {
-	TotalCredits    float64        `json:"total_credits"`
+	TotalCredits float64 `json:"total_credits"`
+	// CargoValue is capital committed to goods rather than credits, and
+	// TotalCapital their sum. Credits alone fall whenever several haulers are
+	// mid-cycle, which reads as a bleed; only TotalCapital falling is loss.
+	CargoValue      float64        `json:"cargo_value"`
+	TotalCapital    float64        `json:"total_capital"`
 	Agents          int            `json:"agents"`
 	Healthy         int            `json:"healthy"`
 	Unseen          int            `json:"unseen"`
@@ -71,7 +76,7 @@ func LoadEarnings(ctx context.Context, dbPath string, now time.Time, window time
 
 // BuildAccounting merges live snapshot totals with the earnings streams.
 func BuildAccounting(s *Snapshot, haul, freight, missions SourceEarnings, window time.Duration) Accounting {
-	a := Accounting{Haul: haul, Freight: freight, Missions: missions}
+	a := Accounting{Haul: haul, Freight: freight, Missions: missions, CargoValue: s.CargoValueTotal}
 	active := 0
 	all := append(append([]AgentState{}, s.Agents...), s.OffMap...)
 	for _, w := range all {
@@ -88,6 +93,7 @@ func BuildAccounting(s *Snapshot, haul, freight, missions SourceEarnings, window
 			active++
 		}
 	}
+	a.TotalCapital = a.TotalCredits + a.CargoValue
 	a.CombinedPerHour = haul.PerHour + freight.PerHour + missions.PerHour
 	if active > 0 {
 		a.PerAgentPerHour = a.CombinedPerHour / float64(active)
