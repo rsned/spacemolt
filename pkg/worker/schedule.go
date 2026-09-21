@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -280,6 +281,18 @@ func LoadScheduler(path string) (*Scheduler, error) {
 			return nil, fmt.Errorf("scheduler: parse %s: %w", path, err)
 		}
 	}
+	// The state file wins where it has an entry; a task file still carrying an
+	// embedded last_run (every agent, before this split) keeps it. Without
+	// that fallback the first load after deploy would read every task as never
+	// run and stampede the whole schedule at once across the fleet.
+	if state := loadState(path); len(state) > 0 {
+		for i := range s.tasks {
+			if ts, ok := state[s.tasks[i].ID]; ok {
+				s.tasks[i].LastRun = ts
+			}
+		}
+	}
+
 	return s, nil
 }
 
@@ -432,7 +445,10 @@ func (s *Scheduler) checkDue(now time.Time) []ScheduledTask {
 			s.tasks[i].LastRun = now.UTC()
 		}
 	}
-	_ = s.saveLocked()
+	// State only: the task list did not change, and rewriting it here is what
+	// kept every agent's schedule.json permanently dirty.
+	_ = s.saveStateLocked()
+
 	return due
 }
 
@@ -485,21 +501,92 @@ func (s *Scheduler) nextIDLocked() int {
 	return maxID + 1
 }
 
+// SchedulerStatePath is where a schedule's run timestamps live: a sibling of
+// the task file, named <base>-state.json.
+//
+// last_run is runtime state and the task list is configuration, and keeping
+// them in one file meant checkDue rewrote the whole task list several times a
+// minute just to move a timestamp. Across 169 workers that left 161 tracked
+// schedule.json files permanently dirty, which buries real changes and makes
+// `git add -A` a hazard. Splitting them lets the task file be committed and
+// the timestamps be ignored.
+func SchedulerStatePath(taskPath string) string {
+	ext := filepath.Ext(taskPath)
+
+	return strings.TrimSuffix(taskPath, ext) + "-state" + ext
+}
+
+// loadState reads the run timestamps, keyed by task id. A missing or corrupt
+// file yields an empty map: the timestamps are a cache of when things ran, and
+// losing them must never lose the task list. The cost of a lost state file is
+// one extra run per task, which is why it fails open.
+func loadState(taskPath string) map[int]time.Time {
+	out := map[int]time.Time{}
+	raw, err := os.ReadFile(SchedulerStatePath(taskPath)) // #nosec G304 -- derived from the agent id we were launched with
+	if err != nil || len(raw) == 0 {
+		return out
+	}
+	var byID map[string]time.Time
+	if err := json.Unmarshal(raw, &byID); err != nil {
+		return out
+	}
+	for k, v := range byID {
+		if id, err := strconv.Atoi(k); err == nil {
+			out[id] = v
+		}
+	}
+
+	return out
+}
+
+// saveStateLocked writes only the run timestamps. Caller holds s.mu.
+func (s *Scheduler) saveStateLocked() error {
+	byID := make(map[string]time.Time, len(s.tasks))
+	for _, t := range s.tasks {
+		if !t.LastRun.IsZero() {
+			byID[strconv.Itoa(t.ID)] = t.LastRun.UTC()
+		}
+	}
+	data, err := json.MarshalIndent(byID, "", "  ")
+	if err != nil {
+		return fmt.Errorf("scheduler: marshal state: %w", err)
+	}
+
+	return writeAtomic(SchedulerStatePath(s.path), data)
+}
+
+// writeAtomic replaces path with data via a temp file and rename.
+func writeAtomic(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("scheduler: create dir: %w", err)
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil { // #nosec G306 -- operator-readable by design
+		return fmt.Errorf("scheduler: write: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("scheduler: replace: %w", err)
+	}
+
+	return nil
+}
+
 // saveLocked writes the task list to disk atomically. Caller holds s.mu.
 func (s *Scheduler) saveLocked() error {
-	data, err := json.MarshalIndent(s.tasks, "", "  ")
+	// LastRun is deliberately dropped here: it lives in the state file, and
+	// writing it back would restore the per-tick churn this split removes.
+	cfg := make([]ScheduledTask, len(s.tasks))
+	copy(cfg, s.tasks)
+	for i := range cfg {
+		cfg[i].LastRun = time.Time{}
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
 		return fmt.Errorf("scheduler: marshal: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
-		return fmt.Errorf("scheduler: create dir: %w", err)
+	if err := writeAtomic(s.path, data); err != nil {
+		return err
 	}
-	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return fmt.Errorf("scheduler: write: %w", err)
-	}
-	if err := os.Rename(tmp, s.path); err != nil {
-		return fmt.Errorf("scheduler: replace: %w", err)
-	}
-	return nil
+
+	return s.saveStateLocked()
 }
