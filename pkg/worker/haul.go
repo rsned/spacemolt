@@ -643,6 +643,11 @@ type HaulDeps struct {
 	// the fleet status page (nil in tests). Best-effort; set when a haul is
 	// claimed, cleared ("") when the pass finds no work.
 	SetActivity func(string)
+	// Desert tracks consecutive dry passes so a hauler parked where the board has
+	// nothing widens its search and, failing that, relocates to an empire capital.
+	// Held per worker process alongside Treasury; nil disables the escape and keeps
+	// the fixed radius, which is what every non-haul caller wants.
+	Desert *haulDesert
 	// NominateForUnlock offers this hauler for a loan to the unlock fleet after a
 	// delivery lands it in nebula space without the pirate unlock — the one place
 	// the chain is cheap to run. nil disables the whole path, which is the default
@@ -774,6 +779,10 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	if maxJumps <= 0 {
 		maxJumps = DefaultHaulMaxJumps
 	}
+	// A hauler in an opportunity desert searches wider each patience window; the
+	// radius snaps back the moment it claims anything.
+	baseJumps := maxJumps
+	maxJumps = deps.Desert.radius(baseJumps)
 	state := deps.Client.GetState()
 	if state == nil || state.System.ID == "" {
 		fmt.Fprintln(out, "haul: current system unknown; skipping") //nolint:errcheck
@@ -899,7 +908,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	}
 	if len(opps) == 0 {
 		fmt.Fprintln(out, "haul: no opportunities available; idling") //nolint:errcheck
-		return nil
+		return haulDesertEscape(ctx, deps, out, graph, systems, current)
 	}
 
 	// Never route a no-standing hauler into a pirate stronghold, however juicy the
@@ -917,7 +926,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	ranked := RankHaulOpportunities(opps, current, nameToID, graph, maxJumps, fuelPerJump, priceOf)
 	if len(ranked) == 0 {
 		fmt.Fprintf(out, "haul: no opportunities within %d jumps; idling\n", maxJumps) //nolint:errcheck
-		return nil
+		return haulDesertEscape(ctx, deps, out, graph, systems, current)
 	}
 
 	// Route-safety: drop opportunities whose shortest path — the reposition leg
@@ -952,6 +961,8 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	}
 
 	publishActivity(deps.SetActivity, haulActivityLabel(opp, cargoCap))
+	// Work found: the drought is over and the radius returns to base.
+	deps.Desert.worked()
 
 	m := &haulMetrics{claimedAt: haulNow(deps), claimedTick: haulTick(deps)}
 	if buySys := nameToID[opp.FromSystemName]; buySys != "" {

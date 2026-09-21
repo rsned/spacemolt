@@ -59,6 +59,9 @@ type WorkerDispatch struct {
 	// treasury rate-limits faction-treasury rescue withdrawals across idle passes.
 	// Held here (not per Run call) so the cooldown survives between command passes.
 	treasury *treasuryRescue
+	// desert tracks consecutive dry haul passes for the opportunity-desert
+	// escape (wider radius, then relocation to a capital). Per worker process.
+	desert *haulDesert
 	// shuttle carries cross-pass shuttle memory (dry-pass streak + reposition
 	// cursor) so the idle→idle→reposition cadence survives between passes.
 	shuttle *shuttleState
@@ -175,6 +178,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 	d := &WorkerDispatch{
 		Client: client, KB: kb, Market: mc, Out: out,
 		treasury:       &treasuryRescue{},
+		desert:         &haulDesert{},
 		huntBoard:      &huntBoardGate{},
 		shuttle:        &shuttleState{},
 		mission:        &missionRunState{},
@@ -340,6 +344,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return Haul(ctx, HaulDeps{
 			Client: d.Client, KB: d.KB, Market: d.Market, Out: d.Out, AgentID: d.AgentID,
 			Treasury:          d.treasury,
+			Desert:            d.desert,
 			FuelPrices:        d.Market,
 			SetActivity:       d.setActivity,
 			NominateForUnlock: d.nominateUnlockFn(),
