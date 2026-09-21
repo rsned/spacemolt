@@ -416,6 +416,11 @@ func GetPOI(ctx context.Context, client game.GameClient) (game.POI, error) {
 			ResourceID: r.ResourceID,
 			Richness:   r.Richness,
 			Remaining:  r.Remaining,
+			// Capacity, and only get_poi reports it -- dropping it here
+			// emptied the map mergePOIDetail builds, so every KB row read
+			// max_remaining 0. Remaining 0 alongside a real capacity is a
+			// normal reading, not a depleted deposit.
+			MaxRemaining: r.MaxRemaining,
 		})
 	}
 	// The system id is not always echoed; fall back to where we are standing.

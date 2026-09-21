@@ -141,3 +141,48 @@ func TestGetPOI_ErrorsWhenReplyHasNoPOI(t *testing.T) {
 		t.Fatal("GetPOI succeeded with no cached reply; want an error")
 	}
 }
+
+// max_remaining is the deposit's CAPACITY and get_poi is the only command that
+// reports it -- get_location carries the live remaining and nothing else, and
+// mergePOIDetail exists solely to fold this one field in. GetPOI dropped it
+// while building game.POIResource, so the capacity map mergePOIDetail builds
+// was always empty and every poi_resources row in the KB read max_remaining
+// 0.0. Observed on commerce_fields, whose five deposits each cap at 100000:
+//
+//	commerce_fields|iron_ore|75.0|0.0|1874881
+func TestGetPOI_CapturesResourceMaxRemaining(t *testing.T) {
+	const reply = `{"poi":{
+	  "id":"commerce_fields","system_id":"haven","class":"metallic",
+	  "name":"Commerce Fields",
+	  "resources":[
+	    {"resource_id":"iron_ore","richness":75,"remaining":0,"max_remaining":100000},
+	    {"resource_id":"trade_crystal","richness":20,"remaining":4000,"max_remaining":25000}
+	  ]}}`
+
+	f := &poiFakeClient{raw: map[string][]byte{"poi": []byte(reply)}}
+	poi, err := GetPOI(context.Background(), f)
+	if err != nil {
+		t.Fatalf("GetPOI: %v", err)
+	}
+	if len(poi.Resources) != 2 {
+		t.Fatalf("len(Resources) = %d, want 2", len(poi.Resources))
+	}
+	caps := map[string]float64{}
+	for _, r := range poi.Resources {
+		caps[r.ResourceID] = r.MaxRemaining
+	}
+	if caps["iron_ore"] != 100000 {
+		t.Errorf("iron_ore MaxRemaining = %v, want 100000", caps["iron_ore"])
+	}
+	if caps["trade_crystal"] != 25000 {
+		t.Errorf("trade_crystal MaxRemaining = %v, want 25000", caps["trade_crystal"])
+	}
+	// A depleted-looking deposit still reports its capacity: remaining 0 with
+	// max_remaining 100000 is exactly the commerce_fields case, and the two
+	// must not be confused for each other.
+	for _, r := range poi.Resources {
+		if r.ResourceID == "iron_ore" && r.Remaining != 0 {
+			t.Errorf("iron_ore Remaining = %v, want 0", r.Remaining)
+		}
+	}
+}
