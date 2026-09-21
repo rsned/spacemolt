@@ -71,6 +71,7 @@
 - ⭐🔴 [Haul revenue halved](project_haul_revenue_halved_v0547.md) — v0.547.1 moved the fat tier to `trade_authenticator`; real loss is ALLOCATION; `MinProfit: 1000` is the lever
 - ⭐🔴 [Book depth is the real haul ceiling](reference_book_depth_is_the_real_haul_ceiling.md) — `bookCap=ceil(srcUnits/cargoCap)`: a BIGGER hull gets FEWER slots
 - [Fleet capacity ceiling](reference_haul_fleet_capacity_ceiling.md) — DON'T add haulers; 21 saturate the fat tier, realized = 34.4% of predicted
+- ⭐🔴 [market.db index CORRUPT; prune dead since 09-15](project_market_db_corrupt_index_prune_dead.md) — `idx_orders_station_item` malformed → 254 failed prunes, 40GB file, scans 2min→22min, haul claims 651→111/day. Fix = REINDEX or market-rebuild, writers DOWN
 - [Scanner outage + expiry fix](project_scanner_outage_expiry_fix.md) — scanner is UNSUPERVISED; its death mimics "no opportunities". Check it first
 - [Earnings-per-jump dashboard](project_fleet_efficiency_dash.md) — SP1 LIVE `:8087`
 - [Stranded-recovery POIs bug](project_haul_stranded_recovery_pois_bug.md) — FindNearest never populates NearestResult.POIs, so the recovery branch is dead

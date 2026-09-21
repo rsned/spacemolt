@@ -37,3 +37,11 @@ not facts), but that is a checked-in file and a separate decision.
 DELETE, a fleet-wide login block, a stale binary on 21 haulers).
 **How to apply:** treat them as preconditions, not suggestions; if one seems
 wrong for the case at hand, ask the operator rather than skipping it.
+
+## Reading live fleet status files
+
+Copy `data/overmind/*-status.json` to the scratchpad and read the copy. Every
+supervisor rewrites `captured_at` and each worker's `last_seen` every few
+seconds, so a file the harness has read shows a `(+2 -2)` diff after almost
+every later tool call — pure noise that buries real output. The files are
+untracked as of `7bed618b`; the churn is on disk regardless.
