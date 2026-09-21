@@ -78,6 +78,13 @@ data/agents/*/scheduled_commands.json
 # beyond what the server will now return, and that margin grows daily. Roughly
 # 4 MB for the whole fleet, holding the only copy of everything past the edge.
 !data/agents/*/action_log*.jsonl
+# Overmind status files are pure runtime state: every fleet's supervisor
+# rewrites captured_at and each worker's last_seen every few seconds, so across
+# 179 workers they are never not dirty. Three of them (assist, craft, mb) were
+# tracked by accident while the other six were not; committing them adds
+# nothing recoverable and is the standing hazard behind "never git add -A with
+# dirty data/*.json". The history is in <fleet>-history.jsonl, which IS tracked.
+data/overmind/*-status.json
 data/crafting/
 data/credentials/
 data/game-api/
