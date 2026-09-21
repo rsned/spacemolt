@@ -145,3 +145,18 @@ func OptimalArbitrage(asks []AskLevel, bids []BidLevel) (qty, cost, revenue, pro
 	}
 	return qty, cost, revenue, revenue - cost
 }
+
+// AskLadderDepth is the total number of units offered across every level of an
+// ask ladder.
+//
+// This is the book's SUPPLY, deliberately including levels too expensive to be
+// part of today's profitable arbitrage: it is what the allocator divides by
+// cargo capacity to decide how many haulers a book can support, and a level
+// that is unprofitable at this instant is still stock sitting at that station.
+func AskLadderDepth(asks []AskLevel) float64 {
+	var total float64
+	for _, a := range asks {
+		total += a.Quantity
+	}
+	return total
+}

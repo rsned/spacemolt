@@ -174,3 +174,41 @@ func TestOptimalArbitrage(t *testing.T) {
 		}
 	})
 }
+
+// source_units feeds bookCap, which decides how many haulers may claim one
+// book (ceil(srcUnits/cargoCap)). Once OptimalArbitrage began deriving the
+// tradeable quantity from the full ask ladder, source_units was still being
+// taken from the summary query's best-ask aggregate -- so a book whose ladder
+// offers 2,610 units advertised a depth of 307, and the allocator handed out
+// one slot where eight were warranted. That starves exactly the 1900-cargo
+// hulls the depth work was meant to serve.
+func TestAskLadderDepth_SumsEveryLevel(t *testing.T) {
+	asks := []AskLevel{
+		{PriceEach: 10, Quantity: 100},
+		{PriceEach: 12, Quantity: 200},
+		{PriceEach: 15, Quantity: 7},
+	}
+	if got := AskLadderDepth(asks); got != 307 {
+		t.Errorf("AskLadderDepth = %v, want 307 (every level, not just the best)", got)
+	}
+}
+
+// Depth must count units the arbitrage itself leaves behind: a level too
+// expensive to be profitable today is still supply at that station, and
+// under-reporting it re-creates the allocator starvation.
+func TestAskLadderDepth_CountsUnprofitableLevelsToo(t *testing.T) {
+	asks := []AskLevel{{PriceEach: 10, Quantity: 50}, {PriceEach: 9999, Quantity: 500}}
+	qty, _, _, _ := OptimalArbitrage(asks, []BidLevel{{PriceEach: 20, Quantity: 1000}})
+	if qty != 50 {
+		t.Fatalf("tradeable qty = %v, want 50 (the 9999 level is not profitable)", qty)
+	}
+	if got := AskLadderDepth(asks); got != 550 {
+		t.Errorf("AskLadderDepth = %v, want 550 -- depth is supply, not profitable supply", got)
+	}
+}
+
+func TestAskLadderDepth_EmptyIsZero(t *testing.T) {
+	if got := AskLadderDepth(nil); got != 0 {
+		t.Errorf("AskLadderDepth(nil) = %v, want 0", got)
+	}
+}

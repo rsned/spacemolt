@@ -191,7 +191,12 @@ func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanRe
 					sellPrice:   revenue / qty,
 					qty:         qty,
 					gross:       gross,
-					sourceUnits: src.AskQty,
+					// Ladder depth, not the summary query's best-ask
+					// aggregate: source_units drives bookCap, and the two
+					// disagreed badly once qty became ladder-derived (307
+					// advertised against 2,610 real units), so the allocator
+					// gave one claim slot where eight were warranted.
+					sourceUnits: AskLadderDepth(asks),
 				})
 			}
 		}
