@@ -917,13 +917,13 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	// (the Crix-stronghold route). A stronghold anywhere on the path is a
 	// ship-destruction risk no spread justifies.
 	if galGraph != nil {
-		safe, dropped := filterStrongholdRoutes(ranked, current, nameToID, galGraph.FindPath, hazards)
+		safe, dropped, blockers := filterStrongholdRoutes(ranked, current, nameToID, galGraph.FindPath, hazards)
 		if len(dropped) > 0 {
-			fmt.Fprintf(out, "haul: skipped %d opportunity(ies) routing through strongholds/danger zones: %s\n", len(dropped), strings.Join(dropped, ", ")) //nolint:errcheck
+			fmt.Fprintf(out, "haul: skipped %d opportunity(ies) routing through %s: %s\n", len(dropped), strings.Join(blockers, ", "), strings.Join(dropped, ", ")) //nolint:errcheck
 		}
 		ranked = safe
 		if len(ranked) == 0 {
-			fmt.Fprintln(out, "haul: all reachable opportunities route through strongholds/danger zones; idling") //nolint:errcheck
+			fmt.Fprintf(out, "haul: all reachable opportunities route through %s; idling\n", strings.Join(blockers, ", ")) //nolint:errcheck
 			return nil
 		}
 	}
@@ -999,7 +999,13 @@ func haulRecoverIfStranded(ctx context.Context, deps HaulDeps, out io.Writer, ga
 // treated as "clear" so a graph gap never blocks hauling — the endpoint guard
 // (dropStrongholdOpps) remains the backstop. strongholds is keyed by both system id
 // and name, so the id-keyed FindPath.Path matches.
-func filterStrongholdRoutes(ranked []market.ArbitrageOpportunity, current string, nameToID map[string]string, pathOf func(from, to string, weighted bool) (galaxy.Route, error), strongholds map[string]bool) (safe []market.ArbitrageOpportunity, dropped []string) {
+func filterStrongholdRoutes(ranked []market.ArbitrageOpportunity, current string, nameToID map[string]string, pathOf func(from, to string, weighted bool) (galaxy.Route, error), strongholds map[string]bool) (safe []market.ArbitrageOpportunity, dropped, blockers []string) {
+	// Which hazard systems actually did the blocking. Reported so the idle
+	// line can name them: "strongholds/danger zones" told an operator nothing
+	// and actively misled -- on 2026-09-21 the fleet idled on one stale danger
+	// zone while the wording pointed at strongholds, which were impossible
+	// (every hauler held the unlock, and all 9 strongholds are dead ends).
+	hit := map[string]bool{}
 	clear := func(from, to string) bool {
 		if from == "" || to == "" || from == to {
 			return true
@@ -1008,12 +1014,15 @@ func filterStrongholdRoutes(ranked []market.ArbitrageOpportunity, current string
 		if err != nil {
 			return true // no path / unknown system — do not drop on a lookup failure
 		}
+		ok := true
 		for _, sys := range route.Path {
 			if strongholds[sys] {
-				return false
+				hit[sys] = true
+				ok = false
 			}
 		}
-		return true
+
+		return ok
 	}
 	for _, o := range ranked {
 		buy := nameToID[o.FromSystemName]
@@ -1024,7 +1033,12 @@ func filterStrongholdRoutes(ranked []market.ArbitrageOpportunity, current string
 		}
 		dropped = append(dropped, fmt.Sprintf("%d:%s", o.ID, o.ItemID))
 	}
-	return safe, dropped
+	for sys := range hit {
+		blockers = append(blockers, sys)
+	}
+	sort.Strings(blockers)
+
+	return safe, dropped, blockers
 }
 
 // abandonClaim releases opp's claim back to the available pool and logs reason. Used on

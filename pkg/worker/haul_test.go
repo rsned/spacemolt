@@ -1490,7 +1490,7 @@ func TestFilterStrongholdRoutes(t *testing.T) {
 		{ID: 4, ItemID: "plat", FromSystemName: "Alpha Centauri", ToSystemName: "Beyond"},  // haul leg crosses den -> drop
 	}
 
-	safe, dropped := filterStrongholdRoutes(ranked, "sol", nameToID, pathOf, strongholds)
+	safe, dropped, _ := filterStrongholdRoutes(ranked, "sol", nameToID, pathOf, strongholds)
 
 	if got := ids(safe); !slices.Equal(got, []int{1, 3}) {
 		t.Fatalf("safe opp ids = %v, want [1 3]", got)
