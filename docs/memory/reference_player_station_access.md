@@ -117,19 +117,32 @@ planning a long leg on it.
 `/api/stations` returns 78 entries, but **14 are `type: outpost` — faction
 vaults and `ENDL:*` fuel caches — and a non-faction player cannot dock at one
 at all** (user, 2026-09-21). They are all faction-owned (`faction_id` set, no
-`empire`). Exclude them before computing any station-coverage figure or a
-market-capture denominator, or the gap reads 14 worse than it is.
+`empire`). Exclude them before computing any station-coverage figure, or the
+gap reads 14 worse than it is.
 
 The dockable universe is **64**: 33 empire + 9 pirate stronghold + 22 player,
-which matches the intended marketbot allocation of ~34/9/20.
+matching the intended marketbot allocation of ~34/9/20.
 
-Marketbot coverage as of 2026-09-21: 31 of 64 posted. Pirate strongholds 9/9,
-player 17/22, **empire 5/33** — solarian 0/5. Uncovered empire stations include
-every capital (sol_central, war_citadel, nexus_prime), Grand Exchange, Nova
-Terra Central and Treasure Cache. Those are the deepest books in the galaxy and
-they only enter the arbitrage scan when a hauler happens to pass through; with
-market_orders retention at 2h they then drop out again. Likely why the
-opportunity pool sits at ~112 against a documented healthy 320-400. See
-[[project_market_db_corrupt_index_prune_dead.md]] for the retention change.
+## Marketbot coverage is 61 of 64 — measure it by LOCATION, not by the pin
+
+Measured 2026-09-21 from live `mb-status.json` against `/api/stations`:
+empire **33/33**, strongholds **9/9**, player **19/22**. The only three with no
+bot are Ashborne Reach (Alula), Fortress Blackthorn (Blackthorn) and Woodstock
+(Nekkar) — all player stations.
+
+**The trap that produced a wrong answer first:** ~30 empire-named marketbots
+carry `station: ""` in `mb-fleet.yaml`, so counting the `--station` flag scores
+empire coverage at 5/33 and the fleet at 31/64. That is wrong by 30. Those are
+the station-less residents that never move (see
+[[reference_outer_rim_mobile_capital_and_marketbot_homes]]): they are already
+docked at the station they are named for, and a pin is only needed for a bot
+that had to TRAVEL to its post — the 2026-08-13 cohort sent 14-25 jumps into
+Crimson space. **No pin means "already home", not "unassigned."** Verify with
+`mb-status.json` `system`/`poi`, never with the fleet yaml.
+
+Corollary: a thin arbitrage pool is NOT explained by empire stations going
+uncaptured. sol_central, war_citadel, the_core, grand_exchange,
+nova_terra_central and treasure_cache_trading_post all have a resident bot on
+the ten-minutely `update_market`.
 
 Related: [[project_treasury_and_shuttle]] · [[project_passenger_feature]]
