@@ -112,4 +112,24 @@ planning a long leg on it.
   per-leg fuel gate incl. in-system approach cost, pre-departure refuel, leaves
   the ship adrift for a GSA tow rather than reserving return fuel.
 
+## type=outpost is undockable, so it is not a coverage gap
+
+`/api/stations` returns 78 entries, but **14 are `type: outpost` — faction
+vaults and `ENDL:*` fuel caches — and a non-faction player cannot dock at one
+at all** (user, 2026-09-21). They are all faction-owned (`faction_id` set, no
+`empire`). Exclude them before computing any station-coverage figure or a
+market-capture denominator, or the gap reads 14 worse than it is.
+
+The dockable universe is **64**: 33 empire + 9 pirate stronghold + 22 player,
+which matches the intended marketbot allocation of ~34/9/20.
+
+Marketbot coverage as of 2026-09-21: 31 of 64 posted. Pirate strongholds 9/9,
+player 17/22, **empire 5/33** — solarian 0/5. Uncovered empire stations include
+every capital (sol_central, war_citadel, nexus_prime), Grand Exchange, Nova
+Terra Central and Treasure Cache. Those are the deepest books in the galaxy and
+they only enter the arbitrage scan when a hauler happens to pass through; with
+market_orders retention at 2h they then drop out again. Likely why the
+opportunity pool sits at ~112 against a documented healthy 320-400. See
+[[project_market_db_corrupt_index_prune_dead.md]] for the retention change.
+
 Related: [[project_treasury_and_shuttle]] · [[project_passenger_feature]]
