@@ -308,16 +308,27 @@ FROM cur`
 // MIN only ever biases the ceiling stricter (never laxer) — the conservative
 // direction for an anti-gouging gate. Returns (0,false,nil) when no recent sell
 // data exists.
+//
+// It reads market_ohlcv, NOT market_orders. Orders are pruned to a couple of
+// hours (see cmd/tools/market-prune), so asking that table for a 24h window
+// silently got whatever --retain happened to be — 4h in practice, and six days
+// during the 2026-09 pruner outage. The caller's lookback was never honoured.
+// market_ohlcv keeps two months of hourly per-station aggregates, so the window
+// asked for is the window used, independent of order retention. low_price is
+// also the better input: it is the true intra-hour minimum rather than whatever
+// snapshots happened to be captured.
 func (c *Collector) GetReferencePrice(ctx context.Context, itemID string, lookback time.Duration) (float64, bool, error) {
-	cutoff := time.Now().UTC().Add(-lookback).Format(time.RFC3339)
+	// Hourly buckets: floor the cutoff to the hour so a partial first bucket is
+	// included rather than silently dropped.
+	cutoff := time.Now().UTC().Add(-lookback).Truncate(time.Hour).Format(time.RFC3339)
 	// Filter the not-for-sale sentinel (999999.0) exactly as GetReferenceAsk /
 	// FindItemSellers do, via the notForSaleSQL constant (pkg/market/prices.go).
 	rows, err := c.db.QueryContext(ctx, `
-		SELECT MIN(price_each) AS best_ask
-		FROM market_orders
+		SELECT MIN(low_price) AS best_ask
+		FROM market_ohlcv
 		WHERE item_id = ? AND side = 'sell'
-		  AND price_each > 0 AND price_each < `+notForSaleSQL+` AND quantity > 0
-		  AND captured_at >= ?
+		  AND low_price > 0 AND low_price < `+notForSaleSQL+`
+		  AND bucket_utc >= ?
 		GROUP BY station_id
 		ORDER BY best_ask ASC`, itemID, cutoff)
 	if err != nil {

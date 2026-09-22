@@ -105,20 +105,21 @@ func TestGetAskLadder_ExcludesSentinelPrice(t *testing.T) {
 	}
 }
 
+// Seeds the hourly aggregates GetReferencePrice now reads; the cross-station
+// outlier behaviour and the empty case are the contract. The window itself is
+// covered in reference_price_ohlcv_test.go.
 func TestGetReferencePrice(t *testing.T) {
 	c := newTestCollector(t)
 	ctx := context.Background()
 	now := time.Now().UTC()
 	// Five stations offering iron_ore ~5-10, one gouging @2000.
-	seed := []Order{
-		{StationID: "a", ItemID: "iron_ore", Side: "sell", PriceEach: 6, Quantity: 50, CapturedAt: now},
-		{StationID: "b", ItemID: "iron_ore", Side: "sell", PriceEach: 7, Quantity: 50, CapturedAt: now},
-		{StationID: "c", ItemID: "iron_ore", Side: "sell", PriceEach: 8, Quantity: 50, CapturedAt: now},
-		{StationID: "d", ItemID: "iron_ore", Side: "sell", PriceEach: 9, Quantity: 50, CapturedAt: now},
-		{StationID: "e", ItemID: "iron_ore", Side: "sell", PriceEach: 10, Quantity: 50, CapturedAt: now},
-		{StationID: "z", ItemID: "iron_ore", Side: "sell", PriceEach: 2000, Quantity: 50, CapturedAt: now},
+	var rows []OHLCV
+	for i, p := range []float64{6, 7, 8, 9, 10} {
+		rows = append(rows, hourly(string(rune('a'+i)), "iron_ore", "sell", now, p))
 	}
-	seedOrders(t, c, seed) // reuse the same seed helper as Task 2
+	rows = append(rows, hourly("z", "iron_ore", "sell", now, 2000))
+	seedOHLCV(t, c, rows)
+
 	ref, ok, err := c.GetReferencePrice(ctx, "iron_ore", 24*time.Hour)
 	if err != nil || !ok {
 		t.Fatalf("GetReferencePrice: ok=%v err=%v", ok, err)
