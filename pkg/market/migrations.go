@@ -32,6 +32,12 @@ func runMigrations(db *sql.DB) error {
 	if err := ensureColumn(db, "arbitrage_opportunities", "source_units", "REAL NOT NULL DEFAULT 0"); err != nil {
 		return err
 	}
+	// median_price: volume-weighted median of the bucket, stored beside vwap so
+	// the pair reads how lopsided a book is. NOT backfillable -- market_orders
+	// is pruned to a couple of hours, so every row before 2026-09-22 keeps 0.
+	if err := ensureColumn(db, "market_ohlcv", "median_price", "REAL NOT NULL DEFAULT 0"); err != nil {
+		return err
+	}
 	// reason: machine-readable cause slug for abandoned/failed mission outcomes
 	// (empty for completed) — the abandon-reason catalog's queryable substrate.
 	if err := ensureColumn(db, "mission_results", "reason", "TEXT DEFAULT ''"); err != nil {

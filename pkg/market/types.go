@@ -75,6 +75,13 @@ type OHLCV struct {
 	Volume     float64 `json:"volume"`
 	TradeCount int     `json:"trade_count"`
 	VWAP       float64 `json:"vwap"` // Volume-weighted average price
+	// MedianPrice is the volume-weighted median: the price at which half the
+	// units sit. Read WITH VWAP, not instead of it — both are volume-based, so
+	// the gap between them is the book's skew, which high/low cannot express.
+	// vwap well below the median means a thin cheap tranche under expensive
+	// depth; above means the reverse. Zero on rows written before 2026-09-22:
+	// orders are pruned at 2h so there was nothing to backfill from.
+	MedianPrice float64 `json:"median_price"`
 }
 
 // ArbitrageOpportunity represents a profitable trading opportunity.

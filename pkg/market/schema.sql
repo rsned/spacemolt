@@ -66,6 +66,11 @@ CREATE TABLE IF NOT EXISTS market_ohlcv (
     volume          REAL NOT NULL,
     trade_count     INTEGER NOT NULL,
     vwap            REAL NOT NULL,
+    -- Volume-weighted median: the price at which half the units sit. Read
+    -- WITH vwap -- both are volume-based, so their gap is the book's skew.
+    -- 0 on rows written before 2026-09-22 (orders prune at 2h, nothing to
+    -- backfill from).
+    median_price    REAL NOT NULL DEFAULT 0,
     FOREIGN KEY (station_id) REFERENCES stations(station_id),
     FOREIGN KEY (item_id) REFERENCES items(item_id),
     PRIMARY KEY (station_id, item_id, side, bucket_utc)

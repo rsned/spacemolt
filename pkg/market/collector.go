@@ -377,6 +377,9 @@ type ohlcvAccumulator struct {
 	sumPriceTimesQty        float64 // For VWAP calculation
 	tradeCount              int
 	firstPriceSet           bool
+	// levels feeds the volume-weighted median; kept per bucket because a
+	// median cannot be accumulated incrementally the way vwap can.
+	levels []pricedQty
 }
 
 // computeOHLCV calculates OHLCV + VWAP from orders grouped by (station, item, side).
@@ -411,6 +414,7 @@ func computeOHLCV(orders []Order, bucketUTC string) []OHLCV {
 		acc.volume += o.Quantity
 		acc.sumPriceTimesQty += o.PriceEach * o.Quantity
 		acc.tradeCount++
+		acc.levels = append(acc.levels, pricedQty{price: o.PriceEach, qty: o.Quantity})
 
 		if !acc.firstPriceSet {
 			acc.open = o.PriceEach
@@ -437,18 +441,24 @@ func computeOHLCV(orders []Order, bucketUTC string) []OHLCV {
 			// VWAP = sum(price * quantity) / sum(quantity)
 			vwap = acc.sumPriceTimesQty / acc.volume
 		}
+		// Median alongside vwap: both volume-based, so their gap reads how
+		// lopsided the book is. Zero when there are no units, which is also
+		// the pre-2026-09-22 value for every historical row -- orders are
+		// pruned at 2h, so there is nothing to backfill from.
+		median, _ := weightedMedian(acc.levels)
 		result = append(result, OHLCV{
-			StationID:  acc.stationID,
-			ItemID:     acc.itemID,
-			Side:       acc.side,
-			BucketUTC:  bucketUTC,
-			OpenPrice:  acc.open,
-			HighPrice:  acc.high,
-			LowPrice:   acc.low,
-			ClosePrice: acc.close,
-			Volume:     acc.volume,
-			TradeCount: acc.tradeCount,
-			VWAP:       vwap,
+			StationID:   acc.stationID,
+			ItemID:      acc.itemID,
+			Side:        acc.side,
+			BucketUTC:   bucketUTC,
+			OpenPrice:   acc.open,
+			HighPrice:   acc.high,
+			LowPrice:    acc.low,
+			ClosePrice:  acc.close,
+			Volume:      acc.volume,
+			TradeCount:  acc.tradeCount,
+			MedianPrice: median,
+			VWAP:        vwap,
 		})
 	}
 	return result
@@ -462,8 +472,8 @@ func computeOHLCV(orders []Order, bucketUTC string) []OHLCV {
 // capture must land in a new UTC hour (see WriteSnapshot).
 func (c *Collector) upsertOHLCV(tx *sql.Tx, ohlcv OHLCV) error {
 	_, err := tx.Exec(`
-		INSERT INTO market_ohlcv (station_id, item_id, side, bucket_utc, open_price, high_price, low_price, close_price, volume, trade_count, vwap)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO market_ohlcv (station_id, item_id, side, bucket_utc, open_price, high_price, low_price, close_price, volume, trade_count, vwap, median_price)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(station_id, item_id, side, bucket_utc) DO UPDATE SET
 			open_price = excluded.open_price,
 			high_price = excluded.high_price,
@@ -471,10 +481,11 @@ func (c *Collector) upsertOHLCV(tx *sql.Tx, ohlcv OHLCV) error {
 			close_price = excluded.close_price,
 			volume = excluded.volume,
 			trade_count = excluded.trade_count,
-			vwap = excluded.vwap
+			vwap = excluded.vwap,
+			median_price = excluded.median_price
 	`, ohlcv.StationID, ohlcv.ItemID, ohlcv.Side, ohlcv.BucketUTC,
 		ohlcv.OpenPrice, ohlcv.HighPrice, ohlcv.LowPrice, ohlcv.ClosePrice,
-		ohlcv.Volume, ohlcv.TradeCount, ohlcv.VWAP)
+		ohlcv.Volume, ohlcv.TradeCount, ohlcv.VWAP, ohlcv.MedianPrice)
 	return err
 }
 
