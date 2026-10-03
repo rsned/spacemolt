@@ -638,3 +638,45 @@ See [[feedback_stronghold_routing_requires_pirate_unlock]] ·
   layer gate is deployed.
 
 **Both are UNDEPLOYED — they need a fleet roll.**
+
+## ⭐🟢 2026-10-02: UNBLOCKED — five bugs, not a game-mechanics problem
+
+Campaign was stuck at **48 of 172** with zero completions since 09-06. The chain
+was never the obstacle; five code defects were. All fixed and deployed
+(`9bef03a4..29660236`), proven by an unattended completion at 21:36:55.
+
+**How the mission actually works** (verified live on explorer-5):
+- `an_introduction` **SUPPLIES its cargo** — `provided_items: {starshine:10,
+  nerve_burn:5}`. Agents never buy it. Do not "fix" acquisition.
+- It grants **temporary stronghold passage while active**: "pirate NPCs will
+  leave you alone and their stations will let you dock." Destination is Voss
+  Redoubt in **alhena**, a stronghold.
+- Completing it sets **baseline to exactly 10 on ALL NINE pirate keys at once**.
+  Baseline is binary, −30 or 10, never intermediate; the `+2 reputation_changes`
+  in the reply is a separate delta. `baseline >= 10` is the correct predicate.
+- **`an_introduction` is the WHOLE unlock.** `supply_run` and later links are
+  smuggling career progression, not unlock progression. Do not chase them.
+- Re-accepting after an abandon charges **`replacement_cost` 7000** against a
+  3000 reward — net −4000 per loop. Declared now, but the economics gate still
+  does NOT price it.
+- `chain_next` is on the BOARD and on `complete_mission`, but **NOT on
+  `get_active_missions`** — which is why resume needs the template allowlist
+  (`missionPassageTemplates`), currently just `an_introduction`.
+
+**The five bugs** — all one family, code trusting a cached view:
+1. `missionResume` judged coverage off stale `State.Ship.Cargo`; supplied cargo
+   never lands there, so it read 0/10 and abandoned as `"cargo_lost"` — a
+   misnomer, nothing was ever lost. 597 abandons fleetwide.
+2. Movement gate refused the flight that EARNS the unlock. Fixed with
+   `AutopilotDeps.PassageTo`, safe because all 9 strongholds are degree-1 so a
+   stronghold is only ever a destination, never a transit hop.
+3. `missionUnloadAtHomeBase` read the same stale hold → could never free it.
+4. Hold CONTENTS were never captured (`agent_hulls` has only the `cargo_used`
+   scalar) — see [[project_fleet_asset_snapshots]]. Added `capture_cargo`.
+5. Resume looped forever on "Already docked" — `dockIdempotent` existed and was
+   used by mission_explore but not by resume. Masked by #1 until it was fixed.
+
+**Still open:** board-accept path (`mission.go:1108`) passes nil passage, costing
+one wasted pass before resume recovers it; a visit-objective mission cannot
+complete if the agent never undocked; `capture_cargo` is registered but NOT
+scheduled on any role.
