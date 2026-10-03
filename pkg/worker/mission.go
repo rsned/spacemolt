@@ -1686,7 +1686,13 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 				fmt.Fprintf(out, "missions: resume transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
 				return true
 			}
-			if derr := deps.Client.Dock(ctx); derr != nil {
+			// dockIdempotent, not Dock: when the destination is where the worker
+			// already stands, the route is a no-op and the server answers
+			// "Already docked" — the goal, reported as an error. Treating it as a
+			// failed pass returns before missionComplete and re-resumes the same
+			// mission every tick. trader-2 looped on A Word in Private that way
+			// (2026-10-02); it is the same defect mission_explore hit in August.
+			if derr := dockIdempotent(ctx, deps.Client); derr != nil {
 				fmt.Fprintf(out, "missions: resume dock failed: %v; retry next pass\n", derr) //nolint:errcheck
 				return true
 			}

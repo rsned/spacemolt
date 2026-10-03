@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -88,5 +89,47 @@ func TestResumeStillHoldsAnOrdinarySmugglingRunToAStronghold(t *testing.T) {
 	}
 	if !strings.Contains(log.String(), "pirate stronghold") {
 		t.Fatalf("holding a stronghold-bound mission must say why: %s", log.String())
+	}
+}
+
+// TestResumeCompletesWhenAlreadyDockedAtTheDestination pins the livelock this
+// family keeps producing. A held mission whose destination is where the worker
+// already stands routes to "already at target", then docks -- and the server
+// answers "Already docked", which missionResume treated as a failed pass. It
+// returned before missionComplete and re-resumed the same mission every tick:
+// trader-2 looped on A Word in Private once a pass, observed live 2026-10-02.
+//
+// dockIdempotent exists for exactly this and was already used by
+// mission_explore; the resume path called raw Dock. The loop was previously
+// masked by the stale-cargo read, which abandoned these missions before they
+// could reach the dock.
+func TestResumeCompletesWhenAlreadyDockedAtTheDestination(t *testing.T) {
+	active := serverapi.ActiveMission{
+		MissionID: "held", TemplateID: "a_word_in_private", Type: "smuggling", Title: "A Word in Private",
+		Objectives: []serverapi.ActiveMissionObjective{
+			{Type: "deliver_item", ItemID: "starshine", Required: 10, SystemID: "haven", TargetBase: "haven_station"},
+		},
+	}
+	fc := &fakeClient{
+		state:          missionState(true, 50000, 10),
+		completeReward: 2000,
+		dockErr:        errors.New("Already docked"),
+		raw: map[string][]byte{
+			"missions":        boardJSON(t),
+			"active_missions": activeJSON(t, active),
+		},
+	}
+	fc.state.Ship.Cargo = []game.CargoItem{{ItemID: "starshine", Quantity: 200}}
+	store := &fakeMissionStore{}
+	deps := missionDeps(fc, store, missionKB())
+	deps.Categories = []string{missionTypeSmuggling, missionTypeDelivery}
+	deps.Out = io.Discard
+	deps.nav = func(ctx context.Context, system, poi string, passage map[string]bool) error { return nil }
+
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+	if !strings.Contains(strings.Join(fc.calls, " "), "complete:held") {
+		t.Fatalf("a mission already at its destination must complete, not loop: %v", fc.calls)
 	}
 }
