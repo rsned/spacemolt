@@ -1104,8 +1104,20 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	} else {
 		fmt.Fprintf(out, "missions: running %d mission(s) to %s (%d jumps, est net %.0f)\n", len(trip), dest, trip[0].Jumps, tripNet(trip)) //nolint:errcheck
 	}
+	// Carry the guest pass to the movement gate, exactly as the resume path
+	// does. missionStrongholdHop above has already refused any stronghold-bound
+	// candidate that lacks passage, so a stronghold destination reaching here is
+	// one the mission authorises -- but the gate downstream cannot know that
+	// unless it is told, and without this it refused the departure with
+	// "complete the pirate unlock to fly it". Scoped to the destination, which is
+	// the only stronghold a route can contain (all nine are degree-1 dead ends),
+	// and nil for every ordinary trip.
+	var passage map[string]bool
+	if strongholds[dest] {
+		passage = map[string]bool{dest: true}
+	}
 	for i, c := range trip {
-		if nerr := deps.nav(ctx, dest, c.DestBaseID, nil); nerr != nil {
+		if nerr := deps.nav(ctx, dest, c.DestBaseID, passage); nerr != nil {
 			fmt.Fprintf(out, "missions: transit to %s failed: %v; %d mission(s) left held for next pass\n", c.DestBaseID, nerr, len(trip)-i) //nolint:errcheck
 			return nil                                                                                                                       // held missions resume on the next pass
 		}
