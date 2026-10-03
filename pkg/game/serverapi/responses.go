@@ -578,6 +578,17 @@ type AcceptMissionResponse struct {
 	ExpiresAt  string `json:"expires_at,omitempty"`
 	TemplateID string `json:"template_id,omitempty"`
 	Type       string `json:"type,omitempty"`
+	// ReplacementCost is charged when the agent has already been issued this
+	// mission's supplied cargo once and accepts again — 7000 credits for
+	// an_introduction, against a 3000 reward, so every re-accept is a net loss
+	// of 4000. It went undeclared while a stale-hold read abandoned and
+	// re-accepted the same mission in a loop; 597 such abandons ran up a bill
+	// nothing recorded (2026-10-02).
+	ReplacementCost int64 `json:"replacement_cost,omitempty"`
+	// Warnings carries server-side cautions about the accept, e.g. "You've
+	// already received this mission's cargo once. Accepting again charges 7000
+	// credits for replacement stock."
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 // CompleteMissionResponse is returned by complete_mission. The server sends

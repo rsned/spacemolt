@@ -1496,6 +1496,13 @@ func missionRouteClear(pathOf func(from, to string, weighted bool) (galaxy.Route
 	return true
 }
 
+// MissionHoldFreeFloor is the free cargo space below which a worker docked away
+// from its home base will unload leftover goods rather than wait for a home
+// visit. an_introduction supplies 15 units (10 starshine + 5 nerve burn), the
+// largest chain grant observed, so a hold with less than this free cannot
+// accept the mission it is sitting at the giver to take.
+const MissionHoldFreeFloor = 20
+
 // missionUnloadAtHomeBase clears leftover, non-mission cargo whenever the worker
 // is docked at its own home_base. Most pool agents were mining bots in a past
 // life and still carry ore that starves the hold for deliver missions and,
@@ -1508,8 +1515,34 @@ func missionRouteClear(pathOf func(from, to string, weighted bool) (galaxy.Route
 // reposition already parked it there. Best-effort; sell/deposit errors are
 // logged and the cargo simply waits for the next home visit.
 func missionUnloadAtHomeBase(ctx context.Context, deps MissionDeps, out io.Writer) {
+	// Refresh before judging the hold, for the same reason missionResume does:
+	// mission cargo is SUPPLIED at accept and no response writes it into
+	// State.Ship.Cargo, so the cached clone can report an empty hold on a ship
+	// carrying hundreds of units. Reading it stale made the len(items)==0 return
+	// below unreachable-by-accident — the ~1.9M credits of contraband stranded
+	// across the unlock fleet could not be unloaded even standing on home base.
+	if cerr := deps.Client.GetCargo(ctx); cerr != nil {
+		fmt.Fprintf(out, "missions: unload cargo refresh failed: %v; judging the hold on the cached view\n", cerr) //nolint:errcheck
+	}
 	state := deps.Client.GetState()
-	if state == nil || state.Player.HomeBase == "" || state.CurrentPOI != state.Player.HomeBase {
+	if state == nil || state.CurrentPOI == "" {
+		return
+	}
+	atHome := state.Player.HomeBase != "" && state.CurrentPOI == state.Player.HomeBase
+	// Away from home, unload only a hold too jammed to accept mission cargo.
+	// Staying passive matters — unloading at every dock would scatter goods
+	// across the galaxy and strip holds doing useful work — but a worker parked
+	// at the mission giver with no room for the grant is stuck until someone
+	// intervenes, and the home visit that would free it may never come. The five
+	// agents left by the resume bug sat at 96-97% full at the giver, unable to
+	// re-accept the one mission that returns their stronghold passage.
+	//
+	// An unknown capacity (0) is NOT jammed. cargoFreeSpace would report 0 free
+	// for it, which would make every worker with an unread hull unload at every
+	// dock it touched — the precise scatter this stays passive to avoid. Absent
+	// a real capacity the conservative reading is "plenty of room".
+	jammed := state.Ship.CargoCapacity > 0 && cargoFreeSpace(state) < MissionHoldFreeFloor
+	if !atHome && !jammed {
 		return
 	}
 	var items []game.CargoItem

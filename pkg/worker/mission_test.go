@@ -1308,8 +1308,8 @@ func TestMissionUnloadAtHomeBase(t *testing.T) {
 		fc := newFC("alpha_station", "alpha_station", ore())
 		var out strings.Builder
 		missionUnloadAtHomeBase(ctx, MissionDeps{Client: fc}, &out)
-		if got := strings.Join(fc.calls, ","); got != "sell:iron_ore,sell:copper_ore,deposit_all" {
-			t.Fatalf("calls = %q, want sell:iron_ore,sell:copper_ore,deposit_all", got)
+		if got := strings.Join(fc.calls, ","); got != "get_cargo,sell:iron_ore,sell:copper_ore,deposit_all" {
+			t.Fatalf("calls = %q, want get_cargo then the sells and deposit", got)
 		}
 		if !strings.Contains(out.String(), "2/2 item type(s) sold") {
 			t.Errorf("summary missing sold count: %q", out.String())
@@ -1321,7 +1321,7 @@ func TestMissionUnloadAtHomeBase(t *testing.T) {
 		fc.sellErr = errors.New("no buy order for item")
 		var out strings.Builder
 		missionUnloadAtHomeBase(ctx, MissionDeps{Client: fc}, &out)
-		if got := strings.Join(fc.calls, ","); got != "sell:iron_ore,sell:copper_ore,deposit_all" {
+		if got := strings.Join(fc.calls, ","); got != "get_cargo,sell:iron_ore,sell:copper_ore,deposit_all" {
 			t.Fatalf("calls = %q, want the sells attempted then a deposit sweep", got)
 		}
 		if !strings.Contains(out.String(), "0/2 item type(s) sold") {
@@ -1329,27 +1329,41 @@ func TestMissionUnloadAtHomeBase(t *testing.T) {
 		}
 	})
 
+	// get_cargo is a READ and now always runs: the hold must be refreshed before
+	// it can be judged, since the cached clone lies about supplied mission cargo.
+	// "No-op" here means no SIDE EFFECT -- nothing sold, nothing deposited.
+	mutating := func(calls []string) []string {
+		var out []string
+		for _, c := range calls {
+			if c != "get_cargo" {
+				out = append(out, c)
+			}
+		}
+
+		return out
+	}
+
 	t.Run("away from home base is a no-op", func(t *testing.T) {
 		fc := newFC("alpha_station", "beta_station", ore())
 		missionUnloadAtHomeBase(ctx, MissionDeps{Client: fc}, io.Discard)
-		if len(fc.calls) != 0 {
-			t.Fatalf("want no calls away from home, got %v", fc.calls)
+		if got := mutating(fc.calls); len(got) != 0 {
+			t.Fatalf("want no side effects away from home, got %v", got)
 		}
 	})
 
 	t.Run("empty home_base is a no-op", func(t *testing.T) {
 		fc := newFC("", "alpha_station", ore())
 		missionUnloadAtHomeBase(ctx, MissionDeps{Client: fc}, io.Discard)
-		if len(fc.calls) != 0 {
-			t.Fatalf("want no calls with empty home_base, got %v", fc.calls)
+		if got := mutating(fc.calls); len(got) != 0 {
+			t.Fatalf("want no side effects with empty home_base, got %v", got)
 		}
 	})
 
 	t.Run("empty hold is a no-op", func(t *testing.T) {
 		fc := newFC("alpha_station", "alpha_station", nil)
 		missionUnloadAtHomeBase(ctx, MissionDeps{Client: fc}, io.Discard)
-		if len(fc.calls) != 0 {
-			t.Fatalf("want no calls with empty hold, got %v", fc.calls)
+		if got := mutating(fc.calls); len(got) != 0 {
+			t.Fatalf("want no side effects with empty hold, got %v", got)
 		}
 	})
 }
