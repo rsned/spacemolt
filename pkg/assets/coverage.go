@@ -24,7 +24,7 @@ type CoverageRow struct {
 // exactly the silence this query exists to break.
 var coverageSources = []string{
 	"agent_profile", "agent_carrier", "agent_hulls", "agent_skills",
-	"agent_storage", "faction_storage",
+	"agent_storage", "agent_cargo", "faction_storage",
 }
 
 // coverageKeyColumn is the identity column each source is counted by.
@@ -46,11 +46,16 @@ func coverageKeyColumn(table string) string {
 // from the Stale count alone and no longer keeps its own cadence map, so
 // changing a cadence here needs no matching frontend edit.
 var CoverageCadence = map[string]time.Duration{
-	"agent_profile":   time.Hour,
-	"agent_carrier":   time.Hour,
-	"agent_hulls":     time.Hour,
-	"agent_skills":    time.Hour,
-	"agent_storage":   24 * time.Hour,
+	"agent_profile": time.Hour,
+	"agent_carrier": time.Hour,
+	"agent_hulls":   time.Hour,
+	"agent_skills":  time.Hour,
+	"agent_storage": 24 * time.Hour,
+	// A hold turns over far faster than station storage: it is the difference
+	// between "what this agent owns" and "what it is carrying right now", and a
+	// day-stale manifest would have been useless for catching the mission-grant
+	// bug it exists to surface.
+	"agent_cargo":     time.Hour,
 	"faction_storage": 24 * time.Hour,
 }
 

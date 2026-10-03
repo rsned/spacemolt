@@ -207,7 +207,7 @@ var supported = map[string]bool{
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
-	"capture_storage": true, "capture_faction": true,
+	"capture_storage": true, "capture_faction": true, "capture_cargo": true,
 	"capture_action_log": true, "capture_wildlife_attacks": true, "capture_tax": true,
 	"capture_citizenship": true,
 	"get_status":          true, "get_system": true, "get_cargo": true,
@@ -618,6 +618,11 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return assets.CaptureProfile(ctx, d.Client, d.Assets, d.AgentID, time.Now())
 	case "capture_storage":
 		return assets.CaptureStorage(ctx, d.Client, d.Assets, d.AgentID, time.Now())
+	case "capture_cargo":
+		// The manifest of the active hold. agent_hulls records only cargo_used,
+		// the scalar, which is why 200 starshine sat unseen in explorer-5's hold
+		// for ten days.
+		return assets.CaptureCargo(ctx, d.Client, d.Assets, d.AgentID, time.Now())
 	case "capture_faction":
 		return assets.CaptureFaction(ctx, d.Client, d.Assets, d.AgentID, time.Now())
 	case "capture_action_log":

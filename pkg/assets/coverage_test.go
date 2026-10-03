@@ -57,7 +57,7 @@ func TestCoverageCountsStalePerSource(t *testing.T) {
 func TestCoverageOnEmptyDBIsNotAnError(t *testing.T) {
 	wantSources := []string{
 		"agent_profile", "agent_carrier", "agent_hulls", "agent_skills",
-		"agent_storage", "faction_storage",
+		"agent_storage", "agent_cargo", "faction_storage",
 	}
 
 	st := openTestStore(t)

@@ -412,3 +412,24 @@ CREATE TABLE IF NOT EXISTS agent_citizenship_policy (
     captured_at       TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (player_id, empire_id)
 );
+
+-- agent_cargo is the MANIFEST of an agent's active hold, the companion to
+-- agent_hulls.cargo_used, which records only the scalar. Without it a hold reads
+-- as "301/315" and nothing can say what the 301 units are: 200 starshine sat
+-- unseen in explorer-5's hold for ten days while the mission layer insisted it
+-- carried none (2026-10-02).
+--
+-- Keyed by (player_id, ship_id, item_id): an agent owns many hulls and each has
+-- its own hold. Rows are replaced per (player, ship), never merged, so a hold
+-- that empties reads empty rather than carrying a stale manifest forward.
+CREATE TABLE IF NOT EXISTS agent_cargo (
+    player_id   TEXT NOT NULL,
+    ship_id     TEXT NOT NULL,
+    item_id     TEXT NOT NULL,
+    name        TEXT NOT NULL DEFAULT '',
+    quantity    REAL NOT NULL DEFAULT 0,
+    unit_size   INTEGER NOT NULL DEFAULT 0,
+    captured_at TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (player_id, ship_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_agent_cargo_item ON agent_cargo(item_id);
