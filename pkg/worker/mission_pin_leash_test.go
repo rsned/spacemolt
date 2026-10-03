@@ -19,12 +19,12 @@ import "testing"
 // run long (engineer-5's Across the Line was 17 jumps).
 func TestMissionPinLeash(t *testing.T) {
 	for _, tc := range []struct {
-		name        string
-		pinned      bool
-		unlocked    bool
-		missionType string
+		name         string
+		pinned       bool
+		unlocked     bool
+		missionType  string
 		jumpsFromPin int
-		wantReject  bool
+		wantReject   bool
 	}{
 		{"locked agent, far delivery, rejected", true, false, "delivery", 4, true},
 		{"locked agent, near delivery, allowed", true, false, "delivery", 1, false},

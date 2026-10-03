@@ -163,6 +163,23 @@ type AutopilotDeps struct {
 	// 1,500-fuel Tanker at algol. nil disables the gate with a loud line rather
 	// than silently, so a missing wire-up shows up in the worker log.
 	KB knowledge.Base
+	// PassageTo exempts named stronghold systems from the gate for THIS route,
+	// because an active mission grants temporary docking there. an_introduction
+	// — the mission that earns the pirate unlock — delivers INTO a stronghold and
+	// says so plainly: "While this mission is active, pirate NPCs will leave you
+	// alone and their stations will let you dock." Without this the gate refused
+	// the one flight that lifts the ban, telling the agent to "complete the
+	// pirate unlock" it was on its way to earn.
+	//
+	// Keyed by system id and/or name (strongholds are dual-named; callers should
+	// register what they have). nil — every caller that has not opted in — leaves
+	// the gate exactly as strict as before.
+	//
+	// Scope is deliberately per-destination, never a blanket unlock. That costs
+	// nothing in reach: all nine strongholds are degree-1 dead ends, so one can
+	// never be a transit hop, and the destination is the only stronghold a route
+	// can contain.
+	PassageTo map[string]bool
 }
 
 // fuelTimingFor resolves the endpoint fuel prices for a route into a refuel-timing
@@ -230,7 +247,16 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 	//
 	// Refusing here leaves the agent DOCKED and alive, the same contract as the
 	// insufficient-fuel refusal below.
-	if blocking := strongholdsOnRoute(route, strongholdRefsForRoute(ctx, deps.KB, client, out)); len(blocking) > 0 {
+	//
+	// PassageTo carves out the one legitimate exception: a stronghold an active
+	// mission has been granted temporary docking at. Without it the gate blocked
+	// an_introduction, the very mission that earns the unlock.
+	blocking := strongholdsOnRoute(route, strongholdRefsForRoute(ctx, deps.KB, client, out))
+	if exempt := dropPassageExempt(blocking, deps.PassageTo); len(exempt) < len(blocking) {
+		fmt.Fprintf(out, "   stronghold passage: flying to %s on an active mission's guest pass\n", strings.Join(blocking, ", ")) //nolint:errcheck
+		blocking = exempt
+	}
+	if len(blocking) > 0 {
 		fmt.Fprintf(out, "   NOT DEPARTING: route enters pirate stronghold(s): %s\n", strings.Join(blocking, ", ")) //nolint:errcheck
 		return routeStrongholdError(targetSystem, blocking)
 	}

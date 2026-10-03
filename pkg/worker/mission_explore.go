@@ -260,7 +260,7 @@ func missionRunExplore(ctx context.Context, deps MissionDeps, out io.Writer, c m
 			if leg.BaseID != "" {
 				poi = explorePOIFor(ctx, deps, leg.BaseID)
 			}
-			if nerr := deps.nav(ctx, leg.SystemID, poi); nerr != nil {
+			if nerr := deps.nav(ctx, leg.SystemID, poi, nil); nerr != nil {
 				fmt.Fprintf(out, "missions: explore transit to %s failed: %v; held for next pass\n", leg.SystemID, nerr) //nolint:errcheck
 				return                                                                                                   // resume picks the mission up next pass
 			}
@@ -323,7 +323,7 @@ func missionRunExplore(ctx context.Context, deps MissionDeps, out io.Writer, c m
 	// place; visit-only missions' claim location is unproven, so the accept
 	// station is the safe default).
 	if dockedAt == "" || dockedAt != c.DestBaseID || at != c.DestSystem {
-		if nerr := deps.nav(ctx, acceptSystem, acceptPOI); nerr != nil {
+		if nerr := deps.nav(ctx, acceptSystem, acceptPOI, nil); nerr != nil {
 			fmt.Fprintf(out, "missions: explore return transit failed: %v; held for next pass\n", nerr) //nolint:errcheck
 			return
 		}

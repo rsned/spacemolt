@@ -144,9 +144,15 @@ func TestStrongholdEndpointLegalOnlyForAChainMission(t *testing.T) {
 		t.Errorf("chain mission refused at %s; it carries its own passage", hold)
 	}
 
-	// Same destination, no chain marker: still refused.
+	// Same destination, no passage of any kind: still refused. A real procedural
+	// courier carries neither the chain marker nor a passage-bearing template id
+	// — live ones look like "smuggling_courier_claim_<hex>" — so the fixture
+	// clears both. Clearing only ChainNext stopped being a passage-less mission
+	// once passage became recognisable by template (get_active_missions does not
+	// echo chain_next, so the template is the only marker that survives resume).
 	courier := anIntroduction()
 	courier.ChainNext = ""
+	courier.TemplateID = "smuggling_courier_claim_deadbeef"
 	courier.MissionID = "smuggling_courier_x~deadbeef"
 	if _, ok := missionStrongholdHop(strongholds, nil, "haven", missionCandidate{Entry: courier, DestSystem: "alhena"}); ok {
 		t.Error("a procedural courier was allowed into a stronghold; the guard must still refuse it")

@@ -31,6 +31,11 @@ type fakeClient struct {
 	dockNeverSettles bool
 	fuelLow          bool              // when set, Travel fails with insufficient fuel until Refuel clears it
 	raw              map[string][]byte // GetRawJSON responses keyed by store key (e.g. "sell", "buy")
+	// onGetCargo, when set, runs inside GetCargo so a test can model the hold
+	// the SERVER reports differing from the stale clone cached in state --
+	// the shape of the mission-grant bug (accept_mission delivers cargo but
+	// carries no cargo field, so nothing updates State.Ship.Cargo).
+	onGetCargo func()
 
 	refuelShipCalls []refuelShipCall // records of RefuelShip(target, quantity) calls
 	refuelShipErr   error            // when set, RefuelShip returns it instead of recording success
@@ -182,6 +187,12 @@ func (f *fakeClient) GetSystem(ctx context.Context) error {
 }
 func (f *fakeClient) GetCargo(ctx context.Context) error {
 	f.calls = append(f.calls, "get_cargo")
+	// onGetCargo models the server's reply landing in client state: the real
+	// client refreshes State.Ship.Cargo here, so a test that needs a stale
+	// cached hold to become accurate hangs the update off this hook.
+	if f.onGetCargo != nil {
+		f.onGetCargo()
+	}
 	return nil
 }
 func (f *fakeClient) GetPOI(ctx context.Context) error {
@@ -589,7 +600,10 @@ func TestEnsureHomeNoStation(t *testing.T) {
 	d := NewWorkerDispatch(c, nil, nil, io.Discard)
 	d.Station = "" // no home configured
 	navigated := false
-	d.ensureHomeNav = func(ctx context.Context, system, poi string) error { navigated = true; return nil }
+	d.ensureHomeNav = func(ctx context.Context, system, poi string) error {
+		navigated = true
+		return nil
+	}
 	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
 		t.Fatalf("ensure_home: %v", err)
 	}
@@ -608,7 +622,10 @@ func TestEnsureHomeAlreadyDocked(t *testing.T) {
 	d := NewWorkerDispatch(c, nil, nil, io.Discard)
 	d.Station = "grand_exchange"
 	navigated := false
-	d.ensureHomeNav = func(ctx context.Context, system, poi string) error { navigated = true; return nil }
+	d.ensureHomeNav = func(ctx context.Context, system, poi string) error {
+		navigated = true
+		return nil
+	}
 	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
 		t.Fatalf("ensure_home: %v", err)
 	}
@@ -657,7 +674,10 @@ func TestEnsureHomeEmptyRouteUsesCurrentSystem(t *testing.T) {
 	d := NewWorkerDispatch(c, nil, nil, io.Discard)
 	d.Station = "market_prime_exchange"
 	var gotSystem string
-	d.ensureHomeNav = func(ctx context.Context, system, poi string) error { gotSystem = system; return nil }
+	d.ensureHomeNav = func(ctx context.Context, system, poi string) error {
+		gotSystem = system
+		return nil
+	}
 	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
 		t.Fatalf("ensure_home: %v", err)
 	}
@@ -674,7 +694,10 @@ func TestEnsureHomeFindRouteErrorIsBestEffort(t *testing.T) {
 	d := NewWorkerDispatch(c, nil, nil, io.Discard)
 	d.Station = "market_prime_exchange"
 	navigated := false
-	d.ensureHomeNav = func(ctx context.Context, system, poi string) error { navigated = true; return nil }
+	d.ensureHomeNav = func(ctx context.Context, system, poi string) error {
+		navigated = true
+		return nil
+	}
 	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
 		t.Fatalf("ensure_home must be best-effort nil, got %v", err)
 	}

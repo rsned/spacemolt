@@ -51,6 +51,43 @@ func strongholdsOnRoute(route []game.RouteStep, strongholds map[string]bool) []s
 	return hits
 }
 
+// dropPassageExempt removes from blocking every stronghold the caller holds
+// passage to. Matching is on the same dual spellings strongholdsOnRoute emits
+// (name when present, else id), so a caller may register either form.
+//
+// Passage is granted by an ACTIVE mission and lapses when that mission does, so
+// the exemption is scoped to one route and never cached: the caller recomputes
+// it per pass from the live active-mission list.
+func dropPassageExempt(blocking []string, passage map[string]bool) []string {
+	if len(blocking) == 0 || len(passage) == 0 {
+		return blocking
+	}
+	exempt := make(map[string]bool, len(passage)*2)
+	for k, v := range passage {
+		if v {
+			exempt[normalizeSystemRef(k)] = true
+		}
+	}
+	kept := make([]string, 0, len(blocking))
+	for _, b := range blocking {
+		if exempt[normalizeSystemRef(b)] {
+			continue
+		}
+		kept = append(kept, b)
+	}
+
+	return kept
+}
+
+// normalizeSystemRef folds the two spellings a stronghold travels under — the
+// id ("alhena", "gsc_0008") and the display name ("Alhena", "GSC-0008") — onto
+// one key. strongholdsOnRoute reports the NAME while a mission objective
+// carries the ID, so passage keyed off a mission would never match the thing it
+// is meant to exempt without this.
+func normalizeSystemRef(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(strings.TrimSpace(s)), " ", "_"), "-", "_")
+}
+
 // routeStrongholdError builds the refusal error, naming both the destination
 // and every blocking hop so a worker log says which system was refused without
 // the reader re-deriving the route.

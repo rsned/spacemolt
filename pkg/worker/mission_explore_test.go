@@ -166,7 +166,7 @@ func TestMissionsExploreEndToEnd(t *testing.T) {
 	deps.State = &missionRunState{}
 	deps.Categories = []string{"delivery", "exploration"}
 	var navTo []string
-	deps.nav = func(ctx context.Context, system, poi string) error {
+	deps.nav = func(ctx context.Context, system, poi string, passage map[string]bool) error {
 		navTo = append(navTo, system+"/"+poi)
 		return nil
 	}
@@ -301,7 +301,7 @@ func TestMissionsResumeExploreFliesRemainingLegs(t *testing.T) {
 	deps.State = &missionRunState{}
 	deps.Categories = []string{"delivery", "exploration"}
 	var navTo []string
-	deps.nav = func(ctx context.Context, system, poi string) error {
+	deps.nav = func(ctx context.Context, system, poi string, passage map[string]bool) error {
 		navTo = append(navTo, system+"/"+poi)
 		return nil
 	}

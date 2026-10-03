@@ -407,7 +407,27 @@ func missionItemLabel(items []missionDeliverable) string {
 // leg sets it. Used only to permit a stronghold DESTINATION — never a
 // stronghold on the way there.
 func missionCarriesPassage(e serverapi.MissionBoardEntry) bool {
-	return e.ChainNext != ""
+	return e.ChainNext != "" || missionPassageTemplates[e.TemplateID]
+}
+
+// missionPassageTemplates lists the mission templates that grant temporary
+// stronghold docking for their duration. Membership is an explicit allowlist,
+// not a heuristic: it authorises flying a pirate-hostile agent into a system
+// where it is otherwise attacked on sight, and 8 of 24 recorded ship losses
+// came from getting that wrong.
+//
+// an_introduction is the only one known to carry passage — to us and, as far as
+// has been discovered, to other players. Its giver states the grant outright:
+// "While you have this job active, the pirates won't bother you."
+//
+// This exists because the generic marker does NOT survive the wire. chain_next
+// is present on the mission BOARD but get_active_missions does not echo it
+// (verified live on explorer-5, 2026-10-02), so a RESUMED chain mission always
+// looked passage-less and parked. The board check above still works on the
+// accept path; this covers resume. Add a template here only with evidence that
+// the server really does grant passage for it.
+var missionPassageTemplates = map[string]bool{
+	"an_introduction": true,
 }
 
 // buildMissionCandidate prices and routes one board entry. dist maps system id

@@ -1267,5 +1267,5 @@ func missionNavToBase(ctx context.Context, deps MissionDeps, destBaseID string) 
 	if destSystem == "" {
 		return fmt.Errorf("router returned no system for %s", destBaseID)
 	}
-	return deps.nav(ctx, destSystem, destBaseID)
+	return deps.nav(ctx, destSystem, destBaseID, nil)
 }

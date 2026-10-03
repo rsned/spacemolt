@@ -222,7 +222,7 @@ func missionState(docked bool, credits, cargoUsed float64) *game.State {
 func missionDeps(fc *fakeClient, store *fakeMissionStore, kb *fakeKB) MissionDeps {
 	return MissionDeps{
 		Client: fc, KB: kb, Market: store, Out: io.Discard, AgentID: "engineer-1",
-		nav:   func(ctx context.Context, system, poi string) error { return nil },
+		nav:   func(ctx context.Context, system, poi string, passage map[string]bool) error { return nil },
 		sleep: func(ctx context.Context, d time.Duration) error { return nil },
 	}
 }
@@ -446,7 +446,7 @@ func TestMissionsDryPassesReposition(t *testing.T) {
 		return []stationHop{{SystemID: "sol", POIID: "sol_station"}}, nil
 	}
 	var navTo []string
-	deps.nav = func(ctx context.Context, system, poi string) error {
+	deps.nav = func(ctx context.Context, system, poi string, passage map[string]bool) error {
 		navTo = append(navTo, system+"/"+poi)
 		return nil
 	}
@@ -482,7 +482,7 @@ func TestMissionsPinnedWorkerParksInsteadOfTouring(t *testing.T) {
 		return nil, nil
 	}
 	var navTo []string
-	deps.nav = func(ctx context.Context, system, poi string) error {
+	deps.nav = func(ctx context.Context, system, poi string, passage map[string]bool) error {
 		navTo = append(navTo, system+"/"+poi)
 		return nil
 	}
@@ -514,7 +514,7 @@ func TestMissionsParksAfterFullDryCircuit(t *testing.T) {
 		return []stationHop{{SystemID: "sol", POIID: "sol_station"}, {SystemID: "haven", POIID: "grand_exchange"}}, nil
 	}
 	var navTo []string
-	deps.nav = func(ctx context.Context, system, poi string) error {
+	deps.nav = func(ctx context.Context, system, poi string, passage map[string]bool) error {
 		navTo = append(navTo, system+"/"+poi)
 		return nil
 	}
@@ -834,7 +834,7 @@ func TestMissionsRecoversWhenNotAtStation(t *testing.T) {
 	}
 	var navTo string
 	deps := missionDeps(fc, &fakeMissionStore{}, kb)
-	deps.nav = func(ctx context.Context, system, poi string) error {
+	deps.nav = func(ctx context.Context, system, poi string, passage map[string]bool) error {
 		navTo = system + "/" + poi
 		fc.state.CurrentPOI = poi // autopilot arrival updates client state
 		fc.state.Doc = true
@@ -870,7 +870,7 @@ func TestMissionsRecoversFromNonStationPOI(t *testing.T) {
 	}
 	var navTo string
 	deps := missionDeps(fc, &fakeMissionStore{}, kb)
-	deps.nav = func(ctx context.Context, system, poi string) error {
+	deps.nav = func(ctx context.Context, system, poi string, passage map[string]bool) error {
 		navTo = system + "/" + poi
 		fc.state.CurrentPOI = poi
 		fc.state.Doc = true // autopilot arrival docks
@@ -908,7 +908,7 @@ func TestMissionsEscapesStationlessSystem(t *testing.T) {
 	deps.nearbyStations = func(ctx context.Context, limit int) ([]stationHop, error) {
 		return []stationHop{{SystemID: "haven", POIID: "haven_station"}}, nil
 	}
-	deps.nav = func(ctx context.Context, system, poi string) error {
+	deps.nav = func(ctx context.Context, system, poi string, passage map[string]bool) error {
 		navTo = system + "/" + poi
 		fc.state.System = game.SystemData{ID: system}
 		fc.state.CurrentPOI = poi
@@ -1272,7 +1272,7 @@ func TestMissionsDefaultRepositionFindsRealStationPOI(t *testing.T) {
 	deps := missionDeps(fc, store, kb)
 	deps.State = &missionRunState{}
 	var navTo []string
-	deps.nav = func(ctx context.Context, system, poi string) error {
+	deps.nav = func(ctx context.Context, system, poi string, passage map[string]bool) error {
 		navTo = append(navTo, system+"/"+poi)
 		return nil
 	}
@@ -1376,5 +1376,61 @@ func TestHeldFreightSetAccessors(t *testing.T) {
 	s.removeHeldFreight("a")
 	if s.heldFreightCount() != 1 || s.heldFreightAll()[0].ID != "b" {
 		t.Fatal("remove did not drop exactly one entry")
+	}
+}
+
+// TestMissionsResumeRefreshesCargoBeforeJudgingCoverage pins the an_introduction
+// failure found on explorer-5 (2026-10-02): the chain SUPPLIES its cargo at
+// accept_mission, but AcceptMissionResponse carries no cargo field, so nothing
+// updates State.Ship.Cargo. missionResume judged coverage off that stale clone,
+// read 0 of an item the ship was actually carrying, and abandoned the mission as
+// "cargo_lost" -- 23 times, while 200 starshine piled up in the hold (20 grants
+// of 10 it never saw). Every sibling path (deliver, freight, craft, buy_directed,
+// handoff) refreshes with GetCargo before judging the hold; the resume path did
+// not. The mission here is deliverable on the SERVER's hold and must complete.
+func TestMissionsResumeRefreshesCargoBeforeJudgingCoverage(t *testing.T) {
+	active := serverapi.ActiveMission{
+		MissionID: "held", Type: "smuggling", Title: "An Introduction",
+		Objectives: []serverapi.ActiveMissionObjective{
+			{Type: "deliver_item", ItemID: "starshine", Required: 10, Current: 0, SystemID: "sol", TargetBase: "sol_station"},
+		},
+	}
+	fc := &fakeClient{
+		state:          missionState(true, 5000, 10),
+		completeReward: 2000,
+		raw: map[string][]byte{
+			"missions":        boardJSON(t),
+			"active_missions": activeJSON(t, active),
+		},
+	}
+	// The cached clone is stale: the grant landed server-side but no response
+	// ever wrote it into client state, so the hold reads empty here.
+	fc.state.Ship.Cargo = nil
+	// GetCargo is the only thing that reveals the 200 starshine actually aboard.
+	fc.onGetCargo = func() {
+		fc.state.Ship.Cargo = []game.CargoItem{{ItemID: "starshine", Quantity: 200}}
+	}
+
+	store := &fakeMissionStore{}
+	deps := missionDeps(fc, store, missionKB())
+	// an_introduction is a smuggling mission; the default deps allow delivery
+	// only, which would skip the active entirely and never reach the coverage
+	// check this test is about.
+	deps.Categories = []string{missionTypeSmuggling, missionTypeDelivery}
+	if err := Missions(context.Background(), deps); err != nil {
+		t.Fatalf("Missions: %v", err)
+	}
+
+	joined := strings.Join(fc.calls, " ")
+	if strings.Contains(joined, "abandon:held") {
+		t.Fatalf("cargo aboard on the server must never abandon as cargo_lost: %v", fc.calls)
+	}
+	if !strings.Contains(joined, "complete:held") {
+		t.Fatalf("held mission whose cargo is aboard must be completed: %v", fc.calls)
+	}
+	for _, r := range store.results {
+		if r.Outcome == "abandoned" {
+			t.Fatalf("no abandoned row may be recorded for a deliverable mission: %+v", store.results)
+		}
 	}
 }

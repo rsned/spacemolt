@@ -323,7 +323,12 @@ type MissionDeps struct {
 	HomeStation string
 	// nav navigates to (system, poi); nil -> real Autopilot. Injected for tests,
 	// mirroring WorkerDispatch.ensureHomeNav.
-	nav func(ctx context.Context, system, poi string) error
+	//
+	// passage names stronghold systems this trip is exempt from the movement-layer
+	// gate for, because an active mission grants temporary docking there (see
+	// missionPassageTemplates). nil for every ordinary trip, which leaves the gate
+	// exactly as strict as it was.
+	nav func(ctx context.Context, system, poi string, passage map[string]bool) error
 	// nearbyStations lists reposition targets near the current system; nil ->
 	// the galaxy-graph default built inside Missions. Injected for tests.
 	nearbyStations func(ctx context.Context, limit int) ([]stationHop, error)
@@ -417,8 +422,8 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		return nil
 	}
 	if deps.nav == nil {
-		deps.nav = func(ctx context.Context, system, poi string) error {
-			return Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, system, poi)
+		deps.nav = func(ctx context.Context, system, poi string, passage map[string]bool) error {
+			return Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB, PassageTo: passage}, system, poi)
 		}
 	}
 	if deps.sleep == nil {
@@ -1100,7 +1105,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		fmt.Fprintf(out, "missions: running %d mission(s) to %s (%d jumps, est net %.0f)\n", len(trip), dest, trip[0].Jumps, tripNet(trip)) //nolint:errcheck
 	}
 	for i, c := range trip {
-		if nerr := deps.nav(ctx, dest, c.DestBaseID); nerr != nil {
+		if nerr := deps.nav(ctx, dest, c.DestBaseID, nil); nerr != nil {
 			fmt.Fprintf(out, "missions: transit to %s failed: %v; %d mission(s) left held for next pass\n", c.DestBaseID, nerr, len(trip)-i) //nolint:errcheck
 			return nil                                                                                                                       // held missions resume on the next pass
 		}
@@ -1127,7 +1132,7 @@ func missionRecoverToStation(ctx context.Context, deps MissionDeps, out io.Write
 	poi, perr := missionStationPOI(ctx, deps.KB, current)
 	if perr == nil && poi != "" {
 		fmt.Fprintf(out, "missions: not at a station POI; recovering to %s/%s\n", current, poi) //nolint:errcheck
-		if nerr := deps.nav(ctx, current, poi); nerr != nil {
+		if nerr := deps.nav(ctx, current, poi, nil); nerr != nil {
 			fmt.Fprintf(out, "missions: recovery transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
 			return true
 		}
@@ -1151,7 +1156,7 @@ func missionRecoverToStation(ctx context.Context, deps MissionDeps, out io.Write
 	}
 	hop := hops[0]
 	fmt.Fprintf(out, "missions: no station in %s; escaping to %s/%s\n", current, hop.SystemID, hop.POIID) //nolint:errcheck
-	if nerr := deps.nav(ctx, hop.SystemID, hop.POIID); nerr != nil {
+	if nerr := deps.nav(ctx, hop.SystemID, hop.POIID, nil); nerr != nil {
 		fmt.Fprintf(out, "missions: escape transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
 		return true
 	}
@@ -1320,7 +1325,7 @@ func missionDryPass(ctx context.Context, deps MissionDeps, out io.Writer) error 
 	deps.State.hopsDry++
 	deps.State.dry = 0
 	fmt.Fprintf(out, "missions: %d dry passes; repositioning to %s/%s\n", missionDryPassLimit, hop.SystemID, hop.POIID) //nolint:errcheck
-	if nerr := deps.nav(ctx, hop.SystemID, hop.POIID); nerr != nil {
+	if nerr := deps.nav(ctx, hop.SystemID, hop.POIID, nil); nerr != nil {
 		fmt.Fprintf(out, "missions: reposition transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
 		return nil
 	}
@@ -1562,6 +1567,20 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 		if !missionDeliverType(m.Type, missionCategoryEnabled(deps, missionTypeSmuggling)) {
 			continue // not a delivery-type active: leave it alone (manual/other origin)
 		}
+		// Refresh the hold before judging coverage. The cached clone is NOT
+		// authoritative here: a chain/smuggling mission is SUPPLIED its cargo at
+		// accept_mission, and AcceptMissionResponse carries no cargo or ship
+		// field, so nothing ever writes that grant into State.Ship.Cargo. Judging
+		// off the stale clone read 0 of an item the ship was carrying and
+		// abandoned the mission as "cargo_lost" — explorer-5 did it 23 times
+		// while 200 starshine piled up in its hold (2026-10-02). Every sibling
+		// path that weighs the hold (deliver, freight, craft, buy_directed,
+		// handoff) already refreshes first. A failed refresh is not fatal: fall
+		// through to the cached view rather than skipping the mission, which is
+		// the pre-existing behaviour and no worse than it was.
+		if cerr := deps.Client.GetCargo(ctx); cerr != nil {
+			fmt.Fprintf(out, "missions: resume cargo refresh failed: %v; judging coverage on cached hold\n", cerr) //nolint:errcheck
+		}
 		resumeState := deps.Client.GetState()
 		h, shaped := heldDeliveryShape(m, func(itemID string) float64 { return cargoQty(resumeState, itemID) })
 		if !shaped {
@@ -1621,7 +1640,16 @@ func missionResume(ctx context.Context, deps MissionDeps, out io.Writer, current
 			}
 			fmt.Fprintf(out, "missions: resuming held %s (%s) -> %s\n", m.MissionID, m.Title, h.DestBase) //nolint:errcheck
 			publishActivity(deps.SetActivity, "Mission "+m.Title)
-			if nerr := deps.nav(ctx, destSys, h.DestBase); nerr != nil {
+			// Carry the guest pass down to the movement gate. Scoped to this one
+			// destination: strongholds are degree-1 dead ends, so the destination
+			// is the only stronghold a route can contain and exempting it grants
+			// nothing further. Empty for every non-stronghold destination, which
+			// leaves the gate untouched.
+			var passage map[string]bool
+			if strongholds[destSys] {
+				passage = map[string]bool{destSys: true}
+			}
+			if nerr := deps.nav(ctx, destSys, h.DestBase, passage); nerr != nil {
 				fmt.Fprintf(out, "missions: resume transit failed: %v; retry next pass\n", nerr) //nolint:errcheck
 				return true
 			}
