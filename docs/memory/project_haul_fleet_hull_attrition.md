@@ -77,7 +77,14 @@ candidate markets whose system is a stronghold the agent may not enter, mirrorin
 combat, and there is no wildlife avoidance anywhere; `danger_zones` exists in the
 KB with 0 rows and nothing writes to it.
 
-## ⭐ DO NOT RE-EQUIP FIRST
+## ⭐ DO NOT RE-EQUIP FIRST — SUPERSEDED 2026-10-10
+
+**This embargo is LIFTED. See [[project_haul_fleet_rehull_2026_10]]:** both gates
+shipped, and congregation now costs ~6k for 1900 cargo (3.0 cr/unit), so a
+freight hull is consumable rather than capital. 8 re-hulled 2026-10-10. The
+reasoning below is kept for history; the prices in it are ~20x current.
+
+### original reasoning (prices stale)
 
 Buying 15 replacement freight hulls before the routing is fixed feeds fresh
 capital into the same grinder — trader-2 already proves a 420-cargo hull dies

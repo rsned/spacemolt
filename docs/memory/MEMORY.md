@@ -35,8 +35,9 @@
 - ⭐🔴 [IP block 09-09 at 170 workers: freeze + staged-thaw runbook](reference_ip_block_20260909_freeze_and_staged_thaw.md) — STOP overminds BEFORE workers (a supervisor relaunch is a login); heartbeats/craft-spam ruled OUT; the fleet is just bigger than the per-IP budget
 - ⭐🔴 [SIGSTOP/SIGCONT preserves game sessions](reference_sigstop_preserves_game_sessions.md) — zero logins; the safe tool during an IP block
 - ⭐🔴 [CargoUsed drifts upward forever](reference_client_cargo_used_drifts_upward.md) — `deposit_items` never cleared the client cargo list; fixed 08-22, uncommitted
-- ⭐🔴 [15 of 22 haulers lost their freight hulls](project_haul_fleet_hull_attrition.md) — kill zones zaniah + goldcrest; do NOT re-equip before fixing routing
+- ⭐ [15 of 22 haulers lost their freight hulls](project_haul_fleet_hull_attrition.md) — kill zones zaniah + goldcrest; the re-equip embargo is LIFTED (see next line)
 - ⭐🟢 [Re-hulling 10-10: congregation 1900 cargo @ ~6k = CONSUMABLE](project_haul_fleet_rehull_2026_10.md) — 74% of big-hull profit is from trips >65 units; rank on haul_results, never credit deltas
+- ⭐ [Buying a hull by hand](reference_buying_a_hull_by_hand.md) — buy_listed_ship AUTO-switches + stores the old hull; autopilot lands you in SPACE; apostrophe POI names fail, use the id
 - ⭐🔴 [TWO haul overminds for 7 days; the worker-less one corrupts haul-status.json](reference_duplicate_haul_overmind_corrupts_status.md) — status file + dashboard roster both lie; trust /proc PPid only
 - [Haul routes through station-less Lawless systems](project_haul_lawless_routing.md) — stuck→restart; plus a cosmetic stale-docked heartbeat flag; fix queued
 - [Haul fleet runs an old bin/worker](project_haul_fleet_worker_update_due.md) — needs drain+relaunch onto current build; requested 07-26, not done
