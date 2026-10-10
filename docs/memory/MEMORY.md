@@ -38,6 +38,7 @@
 - ⭐ [15 of 22 haulers lost their freight hulls](project_haul_fleet_hull_attrition.md) — kill zones zaniah + goldcrest; the re-equip embargo is LIFTED (see next line)
 - ⭐🟢 [Re-hulling 10-10: congregation 1900 cargo @ ~6k = CONSUMABLE](project_haul_fleet_rehull_2026_10.md) — 74% of big-hull profit is from trips >65 units; rank on haul_results, never credit deltas
 - ⭐ [Buying a hull by hand](reference_buying_a_hull_by_hand.md) — buy_listed_ship AUTO-switches + stores the old hull; autopilot lands you in SPACE; apostrophe POI names fail, use the id
+- ⭐🔴 [congregation is OUTERRIM-EXCLUSIVE](reference_congregation_is_outerrim_exclusive.md) — only 7 outerrim shipyards; the ships table shows tier 0/no gate and does NOT reveal the lock, so commission_quote FIRST
 - ⭐🔴 [TWO haul overminds for 7 days; the worker-less one corrupts haul-status.json](reference_duplicate_haul_overmind_corrupts_status.md) — status file + dashboard roster both lie; trust /proc PPid only
 - [Haul routes through station-less Lawless systems](project_haul_lawless_routing.md) — stuck→restart; plus a cosmetic stale-docked heartbeat flag; fix queued
 - [Haul fleet runs an old bin/worker](project_haul_fleet_worker_update_due.md) — needs drain+relaunch onto current build; requested 07-26, not done
