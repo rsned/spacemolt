@@ -98,3 +98,53 @@ Crafting did not help: `forge_darksteel_plating` (2 ore -> 1) has ~536 units of
 plating demand, worse than selling ore raw; `temper_crimson_fury_alloy` burns
 1 titanium_alloy per unit ([[project_titanium_alloy_war_demand]]) for a book
 that bids 1-4 units at a time. Check the OUTPUT's book depth before crafting.
+
+## ⭐🔴 THE COST OF THE RE-HULL: range collapsed from ~90 jumps to 18
+
+**congregation is scale 3**, so `fuel/jump = ceil(3^1.5 x 1) = 6` against a
+110 tank = **18 jumps on one fill**. The starter hulls it replaced were scale 1
+and carried 65-130 jumps of range:
+
+| hull | fuel/jump | range |
+|---|---|---|
+| prospect 100 | 1 | 130 j |
+| threshold 65 | 1 | 95 j |
+| shard 60 | 1 | 90 j |
+| cobble 75 | 2 | 65 j |
+| **congregation 1900** | **6** | **18 j** |
+
+Measured against 21 days of `haul_results.jumps_traveled`: **38% of trips
+exceed 18 jumps** (unreachable on one tank) and another 20% land in the 15-18
+band with no margin. So ~58% of the fleet's trip profile now depends on
+MID-ROUTE REFUELLING that the old hulls never needed.
+
+**This produced real strandings within hours**: trader-9 and salvager-4 both
+went fuel-dead (0/110) the night of the re-hull. The machinery to survive it
+exists (`ensureRouteFuel` for multi-jump legs, `refuelInPlace` on an
+insufficient-fuel rejection in `autopilotTravelToPOI`), so the fix is not to
+revert — the earnings case is still 29,033/trip vs 7,978 — but the dependency
+is new and should be watched.
+
+**A docked hauler at 0 fuel is "healthy" and idles forever.** trader-9 came
+back from quarantine healthy, docked, 24M credits, tank EMPTY, logging
+"no opportunities within 5 jumps; idling" — it cannot reach work, and
+`Stalled()` early-returns on Docked so nothing ever flags it
+([[reference_docked_zero_fuel_invisible_to_watchdog]]). A manual `refuel`
+(110 units, 660 cr) released it. Watch for this after ANY quarantine clear.
+
+## Quarantine records lie about POSITION, not about the problem
+
+Three agents' rescue records all named the wrong place, exactly as fighter-8's
+did ([[reference_rescue_queue_blocks_launch]]):
+
+| agent | record said | actually was |
+|---|---|---|
+| fighter-8 | adrift @ Struve 1321 (a system with NO station) | docked @ Woodstock |
+| salvager-4 | @ Bellatrix, fuel 1/110 | docked @ Woodstock, 17M cr |
+| trader-9 | undocked @ steelpoint (**a SUN**) | docked @ The Anvil Arsenal |
+
+"Undocked at a sun" is a tell that the record is stale, not that the ship is
+adrift. **Always `get_status` the agent before believing a rescue record** —
+all three were docked and recoverable under their own power, and all three
+recovered within a minute of `bin/rescue-clear`. prophet-2 was the same shape
+(docked @ Ironhearth, 0 credits, hold FULL 125/125 — it can sell its way out).
