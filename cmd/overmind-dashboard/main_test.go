@@ -196,3 +196,75 @@ func getJSON(t *testing.T, url string, v any) {
 		t.Fatalf("decode %s: %v", url, err)
 	}
 }
+
+// The agent card shows an opportunity only as a prose clause ("Opportunity
+// #1514259 · buying up to 1 of 1 Phase Disruptor"), which hides the figures
+// that decide whether the run is worth flying. This endpoint backs the card's
+// disclosure drawer, so it must serve the derived numbers -- above all the jump
+// count, since the stored travel_ticks/fuel_cost columns are always 0.
+func TestOpportunityEndpoint(t *testing.T) {
+	kb, market, statusDir := writeFixtures(t)
+	mustExec(t, kb, []string{
+		`CREATE TABLE bases (id TEXT PRIMARY KEY, poi_id TEXT, name TEXT)`,
+		`INSERT INTO systems VALUES ('gold_run','Gold Run',3,0,5,'outerrim',0,1)`,
+		`INSERT INTO pois (id, system_id, name, type, position_x, position_y, class, hidden)
+			VALUES ('gold_run_hub','gold_run','Gold Run Extraction Hub','station',0,0,'',0)`,
+		`INSERT INTO bases VALUES ('base_earth','earth','Earth Spaceport')`,
+		`INSERT INTO connections VALUES ('sol','gold_run',3)`,
+	})
+	mustExec(t, market, []string{
+		`CREATE TABLE arbitrage_opportunities (
+			id INTEGER PRIMARY KEY, from_station_id TEXT, to_station_id TEXT,
+			item_id TEXT, action_type TEXT, buy_price REAL, sell_price REAL,
+			quantity REAL, source_units REAL, gross_profit REAL,
+			claimed_by TEXT, claimed_at TEXT, status TEXT, expires_at TEXT,
+			discovered_at TEXT, discovered_by TEXT, notes TEXT)`,
+		`INSERT INTO arbitrage_opportunities VALUES
+			(4242,'base_earth','gold_run_hub','power_cell','buy_then_sell',
+			 100,160,10,900,600,'hauler-0','','claimed','','','scanner','')`,
+	})
+	srv, err := newServer(context.Background(), serverConfig{
+		KBPath: kb, MarketPath: market, StatusDir: statusDir, DistDir: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("newServer: %v", err)
+	}
+	ts := httptest.NewServer(srv.mux())
+	defer ts.Close()
+
+	var got ovdash.Opportunity
+	getJSON(t, ts.URL+"/api/overmind/opportunity/4242", &got)
+	if got.ID != 4242 || got.ItemID != "power_cell" {
+		t.Fatalf("got %+v", got)
+	}
+	// base_earth resolves only through bases.poi_id -> earth -> sol.
+	if got.FromName != "Earth Spaceport" || got.FromSystem != "Sol" {
+		t.Errorf("buy endpoint = %q in %q, want Earth Spaceport in Sol", got.FromName, got.FromSystem)
+	}
+	if got.Jumps != 1 || int(got.ProfitPerJump) != 600 {
+		t.Errorf("Jumps=%d ProfitPerJump=%v, want 1 and 600", got.Jumps, got.ProfitPerJump)
+	}
+	if int(got.UnitMargin) != 60 || int(got.MarginPct) != 60 {
+		t.Errorf("margin = %v (%v%%), want 60 and 60", got.UnitMargin, got.MarginPct)
+	}
+
+	// A pruned id is a 404, never a zero-valued opportunity.
+	resp, err := http.Get(ts.URL + "/api/overmind/opportunity/999999") //nolint:gosec,noctx
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("pruned id: want 404, got %d", resp.StatusCode)
+	}
+
+	// A non-numeric id is a client error, not a 500.
+	resp2, err := http.Get(ts.URL + "/api/overmind/opportunity/abc") //nolint:gosec,noctx
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp2.Body.Close() //nolint:errcheck
+	if resp2.StatusCode != http.StatusBadRequest {
+		t.Fatalf("bad id: want 400, got %d", resp2.StatusCode)
+	}
+}

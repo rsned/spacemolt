@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import type { AgentState } from '../../lib/useFleetStream';
 
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
@@ -26,19 +26,119 @@ function Row({ label, value, bar, title }: { label: string; value: string; bar?:
   );
 }
 
+/** The figures behind an opportunity, as served by /api/overmind/opportunity.
+    Jumps is -1 when no route is known: zero would read as "same station, free
+    run", which is the most expensive possible misreading. */
+type OppDetail = {
+  id: number; item_id: string; status?: string;
+  buy_price: number; sell_price: number; unit_margin: number; margin_pct: number;
+  quantity: number; source_units: number; gross_profit: number;
+  from_name?: string; from_system?: string; to_name?: string; to_system?: string;
+  jumps: number; profit_per_jump: number;
+  claimed_by?: string; expires_at?: string; notes?: string;
+};
+
+const num = (n: number) => Math.round(n).toLocaleString();
+
+/** One label/value line inside the drawer, matching the card's Row rhythm. */
+function Spec({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-2" title={hint}>
+      <span className="text-[#8a8570] shrink-0">{label}</span>
+      <span className="font-mono tabular-nums text-[#d8d3c0] text-right">{value}</span>
+    </div>
+  );
+}
+
+/** The expanded drawer. Shows what the activity clause cannot: the margin, the
+    route length, and -- the distinction that actually decides a haul -- how
+    much the DESTINATION will absorb versus how deep the seller's book is. A
+    book 39,608 deep whose buyer wants 30 is a 30-unit trade. */
+function OppDrawer({ detail }: { detail: OppDetail }) {
+  const route = detail.jumps < 0 ? 'unknown' : `${detail.jumps} jump${detail.jumps === 1 ? '' : 's'}`;
+  const perJump = detail.jumps > 0 ? ` \u00b7 ${num(detail.profit_per_jump)} cr/jump` : '';
+  return (
+    <div className="mt-1 ml-3 pl-2 border-l border-[#2a2618] space-y-0.5">
+      <Spec label="Buy" value={`${num(detail.buy_price)} cr/u`}
+        hint={detail.from_name ? `${detail.from_name}${detail.from_system ? ` (${detail.from_system})` : ''}` : undefined} />
+      <Spec label="Sell" value={`${num(detail.sell_price)} cr/u`}
+        hint={detail.to_name ? `${detail.to_name}${detail.to_system ? ` (${detail.to_system})` : ''}` : undefined} />
+      <Spec label="Margin" value={`${num(detail.unit_margin)} cr/u \u00b7 ${Math.round(detail.margin_pct)}%`} />
+      <Spec label="Route" value={`${route}${perJump}`} />
+      <Spec label="Qty" value={`${num(detail.quantity)} of ${num(detail.source_units)}`}
+        hint="destination absorbs / seller's book depth" />
+      <Spec label="Profit" value={`${num(detail.gross_profit)} cr`} />
+      {detail.claimed_by && <Spec label="Claimed" value={detail.claimed_by} />}
+      {detail.notes && <Spec label="Notes" value={detail.notes} />}
+    </div>
+  );
+}
+
 /** The activity string is the only place an opportunity's terms appear, and it
     is built as " · "-joined clauses. Truncating it hid the route entirely, and
     letting it wrap broke mid-clause. Splitting on the separator puts one clause
-    per line, continuation lines keeping their "·" so the grouping stays legible. */
+    per line, continuation lines keeping their "·" so the grouping stays legible.
+
+    When the text names an opportunity, the leading marker becomes a disclosure:
+    the clauses alone say what is being hauled but never whether it is worth
+    hauling, and a 1900-cargo hull committed to one unit over 21 jumps looks
+    identical to a full load until the numbers are expanded. Detail is fetched
+    on first open only, so collapsed cards cost nothing. */
 function Activity({ text }: { text: string }) {
   const parts = text.split(' · ');
+  const oppID = text.match(/Opportunity #(\d+)/)?.[1];
+  const [open, setOpen] = useState(false);
+  const [detail, setDetail] = useState<OppDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Guards against a second fetch while the first is still in flight, and
+  // against refetching when the drawer is reopened.
+  const loading = useRef(false);
+
+  const toggle = useCallback((e: React.MouseEvent | React.KeyboardEvent) => {
+    // The whole card is a button that selects the agent; without this, opening
+    // the drawer would also change the selection.
+    e.stopPropagation();
+    e.preventDefault();
+    const next = !open;
+    setOpen(next);
+    if (next && oppID && !detail && !loading.current) {
+      loading.current = true;
+      fetch(`/api/overmind/opportunity/${oppID}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 404 ? 'expired or pruned' : `HTTP ${r.status}`))))
+        .then((d: OppDetail) => setDetail(d))
+        .catch((err: Error) => setError(err.message))
+        .finally(() => { loading.current = false; });
+    }
+  }, [open, oppID, detail]);
+
   return (
-    <div className="text-[#d4a017] cursor-help leading-snug" title={text}>
+    <div className="text-[#d4a017] leading-snug">
       {parts.map((part, i) => (
-        <div key={i} className={i === 0 ? '' : 'pl-3'}>
-          {i === 0 ? '\u25BA ' : '\u00B7 '}{part}
+        <div key={i} className={i === 0 ? '' : 'pl-3'} title={i === 0 ? text : undefined}>
+          {i === 0 ? (
+            oppID ? (
+              <span
+                role="button"
+                tabIndex={0}
+                aria-expanded={open}
+                aria-label={open ? 'Hide opportunity details' : 'Show opportunity details'}
+                onClick={toggle}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggle(e); }}
+                className="cursor-pointer select-none hover:text-[#f0c040] focus:outline-none focus:text-[#f0c040]"
+              >
+                <span className="inline-block w-3">{open ? '\u25BC' : '\u25BA'}</span>{part}
+              </span>
+            ) : (
+              <span className="cursor-help"><span className="inline-block w-3">{'\u25BA'}</span>{part}</span>
+            )
+          ) : (
+            <><span className="inline-block w-3">{'\u00B7'}</span>{part}</>
+          )}
         </div>
       ))}
+      {open && detail && <OppDrawer detail={detail} />}
+      {open && !detail && !error && <div className="ml-3 pl-2 text-[#8a8570]">{'loading\u2026'}</div>}
+      {open && error && <div className="ml-3 pl-2 text-red-500">{error}</div>}
     </div>
   );
 }

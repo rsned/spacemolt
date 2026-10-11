@@ -6,11 +6,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -197,6 +199,28 @@ func (s *server) mux() *http.ServeMux {
 		acct := s.acct
 		s.mu.RUnlock()
 		writeJSONResp(w, acct)
+	})
+	// Backs the agent card's opportunity drawer. The card can only show the
+	// scanner's prose clause; the figures that decide whether a run is worth
+	// flying -- margin, depth vs destination absorption, and above all the jump
+	// count -- live here. Jumps are derived, because the stored travel_ticks
+	// and fuel_cost columns are always 0.
+	m.HandleFunc("GET /api/overmind/opportunity/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil {
+			http.Error(w, "opportunity id must be numeric", http.StatusBadRequest)
+			return
+		}
+		opp, err := ovdash.LoadOpportunity(r.Context(), s.cfg.MarketPath, s.cfg.KBPath, id)
+		if errors.Is(err, ovdash.ErrOpportunityNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeJSONResp(w, opp)
 	})
 	m.HandleFunc("POST /api/overmind/fleets/{fleet}/agents/{id}/remove", func(w http.ResponseWriter, r *http.Request) {
 		res, err := ovdash.AdminRemove(s.cfg.StatusDir, r.PathValue("fleet"), r.PathValue("id"))
