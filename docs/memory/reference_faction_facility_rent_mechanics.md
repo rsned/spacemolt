@@ -146,3 +146,21 @@ DB chain rebuilt Lockbox -> Desk -> Office (upgrade needs
 Funded by johnny_cab gifting the parked leaders: 1M to databot, 10M to
 craft_boss. Watch for `session_replaced` when play_as fights a live worker for
 the same credentials — verify a large gift landed before retrying it.
+
+## The Office restores the SERVICE, it does not raise a number
+
+`faction_office` is the **top** admin tier — the catalog has exactly two
+(`faction_desk` L1 100k, `faction_office` L2 500k, upgrades_from desk) and no
+facility in the catalog carries a member-cap field at all (`faction_cap` is
+*storage* capacity: lockbox 100,000, warehouse 200,000 units).
+
+Data Bots read **46/50 members both before and after** the Office came active,
+so rebuilding it did not move the cap. What it restores is the `faction_admin`
+**service**, which is what administering the faction (invites, roles) requires —
+that is why DB "could not add marketbots" while the Office was gone despite
+having free slots. Getting past 50 is not something any listed facility does.
+
+Verified 2026-10-12 after the upgrade completed: arrears cleared on the first
+funded cycle (93 → 0), both facilities active, 62/cycle. Note sol_central
+reported **grace: 0 cycles** against 260 at Grand Exchange — eviction tolerance
+is per-station too, so a single missed cycle there may be terminal.
