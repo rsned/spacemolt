@@ -83,3 +83,66 @@ cannot touch. Not yet built.
 
 Related: [[reference_v0618_visibility_overhaul]] ·
 [[project_haul_fleet_rehull_2026_10]] · [[reference_faction_withdraw_pulls_personal_storage]]
+
+## ⭐ `facility faction_owned` is the telemetry — it already exists
+
+Do not build a rent dashboard before running this. It aggregates **every
+station** (`faction_list` only covers the one you are docked at) and is the
+single call that answers "what do we owe":
+
+```
+CRFT 2026-10-12: 14 facilities, 2768/cycle, ~238,048/day
+  Grand Exchange (haven)   1351/cycle  116,186/day  10 facilities  labor 41/run
+  Voss Redoubt  (alhena)   1417/cycle  121,862/day   4 facilities  labor 40/run
+```
+
+**Voss costs more with 4 facilities than Grand Exchange does with 10.** Its
+production units bill **405/cycle** against 180 at Grand Exchange, and its
+Lockbox 202 against 90. Station rates vary by more than 2x and there is no way
+to know before building — a pre-build estimate scaled from Grand Exchange was
+less than half the real figure.
+
+## ⭐🔴 Labor is a second, usage-driven treasury charge
+
+> "Production facilities also bill their labor cost to the treasury per run."
+
+`faction_owned` reports it as `labor N/run` per station (CRFT: 81/run total).
+This is **not** in any rent aggregate and scales with how much we craft. It
+accounted for roughly 29,000 of a 45,437 treasury drop over 28 minutes that
+rent and arrears could not explain. Any runway calculation from rent alone is
+optimistic. `refuel_ally` in the storage activity log is *not* a credit cost —
+the Fuel Bunker holds a fuel reserve in units (`faction_fuel_reserve`).
+
+## ⭐ Repossession at a FOREIGN station transfers the facility
+
+> "at another faction's station a production facility passes to that faction and
+> any other facility is removed, with its build materials returned to your
+> faction storage there, after the owning faction takes enough of them to cover
+> the unpaid rent"
+
+So defaulting at someone else's station **hands them a working factory**, and
+they also take build materials to cover arrears. Non-production facilities come
+back as materials, minus their cut.
+
+## ⭐🟢 The strategic exit: own the station
+
+> "Facilities at your faction's own station or outpost pay no rent."
+
+Founding a faction station/outpost removes this cost class entirely. Both our
+factions report `Bases: 0`. That is the only fix that does not need perpetual
+funding, and it is why the faction mobile-base commands exist (currently
+declared unused in `command_coverage_test.go`).
+
+## 2026-10-12 outcome
+
+| faction | treasury before | after | rent/day | runway |
+|---|---:|---:|---:|---:|
+| CRFT | 51 | **10,302,978** | 238,048 | ~43 d |
+| Data Bots | 43 | **200,000** | 5,332 | ~37 d |
+
+DB chain rebuilt Lockbox -> Desk -> Office (upgrade needs
+`facility upgrade --facility_id=<id> --facility_type=faction_office`, *not*
+`faction_build`, which answers `this is an upgrade — use 'upgrade' action`).
+Funded by johnny_cab gifting the parked leaders: 1M to databot, 10M to
+craft_boss. Watch for `session_replaced` when play_as fights a live worker for
+the same credentials — verify a large gift landed before retrying it.
