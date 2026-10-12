@@ -12,6 +12,7 @@
 - [Sunless systems = generation artifact](reference_sunless_systems_intentional.md) — 9 systems, LLM-map slip, do NOT chase; real reveal hook is gsc_0026 faint_signature
 
 ## Fleet ops — live problems
+- ⭐🔴 [Facility rent: per-station, INVISIBLE until you build](reference_faction_facility_rent_mechanics.md) — 11 of 14 CRFT facilities repossessed 10-12; `faction_deposit_credits` needs storage AT that station (23,562 fails); `faction_build` ignores personal storage; gift the parked leader
 - ⭐🟢 [ROOT CAUSE of the IP blocks — FIXED](project_execute_loop_has_no_pacing_floor.md) — mine timeout desyncs w/ server pending → unpaced `loop -f` retries into instant "already pending" at 51/min vs a **30/min PER-SESSION** cap. Tick is 10s so 6/min is useful
 - ⭐🟢 [Mission-query loop FIXED, undeployed](project_mission_query_loop_burns_the_ip_budget.md) — 44% of traffic; board never refreshes on request so slow-poll is safe. **IP-block counter is SHARED across the address** (per-bot game_query is 300/min, never close)
 - [Player sightings timeline](project_player_sightings_timeline.md) — `2dfd83e9` DEPLOYED 08-29 to mb/assist/hunt/craft/shuttle; haul/unlock/mission-learn OLD binary; marketbot sensor net `2340e637` awaits mb restart
@@ -99,6 +100,7 @@
 - [Empire treasury payout collapse](project_empire_treasury_payout_collapse.md) — mission credits ~37% of advertised from 07-23, dev-confirmed treasury dry; XP still full
 
 ## Server API
+- ⭐🔴 [v0.618: chart is PUBLIC, ship visibility is scanner-gated](reference_v0618_visibility_overhaul.md) — `get_system_agents` returns NOTHING (dispatcher reroutes it; schedules are additive-only); `scan <poi_id>` replaces it; get_base fuel capture SAFE; absorbed `6e9120a4`
 - ⭐ [v0.572.0 crew/boarding/prizes](reference_v0572_boarding_personnel.md) — A+C absorbed 08-30 (structs, 3 pushes, `ship_captures`, `seen_prize_events`); B = 6 commands DEFERRED; capture is a NEW loss mode
 - ⭐🔴 [v0.564–v0.565: pay_bounty, resistance fix, station ids](reference_api_v0564_v0565_bounty_station_ids.md) — client is ~18 versions behind; `pay_bounty` has 0 hits in our Go
 - [v0.549.0 freight + per-crew pirates](reference_v0549_freight_and_percrew_pirates.md) — late delivery replaces default; shipping action=active; package_id addressing
@@ -160,7 +162,7 @@
 ## Gotchas — movement, docking, fuel
 - ⭐🔴 [Docked at 0 fuel is invisible to the watchdog](reference_docked_zero_fuel_invisible_to_watchdog.md) — `Stalled()` early-returns on Docked; hand-write a rescue record
 - ⭐🟢 [Ship-to-ship refuel WORKS dock-to-dock](reference_ship_to_ship_refuel_works_while_docked.md) — client fuel field stays 0 after; confirm via `tank_full` or a jump
-- ⭐🔴 [`connections` errs BOTH ways](reference_connections_phantom_edges.md) — 19 phantom edges (copied neighbour lists) shorten routes; wormhole lanes are absent entirely, so real one-way shortcuts are invisible
+- ⭐🟢 [`connections` is CLEAN — resolved 10-12](reference_connections_phantom_edges.md) — matches the public v0.618 chart exactly (506 sys / 2132 edges / 0 phantom); wormholes are hidden POIs, never lanes, so nothing is missing
 - ⭐🔴 [`poi_resources.remaining=0` is NOT depletion](reference_poi_resources_remaining_is_unreliable.md) — ore REGENERATES slowly; capital belts sit at 0 from over-mining yet still yield. Rank by `richness`, prefer non-capital. max_remaining fixed `847d47d2`
 - ⭐ [Jump time + fuel formulas](reference_ship_jump_time_and_fuel_formulas.md) — `jumpTicks=max(1,7−speed)`, fuel `ceil(scale^1.5×speed)`; every flat constant is wrong
 - [Travel is priced before it is measured](reference_travel_priced_before_measured.md) — zero-distance move to your own POI rejected as "Insufficient fuel"
