@@ -1052,6 +1052,19 @@ type OwnedFacility struct {
 	UnderConstruction bool   `json:"under_construction,omitempty"`
 }
 
+// FacilityReclaimed is the facility_reclaimed push: the station has taken
+// facilities back for unpaid rent. It is the terminal outcome of a
+// facility_rent_warning and cannot be reversed — each listed facility must be
+// rebuilt at full build cost with its materials supplied again. FactionID is
+// set only on the faction-owned variant.
+type FacilityReclaimed struct {
+	BaseID     string   `json:"base_id"`
+	BaseName   string   `json:"base_name,omitempty"`
+	FactionID  string   `json:"faction_id,omitempty"`
+	Facilities []string `json:"facilities,omitempty"`
+	Message    string   `json:"message,omitempty"`
+}
+
 // FacilityRentSummary is the shared rent aggregate. It is the `rent` block on
 // `facility owned`, the `player_rent` / `faction_rent` blocks on
 // `facility list`, and — from server v0.606.2 — `faction_rent` on both
@@ -1538,6 +1551,11 @@ type FactionListResponse struct {
 	FactionFacilities []FactionFacility      `json:"faction_facilities,omitempty"`
 	FactionStorage    *FactionStorageSummary `json:"faction_storage,omitempty"`
 	Hint              string                 `json:"hint,omitempty"`
+
+	// FactionRent is the shared rent aggregate for the caller's faction at this
+	// station, added in v0.618. ArrearsOwed and GraceCycles together are the
+	// only warning the API gives before the station repossesses the facilities.
+	FactionRent *FacilityRentSummary `json:"faction_rent,omitempty"`
 }
 
 // CreateFactionResponse wraps the response from create_faction command.
@@ -2255,6 +2273,22 @@ type ScanResponse struct {
 	// listed in RevealedInfo as "description". Scanning is the only way to
 	// read it, so it must be recorded.
 	Description string `json:"description,omitempty"`
+	ShipName    string `json:"ship_name,omitempty"`
+	CargoTypes  int    `json:"cargo_types,omitempty"`
+
+	// POI-scan fields (v0.618): `scan <poi_id>` scans the ships at another POI
+	// in your system, gated on a fitted ship scanner and run at 10 less power
+	// than a scan at your own POI. This is the only replacement for
+	// get_system_agents, which v0.618 emptied, so these decode the whole reply.
+	POIID             string             `json:"poi_id,omitempty"`
+	ScanPower         int                `json:"scan_power,omitempty"`
+	SignatureDetected bool               `json:"signature_detected,omitempty"`
+	Swept             bool               `json:"swept,omitempty"`
+	Contacts          []ScanContact      `json:"contacts,omitempty"`
+	NPCs              []ScanNPC          `json:"npcs,omitempty"`
+	Pirates           []ScanNPC          `json:"pirates,omitempty"`
+	Leviathans        []LeviathanContact `json:"leviathans,omitempty"`
+	Message           string             `json:"message,omitempty"`
 }
 
 // JettisonResponse wraps the response from jettison command.

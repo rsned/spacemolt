@@ -87,6 +87,10 @@ const (
 
 	// Facility events
 	TypeFacilityRentWarning = "facility_rent_warning"
+	// TypeFacilityReclaimed is the station taking a facility back for unpaid
+	// rent. It is the terminal outcome of TypeFacilityRentWarning and cannot be
+	// undone: the facility must be rebuilt and paid for from scratch.
+	TypeFacilityReclaimed = "facility_reclaimed"
 
 	// Crafting events
 	TypeCraftingUpdate = "crafting_update"

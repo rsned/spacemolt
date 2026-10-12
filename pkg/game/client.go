@@ -2741,13 +2741,44 @@ func (c *Client) handleResponse(resp protocol.Response) {
 
 	case protocol.TypeFacilityRentWarning:
 		// Faction facility rent is overdue. If left unpaid for grace_cycles
-		// consecutive cycles the station repossesses the facilities, so surface
-		// it loudly rather than burying it in the debug log only.
-		if msg, ok := resp.Payload["message"].(string); ok && msg != "" {
-			c.debugLogger.Printf("🏚️  FACILITY RENT WARNING: %s", msg)
-		} else {
-			c.debugLogger.Printf("🏚️  FACILITY RENT WARNING: %v", resp.Payload)
+		// consecutive cycles the station repossesses the facilities.
+		//
+		// This used to log to debugLogger, which SetDebug points at io.Discard,
+		// so in every production run the warning was thrown away. On 2026-10-12
+		// eleven facilities were repossessed across two stations having warned
+		// us each cycle beforehand, and nobody saw a line. It goes to the
+		// operational log, with the countdown, because missed/grace is the only
+		// part that says how long there is left to act.
+		owed, _ := resp.Payload["credits_owed"].(float64)
+		missed, _ := resp.Payload["missed_cycles"].(float64)
+		grace, _ := resp.Payload["grace_cycles"].(float64)
+		msg, _ := resp.Payload["message"].(string)
+		if msg == "" {
+			msg = fmt.Sprintf("%v", resp.Payload)
 		}
+		line := fmt.Sprintf("🏚️  FACILITY RENT WARNING: %s", msg)
+		if grace > 0 {
+			line += fmt.Sprintf(" [owed %.0f cr, missed %.0f of %.0f grace cycles]", owed, missed, grace)
+		}
+		c.logEvent(line)
+
+	case protocol.TypeFacilityReclaimed:
+		// The station has taken facilities back for unpaid rent. Terminal and
+		// irreversible — each one must be rebuilt at full build cost and its
+		// materials supplied again — so this is an operational event, never a
+		// debug-only line.
+		var ev serverapi.FacilityReclaimed
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		line := ev.Message
+		if line == "" {
+			line = fmt.Sprintf("facilities repossessed at %s", ev.BaseName)
+		}
+		if len(ev.Facilities) > 0 {
+			line += fmt.Sprintf(" [lost: %s]", strings.Join(ev.Facilities, ", "))
+		}
+		c.logEvent("🏚️  FACILITY RECLAIMED: " + line)
 
 	case protocol.TypeServerRestartWarning:
 		// The server announces an imminent restart (a version deploy), e.g.
@@ -4759,9 +4790,23 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeFactionPeaceAccepted:    {},
 	protocol.TypeDroneAdrift:             {},
 	protocol.TypeFacilityRentWarning:     {},
+	protocol.TypeFacilityReclaimed:       {},
 	protocol.TypeAchievementUnlocked:     {},
 	protocol.TypeCraftingUpdate:          {},
 	protocol.TypeServerRestartWarning:    {},
+}
+
+// logEvent writes an operational event that must survive with debug OFF. It
+// falls back to the debug logger only when no event logger was configured, so a
+// bare client still says something rather than swallowing the line.
+func (c *Client) logEvent(line string) {
+	if c.eventLogger != nil {
+		c.eventLogger.Print(line)
+		return
+	}
+	if c.debugLogger != nil {
+		c.debugLogger.Print(line)
+	}
 }
 
 // storeRawJSON stores raw JSON payloads for key response types

@@ -32,6 +32,18 @@ var ignoredCommands = map[string]string{
 	"get_location":    "v2 format; get_poi→get_location migration on hold (project_get_poi_retirement); consumed generically",
 	"storage":         "v2 unified storage command; client uses v1 view_storage/deposit_items/withdraw_items",
 
+	// Faction mobile bases — surfaced 2026-10-12 by the v0.618 docs/command
+	// refresh. Both of our factions report "Bases: 0" and nothing in the fleet
+	// founds or flies one, so there is no caller to write these wrappers for.
+	// Revisit if we ever found a faction base; the Outer Rim capital being
+	// mobile (reference_outer_rim_mobile_capital_and_marketbot_homes) is an NPC
+	// capital we observe, not one we operate.
+	"get_faction_mobile_base":          "faction mobile bases unused; we own 0 faction bases",
+	"move_faction_mobile_base":         "faction mobile bases unused; we own 0 faction bases",
+	"jump_faction_mobile_base":         "faction mobile bases unused; we own 0 faction bases",
+	"cancel_faction_mobile_base_jump":  "faction mobile bases unused; we own 0 faction bases",
+	"decommission_faction_mobile_base": "faction mobile bases unused; we own 0 faction bases",
+
 	// Streaming subscriptions — no client consumer yet:
 	"subscribe_market":        "streaming subscription; no client consumer",
 	"unsubscribe_market":      "streaming subscription; no client consumer",

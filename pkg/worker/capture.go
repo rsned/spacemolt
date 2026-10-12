@@ -248,9 +248,12 @@ func aggregateSupplyHistory(orders []knowledge.MarketSellOrderRow, now time.Time
 // PlayerObserver, so nothing is stored here directly. Each capture is
 // attempted even if an earlier one fails; the joined error is reported once.
 //
-// get_system_agents is gated on police_level 0 because every info call is
+// The sighting call is gated on police_level 0 because every info call is
 // paid from the same rate-limit budget whose exhaustion stranded ships in the
 // open, and hunters work lawless space. Widen the gate if more data is wanted.
+// It asks get_nearby rather than get_system_agents: v0.618.0 emptied the latter,
+// so system-wide visibility now needs a fitted ship scanner and own-POI is all
+// an unequipped hull can see.
 func KBWaypointCapture(ctx context.Context, client game.GameClient, kb knowledge.Base) error {
 	if kb == nil {
 		return nil
@@ -260,8 +263,8 @@ func KBWaypointCapture(ctx context.Context, client game.GameClient, kb knowledge
 		errs = append(errs, err)
 	}
 	if st := client.GetState(); st != nil && st.System.PoliceLevel == 0 {
-		if err := client.GetSystemAgents(ctx); err != nil {
-			errs = append(errs, fmt.Errorf("get_system_agents failed: %w", err))
+		if err := client.GetNearby(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("get_nearby failed: %w", err))
 		}
 	}
 	if err := KBUpdatePOI(ctx, client, kb, ""); err != nil {

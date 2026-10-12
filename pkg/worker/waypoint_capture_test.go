@@ -33,15 +33,21 @@ func waypointClient(policeLevel int) *fakeClient {
 	}
 }
 
-// In lawless space every hop asks who else is in the system, so a hunter's
-// movements can be rebuilt after the fact.
-func TestKBWaypointCaptureAsksForSystemAgentsInLawlessSpace(t *testing.T) {
+// In lawless space every hop asks who else is around, so a hunter's movements
+// can be rebuilt after the fact. Server v0.618.0 made get_system_agents return
+// an empty list (and promised its removal), so the hop must ask get_nearby --
+// the only call that still reports anyone -- and must not spend budget on the
+// dead one.
+func TestKBWaypointCaptureAsksForNearbyInLawlessSpace(t *testing.T) {
 	client := waypointClient(0)
 	if err := KBWaypointCapture(context.Background(), client, knowledge.NewMemoryKB()); err != nil {
 		t.Fatalf("KBWaypointCapture: %v", err)
 	}
-	if !slices.Contains(client.calls, "get_system_agents") {
-		t.Errorf("calls = %v, want get_system_agents", client.calls)
+	if !slices.Contains(client.calls, "get_nearby") {
+		t.Errorf("calls = %v, want get_nearby", client.calls)
+	}
+	if slices.Contains(client.calls, "get_system_agents") {
+		t.Errorf("calls = %v, must not include the retired get_system_agents", client.calls)
 	}
 	// The system and POI captures every hop already did must survive.
 	if !slices.Contains(client.calls, "get_system") || !slices.Contains(client.calls, "get_poi") {
@@ -51,13 +57,15 @@ func TestKBWaypointCaptureAsksForSystemAgentsInLawlessSpace(t *testing.T) {
 
 // Policed space is not where hunters work, and every extra call comes out of
 // the same rate-limit budget whose exhaustion got ships killed.
-func TestKBWaypointCaptureSkipsSystemAgentsInPolicedSpace(t *testing.T) {
+func TestKBWaypointCaptureSkipsSightingCallInPolicedSpace(t *testing.T) {
 	client := waypointClient(3)
 	if err := KBWaypointCapture(context.Background(), client, knowledge.NewMemoryKB()); err != nil {
 		t.Fatalf("KBWaypointCapture: %v", err)
 	}
-	if slices.Contains(client.calls, "get_system_agents") {
-		t.Errorf("calls = %v, must not include get_system_agents", client.calls)
+	for _, dead := range []string{"get_system_agents", "get_nearby"} {
+		if slices.Contains(client.calls, dead) {
+			t.Errorf("calls = %v, must not include %s", client.calls, dead)
+		}
 	}
 }
 
@@ -85,8 +93,24 @@ func TestDispatchRunsSightingCommandsByName(t *testing.T) {
 		if err := d.Run(context.Background(), []string{cmd}); err != nil {
 			t.Fatalf("Run(%s): %v", cmd, err)
 		}
-		if !slices.Contains(fc.calls, cmd) {
-			t.Errorf("Run(%s) issued %v", cmd, fc.calls)
+		if !slices.Contains(fc.calls, "get_nearby") {
+			t.Errorf("Run(%s) issued %v, want get_nearby", cmd, fc.calls)
 		}
+	}
+}
+
+// Schedule seeding is additive only: a command already written into an agent's
+// schedule.json fires forever, so deleting get_system_agents from the role
+// config cannot stop the traffic. The dispatcher is the only chokepoint, and it
+// must answer the retired name with the live call instead of forwarding a
+// request the server now answers with an empty list.
+func TestDispatchNeverForwardsRetiredSystemAgents(t *testing.T) {
+	fc := &fakeClient{state: waypointState(3)}
+	d := NewWorkerDispatch(fc, knowledge.NewMemoryKB(), nil, io.Discard)
+	if err := d.Run(context.Background(), []string{"get_system_agents"}); err != nil {
+		t.Fatalf("Run(get_system_agents): %v", err)
+	}
+	if slices.Contains(fc.calls, "get_system_agents") {
+		t.Errorf("calls = %v, must not forward the retired get_system_agents", fc.calls)
 	}
 }

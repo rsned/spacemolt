@@ -147,7 +147,28 @@ type FactionScanPOIResponse struct {
 	Contacts          []ScanContact `json:"contacts,omitempty"`
 	NPCs              []ScanNPC     `json:"npcs,omitempty"`
 	Pirates           []ScanNPC     `json:"pirates,omitempty"`
-	Message           string        `json:"message"`
+	// Leviathans at the POI (v0.618). Omitted when none are there. An
+	// aggressive one attacks ships at its POI, so this is a go/no-go for
+	// sending anything smaller than a warship.
+	Leviathans []LeviathanContact `json:"leviathans,omitempty"`
+	Message    string             `json:"message"`
+}
+
+// LeviathanContact is a leviathan turned up by a POI scan (v0.618). Hull damage
+// carries over between fights and heals slowly out of battle, so Hull/MaxHull
+// describe a persistent creature rather than a fresh spawn. LeviathanID is
+// stable for its whole life and is the creature_id to attack while at its POI.
+type LeviathanContact struct {
+	LeviathanID string `json:"leviathan_id"`
+	Species     string `json:"species"`
+	Name        string `json:"name"`
+	Stage       string `json:"stage"`
+	Hull        int    `json:"hull"`
+	MaxHull     int    `json:"max_hull"`
+	// Aggressive stages attack ships at their POI but never join a fight
+	// already in progress.
+	Aggressive bool `json:"aggressive"`
+	InCombat   bool `json:"in_combat"`
 }
 
 // ScanContact is a player ship turned up by faction_scan_poi. RevealedInfo

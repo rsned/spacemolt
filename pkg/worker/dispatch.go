@@ -596,14 +596,18 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			return err
 		}
 		return market.CaptureFromClient(ctx, d.Client, d.Market)
-	case "get_system_agents":
-		// Who else is in the system. Sightings persist through the client's
-		// PlayerObserver; nothing to store here. Residents run it on the
+	case "get_system_agents", "get_nearby":
+		// Who is visible right now. Sightings persist through the client's
+		// PlayerObserver; nothing to store here. Residents run this on the
 		// update_market cadence as a fixed sensor net.
-		return d.Client.GetSystemAgents(ctx)
-	case "get_nearby":
-		// Who is at this POI; the POI-level companion of get_system_agents
-		// (the recorder merges the two into one observation per tick).
+		//
+		// Server v0.618.0 emptied get_system_agents -- it returns no one, warns,
+		// and is slated for removal -- leaving get_nearby (own POI) as the only
+		// call that still reports anybody. Both names route there because
+		// schedule seeding is additive only: get_system_agents is already
+		// written into agents' schedule.json files and would fire forever no
+		// matter what the role config says, so the dispatcher is the only place
+		// the dead request can actually be stopped.
 		return d.Client.GetNearby(ctx)
 	case "capture_fuel":
 		if d.Market == nil {
