@@ -46,9 +46,13 @@ build; it is the only chance to learn that station's rate.**
 ## Build mechanics (learned the hard way)
 
 - **`faction_build` draws materials from faction storage / packages / cargo —
-  NEVER from the builder's personal storage.** The **credit** cost comes from
-  the **builder's own wallet**, not the treasury (databot 1,032,281 → 232,324
-  across 800k of builds), so the leader needs the cash on hand as well. Error:
+  NEVER from the builder's personal storage.**
+- ⭐🔴 **Credits come from the TREASURY first, then the builder's wallet.** An
+  earlier reading suggested wallet-only, but that was only because the treasury
+  was empty at the time. Measured 2026-10-12 on the `recruitment_desk` upgrade
+  (300,000): treasury 199,845 → **0** and the wallet covered the remaining
+  ~100,775. **A build silently drains the treasury**, so a facility bought right
+  after funding leaves rent unpayable — re-fund immediately after every build. Error:
   `need 100 x steel_plate, have 0 in packages + 50 in faction storage + 0 in cargo`
 - The **first** `faction_lockbox` is the bootstrap: it has no
   `requires_service_type`, so it builds before any faction storage exists.
@@ -178,3 +182,20 @@ Verified 2026-10-12 after the upgrade completed: arrears cleared on the first
 funded cycle (93 → 0), both facilities active, 62/cycle. Note sol_central
 reported **grace: 0 cycles** against 260 at Grand Exchange — eviction tolerance
 is per-station too, so a single missed cycle there may be terminal.
+
+## ⭐🔴 UNRESOLVED: members_limit does not follow the Recruitment Desk
+
+Built Data Bots' recruitment chain 2026-10-12: `hiring_board` (75k) upgraded to
+`recruitment_desk` (300k). The upgrade reply itself returned `"capacity": 100`,
+and `facility faction_list` shows it **active, level 2, Capacity 100**.
+
+But `faction_info` still reports **`members_limit: 50`**, re-checked 15 minutes
+after it went active. `member_count` 46.
+
+So the effective cap is **unverified**. It may be a lazy server-side cache, or
+`members_limit` may be computed from something we have not found. There is no
+way to distinguish by experiment until the faction actually reaches 50 members —
+below that an invite succeeds either way. Data Bots can certainly add **4** more
+right now; whether it can pass 50 is unknown and would be discovered at member
+51. Worth a DevTeam question. `members_limit` is a real server field
+(`pkg/game/serverapi/responses.go:1503`), not a client constant.
