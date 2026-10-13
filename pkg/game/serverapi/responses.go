@@ -1052,6 +1052,24 @@ type OwnedFacility struct {
 	UnderConstruction bool   `json:"under_construction,omitempty"`
 }
 
+// GiftReceived is the gift_received push: another player's gift has committed
+// to you. Credits land in the **wallet**; items and ships land in personal
+// storage at BaseID, which for a ship may be a station other than the one you
+// are docked at. BaseID is omitted on a credit-only gift.
+//
+// The server documents this as "the same entry that storage view and dock
+// return in gifts[], plus base_id", so it embeds StorageGift rather than
+// restating it. That entry persists in storage, so a client that was offline
+// still sees the gift there.
+//
+// This is the authoritative confirmation that a gift landed: the worker
+// heartbeat reads a stale 0 balance, which makes a delivered gift look like a
+// failed one (memory reference_worker_heartbeat_credits_stale).
+type GiftReceived struct {
+	StorageGift
+	BaseID string `json:"base_id,omitempty"`
+}
+
 // FacilityReclaimed is the facility_reclaimed push: the station has taken
 // facilities back for unpaid rent. It is the terminal outcome of a
 // facility_rent_warning and cannot be reversed — each listed facility must be

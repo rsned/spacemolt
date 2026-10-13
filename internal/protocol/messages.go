@@ -92,6 +92,12 @@ const (
 	// undone: the facility must be rebuilt and paid for from scratch.
 	TypeFacilityReclaimed = "facility_reclaimed"
 
+	// TypeGiftReceived is another player's gift committing to you — credits
+	// land in the wallet, items and ships in personal storage at base_id. The
+	// same entry persists in storage's gifts[], so an offline client still sees
+	// it.
+	TypeGiftReceived = "gift_received"
+
 	// Crafting events
 	TypeCraftingUpdate = "crafting_update"
 

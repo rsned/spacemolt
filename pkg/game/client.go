@@ -2762,6 +2762,42 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 		c.logEvent(line)
 
+	case protocol.TypeGiftReceived:
+		// A gift has committed to us. Credits are already in the wallet; items
+		// and ships sit in personal storage at base_id, which for a ship can be
+		// a station we are not docked at. Operational, not debug: this is the
+		// only authoritative "the money/asset arrived" signal, and the worker
+		// heartbeat's stale 0 balance makes a landed gift look like a failure.
+		var ev serverapi.GiftReceived
+		if data, err := json.Marshal(resp.Payload); err == nil {
+			_ = json.Unmarshal(data, &ev)
+		}
+		parts := make([]string, 0, 3)
+		if ev.Credits != 0 {
+			parts = append(parts, fmt.Sprintf("%d credits", ev.Credits))
+		}
+		for _, it := range ev.Items {
+			parts = append(parts, fmt.Sprintf("%d x %s", it.Quantity, it.ItemID))
+		}
+		for _, sh := range ev.Ships {
+			name := sh.ClassName
+			if name == "" {
+				name = sh.ClassID
+			}
+			parts = append(parts, fmt.Sprintf("ship %s (%s)", name, sh.ShipID))
+		}
+		if len(parts) == 0 {
+			parts = append(parts, "nothing decodable")
+		}
+		line := fmt.Sprintf("🎁 GIFT RECEIVED from %s: %s", ev.Sender, strings.Join(parts, ", "))
+		if ev.BaseID != "" {
+			line += " @ " + ev.BaseID
+		}
+		if ev.Message != "" {
+			line += fmt.Sprintf(" — %q", ev.Message)
+		}
+		c.logEvent(line)
+
 	case protocol.TypeFacilityReclaimed:
 		// The station has taken facilities back for unpaid rent. Terminal and
 		// irreversible — each one must be rebuilt at full build cost and its
@@ -4791,6 +4827,7 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeDroneAdrift:             {},
 	protocol.TypeFacilityRentWarning:     {},
 	protocol.TypeFacilityReclaimed:       {},
+	protocol.TypeGiftReceived:            {},
 	protocol.TypeAchievementUnlocked:     {},
 	protocol.TypeCraftingUpdate:          {},
 	protocol.TypeServerRestartWarning:    {},

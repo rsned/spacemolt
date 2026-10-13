@@ -87,3 +87,69 @@ func TestFacilityEventsArePushOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestGiftReceivedTypeConstant(t *testing.T) {
+	if protocol.TypeGiftReceived != "gift_received" {
+		t.Fatalf("TypeGiftReceived = %q, want %q", protocol.TypeGiftReceived, "gift_received")
+	}
+}
+
+// Credits arriving by gift are how broke agents and faction treasuries get
+// funded, and the worker heartbeat reads a stale 0 balance — so a landed gift
+// looks like a failed one. This push is the authoritative confirmation, and it
+// must survive with debug OFF.
+func TestGiftReceivedCreditsReachEventLog(t *testing.T) {
+	var buf bytes.Buffer
+	c := facilityEventClient(&buf)
+	c.handleResponse(protocol.Response{
+		Type: protocol.TypeGiftReceived,
+		Payload: map[string]any{
+			"credits":   float64(400000),
+			"sender":    "Johnny_Cab",
+			"sender_id": "3b90160c94a34f159384eae69f3e140c",
+			"timestamp": "2026-10-13T01:51:58Z",
+		},
+	})
+	got := buf.String()
+	if !strings.Contains(got, "Johnny_Cab") {
+		t.Errorf("event log = %q, want the sender named", got)
+	}
+	if !strings.Contains(got, "400000") && !strings.Contains(got, "400,000") {
+		t.Errorf("event log = %q, want the credit amount", got)
+	}
+}
+
+// An item gift lands in storage at base_id, not in cargo, and a ship gift can
+// land at a station other than the one you are docked at. Both have to be
+// reported or the assets are invisible until someone happens to look.
+func TestGiftReceivedItemsAndShipsNameTheStation(t *testing.T) {
+	var buf bytes.Buffer
+	c := facilityEventClient(&buf)
+	c.handleResponse(protocol.Response{
+		Type: protocol.TypeGiftReceived,
+		Payload: map[string]any{
+			"sender":    "craftsman-1",
+			"sender_id": "a50924913cef881c5e4d14257589d9ba",
+			"timestamp": "2026-10-13T01:52:00Z",
+			"base_id":   "confederacy_central_command",
+			"items": []any{
+				map[string]any{"item_id": "steel_plate", "name": "Steel Plate", "quantity": float64(200)},
+			},
+			"ships": []any{
+				map[string]any{"ship_id": "s1", "class_id": "congregation", "class_name": "Congregation"},
+			},
+		},
+	})
+	got := buf.String()
+	for _, want := range []string{"craftsman-1", "steel_plate", "confederacy_central_command", "Congregation"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("event log = %q, want it to contain %q", got, want)
+		}
+	}
+}
+
+func TestGiftReceivedIsPushOnly(t *testing.T) {
+	if _, ok := pushOnlyResponseTypes[protocol.TypeGiftReceived]; !ok {
+		t.Error("pushOnlyResponseTypes missing gift_received")
+	}
+}
