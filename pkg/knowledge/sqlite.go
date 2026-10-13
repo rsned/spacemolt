@@ -302,7 +302,7 @@ func (kb *SQLiteKB) GetSystem(ctx context.Context, systemID string) (*System, er
 	var sys System
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, name, COALESCE(description, ''), position_x, position_y, police_level, COALESCE(security_status, ''), empire, is_stronghold, last_updated_tick, last_visited_tick
+		SELECT id, name, COALESCE(description, ''), position_x, position_y, police_level, COALESCE(security_status, ''), COALESCE(empire, ''), is_stronghold, last_updated_tick, last_visited_tick
 		FROM systems
 		WHERE id = ?
 	`, systemID).Scan(
@@ -677,7 +677,7 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 	var description, story sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, poi_id, name, description, COALESCE(story, ''), empire, defense_level, has_drones, public_access,
+		SELECT id, poi_id, name, COALESCE(description, ''), COALESCE(story, ''), COALESCE(empire, ''), defense_level, has_drones, public_access,
 			COALESCE(pirate_rep_required, 0), COALESCE(condition, ''), COALESCE(condition_text, ''),
 			COALESCE(satisfaction_pct, 0), COALESCE(satisfied_count, 0), COALESCE(total_service_infra, 0),
 			last_updated_tick
@@ -796,7 +796,7 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 	var description, story sql.NullString
 
 	err := kb.db.QueryRowContext(ctx, `
-		SELECT id, poi_id, name, description, COALESCE(story, ''), empire, defense_level, has_drones, public_access,
+		SELECT id, poi_id, name, COALESCE(description, ''), COALESCE(story, ''), COALESCE(empire, ''), defense_level, has_drones, public_access,
 			COALESCE(pirate_rep_required, 0), COALESCE(condition, ''), COALESCE(condition_text, ''),
 			COALESCE(satisfaction_pct, 0), COALESCE(satisfied_count, 0), COALESCE(total_service_infra, 0),
 			last_updated_tick
@@ -959,7 +959,7 @@ func (kb *SQLiteKB) RegisterAgent(ctx context.Context, agentID, name, role, empi
 func (kb *SQLiteKB) GetSystems(ctx context.Context) ([]System, error) {
 	// Query all systems with full details
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, name, COALESCE(description, ''), position_x, position_y, police_level, COALESCE(security_status, ''), empire, is_stronghold, last_updated_tick, last_visited_tick
+		SELECT id, name, COALESCE(description, ''), position_x, position_y, police_level, COALESCE(security_status, ''), COALESCE(empire, ''), is_stronghold, last_updated_tick, last_visited_tick
 		FROM systems
 	`)
 	if err != nil {
