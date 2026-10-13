@@ -132,6 +132,19 @@ func ReconcileSecondments(ledgerPath string, home, awayFleet FleetSide, opts Rec
 	away := led.Away()
 	for i := range led.Entries {
 		e := &led.Entries[i]
+		// A sweep is configured for ONE home fleet, but the ledger holds every
+		// fleet's rotations. Processing another fleet's entry here would edit
+		// THIS sweep's overrides for an agent that fleet never rostered, which
+		// removes it from a fleet it was not in and leaves it running in both
+		// its real home and the away fleet -- the session_replaced thrash that
+		// kills worker sessions. Six craftsmen hit that on 2026-10-13 when a
+		// haul-homed sweep picked up craft-homed entries.
+		//
+		// HomeFleet is empty on ledgers written before it was recorded; those
+		// entries are processed as before so old rotations still complete.
+		if e.HomeFleet != "" && e.HomeFleet != home.Name {
+			continue
+		}
 		switch e.Phase {
 		case PhaseNominated:
 			if away >= opts.maxInFlight() {
