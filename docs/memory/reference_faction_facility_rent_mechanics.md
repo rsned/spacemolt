@@ -46,7 +46,9 @@ build; it is the only chance to learn that station's rate.**
 ## Build mechanics (learned the hard way)
 
 - **`faction_build` draws materials from faction storage / packages / cargo —
-  NEVER from the builder's personal storage.** Error:
+  NEVER from the builder's personal storage.** The **credit** cost comes from
+  the **builder's own wallet**, not the treasury (databot 1,032,281 → 232,324
+  across 800k of builds), so the leader needs the cash on hand as well. Error:
   `need 100 x steel_plate, have 0 in packages + 50 in faction storage + 0 in cargo`
 - The **first** `faction_lockbox` is the bootstrap: it has no
   `requires_service_type`, so it builds before any faction storage exists.
@@ -147,18 +149,30 @@ Funded by johnny_cab gifting the parked leaders: 1M to databot, 10M to
 craft_boss. Watch for `session_replaced` when play_as fights a live worker for
 the same credentials — verify a large gift landed before retrying it.
 
-## The Office restores the SERVICE, it does not raise a number
+## Member cap is `faction_recruitment`, NOT the Office
 
-`faction_office` is the **top** admin tier — the catalog has exactly two
-(`faction_desk` L1 100k, `faction_office` L2 500k, upgrades_from desk) and no
-facility in the catalog carries a member-cap field at all (`faction_cap` is
-*storage* capacity: lockbox 100,000, warehouse 200,000 units).
+⭐ **`faction_cap` means two different things depending on service type.** On
+`faction_storage` it is storage units (lockbox 100,000, warehouse 200,000); on
+`faction_recruitment` it is the **member cap**. Conflating them led to a wrong
+conclusion on 2026-10-12 that no facility raises the cap. It does — there is a
+five-tier ladder and **every upgrade raises the limit**:
 
-Data Bots read **46/50 members both before and after** the Office came active,
-so rebuilding it did not move the cap. What it restores is the `faction_admin`
-**service**, which is what administering the faction (invites, roles) requires —
-that is why DB "could not add marketbots" while the Office was gone despite
-having free slots. Getting past 50 is not something any listed facility does.
+| L | id | build cost | member cap | materials |
+|---|---|---:|---:|---|
+| 1 | `hiring_board` | 75,000 | **50** | 75 steel, 25 circuit |
+| 2 | `recruitment_desk` | 300,000 | **100** | 200, 100 |
+| 3 | `recruitment_center` | 2,000,000 | **200** | 1000, 500, 300 flex_polymer |
+| 4 | `guild_hall_recruiting` | 8,000,000 | **400** | 3000, 1500, 800 titanium_alloy |
+| 5 | `grand_recruitment_bureau` | 20,000,000 | **1000** | 8000, 5000, 2500 titanium_alloy, 1000 durasteel_plate |
+
+Each upgrades_from the tier below; all require `faction_storage`. This is the
+gate on marketbot fleet growth — Data Bots sat at 46/50.
+
+`faction_office` is a separate thing: the **top** of exactly two `faction_admin`
+tiers (`faction_desk` L1 100k → `faction_office` L2 500k). It restores the
+admin service that invites and role management need, and it did **not** move the
+displayed cap (46/50 before and after). Both are needed: admin to invite,
+recruitment to have somewhere to put them.
 
 Verified 2026-10-12 after the upgrade completed: arrears cleared on the first
 funded cycle (93 → 0), both facilities active, 62/cycle. Note sol_central
