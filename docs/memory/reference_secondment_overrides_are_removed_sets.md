@@ -47,3 +47,52 @@ two-source-of-truth split.
 
 Related: [[project_pirate_reputation_unlock_campaign]] ·
 [[reference_worker_quiesce_park]] · [[project_fleet_pool_dynamic_membership]]
+
+## ⭐🔴 2026-10-13: two more ways this bites, both hit in one operation
+
+Seconding the nine idle craftsmen craft -> unlock for the pirate unlock.
+
+### 1. A sweep applies the CLI `--home` to EVERY ledger entry — FIXED `e63b02d2`
+
+`ReconcileSecondments` iterated all entries and used the configured home fleet
+for each, ignoring the entry's own `HomeFleet`. A **haul**-homed sweep run to
+clear six stale August returns also picked up the **craft**-homed craftsman
+entries and wrote them into `haul-overrides.json`, a fleet that never rostered
+them. Six craftsmen ended up ACTIVE in craft AND unlock at once.
+
+The ledger itself was always right (`home=craft`); only the file being edited
+was wrong. Fixed: a sweep now skips entries whose `HomeFleet` is not its own.
+**Still: run one sweep per home fleet, and read the log lines — "seconded
+haul -> unlock" for a craft-homed agent is the tell.**
+
+### 2. ⭐🔴 SIGHUP does NOT apply the overrides sidecar
+
+Editing `<fleet>-overrides.json` and sending SIGHUP reloads the **yaml** but
+leaves the removed agents' workers running. The craft supervisor kept five
+workers alive through a SIGHUP. What actually stops a worker is the control
+API:
+
+```
+POST http://localhost:8091/api/overmind/fleets/<fleet>/agents/<id>/remove
+```
+
+(returns `{"status":"accepted"}`, then drains up to `DefaultRemoveDrainTimeout`
+= 240s; some took >8 min). `GET /api/overmind/fleets` is 404 — only the
+documented per-agent routes exist.
+
+### 3. Detecting a double-run
+
+Status files, `healthy`, and `restarts` all look NORMAL — both fleets happily
+report the same worker. The only ground truth is counting processes per agent:
+
+```bash
+for p in /proc/[0-9]*; do [ "$(cat $p/comm 2>/dev/null)" = worker ] || continue
+  cl=$(tr '\0' ' ' < $p/cmdline); pp=$(awk '/^PPid:/{print $2}' $p/status)
+  case " $cl " in *" <agent-id> "*) echo "<agent-id> ppid=$pp";; esac
+done | sort | uniq -c   # count >1, or two different ppids = DOUBLE-RUN
+```
+
+Two ppids for one agent_id is the signature; map ppid to fleet by reading the
+supervisor's `/proc/<ppid>/cmdline`. Never `pgrep -f` — it matches your own
+shell. 56 `session_replaced` events were logged while the doubles ran.
+
