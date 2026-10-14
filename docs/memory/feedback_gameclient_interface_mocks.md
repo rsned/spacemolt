@@ -31,3 +31,17 @@ to compile-check every test package quickly. The two mocks use no-op stubs:
 `func (m *mockGameClient) X(ctx context.Context, ...) error { return nil }`.
 Relates to [[project_request_id_rollout]] and the phase-1 work in
 [[project_api_currentness_round]].
+
+**MemoryKB implements NONE of the wildlife interfaces (2026-10-14).**
+`CaptureWildlifeScan` and `UnscannedSpecies` both resolve the KB through a type
+assertion (`wildlifeRecorder` / `WildlifeReader`) and **silently return nil**
+when it fails, so a wildlife test written against `knowledge.NewMemoryKB()`
+passes whether the code works or not. Use a real SQLite KB —
+`knowledge.NewSQLiteKB(knowledge.Config{DBPath: knowledgetest.Path(t)})`.
+
+Related trap in the same area: `UnscannedWildlifeSpecies` deliberately ignores a
+species with NO row at all, so asserting "not unscanned" against an empty KB is
+vacuously true. Seed the species first (as `get_nearby` does) and assert the
+precondition that it reads as unscanned BEFORE the action under test. Both of
+these produced false greens on a live bug in one sitting.
+[[reference_wildlife_update_20261014_lev_ids_variable_hull]]
