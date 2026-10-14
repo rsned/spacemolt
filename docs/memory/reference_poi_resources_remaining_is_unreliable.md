@@ -40,3 +40,11 @@ when an incoming `get_location` row carries none), so rows refill on the next
 `update_poi` at each POI with no backfill needed. Same family as
 [[reference_capture_loss_taxonomy]]: a column that has never held real data
 looks identical to one reporting a real zero.
+
+**Richness is on a 2-90 scale, not a 0-1 fraction** (2026-10-13). Across every
+row in `poi_resources` the range is 2.0-90.0, averaging ~33.98. The server
+sends it raw and `capture.go` stores it unchanged, so print it as-is -- which
+is what `explore.go` and `get_location`'s "Rich" column already do. A
+formatter that multiplied by 100 rendered Caph Disk's iron as "4000%", fixed
+in `10524e79`; the test fixture had encoded the same wrong 0-1 assumption,
+which is why it passed.
