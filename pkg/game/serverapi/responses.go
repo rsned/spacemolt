@@ -32,14 +32,23 @@ type GetPOIResponse struct {
 	// InTransit marks the transit variant, where the reply describes a journey
 	// in progress and carries no POI. Kind alone is not enough: it is the
 	// v0.531.4 discriminator and a reply predating it sets only this flag.
-	InTransit     bool              `json:"in_transit,omitempty"`
-	POI           POI               `json:"poi"`
-	Base          *Base             `json:"base,omitempty"`
-	PoliceDrones  int               `json:"police_drones,omitempty"`
-	PoliceWarning string            `json:"police_warning,omitempty"`
-	Resources     []ResourceDisplay `json:"resources,omitempty"`
-	Services      []string          `json:"services,omitempty"`
-	ActiveBattle  *ActiveBattle     `json:"active_battle,omitempty"`
+	InTransit bool `json:"in_transit,omitempty"`
+	// Transit detail, present only on the transit variant. TicksRemaining is
+	// the ETA -- the only field that says how long until the ship can act
+	// again -- and TransitType distinguishes a jump between systems from a
+	// travel within one.
+	FromSystem     string            `json:"from_system,omitempty"`
+	ToSystem       string            `json:"to_system,omitempty"`
+	TicksRemaining int               `json:"ticks_remaining,omitempty"`
+	TransitType    string            `json:"transit_type,omitempty"`
+	Message        string            `json:"message,omitempty"`
+	POI            POI               `json:"poi"`
+	Base           *Base             `json:"base,omitempty"`
+	PoliceDrones   int               `json:"police_drones,omitempty"`
+	PoliceWarning  string            `json:"police_warning,omitempty"`
+	Resources      []ResourceDisplay `json:"resources,omitempty"`
+	Services       []string          `json:"services,omitempty"`
+	ActiveBattle   *ActiveBattle     `json:"active_battle,omitempty"`
 
 	// Fuel pricing at this POI's base. all_in folds in the per-unit tax.
 	FuelPrice           int `json:"fuel_price,omitempty"`

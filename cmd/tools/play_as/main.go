@@ -856,6 +856,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return "Undocked"
 	case "system", "get_system":
 		return formatSystem(raw)
+	case "poi", "get_poi":
+		return formatPOI(raw)
 	case "withdraw", "withdraw_items":
 		return formatWithdraw(raw)
 	case "create_faction":
