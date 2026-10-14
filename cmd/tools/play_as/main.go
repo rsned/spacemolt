@@ -98,11 +98,13 @@ func main() {
 	marketDBPath := flag.String("market-db-path", "data/market.db", "Path to the separate market database")
 	assetsDBPath := flag.String("assets-db-path", "data/assets.db", "path to the agent asset ledger; empty disables asset capture")
 	intelDir := flag.String("intel-dir", "data/intel", "Base directory for per-POI get_poi intel dumps (<intel-dir>/<system_id>/<system_id>___<poi_id>.json); empty to disable")
+	wildlifeGrowthDir := flag.String("wildlife-growth-dir", "data/wildlife-growth", "TEMPORARY: base directory for per-creature hull observations (observations.jsonl), used to design permanent storage now that creature hull varies per individual; empty to disable")
 	xpTracking := flag.Bool("xp-tracking", true, "Enable XP observation tracking to the knowledge base")
 	transport := flag.String("transport", "ws", "Game transport: 'ws' (WebSocket, default) or 'mcp' (MCP over HTTP)")
 	flag.Parse()
 
 	globalIntelDir = *intelDir
+	globalWildlifeGrowthDir = *wildlifeGrowthDir
 
 	args := flag.Args()
 	if len(args) < 1 {
@@ -6976,7 +6978,7 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// Creature ids come from get_nearby and look like crt_<hex>.
 	case "hunt":
 		if len(parts) < 2 {
-			return fmt.Errorf("usage: hunt <creature-id>   (crt_… ids come from `get_nearby`)")
+			return fmt.Errorf("usage: hunt <creature-id>   (crt_…/lev_… ids come from `get_nearby`)")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Hunt(ctx, parts[1])
@@ -7589,6 +7591,11 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 
 	case "recipes", "get_recipes":
 		return simpleCommand(client, client.GetRecipes, ctx, 2*time.Second, cmd, format)
+
+	case "wildlife_growth":
+		// TEMPORARY, reads the local observation dump only; no server call.
+		fmt.Print(wildlifeGrowthReport(globalWildlifeGrowthDir))
+		return nil
 
 	case "craftable":
 		return handleCraftable(client, ctx, parts, ensureCraftingDB(), format)
@@ -10429,6 +10436,7 @@ func printHelp() {
 	fmt.Println("  craft queue - List your current crafting jobs")
 	fmt.Println("  recycle <recipe> [qty] [--deliver_to=storage|faction] [--facility_id=ID] [--dry_run] - Queue a recycling job (lossy)")
 	fmt.Println("  recipes                   - Get available recipes")
+	fmt.Println("  wildlife_growth           - TEMP: per-stage creature hull histogram from data/wildlife-growth")
 	fmt.Println("  craftable [--reachable] [--category C] [--search S] [--detail] [--include-facility-only] [--include-ship-passive] [--sort=name|category|can_make_asc|id] - what you can build now")
 	fmt.Println("  plan <recipe-or-item-id> [qty] [--reachable]   - gap analysis; prints craft cmd when ready")
 	fmt.Println("  build <target> [qty] [--json] [--max-hand-ticks=N]  - full recursive build plan (mine/buy/haul/craft DAG); qty = output units")

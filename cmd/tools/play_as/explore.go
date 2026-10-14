@@ -630,6 +630,16 @@ func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, po
 		poiID = nearby.POIID
 	}
 
+	// TEMPORARY: creature hull stopped being a species constant on 2026-10-14,
+	// and neither wildlife_species (one ratcheted max_hull per species) nor
+	// wildlife_sightings (no hull, no creature_id) keeps a per-individual
+	// number. Dump the raw rows so the per-stage hull histogram can be built
+	// from real observations before any table is designed for them.
+	if err := appendCreatureObservations(globalWildlifeGrowthDir, nearby.Creatures,
+		systemID, poiID, globalAgentID, currentTick(state)); err != nil && format == formatStyled {
+		fmt.Printf("  (creature observations not logged: %v)\n", err)
+	}
+
 	n, err := knowledge.CaptureWildlifeNearby(ctx, globalKB, nearby.Creatures,
 		systemID, poiID, poiType, globalAgentID, currentTick(state))
 	if err != nil {
@@ -757,9 +767,6 @@ func reportUnscanned(ctx context.Context, cands []unscannedCandidate, where stri
 // scan is left unrecorded rather than filed under a species guessed from the
 // display name.
 func captureCreatureScan(client game.GameClient, ctx context.Context, targetID string, format outputFormat) {
-	if !strings.HasPrefix(targetID, "crt_") {
-		return
-	}
 	raw := client.GetRawJSON("_last")
 	if len(raw) == 0 {
 		return
@@ -772,9 +779,19 @@ func captureCreatureScan(client game.GameClient, ctx context.Context, targetID s
 		return
 	}
 
+	// The gate is whether the id resolves to a creature in the get_nearby
+	// roster, NOT how the id is spelled. It used to require a "crt_" prefix,
+	// which silently discarded every scan of the leviathan family introduced
+	// on 2026-10-14 -- their ids are "lev_...", so scanning a Young Cloudwhale
+	// returned a good reply, recorded nothing, and left explore announcing the
+	// species as unscanned on every later pass with no error to explain it.
 	species := speciesForCreature(client, targetID)
 	if species == "" {
-		if format == formatStyled {
+		// Either a player scan, which has nothing to file, or a creature whose
+		// roster is not cached. Only the latter deserves the hint, and the id
+		// prefix is the only available tell -- used for the MESSAGE alone, so a
+		// future prefix costs a missing hint rather than a dropped scan.
+		if format == formatStyled && looksLikeCreatureID(targetID) {
 			fmt.Printf("  (scan not recorded: run get_nearby first so %s can be tied to a species)\n", targetID)
 		}
 
@@ -801,7 +818,26 @@ func captureCreatureScan(client game.GameClient, ctx context.Context, targetID s
 	}
 }
 
-// speciesForCreature resolves a crt_ id to its species using the cached
+// creatureIDPrefixes are the id prefixes the server has used for creatures:
+// "crt_" for the original fauna and "lev_" for the leviathan family added on
+// 2026-10-14. This drives only the diagnostic hint in captureCreatureScan,
+// never whether a scan is recorded -- gating capture on a prefix list is the
+// bug that discarded every leviathan scan.
+var creatureIDPrefixes = []string{"crt_", "lev_"}
+
+// looksLikeCreatureID reports whether targetID resembles a creature id, for
+// message purposes only.
+func looksLikeCreatureID(targetID string) bool {
+	for _, p := range creatureIDPrefixes {
+		if strings.HasPrefix(targetID, p) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// speciesForCreature resolves a creature id to its species using the cached
 // get_nearby reply. Returns "" when the creature is not in it.
 func speciesForCreature(client game.GameClient, creatureID string) string {
 	raw := client.GetRawJSON("nearby")
