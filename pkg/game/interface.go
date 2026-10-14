@@ -119,7 +119,6 @@ type GameClient interface {
 	GetBase(ctx context.Context) error
 	GetMap(ctx context.Context, force ...bool) error
 	GetNearby(ctx context.Context) error
-	GetSystemAgents(ctx context.Context) error
 	GetVersion(ctx context.Context) error
 	GetCommands(ctx context.Context) error
 	GetActiveMissions(ctx context.Context) error

@@ -898,8 +898,6 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatListShips(raw)
 	case "facility":
 		return formatFacility(raw)
-	case "get_system_agents":
-		return formatGetSystemAgents(raw)
 	case "get_drones", "drones":
 		return formatGetDrones(raw)
 	case "get_location", "location":
@@ -943,26 +941,6 @@ func formatStyledResponse(raw []byte, command string) string {
 	default:
 		return ""
 	}
-}
-
-// formatGetSystemAgents renders a get_system_agents response using the same
-// player-table layout as formatNearby for consistency. nearbyPlayer's fields
-// are a superset of what get_system_agents returns, so the same writer works.
-func formatGetSystemAgents(raw []byte) string {
-	var resp struct {
-		SystemID string         `json:"system_id"`
-		Count    int            `json:"count"`
-		Agents   []nearbyPlayer `json:"agents"`
-	}
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		return ""
-	}
-
-	var b strings.Builder
-	fmt.Fprintf(&b, "System: %s\n", resp.SystemID)
-	fmt.Fprintf(&b, "Count: %d\n\n", resp.Count)
-	writePlayerTable(&b, resp.Agents)
-	return b.String()
 }
 
 // formatGetDrones renders a get_drones response: a bay/bandwidth summary line
@@ -8212,9 +8190,6 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		}
 
 		return err
-
-	case "get_system_agents", "system_agents":
-		return simpleCommand(client, client.GetSystemAgents, ctx, 2*time.Second, cmd, format)
 
 	case "version", "get_version":
 		return simpleCommand(client, client.GetVersion, ctx, 2*time.Second, cmd, format)

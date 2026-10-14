@@ -85,17 +85,40 @@ func (f *fakeClient) GetNearby(ctx context.Context) error {
 	return nil
 }
 
-// Residents schedule these two by name; the dispatcher must know them.
+// Residents schedule both names; the dispatcher must know them BOTH -- but it
+// must answer only one of them with a call.
+//
+// get_system_agents used to be aliased to get_nearby so a stale seed still
+// returned data. That was wrong: every role scheduling it also scheduled
+// get_nearby at the SAME ten_minutely cadence, so the alias made 65 agents
+// fetch one set of data twice per cycle. It is now a recognised no-op, which
+// keeps a stale seed from erroring forever without paying for it.
 func TestDispatchRunsSightingCommandsByName(t *testing.T) {
+	d0 := NewWorkerDispatch(&fakeClient{state: waypointState(3)}, knowledge.NewMemoryKB(), nil, io.Discard)
 	for _, cmd := range []string{"get_system_agents", "get_nearby"} {
-		fc := &fakeClient{state: waypointState(3)}
-		d := NewWorkerDispatch(fc, knowledge.NewMemoryKB(), nil, io.Discard)
-		if err := d.Run(context.Background(), []string{cmd}); err != nil {
-			t.Fatalf("Run(%s): %v", cmd, err)
+		if !d0.Supports(cmd) {
+			t.Errorf("Supports(%s) = false; residents schedule it by name", cmd)
 		}
-		if !slices.Contains(fc.calls, "get_nearby") {
-			t.Errorf("Run(%s) issued %v, want get_nearby", cmd, fc.calls)
-		}
+	}
+
+	// get_nearby is the live call.
+	fc := &fakeClient{state: waypointState(3)}
+	d := NewWorkerDispatch(fc, knowledge.NewMemoryKB(), nil, io.Discard)
+	if err := d.Run(context.Background(), []string{"get_nearby"}); err != nil {
+		t.Fatalf("Run(get_nearby): %v", err)
+	}
+	if !slices.Contains(fc.calls, "get_nearby") {
+		t.Errorf("Run(get_nearby) issued %v, want get_nearby", fc.calls)
+	}
+
+	// The deprecated name spends nothing and still must not error.
+	fd := &fakeClient{state: waypointState(3)}
+	dd := NewWorkerDispatch(fd, knowledge.NewMemoryKB(), nil, io.Discard)
+	if err := dd.Run(context.Background(), []string{"get_system_agents"}); err != nil {
+		t.Fatalf("Run(get_system_agents) must not error, a stale seed fires forever: %v", err)
+	}
+	if len(fd.calls) != 0 {
+		t.Errorf("Run(get_system_agents) issued %v, want no call at all", fd.calls)
 	}
 }
 

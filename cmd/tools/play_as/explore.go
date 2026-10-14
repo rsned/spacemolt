@@ -54,10 +54,6 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 	// Collect raw responses for non-styled formats
 	var allResponses []json.RawMessage
 
-	// Capture the system-wide agent roster (feeds seen_players via the player
-	// observer) once per system, right after get_system.
-	captureSightings(client, ctx, client.GetSystemAgents, "get_system_agents", format, &allResponses)
-
 	if format == formatStyled {
 		// Print route table.
 		fmt.Printf("\nExploring %d POIs in %s:\n\n", len(route), state.System.Name)
@@ -548,7 +544,7 @@ func saveFaintSignatures(client game.GameClient, ctx context.Context, resp serve
 	}
 }
 
-// captureSightings runs a best-effort player-enumeration query (get_nearby /
+// captureSightings runs a best-effort player-enumeration query (get_nearby;
 // get_system_agents) whose response feeds the player observer, recording the
 // agents into seen_players. Errors are non-fatal (sighting capture is not
 // required for exploration); in raw/JSON mode the response is appended to

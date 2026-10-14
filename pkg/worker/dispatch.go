@@ -211,6 +211,10 @@ var supported = map[string]bool{
 	"capture_action_log": true, "capture_wildlife_attacks": true, "capture_tax": true,
 	"capture_citizenship": true,
 	"get_status":          true, "get_system": true, "get_cargo": true,
+	// get_system_agents stays in the vocabulary although it is deprecated and
+	// dispatches to nothing: Supports() must keep returning true so a stale
+	// schedule seed is recognised and skipped instead of falling through to the
+	// unknown-command error on every cycle, forever. See its case in Run.
 	"get_system_agents": true, "get_nearby": true,
 }
 
@@ -596,18 +600,24 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			return err
 		}
 		return market.CaptureFromClient(ctx, d.Client, d.Market)
-	case "get_system_agents", "get_nearby":
-		// Who is visible right now. Sightings persist through the client's
-		// PlayerObserver; nothing to store here. Residents run this on the
-		// update_market cadence as a fixed sensor net.
+	case "get_system_agents":
+		// DEPRECATED, deliberately a no-op. Server v0.618.0 emptied this call:
+		// it returns no one and warns. It was aliased to get_nearby here, but
+		// every role that scheduled it also scheduled get_nearby at the SAME
+		// ten_minutely cadence, so the alias made those agents fetch the same
+		// data twice per cycle.
 		//
-		// Server v0.618.0 emptied get_system_agents -- it returns no one, warns,
-		// and is slated for removal -- leaving get_nearby (own POI) as the only
-		// call that still reports anybody. Both names route there because
-		// schedule seeding is additive only: get_system_agents is already
-		// written into agents' schedule.json files and would fire forever no
-		// matter what the role config says, so the dispatcher is the only place
-		// the dead request can actually be stopped.
+		// It is skipped rather than removed or errored because schedule seeding
+		// is additive only: the command is already written into 65 agents'
+		// schedule.json files and fires forever no matter what roles.yaml says,
+		// so the dispatcher is the only place it can actually be stopped.
+		// Returning an error instead would turn a stale seed into a permanent
+		// failure in every one of those workers' logs.
+		return nil
+	case "get_nearby":
+		// Who is visible right now, at our own POI. Sightings persist through
+		// the client's PlayerObserver; nothing to store here. Residents run
+		// this on the update_market cadence as a fixed sensor net.
 		return d.Client.GetNearby(ctx)
 	case "capture_fuel":
 		if d.Market == nil {
