@@ -18,6 +18,7 @@
 - [Player sightings timeline](project_player_sightings_timeline.md) — `2dfd83e9` DEPLOYED 08-29 to mb/assist/hunt/craft/shuttle; haul/unlock/mission-learn OLD binary; marketbot sensor net `2340e637` awaits mb restart
 - ⭐ [MoltenOne: PLAYER hunter, KILLED 08-29 by hand-flown craftsman-1](reference_moltenone_player_hunter_ip_block_kills.md) — 10 losses in IP-block windows; wreck cc2128e8 has our ore; new `player_kill` event undecoded
 - ⭐🔴 [Stronghold guard is re-written per role](reference_stronghold_guard_is_per_role.md) — 5 copies, ABSENT from assist/autopilot/hunt/explore/freight; 8 of 24 losses. Fix = one movement-layer gate
+- ⭐🔴 [Stronghold gate false-locks on a COLD session](reference_stronghold_gate_false_lock_on_cold_state.md) — empty Standings reads as LOCKED, so autopilot-as-first-command is refused for an unlock the agent HAS; seed `get_status` first
 - ⭐ [Tanker migration 08-14: how tankers work + hand-flown pickup](reference_assist_tanker_migration.md) — built-in pump, arrives full, 4 listings galaxy-wide, `switch_ship` is a SEPARATE step (nexus trap)
 - ⭐ [Assist pump gap + pump-blind claim election](project_assist_fleet_refueling_pump_gap.md) — pre-tanker history; stale `requested_at` defeats distance routing
 - ⭐🔴 [no_fuel_cells ≠ no_fuel_source](project_no_fuel_cells_refuel_deadlock.md) — cargo-cell fallback vs credits; nothing ever BUYS a cell. Service list is live at /api/stations: 61 of 76 refuel
