@@ -16,8 +16,8 @@ func TestFormatPOIRendersTheDecisionFields(t *testing.T) {
              "name":"Nashira Belt","description":"A worked-over iron field.",
              "position":{"x":1.5,"y":0.2}},
       "resources":[
-        {"resource_id":"iron_ore","name":"Iron Ore","richness":0.82,"remaining_display":"abundant"},
-        {"resource_id":"carbon_ore","name":"Carbon Ore","richness":0.4,"remaining_display":"depleted"}],
+        {"resource_id":"iron_ore","name":"Iron Ore","richness":40,"remaining_display":"abundant"},
+        {"resource_id":"carbon_ore","name":"Carbon Ore","richness":4,"remaining_display":"depleted"}],
       "services":["refuel","repair"],
       "fuel_price":6,"fuel_price_all_in":7,"fuel_tax_per_unit":1,
       "police_drones":2
@@ -29,6 +29,7 @@ func TestFormatPOIRendersTheDecisionFields(t *testing.T) {
 	for _, want := range []string{
 		"Nashira Belt", "nashira_belt", "asteroid_belt", // identity
 		"Iron Ore", "abundant", // what is minable, and whether it is worth it
+		"40", // richness is a 2-90 server scale, printed raw as explore.go does
 		"refuel",               // why you would stop here
 		"7",                    // all-in fuel price, the number that decides refuelling
 		"A worked-over iron field.", // v0.623 gave every location a description
@@ -69,5 +70,21 @@ func TestFormatPOIInTransitShowsTheLegAndETA(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("formatPOI transit output missing %q\n--- got ---\n%s", want, got)
 		}
+	}
+}
+
+// Richness arrives on the server's own 2-90 scale (avg ~34 across every belt
+// in the knowledge base), NOT as a 0-1 fraction. Scaling it by 100 printed
+// Caph Disk's iron as "4000%", which both overstates the field and breaks
+// ranking by eye against explore.go, which prints the value raw.
+func TestFormatPOIPrintsRichnessOnTheServerScale(t *testing.T) {
+	raw := []byte(`{"poi":{"id":"caph_disk","type":"asteroid_belt","name":"Caph Disk"},
+      "resources":[{"resource_id":"iron_ore","name":"Iron Ore","richness":40,"remaining_display":"566 units"}]}`)
+	got := formatPOI(raw)
+	if strings.Contains(got, "4000") {
+		t.Errorf("richness scaled by 100; the server scale is 2-90\n--- got ---\n%s", got)
+	}
+	if !strings.Contains(got, "40") {
+		t.Errorf("richness 40 not rendered\n--- got ---\n%s", got)
 	}
 }

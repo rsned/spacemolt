@@ -83,7 +83,8 @@ func formatPOI(raw []byte) string {
 		fmt.Fprintf(&b, "  ⚑ HIDDEN POI (reveal difficulty %d)\n", p.RevealDifficulty)
 	}
 
-	// Richness ranks a field; remaining_display is the server's own word for
+	// Richness ranks a field and arrives on the server's own 2-90 scale, so it
+	// is printed raw exactly as explore.go does; remaining_display is the word for
 	// whether it is worked out. remaining=0 is NOT depletion -- ore regenerates
 	// -- so the display string is shown rather than a computed verdict.
 	if len(resp.Resources) > 0 {
@@ -94,7 +95,7 @@ func formatPOI(raw []byte) string {
 			if nm == "" {
 				nm = r.ResourceID
 			}
-			fmt.Fprintf(&b, "    %-20s %8.0f%%  %s\n", nm, r.Richness*100, r.RemainingDisplay)
+			fmt.Fprintf(&b, "    %-20s %9.0f  %s\n", nm, r.Richness, r.RemainingDisplay)
 		}
 	}
 
