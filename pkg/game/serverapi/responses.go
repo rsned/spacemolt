@@ -265,6 +265,10 @@ type GetNearbyResponse struct {
 	// Intact captured ships at this POI (server v0.572.0).
 	Prizes     []NearbyPrize `json:"prizes,omitempty"`
 	PrizeCount int           `json:"prize_count,omitempty"`
+	// UnknownSignature is true when a CLOAKED ship at this POI is within one
+	// sensor level of our scanner. Presence only; resolve with an area scan
+	// (scan with no target_id). Omitted when false. See TravelResponse.
+	UnknownSignature bool `json:"unknown_signature,omitempty"`
 }
 
 // GetBattleStatusResponse wraps the response from get_battle_status command.
@@ -1728,6 +1732,13 @@ type TravelResponse struct {
 	OnlinePlayers          []NearbyPlayer `json:"online_players,omitempty"`
 	OfflineCollapsed       int            `json:"offline_collapsed,omitempty"`
 	XPGained               map[string]int `json:"xp_gained,omitempty"`
+	// UnknownSignature is true when a CLOAKED ship at this POI is within one
+	// sensor level of our scanner. Presence only -- it names nothing. Resolve it
+	// with an area scan (scan with no target_id). Omitted when false.
+	//
+	// This is the only warning the server gives before a cloaked ambush, so it
+	// must not be dropped: a player hunter killed ten of our ships in 2026-08.
+	UnknownSignature bool `json:"unknown_signature,omitempty"`
 }
 
 // JumpResponse wraps the response from jump command.
