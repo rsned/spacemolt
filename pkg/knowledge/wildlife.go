@@ -166,6 +166,9 @@ type WildlifeDropRate struct {
 // truth (get_nearby has hull and no abundance, survey_system the reverse), so a
 // blank field never overwrites a known one, MaxHull only ratchets up, and
 // Habitats accumulate. FirstSeenUTC is preserved once set.
+//
+// Name is canonicalised through CanonicalSpeciesName so a growth stage never
+// lands in the guide's one-row-per-species name.
 func (kb *SQLiteKB) UpsertWildlifeSpecies(ctx context.Context, rows []WildlifeSpecies) error {
 	if len(rows) == 0 {
 		return nil
@@ -206,6 +209,13 @@ func (kb *SQLiteKB) UpsertWildlifeSpecies(ctx context.Context, rows []WildlifeSp
 			}
 			habitats := strings.Join(
 				normalizeHabitats(append(existing[r.Species], r.Habitats...)), ",")
+			// One row per species, so a stage-qualified name ("Young
+			// Cloudwhale") would overwrite the mature one and flip back on the
+			// next sighting -- name is last-write-wins. The stage is not lost:
+			// it stays on the observation rows and on
+			// wildlife_kills.creature_name, which is where per-stage figures
+			// are read from.
+			name := CanonicalSpeciesName(r.Name)
 			if _, err := tx.ExecContext(ctx, `
 				INSERT INTO wildlife_species
 					(species, name, role, max_hull, max_shield, danger, danger_scanned_utc,
@@ -225,7 +235,7 @@ func (kb *SQLiteKB) UpsertWildlifeSpecies(ctx context.Context, rows []WildlifeSp
 					description        = CASE WHEN excluded.description <> '' THEN excluded.description ELSE wildlife_species.description END,
 					habitats           = excluded.habitats,
 					last_seen_utc      = excluded.last_seen_utc
-			`, r.Species, r.Name, r.Role, r.MaxHull, r.MaxShield, r.Danger, r.DangerScannedUTC,
+			`, r.Species, name, r.Role, r.MaxHull, r.MaxShield, r.Danger, r.DangerScannedUTC,
 				r.ScanTraits, r.ScanRevealed, boolInt(r.Ranchable), r.Description,
 				habitats, first, seen); err != nil {
 				return fmt.Errorf("upsert wildlife species %s: %w", r.Species, err)
