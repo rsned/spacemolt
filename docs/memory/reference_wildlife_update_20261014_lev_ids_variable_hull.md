@@ -62,3 +62,32 @@ Context: cloudwhale is leviathan-class, 3 individuals, scarce, only at
 `yarrowfield_vapor_fields`, never in combat with us, and we have ZERO
 leviathan-class kills on record. A scanned mature Rainbow Leviathan is 2200
 hull, so 1368 for a juvenile is consistent.
+
+## 10-14 later: the stage vocabulary is REAL, shipped `1caf9bd4`
+
+Three `lev_` species are now sighted and every one varies per individual; all
+**35** `crt_` species observed are fixed, so "variable hull" is exactly
+"leviathan-class", not "new species".
+
+| species | stage seen | n | hull range |
+|---|---|---|---|
+| cloudwhale | Young | 6 | 1287-1767 |
+| hoarfrost_leviathan | Juvenile | 3 | 669-769 |
+| molt_leviathan | Juvenile | 6 | 549-691 |
+| rainbow_leviathan | (none — mature) | 0 sighted | 2200 |
+
+Operator-supplied vocabulary: **hatchling, young, calf, juvenile**, in
+`pkg/knowledge.ProtectedStageWords`. A stage can LEAD or TRAIL the name, and
+matching is whole-word and case-insensitive — a substring match would spare
+adults ("Youngling") and mangle names.
+
+- `CanonicalSpeciesName` strips it, and `UpsertWildlifeSpecies` now stores the
+  canonical name. This is what fixes the name flap above: the table is one row
+  per species, last-write-wins. **Pre-existing rows still hold the qualified
+  name** until the next sighting upserts over them.
+- `IsProtectedJuvenile` is the same vocabulary as a don't-hunt predicate. It is
+  NOT wired into hunt yet — offered, not approved.
+- Lifecycle, operator: cloudwhales age and DIE, producing a whalefall and a
+  temporary scavenger surge; they do not grow forever. Lobsters grow until the
+  food runs out. So a per-stage histogram is the right shape and a single
+  growth curve is not.
