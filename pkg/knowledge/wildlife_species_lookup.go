@@ -42,6 +42,17 @@ func (kb *SQLiteKB) SpeciesByDisplayName(ctx context.Context) (map[string]string
 }
 
 // NormalizeCreatureName is the key form used by SpeciesByDisplayName.
+//
+// It strips the growth stage, because a creature's display name carries one
+// ("Juvenile Molt Leviathan") while the guide holds one row per species under
+// the canonical name ("Molt Leviathan"). Both the index and every lookup go
+// through here, so folding the stage out at this single point makes resolution
+// stage-insensitive in BOTH directions: a juvenile participant resolves against
+// a guide that knows only the adult, and vice versa.
+//
+// Leaving the stage in was a silent failure, not a cosmetic one. Resolution is
+// an exact map hit, so a miss named no creature at all and capture filed zero
+// rows while reporting success.
 func NormalizeCreatureName(name string) string {
-	return strings.ToLower(strings.TrimSpace(name))
+	return strings.ToLower(strings.TrimSpace(CanonicalSpeciesName(strings.TrimSpace(name))))
 }
