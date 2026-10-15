@@ -91,3 +91,40 @@ adults ("Youngling") and mangle names.
   temporary scavenger surge; they do not grow forever. Lobsters grow until the
   food runs out. So a per-stage histogram is the right shape and a single
   growth curve is not.
+
+## 10-15: wildlife FULLY REGENERATES; first leviathan kill
+
+craftsman-1 attacked `lev_29d070abd3f2d9be47df6acc5004e2a8` (Juvenile Molt
+Leviathan, 569 hull, oxbow_belt_b), lost the ship, came back and killed it.
+First leviathan-class kill on record — 161 kills, exactly 1 leviathan.
+
+The growth collector accidentally captured the whole arc, because it logs
+`hull`/`max_hull`/`in_combat` per sighting:
+
+```
+08:34:53  569/569          tick 2143625
+08:40:25  364/569  COMBAT  tick 2143658   <- the fight that killed us
+09:21:59  569/569          tick 2143890   <- healed to FULL
+09:23:59  dead
+```
+
+**205 HP over 232 ticks ≈ 0.88 HP/tick (~53 HP/min).** Corroborated fleet-wide:
+of ~1,500 observations only **3** are below full hull and all 3 are
+`in_combat=True`. We have NEVER observed a damaged creature out of combat.
+
+- **Attrition is not a strategy.** You cannot soften a leviathan over several
+  passes; every engagement starts from full. Any hunt logic must assume the
+  target is at max_hull regardless of history.
+- Damage is a GRIND not a burst: molt_leviathan hit 37-41 per hit (tight ±5%),
+  but 21 times for 830 total — 3.2x the previous single-battle worst. Survival
+  depends on breaking contact, and `loop 20 battle retreat` did NOT break it.
+  Predict survivability as hull / 40 = ticks.
+- A won battle can leave ZERO `wildlife_attacks` rows: the rematch killed it in
+  two `battle advance` with no return fire. That is correct, not a miss — a
+  0-hit volley still stores a row (cf. quantum_moth 2 shots/0 hits).
+- `wildlife_attacks` was a biased sample until now: 161 kills and zero losses
+  meant every row came from a fight we survived.
+- Combat totals bug is the MAJORITY case, not occasional: **120 of 161**
+  `wildlife_kills` rows have duration_ticks, damage_dealt AND damage_taken all
+  zero. The 41 populated rows are the ones to diff to find what writes them.
+  [[reference_capture_loss_taxonomy]]
