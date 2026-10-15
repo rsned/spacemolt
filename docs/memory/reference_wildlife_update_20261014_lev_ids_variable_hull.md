@@ -128,3 +128,60 @@ of ~1,500 observations only **3** are below full hull and all 3 are
   `wildlife_kills` rows have duration_ticks, damage_dealt AND damage_taken all
   zero. The 41 populated rows are the ones to diff to find what writes them.
   [[reference_capture_loss_taxonomy]]
+
+## Trap: canonicalising a name column silently broke species resolution
+
+`1caf9bd4` (canonical species names) regressed `capture_wildlife_attacks`;
+fixed `a00ea701`. Sequence, observed live within three hours:
+
+1. Guide held `name = "Juvenile Molt Leviathan"`. Battle 003c0d25 captured
+   fine at 08:44.
+2. The 09:23 kill upserted the species, so the name became `"Molt Leviathan"`.
+3. The rematch capture filed **0 rows**. A battle participant is still called
+   `Juvenile Molt Leviathan`, resolution is an EXACT map hit on
+   `NormalizeCreatureName` (lowercase+trim only), so it missed,
+   `ResolveCreatureSpecies` named no creature, and the command printed success.
+
+**Any rewrite of a column that an exact-match index keys on is a silent
+zero-row failure, not an error.** The ambiguity was even documented in
+`wildlife_attacks_cmd.go` ("only ever matches a species the guide ALREADY
+holds") and I still read the empty result as a fact about the creature —
+concluded "it never fired" when `battle_damage` showed it hit for 12.
+
+Fix: `NormalizeCreatureName` folds the stage out via `CanonicalSpeciesName`.
+It has exactly TWO callers — the index builder and the lookup — so one change
+makes resolution stage-insensitive both ways. Strictly better than before: a
+juvenile resolves against an adult-only guide and vice versa.
+
+- **Re-running a capture is safe and is the recovery path.** The battle id
+  survives in `wildlife_kills.battle_id`, so "the id is only obtainable at
+  battle start" does not bite for any battle that produced a kill.
+- A capture that prints `filed 0 rows` must be treated as UNKNOWN, never as
+  "the creature did nothing".
+
+## Combat totals are hardcoded zeros, not lost on the wire
+
+`CaptureWildlifeCarcass` takes `durationTicks, damageDealt, damageTaken` and
+both call sites pass literals:
+- `cmd/tools/play_as/wildlife_carcass.go:81` → `0, 0, 0`
+- `pkg/worker/hunt_wildlife.go:68` → `fightTicks, 0, 0`
+
+That is exactly the 120-of-161 split: hunt rows have a duration, play_as rows
+have nothing, and damage_dealt/taken are zero in EVERY row ever written.
+
+The data is on the wire and fully decoded, just dropped:
+`serverapi.BattleEnded.Participants` carries per-participant `DamageDealt`,
+`DamageTaken`, `KillCount`, `Survived` plus battle `Duration`;
+`serverapi.BattleDamage` carries per-hit `hull_hit`/`shield_hit`/`total_damage`,
+`weapons_fired` and **per-skill `xp_gained`** (one volley: gunnery 15, weapons
+10, piloting 4, tactics 2; being hit trains piloting 4, shields 2 — so tanking
+is not pure loss). `client.go:3071` keeps only `state.LastDamage`.
+
+Open question: on our own volley `total_damage: 102` but `hull_hit: 149`
+(ratio 1.46), while the creature's hit is internally consistent
+(`total 12 = shield 12 + hull 0`). Either a post-total energy-vs-hull
+multiplier or `hull_hit` is cumulative. Unresolved — do not assume.
+
+Also: shields change the survivability math. The 37-41 hull hits of battle 1
+were on an unshielded hull; in the rematch the same creature's 12 went
+entirely to shields. `hull/40 = ticks` applies to the OLD loadout only.
