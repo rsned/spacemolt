@@ -3501,10 +3501,11 @@ var storageFmtOpts storageFmtOptions
 // items are grouped into per-category sections (catalog-derived).
 func formatStorage(raw []byte) string {
 	var resp struct {
-		BaseID string        `json:"base_id"`
-		Items  []storageItem `json:"items"`
-		Ships  []storageShip `json:"ships"`
-		Hint   string        `json:"hint"`
+		BaseID    string            `json:"base_id"`
+		Items     []storageItem     `json:"items"`
+		Ships     []storageShip     `json:"ships"`
+		Hint      string            `json:"hint"`
+		Locations []storageLocation `json:"locations"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -3516,6 +3517,18 @@ func formatStorage(raw []byte) string {
 	// there is nothing to render — return "" so the caller falls through rather
 	// than printing "Storage at  — 0 types".
 	if resp.BaseID == "" && len(resp.Items) == 0 && len(resp.Ships) == 0 {
+		// Undocked, view_storage answers with a galaxy-wide index instead of
+		// one station's contents: no base_id, no items, no ships, and a
+		// locations array. That is the ONLY thing distinguishing it from the
+		// must-be-docked error this guard was written for, so check it before
+		// giving up.
+		if len(resp.Locations) > 0 {
+			var b strings.Builder
+			writeStorageLocations(&b, resp.Locations)
+
+			return b.String()
+		}
+
 		return ""
 	}
 
