@@ -198,3 +198,30 @@ refit's only shortfall was 3,607 energy_crystal [[project_fleet_drone_refit]].
 (`onboard_galley` 9k, `promenade_lounge` 26k, `grand_dining_hall` 68k,
 `stellar_observation_deck` 140k) suggest a passenger economy —
 [[project_passenger_demand_intel]].
+
+## Escaping a battle: `battle stance flee`, NOT `battle retreat`
+
+Operator note, 2026-10-16. **If an escape takes 30+ turns, this is why.**
+
+- `battle retreat` moves you ONE ring outward and **never ends the battle by
+  itself.** It is a positioning move, not an exit.
+- `battle stance flee` moves you to the outer ring on its own, then counts flee
+  ticks until you are out.
+- The flee counter **RESETS** if you change stance, or if you cannot act that
+  tick. So interleaving anything — a retreat, a target change, a stunned tick —
+  silently restarts the escape.
+
+Observed cost: craftsman-1 died to a Juvenile Molt Leviathan running
+`battle flee` → `battle retreat` → `travel` → `loop 20 battle retreat`. Over 20
+retreats never disengaged; the creature landed 21 hits for 830 damage, the
+worst single battle on record. See
+[[reference_wildlife_update_20261014_lev_ids_variable_hull]].
+
+`Battle` already accepts `stance` as a subaction, so no client change is needed
+to use it.
+
+**One known defect:** `pkg/spar/policy.go:123` (skirmisher) uses `retreat` as
+its hull-floor escape and will therefore never disengage — it just steps out a
+ring and keeps fighting. Dormant testbed, uncorrected. The other `retreat`
+calls in spar and `cmd/tools/duel-runner/battle.go:78` are positional
+(hold a ring) and are correct as written.

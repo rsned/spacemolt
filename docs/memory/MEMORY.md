@@ -144,7 +144,7 @@
 - [server-cmd spec-driven payloads](project_server_cmd_spec_driven_payloads.md) — DEFERRED: route through typed pkg/game wrappers
 
 ## Combat & wildlife
-- ⭐🔴 [Combat damage pipeline](reference_combat_damage_pipeline.md) — `reach` gates firing entirely; `brace` = 0.25 dmg but 0% offense; the worker has NO combat code
+- ⭐🔴 [Combat damage pipeline](reference_combat_damage_pipeline.md) — `reach` gates firing; `brace` = 0.25 dmg, 0% offense; ESCAPE is `battle stance flee`, NOT `battle retreat` (one ring, never exits); worker has NO combat code
 - ⭐ [reload = get_ship module INSTANCE id + ammo item](reference_reload_weapon_ammo_pairing.md) — pairing is weapon `ammo_type` == ammo `effect.subtype`; ONE TICK PER MODULE; out_of_ammo repeats every tick. play_as resolves it (`aa511fca`), worker does not
 - ⭐ [Module wear/repair REMOVED](reference_module_wear_removed.md) — refitting is consequence-free; 29 agents on starters vs 170 idle hulls
 - ⭐ [Module cost scales with Engineering](reference_ship_module_costs_scale_with_engineering.md) — catalogue CPU/power are BASE, −1%/level; trains only at ≥90% fit
