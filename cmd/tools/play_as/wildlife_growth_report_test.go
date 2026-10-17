@@ -63,7 +63,9 @@ func TestWildlifeGrowthReportFlagsObservedGrowth(t *testing.T) {
 {"creature_id":"lev_a","species":"cloudwhale","name":"Young Cloudwhale","max_hull":1390,"observed_utc":"2026-10-14T18:44:32Z"}
 `)
 	got := wildlifeGrowthReport(dir)
-	if !strings.Contains(strings.ToLower(got), "grew") {
+	// Assert the CONTENT of the growth call-out, not its wording: the
+	// individual and its hull transition are the finding.
+	if !strings.Contains(got, "lev_a 1368->1390") {
 		t.Errorf("report must surface observed growth\n--- got ---\n%s", got)
 	}
 }

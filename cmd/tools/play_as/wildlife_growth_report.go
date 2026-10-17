@@ -12,11 +12,14 @@ import (
 )
 
 // growthBucket is one species-and-stage population.
+//
+// Growth is NOT tracked here: it spans stages, so an individual that matured
+// belongs to two buckets and neither one can own the transition. It is
+// collected per individual instead.
 type growthBucket struct {
 	species string
 	stage   string // the creature name, which is what carries the stage
-	hulls   []int  // one entry per distinct individual
-	grew    []string
+	hulls   []int  // one entry per distinct individual AT THIS STAGE
 }
 
 // wildlifeGrowthReport renders the per-stage hull histogram from the temporary
@@ -28,11 +31,17 @@ type growthBucket struct {
 // "Young Cloudwhale" against a mature "Cloudwhale". A stage nobody has seen
 // becomes its own bucket the first time it appears, with no code change.
 //
-// Each INDIVIDUAL counts once. The explore loop looks twice per POI on purpose,
-// so raw rows double every creature and a naive count reports a population
-// twice its real size. Per individual the widest hull seen is kept, because
-// hull only grows -- and an individual observed at two different hulls is
-// reported separately, since that is the growth the collection exists to find.
+// Each INDIVIDUAL counts once PER STAGE. The explore loop looks twice per POI
+// on purpose, so raw rows double every creature and a naive count reports a
+// population twice its real size.
+//
+// Deduping per creature GLOBALLY was wrong, and silently so: an animal that
+// grew from hatchling to juvenile collapsed into one entry in the juvenile
+// bucket and its hatchling reading disappeared from the histogram. Over time
+// every surviving animal migrates upward, leaving the young bands populated
+// only by animals that died or stopped being sighted. The key is therefore
+// (creature_id, name) and a maturing animal counts in BOTH bands, at the hull
+// it had in each -- which is what a lifecycle histogram means.
 func wildlifeGrowthReport(dir string) string {
 	path := filepath.Join(dir, "observations.jsonl")
 	f, err := os.Open(path)
@@ -42,15 +51,17 @@ func wildlifeGrowthReport(dir string) string {
 	}
 	defer f.Close() //nolint:errcheck
 
-	// Per individual: widest hull seen, its stage name, and every distinct hull
-	// so growth can be reported.
-	type indiv struct {
+	// Per (individual, stage): the widest hull seen while it bore that name.
+	type indivStage struct {
 		species string
 		stage   string
 		best    int
-		seen    []int
 	}
-	byCreature := map[string]*indiv{}
+	perStage := map[string]*indivStage{}
+	// Per individual, every distinct hull, so growth can be reported -- that
+	// spans stages and so cannot be read off perStage.
+	hullsSeen := map[string][]int{}
+	individuals := map[string]struct{}{}
 	rows := 0
 
 	sc := bufio.NewScanner(f)
@@ -65,29 +76,30 @@ func wildlifeGrowthReport(dir string) string {
 			continue
 		}
 		rows++
-		key := o.CreatureID
-		if key == "" {
+		if o.CreatureID == "" {
 			continue
 		}
-		cur, ok := byCreature[key]
+		individuals[o.CreatureID] = struct{}{}
+
+		key := o.CreatureID + "\x00" + o.Name
+		cur, ok := perStage[key]
 		if !ok {
-			cur = &indiv{species: o.Species, stage: o.Name}
-			byCreature[key] = cur
+			cur = &indivStage{species: o.Species, stage: o.Name}
+			perStage[key] = cur
 		}
 		if o.MaxHull > cur.best {
 			cur.best = o.MaxHull
-			// A later, larger reading means it matured into this name.
-			if o.Name != "" {
-				cur.stage = o.Name
-			}
 		}
-		if o.MaxHull > 0 && !slices.Contains(cur.seen, o.MaxHull) {
-			cur.seen = append(cur.seen, o.MaxHull)
+		if o.MaxHull > 0 && !slices.Contains(hullsSeen[o.CreatureID], o.MaxHull) {
+			hullsSeen[o.CreatureID] = append(hullsSeen[o.CreatureID], o.MaxHull)
 		}
 	}
 
 	buckets := map[string]*growthBucket{}
-	for id, c := range byCreature {
+	for _, c := range perStage {
+		if c.best == 0 {
+			continue
+		}
 		k := c.species + "\x00" + c.stage
 		b, ok := buckets[k]
 		if !ok {
@@ -95,11 +107,21 @@ func wildlifeGrowthReport(dir string) string {
 			buckets[k] = b
 		}
 		b.hulls = append(b.hulls, c.best)
-		if len(c.seen) > 1 {
-			slices.Sort(c.seen)
-			b.grew = append(b.grew, fmt.Sprintf("%s %d->%d", id, c.seen[0], c.seen[len(c.seen)-1]))
-		}
 	}
+
+	// Growth spans stages, so it is collected per individual rather than per
+	// bucket. An empty list is the EXPECTED answer: as of 2026-10-16 none of
+	// 1,971 tracked individuals had been observed growing, so this reporting
+	// nothing is a fact about the animals, not a capture failure.
+	var growth []string
+	for id, hulls := range hullsSeen {
+		if len(hulls) < 2 {
+			continue
+		}
+		slices.Sort(hulls)
+		growth = append(growth, fmt.Sprintf("%s %d->%d", id, hulls[0], hulls[len(hulls)-1]))
+	}
+	sort.Strings(growth)
 
 	keys := make([]string, 0, len(buckets))
 	for k := range buckets {
@@ -113,10 +135,21 @@ func wildlifeGrowthReport(dir string) string {
 		return median(a.hulls) < median(b.hulls) // youngest stage first
 	})
 
+	// Column widths are measured, not guessed: "the_experiment_research" class
+	// species ids and names like "Hoarfrost Leviathan Hatchling" overflow a
+	// fixed 14/22 and wrap the table into unreadability.
+	spW, stW := len("SPECIES"), len("STAGE (name)")
+	for _, k := range keys {
+		spW = max(spW, len(buckets[k].species))
+		stW = max(stW, len(buckets[k].stage))
+	}
+
 	var out strings.Builder
-	fmt.Fprintf(&out, "Creature hull by stage — %d individuals from %d observations\n\n", len(byCreature), rows)
-	fmt.Fprintf(&out, "  %-14s %-22s %5s  %-15s %s\n", "SPECIES", "STAGE (name)", "n", "HULL RANGE", "MEDIAN")
-	fmt.Fprintf(&out, "  %s\n", strings.Repeat("-", 72))
+	fmt.Fprintf(&out, "Creature hull by stage — %d individuals from %d observations\n\n",
+		len(individuals), rows)
+	fmt.Fprintf(&out, "  %-*s  %-*s  %5s  %-14s %s\n",
+		spW, "SPECIES", stW, "STAGE (name)", "n", "HULL RANGE", "MEDIAN")
+	fmt.Fprintf(&out, "  %s\n", strings.Repeat("-", spW+stW+34))
 	for _, k := range keys {
 		b := buckets[k]
 		slices.Sort(b.hulls)
@@ -125,24 +158,25 @@ func wildlifeGrowthReport(dir string) string {
 		if lo == hi {
 			rng = fmt.Sprintf("%d HP", lo)
 		}
-		fmt.Fprintf(&out, "  %-14s %-22s n=%-3d %-15s %d\n",
-			b.species, b.stage, len(b.hulls), rng, median(b.hulls))
+		stage := b.stage
+		if stage == "" {
+			stage = "(mature)"
+		}
+		fmt.Fprintf(&out, "  %-*s  %-*s  n=%-3d  %-14s %d\n",
+			spW, b.species, stW, stage, len(b.hulls), rng, median(b.hulls))
 	}
 
 	// Observed growth is the headline finding, so it is called out rather than
 	// left to be inferred from a widening range.
-	var grew []string
-	for _, k := range keys {
-		grew = append(grew, buckets[k].grew...)
-	}
-	if len(grew) > 0 {
-		fmt.Fprintf(&out, "\n  Individuals observed to have GREW (hull rose between sightings):\n")
-		for _, g := range grew {
+	if len(growth) > 0 {
+		fmt.Fprintf(&out, "\n  Individuals observed GROWING (hull rose between sightings):\n")
+		for _, g := range growth {
 			fmt.Fprintf(&out, "    %s\n", g)
 		}
 	} else {
 		fmt.Fprintf(&out, "\n  No individual has yet been seen at two different hulls.\n")
 	}
+
 	return out.String()
 }
 

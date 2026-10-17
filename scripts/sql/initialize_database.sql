@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 3
--- Last Regenerated: 2026-09-18
+-- Migrations applied: 4
+-- Last Regenerated: 2026-10-17
 
 -- ============================================================================
 -- TABLES
@@ -1022,6 +1022,25 @@ CREATE TABLE wildlife_kills (
 				);
 
 
+CREATE TABLE wildlife_observations (
+					creature_id   TEXT    NOT NULL,
+					game_tick     INTEGER NOT NULL,
+					observed_utc  TEXT    NOT NULL DEFAULT '',
+					species       TEXT    NOT NULL DEFAULT '',
+					name          TEXT    NOT NULL DEFAULT '',
+					stage         TEXT    NOT NULL DEFAULT '',
+					role          TEXT    NOT NULL DEFAULT '',
+					hull          INTEGER NOT NULL DEFAULT 0,
+					max_hull      INTEGER NOT NULL DEFAULT 0,
+					in_combat     INTEGER NOT NULL DEFAULT 0,
+					branded       INTEGER NOT NULL DEFAULT 0,
+					system_id     TEXT    NOT NULL DEFAULT '',
+					poi_id        TEXT    NOT NULL DEFAULT '',
+					agent_id      TEXT    NOT NULL DEFAULT '',
+					PRIMARY KEY (creature_id, game_tick)
+				);
+
+
 CREATE TABLE wildlife_sightings (
 					id              INTEGER PRIMARY KEY AUTOINCREMENT,
 					species         TEXT NOT NULL,
@@ -1216,6 +1235,12 @@ CREATE INDEX idx_wildlife_kill_drops_item ON wildlife_kill_drops(item_id);
 
 CREATE INDEX idx_wildlife_kills_species ON wildlife_kills(species, killed_utc DESC);
 
+CREATE INDEX idx_wildlife_obs_species_stage
+					ON wildlife_observations(species, stage, max_hull);
+
+CREATE INDEX idx_wildlife_obs_tick
+					ON wildlife_observations(game_tick);
+
 CREATE INDEX idx_wildlife_sightings_place ON wildlife_sightings(system_id, poi_id, observed_utc DESC);
 
 CREATE INDEX idx_wildlife_sightings_species ON wildlife_sightings(species, observed_utc DESC);
@@ -1280,4 +1305,5 @@ CREATE INDEX seen_sightings_system ON seen_player_sightings(system_id, bucket_ho
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (59, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (60, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (61, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (62, datetime('now'));
 

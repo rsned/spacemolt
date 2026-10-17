@@ -630,11 +630,19 @@ func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, po
 		poiID = nearby.POIID
 	}
 
-	// TEMPORARY: creature hull stopped being a species constant on 2026-10-14,
-	// and neither wildlife_species (one ratcheted max_hull per species) nor
-	// wildlife_sightings (no hull, no creature_id) keeps a per-individual
-	// number. Dump the raw rows so the per-stage hull histogram can be built
-	// from real observations before any table is designed for them.
+	// Per-individual creature rows. Creature hull stopped being a species
+	// constant on 2026-10-14, and neither wildlife_species (one ratcheted
+	// max_hull per species) nor wildlife_sightings (no hull, no creature_id)
+	// keeps a per-individual number.
+	//
+	// Both sinks run. wildlife_observations (migration 62) is the durable one;
+	// the JSONL dump is append-only, gitignored and currently the only copy of
+	// the lifecycle data we have, so it stays until the table is confirmed to
+	// reproduce the same histogram.
+	if err := captureCreatureObservations(ctx, globalKB, nearby.Creatures,
+		systemID, poiID, globalAgentID, currentTick(state)); err != nil && format == formatStyled {
+		fmt.Printf("  (creature observations not recorded: %v)\n", err)
+	}
 	if err := appendCreatureObservations(globalWildlifeGrowthDir, nearby.Creatures,
 		systemID, poiID, globalAgentID, currentTick(state)); err != nil && format == formatStyled {
 		fmt.Printf("  (creature observations not logged: %v)\n", err)

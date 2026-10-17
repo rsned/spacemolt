@@ -7606,9 +7606,38 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 		return simpleCommand(client, client.GetRecipes, ctx, 2*time.Second, cmd, format)
 
 	case "wildlife_growth":
-		// TEMPORARY, reads the local observation dump only; no server call.
-		fmt.Print(wildlifeGrowthReport(globalWildlifeGrowthDir))
-		return nil
+		// Local only; no server call. The JSONL dump is still the default read
+		// because it is the copy that has been collecting since 2026-10-14 and
+		// the table (migration 62) is only as complete as its backfill.
+		//   wildlife_growth            per-stage histogram from the JSONL dump
+		//   wildlife_growth --db       the same histogram from wildlife_observations
+		//   wildlife_growth --import   load the dump into wildlife_observations
+		switch {
+		case len(parts) > 1 && parts[1] == "--import":
+			n, skipped, err := backfillCreatureObservations(ctx, globalKB, globalWildlifeGrowthDir)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("imported %d observation(s) into wildlife_observations", n)
+			if skipped > 0 {
+				fmt.Printf(", skipped %d unparseable line(s)", skipped)
+			}
+			fmt.Println()
+
+			return nil
+		case len(parts) > 1 && parts[1] == "--db":
+			out, err := wildlifeGrowthReportFromKB(ctx, globalKB)
+			if err != nil {
+				return err
+			}
+			fmt.Print(out)
+
+			return nil
+		default:
+			fmt.Print(wildlifeGrowthReport(globalWildlifeGrowthDir))
+
+			return nil
+		}
 
 	case "craftable":
 		return handleCraftable(client, ctx, parts, ensureCraftingDB(), format)

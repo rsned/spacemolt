@@ -219,6 +219,67 @@ func migrations() []Migration {
 				return err
 			},
 		},
+		{
+			version: 62,
+			name:    "wildlife_observations",
+			sql: `
+				-- One row per INDIVIDUAL creature per game tick.
+				--
+				-- wildlife_species holds one row per species with a max_hull
+				-- that only ratchets upward, which stopped being meaningful on
+				-- 2026-10-14: leviathan-class hull varies per individual and
+				-- creatures are sighted at a growth stage carried in the
+				-- display name ("Hoarfrost Leviathan Hatchling" 312 HP vs
+				-- "Juvenile Hoarfrost Leviathan" 743). A single species row
+				-- therefore reports the largest animal ever seen under a name
+				-- that may have been met at any stage.
+				--
+				-- The PRIMARY KEY is what makes the counts honest. The explore
+				-- loop looks twice per POI on purpose, to beat the arrival
+				-- race, and both looks land in the SAME tick -- so
+				-- (creature_id, game_tick) collapses the duplicate while
+				-- leaving a genuine re-sighting at a later tick as its own
+				-- row. A naive row count reports a population at twice its
+				-- real size.
+				--
+				-- creature_id is stable as an animal grows, so an individual
+				-- accumulates rows whose stage and hull change over its life.
+				-- That is the point: a per-stage histogram counts DISTINCT
+				-- creature_id WITHIN each stage, so a matured animal still
+				-- counts at the stage it was observed in rather than draining
+				-- the lower bands as it grows.
+				--
+				-- stage is derived from name at write time so queries need no
+				-- name parsing; name is kept raw beside it so history can be
+				-- recomputed if the stage vocabulary gains a word.
+				-- stage = '' means MATURE, not unknown.
+				--
+				-- hull is the live reading and max_hull this individual's own
+				-- maximum -- never the species'. A mid-combat hull is the only
+				-- evidence that creature damage does not persist out of combat.
+				CREATE TABLE IF NOT EXISTS wildlife_observations (
+					creature_id   TEXT    NOT NULL,
+					game_tick     INTEGER NOT NULL,
+					observed_utc  TEXT    NOT NULL DEFAULT '',
+					species       TEXT    NOT NULL DEFAULT '',
+					name          TEXT    NOT NULL DEFAULT '',
+					stage         TEXT    NOT NULL DEFAULT '',
+					role          TEXT    NOT NULL DEFAULT '',
+					hull          INTEGER NOT NULL DEFAULT 0,
+					max_hull      INTEGER NOT NULL DEFAULT 0,
+					in_combat     INTEGER NOT NULL DEFAULT 0,
+					branded       INTEGER NOT NULL DEFAULT 0,
+					system_id     TEXT    NOT NULL DEFAULT '',
+					poi_id        TEXT    NOT NULL DEFAULT '',
+					agent_id      TEXT    NOT NULL DEFAULT '',
+					PRIMARY KEY (creature_id, game_tick)
+				);
+				CREATE INDEX IF NOT EXISTS idx_wildlife_obs_species_stage
+					ON wildlife_observations(species, stage, max_hull);
+				CREATE INDEX IF NOT EXISTS idx_wildlife_obs_tick
+					ON wildlife_observations(game_tick);
+			`,
+		},
 	}
 }
 

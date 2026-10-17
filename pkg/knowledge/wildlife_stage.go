@@ -27,9 +27,25 @@ var ProtectedStageWords = []string{"hatchling", "young", "calf", "juvenile"}
 // "Calfax Drifter" are not juveniles, and a substring match would both spare
 // adults by accident and mangle names in CanonicalSpeciesName.
 func IsProtectedJuvenile(name string) bool {
-	_, found := splitStage(name)
+	return StageWord(name) != ""
+}
 
-	return found
+// StageWord returns the growth-stage word in a creature display name,
+// lowercased, or "" when there is none.
+//
+// "" is a VALUE, not a failure: it is the mature bucket. A fully grown
+// "Cloudwhale" carries no stage word, which is exactly what distinguishes it
+// from a "Young Cloudwhale", so an observation row stores "" for an adult
+// rather than leaving the stage unknown.
+//
+// This is the half CanonicalSpeciesName discards. Observation rows keep both:
+// the stage as its own column so a per-stage histogram needs no name parsing,
+// and the raw name beside it so history can be recomputed if the vocabulary
+// ever gains a word.
+func StageWord(name string) string {
+	_, stage := splitStage(name)
+
+	return stage
 }
 
 // CanonicalSpeciesName returns the display name with any growth-stage word
@@ -40,39 +56,46 @@ func IsProtectedJuvenile(name string) bool {
 // lost: it stays on the observation rows and on wildlife_kills.creature_name,
 // which is where a per-stage histogram reads it from.
 func CanonicalSpeciesName(name string) string {
-	stripped, found := splitStage(name)
-	if !found {
+	stripped, stage := splitStage(name)
+	if stage == "" {
 		return name
 	}
 
 	return stripped
 }
 
-// splitStage removes a leading or trailing stage word, reporting whether one
-// was present. A name consisting ONLY of a stage word is left alone: there is
-// no species left to call it by, so the original is more useful than "".
-func splitStage(name string) (string, bool) {
+// splitStage removes a leading or trailing stage word, returning the remaining
+// name and the stage in its normalised form ("" when there is none).
+//
+// A name consisting ONLY of a stage word is left alone: there is no species
+// left to call it by, so the original is more useful than "", and reporting a
+// stage for it would file every such sighting under a species of one word.
+func splitStage(name string) (string, string) {
 	fields := strings.Fields(name)
 	if len(fields) < 2 {
-		return name, false
+		return name, ""
 	}
-	if isStageWord(fields[0]) {
-		return strings.Join(fields[1:], " "), true
+	if s := stageWordOf(fields[0]); s != "" {
+		return strings.Join(fields[1:], " "), s
 	}
-	if isStageWord(fields[len(fields)-1]) {
-		return strings.Join(fields[:len(fields)-1], " "), true
+	if s := stageWordOf(fields[len(fields)-1]); s != "" {
+		return strings.Join(fields[:len(fields)-1], " "), s
 	}
 
-	return name, false
+	return name, ""
 }
 
-func isStageWord(w string) bool {
+// stageWordOf normalises one field and returns it when it is a stage word,
+// otherwise "". Matching is on the WHOLE field: a substring match would both
+// spare adults by accident ("Youngling") and mangle names in
+// CanonicalSpeciesName.
+func stageWordOf(w string) string {
 	w = strings.ToLower(strings.Trim(w, ".,-—"))
 	for _, s := range ProtectedStageWords {
 		if w == s {
-			return true
+			return s
 		}
 	}
 
-	return false
+	return ""
 }
