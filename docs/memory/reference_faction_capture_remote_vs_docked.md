@@ -14,6 +14,17 @@ days.**
 | faction facility detail | `facility(action=faction_list)` | **NO** — no station/base param among its 33 |
 | that facilities exist | `faction_info` | yes, but no detail at all |
 
+**Storage WRITES and gifts are docked-station-local too.** `withdraw_items`,
+`deposit_items` and `send_gift --source storage` have NO station parameter:
+"personal station storage" means the station you are docked at, and nothing
+else. Tested 2026-10-17 — craftsman-1, docked at Voss, tried to gift 1 of the
+200 energy_crystal it holds at `cargo_lanes_freight_depot` and got
+`insufficient_storage: You only have 0 x energy_crystal in storage.`
+
+So an agent must FLY to a station to move what it owns there.
+`view_faction_storage(station_id)` is the single remote read in this family;
+do not generalise it.
+
 So rent/cycle, level, status, recipe binding and capacity for a faction
 facility are obtainable ONLY while docked at that station. **No code can
 substitute for a pinned resident.** Verified against the v0.632.0 openapi
