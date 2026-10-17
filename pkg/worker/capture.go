@@ -918,6 +918,23 @@ func KBUpdateFacilities(ctx context.Context, client game.GameClient, kb knowledg
 		}
 	}
 
+	// Our OWN faction's lines, from the same reply. Nothing else writes
+	// faction_facilities on a schedule: `capture_faction` is a different path
+	// (assets.db) that touches no facilities, and pkg/faction.Collector runs
+	// only from play_as, kb_update and faction-dashboard. Before this, we could
+	// see every other faction's public factories live and none of our own.
+	if fs, ok := kb.(factionFacilityStore); ok {
+		factionID := ""
+		if state != nil {
+			factionID = state.Player.FactionID
+		}
+		if n, ferr := upsertFactionFromFacilityList(ctx, fs, rawJSON, factionID); ferr != nil {
+			fmt.Printf("faction facility capture failed: %v\n", ferr)
+		} else if n > 0 {
+			fmt.Printf("Captured %d faction facilities\n", n)
+		}
+	}
+
 	var resp struct {
 		BaseID            string           `json:"base_id"`
 		StationFacilities []facilityDetail `json:"station_facilities"`
