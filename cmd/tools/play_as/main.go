@@ -1920,6 +1920,15 @@ func buildFacilityPayload(parts []string) (payload map[string]any, showStation b
 					showStation = true
 					continue
 				}
+				if facilityArrayParams[key] {
+					list, lerr := parseFacilityList(key, v)
+					if lerr != nil {
+						return nil, false, lerr
+					}
+					payload[key] = list
+
+					continue
+				}
 				payload[key] = v
 				continue
 			}
@@ -1933,11 +1942,31 @@ func buildFacilityPayload(parts []string) (payload map[string]any, showStation b
 			// when it isn't itself another --flag (a lone flag sends "").
 			if i+1 < len(parts) && !strings.HasPrefix(parts[i+1], "--") {
 				i++
+				if facilityArrayParams[key] {
+					list, lerr := parseFacilityList(key, parts[i])
+					if lerr != nil {
+						return nil, false, lerr
+					}
+					payload[key] = list
+
+					continue
+				}
 				payload[key] = parts[i]
+			} else if facilityArrayParams[key] {
+				return nil, false, fmt.Errorf("--%s needs a value", key)
 			} else {
 				payload[key] = ""
 			}
 		} else if k, v, ok := strings.Cut(arg, "="); ok {
+			if facilityArrayParams[k] {
+				list, lerr := parseFacilityList(k, v)
+				if lerr != nil {
+					return nil, false, lerr
+				}
+				payload[k] = list
+
+				continue
+			}
 			payload[k] = v
 		} else {
 			positionals = append(positionals, arg)
@@ -9303,6 +9332,10 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 				"           build/types/personal_build/faction_build <facility_type>\n" +
 				"           set_access <public|private>     set_output_price <price> --facility_id ID\n" +
 				"           buy_listing/cancel_listing <listing_id>\n" +
+				"  array flags (items, job_ids, package_ids): comma-separated, [\"a\",\"b\"], or @file\n" +
+				"           @file holds a JSON array, one id per line, or a comma-separated line\n" +
+				"           e.g. facility faction_build crystal_infusion_still \\\n" +
+				"                  --package_ids @data/facility-packages/crystal_infusion_still.json\n" +
 				"  job flags: --facility_id ID --recipe_id ID --quantity N --job_id ID --position N\n" +
 				"  business flags: --item_id ID --price N --access private|public\n" +
 				"  flags:   --show_station_facilities  (list: also show the station's own facilities)")
