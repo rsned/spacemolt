@@ -100,6 +100,37 @@ func CaptureWildlifeScan(ctx context.Context, kb Base, species string, s Creatur
 	}
 
 	stamp := now.UTC().Format(time.RFC3339)
+
+	// Lore varies by growth stage, so it is filed against the stage rather
+	// than onto the one species row. wildlife_species.description is
+	// last-write-wins on a non-empty value, so a juvenile scan used to
+	// overwrite the adult's text and flip back on the next scan of another
+	// stage -- and canonicalising the NAME made that worse, leaving every
+	// staged species describing a juvenile under its adult name.
+	stage := StageWord(s.Name)
+	if lr, ok := kb.(interface {
+		UpsertWildlifeStageLore(context.Context, WildlifeStageLoreRow) error
+	}); ok {
+		if err := lr.UpsertWildlifeStageLore(ctx, WildlifeStageLoreRow{
+			Species:     species,
+			Stage:       stage,
+			DisplayName: s.Name,
+			Description: s.Description,
+			ScannedUTC:  stamp,
+		}); err != nil {
+			return fmt.Errorf("capture wildlife stage lore %s: %w", species, err)
+		}
+	}
+
+	// Only a MATURE scan writes the species-level description, so the row
+	// named for the adult also reads as the adult. A species known only from
+	// juveniles therefore carries no species description -- by design, and the
+	// text is not lost: it is in wildlife_stage_lore under its stage.
+	speciesDesc := ""
+	if stage == "" {
+		speciesDesc = s.Description
+	}
+
 	if err := rec.UpsertWildlifeSpecies(ctx, []WildlifeSpecies{{
 		Species: species,
 		Name:    s.Name,
@@ -111,7 +142,7 @@ func CaptureWildlifeScan(ctx context.Context, kb Base, species string, s Creatur
 		MaxHull:          s.Hull,
 		Danger:           s.Danger,
 		DangerScannedUTC: stamp,
-		Description:      s.Description,
+		Description:      speciesDesc,
 		ScanTraits:       s.Traits,
 		ScanRevealed:     strings.Join(s.Revealed, ","),
 		Ranchable:        s.Ranchable,

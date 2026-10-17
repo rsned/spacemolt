@@ -280,6 +280,40 @@ func migrations() []Migration {
 					ON wildlife_observations(game_tick);
 			`,
 		},
+		{
+			version: 63,
+			name:    "wildlife_stage_lore",
+			sql: `
+				-- One lore entry per (species, growth stage).
+				--
+				-- A creature's DESCRIPTION varies by stage exactly as its name
+				-- does: "A pale hatchling that trails a thin mist of frost. It
+				-- is too small to take a frost-lurker alone and lives on
+				-- scraps, and it bolts from any ship." is a Hoarfrost
+				-- Leviathan HATCHLING, not the species.
+				--
+				-- wildlife_species holds one row per species and its upsert is
+				-- last-write-wins on a non-empty description, so a juvenile
+				-- scan overwrote the adult's lore and flipped back on the next
+				-- scan of another stage. Canonicalising the NAME made that
+				-- worse rather than better: observed live 2026-10-17, every
+				-- staged species carried a juvenile description under the
+				-- canonical adult name -- the guide said a "Cloudwhale" was
+				-- young and a "Hoarfrost Leviathan" was a hatchling.
+				--
+				-- stage = '' means MATURE, matching wildlife_observations.
+				-- display_name keeps the stage-qualified name as scanned, so
+				-- the entry can be rendered with the words the server used.
+				CREATE TABLE IF NOT EXISTS wildlife_stage_lore (
+					species      TEXT NOT NULL,
+					stage        TEXT NOT NULL DEFAULT '',
+					display_name TEXT NOT NULL DEFAULT '',
+					description  TEXT NOT NULL DEFAULT '',
+					scanned_utc  TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (species, stage)
+				);
+			`,
+		},
 	}
 }
 
