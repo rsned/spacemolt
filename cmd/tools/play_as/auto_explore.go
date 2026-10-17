@@ -180,8 +180,18 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 		}
 		systemsExplored++
 
-		// Opportunistic in-space refuel from cargo fuel_cells when low.
-		refuelFromCargoIfLow(client, ctx, format)
+		// Opportunistic in-space refuel from cargo fuel_cells when low. A
+		// stranded report means the tank cannot be topped up from cargo, so
+		// STOP here: the remaining fuel is the only thing that can still carry
+		// the agent to a station, and spending it on another hop is what turns
+		// a warning into a tow.
+		if refuelFromCargoIfLow(client, ctx, format) {
+			if format == formatStyled {
+				fmt.Printf("\n🛑 Stopping: out of fuel with no cargo cells — distress raised, awaiting rescue\n")
+			}
+
+			break
+		}
 
 		// Refresh state after explore; we may have landed at a POI or be in space.
 		state = client.GetState()
@@ -277,17 +287,45 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 	return nil
 }
 
+// distressRaised records that a fuel distress signal is currently outstanding.
+//
+// The signal is a PUBLIC broadcast that generates rescue missions, so it fires
+// once per STRAND rather than once per pass -- without this a fleet checking
+// fuel every tick would flood the emergency channel. It is cleared again as
+// soon as fuel is healthy, so a rescued agent that later runs dry can still
+// call for help; latching it for the life of the process would silence every
+// strand after the first.
+var distressRaised bool
+
 // refuelFromCargoIfLow burns fuel_cell items from cargo if current fuel is
-// below autoExploreLowFuelPct. Only acts when the agent is NOT docked
-// (at stations, explore() already refueled via refuelAtStations).
-func refuelFromCargoIfLow(client game.GameClient, ctx context.Context, format outputFormat) {
+// below autoExploreLowFuelPct, and raises a distress signal when it cannot.
+// Only acts when the agent is NOT docked (at stations, explore() already
+// refueled via refuelAtStations).
+//
+// It reports whether the agent is STRANDED, so the caller stops instead of
+// spending what is left of the tank. That is not a nicety: craftsman-1 printed
+// "Fuel low (5%) but no fuel_cell in cargo — continuing" with three jumps of
+// fuel still aboard, kept exploring, and ended on 8 fuel at
+// groombridge_1618 -- a system with no station, five jumps from the nearest
+// refuel and ten from the nearest tanker. Continuing is what converted a
+// warning into a recovery operation.
+//
+// A GSA tow costs ~500 credits and arrives in ~15 minutes, against ~4 hours
+// for a tanker round trip, so the signal is the cheap first move and
+// DistressSignal has been on the GameClient interface all along with no fleet
+// caller. See reference_gsa_tow_beats_the_tanker_fleet.
+func refuelFromCargoIfLow(client game.GameClient, ctx context.Context, format outputFormat) (stranded bool) {
 	state := client.GetState()
 	if state == nil || state.MaxFuel == 0 || state.Doc {
-		return
+		return false
 	}
 	fuelPct := (state.Fuel / state.MaxFuel) * 100
 	if fuelPct >= autoExploreLowFuelPct {
-		return
+		// Fuel is healthy, so any earlier strand is over and a future one
+		// deserves its own signal.
+		distressRaised = false
+
+		return false
 	}
 
 	// Look for any fuel_cell variant in cargo.
@@ -299,10 +337,9 @@ func refuelFromCargoIfLow(client game.GameClient, ctx context.Context, format ou
 		}
 	}
 	if !found {
-		if format == formatStyled {
-			fmt.Printf("  Fuel low (%.0f%%) but no fuel_cell in cargo — continuing\n", fuelPct)
-		}
-		return
+		raiseFuelDistress(client, ctx, state, fuelPct, format)
+
+		return true
 	}
 
 	if format == formatStyled {
@@ -314,7 +351,11 @@ func refuelFromCargoIfLow(client game.GameClient, ctx context.Context, format ou
 				fmt.Printf("  Refuel warning: %v\n", err)
 			}
 		}
-		return
+
+		// A cell was aboard but burning it failed, so the tank is still low.
+		// Not stranded -- the cell is still there to retry with -- but say so
+		// rather than reporting success.
+		return false
 	}
 	time.Sleep(game.SleepQuick)
 	_ = client.GetStatus(ctx)
@@ -325,6 +366,8 @@ func refuelFromCargoIfLow(client game.GameClient, ctx context.Context, format ou
 				state.Fuel, state.MaxFuel, (state.Fuel/state.MaxFuel)*100)
 		}
 	}
+
+	return false
 }
 
 // pickNextSystem chooses the adjacent system to jump to next.
@@ -503,4 +546,43 @@ func isInBattle(err error) bool {
 
 	return strings.Contains(err.Error(), "in_battle") ||
 		strings.Contains(err.Error(), "while in combat")
+}
+
+// raiseFuelDistress broadcasts a one-time fuel distress signal.
+//
+// It does NOT gate on credits. A tow has to be paid for, but the broadcast is
+// free and reaches every player within five jumps on the emergency channel, so
+// a broke agent still gains from shouting -- and the historical strandees were
+// precisely the broke ones (six for six, ~1.5k credits between them). Credits
+// are printed so the operator can see whether a tow is affordable without a
+// second command.
+func raiseFuelDistress(client game.GameClient, ctx context.Context, state *game.State,
+	fuelPct float64, format outputFormat,
+) {
+	if distressRaised {
+		if format == formatStyled {
+			fmt.Printf("  Fuel low (%.0f%%), no fuel_cell in cargo — distress already raised, holding\n", fuelPct)
+		}
+
+		return
+	}
+
+	if format == formatStyled {
+		fmt.Printf("  Fuel low (%.0f%%: %.0f/%.0f) and no fuel_cell in cargo — raising distress and stopping\n",
+			fuelPct, state.Fuel, state.MaxFuel)
+	}
+
+	if err := client.DistressSignal(ctx, "fuel"); err != nil {
+		if format == formatStyled {
+			fmt.Printf("  Distress signal failed: %v\n", err)
+		}
+
+		return
+	}
+	distressRaised = true
+
+	if format == formatStyled {
+		fmt.Printf("  Distress signal raised (fuel). A GSA tow is ~500 credits; this agent holds %.0f.\n",
+			state.Credits)
+	}
 }
