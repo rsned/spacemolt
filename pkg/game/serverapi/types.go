@@ -470,6 +470,21 @@ type MarketOrder struct {
 	Source     string  `json:"source,omitempty"`
 }
 
+// BaseCombat is a station's accumulated battle damage.
+//
+// A wrecked station STILL STANDS and can still be docked at, but keeps only
+// its market and storage until repaired -- so Wrecked is not "gone", it is
+// "reduced", and a route planner that treats it as missing will skip a station
+// that can still trade. Effective hull is the base's maximum hull minus
+// HullDamage; ShieldDamage regenerates out of combat.
+type BaseCombat struct {
+	HullDamage     int  `json:"hull_damage,omitempty"`
+	ShieldDamage   int  `json:"shield_damage,omitempty"`
+	LastCombatTick int  `json:"last_combat_tick,omitempty"`
+	Wrecked        bool `json:"wrecked,omitempty"`
+	WreckedTick    int  `json:"wrecked_tick,omitempty"`
+}
+
 // Base represents a player-owned or NPC base.
 type Base struct {
 	ID                string          `json:"id"`
@@ -493,6 +508,37 @@ type Base struct {
 	// AutoBuyFuel reports whether a player station automatically buys fuel
 	// from docked pilots at live scarcity-based prices. Off by default.
 	AutoBuyFuel bool `json:"auto_buy_fuel,omitempty"`
+	// AllowOutsiderFacilities is whether pilots outside the owning faction may
+	// build facilities at this player station.
+	AllowOutsiderFacilities bool `json:"allow_outsider_facilities,omitempty"`
+	// AnchorPOIID is the landmark POI a player-built base was founded beside.
+	// The base occupies its OWN station POI, so this is not where it is -- it
+	// is what it was built next to. Ranches bind their herd to this habitat
+	// POI, which makes it load-bearing for livestock, not decorative.
+	AnchorPOIID string `json:"anchor_poi_id,omitempty"`
+	// Combat is station battle damage, omitted for a station that has never
+	// been shot at -- hence a pointer, so "never in combat" stays
+	// distinguishable from "damage all zero".
+	Combat *BaseCombat `json:"combat,omitempty"`
+	// MarketFeeBps, RefuelPriceEach and RepairPricePerHull are owner-set
+	// prices on a player station. 0 means DEFAULT, not free: a station
+	// charging nothing and a station with no override are the same payload, so
+	// never read 0 as a giveaway.
+	MarketFeeBps       int `json:"market_fee_bps,omitempty"`
+	RefuelPriceEach    int `json:"refuel_price_each,omitempty"`
+	RepairPricePerHull int `json:"repair_price_per_hull,omitempty"`
+	// MobileBase is the faction mobile-base archetype and movement state,
+	// omitted for ordinary stations.
+	//
+	// Deliberately RawMessage: openapi declares it as a bare `type: object`
+	// with no properties and no $ref, so the schema does not say what shape it
+	// is. It looks like MobileBaseInfo, which we do not model either, but
+	// guessing field names is how a decoder silently zeroes them. Keeping the
+	// raw bytes preserves the payload for whoever types it properly.
+	MobileBase json.RawMessage `json:"mobile_base,omitempty"`
+	// ServiceAccess maps a service type to its access policy on a player
+	// station: public, allies or faction.
+	ServiceAccess map[string]string `json:"service_access,omitempty"`
 	// ContrabandItems is the BANNED item ids for a player-owned station or
 	// mobile base -- a deny list, not a list of what the base will buy.
 	//
