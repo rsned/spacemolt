@@ -424,6 +424,13 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	// execMu serializes command execution so a background scheduled command
 	// never interleaves with a foreground REPL command (or vice-versa).
 	var execMu sync.Mutex
+	// Install the yield used by long-running commands (auto-explore) to let the
+	// scheduler run between hops. See exec_yield.go for why a command that
+	// holds this mutex for hours is a problem.
+	globalExecYield = func() {
+		execMu.Unlock()
+		execMu.Lock()
+	}
 
 	// Auto-reload answers the server's out_of_ammo notification rather than
 	// counting rounds locally. The pass runs on its own goroutine holding

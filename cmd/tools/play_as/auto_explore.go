@@ -122,6 +122,15 @@ func autoExplore(client game.GameClient, ctx context.Context, parts []string, fo
 	var allResponses []json.RawMessage
 
 	for hop := 0; hop < maxHops; hop++ {
+		// Let anything blocked on the command mutex run before this hop. A
+		// 500-hop tour is a session, not a command, and the REPL holds execMu
+		// around the whole call -- so without this the scheduler goroutine
+		// stays frozen inside fire() for hours, losing boundaries outright
+		// (dropped ticks) and then double-firing when the lock finally frees.
+		// Between systems is the safe point: nothing is mid-transaction here,
+		// unlike between the POIs of one system.
+		yieldExec()
+
 		if format == formatStyled {
 			fmt.Printf("━━━ Hop %d/%d: exploring %s ━━━\n", hop+1, maxHops, currentSystemName)
 		}
