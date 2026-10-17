@@ -819,10 +819,24 @@ func upsertPublicFromFacilityList(ctx context.Context, kb publicFacilityStore, r
 	}
 	var rows []knowledge.PublicFacility
 	for _, m := range all {
+		// A production line is one that HAS a production object. Gating on
+		// category == "production" first silently skipped every one of our own
+		// faction's lines: other factions' and NPC entries carry that field,
+		// ours do not. The live shape is
+		//
+		//   {"active":true,"custom_name":"Polymer Extruder","type":"polymer_extruder",
+		//    "recipe_id":"extrude_nanoplastic",
+		//    "production":{"public":true,"output_per_run":3,...}}
+		//
+		// -- no category anywhere. So five PUBLIC CRFT lines at
+		// grand_exchange_station were absent from public_facilities while all
+		// 2,516 captured rows read category=production, which is why we could
+		// see every other faction's factories and none of our own.
+		//
+		// The production object is the better discriminator in any case: the
+		// code already required it on the next line, so the category test was
+		// redundant where it worked and harmful where it did not.
 		prod, _ := m["production"].(map[string]any)
-		if facStr(m, "category") != "production" {
-			continue
-		}
 		if prod == nil {
 			continue
 		}
