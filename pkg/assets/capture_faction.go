@@ -87,23 +87,29 @@ func CaptureFaction(ctx context.Context, client game.GameClient, st *Store, agen
 		return err
 	}
 
-	// Seed the storage sweep from wherever the agent is. Like the agent hint,
-	// the faction hint enumerates every base with holdings.
-	seedStation := ""
-	if state.Player.DockedAtBase == "" {
-		seedStation = state.Player.HomeBase
-		if seedStation == "" {
-			return nil
-		}
-	}
-	seed, ok := fetchFactionStorage(ctx, client, seedStation)
-	if !ok {
-		return nil
-	}
-
 	stored, _, err := st.LoadFactionStorage(ctx, factionID, nil)
 	if err != nil {
 		return err
+	}
+
+	// Seed the storage sweep. Like the agent hint, the faction hint enumerates
+	// every base with holdings, so ONE successful read names the rest.
+	//
+	// Where the agent is has nothing to do with where the faction keeps things.
+	// CRFT's elected captor is homed at crimson_war_citadel -- a Crimson empire
+	// station where CRFT holds no storage -- and spends its days undocked at an
+	// ice belt, so seeding from DockedAtBase-or-HomeBase asked a station that
+	// refuses ("Your faction does not have a storage facility at this
+	// station"), the fetch failed, and the whole capture returned nil. It had
+	// been firing daily and writing nothing while voss_redoubt_station's pocket
+	// sat four days stale.
+	//
+	// station_id works UNDOCKED, so a refused seed is not the end: fall back to
+	// the bases the faction is already known to hold. Only if none of those
+	// answer either is there genuinely nothing to capture.
+	seed, ok := seedFactionStorage(ctx, client, state, stored)
+	if !ok {
+		return nil
 	}
 	storedByBase := make(map[string]FactionStorageBase, len(stored))
 	for _, b := range stored {
@@ -206,4 +212,53 @@ func fetchFactionStorage(ctx context.Context, client game.GameClient, stationID 
 	}
 
 	return factionStorageFetch{base: base, hint: hint}, true
+}
+
+// seedFactionStorage finds one readable faction-storage response to seed the
+// sweep from.
+//
+// Order of attempts: where the agent is docked (cheapest and always correct
+// when docked), then its home base, then every base the ledger already knows
+// the faction holds. The last of those is what rescues an undocked captor
+// homed somewhere the faction has nothing.
+//
+// Each attempt is one query against a station that may refuse, so the known
+// bases are tried in ledger order and the first success wins -- there is no
+// value in reading more than one, since the hint on any of them enumerates
+// them all.
+func seedFactionStorage(ctx context.Context, client game.GameClient, state *game.State,
+	stored []FactionStorageBase,
+) (factionStorageFetch, bool) {
+	tried := map[string]bool{}
+	attempt := func(stationID string) (factionStorageFetch, bool) {
+		if tried[stationID] {
+			return factionStorageFetch{}, false
+		}
+		tried[stationID] = true
+
+		return fetchFactionStorage(ctx, client, stationID)
+	}
+
+	// Docked: the empty station id means "here", which needs no base id and is
+	// the one case the server can always answer.
+	if state.Player.DockedAtBase != "" {
+		if got, ok := attempt(""); ok {
+			return got, true
+		}
+	}
+	if home := state.Player.HomeBase; home != "" {
+		if got, ok := attempt(home); ok {
+			return got, true
+		}
+	}
+	for _, b := range stored {
+		if b.BaseID == "" {
+			continue
+		}
+		if got, ok := attempt(b.BaseID); ok {
+			return got, true
+		}
+	}
+
+	return factionStorageFetch{}, false
 }

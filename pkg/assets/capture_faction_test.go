@@ -198,3 +198,87 @@ func TestCaptureFactionSkipsNonMembers(t *testing.T) {
 		t.Errorf("faction_info called %d times for a non-member, want 0", f.factionInfoCalls)
 	}
 }
+
+// An UNDOCKED captor seeds the storage sweep from its own HomeBase, and that is
+// unrelated to where the faction keeps things. CRFT's elected captor is
+// craftsman-8, homed at crimson_war_citadel -- a Crimson empire station where
+// CRFT has no storage facility at all -- and it spends its days undocked at an
+// ice belt. So:
+//
+//	docked_at_base is "" -> seed = HomeBase = crimson_war_citadel
+//	view_faction_storage(crimson_war_citadel) -> no faction storage there
+//	fetch fails -> return nil, whole capture abandoned SILENTLY
+//
+// Observed live: craftsman-1's daily capture_faction had been firing since at
+// least 10-17 00:00 and writing nothing, while voss_redoubt_station's faction
+// pocket sat frozen at 2026-10-13. Every holdings figure read off the personal
+// table instead was wrong.
+//
+// station_id works undocked, so a failed seed must fall back to a base the
+// FACTION is known to hold rather than giving up.
+func TestCaptureFactionSeedsFromAKnownFactionBaseWhenHomeHasNone(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+
+	// What we already know: the faction holds storage at two bases.
+	if err := st.ReplaceFactionStorage(ctx, "fac1", []FactionStorageBase{
+		{BaseID: "voss_redoubt_station"},
+		{BaseID: "grand_exchange_station"},
+	}, now); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// Undocked captor homed where the faction has nothing.
+	f := newFactionFake("p1", "fac1", "")
+	f.state.Player.HomeBase = "crimson_war_citadel"
+	f.raw["faction_info"] = []byte(`{"id":"fac1","name":"Crafting Collective","treasury":8060546}`)
+	// crimson_war_citadel deliberately has NO frame: the server refuses with
+	// "Your faction does not have a storage facility at this station".
+	f.frames["voss_redoubt_station"] = []byte(`{"faction_id":"fac1","base_id":"voss_redoubt_station",` +
+		`"items":[{"item_id":"pharmaceutical_culture","quantity":815}],` +
+		`"hint":"149653 items in faction storage at grand_exchange_station, voss_redoubt_station"}`)
+	f.frames["grand_exchange_station"] = []byte(`{"faction_id":"fac1","base_id":"grand_exchange_station",` +
+		`"items":[{"item_id":"energy_crystal","quantity":1408}]}`)
+
+	if err := CaptureFaction(ctx, f, st, "craftsman-8", now.Add(time.Hour)); err != nil {
+		t.Fatalf("CaptureFaction: %v", err)
+	}
+
+	bases, _, err := st.LoadFactionStorage(ctx, "fac1", nil)
+	if err != nil {
+		t.Fatalf("LoadFactionStorage: %v", err)
+	}
+	got := map[string]int{}
+	for _, b := range bases {
+		for _, it := range b.Items {
+			got[b.BaseID+"/"+it.ItemID] = int(it.Quantity)
+		}
+	}
+	if got["voss_redoubt_station/pharmaceutical_culture"] != 815 {
+		t.Errorf("voss pharma = %d, want 815 (the seed fell back to a known faction base)",
+			got["voss_redoubt_station/pharmaceutical_culture"])
+	}
+	// The sweep must still cover the OTHER base named in the hint, so fixing
+	// Voss does not cost grand_exchange.
+	if got["grand_exchange_station/energy_crystal"] != 1408 {
+		t.Errorf("grand_exchange crystal = %d, want 1408", got["grand_exchange_station/energy_crystal"])
+	}
+}
+
+// A captor with no faction storage anywhere and no known bases still must not
+// error -- a cold ledger plus a homeless agent is a no-op, not a failure.
+func TestCaptureFactionNoKnownBasesIsAQuietNoOp(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 10, 17, 12, 0, 0, 0, time.UTC)
+
+	f := newFactionFake("p1", "fac1", "")
+	f.state.Player.HomeBase = "crimson_war_citadel"
+	f.raw["faction_info"] = []byte(`{"id":"fac1","name":"Crafting Collective","treasury":1}`)
+	// No frames at all: every station refuses.
+
+	if err := CaptureFaction(ctx, f, st, "craftsman-8", now); err != nil {
+		t.Errorf("want a quiet no-op, got %v", err)
+	}
+}
