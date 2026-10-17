@@ -120,3 +120,86 @@ func TestCaptureWildlifeScan_JuvenileOnlySpeciesKeepsItsLore(t *testing.T) {
 		t.Errorf("display name = %q, want the stage-qualified name as sighted", lore[0].DisplayName)
 	}
 }
+
+// Hull is per stage too. The scan reports the hull of the individual scanned,
+// and wildlife_species.max_hull only ratchets UP -- so it converges on the
+// adult and reports that figure under a row that may have been met as a
+// hatchling. Anything reading it for threat assessment overestimates a
+// hatchling by 2.5x (hoarfrost: 769 on the species row, 312 for the hatchling
+// we killed).
+//
+// Observations already give the population range per stage via
+// WildlifeStageHistogram; this is the SCAN-sourced figure, which is the only
+// per-stage hull available for a stage get_nearby has never listed.
+func TestCaptureWildlifeScan_RecordsHullPerStage(t *testing.T) {
+	kb := newTestKB(t)
+	ctx := context.Background()
+	now := time.Now()
+
+	if err := CaptureWildlifeScan(ctx, kb, "hoarfrost_leviathan", CreatureScan{
+		Name: "Hoarfrost Leviathan Hatchling", Traits: "does not attack ships first",
+		Danger: "does not attack ships first", Description: "A pale hatchling.", Hull: 312,
+	}, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := CaptureWildlifeScan(ctx, kb, "hoarfrost_leviathan", CreatureScan{
+		Name: "Juvenile Hoarfrost Leviathan", Traits: "does not attack ships first",
+		Danger: "does not attack ships first", Description: "A juvenile.", Hull: 769,
+	}, now.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+
+	lore, err := kb.WildlifeStageLore(ctx, "hoarfrost_leviathan")
+	if err != nil {
+		t.Fatal(err)
+	}
+	byStage := map[string]int{}
+	for _, l := range lore {
+		byStage[l.Stage] = l.MaxHull
+	}
+	if byStage["hatchling"] != 312 {
+		t.Errorf("hatchling hull = %d, want 312", byStage["hatchling"])
+	}
+	if byStage["juvenile"] != 769 {
+		t.Errorf("juvenile hull = %d, want 769", byStage["juvenile"])
+	}
+
+	// The species row still ratchets to the largest seen -- that is its
+	// documented behaviour and this change does not alter it. The point is
+	// that the per-stage figure now exists alongside it.
+	var speciesMax int
+	if err := kb.db.QueryRowContext(ctx,
+		`SELECT max_hull FROM wildlife_species WHERE species='hoarfrost_leviathan'`).Scan(&speciesMax); err != nil {
+		t.Fatal(err)
+	}
+	if speciesMax != 769 {
+		t.Errorf("species max_hull = %d, want 769 (ratcheted to the largest)", speciesMax)
+	}
+}
+
+// A later scan reporting a SMALLER hull for the same stage must not ratchet
+// that stage down to it blindly -- individuals within a stage vary (molt
+// juveniles run 481-691), so the stage's figure is the largest seen AT that
+// stage, mirroring the species-level rule one level down.
+func TestCaptureWildlifeScan_StageHullRatchetsUp(t *testing.T) {
+	kb := newTestKB(t)
+	ctx := context.Background()
+	now := time.Now()
+
+	for _, hull := range []int{691, 481} {
+		if err := CaptureWildlifeScan(ctx, kb, "molt_leviathan", CreatureScan{
+			Name: "Juvenile Molt Leviathan", Traits: "predator", Danger: "attacks",
+			Description: "A young Molt Leviathan.", Hull: hull,
+		}, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	lore, err := kb.WildlifeStageLore(ctx, "molt_leviathan")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lore) != 1 || lore[0].MaxHull != 691 {
+		t.Fatalf("got %+v, want juvenile at 691 (ratcheted up, not down to 481)", lore)
+	}
+}

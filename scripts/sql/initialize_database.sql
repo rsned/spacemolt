@@ -11,7 +11,7 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 5
+-- Migrations applied: 6
 -- Last Regenerated: 2026-10-17
 
 -- ============================================================================
@@ -1079,7 +1079,7 @@ CREATE TABLE wildlife_stage_lore (
 					stage        TEXT NOT NULL DEFAULT '',
 					display_name TEXT NOT NULL DEFAULT '',
 					description  TEXT NOT NULL DEFAULT '',
-					scanned_utc  TEXT NOT NULL DEFAULT '',
+					scanned_utc  TEXT NOT NULL DEFAULT '', max_hull INTEGER NOT NULL DEFAULT 0,
 					PRIMARY KEY (species, stage)
 				);
 
@@ -1317,4 +1317,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (60, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (61, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (62, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (63, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (64, datetime('now'));
 

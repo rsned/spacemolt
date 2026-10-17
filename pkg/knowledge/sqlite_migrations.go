@@ -314,6 +314,30 @@ func migrations() []Migration {
 				);
 			`,
 		},
+		{
+			version: 64,
+			name:    "wildlife_stage_lore_hull",
+			sql: `
+				-- Hull is per stage as much as lore is.
+				--
+				-- wildlife_species.max_hull only ratchets UP, so it converges
+				-- on the ADULT and reports that under a row that may have been
+				-- met as a hatchling: hoarfrost read 769 while the hatchling we
+				-- killed was 312, so threat assessment off the species row
+				-- overestimates a hatchling by 2.5x.
+				--
+				-- wildlife_observations already gives the observed population
+				-- range per stage. This column is the SCAN-sourced figure,
+				-- different in provenance and the only per-stage hull available
+				-- for a stage get_nearby has never listed. It ratchets up
+				-- within its stage, mirroring the species rule one level down,
+				-- because individuals vary inside a stage (molt juveniles run
+				-- 481-691).
+			`,
+			fn: func(tx *sql.Tx) error {
+				return ensureColumn(tx, "wildlife_stage_lore", "max_hull", "INTEGER NOT NULL DEFAULT 0")
+			},
+		},
 	}
 }
 

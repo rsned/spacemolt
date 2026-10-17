@@ -117,6 +117,7 @@ func CaptureWildlifeScan(ctx context.Context, kb Base, species string, s Creatur
 			DisplayName: s.Name,
 			Description: s.Description,
 			ScannedUTC:  stamp,
+			MaxHull:     s.Hull,
 		}); err != nil {
 			return fmt.Errorf("capture wildlife stage lore %s: %w", species, err)
 		}
