@@ -493,6 +493,16 @@ type Base struct {
 	// AutoBuyFuel reports whether a player station automatically buys fuel
 	// from docked pilots at live scarcity-based prices. Off by default.
 	AutoBuyFuel bool `json:"auto_buy_fuel,omitempty"`
+	// ContrabandItems is the BANNED item ids for a player-owned station or
+	// mobile base -- a deny list, not a list of what the base will buy.
+	//
+	// Nil and empty mean DIFFERENT things, so this carries no omitempty and
+	// must not be normalised: nil means the default contraband rules apply,
+	// while an empty array means ALL items are permitted. Conflating them
+	// inverts the policy on a base that bans nothing. Empire customs are
+	// unaffected either way. (Base declares no contraband_mode; only
+	// StationConfigResponse does.)
+	ContrabandItems []string `json:"contraband_items"`
 	// Fuel/MaxFuel are the station fuel desk's own reserve. Pointers because
 	// a measured 0 (desk dry) must stay distinguishable from the field being
 	// absent on older payloads or non-desk bases.

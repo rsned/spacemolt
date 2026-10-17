@@ -244,7 +244,19 @@ type StationConfigResponse struct {
 	MarketFeeBps            int               `json:"market_fee_bps,omitempty"`
 	RefuelPriceEach         int               `json:"refuel_price_each,omitempty"`
 	RepairPricePerHull      int               `json:"repair_price_per_hull,omitempty"`
-	Message                 string            `json:"message,omitempty"`
+	// ContrabandMode is "default" (the general contraband rules apply) or
+	// "custom" (ContrabandItems replaces them at this player-owned station or
+	// mobile base). Empire customs are unaffected either way.
+	ContrabandMode string `json:"contraband_mode,omitempty"`
+	// ContrabandItems is the BANNED item ids, sorted -- a deny list for this
+	// station, not a list of what it will buy.
+	//
+	// Nil and empty mean DIFFERENT things, so this must not be given
+	// omitempty and must not be normalised: nil means the default rules apply,
+	// while an empty array in custom mode permits ALL items. A decoder that
+	// conflates them inverts the policy on a station that bans nothing.
+	ContrabandItems []string `json:"contraband_items"`
+	Message         string   `json:"message,omitempty"`
 }
 
 // DismantleOutpostResponse is returned by dismantle_outpost: a faction outpost
