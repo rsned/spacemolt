@@ -12,6 +12,7 @@
 - [Sunless systems = generation artifact](reference_sunless_systems_intentional.md) — 9 systems, LLM-map slip, do NOT chase; real reveal hook is gsc_0026 faint_signature
 
 ## Fleet ops — live problems
+- ⭐🔴 [Faction storage reads REMOTELY; facility detail does NOT](reference_faction_capture_remote_vs_docked.md) — `facility` has no station param, so rent/level/status need a pinned resident; capture_faction is elected to ONE member (MIN player_id) and silently no-ops for the rest; `agent_storage_items` is PERSONAL only
 - ⭐🔴 [Facility rent: per-station, INVISIBLE until you build](reference_faction_facility_rent_mechanics.md) — 11 of 14 CRFT facilities repossessed 10-12; `faction_deposit_credits` needs storage AT that station (23,562 fails); `faction_build` ignores personal storage; gift the parked leader
 - ⭐🟢 [ROOT CAUSE of the IP blocks — FIXED](project_execute_loop_has_no_pacing_floor.md) — mine timeout desyncs w/ server pending → unpaced `loop -f` retries into instant "already pending" at 51/min vs a **30/min PER-SESSION** cap. Tick is 10s so 6/min is useful
 - ⭐🟢 [Mission-query loop FIXED, undeployed](project_mission_query_loop_burns_the_ip_budget.md) — 44% of traffic; board never refreshes on request so slow-poll is safe. **IP-block counter is SHARED across the address** (per-bot game_query is 300/min, never close)
