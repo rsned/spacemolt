@@ -72,6 +72,7 @@
 - [Survey anomaly capture](project_survey_anomaly_capture.md) — persist survey_system anomaly hints to the anomalies table
 - [12 unregistered wildlife species + open battle API](reference_unregistered_wildlife_from_battle_api.md) — Kiln-Snail@furud is Phase-Lurker-common; Bulwark/Wormwood ARMED; api/battles needs no auth, category=pvp untapped
 - ⭐🔴 [Wildlife 10-14: ids are not all `crt_` (leviathans are `lev_`), hull varies per INDIVIDUAL and GROWS](reference_wildlife_update_20261014_lev_ids_variable_hull.md) — the prefix gate silently discarded every leviathan scan; never gate capture on an id prefix; count individuals not rows
+- ⭐ [wildlife_observations: per-individual, per-tick (migration 62)](project_wildlife_lifecycle_observations.md) — PK (creature_id, game_tick) collapses the double-look; count DISTINCT creature WITHIN a stage; stage ''=MATURE; order by hull, never a hardcoded ladder; 0 of 1,971 seen growing
 - [Wildlife combat intelligence](project_wildlife_combat_intelligence.md) — capture wired `3dea78d7`, NOT scheduled; Leviathan kills a starter hull in 2 ticks
 
 ## Haul & freight economics
