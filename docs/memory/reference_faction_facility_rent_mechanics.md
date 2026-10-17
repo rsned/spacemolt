@@ -32,6 +32,22 @@ there.** You cannot price a station before committing. Measured:
 |---|---:|---:|
 | `grand_exchange_station` | 90/cycle | 180–181/cycle |
 | `confederacy_central_command` (sol_central) | 31/cycle | 31/cycle |
+| `voss_redoubt_station` (pirate stronghold) | 423/cycle (Lockbox) | **846–850/cycle** |
+
+**Stronghold rent is ~4.7x Grand Exchange and ~27x Sol Central**, observed
+2026-10-17: three contraband lines at Voss bill 850/cycle each (73,100/day),
+a fourth built the same day reported `rent_per_cycle: 846`. There is no rent
+arbitrage available for contraband because **contraband facilities cannot be
+built in empire space** — lawless/stronghold only, so the high rate is the
+price of the category, not a bad siting choice.
+
+At 850/cycle a line needs only ~5-10% utilisation to clear its rent on
+production margin (ghost_rounds ~16,377/run breaks even at 4.5 runs/day
+against a 68/day ceiling; starshine ~7,107/run at 10.3 against 213;
+moonshine ~13,898/run at 5.3 against 106). **Fee-avoidance alone never pays**
+— renting the same line from HEXC at Zaniah costs 112-350/run, so the still
+would need 653 runs/day against a 213 ceiling. Own it only if it RUNS; an
+idle stronghold line is a flat 73,100/day loss.
 
 Rent is **not** proportional to build cost — the 800,000 cr Fuel Bunker and the
 200,000 cr Lockbox both bill 90 at Grand Exchange. Level does not matter either
