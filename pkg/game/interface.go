@@ -214,6 +214,8 @@ type GameClient interface {
 	ForumReply(ctx context.Context, threadID, content string) error
 	ForumUpvote(ctx context.Context, threadID string, replyID string) error
 	ForumDeleteThread(ctx context.Context, threadID string) error
+	ForumEditThread(ctx context.Context, threadID, title, content string) error
+	ForumEditReply(ctx context.Context, replyID, content string) error
 	ForumDeleteReply(ctx context.Context, replyID string) error
 
 	// Notes

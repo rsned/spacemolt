@@ -326,6 +326,8 @@ var actionResponseTypes = map[string]reflect.Type{
 	"supply_commission":   reflect.TypeOf(serverapi.SupplyCommissionResponse{}),
 	"forum_delete_reply":  reflect.TypeOf(serverapi.ForumDeleteReplyResponse{}),
 	"forum_delete_thread": reflect.TypeOf(serverapi.ForumDeleteThreadResponse{}),
+	"forum_edit_thread":   reflect.TypeOf(serverapi.ForumEditThreadResponse{}),
+	"forum_edit_reply":    reflect.TypeOf(serverapi.ForumEditReplyResponse{}),
 	"forum_upvote":        reflect.TypeOf(serverapi.ForumUpvoteResponse{}),
 	"get_system_agents":   reflect.TypeOf(serverapi.GetSystemAgentsResponse{}),
 	// Faction roles, rooms & membership

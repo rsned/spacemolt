@@ -589,15 +589,21 @@ func (m *mockGameClient) ForumUpvote(ctx context.Context, threadID string, reply
 	return nil
 }
 func (m *mockGameClient) ForumDeleteThread(ctx context.Context, threadID string) error { return nil }
-func (m *mockGameClient) ForumDeleteReply(ctx context.Context, replyID string) error   { return nil }
-func (m *mockGameClient) CreateNote(ctx context.Context, title, content string) error  { return nil }
-func (m *mockGameClient) WriteNote(ctx context.Context, noteID, content string) error  { return nil }
-func (m *mockGameClient) GetNotes(ctx context.Context) error                           { return nil }
-func (m *mockGameClient) GetMarketListings() []game.MarketListing                      { return nil }
-func (m *mockGameClient) GetRawJSON(key string) []byte                                 { return nil }
-func (m *mockGameClient) ListShips(ctx context.Context) error                          { return nil }
-func (m *mockGameClient) SwitchShip(ctx context.Context, shipID string) error          { return nil }
-func (m *mockGameClient) SellShip(ctx context.Context, shipID string) error            { return nil }
+func (m *mockGameClient) ForumEditThread(ctx context.Context, threadID, title, content string) error {
+	return nil
+}
+func (m *mockGameClient) ForumEditReply(ctx context.Context, replyID, content string) error {
+	return nil
+}
+func (m *mockGameClient) ForumDeleteReply(ctx context.Context, replyID string) error  { return nil }
+func (m *mockGameClient) CreateNote(ctx context.Context, title, content string) error { return nil }
+func (m *mockGameClient) WriteNote(ctx context.Context, noteID, content string) error { return nil }
+func (m *mockGameClient) GetNotes(ctx context.Context) error                          { return nil }
+func (m *mockGameClient) GetMarketListings() []game.MarketListing                     { return nil }
+func (m *mockGameClient) GetRawJSON(key string) []byte                                { return nil }
+func (m *mockGameClient) ListShips(ctx context.Context) error                         { return nil }
+func (m *mockGameClient) SwitchShip(ctx context.Context, shipID string) error         { return nil }
+func (m *mockGameClient) SellShip(ctx context.Context, shipID string) error           { return nil }
 func (m *mockGameClient) CreateSellOrder(ctx context.Context, payload map[string]any) error {
 	return nil
 }

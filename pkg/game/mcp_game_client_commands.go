@@ -1073,6 +1073,28 @@ func (m *MCPGameClient) ForumDeleteThread(ctx context.Context, threadID string) 
 	return err
 }
 
+func (m *MCPGameClient) ForumEditThread(ctx context.Context, threadID, title, content string) error {
+	args := map[string]any{"thread_id": threadID}
+	if title != "" {
+		args["title"] = title
+	}
+	if content != "" {
+		args["content"] = content
+	}
+	_, err := m.callTool(ctx, "forum_edit_thread", args)
+
+	return err
+}
+
+func (m *MCPGameClient) ForumEditReply(ctx context.Context, replyID, content string) error {
+	_, err := m.callTool(ctx, "forum_edit_reply", map[string]any{
+		"reply_id": replyID,
+		"content":  content,
+	})
+
+	return err
+}
+
 func (m *MCPGameClient) ForumDeleteReply(ctx context.Context, replyID string) error {
 	_, err := m.callTool(ctx, "forum_delete_reply", map[string]any{
 		"reply_id": replyID,

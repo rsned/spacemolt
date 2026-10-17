@@ -472,6 +472,14 @@ func (m *mockGameClient) ForumDeleteThread(ctx context.Context, threadID string)
 	m.actionsRecorded = append(m.actionsRecorded, "forum_delete_thread:"+threadID)
 	return nil
 }
+func (m *mockGameClient) ForumEditThread(ctx context.Context, threadID, title, content string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "forum_edit_thread:"+threadID)
+	return nil
+}
+func (m *mockGameClient) ForumEditReply(ctx context.Context, replyID, content string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "forum_edit_reply:"+replyID)
+	return nil
+}
 func (m *mockGameClient) ForumDeleteReply(ctx context.Context, replyID string) error {
 	m.actionsRecorded = append(m.actionsRecorded, "forum_delete_reply:"+replyID)
 	return nil

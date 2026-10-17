@@ -3254,6 +3254,20 @@ type ForumDeleteThreadResponse struct {
 	ThreadID string `json:"thread_id"`
 }
 
+// ForumEditThreadResponse — forum_edit_thread. Carries only the confirmation
+// and the id; the saved text is read back with forum_get_thread.
+type ForumEditThreadResponse struct {
+	Message  string `json:"message"`
+	ThreadID string `json:"thread_id"`
+}
+
+// ForumEditReplyResponse — forum_edit_reply. As above, read the saved content
+// with forum_get_thread on the parent thread.
+type ForumEditReplyResponse struct {
+	Message string `json:"message"`
+	ReplyID string `json:"reply_id"`
+}
+
 // ForumUpvoteResponse — forum_upvote
 type ForumUpvoteResponse struct {
 	Message  string `json:"message"`

@@ -1460,6 +1460,49 @@ func (c *Client) ForumDeleteThread(ctx context.Context, threadID string) error {
 	return err
 }
 
+// ForumEditThread edits a thread's title and/or body.
+//
+// title and content are OPTIONAL server-side, and an empty one is OMITTED
+// rather than sent: the server saves what it is given, so passing "" would
+// blank that field. Editing only the body therefore leaves the title intact,
+// and vice versa.
+func (c *Client) ForumEditThread(ctx context.Context, threadID, title, content string) error {
+	payload := map[string]any{"thread_id": threadID}
+	if title != "" {
+		payload["title"] = title
+	}
+	if content != "" {
+		payload["content"] = content
+	}
+	h, err := c.Submit(ctx, protocol.Message{
+		Type:      "forum_edit_thread",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+
+	return err
+}
+
+// ForumEditReply edits a reply's body. Both fields are required server-side,
+// so there is no partial edit of a reply.
+func (c *Client) ForumEditReply(ctx context.Context, replyID, content string) error {
+	h, err := c.Submit(ctx, protocol.Message{
+		Type:      "forum_edit_reply",
+		Payload:   map[string]any{"reply_id": replyID, "content": content},
+		Timestamp: time.Now().UnixMilli(),
+	}, WithTerminator(terminateOnActionOrOK), WithTimeout(SleepMedium))
+	if err != nil {
+		return err
+	}
+	_, err = c.await(ctx, h)
+
+	return err
+}
+
 // ForumUpvote upvotes a thread or reply.
 func (c *Client) ForumUpvote(ctx context.Context, threadID string, replyID string) error {
 	payload := map[string]any{"thread_id": threadID}

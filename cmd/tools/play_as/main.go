@@ -9059,6 +9059,45 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 			return client.ForumUpvote(ctx, parts[1], replyID)
 		}, ctx, 2*time.Second, cmd, format)
 
+	case "forum_edit_thread":
+		// Both title and content are optional server-side, and an empty one is
+		// OMITTED rather than sent -- passing "" would save the blank and wipe
+		// that field. Hence flags rather than positional args: there is no way
+		// to say "leave the title alone" positionally.
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: forum_edit_thread <thread-id> [--title <t>] [--content <c>]")
+		}
+		editFlags, err := parseFlagArgs(parts[2:], "title", "content")
+		if err != nil {
+			return err
+		}
+		editTitle := ""
+		if v, ok := editFlags["title"]; ok {
+			editTitle, _ = flagString(v)
+		}
+		editContent := ""
+		if v, ok := editFlags["content"]; ok {
+			editContent, _ = flagString(v)
+		}
+		if editTitle == "" && editContent == "" {
+			return fmt.Errorf("forum_edit_thread: give --title and/or --content (nothing to change)")
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.ForumEditThread(ctx, parts[1], editTitle, editContent)
+		}, ctx, 3*time.Second, cmd, format)
+
+	case "forum_edit_reply":
+		if len(parts) < 3 {
+			return fmt.Errorf("usage: forum_edit_reply <reply-id> <content>")
+		}
+		replyBody, err := forumBody(parts[2:])
+		if err != nil {
+			return err
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.ForumEditReply(ctx, parts[1], replyBody)
+		}, ctx, 3*time.Second, cmd, format)
+
 	case "forum_delete_thread":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: forum_delete_thread <thread-id>")
