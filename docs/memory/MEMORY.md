@@ -22,6 +22,7 @@
 - ⭐ [Tanker migration 08-14: how tankers work + hand-flown pickup](reference_assist_tanker_migration.md) — built-in pump, arrives full, 4 listings galaxy-wide, `switch_ship` is a SEPARATE step (nexus trap)
 - ⭐ [Assist pump gap + pump-blind claim election](project_assist_fleet_refueling_pump_gap.md) — pre-tanker history; stale `requested_at` defeats distance routing
 - ⭐🔴 [`facility_only=0` is NOT craftable in space](reference_facility_only_zero_is_not_craftable_in_space.md) — still needs a STATION plus the onboard refining module; reachability = hull + location + cargo, never the flag
+- ⭐🟢 [GSA tow = 500cr / 15min; use it instead of a tanker](reference_gsa_tow_beats_the_tanker_fleet.md) — `distress_signal` is implemented and NO fleet code calls it; the tanker fleet's real niche is BROKE agents, so gift credits first
 - ⭐🔴 [no_fuel_cells ≠ no_fuel_source](project_no_fuel_cells_refuel_deadlock.md) — cargo-cell fallback vs credits; nothing ever BUYS a cell. Service list is live at /api/stations: 61 of 76 refuel
 - ⭐🟢 [Assist fleet re-hulled 09-09 — RESOLVED](reference_assist_fleet_is_dry.md) — all five now fly real tankers (sol Capacity, krynn Morningstar); the fleet is BROKE though, and a 0-credit tanker gets detained
 - ⭐🔴 [Off-map == QUARANTINED, never launched](reference_rescue_queue_blocks_launch.md) — `restoreQuarantine` precedes the supervisor; `restarts:0` + zero `last_seen` is the tell
