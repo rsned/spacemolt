@@ -1264,8 +1264,14 @@ type FacilityListResponse struct {
 	PlayerFacilities  []map[string]any `json:"player_facilities"`
 	FactionFacilities []map[string]any `json:"faction_facilities"`
 	PublicFacilities  []map[string]any `json:"public_facilities"`
-	Construction      map[string]any   `json:"construction,omitempty"`
-	Power             map[string]any   `json:"power,omitempty"`
+	// AllyFacilities holds an ALLIED faction's facilities at this station.
+	// Sections are viewer-relative: your own faction's lines are always in
+	// FactionFacilities, an ally's come here, and only unaffiliated/other
+	// factions' land in PublicFacilities. Ally use is fee-free, so these
+	// entries advertise throughput without a per-run rental fee.
+	AllyFacilities []map[string]any `json:"ally_facilities"`
+	Construction   map[string]any   `json:"construction,omitempty"`
+	Power          map[string]any   `json:"power,omitempty"`
 	// FactionRent summarizes rent for the faction's facilities at this station
 	// (est_rent_per_day, facilities, grace_cycles, total_rent_per_cycle, note),
 	// deducted from the faction treasury each cycle. Present only when the

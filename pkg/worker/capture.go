@@ -806,36 +806,47 @@ func upsertPublicFromFacilityList(ctx context.Context, kb publicFacilityStore, r
 		StationFacilities []map[string]any `json:"station_facilities"`
 		FactionFacilities []map[string]any `json:"faction_facilities"`
 		PublicFacilities  []map[string]any `json:"public_facilities"`
+		// AllyFacilities is the fifth section, and the one that hid our own
+		// public lines for months. The sections are VIEWER-RELATIVE: a
+		// faction's own lines are always in faction_facilities, and an ALLIED
+		// faction's lines come here rather than in public_facilities. CRFT's
+		// five public lines at grand_exchange_station were therefore invisible
+		// to every capture we run there, because the only resident is a Data
+		// Bots marketbot and CRFT lists DB as an ally. Ally use is fee-free,
+		// which is why those lines advertise a Fee/hr where a genuinely public
+		// line carries rental_fee_per_run.
+		AllyFacilities []map[string]any `json:"ally_facilities"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return 0, 0, err
 	}
-	all := make([]map[string]any, 0, len(resp.StationFacilities)+len(resp.FactionFacilities)+len(resp.PublicFacilities))
+	all := make([]map[string]any, 0,
+		len(resp.StationFacilities)+len(resp.FactionFacilities)+
+			len(resp.PublicFacilities)+len(resp.AllyFacilities))
 	all = append(all, resp.StationFacilities...)
 	all = append(all, resp.FactionFacilities...)
 	all = append(all, resp.PublicFacilities...)
+	all = append(all, resp.AllyFacilities...)
 	if resp.BaseID == "" || len(all) == 0 {
 		return 0, 0, nil
 	}
 	var rows []knowledge.PublicFacility
 	for _, m := range all {
-		// A production line is one that HAS a production object. Gating on
-		// category == "production" first silently skipped every one of our own
-		// faction's lines: other factions' and NPC entries carry that field,
-		// ours do not. The live shape is
+		// A production line is one that HAS a production object.
 		//
-		//   {"active":true,"custom_name":"Polymer Extruder","type":"polymer_extruder",
-		//    "recipe_id":"extrude_nanoplastic",
-		//    "production":{"public":true,"output_per_run":3,...}}
+		// CORRECTION to what 36d36652 claimed: that commit said our own
+		// faction's entries carry no "category" field and that this was why
+		// CRFT's five public lines at grand_exchange_station were missing from
+		// public_facilities. BOTH halves were wrong. The claim came from the
+		// simplified fixture in facility_format_test.go; a live member payload
+		// shows our entries DO carry "category":"production". And the real
+		// cause was the missing ally_facilities section, confirmed by running
+		// `facility list` as a non-member.
 		//
-		// -- no category anywhere. So five PUBLIC CRFT lines at
-		// grand_exchange_station were absent from public_facilities while all
-		// 2,516 captured rows read category=production, which is why we could
-		// see every other faction's factories and none of our own.
-		//
-		// The production object is the better discriminator in any case: the
-		// code already required it on the next line, so the category test was
-		// redundant where it worked and harmful where it did not.
+		// Dropping the category gate is still right -- the production object is
+		// the better discriminator and the code already required it on the next
+		// line, so the test was redundant where it worked -- but it fixed
+		// nothing that was actually broken.
 		prod, _ := m["production"].(map[string]any)
 		if prod == nil {
 			continue

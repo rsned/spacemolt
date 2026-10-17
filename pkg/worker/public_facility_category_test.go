@@ -21,9 +21,17 @@ func (f *fakePublicFacilityStore) ReplacePublicFacilitiesAtStation(_ context.Con
 	return 0, nil
 }
 
-// OUR OWN faction's production facilities carry no "category" field. They
-// identify as production by HAVING a production object -- see the live shape
-// in facility_format_test.go's TestFormatFacilityFactionList_ProductionSplit:
+// This test was written from the SIMPLIFIED fixture below and its premise is
+// false for the live payload: a real member reply carries
+// "category":"production" on our own entries too. It is kept because the
+// behaviour it pins is still correct -- a production line is one that HAS a
+// production object, and nothing should depend on a sibling string field -- but
+// it does NOT describe a bug we ever had. The actual cause of CRFT's lines
+// being uncaptured was the missing ally_facilities section; see
+// TestUpsertPublicFromFacilityList_MergesAllyFacilities.
+//
+// The fixture shape, from facility_format_test.go's
+// TestFormatFacilityFactionList_ProductionSplit:
 //
 //	{"active":true,"custom_name":"Bob's Iron Smeltery","recipe_id":"refine_steel",
 //	 "type":"iron_refinery","production":{"public":true,"output_per_run":2,...}}
@@ -93,5 +101,70 @@ func TestUpsertPublicFromFacilityList_StillSkipsPrivateAndNonProduction(t *testi
 	}
 	if n != 0 {
 		t.Errorf("captured %d, want 0: omitted public, explicit false, and a service facility", n)
+	}
+}
+
+// A fifth facility section exists: ally_facilities. The capture merged only
+// station/player/faction/public, so an ALLY's lines were invisible.
+//
+// Confirmed live 2026-10-17 by removing marketbot_haven from the mb fleet and
+// running `facility list` as it: the drift monitor reported
+//
+//	New fields in "list" response not in FacilityListResponse: [ally_facilities]
+//
+// and its rendered output showed 9 public facilities at grand_exchange_station
+// — ENDL x3, HEXC x2, BEAT x1, three player-owned — and NONE of CRFT's five,
+// despite all five being public. marketbot_haven is in Data Bots [DB], and
+// CRFT lists DB as an ally, so the server files our lines under ally rather
+// than public for it. Ally use is fee-free, which is why our lines advertise a
+// Fee/hr while every captured public row carries rental_fee_per_run.
+//
+// The sections are viewer-relative and symmetric: a faction's OWN lines are
+// always in faction_facilities, never in ally_facilities, so a CRFT member
+// never sees CRFT lines here. The gap therefore only ever affected viewers
+// OUTSIDE the owning faction — which is every capture we run at
+// grand_exchange_station, because the only resident there is a DB marketbot.
+//
+// The section's exact contents were never logged, so this pins only that the
+// section is MERGED. Whether a given entry is stored still depends on its own
+// production.public flag, exactly as for the other four sections — a
+// conservative default that cannot invent a public line.
+func TestUpsertPublicFromFacilityList_MergesAllyFacilities(t *testing.T) {
+	store := &fakePublicFacilityStore{}
+	raw := []byte(`{"base_id":"grand_exchange_station",
+	  "ally_facilities":[
+	    {"category":"production","name":"Polymer Extruder","facility_id":"b659c360",
+	     "faction_id":"e727c0e918d994c72db2978fe5b18edc","recipe_id":"extrude_nanoplastic",
+	     "production":{"public":true,"output_per_run":3,"recipe":"Extrude Nanoplastic",
+	                   "rental_fee_per_run":60}}
+	  ]}`)
+
+	n, _, err := upsertPublicFromFacilityList(context.Background(), store, raw, 2165000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("captured %d from ally_facilities, want 1", n)
+	}
+	if got := store.rows[0].RecipeID; got != "extrude_nanoplastic" {
+		t.Errorf("recipe = %q", got)
+	}
+}
+
+// An ally line that is NOT public must still be skipped: the ally section is
+// merged, not trusted wholesale.
+func TestUpsertPublicFromFacilityList_AllySectionStillHonoursThePublicFlag(t *testing.T) {
+	store := &fakePublicFacilityStore{}
+	raw := []byte(`{"base_id":"grand_exchange_station",
+	  "ally_facilities":[{"category":"production","name":"Private Ally Line","recipe_id":"x",
+	                      "production":{"recipe":"X"}}],
+	  "station_facilities":[]}`)
+
+	n, _, err := upsertPublicFromFacilityList(context.Background(), store, raw, 2165000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Errorf("captured %d, want 0: the ally line omits production.public", n)
 	}
 }
