@@ -25,6 +25,19 @@ So an agent must FLY to a station to move what it owns there.
 `view_faction_storage(station_id)` is the single remote read in this family;
 do not generalise it.
 
+**The constraint is on the SENDER, not the recipient.** `send_gift` delivers
+into the recipient's storage at the sending station regardless of where the
+recipient is; it sits there waiting for them to arrive. So a collection point
+can hand goods to a hauler that is still days away, and no rendezvous or
+simultaneous docking is needed — only the sender must be docked where the
+items are.
+
+Worked example: marketbot_alhena is pinned at `voss_redoubt` with drones
+mining adamantite_ore into its storage. It can gift the ore to a hauler
+immediately; the hauler collects on arrival. Factory Belt is 5 jumps from
+Alhena and bids 1,600 for adamantite_ore (2x base 800), the same price as
+every other buyer, so distance is the only discriminator.
+
 So rent/cycle, level, status, recipe binding and capacity for a faction
 facility are obtainable ONLY while docked at that station. **No code can
 substitute for a pinned resident.** Verified against the v0.632.0 openapi
