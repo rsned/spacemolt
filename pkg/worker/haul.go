@@ -128,6 +128,25 @@ func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice,
 			sellBid, haveBid = p.BestBid, true
 		}
 	}
+	// A consigned route has no buy leg: the goods are already ours at the
+	// source, so there is no ask to read and nothing to pay for. It is still
+	// gated on real demand at the destination, like any other row.
+	if opp.IsConsigned() {
+		if !haveBid {
+			return 0, 0, sellBid, false, "no live bid at sell station"
+		}
+		qty = sizeConsigned(opp, cargoFree)
+		if qty < 1 {
+			return qty, 0, sellBid, false, fmt.Sprintf("nothing consigned to load (qty=%.0f)", qty)
+		}
+		net := sellBid*qty - fuelCost
+		if floor := netProfitFloor(cargoCap); net < floor {
+			return qty, 0, sellBid, false,
+				fmt.Sprintf("net %.0f below floor %.0f", net, floor)
+		}
+
+		return qty, 0, sellBid, true, ""
+	}
 	if !haveAsk || liveAsk <= 0 {
 		return 0, liveAsk, sellBid, false, "no live ask at buy station"
 	}
@@ -476,6 +495,21 @@ func sellChains(r rankedOpp, all []rankedOpp, graph navigation.JumpGraph) bool {
 // affordable or askEach is non-positive.
 // TODO(logistics): cargoFree is treated as a unit count; per-unit item volume
 // is not modeled (deferred with the spec's logistics-realism phase).
+// sizeConsigned caps a consigned load by the hold alone. Credits are
+// irrelevant -- there is nothing to buy -- so a broke hauler must still be
+// able to run one, and that is the point of the separate path.
+func sizeConsigned(opp market.ArbitrageOpportunity, cargoFree float64) float64 {
+	qty := opp.Quantity
+	if cargoFree < qty {
+		qty = cargoFree
+	}
+	if qty < 0 {
+		qty = 0
+	}
+
+	return qty
+}
+
 func sizeBuy(opp market.ArbitrageOpportunity, cargoFree, credits, askEach float64) float64 {
 	if askEach <= 0 {
 		return 0
@@ -1247,7 +1281,15 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 		}
 		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, reason)
 	}
-	if err := deps.Client.Buy(ctx, opp.ItemID, qty); err != nil {
+	if opp.IsConsigned() {
+		// The goods are already ours in storage at this station, put there by
+		// a colleague's send_gift. Load them instead of buying: the rest of
+		// the run -- travel, sell, settle, results -- is unchanged.
+		if err := deps.Client.WithdrawItems(ctx, opp.ItemID, qty); err != nil {
+			return releaseBookAnd(ctx, deps, out, opp, bookClaimID,
+				fmt.Sprintf("withdraw failed: %v", err))
+		}
+	} else if err := deps.Client.Buy(ctx, opp.ItemID, qty); err != nil {
 		if isUnbuyableItemErr(err) {
 			return abandonUnbuyable(ctx, deps, out, opp, bookClaimID, err.Error())
 		}

@@ -85,6 +85,26 @@ type OHLCV struct {
 }
 
 // ArbitrageOpportunity represents a profitable trading opportunity.
+// Action types for ArbitrageOpportunity.ActionType.
+const (
+	// ActionBuyThenSell is the ordinary route: buy at the source, sell at the
+	// destination.
+	ActionBuyThenSell = "buy_then_sell"
+	// ActionWithdrawThenSell is a CONSIGNED route. The goods are already in
+	// the hauler's own storage at the source station, put there by a
+	// colleague's send_gift, so there is no buy leg at all: withdraw, fly,
+	// sell.
+	//
+	// It needs its own type rather than an ordinary row priced at 0. A zero
+	// buy price makes sizeBuy return 0 (it rejects any ask <= 0, then divides
+	// credits by it) and makes haulGate report "no live ask at buy station" --
+	// which the run reads as proof the source book is gone, calling
+	// abandonCollapsed and expiring the opportunity AND its sibling
+	// destinations. A synthetic zero-price row would poison the pool for every
+	// hauler rather than merely failing.
+	ActionWithdrawThenSell = "withdraw_then_sell"
+)
+
 type ArbitrageOpportunity struct {
 	ID              int     `json:"id"`
 	FromStationID   string  `json:"from_station_id"`
@@ -114,6 +134,13 @@ type ArbitrageOpportunity struct {
 	ToStationName   string  `json:"to_station_name"`   // joined on read
 	ToSystemName    string  `json:"to_system_name"`    // joined on read
 	ItemName        string  `json:"item_name"`         // joined on read
+}
+
+// IsConsigned reports whether this route's goods are already the hauler's,
+// sitting in its storage at the source station. The single predicate the haul
+// engine branches on, so the ActionType string is not spread through it.
+func (o ArbitrageOpportunity) IsConsigned() bool {
+	return o.ActionType == ActionWithdrawThenSell
 }
 
 // MarketSnapshot represents a complete market state at one station.
