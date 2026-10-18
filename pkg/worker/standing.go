@@ -95,6 +95,16 @@ type StandingDeps struct {
 	// fulfill pending stock-handoff records for this agent. nil when the worker
 	// has no handoff queue configured.
 	Handoffs func(context.Context)
+
+	// Consign, when set, runs once per non-drained idle pass under ExecMu to
+	// hand allow-listed goods from this station's personal storage to a named
+	// hauler. nil when the worker has no consign rules.
+	//
+	// It lives in the idle pass rather than the schedule on purpose: schedule
+	// seeding is ADDITIVE ONLY, so a seeded command fires forever and cannot
+	// be withdrawn, while an idle-pass step is switched by the fleet yaml and
+	// is genuinely reversible.
+	Consign func(context.Context)
 }
 
 // RunStanding drives a worker's default standing behavior until ctx is
@@ -269,6 +279,9 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		}
 		if deps.Handoffs != nil {
 			deps.Handoffs(ctx)
+		}
+		if deps.Consign != nil {
+			deps.Consign(ctx)
 		}
 		if task := deps.nextTask(); task != nil {
 			deps.runTask(ctx, task)

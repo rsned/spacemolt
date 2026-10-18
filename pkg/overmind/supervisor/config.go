@@ -28,6 +28,20 @@ type WorkerSpec struct {
 	// single-contract behavior; canary fighter-4 runs 3. Layers UNDER the
 	// server/cargo headroom gates.
 	FreightMaxPackages int `yaml:"freight_max_packages,omitempty"`
+	// Consign forwards --consign, a standing instruction to hand named items
+	// from this station's personal storage to a named hauler as part of the
+	// ordinary idle pass -- no manual control and no interrupted routine.
+	//
+	// Each entry is item:recipient:min[:keep]. It is an explicit ALLOW-LIST:
+	// gifting is irreversible, and the drone project's reserved energy
+	// crystals and a ship's fuel cells sit in the same storage, so there are
+	// deliberately no patterns. keep holds back a reserve for an item the
+	// collector also consumes.
+	//
+	// Works without a rendezvous: send_gift lands in the recipient's storage
+	// at the SENDING station and waits for them, so a pinned collector can
+	// consign to a hauler that is days away.
+	Consign []string `yaml:"consign,omitempty"`
 	// DisableFreightBootstrap forwards --freight-bootstrap=false, turning off the
 	// probationary loss-leader floor while leaving freight enabled. Zero value
 	// (false) keeps the CLI default (bootstrap on).

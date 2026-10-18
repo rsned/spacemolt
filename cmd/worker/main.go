@@ -86,11 +86,20 @@ func main() {
 	missionCategories := flag.String("mission-categories", "", "Comma-separated mission-board categories for the missions role (empty = delivery only; learning pool: delivery,exploration)")
 	enableFreight := flag.Bool("enable-freight", false, "Opt the missions role into the /shipping carrier path (freight evaluated co-equally with the mission board; default off)")
 	freightMaxPackages := flag.Int("freight-max-packages", 1, "Max concurrent freight contracts for the missions role (sub-project C multi-package trips; 1 = single-contract v1 behavior)")
+	consignSpec := flag.String("consign", "", "Standing consignment rules, comma-separated item:recipient:min[:keep] — hand allow-listed goods from this station's personal storage to a named hauler on each idle pass (e.g. adamantite_ore:salvager-2:50). Explicit allow-list only: gifting is irreversible.")
 	freightBootstrap := flag.Bool("freight-bootstrap", true, "Enable the probationary loss-leader freight floor for the missions role (default on when --enable-freight; set =false to keep freight on but disable bootstrapping)")
 	secondmentPath := flag.String("secondment-ledger", "", "Shared fleet-loan ledger a hauler writes its pirate-unlock nomination into (empty disables nominating; only the haul fleet sets it)")
 	fleetName := flag.String("fleet-name", "", "This worker's home fleet name, recorded on a secondment nomination so the reconciler knows where to return it")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
+
+	// Parse consignment rules up front: a malformed rule must fail the worker
+	// at startup rather than silently leaving a collection point accumulating
+	// goods forever with nothing to show why.
+	consignRules, consignErr := worker.ParseConsignRules(*consignSpec)
+	if consignErr != nil {
+		log.Fatalf("--consign: %v", consignErr)
+	}
 
 	if *agentID == "" {
 		fmt.Fprintln(os.Stderr, "Usage: worker --agent <agent-id> --socket <path> [flags]")
@@ -518,6 +527,21 @@ func main() {
 				}
 				if handoffQueue != nil {
 					deps.Handoffs = func(c context.Context) { _ = dispatch.HandoffPass(c, handoffQueue) }
+				}
+				if len(consignRules) > 0 {
+					deps.Consign = func(c context.Context) {
+						n, cerr := worker.Consign(c, client, consignRules,
+							func(id string) (string, error) { return worker.UsernameFor("", id) })
+						switch {
+						case cerr != nil:
+							// Only an unresolvable recipient reaches here, and
+							// it is a config error worth saying once per pass
+							// rather than accumulating goods in silence.
+							logger.Printf("consign: %v", cerr)
+						case n > 0:
+							logger.Printf("consign: sent %d gift(s)", n)
+						}
+					}
 				}
 				if rerr := worker.RunStanding(ctx, roleCfg, deps); rerr != nil {
 					logger.Printf("standing behavior ended: %v", rerr)

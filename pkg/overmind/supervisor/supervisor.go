@@ -86,6 +86,9 @@ func SpawnWith(cfg SpawnConfig) SpawnFunc {
 		if spec.DisableFreightBootstrap {
 			args = append(args, "--freight-bootstrap=false")
 		}
+		if len(spec.Consign) > 0 {
+			args = append(args, "--consign", strings.Join(spec.Consign, ","))
+		}
 		cmd := exec.CommandContext(ctx, cfg.WorkerBin, args...)
 		cmd.Stdout = log.Writer()
 		cmd.Stderr = log.Writer()
