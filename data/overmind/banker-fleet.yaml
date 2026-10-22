@@ -1,0 +1,38 @@
+# Banker fleet — single member, the_banker. Added 2026-10-22.
+#
+# WHY THIS FLEET EXISTS
+#
+# The fleet has no way to move money. A weekly tax trickle drains accounts that
+# cannot replenish, and an agent at zero cannot buy fuel, so it strands, is
+# quarantined, and stops existing. On 2026-10-21 that cycle had parked 17 agents
+# for up to 10.8 days; four of them (assist-krynn, assist-sol, random-3,
+# random-5) were sitting DOCKED and solvent-looking but at 0 credits, unable to
+# buy a single unit of fuel. Gifting 10k-50k each brought all four back within
+# minutes — random-3 and random-5 refuelled to 100/100 on their own.
+#
+# Until then the float lived in whichever agent happened to be rich (johnny_cab,
+# 43M). That is fragile: johnny_cab is a TAXI and roams, and on 2026-10-21 it
+# had drifted onto Ironlight Argon Shoal — a members-only OUTPOST — where it
+# cached "docked" while every send_gift failed with not_docked for hours. A
+# banker must be somewhere it can always transact.
+#
+# EMPIRE: outerrim, chosen for the lowest income/property/sales tax rates. The
+# float sits here, so the tax rate applies to the whole reserve.
+#
+# HOME: sol_central (Confederacy Central Command). Sol is central on the galaxy
+# map, which minimises the distance any rescue gift has to notionally cover, and
+# the station is verified type=station (NOT an outpost), wrecked=false,
+# satisfaction 91%, with storage + market + refuel + repair among its ten
+# services. Do NOT move this to a mobile capital: the Outer Rim capital drifts,
+# and a drifting home is what produced the assist-frontier livelock.
+#
+# ROLE: resident. Its idle behaviour is ensure_home -> dock -> refuel, which is
+# exactly a banker's job — stay home, stay docked, stay fuelled. It does NOT
+# mine or trade. The actual granting is operator-driven via cmd/tools/banker
+# (`--from the_banker`), which prints the full plan and sends nothing without
+# --execute, because every payment is irreversible.
+#
+# FUNDING: the_banker registered with 100 credits. It needs a float gifted in
+# from a docked agent before it can grant anything.
+workers:
+  - { agent_id: the_banker, role: resident, station: sol_central }

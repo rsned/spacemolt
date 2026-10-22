@@ -34,6 +34,9 @@ const defaultURL = "https://game.spacemolt.com/api/stations"
 
 // station is the subset of the canonical payload this tool trusts.
 type station struct {
+	// Field order is govet fieldalignment's, not the payload's: strings
+	// first, then the slice, then the word-sized tail. Wrecked wedged
+	// between the strings cost 16 bytes of padding.
 	BaseID          string   `json:"base_id"`
 	POIID           string   `json:"poi_id"`
 	Name            string   `json:"name"`
@@ -41,10 +44,11 @@ type station struct {
 	Type            string   `json:"type"`
 	SystemID        string   `json:"system_id"`
 	SystemName      string   `json:"system_name"`
-	Services        []string `json:"services"`
 	Condition       string   `json:"condition"`
 	ConditionText   string   `json:"condition_text"`
+	Services        []string `json:"services"`
 	SatisfactionPct int      `json:"satisfaction_pct"`
+	Wrecked         bool     `json:"wrecked"`
 }
 
 func main() {
@@ -109,7 +113,7 @@ func run(url, dbPath string, apply bool) error {
 	for _, s := range inserts {
 		fmt.Printf("   + %-26s %-8s %-18s services=%d\n", s.Name, s.Type, s.SystemName, len(s.Services))
 	}
-	fmt.Printf("to update:   %d (poi_id, name, description, condition, satisfaction, services)\n", len(updates))
+	fmt.Printf("to update:   %d (poi_id, name, description, condition, satisfaction, services, type, wrecked)\n", len(updates))
 
 	if !apply {
 		fmt.Println("\ndry run; re-run with --apply to write")
@@ -149,18 +153,22 @@ func write(db *sql.DB, inserts, updates []station) error {
 
 	for _, s := range inserts {
 		if _, err := tx.Exec(`
-			INSERT INTO bases (id, poi_id, name, description, condition, condition_text, satisfaction_pct)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			s.BaseID, s.POIID, s.Name, s.Description, s.Condition, s.ConditionText, s.SatisfactionPct); err != nil {
+			INSERT INTO bases (id, poi_id, name, description, condition, condition_text, satisfaction_pct,
+			                   type, wrecked)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			s.BaseID, s.POIID, s.Name, s.Description, s.Condition, s.ConditionText, s.SatisfactionPct,
+			s.Type, s.Wrecked); err != nil {
 			return fmt.Errorf("insert base %s: %w", s.Name, err)
 		}
 	}
 	for _, s := range updates {
 		if _, err := tx.Exec(`
 			UPDATE bases SET poi_id = ?, name = ?, description = ?,
-			                 condition = ?, condition_text = ?, satisfaction_pct = ?
+			                 condition = ?, condition_text = ?, satisfaction_pct = ?,
+			                 type = ?, wrecked = ?
 			WHERE id = ?`,
 			s.POIID, s.Name, s.Description, s.Condition, s.ConditionText, s.SatisfactionPct,
+			s.Type, s.Wrecked,
 			s.BaseID); err != nil {
 			return fmt.Errorf("update base %s: %w", s.Name, err)
 		}
