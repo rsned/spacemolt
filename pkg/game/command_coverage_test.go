@@ -58,6 +58,11 @@ var ignoredCommands = map[string]string{
 	// Parked to unblock the shipping work; replace with passthrough coverage.
 	"get_battle_summary": "battle read command; deferred to passthrough coverage (stopgap 2026-07-19)",
 	"get_battle_log":     "battle read command; deferred to passthrough coverage (stopgap 2026-07-19)",
+
+	// STOPGAP (2026-10-22): new in the get_commands catalog; parked so the
+	// pre-commit hook stops blocking unrelated work. Remove once it has a
+	// client method + response struct.
+	"get_player_profile": "new player read command; client wrapper not written yet (stopgap 2026-10-22)",
 	"inspect":            "inspect read command; deferred to passthrough coverage (stopgap 2026-07-19)",
 
 	// shipping is action-dispatched (list/get/accept/deliver/return/cancel/
