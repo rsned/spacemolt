@@ -31,6 +31,10 @@ type Credentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Empire   string `json:"empire"`
+	// PlayerID is the Clerk-owned player id, written by cmd/tools/clerk-sync.
+	// It lets a worker mint a ws-token without listing every player first.
+	// Optional: empty means not yet synced.
+	PlayerID string `json:"player_id,omitempty"`
 }
 
 // SimpleHandler is a basic message handler for agents
