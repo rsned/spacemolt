@@ -24,7 +24,7 @@ const (
 	maxRespBody = 1 << 20
 )
 
-// Player is one account player as reported by the Clerk-gated players endpoint.
+// Player is one account player as reported by the Clerk-gated registration-code endpoint.
 type Player struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
@@ -123,7 +123,7 @@ func (s *Source) RegistrationCode(ctx context.Context) (string, error) {
 
 func (s *Source) players(ctx context.Context) (playersResponse, error) {
 	var r playersResponse
-	body, err := s.do(ctx, http.MethodGet, "/api/players")
+	body, err := s.do(ctx, http.MethodGet, "/api/registration-code")
 	if err != nil {
 		return r, err
 	}

@@ -39,7 +39,7 @@ func TestListPlayers_ParsesSpecShape(t *testing.T) {
 	if gotAuth != "Bearer k-test" || gotAccept != "application/json" || gotUA != userAgent {
 		t.Errorf("headers: auth=%q accept=%q ua=%q", gotAuth, gotAccept, gotUA)
 	}
-	if gotPath != "/api/players" {
+	if gotPath != "/api/registration-code" {
 		t.Errorf("path = %q", gotPath)
 	}
 }
