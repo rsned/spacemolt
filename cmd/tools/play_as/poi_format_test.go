@@ -29,9 +29,9 @@ func TestFormatPOIRendersTheDecisionFields(t *testing.T) {
 	for _, want := range []string{
 		"Nashira Belt", "nashira_belt", "asteroid_belt", // identity
 		"Iron Ore", "abundant", // what is minable, and whether it is worth it
-		"40", // richness is a 2-90 server scale, printed raw as explore.go does
-		"refuel",               // why you would stop here
-		"7",                    // all-in fuel price, the number that decides refuelling
+		"40",                        // richness is a 2-90 server scale, printed raw as explore.go does
+		"refuel",                    // why you would stop here
+		"7",                         // all-in fuel price, the number that decides refuelling
 		"A worked-over iron field.", // v0.623 gave every location a description
 	} {
 		if !strings.Contains(got, want) {

@@ -15,11 +15,11 @@ func TestCanonicalSpeciesNameStripsTheGrowthStage(t *testing.T) {
 		{"Young Cloudwhale", "Cloudwhale"},
 		{"Juvenile Hoarfrost Leviathan", "Hoarfrost Leviathan"},
 		{"Hatchling Veil-Ray", "Veil-Ray"},
-		{"JUVENILE Rime-Grazer", "Rime-Grazer"},    // case must not matter
-		{"juvenile rime-grazer", "rime-grazer"},    // nor lowercase input
-		{"Cloudwhale Calf", "Cloudwhale"},          // stage can trail the name
-		{"Cloudwhale", "Cloudwhale"},               // mature name is untouched
-		{"Pilot-Whale", "Pilot-Whale"},             // a name that merely CONTAINS no stage
+		{"JUVENILE Rime-Grazer", "Rime-Grazer"}, // case must not matter
+		{"juvenile rime-grazer", "rime-grazer"}, // nor lowercase input
+		{"Cloudwhale Calf", "Cloudwhale"},       // stage can trail the name
+		{"Cloudwhale", "Cloudwhale"},            // mature name is untouched
+		{"Pilot-Whale", "Pilot-Whale"},          // a name that merely CONTAINS no stage
 		{"", ""},
 	} {
 		if got := CanonicalSpeciesName(tc.in); got != tc.want {
