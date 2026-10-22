@@ -277,12 +277,12 @@ func TestDefaultGateConfig_EnvOverridesDialBudget(t *testing.T) {
 
 func TestGate_DefaultBlock(t *testing.T) {
 	var nilGate *ReconnectGate
-	if got := nilGate.DefaultBlock(); got != ConnectWindow {
-		t.Fatalf("nil DefaultBlock = %v, want %v", got, ConnectWindow)
+	if got := nilGate.DefaultBlock(); got != ConnectBareBlock {
+		t.Fatalf("nil DefaultBlock = %v, want %v", got, ConnectBareBlock)
 	}
 	g := NewReconnectGate(filepath.Join(t.TempDir(), "g"), testGateCfg)
-	if got := g.DefaultBlock(); got != testGateCfg.Window {
-		t.Fatalf("DefaultBlock = %v, want %v", got, testGateCfg.Window)
+	if got := g.DefaultBlock(); got != ConnectBareBlock {
+		t.Fatalf("DefaultBlock = %v, want %v", got, ConnectBareBlock)
 	}
 }
 

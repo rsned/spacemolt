@@ -72,6 +72,15 @@ const (
 	ConnectDialBudget     = 60               // dials per window (server: 100)
 	ConnectPasswordBudget = 20               // password logins per window (server: 30)
 
+	// ConnectBareBlock is how long the fleet holds off on a per-IP block (HTTP 429)
+	// that states no duration. It is deliberately NOT ConnectWindow: every block
+	// actually observed stated 444s to 1757s (2026-08-27/28), so a 60s hold
+	// released the whole fleet back into a live block, which extended it -- an
+	// 8-minute block became 15.5 minutes. Under-recording is the expensive
+	// direction: waiting too long costs idle time, waiting too little costs an
+	// escalating outage. A server that states its duration is still believed.
+	ConnectBareBlock = 5 * time.Minute
+
 	SleepPartnerJoinWindow = 5 * time.Minute // Max wait for a human to attack a bot in spar partner mode
 
 	// WebSocket keepalive timing

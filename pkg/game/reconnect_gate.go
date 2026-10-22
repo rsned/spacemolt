@@ -130,12 +130,10 @@ func (g *ReconnectGate) minSpacing() time.Duration {
 }
 
 // DefaultBlock is how long to hold the fleet off on a bare per-IP block that
-// states no duration. Nil-safe.
-func (g *ReconnectGate) DefaultBlock() time.Duration {
-	if g == nil {
-		return ConnectWindow
-	}
-	return g.cfg.Window
+// states no duration: ConnectBareBlock, deliberately longer than the dial
+// window. It does not read the receiver, so a nil gate is safe.
+func (*ReconnectGate) DefaultBlock() time.Duration {
+	return ConnectBareBlock
 }
 
 // defaultJitter returns up to half the spacing of randomness so that clients
