@@ -34,3 +34,4 @@ metadata:
 - [Refueler ship roadmap](project_refueler_ship_roadmap.md) — Tanker step DONE 08-14 for 4 of 5 (see migration); tier-4 hulls next
 - [Idle script authoring traps](reference_idle_script_authoring_traps.md) — dead idle_params, stale POI cache after jump, first-belt selection, override path
 - [Reconnect wakes on input](project_reconnect_wake_on_input.md) — bounded burst then dormant, woken by REPL input
+- ⭐🔴 [Outposts are UNDOCKABLE; 19 systems have ONLY outposts](reference_outpost_vs_station_dockability.md) — `type=outpost` = faction-only, 0 services, `Access denied`; mixed system lhs_1140; migration 65 stores type/wrecked, GATE UNBUILT

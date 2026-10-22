@@ -61,3 +61,4 @@ metadata:
 - ⭐🔴 [False rescue records: max_fuel=0 = STATE-READ FAILURE](reference_stale_rescue_records_outlive_the_strand.md) — the reconnect WEDGE manufactures them with no block at all (haul 16→0 in 7h); 6-for-6 "real" strandees were docked+BROKE, 1.5k credits total. Never xargs a username
 - [Rescue pipeline bug package](project_rescue_pipeline_bugs.md) — failed records never retry, wrong assister claims, gift-locked fees (Distant Light, 07-16)
 - [Worker heartbeat credits read stale 0](reference_worker_heartbeat_credits_stale.md) — gifts look failed when they landed; confirm in-game, not the status file
+- ⭐ [Banker fleet: the_banker @ sol_central, 10M float](project_banker_fleet.md) — a NEW agent must EARN 1000cr before it can accept/send credits; exclude the bogus `overmind` roster entry

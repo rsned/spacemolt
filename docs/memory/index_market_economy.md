@@ -33,3 +33,4 @@ metadata:
 - [Citizen demand brainstorm](project_citizen_demand_brainstorm.md) — PARKED 08-14: ~25M population, ~30B infrastructure
 - [Passenger demand intel](project_passenger_demand_intel.md) — marketbots survey list_station_passengers into a KB table
 - [Idle mining marketbots](project_idle_mining_marketbots.md) — short idle-mining loop between scans; canary viable
+- ⭐🔴 [Contraband spike + the buy book is a FLOOR](project_contraband_demand_shock.md) — 188× since 10-17; asks clear ~100× the bid book (881/hr); five Voss lines; beware 1cr junk walls

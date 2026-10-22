@@ -35,3 +35,4 @@ metadata:
 - [Ship role naming scheme](project_ship_role_naming_scheme.md) — FUTURE: overmind re-allocates idle agents by hull name
 - [Server consolidation](project_server_consolidation.md) — agent-server features migrated into spacemolt-server; DONE
 - [Agent empire-band numbering](project_agent_empire_bands.md) — trailing number = empire band
+- ⭐🔴 [Restart deploys NOTHING without a rebuild](reference_rebuild_before_restart.md) — 169 workers sat 55 commits stale; SIGUSR1 drains (5min poll, never force-aborts); one fleet at a time; schedules ARE editable
