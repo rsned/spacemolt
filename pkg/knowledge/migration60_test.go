@@ -71,10 +71,10 @@ func TestMigration60_ReconcilesLiveShapes(t *testing.T) {
 		INSERT INTO base_market (id, base_id, item_id, price_each) VALUES ('bm1','b1','iron_ore',12.5);
 		DELETE FROM schema_migrations WHERE version >= 60;
 	`
-	if _, err := kb.db.Exec(liveShapes); err != nil {
+	if _, err = kb.db.Exec(liveShapes); err != nil {
 		t.Fatalf("rebuild live shapes: %v", err)
 	}
-	if err := kb.Close(); err != nil {
+	if err = kb.Close(); err != nil {
 		t.Fatalf("close: %v", err)
 	}
 

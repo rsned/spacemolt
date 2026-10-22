@@ -286,7 +286,7 @@ func (kb *SQLiteKB) GetPlayerShips(ctx context.Context, playerID string) ([]Ship
 	var ships []ShipRecord
 	for rows.Next() {
 		var s ShipRecord
-		if err := rows.Scan(&s.ID, &s.OwnerID, &s.ClassID, &s.Name, &s.Hull, &s.MaxHull,
+		if err = rows.Scan(&s.ID, &s.OwnerID, &s.ClassID, &s.Name, &s.Hull, &s.MaxHull,
 			&s.Shield, &s.MaxShield, &s.ShieldRecharge, &s.Armor, &s.Speed,
 			&s.Fuel, &s.MaxFuel, &s.CargoUsed, &s.CargoCapacity,
 			&s.CPUUsed, &s.CPUCapacity, &s.PowerUsed, &s.PowerCapacity,
@@ -296,7 +296,7 @@ func (kb *SQLiteKB) GetPlayerShips(ctx context.Context, playerID string) ([]Ship
 		}
 		ships = append(ships, s)
 	}
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating ships: %w", err)
 	}
 

@@ -18,7 +18,7 @@ func TestPruneOrders(t *testing.T) {
 	old := time.Date(2026, 6, 25, 10, 0, 0, 0, time.UTC)
 	recent := time.Date(2026, 6, 26, 18, 0, 0, 0, time.UTC)
 	for _, at := range []time.Time{old, recent} {
-		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		if err = c.WriteSnapshot(ctx, MarketSnapshot{
 			StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
 			CapturedAt: at,
 			Orders:     []Order{{StationID: "stn1", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 1, CapturedAt: at}},
@@ -38,7 +38,7 @@ func TestPruneOrders(t *testing.T) {
 	}
 
 	var remaining int
-	if err := c.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM market_orders`).Scan(&remaining); err != nil {
+	if err = c.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM market_orders`).Scan(&remaining); err != nil {
 		t.Fatalf("count: %v", err)
 	}
 	if remaining != 1 {
@@ -83,20 +83,20 @@ func TestPruneOrders_BatchesLargeDeletes(t *testing.T) {
 	}
 	stamp := old.Format(time.RFC3339)
 	for i := range total {
-		if _, err := stmt.Exec("stn1", "iron_ore", "sell", float64(i%97), 1, stamp, stamp); err != nil {
+		if _, err = stmt.Exec("stn1", "iron_ore", "sell", float64(i%97), 1, stamp, stamp); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := stmt.Close(); err != nil {
+	if err = stmt.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := tx.Commit(); err != nil {
+	if err = tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
 
 	// A row inside the window must survive the loop.
 	keep := time.Date(2026, 6, 27, 10, 0, 0, 0, time.UTC)
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
 		CapturedAt: keep,
 		Orders:     []Order{{StationID: "stn1", ItemID: "copper_ore", Side: "buy", PriceEach: 3, Quantity: 1, CapturedAt: keep}},

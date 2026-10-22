@@ -94,7 +94,7 @@ func TestTaxBountiesRoundTrip(t *testing.T) {
 	}
 
 	// Crimson paid off; only solarian remains outstanding.
-	if err := st.ReplaceTaxBounties(ctx, "p1", []TaxBounty{
+	if err = st.ReplaceTaxBounties(ctx, "p1", []TaxBounty{
 		{Empire: "solarian", Bounty: 400},
 	}, now); err != nil {
 		t.Fatalf("ReplaceTaxBounties (after payment): %v", err)

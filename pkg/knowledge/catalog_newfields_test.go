@@ -29,7 +29,7 @@ func TestCatalogNewFieldsRoundTrip(t *testing.T) {
 	}
 
 	// --- Ships: full round trip through GetShipClass. ---
-	if err := kb.StoreShipClasses(ctx, []ShipClassDef{{
+	if err = kb.StoreShipClasses(ctx, []ShipClassDef{{
 		ID: "s1", Name: "Liner", Class: "Hauler", Faction: "solarian",
 		BasedOn: "prayer", NPCRole: "hauler", RequiredReputation: 60, PilotingRequired: 10,
 		InherentCapabilities: []ShipCapability{{Type: "passenger_economy_berths", Value: 4}},

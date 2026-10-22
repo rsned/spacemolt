@@ -79,7 +79,7 @@ func main() {
 
 	// 3. Build galaxy graph once at startup.
 	graph := &galaxy.GalaxyGraph{}
-	if err := graph.BuildFromDB(ctx, kb); err != nil {
+	if err = graph.BuildFromDB(ctx, kb); err != nil {
 		logger.Fatalf("BuildFromDB: %v", err)
 	}
 	stats := graph.Stats()

@@ -58,7 +58,7 @@ func RefreshMarketAnalysis(ctx context.Context, client *game.Client, mc *market.
 	}
 
 	// Data is stale or doesn't exist, capture fresh analysis
-	if err := CaptureMarketAnalysis(ctx, client, mc, agentID); err != nil {
+	if err = CaptureMarketAnalysis(ctx, client, mc, agentID); err != nil {
 		return nil, fmt.Errorf("failed to capture market analysis: %w", err)
 	}
 

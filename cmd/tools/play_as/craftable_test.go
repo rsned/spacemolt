@@ -25,7 +25,7 @@ func loadFixtureSource(t *testing.T) *fixtureSource {
 		t.Fatalf("read get_recipes fixture: %v", err)
 	}
 	var rResp serverapi.GetRecipesResponse
-	if err := json.Unmarshal(rawR, &rResp); err != nil {
+	if err = json.Unmarshal(rawR, &rResp); err != nil {
 		t.Fatalf("decode get_recipes fixture: %v", err)
 	}
 	rawS, err := os.ReadFile("testdata/view_storage.json")

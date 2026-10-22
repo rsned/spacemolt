@@ -204,14 +204,14 @@ func ReadAllCaptainsLogs(agentID string) ([]*AgentLog, error) {
 // FormatCaptainsLogForDisplay formats a captain's log entry for human-readable display
 func FormatCaptainsLogForDisplay(entry *AgentLog) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("=== Captain's Log - %s ===\n", entry.Timestamp.Format("2006-01-02 15:04")))
-	sb.WriteString(fmt.Sprintf("Captain: %s\n", entry.AgentName))
-	sb.WriteString(fmt.Sprintf("Location: %s\n", entry.Location))
-	sb.WriteString(fmt.Sprintf("Mission: %s\n", entry.CurrentGoal))
+	fmt.Fprintf(&sb, "=== Captain's Log - %s ===\n", entry.Timestamp.Format("2006-01-02 15:04"))
+	fmt.Fprintf(&sb, "Captain: %s\n", entry.AgentName)
+	fmt.Fprintf(&sb, "Location: %s\n", entry.Location)
+	fmt.Fprintf(&sb, "Mission: %s\n", entry.CurrentGoal)
 	if len(entry.Notes) > 0 {
 		sb.WriteString("Notes:\n")
 		for _, note := range entry.Notes {
-			sb.WriteString(fmt.Sprintf("  - %s\n", note))
+			fmt.Fprintf(&sb, "  - %s\n", note)
 		}
 	}
 	return sb.String()

@@ -31,11 +31,11 @@ func (d *WorkerDispatch) BuyDirected(ctx context.Context, itemID string, qty int
 	if err != nil {
 		return fmt.Errorf("buy_directed: resolve station %q: %w", station, err)
 	}
-	if err := d.autopilotAndDock(ctx, sys, poi); err != nil {
+	if err = d.autopilotAndDock(ctx, sys, poi); err != nil {
 		return fmt.Errorf("buy_directed: travel to station %q: %w", station, err)
 	}
 
-	if err := d.Client.ViewMarket(ctx, map[string]any{}); err != nil {
+	if err = d.Client.ViewMarket(ctx, map[string]any{}); err != nil {
 		return fmt.Errorf("buy_directed: view market at %s: %w", station, err)
 	}
 	ask, haveAsk := lowestSellPrice(d.Client.GetMarketListings(), itemID)

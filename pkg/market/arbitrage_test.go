@@ -651,7 +651,7 @@ func TestGetOpportunitiesByAgent(t *testing.T) {
 	}
 	for rows.Next() {
 		var id int
-		if err := rows.Scan(&id); err != nil {
+		if err = rows.Scan(&id); err != nil {
 			t.Fatalf("scan id: %v", err)
 		}
 		ids = append(ids, id)
@@ -662,21 +662,21 @@ func TestGetOpportunitiesByAgent(t *testing.T) {
 	}
 
 	for _, id := range ids {
-		if ok, err := c.ClaimOpportunity(ctx, id, "trader-9"); err != nil || !ok {
-			t.Fatalf("claim %d: ok=%v err=%v", id, ok, err)
+		if ok, cerr := c.ClaimOpportunity(ctx, id, "trader-9"); cerr != nil || !ok {
+			t.Fatalf("claim %d: ok=%v cerr=%v", id, ok, cerr)
 		}
 	}
 	// ids[0] stays held; ids[1] completes; ids[2] expires while still claimed
 	// (the sweep only expires the available pool, so this shape is real);
 	// ids[3] is released and must stop being this agent's history.
-	if ok, err := c.CompleteOpportunity(ctx, ids[1], "trader-9"); err != nil || !ok {
-		t.Fatalf("complete: ok=%v err=%v", ok, err)
+	if ok, cerr := c.CompleteOpportunity(ctx, ids[1], "trader-9"); cerr != nil || !ok {
+		t.Fatalf("complete: ok=%v cerr=%v", ok, cerr)
 	}
-	if _, err := c.db.Exec(`UPDATE arbitrage_opportunities SET status='expired' WHERE id=?`, ids[2]); err != nil {
+	if _, err = c.db.Exec(`UPDATE arbitrage_opportunities SET status='expired' WHERE id=?`, ids[2]); err != nil {
 		t.Fatalf("expire: %v", err)
 	}
-	if ok, err := c.ReleaseOpportunity(ctx, ids[3], "trader-9"); err != nil || !ok {
-		t.Fatalf("release: ok=%v err=%v", ok, err)
+	if ok, rerr := c.ReleaseOpportunity(ctx, ids[3], "trader-9"); rerr != nil || !ok {
+		t.Fatalf("release: ok=%v rerr=%v", ok, rerr)
 	}
 
 	got, err := c.GetOpportunitiesByAgent(ctx, "trader-9", 10)

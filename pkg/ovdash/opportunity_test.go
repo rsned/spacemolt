@@ -151,7 +151,7 @@ func TestLoadOpportunity_UnreachableRouteReportsUnknownNotZero(t *testing.T) {
 			 10,20,5,5,50,NULL,NULL,'available',NULL,NULL,'scanner',NULL)`,
 	}
 	for _, s := range stmts {
-		if _, err := db.Exec(s); err != nil {
+		if _, err = db.Exec(s); err != nil {
 			t.Fatal(err)
 		}
 	}

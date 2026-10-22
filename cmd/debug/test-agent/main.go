@@ -49,15 +49,15 @@ func main() {
 	var kb knowledge.Base
 	switch *dbBackend {
 	case "sqlite":
-		sqliteKB, err := knowledge.NewSQLiteKB(knowledge.Config{
+		sqliteKB, kbErr := knowledge.NewSQLiteKB(knowledge.Config{
 			DBPath:       *dbPath,
 			WAL:          true,
 			MaxOpenConns: 25,
 			MaxIdleConns: 5,
 			BusyTimeout:  5 * time.Second,
 		})
-		if err != nil {
-			log.Fatalf("Failed to create SQLite knowledge base: %v", err)
+		if kbErr != nil {
+			log.Fatalf("Failed to create SQLite knowledge base: %v", kbErr)
 		}
 		kb = sqliteKB
 		fmt.Printf("✓ Created SQLite knowledge base at %s\n", *dbPath)

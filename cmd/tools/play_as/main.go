@@ -374,8 +374,8 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	}
 
 	mboxDBPath := filepath.Join("data", "agents", agentID, "mbox.db")
-	if s, err := mbox.Open(mboxDBPath); err != nil {
-		log.Printf("[mbox] warning: could not open mbox: %v", err)
+	if s, oerr := mbox.Open(mboxDBPath); oerr != nil {
+		log.Printf("[mbox] warning: could not open mbox: %v", oerr)
 	} else {
 		mboxStore = s
 		defer func() { _ = mboxStore.Close() }()
@@ -2530,8 +2530,8 @@ func factionOwnerDisplay(factionID string, cache map[string]string) string {
 // Station Production and Faction Production sections so they stay identical.
 func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility, indent, heading string) {
 	type prodRow struct {
-		name, typ, feehr, outrun, cycle, runcost, queued, backlog, public string
-		facID, rent, owner                                                string
+		name, typ, itemshr, outrun, cycle, runcost, queued, backlog, public string
+		facID, rent, owner                                                  string
 	}
 	rows := make([]prodRow, 0, len(facs))
 	showID, showRent, showOwner := false, false, false
@@ -2553,10 +2553,10 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 			showOwner = true
 		}
 		rows = append(rows, prodRow{
-			name:   f.name,
-			typ:    "⚙ " + p.Recipe,
-			feehr:  strconv.Itoa(p.ItemsPerHour),
-			outrun: strconv.Itoa(p.OutputPerRun),
+			name:    f.name,
+			typ:     "⚙ " + p.Recipe,
+			itemshr: strconv.Itoa(p.ItemsPerHour),
+			outrun:  strconv.Itoa(p.OutputPerRun),
 			// Fractional ticks/run (e.g. 0.9259…) is rounded to 2 dp.
 			cycle:   strconv.FormatFloat(p.TicksPerRun, 'f', 2, 64),
 			runcost: strconv.Itoa(p.RentalFeePerRun),
@@ -2573,7 +2573,7 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 	// it manually rather than via %-*s (which pads bytes).
 	nameW := len("Name")
 	typeW := len("Type")
-	feeW := max(len("Fee"), len("/hr"))
+	itemsW := max(len("Items"), len("/hr"))
 	outW := max(len("Output"), len("/run"))
 	cycW := max(len("Cycle"), len("tick/run"))
 	costW := max(len("Run"), len("cost"))
@@ -2586,7 +2586,7 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 	for _, r := range rows {
 		nameW = max(nameW, len(r.name))
 		typeW = max(typeW, len([]rune(r.typ)))
-		feeW = max(feeW, len(r.feehr))
+		itemsW = max(itemsW, len(r.itemshr))
 		outW = max(outW, len(r.outrun))
 		cycW = max(cycW, len(r.cycle))
 		costW = max(costW, len(r.runcost))
@@ -2618,7 +2618,7 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 	fmt.Fprintf(b, "\n%s%s:\n", indent, heading)
 	// Two-line header: units (/hr, /run, tick/run, ...) sit on row two.
 	fmt.Fprintf(b, "%s  %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s",
-		indent, nameW, "Name", typeW, "Type", feeW, "Fee", outW, "Output", cycW, "Cycle",
+		indent, nameW, "Name", typeW, "Type", itemsW, "Items", outW, "Output", cycW, "Cycle",
 		costW, "Run", queueW, "Queued", backW, "Backlog", pubW, "Public")
 	for _, o := range opts {
 		if o.show {
@@ -2627,7 +2627,7 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 	}
 	b.WriteString("\n")
 	fmt.Fprintf(b, "%s  %-*s | %-*s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s",
-		indent, nameW, "", typeW, "", feeW, "/hr", outW, "/run", cycW, "tick/run",
+		indent, nameW, "", typeW, "", itemsW, "/hr", outW, "/run", cycW, "tick/run",
 		costW, "cost", queueW, "runs", backW, "ticks", pubW, "")
 	for _, o := range opts {
 		if o.show {
@@ -2637,7 +2637,7 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 	b.WriteString("\n")
 	fmt.Fprintf(b, "%s  %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s",
 		indent,
-		strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", feeW),
+		strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", itemsW),
 		strings.Repeat("-", outW), strings.Repeat("-", cycW), strings.Repeat("-", costW),
 		strings.Repeat("-", queueW), strings.Repeat("-", backW), strings.Repeat("-", pubW))
 	for _, o := range opts {
@@ -2648,7 +2648,7 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 	b.WriteString("\n")
 	for _, r := range rows {
 		fmt.Fprintf(b, "%s  %-*s | %s | %*s | %*s | %*s | %*s | %*s | %*s | %-*s",
-			indent, nameW, r.name, padRunes(r.typ, typeW), feeW, r.feehr, outW, r.outrun,
+			indent, nameW, r.name, padRunes(r.typ, typeW), itemsW, r.itemshr, outW, r.outrun,
 			cycW, r.cycle, costW, r.runcost, queueW, r.queued, backW, r.backlog, pubW, r.public)
 		for _, o := range opts {
 			if o.show {

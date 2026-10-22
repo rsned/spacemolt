@@ -349,7 +349,7 @@ func TestSoftDeleteAndRestore(t *testing.T) {
 	}
 
 	// Restore puts it back.
-	if err := s.Restore("trashed"); err != nil {
+	if err = s.Restore("trashed"); err != nil {
 		t.Fatalf("Restore: %v", err)
 	}
 	msgs, err = s.List(Query{Channel: "private"})
@@ -482,7 +482,7 @@ func TestCursorRoundTrip(t *testing.T) {
 	}
 
 	oldest := time.Date(2026, 4, 15, 10, 0, 0, 0, time.UTC)
-	if err := s.SetCursor("faction", oldest, true); err != nil {
+	if err = s.SetCursor("faction", oldest, true); err != nil {
 		t.Fatalf("SetCursor: %v", err)
 	}
 

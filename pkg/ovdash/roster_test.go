@@ -25,13 +25,13 @@ func rosterFixtures(t *testing.T) (assetsPath, kbPath string) {
 	defer st.Close() //nolint:errcheck
 	ctx := context.Background()
 	now := time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC)
-	if err := st.UpsertIdentity(ctx, assets.Identity{PlayerID: "p1", AgentID: "trader-1", Username: "Tessa"}, now); err != nil {
+	if err = st.UpsertIdentity(ctx, assets.Identity{PlayerID: "p1", AgentID: "trader-1", Username: "Tessa"}, now); err != nil {
 		t.Fatalf("identity: %v", err)
 	}
-	if err := st.UpsertProfile(ctx, assets.Profile{PlayerID: "p1", Credits: 100, CapturedAt: now.Add(-30 * time.Hour)}); err != nil {
+	if err = st.UpsertProfile(ctx, assets.Profile{PlayerID: "p1", Credits: 100, CapturedAt: now.Add(-30 * time.Hour)}); err != nil {
 		t.Fatalf("profile: %v", err)
 	}
-	if err := st.ReplaceHulls(ctx, "p1", []assets.Hull{
+	if err = st.ReplaceHulls(ctx, "p1", []assets.Hull{
 		{ShipID: "s1", ClassID: "analysis", ClassName: "Analysis", IsActive: true, CargoUsed: 12},
 	}, now); err != nil {
 		t.Fatalf("hulls: %v", err)

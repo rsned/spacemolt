@@ -111,7 +111,7 @@ func TestSQLiteKB_GetOptimalRoute(t *testing.T) {
 	}
 
 	// Record a journey and check
-	if err := kb.RecordJourney(ctx, "sys-a", "sys-b", 10.0, 5.0, "agent-1"); err != nil {
+	if err = kb.RecordJourney(ctx, "sys-a", "sys-b", 10.0, 5.0, "agent-1"); err != nil {
 		t.Fatalf("RecordJourney failed: %v", err)
 	}
 
@@ -150,7 +150,7 @@ func TestSQLiteKB_FindCheapestRoute(t *testing.T) {
 	}
 
 	// Record a journey
-	if err := kb.RecordJourney(ctx, "sys-a", "sys-b", 10.0, 5.0, "agent-1"); err != nil {
+	if err = kb.RecordJourney(ctx, "sys-a", "sys-b", 10.0, 5.0, "agent-1"); err != nil {
 		t.Fatalf("RecordJourney failed: %v", err)
 	}
 
@@ -335,7 +335,7 @@ func TestSQLiteKB_ResolveAnomaly(t *testing.T) {
 	}
 
 	// Resolve it
-	if err := kb.ResolveAnomaly(ctx, anomalies[0].ID, "resolved"); err != nil {
+	if err = kb.ResolveAnomaly(ctx, anomalies[0].ID, "resolved"); err != nil {
 		t.Fatalf("ResolveAnomaly failed: %v", err)
 	}
 
@@ -460,7 +460,7 @@ func TestSQLiteKB_GetSystemDanger(t *testing.T) {
 	}
 
 	// Add encounters and check again
-	if err := kb.RecordHostileEncounter(ctx, "sys-1", "player_kill", ""); err != nil {
+	if err = kb.RecordHostileEncounter(ctx, "sys-1", "player_kill", ""); err != nil {
 		t.Fatalf("RecordHostileEncounter failed: %v", err)
 	}
 	zone, err = kb.GetSystemDanger(ctx, "sys-1")
@@ -587,7 +587,7 @@ func TestSQLiteKB_ListExports(t *testing.T) {
 	}
 
 	// Create an export
-	if _, err := kb.ExportKnowledge(ctx, "Test", "agent-1"); err != nil {
+	if _, err = kb.ExportKnowledge(ctx, "Test", "agent-1"); err != nil {
 		t.Fatalf("ExportKnowledge failed: %v", err)
 	}
 

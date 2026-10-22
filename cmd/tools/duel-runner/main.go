@@ -154,9 +154,9 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 	// refits. Barrier on both before the attack.
 	mode := camp.ModeOf(d)
 	rec.Mode = mode
-	fightSystem, err := camp.FightSystem(d)
-	if err != nil {
-		return rec, err
+	fightSystem, ferr := camp.FightSystem(d)
+	if ferr != nil {
+		return rec, ferr
 	}
 	fitFor := func(bot *Bot) FitSpec {
 		if bot == a {
@@ -281,6 +281,7 @@ func executeDuel(camp *Campaign, a, b *Bot, d Duel, repeat int, logger *log.Logg
 		target = defender.Username()
 	}
 	var startedBattleID string
+	var err error
 	if mode == ModeArena {
 		startedBattleID, rec.XPUsedToday, err = startArenaMatch(attacker, defender, target, logger)
 	} else {
@@ -336,9 +337,9 @@ func startArenaMatch(attacker, defender *Bot, target string, logger *log.Logger)
 	// rather than accepting blind.
 	var incoming bool
 	for i := range arenaAcceptPolls {
-		st, err := defender.ArenaStatus()
-		if err != nil {
-			return "", nil, fmt.Errorf("%s arena status: %w", defender.Name(), err)
+		st, serr := defender.ArenaStatus()
+		if serr != nil {
+			return "", nil, fmt.Errorf("%s arena status: %w", defender.Name(), serr)
 		}
 		if st.Incoming != nil {
 			incoming = true

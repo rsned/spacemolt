@@ -40,7 +40,7 @@ func TestBlocklistAddPersistsJSONArray(t *testing.T) {
 		t.Fatalf("ReadFile: %v", err)
 	}
 	var arr []string
-	if err := json.Unmarshal(raw, &arr); err != nil {
+	if err = json.Unmarshal(raw, &arr); err != nil {
 		t.Fatalf("unmarshal %q: %v", raw, err)
 	}
 	if len(arr) != 1 || arr[0] != "storgio17" {
@@ -87,10 +87,10 @@ func TestBlocklistIsBlockedMatchesIDOrNameCaseInsensitive(t *testing.T) {
 	}
 
 	cases := []struct {
-		name           string
-		senderID       string
-		sender         string
-		wantBlocked    bool
+		name        string
+		senderID    string
+		sender      string
+		wantBlocked bool
 	}{
 		{"match by id", "17a08149befb15b51a1fcf8bca325c36", "Federation Customs I", true},
 		{"match by id uppercased", "17A08149BEFB15B51A1FCF8BCA325C36", "Federation Customs I", true},

@@ -49,9 +49,9 @@ func (e *Engine) consumeOnHand(ctx context.Context, itemID string, need int, des
 	systems := make([]string, 0, len(holdings))
 	sysOf := make(map[string]string, len(holdings))
 	for _, h := range holdings {
-		s, err := e.src.SystemOf(ctx, h.BaseID)
-		if err != nil {
-			return need, nil, fmt.Errorf("system of %s: %w", h.BaseID, err)
+		s, serr := e.src.SystemOf(ctx, h.BaseID)
+		if serr != nil {
+			return need, nil, fmt.Errorf("system of %s: %w", h.BaseID, serr)
 		}
 		sysOf[h.BaseID] = s
 		if h.BaseID != destBase {

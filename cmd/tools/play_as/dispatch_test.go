@@ -510,7 +510,7 @@ func TestMutatePlan_PauseResumeCancelRetry(t *testing.T) {
 		t.Error("Control.Pause = false after plan_pause, want true")
 	}
 
-	if err := runPlanResume([]string{"test-plan", "--raise-cap=500"}); err != nil {
+	if err = runPlanResume([]string{"test-plan", "--raise-cap=500"}); err != nil {
 		t.Fatalf("plan_resume: %v", err)
 	}
 	loaded, err = plans.LoadRun(planStatePath("test-plan"))
@@ -524,7 +524,7 @@ func TestMutatePlan_PauseResumeCancelRetry(t *testing.T) {
 		t.Errorf("Control.RaiseCap = %d, want 500", loaded.Control.RaiseCap)
 	}
 
-	if err := runPlanRetry([]string{"test-plan", "n1"}); err != nil {
+	if err = runPlanRetry([]string{"test-plan", "n1"}); err != nil {
 		t.Fatalf("plan_retry: %v", err)
 	}
 	loaded, err = plans.LoadRun(planStatePath("test-plan"))
@@ -535,11 +535,11 @@ func TestMutatePlan_PauseResumeCancelRetry(t *testing.T) {
 		t.Errorf("Control.RetryNodes = %v, want [n1]", loaded.Control.RetryNodes)
 	}
 
-	if err := runPlanRetry([]string{"test-plan", "does-not-exist"}); err == nil {
+	if err = runPlanRetry([]string{"test-plan", "does-not-exist"}); err == nil {
 		t.Error("plan_retry with unknown node id: want error, got nil")
 	}
 
-	if err := runPlanCancel([]string{"test-plan"}); err != nil {
+	if err = runPlanCancel([]string{"test-plan"}); err != nil {
 		t.Fatalf("plan_cancel: %v", err)
 	}
 	loaded, err = plans.LoadRun(planStatePath("test-plan"))

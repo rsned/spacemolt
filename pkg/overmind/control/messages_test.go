@@ -59,7 +59,7 @@ func TestAdminEnvelopeRoundTrip(t *testing.T) {
 		t.Fatalf("NewEnvelope: %v", err)
 	}
 	var req AdminRequest
-	if err := env.Into(&req); err != nil {
+	if err = env.Into(&req); err != nil {
 		t.Fatalf("Into: %v", err)
 	}
 	if req.AgentID != "craftsman-1" {

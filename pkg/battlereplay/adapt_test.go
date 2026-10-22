@@ -26,7 +26,7 @@ func loadGolden(t *testing.T) ([]serverapi.GetBattleLogResponse, *serverapi.Batt
 	}
 	defer zr.Close() //nolint:errcheck
 	var page serverapi.GetBattleLogResponse
-	if err := json.NewDecoder(zr).Decode(&page); err != nil {
+	if err = json.NewDecoder(zr).Decode(&page); err != nil {
 		t.Fatalf("decode log: %v", err)
 	}
 

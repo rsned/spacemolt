@@ -61,7 +61,7 @@ func main() {
 	}
 
 	var response BaseResponse
-	if err := json.Unmarshal(data, &response); err != nil {
+	if err = json.Unmarshal(data, &response); err != nil {
 		log.Fatalf("Failed to parse JSON: %v", err)
 	}
 

@@ -569,7 +569,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// permanently (all live-observed 2026-07-16/07-17).
 	needRecovery := state.CurrentPOI == ""
 	if !needRecovery && !state.Doc {
-		if err := deps.Client.Dock(ctx); err != nil {
+		if err = deps.Client.Dock(ctx); err != nil {
 			fmt.Fprintf(out, "missions: dock failed: %v; recovering to a station\n", err) //nolint:errcheck
 			needRecovery = true
 		}

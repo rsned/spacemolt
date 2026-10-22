@@ -270,7 +270,7 @@ func TestGetUnscannedWildlifeSpecies(t *testing.T) {
 		t.Fatalf("want both species unscanned, got %v", todo)
 	}
 
-	if err := kb.UpsertWildlifeSpecies(ctx, []WildlifeSpecies{{
+	if err = kb.UpsertWildlifeSpecies(ctx, []WildlifeSpecies{{
 		Species: "belt_grazer", Danger: "low", DangerScannedUTC: "2026-08-17T00:00:00Z",
 	}}); err != nil {
 		t.Fatal(err)

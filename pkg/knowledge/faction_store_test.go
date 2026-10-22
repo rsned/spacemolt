@@ -51,7 +51,7 @@ func TestStoreAndLoadFaction(t *testing.T) {
 	}
 
 	// Replace-within-scope: re-store members with only one; the removed one must vanish.
-	if err := kb.ReplaceFactionMembers(ctx, "f1", []FactionMember{
+	if err = kb.ReplaceFactionMembers(ctx, "f1", []FactionMember{
 		{FactionID: "f1", PlayerID: "p1", Username: "boss", Role: "Leader", IsOnline: true, CapturedAt: now},
 	}); err != nil {
 		t.Fatalf("ReplaceFactionMembers (2): %v", err)
@@ -178,7 +178,7 @@ func TestUpsertFactionListEntry(t *testing.T) {
 	// upsert must refresh only the faction_list columns and preserve the rich
 	// columns and the real captured_utc.
 	rich := time.Date(2026, 5, 30, 12, 0, 0, 0, time.UTC)
-	if err := kb.StoreFaction(ctx, FactionRecord{
+	if err = kb.StoreFaction(ctx, FactionRecord{
 		FactionID: "f2", Name: "Musse", Tag: "muse", LeaderID: "p9", LeaderUsername: "Charlotte",
 		Treasury: 5000, MemberCount: 4, OwnedBases: 0, Description: "lore", Charter: "rules",
 		FoundedUTC: "2026-01-01T00:00:00Z", IntelSystems: 7, IntelTrade: 3, CapturedAt: rich,

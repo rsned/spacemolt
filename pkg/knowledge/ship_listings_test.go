@@ -63,14 +63,14 @@ func TestStoreShipListingsReplacesPerStation(t *testing.T) {
 		}
 	}
 
-	if err := kb.StoreShipListings(ctx, snap("station_a", 3), "test"); err != nil {
+	if err = kb.StoreShipListings(ctx, snap("station_a", 3), "test"); err != nil {
 		t.Fatal(err)
 	}
-	if err := kb.StoreShipListings(ctx, snap("station_b", 2), "test"); err != nil {
+	if err = kb.StoreShipListings(ctx, snap("station_b", 2), "test"); err != nil {
 		t.Fatal(err)
 	}
 	// Re-capture station_a with fewer listings: must REPLACE, not append.
-	if err := kb.StoreShipListings(ctx, snap("station_a", 1), "test"); err != nil {
+	if err = kb.StoreShipListings(ctx, snap("station_a", 1), "test"); err != nil {
 		t.Fatal(err)
 	}
 

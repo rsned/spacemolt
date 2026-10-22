@@ -155,21 +155,21 @@ func renderAll(kb *knowledge.SQLiteKB, outputDir string, logger *log.Logger) err
 	}
 	var cards []indexCard
 	for _, id := range ids {
-		view, err := kb.LoadFactionView(ctx, id)
-		if err != nil {
-			logger.Printf("load %s: %v", id, err)
+		view, verr := kb.LoadFactionView(ctx, id)
+		if verr != nil {
+			logger.Printf("load %s: %v", id, verr)
 			continue
 		}
 		if view == nil {
 			continue
 		}
-		html, err := renderFactionHTML(view)
-		if err != nil {
-			logger.Printf("render %s: %v", id, err)
+		html, rerr := renderFactionHTML(view)
+		if rerr != nil {
+			logger.Printf("render %s: %v", id, rerr)
 			continue
 		}
 		path := filepath.Join(outputDir, "faction-"+slugifyTag(view.Faction.Tag)+".html")
-		if err := os.WriteFile(path, []byte(html), 0o644); err != nil {
+		if err = os.WriteFile(path, []byte(html), 0o644); err != nil {
 			return err
 		}
 		logger.Printf("wrote %s", path)

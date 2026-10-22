@@ -22,14 +22,14 @@ func TestAdminRemoveRoundTripAndOffline(t *testing.T) {
 	}
 	defer ln.Close() //nolint:errcheck
 	go func() {
-		conn, err := ln.Accept()
-		if err != nil {
+		conn, aerr := ln.Accept()
+		if aerr != nil {
 			return
 		}
 		defer conn.Close() //nolint:errcheck
 		dec := control.NewDecoder(conn)
-		env, err := dec.Decode()
-		if err != nil || env.Type != control.TypeAdminRemove {
+		env, aerr := dec.Decode()
+		if aerr != nil || env.Type != control.TypeAdminRemove {
 			return
 		}
 		var req control.AdminRequest

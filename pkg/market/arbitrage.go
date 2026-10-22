@@ -130,9 +130,9 @@ func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanRe
 	now := time.Now().UTC()
 	var candidates []arbCandidate
 	for _, itemID := range itemIDs {
-		prices, err := c.GetItemStationPrices(ctx, itemID)
-		if err != nil {
-			return ScanResult{}, fmt.Errorf("scan item %s: %w", itemID, err)
+		prices, perr := c.GetItemStationPrices(ctx, itemID)
+		if perr != nil {
+			return ScanResult{}, fmt.Errorf("scan item %s: %w", itemID, perr)
 		}
 		// Ladders are fetched once per station and reused across every pairing,
 		// keeping this at one query per (item, station) rather than per pair.
@@ -211,7 +211,7 @@ func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanRe
 	discoveredAt := now.Format(time.RFC3339)
 
 	var res ScanResult
-	err = c.writeRetry(ctx, func(tx *sql.Tx) error {
+	werr := c.writeRetry(ctx, func(tx *sql.Tx) error {
 		// Read the prior cycle's per-route streak BEFORE expiring, so a route still
 		// present this cycle continues its count. Keyed by (item, from, to); a route
 		// absent last cycle (not available or claimed) restarts at 1 on reinsert.
@@ -248,8 +248,8 @@ func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanRe
 		res.Inserted = inserted
 		return nil
 	})
-	if err != nil {
-		return ScanResult{}, err
+	if werr != nil {
+		return ScanResult{}, werr
 	}
 	res.GeneratedAt = now
 	return res, nil

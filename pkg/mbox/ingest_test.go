@@ -132,7 +132,7 @@ func TestBackfillCrawlsPastKnownID(t *testing.T) {
 		TimestampUTC: base.Add(-2 * time.Minute),
 		Source:       "push",
 	}
-	if _, err := s.Ingest(knownMsg); err != nil {
+	if _, err = s.Ingest(knownMsg); err != nil {
 		t.Fatalf("Ingest known: %v", err)
 	}
 
@@ -399,7 +399,7 @@ func TestIngesterBlocklistFlagsPushAsSpam(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadBlocklist: %v", err)
 	}
-	if _, err := bl.Add("storgio17"); err != nil {
+	if _, err = bl.Add("storgio17"); err != nil {
 		t.Fatalf("Add: %v", err)
 	}
 	ing.SetBlocklist(bl)

@@ -37,9 +37,9 @@ type MediaType struct {
 }
 
 type Schema struct {
-	Type       string             `json:"type"`
+	Type       string              `json:"type"`
 	Properties map[string]Property `json:"properties"`
-	Required   []string           `json:"required"`
+	Required   []string            `json:"required"`
 }
 
 type Property struct {
@@ -227,7 +227,7 @@ func generateGoCode(tools []MCPTool, outputPath string) error {
 
 	// Execute template
 	var buf strings.Builder
-	if err := tmpl.Execute(&buf, tools); err != nil {
+	if err = tmpl.Execute(&buf, tools); err != nil {
 		return fmt.Errorf("executing template: %w", err)
 	}
 

@@ -27,7 +27,7 @@ func TestKBUpdateSystem_CapturesDescription(t *testing.T) {
 	t.Cleanup(func() { _ = kb.Close() })
 
 	ctx := context.Background()
-	if err := KBUpdateSystem(ctx, &fakeClient{state: st}, kb, "tester"); err != nil {
+	if err = KBUpdateSystem(ctx, &fakeClient{state: st}, kb, "tester"); err != nil {
 		t.Fatalf("KBUpdateSystem: %v", err)
 	}
 

@@ -59,7 +59,7 @@ func adminOp(dir, fleetLabel, agentID string, op control.Type) (AdminResult, err
 	}
 	ov.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	ov.By = "dashboard"
-	if err := supervisor.SaveOverrides(ovPath, ov); err != nil {
+	if err = supervisor.SaveOverrides(ovPath, ov); err != nil {
 		return AdminResult{}, err //nolint:wrapcheck
 	}
 
@@ -75,7 +75,7 @@ func adminOp(dir, fleetLabel, agentID string, op control.Type) (AdminResult, err
 	// Bound the write too: a half-open socket must not wedge the HTTP handler
 	// goroutine on Encode (mirrors the 5s read deadline below).
 	_ = conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-	if err := control.NewEncoder(conn).Encode(env); err != nil {
+	if err = control.NewEncoder(conn).Encode(env); err != nil {
 		return AdminResult{Status: "recorded_offline", Detail: "overrides recorded; send failed: " + err.Error()}, nil
 	}
 	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))

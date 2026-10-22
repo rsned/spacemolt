@@ -14,14 +14,14 @@ type SpaceMoltSkillFile struct {
 
 // SpaceMoltSkill is the format from server_docs/skills.20260209.json
 type SpaceMoltSkill struct {
-	ID              string         `json:"id"`
-	Name            string         `json:"name"`
-	Category        string         `json:"category"`
-	Description     string         `json:"description"`
-	MaxLevel        int            `json:"max_level"`
-	RequiredSkills  map[string]int `json:"required_skills,omitempty"`
-	XPPerLevel      []int          `json:"xp_per_level,omitempty"`
-	BonusPerLevel   map[string]any `json:"bonus_per_level,omitempty"`
+	ID             string         `json:"id"`
+	Name           string         `json:"name"`
+	Category       string         `json:"category"`
+	Description    string         `json:"description"`
+	MaxLevel       int            `json:"max_level"`
+	RequiredSkills map[string]int `json:"required_skills,omitempty"`
+	XPPerLevel     []int          `json:"xp_per_level,omitempty"`
+	BonusPerLevel  map[string]any `json:"bonus_per_level,omitempty"`
 }
 
 // ImportSkill is the format expected by the crafting server sync
@@ -63,7 +63,7 @@ func main() {
 
 	// Parse SpaceMolt format
 	var smSkills SpaceMoltSkillFile
-	if err := json.Unmarshal(data, &smSkills); err != nil {
+	if err = json.Unmarshal(data, &smSkills); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing input JSON: %v\n", err)
 		os.Exit(1)
 	}

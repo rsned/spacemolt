@@ -54,17 +54,17 @@ func TestLoadAssetCoverageHealthyDBReturnsRows(t *testing.T) {
 	if err != nil {
 		t.Fatalf("assets.Open: %v", err)
 	}
-	if err := st.UpsertIdentity(context.Background(), assets.Identity{
+	if err = st.UpsertIdentity(context.Background(), assets.Identity{
 		PlayerID: "abc123", AgentID: "engineer-3", Username: "Artificer",
 	}, now); err != nil {
 		t.Fatalf("UpsertIdentity: %v", err)
 	}
-	if err := st.UpsertProfile(context.Background(), assets.Profile{
+	if err = st.UpsertProfile(context.Background(), assets.Profile{
 		PlayerID: "abc123", Username: "Artificer", CapturedAt: now,
 	}); err != nil {
 		t.Fatalf("UpsertProfile: %v", err)
 	}
-	if err := st.Close(); err != nil {
+	if err = st.Close(); err != nil {
 		t.Fatal(err)
 	}
 

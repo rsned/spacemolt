@@ -152,7 +152,7 @@ func TestSQLiteKB_RememberSystem_DoesNotWriteEmpire(t *testing.T) {
 
 	// Same check on a brand-new row: a first-seen system captured only via
 	// get_system must not seed the ownership column with the regional value.
-	if err := kb.RememberSystem(ctx, System{
+	if err = kb.RememberSystem(ctx, System{
 		ID: "sys-fresh", Name: "Fresh System", Empire: "voidborn",
 		LastUpdatedTick: 10, LastVisitedTick: 10,
 	}); err != nil {
@@ -552,11 +552,11 @@ func TestSQLiteKB_Persistence(t *testing.T) {
 		Position: game.Position{X: 42, Y: 42, Z: 42},
 	}
 
-	if err := kb1.RememberSystem(ctx, sys); err != nil {
+	if err = kb1.RememberSystem(ctx, sys); err != nil {
 		t.Fatalf("RememberSystem failed: %v", err)
 	}
 
-	if err := kb1.Close(); err != nil {
+	if err = kb1.Close(); err != nil {
 		t.Fatalf("Close failed: %v", err)
 	}
 
@@ -607,7 +607,7 @@ func TestMemoryKB_RememberSystem_PersistsLastVisitedTick(t *testing.T) {
 
 	// Overwrite with zero tick — should preserve the previous non-zero value.
 	sys2 := System{ID: "sys-a", Name: "Alpha", LastUpdatedTick: 60, LastVisitedTick: 0}
-	if err := kb.RememberSystem(ctx, sys2); err != nil {
+	if err = kb.RememberSystem(ctx, sys2); err != nil {
 		t.Fatalf("RememberSystem (2): %v", err)
 	}
 	got, err = kb.GetSystem(ctx, "sys-a")
@@ -680,7 +680,7 @@ func TestSQLiteKB_UpsertSystemFromMap_SetsAndClearsEmpire(t *testing.T) {
 
 	// Re-import from a fresh get_map fetch where this system is no longer
 	// owned (empire omitted -> decodes to "").
-	if err := kb.UpsertSystemFromMap(ctx, MapSystemData{
+	if err = kb.UpsertSystemFromMap(ctx, MapSystemData{
 		ID: "sys-owned", Name: "Owned",
 	}); err != nil {
 		t.Fatalf("UpsertSystemFromMap (clear): %v", err)

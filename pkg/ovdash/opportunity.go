@@ -134,7 +134,7 @@ func (o *Opportunity) enrich(ctx context.Context, kbPath string) error {
 	}
 	for rows.Next() {
 		var id, name string
-		if err := rows.Scan(&id, &name); err != nil {
+		if err = rows.Scan(&id, &name); err != nil {
 			rows.Close() //nolint:errcheck,gosec
 			return fmt.Errorf("scan system: %w", err)
 		}
@@ -150,7 +150,7 @@ func (o *Opportunity) enrich(ctx context.Context, kbPath string) error {
 	poiSystem := map[string]string{}
 	for prows.Next() {
 		var id, name, sys string
-		if err := prows.Scan(&id, &name, &sys); err != nil {
+		if err = prows.Scan(&id, &name, &sys); err != nil {
 			prows.Close() //nolint:errcheck,gosec
 			return fmt.Errorf("scan poi: %w", err)
 		}
@@ -166,7 +166,7 @@ func (o *Opportunity) enrich(ctx context.Context, kbPath string) error {
 	}
 	for brows.Next() {
 		var id, poiID, name string
-		if err := brows.Scan(&id, &poiID, &name); err != nil {
+		if err = brows.Scan(&id, &poiID, &name); err != nil {
 			brows.Close() //nolint:errcheck,gosec
 			return fmt.Errorf("scan base: %w", err)
 		}

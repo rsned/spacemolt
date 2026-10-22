@@ -150,7 +150,7 @@ func TestSchedulerPersistRoundTrip(t *testing.T) {
 	a, _ := s.Add("hourly", "get_nearby", now)
 	b, _ := s.Add("daily", "view_storage --station_id treasure_cache_trading_post", now)
 
-	if _, err := os.Stat(path); err != nil {
+	if _, err = os.Stat(path); err != nil {
 		t.Fatalf("file not written: %v", err)
 	}
 

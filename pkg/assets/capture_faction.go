@@ -76,14 +76,14 @@ func CaptureFaction(ctx context.Context, client game.GameClient, st *Store, agen
 		return nil
 	}
 
-	if err := client.FactionInfo(ctx); err != nil {
+	if err = client.FactionInfo(ctx); err != nil {
 		return nil //nolint:nilerr // degrade to no capture this pass
 	}
 	profile, ok, derr := FactionProfileFrom(client.GetRawJSON("faction_info"))
 	if derr != nil || !ok {
 		return nil //nolint:nilerr // an undecodable body degrades to no capture this pass
 	}
-	if err := st.UpsertFactionProfile(ctx, profile, now); err != nil {
+	if err = st.UpsertFactionProfile(ctx, profile, now); err != nil {
 		return err
 	}
 

@@ -163,7 +163,7 @@ func (g *ReconnectGate) withLock(fn func(*gateState) bool) error {
 		return fmt.Errorf("reconnect gate: open: %w", err)
 	}
 	defer func() { _ = f.Close() }()
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
 		return fmt.Errorf("reconnect gate: flock: %w", err)
 	}
 	defer func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN) }()

@@ -14,16 +14,16 @@ type SpaceMoltRecipeFile struct {
 
 // SpaceMoltRecipe is the format from server_docs/recipes.20260209.json
 type SpaceMoltRecipe struct {
-	ID              string                   `json:"id"`
-	Name            string                   `json:"name"`
-	Description     string                   `json:"description"`
-	Category        string                   `json:"category"`
-	Inputs          []SpaceMoltComponent     `json:"inputs"`
-	Outputs         []SpaceMoltOutput        `json:"outputs"`
-	RequiredSkills  map[string]int           `json:"required_skills"`
-	CraftingTime    int                      `json:"crafting_time"`
-	BaseQuality     int                      `json:"base_quality,omitempty"`
-	SkillQualityMod int                      `json:"skill_quality_mod,omitempty"`
+	ID              string               `json:"id"`
+	Name            string               `json:"name"`
+	Description     string               `json:"description"`
+	Category        string               `json:"category"`
+	Inputs          []SpaceMoltComponent `json:"inputs"`
+	Outputs         []SpaceMoltOutput    `json:"outputs"`
+	RequiredSkills  map[string]int       `json:"required_skills"`
+	CraftingTime    int                  `json:"crafting_time"`
+	BaseQuality     int                  `json:"base_quality,omitempty"`
+	SkillQualityMod int                  `json:"skill_quality_mod,omitempty"`
 }
 
 type SpaceMoltComponent struct {
@@ -39,14 +39,14 @@ type SpaceMoltOutput struct {
 
 // ImportRecipe is the format expected by the crafting server sync
 type ImportRecipe struct {
-	ID           string              `json:"id"`
-	Name         string              `json:"name"`
-	Description  string              `json:"description,omitempty"`
-	Category     string              `json:"category,omitempty"`
-	CraftTimeSec int                 `json:"craft_time_sec,omitempty"`
-	Components   []ImportComponent   `json:"components,omitempty"`
-	Skills       []ImportSkill       `json:"skills,omitempty"`
-	Output       ImportOutput        `json:"output,omitempty"`
+	ID           string            `json:"id"`
+	Name         string            `json:"name"`
+	Description  string            `json:"description,omitempty"`
+	Category     string            `json:"category,omitempty"`
+	CraftTimeSec int               `json:"craft_time_sec,omitempty"`
+	Components   []ImportComponent `json:"components,omitempty"`
+	Skills       []ImportSkill     `json:"skills,omitempty"`
+	Output       ImportOutput      `json:"output,omitempty"`
 }
 
 type ImportComponent struct {
@@ -82,7 +82,7 @@ func main() {
 
 	// Parse SpaceMolt format
 	var smRecipes SpaceMoltRecipeFile
-	if err := json.Unmarshal(data, &smRecipes); err != nil {
+	if err = json.Unmarshal(data, &smRecipes); err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing input JSON: %v\n", err)
 		os.Exit(1)
 	}

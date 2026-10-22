@@ -139,7 +139,7 @@ func TestWriteSnapshot(t *testing.T) {
 		},
 	}
 
-	if err := collector.WriteSnapshot(ctx, snapshot); err != nil {
+	if err = collector.WriteSnapshot(ctx, snapshot); err != nil {
 		t.Fatalf("WriteSnapshot failed: %v", err)
 	}
 

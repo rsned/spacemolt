@@ -96,7 +96,7 @@ func TestCaptureWildlifeScan_StampsAndClearsTheWorkList(t *testing.T) {
 
 	s := ParseCreatureScan("Belt-Grazer [grazer — harmless prey, ranchable stock]",
 		[]string{"species", "role", "hull", "ranchable"}, 60, "")
-	if err := CaptureWildlifeScan(ctx, kb, "belt_grazer", s, time.Now()); err != nil {
+	if err = CaptureWildlifeScan(ctx, kb, "belt_grazer", s, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 

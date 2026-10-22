@@ -45,33 +45,33 @@ type StorageEntry struct {
 
 // AgentSnapshot holds the captured state for one agent at a point in time.
 type AgentSnapshot struct {
-	AgentID         string               `json:"agent_id"`
-	Username        string               `json:"username"`
-	Empire          string               `json:"empire"`
-	Credits         float64              `json:"credits"`
-	Location        string               `json:"location"`
-	Docked          bool                 `json:"docked"`
-	POIType         string               `json:"poi_type"` // Type of POI agent is at (station, base, belt, etc.)
-	Skills          map[string]SkillSnap `json:"skills"`
-	Stats           game.PlayerStats     `json:"stats"`
-	ShipClass       string               `json:"ship_class"`
-	ShipName        string               `json:"ship_name"`
-	CargoUsed       float64              `json:"cargo_used"`
-	CargoCapacity   float64              `json:"cargo_capacity"`
-	ModuleCount     int                  `json:"module_count"`
-	TotalShips      int                  `json:"total_ships"`
-	StorageItems    []StorageEntry       `json:"storage_items"`
-	StorageTotal    float64              `json:"storage_total"`
-	FactionID       string               `json:"faction_id"`
-	FactionRank     string               `json:"faction_rank"`
-	FactionData     *FactionSnapshot     `json:"faction_data,omitempty"`
-	Experience      int64                `json:"experience"`
-	HomeBase        string               `json:"home_base,omitempty"`
-	Fuel            float64              `json:"fuel"`
-	MaxFuel         float64              `json:"max_fuel"`
-	StatusRaw       json.RawMessage      `json:"status_raw,omitempty"`
-	Error           string               `json:"error,omitempty"`
-	CapturedAt      time.Time            `json:"captured_at"`
+	AgentID       string               `json:"agent_id"`
+	Username      string               `json:"username"`
+	Empire        string               `json:"empire"`
+	Credits       float64              `json:"credits"`
+	Location      string               `json:"location"`
+	Docked        bool                 `json:"docked"`
+	POIType       string               `json:"poi_type"` // Type of POI agent is at (station, base, belt, etc.)
+	Skills        map[string]SkillSnap `json:"skills"`
+	Stats         game.PlayerStats     `json:"stats"`
+	ShipClass     string               `json:"ship_class"`
+	ShipName      string               `json:"ship_name"`
+	CargoUsed     float64              `json:"cargo_used"`
+	CargoCapacity float64              `json:"cargo_capacity"`
+	ModuleCount   int                  `json:"module_count"`
+	TotalShips    int                  `json:"total_ships"`
+	StorageItems  []StorageEntry       `json:"storage_items"`
+	StorageTotal  float64              `json:"storage_total"`
+	FactionID     string               `json:"faction_id"`
+	FactionRank   string               `json:"faction_rank"`
+	FactionData   *FactionSnapshot     `json:"faction_data,omitempty"`
+	Experience    int64                `json:"experience"`
+	HomeBase      string               `json:"home_base,omitempty"`
+	Fuel          float64              `json:"fuel"`
+	MaxFuel       float64              `json:"max_fuel"`
+	StatusRaw     json.RawMessage      `json:"status_raw,omitempty"`
+	Error         string               `json:"error,omitempty"`
+	CapturedAt    time.Time            `json:"captured_at"`
 }
 
 // AgentDiff holds the computed differences between two snapshots.
@@ -93,6 +93,7 @@ type AgentDiff struct {
 	IsNew              bool // Agent appearing for first time
 	Current            *AgentSnapshot
 }
+
 // FactionFacility represents a faction-owned facility.
 type FactionFacility struct {
 	FacilityID   string         `json:"facility_id"`
@@ -519,7 +520,7 @@ func main() {
 
 	// Regenerate all reports if requested
 	if *regenerateAll {
-		if err := regenerateAllReports(db, *outputPath, logger); err != nil {
+		if err = regenerateAllReports(db, *outputPath, logger); err != nil {
 			logger.Fatalf("Failed to regenerate all reports: %v", err)
 		}
 		return
@@ -595,16 +596,16 @@ func main() {
 	factionDiffs := computeFactionDiffs(todayFactions, prevFactions)
 
 	// Generate reports
-	if err := os.MkdirAll(filepath.Dir(*outputPath), 0o755); err != nil {
+	if err = os.MkdirAll(filepath.Dir(*outputPath), 0o755); err != nil {
 		logger.Fatalf("Failed to create report directory: %v", err)
 	}
 
-	if err := writeMarkdownReport(*outputPath+".md", today, prevDate, diffs, factionDiffs); err != nil {
+	if err = writeMarkdownReport(*outputPath+".md", today, prevDate, diffs, factionDiffs); err != nil {
 		logger.Fatalf("Failed to write markdown report: %v", err)
 	}
 	logger.Printf("Markdown report: %s.md", *outputPath)
 
-	if err := writeHTMLReport(*outputPath+".html", today, prevDate, nextDate, diffs, factionDiffs); err != nil {
+	if err = writeHTMLReport(*outputPath+".html", today, prevDate, nextDate, diffs, factionDiffs); err != nil {
 		logger.Fatalf("Failed to write HTML report: %v", err)
 	}
 	logger.Printf("HTML report: %s.html", *outputPath)
@@ -1015,7 +1016,7 @@ func captureAgent(agentID string, kb knowledge.Base, fc *FactionCollector, logge
 					snapshot := knowledge.StorageSnapshot{
 						AgentID: agentID, BaseID: storageResp.BaseID,
 						Credits: int(storageResp.Credits),
-						Items: kbItems, Ships: kbShips,
+						Items:   kbItems, Ships: kbShips,
 					}
 					if err := kb.StoreStorageSnapshot(context.Background(), snapshot); err != nil {
 						logger.Printf("  Warning: failed to save storage snapshot to KB: %v", err)
@@ -1370,8 +1371,8 @@ func writeIndexPage(outputDir string, dates []string) error {
 		if i == 0 {
 			label = `<span class="label">(latest)</span>`
 		}
-		b.WriteString(fmt.Sprintf(`<li><a href="daily-summary-%s.html" class="date-link"><span class="date">%s</span> %s</a></li>`+"\n",
-			html.EscapeString(date), html.EscapeString(date), label))
+		fmt.Fprintf(&b, `<li><a href="daily-summary-%s.html" class="date-link"><span class="date">%s</span> %s</a></li>`+"\n",
+			html.EscapeString(date), html.EscapeString(date), label)
 	}
 	b.WriteString(`</ul>
 
@@ -1755,9 +1756,9 @@ func diffStorageItems(old, cur []StorageEntry) []string {
 func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff, factionDiffs []FactionDiff) error {
 	var b strings.Builder
 
-	b.WriteString(fmt.Sprintf("# Daily Summary: %s\n\n", today))
+	fmt.Fprintf(&b, "# Daily Summary: %s\n\n", today)
 	if prevDate != "" {
-		b.WriteString(fmt.Sprintf("Compared to: %s\n\n", prevDate))
+		fmt.Fprintf(&b, "Compared to: %s\n\n", prevDate)
 	} else {
 		b.WriteString("Baseline report (no previous data)\n\n")
 	}
@@ -1861,7 +1862,7 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff, factio
 		b.WriteString("|-------|-------|\n")
 		for _, d := range diffs {
 			if d.Current.Error != "" {
-				b.WriteString(fmt.Sprintf("| %s | %s |\n", d.AgentID, d.Current.Error))
+				fmt.Fprintf(&b, "| %s | %s |\n", d.AgentID, d.Current.Error)
 			}
 		}
 		b.WriteString("\n")
@@ -1944,8 +1945,8 @@ func writeMarkdownReport(path, today, prevDate string, diffs []AgentDiff, factio
 		for _, d := range diffs {
 			if !d.HasChanges && d.Current.Error == "" {
 				creditsText := fmt.Sprintf("%.0f credits", d.Current.Credits)
-				b.WriteString(fmt.Sprintf("- %s (%s) - %s at %s\n",
-					d.AgentID, d.Username, creditsText, d.Current.Location))
+				fmt.Fprintf(&b, "- %s (%s) - %s at %s\n",
+					d.AgentID, d.Username, creditsText, d.Current.Location)
 			}
 		}
 		b.WriteString("\n")
@@ -2190,24 +2191,24 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff, 
 
 	b.WriteString("<h1>Daily Summary</h1>\n")
 	if prevDate != "" {
-		b.WriteString(fmt.Sprintf(`<p class="subtitle">%s vs %s</p>`+"\n", html.EscapeString(today), html.EscapeString(prevDate)))
+		fmt.Fprintf(&b, `<p class="subtitle">%s vs %s</p>`+"\n", html.EscapeString(today), html.EscapeString(prevDate))
 	} else {
-		b.WriteString(fmt.Sprintf(`<p class="subtitle">%s (baseline)</p>`+"\n", html.EscapeString(today)))
+		fmt.Fprintf(&b, `<p class="subtitle">%s (baseline)</p>`+"\n", html.EscapeString(today))
 	}
 
 	// Navigation links
 	b.WriteString(`<div class="nav-links">` + "\n")
 	if prevDate != "" {
-		b.WriteString(fmt.Sprintf(`<a href="daily-summary-%s.html" class="nav-link">← Previous (%s)</a>`+"\n",
-			html.EscapeString(prevDate), html.EscapeString(prevDate)))
+		fmt.Fprintf(&b, `<a href="daily-summary-%s.html" class="nav-link">← Previous (%s)</a>`+"\n",
+			html.EscapeString(prevDate), html.EscapeString(prevDate))
 	} else {
 		b.WriteString(`<span class="nav-link disabled">← Previous</span>` + "\n")
 	}
 	// Back to Index link
 	b.WriteString(`<a href="index.html" class="nav-link">Back To Index</a>` + "\n")
 	if nextDate != "" {
-		b.WriteString(fmt.Sprintf(`<a href="daily-summary-%s.html" class="nav-link">Next (%s) →</a>`+"\n",
-			html.EscapeString(nextDate), html.EscapeString(nextDate)))
+		fmt.Fprintf(&b, `<a href="daily-summary-%s.html" class="nav-link">Next (%s) →</a>`+"\n",
+			html.EscapeString(nextDate), html.EscapeString(nextDate))
 	} else {
 		b.WriteString(`<span class="nav-link disabled">Next →</span>` + "\n")
 	}
@@ -2228,18 +2229,18 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff, 
 		trendArrow = "↘"
 		trendClass = "negative"
 	}
-	b.WriteString(fmt.Sprintf(`<div class="stat-card"><div class="label">%s</div><div class="value">`, "Fleet Credits"))
+	fmt.Fprintf(&b, `<div class="stat-card"><div class="label">%s</div><div class="value">`, "Fleet Credits")
 	// Total credits on first line
-	b.WriteString(fmt.Sprintf(`<span class="positive">%s</span>`, formatNumber(totalAllCredits)))
+	fmt.Fprintf(&b, `<span class="positive">%s</span>`, formatNumber(totalAllCredits))
 	// Delta on second line with arrow
-	b.WriteString(fmt.Sprintf(`<br><small class="%s">%s %s</small>`, trendClass, trendArrow, formatNumber(totalCreditsDelta)))
+	fmt.Fprintf(&b, `<br><small class="%s">%s %s</small>`, trendClass, trendArrow, formatNumber(totalCreditsDelta))
 	if totalCreditsSpent > 0 || totalCreditsEarned > 0 {
-		b.WriteString(fmt.Sprintf(`<br><small class="negative">%s</small>`, formatNumber(totalCreditsSpent)))
+		fmt.Fprintf(&b, `<br><small class="negative">%s</small>`, formatNumber(totalCreditsSpent))
 		if totalCreditsEarned > 0 {
 			if totalCreditsSpent > 0 {
 				b.WriteString(` `)
 			}
-			b.WriteString(fmt.Sprintf(`<small class="positive">%s</small>`, formatNumber(totalCreditsEarned)))
+			fmt.Fprintf(&b, `<small class="positive">%s</small>`, formatNumber(totalCreditsEarned))
 		}
 	}
 	b.WriteString(`</div></div>` + "\n")
@@ -2255,10 +2256,10 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff, 
 			itemsTrendArrow = "↘"
 			itemsTrendClass = "negative"
 		}
-		b.WriteString(fmt.Sprintf(`<div class="stat-card"><div class="label">%s</div><div class="value">`, "Stored Items"))
-		b.WriteString(fmt.Sprintf(`<span class="neutral">%d</span>`, totalStorageItems))
+		fmt.Fprintf(&b, `<div class="stat-card"><div class="label">%s</div><div class="value">`, "Stored Items")
+		fmt.Fprintf(&b, `<span class="neutral">%d</span>`, totalStorageItems)
 		if prevDate != "" {
-			b.WriteString(fmt.Sprintf(`<br><small class="%s">%s %+d</small>`, itemsTrendClass, itemsTrendArrow, totalStorageItemsDelta))
+			fmt.Fprintf(&b, `<br><small class="%s">%s %+d</small>`, itemsTrendClass, itemsTrendArrow, totalStorageItemsDelta)
 		}
 		b.WriteString(`</div></div>` + "\n")
 	}
@@ -2521,12 +2522,12 @@ func writeHTMLReport(path, today, prevDate, nextDate string, diffs []AgentDiff, 
 		}
 	}
 	if unchangedCount > 0 {
-		b.WriteString(fmt.Sprintf("<details>\n<summary>Unchanged agents (%d)</summary>\n", unchangedCount))
+		fmt.Fprintf(&b, "<details>\n<summary>Unchanged agents (%d)</summary>\n", unchangedCount)
 		b.WriteString(`<ul class="unchanged-list">` + "\n")
 		for _, d := range diffs {
 			if !d.HasChanges && d.Current.Error == "" {
-				b.WriteString(fmt.Sprintf("<li>%s (%.0f cr)</li>\n",
-					html.EscapeString(d.AgentID), d.Current.Credits))
+				fmt.Fprintf(&b, "<li>%s (%.0f cr)</li>\n",
+					html.EscapeString(d.AgentID), d.Current.Credits)
 			}
 		}
 		b.WriteString("</ul>\n</details>\n")

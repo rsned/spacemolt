@@ -70,7 +70,7 @@ func (d *WorkerDispatch) CraftOutputs(ctx context.Context, recipeID string, numO
 	if err != nil {
 		return fmt.Errorf("craft_node: resolve station %q: %w", station, err)
 	}
-	if err := d.autopilotAndDock(ctx, sys, poi); err != nil {
+	if err = d.autopilotAndDock(ctx, sys, poi); err != nil {
 		return fmt.Errorf("craft_node: travel to station %q: %w", station, err)
 	}
 
@@ -117,7 +117,7 @@ func (d *WorkerDispatch) CraftOutputs(ctx context.Context, recipeID string, numO
 
 	var jobID string
 	if facility == "hand" {
-		if err := d.Client.CraftWithQuantity(ctx, recipeID, remaining); err != nil {
+		if err = d.Client.CraftWithQuantity(ctx, recipeID, remaining); err != nil {
 			return fmt.Errorf("craft_node: craft %s x%d: %w", recipeID, remaining, err)
 		}
 		jobID, err = craftQueuedJobID(d.Client.GetRawJSON("_last"))
@@ -126,7 +126,7 @@ func (d *WorkerDispatch) CraftOutputs(ctx context.Context, recipeID string, numO
 		}
 	} else {
 		job := map[string]any{"recipe_id": recipeID, "quantity": remaining, "facility_id": facility}
-		if err := d.Client.CraftBulk(ctx, []map[string]any{job}); err != nil {
+		if err = d.Client.CraftBulk(ctx, []map[string]any{job}); err != nil {
 			return fmt.Errorf("craft_node: craft %s x%d at facility %s: %w", recipeID, remaining, facility, err)
 		}
 		jobID, err = craftBulkJobID(d.Client.GetRawJSON("_last"))

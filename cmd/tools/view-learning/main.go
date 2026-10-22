@@ -755,7 +755,7 @@ func cmdSummary(ctx context.Context, db *sql.DB, cfg Config, args []string) erro
 	for rows.Next() {
 		var expType string
 		var count int
-		if err := rows.Scan(&expType, &count); err != nil {
+		if err = rows.Scan(&expType, &count); err != nil {
 			_ = rows.Close()
 			return fmt.Errorf("failed to scan experience type: %w", err)
 		}

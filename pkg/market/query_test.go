@@ -43,7 +43,7 @@ func TestGetStats_AfterWrite(t *testing.T) {
 			{StationID: "stn1", ItemID: "iron", ItemName: "Iron Ore", Side: "buy", PriceEach: 100, Quantity: 10, CapturedAt: now},
 		},
 	}
-	if err := collector.WriteSnapshot(context.Background(), snap); err != nil {
+	if err = collector.WriteSnapshot(context.Background(), snap); err != nil {
 		t.Fatalf("WriteSnapshot failed: %v", err)
 	}
 
@@ -81,7 +81,7 @@ func TestGetReferenceAsk(t *testing.T) {
 
 	// Two stations sell iron; one ladder includes a sentinel rung that must be
 	// ignored. Station A floor = 2 (qty 50), station B floor = 3 (qty 20).
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stnA", SystemID: "sys1", CapturedAt: now,
 		Orders: []Order{
 			{StationID: "stnA", ItemID: "iron", Side: "sell", PriceEach: 2, Quantity: 50, CapturedAt: now},
@@ -91,7 +91,7 @@ func TestGetReferenceAsk(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("WriteSnapshot stnA: %v", err)
 	}
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stnB", SystemID: "sys1", CapturedAt: now,
 		Orders: []Order{
 			{StationID: "stnB", ItemID: "iron", Side: "sell", PriceEach: 3, Quantity: 20, CapturedAt: now},
@@ -141,7 +141,7 @@ func TestGetStats_MultiWriteCount(t *testing.T) {
 
 	older := time.Now().UTC().Add(-2 * time.Hour)
 	newer := time.Now().UTC()
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stn1", SystemID: "sys1", CapturedAt: older,
 		Orders: []Order{
 			{StationID: "stn1", ItemID: "iron", ItemName: "Iron", Side: "buy", PriceEach: 5, Quantity: 10, CapturedAt: older},
@@ -150,7 +150,7 @@ func TestGetStats_MultiWriteCount(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("WriteSnapshot older: %v", err)
 	}
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stn1", SystemID: "sys1", CapturedAt: newer,
 		Orders: []Order{
 			{StationID: "stn1", ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: 9, Quantity: 12, CapturedAt: newer},
@@ -198,14 +198,14 @@ func TestGetLatestSnapshot_ReturnsNewestCapture(t *testing.T) {
 	older := time.Date(2026, 6, 20, 10, 0, 0, 0, time.UTC)
 	newer := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
 
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
 		CapturedAt: older,
 		Orders:     []Order{{StationID: "stn1", ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: older}},
 	}); err != nil {
 		t.Fatalf("WriteSnapshot older: %v", err)
 	}
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
 		CapturedAt: newer,
 		Orders:     []Order{{StationID: "stn1", ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: 7, Quantity: 12, CapturedAt: newer}},
@@ -240,7 +240,7 @@ func TestHasSnapshotToday(t *testing.T) {
 
 	ctx := context.Background()
 	now := time.Now().UTC()
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
 		CapturedAt: now,
 		Orders:     []Order{{StationID: "stn1", ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: now}},
@@ -274,12 +274,12 @@ func TestFindBestPrices(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 	write := func(stn string, price float64) {
-		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		if werr := c.WriteSnapshot(ctx, MarketSnapshot{
 			StationID: stn, StationName: stn, SystemID: "sys", SystemName: "S",
 			CapturedAt: now,
 			Orders:     []Order{{StationID: stn, ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: price, Quantity: 10, CapturedAt: now}},
-		}); err != nil {
-			t.Fatalf("WriteSnapshot %s: %v", stn, err)
+		}); werr != nil {
+			t.Fatalf("WriteSnapshot %s: %v", stn, werr)
 		}
 	}
 	write("stnA", 9)
@@ -311,12 +311,12 @@ func TestFindBestPrices_BuySideRanksDescending(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 	write := func(stn string, price float64) {
-		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		if werr := c.WriteSnapshot(ctx, MarketSnapshot{
 			StationID: stn, StationName: stn, SystemID: "sys", SystemName: "S",
 			CapturedAt: now,
 			Orders:     []Order{{StationID: stn, ItemID: "iron", ItemName: "Iron", Side: "buy", PriceEach: price, Quantity: 10, CapturedAt: now}},
-		}); err != nil {
-			t.Fatalf("WriteSnapshot %s: %v", stn, err)
+		}); werr != nil {
+			t.Fatalf("WriteSnapshot %s: %v", stn, werr)
 		}
 	}
 	write("stnA", 9)
@@ -349,14 +349,14 @@ func TestFindBestPrices_UsesLatestCapturePerStation(t *testing.T) {
 	older := time.Date(2026, 6, 20, 10, 0, 0, 0, time.UTC)
 	newer := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
 
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stnX", StationName: "X", SystemID: "sys", SystemName: "S",
 		CapturedAt: older,
 		Orders:     []Order{{StationID: "stnX", ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: 3, Quantity: 10, CapturedAt: older}},
 	}); err != nil {
 		t.Fatalf("WriteSnapshot older: %v", err)
 	}
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stnX", StationName: "X", SystemID: "sys", SystemName: "S",
 		CapturedAt: newer,
 		Orders:     []Order{{StationID: "stnX", ItemID: "iron", ItemName: "Iron", Side: "sell", PriceEach: 8, Quantity: 10, CapturedAt: newer}},
@@ -386,11 +386,11 @@ func TestGetMatrix(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC()
 	write := func(stn, sys string, orders []Order) {
-		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		if werr := c.WriteSnapshot(ctx, MarketSnapshot{
 			StationID: stn, StationName: stn, SystemID: sys, SystemName: sys,
 			CapturedAt: now, Orders: orders,
-		}); err != nil {
-			t.Fatalf("WriteSnapshot %s: %v", stn, err)
+		}); werr != nil {
+			t.Fatalf("WriteSnapshot %s: %v", stn, werr)
 		}
 	}
 	write("stnA", "sysA", []Order{
@@ -482,11 +482,11 @@ func TestFindItemSellers(t *testing.T) {
 			orders[i].StationID = stn
 			orders[i].CapturedAt = now
 		}
-		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		if werr := c.WriteSnapshot(ctx, MarketSnapshot{
 			StationID: stn, StationName: stn + " Station", SystemID: sys, SystemName: sys,
 			CapturedAt: now, Orders: orders,
-		}); err != nil {
-			t.Fatalf("WriteSnapshot %s: %v", stn, err)
+		}); werr != nil {
+			t.Fatalf("WriteSnapshot %s: %v", stn, werr)
 		}
 	}
 	// stnA: two sell orders (depth 30, best 5) + a buy order that must be ignored.
@@ -545,10 +545,10 @@ func TestFindItemSellers_UsesLatestCapturePerStation(t *testing.T) {
 			Orders:     []Order{{StationID: "stn", ItemID: "iron", Side: "sell", PriceEach: price, Quantity: qty, CapturedAt: ts}},
 		}
 	}
-	if err := c.WriteSnapshot(ctx, snap(old, 1, 999)); err != nil {
+	if err = c.WriteSnapshot(ctx, snap(old, 1, 999)); err != nil {
 		t.Fatal(err)
 	}
-	if err := c.WriteSnapshot(ctx, snap(now, 7, 12)); err != nil {
+	if err = c.WriteSnapshot(ctx, snap(now, 7, 12)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -573,7 +573,7 @@ func TestGetStationOrders(t *testing.T) {
 
 	ctx := context.Background()
 	now := time.Now().UTC()
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
 		CapturedAt: now,
 		Orders: []Order{
@@ -619,7 +619,7 @@ func TestGetItemPriceHistory(t *testing.T) {
 	t1 := time.Date(2026, 6, 21, 10, 0, 0, 0, time.UTC)
 	t2 := time.Date(2026, 6, 21, 11, 0, 0, 0, time.UTC)
 	for _, at := range []time.Time{t1, t2} {
-		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		if err = c.WriteSnapshot(ctx, MarketSnapshot{
 			StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
 			CapturedAt: at,
 			Orders:     []Order{{StationID: "stn1", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 10, CapturedAt: at}},
@@ -666,7 +666,7 @@ func TestGetCaptureHealth(t *testing.T) {
 	t1 := time.Date(2026, 6, 21, 11, 0, 0, 0, time.UTC)
 	t2 := time.Date(2026, 6, 21, 11, 30, 0, 0, time.UTC)
 	for _, at := range []time.Time{older, t1, t2} {
-		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		if err = c.WriteSnapshot(ctx, MarketSnapshot{
 			StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
 			CapturedAt: at,
 			Orders:     []Order{{StationID: "stn1", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 1, CapturedAt: at}},
@@ -722,11 +722,11 @@ func TestFindItemSellersDropsSoldOutListing(t *testing.T) {
 			orders[i].StationID = stn
 			orders[i].CapturedAt = at
 		}
-		if err := c.WriteSnapshot(ctx, MarketSnapshot{
+		if werr := c.WriteSnapshot(ctx, MarketSnapshot{
 			StationID: stn, StationName: stn + " Station", SystemID: "sysA", SystemName: "sysA",
 			CapturedAt: at, Orders: orders,
-		}); err != nil {
-			t.Fatalf("WriteSnapshot %s @ %s: %v", stn, at, err)
+		}); werr != nil {
+			t.Fatalf("WriteSnapshot %s @ %s: %v", stn, at, werr)
 		}
 	}
 

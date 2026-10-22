@@ -44,13 +44,13 @@ func newShipsTestServer(t *testing.T) *http.ServeMux {
 			{ListingID: "b1", ShipID: "s4", ClassID: "archimedes", ShipName: "Archimedes", Category: "hauler", Tier: 1, Hull: -1, MaxHull: 200, Shield: 50, ModulesCount: 3, Price: 11500},
 		},
 	}
-	if err := kbw.StoreShipListings(ctx, snapA, "test"); err != nil {
+	if err = kbw.StoreShipListings(ctx, snapA, "test"); err != nil {
 		t.Fatal(err)
 	}
-	if err := kbw.StoreShipListings(ctx, snapB, "test"); err != nil {
+	if err = kbw.StoreShipListings(ctx, snapB, "test"); err != nil {
 		t.Fatal(err)
 	}
-	if err := kbw.Close(); err != nil {
+	if err = kbw.Close(); err != nil {
 		t.Fatal(err)
 	}
 

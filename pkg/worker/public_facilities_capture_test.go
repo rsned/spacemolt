@@ -170,7 +170,7 @@ func TestUpsertPublicFromFacilityList_PrunesFacilityThatVanished(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	if _, _, err := upsertPublicFromFacilityList(ctx, kb, facilityListJSON("alpha", "f1", "f2"), 100); err != nil {
+	if _, _, err = upsertPublicFromFacilityList(ctx, kb, facilityListJSON("alpha", "f1", "f2"), 100); err != nil {
 		t.Fatalf("first capture: %v", err)
 	}
 	if got := facilityIDsAtStation(t, kb, "alpha"); len(got) != 2 {
@@ -200,7 +200,7 @@ func TestUpsertPublicFromFacilityList_PrunesWhenNoPublicLinesRemain(t *testing.T
 	}
 	ctx := context.Background()
 
-	if _, _, err := upsertPublicFromFacilityList(ctx, kb, facilityListJSON("alpha", "f1"), 100); err != nil {
+	if _, _, err = upsertPublicFromFacilityList(ctx, kb, facilityListJSON("alpha", "f1"), 100); err != nil {
 		t.Fatalf("first capture: %v", err)
 	}
 
@@ -241,7 +241,7 @@ func TestUpsertPublicFromFacilityList_IncompleteReplyNeverPrunes(t *testing.T) {
 				t.Fatalf("open kb: %v", err)
 			}
 			ctx := context.Background()
-			if _, _, err := upsertPublicFromFacilityList(ctx, kb, facilityListJSON("alpha", "f1"), 100); err != nil {
+			if _, _, err = upsertPublicFromFacilityList(ctx, kb, facilityListJSON("alpha", "f1"), 100); err != nil {
 				t.Fatalf("seed capture: %v", err)
 			}
 

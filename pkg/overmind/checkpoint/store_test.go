@@ -60,7 +60,7 @@ func TestKnownStateAndJournalAndCursor(t *testing.T) {
 		t.Fatalf("journal order wrong: %+v", entries)
 	}
 
-	if _, ok, _ := s.Cursor("mined_iron"); ok {
+	if _, ok, _ = s.Cursor("mined_iron"); ok {
 		t.Fatalf("unexpected cursor present")
 	}
 	_ = s.SetCursor("mined_iron", "14000")

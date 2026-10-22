@@ -227,7 +227,7 @@ func main() {
 			CodeDirty: bi.CodeDirty,
 			Modified:  bi.Modified,
 		}
-		if err := sendEnvelope(enc, control.TypeHello, *agentID, hello); err != nil {
+		if err = sendEnvelope(enc, control.TypeHello, *agentID, hello); err != nil {
 			log.Fatalf("send hello: %v", err)
 		}
 		logger.Printf("sent hello")

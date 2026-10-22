@@ -570,7 +570,7 @@ func loadAvailable(ctx context.Context, store OpportunityStore, limit int) ([]ma
 	}
 	// Zero-value options inherit the scanner's defaults (MinProfit/MinPrice/Limit);
 	// hauler thresholds track whatever the scanner team sets.
-	if _, err := store.ScanArbitrage(ctx, market.ScanOptions{}); err != nil {
+	if _, err = store.ScanArbitrage(ctx, market.ScanOptions{}); err != nil {
 		return nil, fmt.Errorf("haul: scan arbitrage: %w", err)
 	}
 	opps, err = store.GetOpportunities(ctx, "available", limit)

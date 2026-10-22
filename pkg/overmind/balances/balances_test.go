@@ -28,7 +28,7 @@ func TestWriteAndReadStatusRoundTrip(t *testing.T) {
 		{AgentID: "trader-1", Role: "hauler", System: "Sol", Credits: 1000, Seen: true},
 		{AgentID: "trader-2", Role: "hauler", System: "Krynn", Credits: 2000, Seen: true},
 	}
-	if err := r.WriteStatus(live, nil, OvermindBuild{}, mustTime(t, "2026-06-25T12:00:00Z")); err != nil {
+	if err = r.WriteStatus(live, nil, OvermindBuild{}, mustTime(t, "2026-06-25T12:00:00Z")); err != nil {
 		t.Fatalf("WriteStatus: %v", err)
 	}
 	sf, err := ReadStatus(sp)
@@ -50,7 +50,7 @@ func TestWriteStatusRemovedRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewRecorder: %v", err)
 	}
-	if err := r.WriteStatus(nil, []string{"trader-9"}, OvermindBuild{}, mustTime(t, "2026-06-25T12:00:00Z")); err != nil {
+	if err = r.WriteStatus(nil, []string{"trader-9"}, OvermindBuild{}, mustTime(t, "2026-06-25T12:00:00Z")); err != nil {
 		t.Fatalf("WriteStatus: %v", err)
 	}
 	sf, err := ReadStatus(sp)
@@ -273,7 +273,7 @@ func TestWriteStatusCarriesVersions(t *testing.T) {
 		Version: "v0.3.0", Commit: "8016cd8abcde", BuiltAt: "2026-07-23T10:00:00Z",
 		CodeDirty: false, Modified: true,
 	}
-	if err := r.WriteStatus(live, nil, ov, mustTime(t, "2026-07-23T12:00:00Z")); err != nil {
+	if err = r.WriteStatus(live, nil, ov, mustTime(t, "2026-07-23T12:00:00Z")); err != nil {
 		t.Fatalf("WriteStatus: %v", err)
 	}
 	sf, err := ReadStatus(sp)

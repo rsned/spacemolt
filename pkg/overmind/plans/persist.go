@@ -23,7 +23,7 @@ func SaveRun(dir string, pr *PlanRun) error {
 		return fmt.Errorf("plans: open lock: %w", err)
 	}
 	defer lock.Close() //nolint:errcheck
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
 		return fmt.Errorf("plans: flock: %w", err)
 	}
 	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) //nolint:errcheck
@@ -50,7 +50,7 @@ func LoadRun(path string) (*PlanRun, error) {
 		return nil, fmt.Errorf("plans: open lock: %w", err)
 	}
 	defer lock.Close() //nolint:errcheck
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
 		return nil, fmt.Errorf("plans: flock: %w", err)
 	}
 	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) //nolint:errcheck

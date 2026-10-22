@@ -88,7 +88,7 @@ func TestBattlesNeedingAttackCapture_DerivesTheQueue(t *testing.T) {
 	}
 
 	// Reading one battle's log removes it, with no queue table to update.
-	if err := kb.UpsertWildlifeAttacks(ctx, []WildlifeAttack{{
+	if err = kb.UpsertWildlifeAttacks(ctx, []WildlifeAttack{{
 		Species: "slag_tortoise", BattleID: "battle_b",
 		WeaponName: "natural", DamageType: "kinetic", ShotKind: "beam",
 		Shots: 1, Hits: 1, DamageTotal: 12, DamageMin: 12, DamageMax: 12,

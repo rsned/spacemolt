@@ -119,7 +119,7 @@ func TestReadSnapshotSurfacesLeavingAndRemoved(t *testing.T) {
 			Seen: true, Healthy: true, Leaving: true},
 	})
 	ov := supervisor.Overrides{Removed: []string{"hauler-9"}, By: "dashboard"}
-	if err := supervisor.SaveOverrides(filepath.Join(dir, "haul-overrides.json"), ov); err != nil {
+	if err = supervisor.SaveOverrides(filepath.Join(dir, "haul-overrides.json"), ov); err != nil {
 		t.Fatal(err)
 	}
 
@@ -242,12 +242,12 @@ func TestSnapshotReportsCurrentOvermindAndWorkerSeparately(t *testing.T) {
 				Version: wVer, BuiltAt: wAt,
 			}},
 		}
-		b, err := json.Marshal(sf)
-		if err != nil {
-			t.Fatal(err)
+		b, jerr := json.Marshal(sf)
+		if jerr != nil {
+			t.Fatal(jerr)
 		}
-		if err := os.WriteFile(filepath.Join(dir, file+"-status.json"), b, 0o644); err != nil {
-			t.Fatal(err)
+		if werr := os.WriteFile(filepath.Join(dir, file+"-status.json"), b, 0o644); werr != nil {
+			t.Fatal(werr)
 		}
 	}
 	// The overmind moved on; the workers did not. The newest WORKER build is

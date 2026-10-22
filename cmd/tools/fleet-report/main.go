@@ -53,7 +53,7 @@ func run(statusPath, historyPath, marketDB string, out io.Writer) error {
 		return err
 	}
 	if len(sf.Workers) == 0 {
-		_, err := fmt.Fprintf(out, "No fleet status found at %s — is the overmind running?\n", statusPath)
+		_, err = fmt.Fprintf(out, "No fleet status found at %s — is the overmind running?\n", statusPath)
 		return err
 	}
 	history, err := balances.ReadHistory(historyPath)

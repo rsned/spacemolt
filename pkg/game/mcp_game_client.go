@@ -678,7 +678,7 @@ func (m *MCPGameClient) doHTTPRequest(ctx context.Context, body []byte) (*mcpJSO
 		var rateLimitResp struct {
 			RetryAfter int `json:"retry_after"`
 		}
-		if err := json.Unmarshal(respBody, &rateLimitResp); err == nil && rateLimitResp.RetryAfter > 0 {
+		if err = json.Unmarshal(respBody, &rateLimitResp); err == nil && rateLimitResp.RetryAfter > 0 {
 			wait := time.Duration(rateLimitResp.RetryAfter) * time.Second
 			m.logger.Printf("[MCP] Rate limited, waiting %v...", wait)
 			time.Sleep(wait)

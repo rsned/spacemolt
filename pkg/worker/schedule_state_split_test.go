@@ -24,7 +24,7 @@ func TestCheckDue_DoesNotRewriteTheTaskFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	base := time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC)
-	if _, err := s.Add("hourly", "capture_profile", base); err != nil {
+	if _, err = s.Add("hourly", "capture_profile", base); err != nil {
 		t.Fatal(err)
 	}
 	before, err := os.ReadFile(path)
@@ -62,7 +62,7 @@ func TestCheckDue_PersistsLastRunToTheStateFile(t *testing.T) {
 		t.Fatalf("state file: %v", err)
 	}
 	var state map[string]time.Time
-	if err := json.Unmarshal(raw, &state); err != nil {
+	if err = json.Unmarshal(raw, &state); err != nil {
 		t.Fatalf("state file is not a timestamp map: %v (%s)", err, raw)
 	}
 	got, ok := state[strconv.Itoa(task.ID)]

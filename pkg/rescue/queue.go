@@ -176,7 +176,7 @@ func (q *Queue) withLock(fn func([]Record) ([]Record, bool, error)) error {
 		return fmt.Errorf("rescue queue: open lock: %w", err)
 	}
 	defer lock.Close() //nolint:errcheck
-	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
+	if err = syscall.Flock(int(lock.Fd()), syscall.LOCK_EX); err != nil {
 		return fmt.Errorf("rescue queue: flock: %w", err)
 	}
 	defer syscall.Flock(int(lock.Fd()), syscall.LOCK_UN) //nolint:errcheck
@@ -189,7 +189,7 @@ func (q *Queue) withLock(fn func([]Record) ([]Record, bool, error)) error {
 	case err != nil:
 		return fmt.Errorf("rescue queue: read: %w", err)
 	case len(raw) > 0:
-		if err := json.Unmarshal(raw, &recs); err != nil {
+		if err = json.Unmarshal(raw, &recs); err != nil {
 			return fmt.Errorf("rescue queue: parse %s: %w", q.path, err)
 		}
 	}

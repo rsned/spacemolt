@@ -733,7 +733,7 @@ func TestCaptureFuelWritesRow(t *testing.T) {
 	d := NewWorkerDispatch(fc, nil, c, io.Discard)
 	d.AgentID = "marketbot_sol"
 
-	if err := d.Run(context.Background(), []string{"capture_fuel"}); err != nil {
+	if err = d.Run(context.Background(), []string{"capture_fuel"}); err != nil {
 		t.Fatalf("capture_fuel: %v", err)
 	}
 	allIn, _, ok, err := c.GetStationFuelPrice(context.Background(), "sol_central")

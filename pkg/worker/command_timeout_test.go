@@ -150,7 +150,9 @@ func TestDispatchDoesNotReportCallerCancellation(t *testing.T) {
 	go func() { done <- deps.dispatch(ctx, []string{"mine"}) }()
 	<-b.entered
 	cancel()
-	<-done
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("dispatch returned %v, want context.Canceled", err)
+	}
 
 	if fired != 0 {
 		t.Fatalf("OnCommandTimeout fired %d time(s) on caller cancellation, want 0", fired)

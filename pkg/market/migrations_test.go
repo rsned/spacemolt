@@ -25,7 +25,7 @@ func TestRunMigrations_CreatesAllTables(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 
-	if err := runMigrations(db); err != nil {
+	if err = runMigrations(db); err != nil {
 		t.Fatalf("runMigrations: %v", err)
 	}
 
@@ -63,7 +63,7 @@ func TestRunMigrations_IndexesAndChecks(t *testing.T) {
 	}
 	defer func() { _ = db.Close() }()
 
-	if err := runMigrations(db); err != nil {
+	if err = runMigrations(db); err != nil {
 		t.Fatalf("runMigrations: %v", err)
 	}
 
@@ -79,10 +79,10 @@ func TestRunMigrations_IndexesAndChecks(t *testing.T) {
 	// OHLCV composite primary key must enforce uniqueness.
 	ins := `INSERT INTO market_ohlcv (station_id, item_id, side, bucket_utc, open_price, high_price, low_price, close_price, volume, trade_count, vwap)
 		VALUES ('s1','i1','buy','b1',1,1,1,1,1,1,1)`
-	if _, err := db.Exec(ins); err != nil {
+	if _, err = db.Exec(ins); err != nil {
 		t.Fatalf("first ohlcv insert: %v", err)
 	}
-	if _, err := db.Exec(ins); err == nil {
+	if _, err = db.Exec(ins); err == nil {
 		t.Fatal("expected duplicate PK error on second OHLCV insert")
 	}
 
@@ -122,7 +122,7 @@ func TestHaulBookClaimsTableCreated(t *testing.T) {
 		t.Fatalf("open: %v", err)
 	}
 	defer func() { _ = db.Close() }()
-	if err := runMigrations(db); err != nil {
+	if err = runMigrations(db); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	var name string

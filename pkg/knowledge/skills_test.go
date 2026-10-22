@@ -291,7 +291,7 @@ func TestMemoryKB_GetSkill(t *testing.T) {
 	skills := []Skill{
 		{ID: "custom_skill", Name: "Custom Skill", MaxLevel: 3},
 	}
-	if err := kb.StoreSkills(ctx, skills); err != nil {
+	if err = kb.StoreSkills(ctx, skills); err != nil {
 		t.Fatalf("StoreSkills failed: %v", err)
 	}
 

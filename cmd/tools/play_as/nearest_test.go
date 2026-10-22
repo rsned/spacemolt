@@ -32,7 +32,7 @@ func TestNearestCommand_WithRealData(t *testing.T) {
 	// Build galaxy graph
 	ctx := context.Background()
 	g := &galaxy.GalaxyGraph{}
-	if err := g.BuildFromDB(ctx, kb); err != nil {
+	if err = g.BuildFromDB(ctx, kb); err != nil {
 		t.Fatalf("BuildFromDB failed: %v", err)
 	}
 

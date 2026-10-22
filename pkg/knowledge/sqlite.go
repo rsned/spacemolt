@@ -479,7 +479,7 @@ func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 		var poi POI
 		var description string
 		var class sql.NullString
-		err := rows.Scan(
+		err = rows.Scan(
 			&poi.ID,
 			&poi.SystemID,
 			&poi.Name,
@@ -730,7 +730,7 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 	for rows.Next() {
 		var serviceName string
 		var available bool
-		if err := rows.Scan(&serviceName, &available); err != nil {
+		if err = rows.Scan(&serviceName, &available); err != nil {
 			return nil, fmt.Errorf("failed to scan base service: %w", err)
 		}
 		base.Services[serviceName] = available
@@ -849,7 +849,7 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 	for rows.Next() {
 		var serviceName string
 		var available bool
-		if err := rows.Scan(&serviceName, &available); err != nil {
+		if err = rows.Scan(&serviceName, &available); err != nil {
 			return nil, fmt.Errorf("failed to scan base service: %w", err)
 		}
 		base.Services[serviceName] = available
@@ -971,7 +971,7 @@ func (kb *SQLiteKB) GetSystems(ctx context.Context) ([]System, error) {
 	for rows.Next() {
 		var sys System
 
-		if err := rows.Scan(
+		if err = rows.Scan(
 			&sys.ID, &sys.Name, &sys.Description, &sys.Position.X, &sys.Position.Y,
 			&sys.PoliceLevel, &sys.SecurityStatus, &sys.Empire, &sys.IsStronghold, &sys.LastUpdatedTick, &sys.LastVisitedTick,
 		); err != nil {
@@ -981,7 +981,7 @@ func (kb *SQLiteKB) GetSystems(ctx context.Context) ([]System, error) {
 		systems = append(systems, sys)
 	}
 
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate systems: %w", err)
 	}
 
@@ -1112,7 +1112,7 @@ func (kb *SQLiteKB) StoreShipListings(ctx context.Context, listings ShipListings
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	if _, err := tx.ExecContext(ctx,
+	if _, err = tx.ExecContext(ctx,
 		`DELETE FROM ship_listings WHERE station_id = ?`, listings.StationID); err != nil {
 		return fmt.Errorf("failed to clear prior snapshot: %w", err)
 	}
@@ -1375,7 +1375,7 @@ func (kb *SQLiteKB) GetStorageSnapshot(ctx context.Context, agentID, baseID stri
 	defer func() { _ = itemRows.Close() }()
 	for itemRows.Next() {
 		var item StorageSnapshotItem
-		if err := itemRows.Scan(&item.ItemID, &item.Name, &item.Quantity, &item.Size); err != nil {
+		if err = itemRows.Scan(&item.ItemID, &item.Name, &item.Quantity, &item.Size); err != nil {
 			return nil, fmt.Errorf("failed to scan item: %w", err)
 		}
 		snapshot.Items = append(snapshot.Items, item)
@@ -1426,7 +1426,7 @@ func (kb *SQLiteKB) GetAllStorageSnapshots(ctx context.Context) ([]StorageSnapsh
 		}
 		for itemRows.Next() {
 			var item StorageSnapshotItem
-			if err := itemRows.Scan(&item.ItemID, &item.Name, &item.Quantity, &item.Size); err != nil {
+			if err = itemRows.Scan(&item.ItemID, &item.Name, &item.Quantity, &item.Size); err != nil {
 				_ = itemRows.Close()
 				return nil, fmt.Errorf("failed to scan item: %w", err)
 			}

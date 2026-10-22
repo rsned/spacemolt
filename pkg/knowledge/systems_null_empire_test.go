@@ -21,7 +21,7 @@ func TestGetSystemsToleratesNullTextColumns(t *testing.T) {
 	defer func() { _ = kb.Close() }()
 
 	// A row as a partial map import leaves it: name and position only.
-	if _, err := kb.db.ExecContext(context.Background(),
+	if _, err = kb.db.ExecContext(context.Background(),
 		`INSERT INTO systems (id, name, position_x, position_y) VALUES ('bnki','BNKI',601.2,3947.6)`,
 	); err != nil {
 		t.Fatalf("insert sparse system: %v", err)

@@ -75,19 +75,19 @@ func CaptureActionLog(ctx context.Context, client game.GameClient, st *Store, ag
 			"since_id":  since,
 			"page_size": actionLogPageSize,
 		}
-		if err := client.GetActionLog(ctx, payload); err != nil {
+		if err = client.GetActionLog(ctx, payload); err != nil {
 			break
 		}
-		page, ok, err := ActionLogFrom(client.GetRawJSON("action_log"))
-		if err != nil || !ok {
+		page, ok, derr := ActionLogFrom(client.GetRawJSON("action_log"))
+		if derr != nil || !ok {
 			break
 		}
 		res.Polls++
 		res.Fetched += len(page.Events)
 
-		inserted, err := st.InsertActionLogEvents(ctx, playerID, page.Events)
-		if err != nil {
-			return res, err
+		inserted, ierr := st.InsertActionLogEvents(ctx, playerID, page.Events)
+		if ierr != nil {
+			return res, ierr
 		}
 		res.Inserted += inserted
 
@@ -121,7 +121,7 @@ func CaptureActionLog(ctx context.Context, client game.GameClient, st *Store, ag
 	cursor.EventsStored += int64(res.Inserted)
 	res.CaughtUp = cursor.CaughtUp
 	res.Cursor = since
-	if err := st.SaveActionLogCursor(ctx, playerID, cursor, now); err != nil {
+	if err = st.SaveActionLogCursor(ctx, playerID, cursor, now); err != nil {
 		return res, err
 	}
 

@@ -170,7 +170,7 @@ func (kb *SQLiteKB) FindCheapestRoute(ctx context.Context, fromSystem, toSystem 
 
 // RecordAnomaly logs an unusual discovery or event
 func (kb *SQLiteKB) RecordAnomaly(ctx context.Context, anomaly Anomaly) error {
-	result, err := kb.db.ExecContext(ctx, `
+	_, err := kb.db.ExecContext(ctx, `
 		INSERT INTO anomalies (type, severity, system_id, poi_id, description, details, detected_at, detected_by, status, last_updated_tick)
 		VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?, 'active', ?)
 	`, anomaly.Type, anomaly.Severity, anomaly.SystemID, anomaly.POIID, anomaly.Description, anomaly.Details, anomaly.DetectedBy, anomaly.LastUpdatedTick)
@@ -179,8 +179,6 @@ func (kb *SQLiteKB) RecordAnomaly(ctx context.Context, anomaly Anomaly) error {
 		return fmt.Errorf("failed to record anomaly: %w", err)
 	}
 
-	id, _ := result.LastInsertId()
-	anomaly.ID = id
 	return nil
 }
 
@@ -383,8 +381,8 @@ func (kb *SQLiteKB) ExportKnowledge(ctx context.Context, description string, age
 	// Collect POIs
 	var allPOIs []POI
 	for _, sys := range systems {
-		pois, err := kb.GetPOIs(ctx, sys.ID)
-		if err == nil {
+		pois, perr := kb.GetPOIs(ctx, sys.ID)
+		if perr == nil {
 			allPOIs = append(allPOIs, pois...)
 		}
 	}
@@ -393,7 +391,7 @@ func (kb *SQLiteKB) ExportKnowledge(ctx context.Context, description string, age
 	// Collect experiences (limited to most recent 1000)
 	var allExperiences []Experience
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT agent_id, time, type, description, outcome, location
+		SELECT time, type, description, outcome, location
 		FROM experiences
 		ORDER BY id DESC
 		LIMIT 1000
@@ -402,7 +400,7 @@ func (kb *SQLiteKB) ExportKnowledge(ctx context.Context, description string, age
 		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var exp Experience
-			if err := rows.Scan(&exp.Time, &exp.Type, &exp.Description, &exp.Outcome, &exp.Location); err != nil {
+			if err = rows.Scan(&exp.Time, &exp.Type, &exp.Description, &exp.Outcome, &exp.Location); err != nil {
 				// Skip this record if scan fails
 				continue
 			}

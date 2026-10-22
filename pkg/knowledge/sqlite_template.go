@@ -64,7 +64,7 @@ func buildMigratedTemplate() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("migrate template: %w", err)
 	}
-	if err := kb.Close(); err != nil {
+	if err = kb.Close(); err != nil {
 		return nil, fmt.Errorf("close template: %w", err)
 	}
 	b, err := os.ReadFile(path)

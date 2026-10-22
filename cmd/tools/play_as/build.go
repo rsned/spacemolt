@@ -72,8 +72,8 @@ func runBuild(client game.GameClient, ctx context.Context, args []string) error 
 	opts := craftbrain.DefaultOptions()
 	for _, a := range args[1:] {
 		if v, found := strings.CutPrefix(a, "--max-hand-ticks="); found {
-			n, err := strconv.ParseFloat(v, 64)
-			if err != nil {
+			n, perr := strconv.ParseFloat(v, 64)
+			if perr != nil {
 				return fmt.Errorf("--max-hand-ticks %q is not a number", v)
 			}
 			opts.MaxHandTicks = n

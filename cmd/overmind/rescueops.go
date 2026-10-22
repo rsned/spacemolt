@@ -34,10 +34,10 @@ func makeOnQuarantine(ctx context.Context, logger *log.Logger, queue *rescue.Que
 			if systems, err := kb.GetSystems(ctx); err == nil {
 				if id, ok := rescue.ResolveSystemID(systems, st.System); ok {
 					rec.SystemID = id
-					if fuel, err := rescue.FuelForSystem(ctx, kb, id); err == nil {
+					if fuel, ferr := rescue.FuelForSystem(ctx, kb, id); ferr == nil {
 						rec.RescueFuel = fuel
 					} else {
-						logger.Printf("rescue: fuel sizing for %s: %v (using fallback %d)", w.AgentID, err, rescue.FuelFallback)
+						logger.Printf("rescue: fuel sizing for %s: %v (using fallback %d)", w.AgentID, ferr, rescue.FuelFallback)
 					}
 				} else {
 					logger.Printf("rescue: cannot resolve system %q for %s (using fallback fuel)", st.System, w.AgentID)

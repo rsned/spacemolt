@@ -16,8 +16,8 @@ func TestStoreAndGetLatestAnalysis(t *testing.T) {
 
 	ctx := context.Background()
 
-	if got, err := c.GetLatestAnalysis(ctx, "stn1"); err != nil || got != nil {
-		t.Fatalf("empty GetLatestAnalysis = (%v, %v), want (nil, nil)", got, err)
+	if got, gerr := c.GetLatestAnalysis(ctx, "stn1"); gerr != nil || got != nil {
+		t.Fatalf("empty GetLatestAnalysis = (%v, %v), want (nil, nil)", got, gerr)
 	}
 
 	older := MarketAnalysis{
@@ -32,10 +32,10 @@ func TestStoreAndGetLatestAnalysis(t *testing.T) {
 	newer.CapturedAt = time.Date(2026, 6, 21, 9, 0, 0, 0, time.UTC)
 	newer.Hint = "new"
 
-	if err := c.StoreAnalysis(ctx, older); err != nil {
+	if err = c.StoreAnalysis(ctx, older); err != nil {
 		t.Fatalf("StoreAnalysis older: %v", err)
 	}
-	if err := c.StoreAnalysis(ctx, newer); err != nil {
+	if err = c.StoreAnalysis(ctx, newer); err != nil {
 		t.Fatalf("StoreAnalysis newer: %v", err)
 	}
 

@@ -71,13 +71,13 @@ func TestSeededCommandsAreDispatchable(t *testing.T) {
 			if !ok {
 				t.Fatalf("role %q idle script %q not found", name, r.Idle)
 			}
-			content, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatalf("read %s: %v", path, err)
+			content, rerr := os.ReadFile(path)
+			if rerr != nil {
+				t.Fatalf("read %s: %v", path, rerr)
 			}
-			cmds, err := SplitScriptCommands(string(content))
-			if err != nil {
-				t.Fatalf("split %s: %v", path, err)
+			cmds, rerr := SplitScriptCommands(string(content))
+			if rerr != nil {
+				t.Fatalf("split %s: %v", path, rerr)
 			}
 			for _, c := range cmds {
 				check(c)

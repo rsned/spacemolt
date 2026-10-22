@@ -14,10 +14,10 @@ func TestDebtRoundTrip(t *testing.T) {
 		t.Fatalf("LoadDebts on missing = (%v, %v), want (nil, nil)", got, err)
 	}
 	// Append accumulates in order.
-	if err := AppendDebt(dir, "salvager-10", Debt{Recipient: "shipside_assist_haven", Credits: 1000}); err != nil {
+	if err = AppendDebt(dir, "salvager-10", Debt{Recipient: "shipside_assist_haven", Credits: 1000}); err != nil {
 		t.Fatal(err)
 	}
-	if err := AppendDebt(dir, "salvager-10", Debt{Recipient: "shipside_assist_sol", Credits: 1000}); err != nil {
+	if err = AppendDebt(dir, "salvager-10", Debt{Recipient: "shipside_assist_sol", Credits: 1000}); err != nil {
 		t.Fatal(err)
 	}
 	got, err = LoadDebts(dir, "salvager-10")

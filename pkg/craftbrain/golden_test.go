@@ -65,7 +65,7 @@ func TestGoldenPlan(t *testing.T) {
 		t.Fatal(err)
 	}
 	if os.Getenv("UPDATE_GOLDEN") != "" {
-		if err := os.WriteFile(path, append(gotJSON, '\n'), 0o644); err != nil {
+		if err = os.WriteFile(path, append(gotJSON, '\n'), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		t.Log("golden updated")

@@ -24,24 +24,24 @@ func TestRecomputeContaminatedOHLCV(t *testing.T) {
 	// clean row that must be left alone.
 	insertOHLCV := func(station, item, side, bucket string, high, vwap, vol float64) {
 		t.Helper()
-		if _, err := c.db.ExecContext(ctx, `
+		if _, xerr := c.db.ExecContext(ctx, `
 			INSERT INTO market_ohlcv (station_id,item_id,side,bucket_utc,open_price,high_price,low_price,close_price,volume,trade_count,vwap)
 			VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-			station, item, side, bucket, 5.0, high, 5.0, high, vol, 3, vwap); err != nil {
-			t.Fatalf("insert ohlcv: %v", err)
+			station, item, side, bucket, 5.0, high, 5.0, high, vol, 3, vwap); xerr != nil {
+			t.Fatalf("insert ohlcv: %v", xerr)
 		}
 	}
 	// Station rows are needed for FK on market_orders inserts.
 	mustStation := func(id string) {
 		t.Helper()
-		if _, err := c.db.ExecContext(ctx, `INSERT OR IGNORE INTO stations (station_id) VALUES (?)`, id); err != nil {
-			t.Fatalf("insert station: %v", err)
+		if _, xerr := c.db.ExecContext(ctx, `INSERT OR IGNORE INTO stations (station_id) VALUES (?)`, id); xerr != nil {
+			t.Fatalf("insert station: %v", xerr)
 		}
 	}
 	mustItem := func(id string) {
 		t.Helper()
-		if _, err := c.db.ExecContext(ctx, `INSERT OR IGNORE INTO items (item_id) VALUES (?)`, id); err != nil {
-			t.Fatalf("insert item: %v", err)
+		if _, xerr := c.db.ExecContext(ctx, `INSERT OR IGNORE INTO items (item_id) VALUES (?)`, id); xerr != nil {
+			t.Fatalf("insert item: %v", xerr)
 		}
 	}
 	mustStation("recov")
@@ -50,8 +50,8 @@ func TestRecomputeContaminatedOHLCV(t *testing.T) {
 	mustItem("iron")
 
 	insertOHLCV("recov", "iron", "sell", "2026-07-08T04:00:00Z", NotForSalePrice, 382.0, 1000) // recoverable
-	insertOHLCV("prune", "iron", "sell", "2026-06-21T16:00:00Z", NotForSalePrice, 700.0, 900)   // unrecoverable
-	insertOHLCV("clean", "iron", "sell", "2026-07-08T04:00:00Z", 8.0, 6.5, 20)                   // clean, must survive
+	insertOHLCV("prune", "iron", "sell", "2026-06-21T16:00:00Z", NotForSalePrice, 700.0, 900)  // unrecoverable
+	insertOHLCV("clean", "iron", "sell", "2026-07-08T04:00:00Z", 8.0, 6.5, 20)                 // clean, must survive
 
 	// Raw orders only for the recoverable bucket: real rungs 5 & 8 plus a sentinel.
 	cap1 := time.Date(2026, 7, 8, 4, 30, 0, 0, time.UTC).Format(time.RFC3339)
@@ -60,7 +60,7 @@ func TestRecomputeContaminatedOHLCV(t *testing.T) {
 		{StationID: "recov", ItemID: "iron", Side: "sell", PriceEach: 8, Quantity: 4},
 		{StationID: "recov", ItemID: "iron", Side: "sell", PriceEach: NotForSalePrice, Quantity: 999},
 	} {
-		if _, err := c.db.ExecContext(ctx, `
+		if _, err = c.db.ExecContext(ctx, `
 			INSERT INTO market_orders (station_id,item_id,side,price_each,quantity,captured_at,bucket_utc)
 			VALUES (?,?,?,?,?,?,?)`,
 			o.StationID, o.ItemID, o.Side, o.PriceEach, o.Quantity, cap1, "2026-07-08T04:00:00Z"); err != nil {
@@ -78,7 +78,7 @@ func TestRecomputeContaminatedOHLCV(t *testing.T) {
 
 	// Recoverable bucket now holds the sentinel-free recomputation.
 	var high, vwap, vol float64
-	if err := c.db.QueryRowContext(ctx,
+	if err = c.db.QueryRowContext(ctx,
 		`SELECT high_price, vwap, volume FROM market_ohlcv WHERE station_id='recov'`).Scan(&high, &vwap, &vol); err != nil {
 		t.Fatalf("query recov row: %v", err)
 	}
@@ -90,8 +90,8 @@ func TestRecomputeContaminatedOHLCV(t *testing.T) {
 	assertCount := func(query string, want int) {
 		t.Helper()
 		var n int
-		if err := c.db.QueryRowContext(ctx, query).Scan(&n); err != nil {
-			t.Fatalf("count %q: %v", query, err)
+		if serr := c.db.QueryRowContext(ctx, query).Scan(&n); serr != nil {
+			t.Fatalf("count %q: %v", query, serr)
 		}
 		if n != want {
 			t.Errorf("count %q = %d, want %d", query, n, want)

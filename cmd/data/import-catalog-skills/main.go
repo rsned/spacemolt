@@ -16,13 +16,13 @@ type SkillsResponse struct {
 
 // SkillJSON represents a skill from the game catalog JSON
 type SkillJSON struct {
-	ID             string         `json:"id"`
-	Name           string         `json:"name"`
-	Description    string         `json:"description"`
-	Category       string         `json:"category"`
-	MaxLevel       int            `json:"max_level"`
-	TrainingSource string         `json:"training_source"`
-	XPPerLevel     []int          `json:"xp_per_level"`
+	ID                string         `json:"id"`
+	Name              string         `json:"name"`
+	Description       string         `json:"description"`
+	Category          string         `json:"category"`
+	MaxLevel          int            `json:"max_level"`
+	TrainingSource    string         `json:"training_source"`
+	XPPerLevel        []int          `json:"xp_per_level"`
 	BonusPerLevel     map[string]int `json:"bonus_per_level"`
 	RequiredSkills    map[string]int `json:"required_skills"`
 	EmpireRestriction string         `json:"empire_restriction"`
@@ -42,7 +42,7 @@ func main() {
 	}
 
 	var response SkillsResponse
-	if err := json.Unmarshal(data, &response); err != nil {
+	if err = json.Unmarshal(data, &response); err != nil {
 		log.Fatalf("Failed to parse JSON: %v", err)
 	}
 

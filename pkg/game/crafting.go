@@ -362,8 +362,8 @@ func (c *Client) callCraftingServer(ctx context.Context, config *CraftingConfig,
 	contentBlock, ok := contentBytes[0].(map[string]interface{})
 	if !ok {
 		// Try old format (direct string)
-		contentText, ok := contentBytes[0].(string)
-		if !ok {
+		contentText, isText := contentBytes[0].(string)
+		if !isText {
 			return nil, fmt.Errorf("unexpected content format: expected map or string")
 		}
 		// Parse old format

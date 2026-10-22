@@ -251,21 +251,21 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 	baysNeeded, dronesNeeded := bays, drones
 	alreadyLoaded := 0
 	if opts.Resume {
-		if err := d.Client.GetShip(ctx); err != nil {
+		if err = d.Client.GetShip(ctx); err != nil {
 			return fmt.Errorf("fit_drones: resume: get_ship: %w", err)
 		}
-		haveBays, err := installedBays(d.Client.GetRawJSON("ship"), bayItem)
-		if err != nil {
-			return fmt.Errorf("fit_drones: resume: %w", err)
+		haveBays, rerr := installedBays(d.Client.GetRawJSON("ship"), bayItem)
+		if rerr != nil {
+			return fmt.Errorf("fit_drones: resume: %w", rerr)
 		}
 		baysNeeded = max(bays-haveBays, 0)
 
-		if err := d.Client.GetDrones(ctx); err != nil {
+		if err = d.Client.GetDrones(ctx); err != nil {
 			return fmt.Errorf("fit_drones: resume: get_drones: %w", err)
 		}
-		ids, err := droneIDsFromRoster(d.Client.GetRawJSON("drones"), droneItem)
-		if err != nil && !strings.Contains(err.Error(), "none match") {
-			return fmt.Errorf("fit_drones: resume: %w", err)
+		ids, rerr := droneIDsFromRoster(d.Client.GetRawJSON("drones"), droneItem)
+		if rerr != nil && !strings.Contains(rerr.Error(), "none match") {
+			return fmt.Errorf("fit_drones: resume: %w", rerr)
 		}
 		alreadyLoaded = len(ids)
 		dronesNeeded = max(drones-alreadyLoaded, 0)
@@ -275,13 +275,13 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 	}
 
 	if baysNeeded > 0 {
-		if err := d.Client.WithdrawItems(ctx, bayItem, float64(baysNeeded)); err != nil {
+		if err = d.Client.WithdrawItems(ctx, bayItem, float64(baysNeeded)); err != nil {
 			return fmt.Errorf("fit_drones: withdraw %d %s: %w", baysNeeded, bayItem, err)
 		}
 	}
 	stripped := false
 	for i := range baysNeeded {
-		err := d.Client.InstallMod(ctx, bayItem)
+		err = d.Client.InstallMod(ctx, bayItem)
 		if err != nil && opts.Strip && !stripped {
 			// A fresh hull's default module leaves too little CPU/power for the
 			// bay. Strip once, then retry this same install -- not the whole
@@ -308,7 +308,7 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 		toWithdraw = max(dronesNeeded-int(cargoQty(d.Client.GetState(), droneItem)), 0)
 	}
 	if toWithdraw > 0 {
-		if err := d.Client.WithdrawItems(ctx, droneItem, float64(toWithdraw)); err != nil {
+		if err = d.Client.WithdrawItems(ctx, droneItem, float64(toWithdraw)); err != nil {
 			return fmt.Errorf("fit_drones: withdraw %d %s: %w", toWithdraw, droneItem, err)
 		}
 	}
@@ -323,7 +323,7 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 	// bulk_upload_drone_script path works.
 	loaded := alreadyLoaded
 	for i := range dronesNeeded {
-		if err := d.Client.LoadDrone(ctx, droneItem); err != nil {
+		if err = d.Client.LoadDrone(ctx, droneItem); err != nil {
 			return fmt.Errorf("fit_drones: load %s %d/%d: %w", droneItem, i+1, dronesNeeded, err)
 		}
 		loaded++
@@ -334,7 +334,7 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 	if dronesNeeded > 0 {
 		settle(ctx, game.SleepTick)
 	}
-	if err := d.Client.GetDrones(ctx); err != nil {
+	if err = d.Client.GetDrones(ctx); err != nil {
 		return fmt.Errorf("fit_drones: get_drones after loading %d: %w", loaded, err)
 	}
 	ids, err := droneIDsFromRoster(d.Client.GetRawJSON("drones"), droneItem)

@@ -30,7 +30,7 @@ func TestCaptureCreatureObservations_WritesTheTable(t *testing.T) {
 		{CreatureID: "crt_g", Species: "belt_grazer", Name: "Belt-Grazer", Role: "grazer", Hull: 60, MaxHull: 60},
 	}
 
-	if err := captureCreatureObservations(ctx, kb, creatures, "oxbow", "oxbow_belt_b", "craftsman-1", 2143625); err != nil {
+	if err = captureCreatureObservations(ctx, kb, creatures, "oxbow", "oxbow_belt_b", "craftsman-1", 2143625); err != nil {
 		t.Fatal(err)
 	}
 

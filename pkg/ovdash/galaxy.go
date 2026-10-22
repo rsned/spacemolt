@@ -63,8 +63,8 @@ type POI struct {
 type Galaxy struct {
 	Systems []SystemNode
 	byName  map[string]string // lower(name) -> id
-	ids     map[string]bool    // system id -> exists
-	pois    map[string][]POI   // system id -> POIs
+	ids     map[string]bool   // system id -> exists
+	pois    map[string][]POI  // system id -> POIs
 }
 
 // LoadGalaxy reads systems and connections from the knowledge DB (read-only).
@@ -90,7 +90,7 @@ func LoadGalaxy(ctx context.Context, dbPath string) (*Galaxy, error) {
 	idx := map[string]int{}
 	for rows.Next() {
 		var n SystemNode
-		if err := rows.Scan(&n.ID, &n.Name, &n.X, &n.Y, &n.Police, &n.Empire,
+		if err = rows.Scan(&n.ID, &n.Name, &n.X, &n.Y, &n.Police, &n.Empire,
 			&n.Stronghold, &n.LastVisited); err != nil {
 			return nil, fmt.Errorf("scan system: %w", err)
 		}
@@ -99,7 +99,7 @@ func LoadGalaxy(ctx context.Context, dbPath string) (*Galaxy, error) {
 		g.ids[n.ID] = true
 		g.Systems = append(g.Systems, n)
 	}
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 

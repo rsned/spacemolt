@@ -16,18 +16,18 @@ type RecipesResponse struct {
 
 // RecipeJSON represents a recipe from the game catalog JSON
 type RecipeJSON struct {
-	ID              string                `json:"id"`
-	Name            string                `json:"name"`
-	Description     string                `json:"description"`
-	Category        string                `json:"category"`
-	CraftingTime    float64               `json:"crafting_time"`
-	BaseQuality     int                   `json:"base_quality"`
-	SkillQualityMod int                   `json:"skill_quality_mod"`
-	RequiredSkills  map[string]int        `json:"required_skills"`
-	Hidden          bool                  `json:"hidden"`
-	FacilityOnly    bool                  `json:"facility_only"`
-	NoRecycle       bool                  `json:"no_recycle"`
-	FuelOutput      int                   `json:"fuel_output"`
+	ID              string                 `json:"id"`
+	Name            string                 `json:"name"`
+	Description     string                 `json:"description"`
+	Category        string                 `json:"category"`
+	CraftingTime    float64                `json:"crafting_time"`
+	BaseQuality     int                    `json:"base_quality"`
+	SkillQualityMod int                    `json:"skill_quality_mod"`
+	RequiredSkills  map[string]int         `json:"required_skills"`
+	Hidden          bool                   `json:"hidden"`
+	FacilityOnly    bool                   `json:"facility_only"`
+	NoRecycle       bool                   `json:"no_recycle"`
+	FuelOutput      int                    `json:"fuel_output"`
 	Inputs          []RecipeIngredientJSON `json:"inputs"`
 	Outputs         []RecipeProductJSON    `json:"outputs"`
 }
@@ -59,7 +59,7 @@ func main() {
 	}
 
 	var response RecipesResponse
-	if err := json.Unmarshal(data, &response); err != nil {
+	if err = json.Unmarshal(data, &response); err != nil {
 		log.Fatalf("Failed to parse JSON: %v", err)
 	}
 

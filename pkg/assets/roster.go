@@ -246,12 +246,12 @@ func sheetDetails(ctx context.Context, db *sql.DB, pid string, sheet *Sheet) err
 	defer skillRows.Close() //nolint:errcheck
 	for skillRows.Next() {
 		var s SheetSkill
-		if err := skillRows.Scan(&s.Skill, &s.Level, &s.XP); err != nil {
+		if err = skillRows.Scan(&s.Skill, &s.Level, &s.XP); err != nil {
 			return fmt.Errorf("assets: sheet skill scan: %w", err)
 		}
 		sheet.Skills = append(sheet.Skills, s)
 	}
-	if err := skillRows.Err(); err != nil {
+	if err = skillRows.Err(); err != nil {
 		return err
 	}
 
@@ -264,13 +264,13 @@ func sheetDetails(ctx context.Context, db *sql.DB, pid string, sheet *Sheet) err
 	defer standingRows.Close() //nolint:errcheck
 	for standingRows.Next() {
 		var s SheetStanding
-		if err := standingRows.Scan(&s.Faction, &s.Reputation, &s.Baseline,
+		if err = standingRows.Scan(&s.Faction, &s.Reputation, &s.Baseline,
 			&s.OutstandingBounty, &s.JailedUntil); err != nil {
 			return fmt.Errorf("assets: sheet standing scan: %w", err)
 		}
 		sheet.Standings = append(sheet.Standings, s)
 	}
-	if err := standingRows.Err(); err != nil {
+	if err = standingRows.Err(); err != nil {
 		return err
 	}
 
@@ -287,7 +287,7 @@ func sheetDetails(ctx context.Context, db *sql.DB, pid string, sheet *Sheet) err
 			h      SheetHull
 			active int
 		)
-		if err := hullRows.Scan(&h.ShipID, &h.ClassID, &h.ClassName, &h.HullCurrent, &h.HullMax,
+		if err = hullRows.Scan(&h.ShipID, &h.ClassID, &h.ClassName, &h.HullCurrent, &h.HullMax,
 			&h.FuelCurrent, &h.FuelMax, &h.CargoUsed, &active, &h.Location, &h.Modules,
 			&h.ListingPrice); err != nil {
 			return fmt.Errorf("assets: sheet hull scan: %w", err)
@@ -295,7 +295,7 @@ func sheetDetails(ctx context.Context, db *sql.DB, pid string, sheet *Sheet) err
 		h.IsActive = active != 0
 		sheet.Hulls = append(sheet.Hulls, h)
 	}
-	if err := hullRows.Err(); err != nil {
+	if err = hullRows.Err(); err != nil {
 		return err
 	}
 

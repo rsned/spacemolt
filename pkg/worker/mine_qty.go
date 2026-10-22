@@ -198,7 +198,7 @@ func (d *WorkerDispatch) findMinePOI(ctx context.Context, currentSystem, itemID 
 		return "", "", fmt.Errorf("find resource poi: no knowledge base configured")
 	}
 	graph := &galaxy.GalaxyGraph{}
-	if err := graph.BuildFromDB(ctx, d.KB); err != nil {
+	if err = graph.BuildFromDB(ctx, d.KB); err != nil {
 		return "", "", fmt.Errorf("build galaxy graph: %w", err)
 	}
 

@@ -361,9 +361,9 @@ func runDispatch(client game.GameClient, ctx context.Context, args []string) err
 				len(skipped), dockedStation)
 		}
 		for _, n := range toVerify {
-			resp, err := client.CraftDryRun(ctx, n.RecipeID, n.Qty, n.FacilityID)
-			if err != nil {
-				return fmt.Errorf("dispatch: dry-run verify node %s (%s): %w", n.ID, n.RecipeID, err)
+			resp, derr := client.CraftDryRun(ctx, n.RecipeID, n.Qty, n.FacilityID)
+			if derr != nil {
+				return fmt.Errorf("dispatch: dry-run verify node %s (%s): %w", n.ID, n.RecipeID, derr)
 			}
 			if resp.CreditsTotal > dryRunOverageFactor*n.FeeTotal {
 				return fmt.Errorf("dispatch: aborted — node %s (%s) live dry-run cost %d exceeds 2x planned fee %d; re-run `build %s --json` and re-dispatch",
@@ -372,7 +372,7 @@ func runDispatch(client game.GameClient, ctx context.Context, args []string) err
 		}
 	}
 
-	if err := os.MkdirAll(craftQueueDir, 0o755); err != nil {
+	if err = os.MkdirAll(craftQueueDir, 0o755); err != nil {
 		return fmt.Errorf("dispatch: mkdir %s: %w", craftQueueDir, err)
 	}
 	data, err := json.MarshalIndent(qf, "", "  ")

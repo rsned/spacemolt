@@ -18,7 +18,7 @@ func TestMarketRoundTrip(t *testing.T) {
 	t.Cleanup(func() { _ = c.Close() })
 	ctx := context.Background()
 	now := time.Now().UTC()
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID:   "stn1",
 		StationName: "One",
 		SystemID:    "sys",

@@ -87,7 +87,7 @@ func loadAndNormalize(path string) ([]byte, error) {
 		return nil, err
 	}
 	var v any
-	if err := json.Unmarshal(raw, &v); err != nil {
+	if err = json.Unmarshal(raw, &v); err != nil {
 		return nil, fmt.Errorf("invalid JSON: %w", err)
 	}
 	normalized := normalize(v)

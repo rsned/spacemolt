@@ -138,9 +138,9 @@ func (s *ObserverServer) HandleGetSystem(w http.ResponseWriter, r *http.Request)
 	}
 	if sys == nil {
 		// Try to find system by name as a fallback
-		allSystems, err := s.kb.GetSystems(ctx)
-		if err != nil {
-			s.logger.Printf("error getting systems: %v", err)
+		allSystems, listErr := s.kb.GetSystems(ctx)
+		if listErr != nil {
+			s.logger.Printf("error getting systems: %v", listErr)
 			http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
 			return
 		}
@@ -167,11 +167,11 @@ func (s *ObserverServer) HandleGetSystem(w http.ResponseWriter, r *http.Request)
 
 	// Build connected systems list by looking up each connection's position/name.
 	allSystems, err := s.kb.GetSystems(ctx)
-		if err != nil {
-			s.logger.Printf("error getting systems: %v", err)
-			http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
-			return
-		}
+	if err != nil {
+		s.logger.Printf("error getting systems: %v", err)
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
 	systemIndex := make(map[string]knowledge.System, len(allSystems))
 	for _, found := range allSystems {
 		systemIndex[found.ID] = found

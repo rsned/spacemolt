@@ -204,16 +204,16 @@ func moveAgent(agentID string, from, to FleetSide, opts ReconcileOptions) error 
 		return fmt.Errorf("read %s overrides: %w", from.Name, err)
 	}
 	fromOv.Add(agentID)
-	if err := SaveOverrides(from.OverridesPath, fromOv); err != nil {
+	if err = SaveOverrides(from.OverridesPath, fromOv); err != nil {
 		return fmt.Errorf("write %s overrides: %w", from.Name, err)
 	}
-	if err := from.Reload(); err != nil {
+	if err = from.Reload(); err != nil {
 		return fmt.Errorf("reload %s: %w", from.Name, err)
 	}
 
 	// 2. Wait for the worker to actually be gone. This is the step that makes
 	//    the handover safe; skipping it is what causes session_replaced.
-	if err := waitStopped(agentID, from, opts); err != nil {
+	if err = waitStopped(agentID, from, opts); err != nil {
 		return restoreHome(agentID, from, err)
 	}
 

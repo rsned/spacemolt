@@ -332,7 +332,7 @@ func TestMemoryKB_HasShipListingsToday(t *testing.T) {
 		StationID:  "station-1",
 		CapturedAt: time.Now(),
 	}
-	if err := kb.StoreShipListings(ctx, listings, "agent-1"); err != nil {
+	if err = kb.StoreShipListings(ctx, listings, "agent-1"); err != nil {
 		t.Fatalf("StoreShipListings failed: %v", err)
 	}
 

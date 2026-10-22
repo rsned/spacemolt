@@ -135,7 +135,7 @@ func TestFindResolvesDisplayNameSystemIDs(t *testing.T) {
 
 	ctx := context.Background()
 	now := time.Now().UTC()
-	if err := col.WriteSnapshot(ctx, market.MarketSnapshot{
+	if err = col.WriteSnapshot(ctx, market.MarketSnapshot{
 		StationID: "drift_stn", StationName: "Drift", SystemID: "Trader's Rest", SystemName: "Trader's Rest",
 		CapturedAt: now,
 		Orders: []market.Order{{
@@ -147,13 +147,13 @@ func TestFindResolvesDisplayNameSystemIDs(t *testing.T) {
 	}
 
 	kb := knowledge.NewMemoryKB()
-	if err := kb.RememberSystem(ctx, knowledge.System{
+	if err = kb.RememberSystem(ctx, knowledge.System{
 		ID: "home", Name: "Home",
 		Connections: []knowledge.SystemConnection{{SystemID: "traders_rest"}},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := kb.RememberSystem(ctx, knowledge.System{ID: "traders_rest", Name: "Trader's Rest"}); err != nil {
+	if err = kb.RememberSystem(ctx, knowledge.System{ID: "traders_rest", Name: "Trader's Rest"}); err != nil {
 		t.Fatal(err)
 	}
 

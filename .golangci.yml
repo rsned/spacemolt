@@ -1,4 +1,4 @@
-version: 2
+version: "2"
 
 linters:
   enable:
@@ -10,12 +10,19 @@ linters:
     - bodyclose      # Check for unclosed HTTP response bodies
     - nilerr         # Find nil error returns
 
-linters-settings:
-  govet:
-    enable-all: true
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # struct padding; reordering fields hurts readability
 
-  staticcheck:
-    checks: ["all"]
+    staticcheck:
+      # staticcheck's own default: everything except the naming/comment style rules
+      checks: ["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
+
+  exclusions:
+    paths:
+      - frontend/node_modules
 
 run:
   timeout: 5m

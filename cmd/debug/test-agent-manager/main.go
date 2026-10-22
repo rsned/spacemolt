@@ -51,7 +51,7 @@ func main() {
 	}
 
 	for _, a := range agents {
-		err := credsProvider.StoreCredentials(ctx, a.id, &credentials.Credentials{
+		err = credsProvider.StoreCredentials(ctx, a.id, &credentials.Credentials{
 			Username: a.username,
 			Password: a.password,
 			Empire:   "voidborn",
@@ -103,16 +103,16 @@ func main() {
 			Biography: "A test agent",
 		}
 
-		agt, err := agentMgr.SpawnAgent(ctx, p)
-		if err != nil {
-			log.Fatalf("Failed to spawn agent %s: %v", a.id, err)
+		agt, spawnErr := agentMgr.SpawnAgent(ctx, p)
+		if spawnErr != nil {
+			log.Fatalf("Failed to spawn agent %s: %v", a.id, spawnErr)
 		}
 		fmt.Printf("   ✓ Spawned agent: %s (%s)\n", agt.Name(), agt.ID())
 
 		// Verify credentials can be retrieved
-		creds, err := agentMgr.GetCredentials(ctx, a.id)
-		if err != nil {
-			log.Fatalf("Failed to get credentials for %s: %v", a.id, err)
+		creds, credErr := agentMgr.GetCredentials(ctx, a.id)
+		if credErr != nil {
+			log.Fatalf("Failed to get credentials for %s: %v", a.id, credErr)
 		}
 		if creds.Username != a.username || creds.Password != a.password {
 			log.Fatalf("Credential mismatch for %s: expected %s/%s, got %s/%s",

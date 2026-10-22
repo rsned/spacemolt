@@ -90,9 +90,9 @@ func main() {
 			fmt.Fprintln(os.Stderr, "--dry-run needs --start <system> to order the tour")
 			os.Exit(2)
 		}
-		ordered, total, err := planTour(ctx, kb, *start, targets)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "plan tour: %v\n", err)
+		ordered, total, perr := planTour(ctx, kb, *start, targets)
+		if perr != nil {
+			fmt.Fprintf(os.Stderr, "plan tour: %v\n", perr)
 			os.Exit(1)
 		}
 		printPlan(ordered, total, *start, *fuelPerJump, *approachFuel)

@@ -85,7 +85,7 @@ func auditCatalog(db *sql.DB, dataDir, table, fileName, pkCol string, samples in
 		return false
 	}
 	var cat catalogFile
-	if err := json.Unmarshal(raw, &cat); err != nil {
+	if err = json.Unmarshal(raw, &cat); err != nil {
 		fmt.Printf("  skip: parse: %v\n\n", err)
 		return false
 	}
@@ -123,7 +123,7 @@ func auditMap(db *sql.DB, dataDir string, samples int) bool {
 		return false
 	}
 	var m mapFile
-	if err := json.Unmarshal(raw, &m); err != nil {
+	if err = json.Unmarshal(raw, &m); err != nil {
 		fmt.Printf("  skip: parse: %v\n\n", err)
 		return false
 	}

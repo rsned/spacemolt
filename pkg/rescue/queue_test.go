@@ -15,7 +15,7 @@ func TestQueueLifecycle(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("enqueue: ok=%v err=%v", ok, err)
 	}
-	if ok, _ := q.Enqueue(Record{AgentID: "trader-8"}); ok {
+	if ok, _ = q.Enqueue(Record{AgentID: "trader-8"}); ok {
 		t.Fatal("duplicate enqueue must be rejected")
 	}
 

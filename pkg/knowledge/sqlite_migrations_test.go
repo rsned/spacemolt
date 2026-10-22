@@ -49,7 +49,7 @@ func TestRunMigrations_RefusesPreFloorDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open raw: %v", err)
 	}
-	if _, err := raw.Exec(`
+	if _, err = raw.Exec(`
 		CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
 		INSERT INTO schema_migrations VALUES (2, 'x'), (44, 'x');
 	`); err != nil {

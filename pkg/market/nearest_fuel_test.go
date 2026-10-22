@@ -130,7 +130,7 @@ func TestNearestFuelRanking(t *testing.T) {
 		{"unknown_mid", "s2"}, {"stale_mid", "s2"}, {"cutoff", "far"},
 		{"pirate_fuel", "hold"}, {"bunker_near", "s1"},
 	} {
-		if _, err := c.db.Exec(`INSERT INTO stations (station_id, station_name, system_id, system_name, first_seen_utc, last_updated_utc)
+		if _, err = c.db.Exec(`INSERT INTO stations (station_id, station_name, system_id, system_name, first_seen_utc, last_updated_utc)
 			VALUES (?, ?, ?, ?, '', '')`, s.station, s.station, s.system, s.system); err != nil {
 			t.Fatalf("seed station %s: %v", s.station, err)
 		}
@@ -148,7 +148,7 @@ func TestNearestFuelRanking(t *testing.T) {
 			FactionFuelReserve: 3000, FactionFuelCapacity: 5000, FactionID: "crft", ReserveObservedAt: fresh},
 	}
 	for _, r := range rows {
-		if err := c.UpsertStationFuel(ctx, r); err != nil {
+		if err = c.UpsertStationFuel(ctx, r); err != nil {
 			t.Fatalf("seed fuel %s: %v", r.StationID, err)
 		}
 	}

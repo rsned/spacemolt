@@ -52,7 +52,7 @@ func RefreshMarketData(ctx context.Context, client *game.Client, mc *market.Coll
 	}
 
 	// Data is stale or doesn't exist, capture fresh data
-	if err := CaptureMarketData(ctx, client, mc, agentID); err != nil {
+	if err = CaptureMarketData(ctx, client, mc, agentID); err != nil {
 		return nil, fmt.Errorf("failed to capture market data: %w", err)
 	}
 

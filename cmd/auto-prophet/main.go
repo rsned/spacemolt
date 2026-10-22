@@ -174,8 +174,8 @@ func main() {
 		rivalNames, len(identity.Sermons), len(identity.CounterSermons))
 
 	// Check captain's log for previous mission.
-	if previousLog, err := game.ReadLatestCaptainsLog(agentID); err != nil {
-		logger.Printf("Failed to read captain's log: %v", err)
+	if previousLog, logErr := game.ReadLatestCaptainsLog(agentID); logErr != nil {
+		logger.Printf("Failed to read captain's log: %v", logErr)
 	} else if previousLog != nil {
 		logger.Printf("Captain's Log - Last Entry:")
 		logger.Printf("  Mission: %s", previousLog.CurrentGoal)

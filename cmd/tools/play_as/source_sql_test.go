@@ -20,13 +20,13 @@ func TestCraftbrainSource_SystemOfResolvesBaseToPOISystem(t *testing.T) {
 	ctx := context.Background()
 	db := kb.DB()
 	// pois requires name, type, position_x, position_y (all NOT NULL).
-	if _, err := db.ExecContext(ctx,
+	if _, err = db.ExecContext(ctx,
 		`INSERT INTO pois (id, system_id, name, type, position_x, position_y)
 		 VALUES ('sol_central','sol','Sol Central','station',0,0)`); err != nil {
 		t.Fatal(err)
 	}
 	// bases requires poi_id and name (NOT NULL).
-	if _, err := db.ExecContext(ctx,
+	if _, err = db.ExecContext(ctx,
 		`INSERT INTO bases (id, poi_id, name) VALUES ('confederacy_central_command','sol_central','CCC')`); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestCraftbrainSource_SystemOfFallsBackToPOIID(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if _, err := kb.DB().ExecContext(ctx,
+	if _, err = kb.DB().ExecContext(ctx,
 		`INSERT INTO pois (id, system_id, name, type, position_x, position_y)
 		 VALUES ('ramens_rest','haven','Ramens Rest','station',0,0)`); err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func TestCraftbrainSource_Facilities_ParsesProduction(t *testing.T) {
 	}
 	ctx := context.Background()
 	const details = `{"production":{"ticks_per_run":4.0,"output_per_run":2,"backlog_ticks":1.5,"rental_fee_per_run":35}}`
-	if err := kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
+	if err = kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
 		{StationID: "voss_redoubt_station", FacilityID: "sf-steel-1", RecipeID: "refine_steel",
 			Category: "production", Level: 2, RentalFeePerRun: 35, LastSeenTick: 100,
 			DetailsJSON: details},
@@ -134,7 +134,7 @@ func TestCraftbrainSource_Facilities_DefaultsOutputPerRunWithoutDetails(t *testi
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
+	if err = kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
 		{StationID: "grand_exchange", FacilityID: "f1", RecipeID: "ceramite_plating",
 			Category: "production", Level: 1, RentalFeePerRun: 10, LastSeenTick: 100},
 	}); err != nil {
@@ -166,12 +166,12 @@ func TestCraftbrainSource_OnHand_DedupesFactionStorageAcrossFactions(t *testing.
 	}
 	ctx := context.Background()
 	db := kb.DB()
-	if _, err := db.ExecContext(ctx, `
+	if _, err = db.ExecContext(ctx, `
 		INSERT INTO faction_storage_items (faction_id, base_id, item_id, name, quantity, size, captured_utc)
 		VALUES ('CRFT', 'shared_base', 'iron_ore', 'Iron Ore', 10, 1, '2026-07-09T10:00:00Z')`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `
+	if _, err = db.ExecContext(ctx, `
 		INSERT INTO faction_storage_items (faction_id, base_id, item_id, name, quantity, size, captured_utc)
 		VALUES ('WAR', 'shared_base', 'iron_ore', 'Iron Ore', 5, 1, '2026-07-09T11:00:00Z')`); err != nil {
 		t.Fatal(err)
@@ -202,14 +202,14 @@ func TestCraftbrainSource_OnHand_PersonalStorageUpsertStaysSingleRow(t *testing.
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := kb.StoreStorageSnapshot(ctx, knowledge.StorageSnapshot{
+	if err = kb.StoreStorageSnapshot(ctx, knowledge.StorageSnapshot{
 		AgentID: "hauler-1", BaseID: "sol_central", Credits: 100,
 		Items:      []knowledge.StorageSnapshotItem{{ItemID: "iron_ore", Quantity: 20}},
 		CapturedAt: time.Date(2026, 7, 9, 10, 0, 0, 0, time.UTC),
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := kb.StoreStorageSnapshot(ctx, knowledge.StorageSnapshot{
+	if err = kb.StoreStorageSnapshot(ctx, knowledge.StorageSnapshot{
 		AgentID: "hauler-1", BaseID: "sol_central", Credits: 100,
 		Items:      []knowledge.StorageSnapshotItem{{ItemID: "iron_ore", Quantity: 35}},
 		CapturedAt: time.Date(2026, 7, 9, 12, 0, 0, 0, time.UTC),
@@ -307,7 +307,7 @@ func TestCraftbrainSource_Facilities_SkipsMalformedDetailsJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
+	if err = kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
 		{StationID: "corrupt_station", FacilityID: "bad-1", RecipeID: "refine_steel",
 			Category: "production", Level: 1, RentalFeePerRun: 10, LastSeenTick: 100,
 			DetailsJSON: "{not json"},
@@ -343,12 +343,12 @@ func TestCraftbrainSource_Coverage_ExcludesNonProductionFacilities(t *testing.T)
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := kb.StoreRecipes(ctx, []knowledge.RecipeDef{
+	if err = kb.StoreRecipes(ctx, []knowledge.RecipeDef{
 		{ID: "reactor_core", Name: "Reactor Core", FacilityOnly: true},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
+	if err = kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
 		{StationID: "service_station", FacilityID: "svc-1", RecipeID: "reactor_core",
 			Category: "service", Level: 1, RentalFeePerRun: 10, LastSeenTick: 100},
 	}); err != nil {
@@ -372,7 +372,7 @@ func TestCraftbrainSource_Coverage_ExcludesNonProductionFacilities(t *testing.T)
 
 	// Sanity: a sibling production row at a different station does count,
 	// proving the predicate isn't just excluding everything.
-	if err := kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
+	if err = kb.UpsertPublicFacilities(ctx, []knowledge.PublicFacility{
 		{StationID: "production_station", FacilityID: "prod-1", RecipeID: "reactor_core",
 			Category: "production", Level: 1, RentalFeePerRun: 20, LastSeenTick: 100},
 	}); err != nil {
@@ -399,7 +399,7 @@ func TestCraftbrainSource_Recipes_ReturnsIndependentCopy(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if err := kb.StoreRecipes(ctx, []knowledge.RecipeDef{
+	if err = kb.StoreRecipes(ctx, []knowledge.RecipeDef{
 		{ID: "refine_steel", Name: "Refine Steel"},
 	}); err != nil {
 		t.Fatal(err)

@@ -353,13 +353,13 @@ func (kb *SQLiteKB) GetShipClasses(ctx context.Context) ([]ShipClassDef, error) 
 
 	var classes []ShipClassDef
 	for rows.Next() {
-		sc, err := kb.scanShipClassRow(rows)
-		if err != nil {
-			return nil, err
+		sc, serr := kb.scanShipClassRow(rows)
+		if serr != nil {
+			return nil, serr
 		}
 		classes = append(classes, *sc)
 	}
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating ship classes: %w", err)
 	}
 
@@ -649,7 +649,7 @@ func (kb *SQLiteKB) queryRecipes(ctx context.Context, query string, args ...any)
 	for rows.Next() {
 		var r RecipeDef
 		var reqJSON string
-		if err := rows.Scan(&r.ID, &r.Name, &r.Description, &r.Category, &r.CraftingTime,
+		if err = rows.Scan(&r.ID, &r.Name, &r.Description, &r.Category, &r.CraftingTime,
 			&r.BaseQuality, &r.SkillQualityMod, &reqJSON, &r.Hidden, &r.FacilityOnly, &r.NoRecycle,
 			&r.FuelOutput, &r.LastUpdatedTick); err != nil {
 			return nil, fmt.Errorf("failed to scan recipe: %w", err)
@@ -657,7 +657,7 @@ func (kb *SQLiteKB) queryRecipes(ctx context.Context, query string, args ...any)
 		_ = json.Unmarshal([]byte(reqJSON), &r.RequiredSkills)
 		recipes = append(recipes, r)
 	}
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating recipes: %w", err)
 	}
 

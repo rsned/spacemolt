@@ -28,7 +28,7 @@ func TestWriteCaptainsLog(t *testing.T) {
 	}
 
 	// Verify directory was created
-	if _, err := os.Stat(testDir); os.IsNotExist(err) {
+	if _, err = os.Stat(testDir); os.IsNotExist(err) {
 		t.Errorf("Captain's log directory was not created")
 	}
 

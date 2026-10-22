@@ -15,12 +15,12 @@ func TestStationFuelRoundTrip(t *testing.T) {
 	ctx := context.Background()
 
 	// Unknown station -> ok=false, no error.
-	if _, _, ok, err := c.GetStationFuelPrice(ctx, "sol_central"); err != nil || ok {
-		t.Fatalf("unknown station: want ok=false err=nil, got ok=%v err=%v", ok, err)
+	if _, _, ok, gerr := c.GetStationFuelPrice(ctx, "sol_central"); gerr != nil || ok {
+		t.Fatalf("unknown station: want ok=false gerr=nil, got ok=%v gerr=%v", ok, gerr)
 	}
 
 	// Insert.
-	if err := c.UpsertStationFuel(ctx, StationFuel{
+	if err = c.UpsertStationFuel(ctx, StationFuel{
 		StationID: "sol_central", FuelPrice: 2, FuelTaxPerUnit: 5, FuelPriceAllIn: 7,
 		CapturedAt: "2026-07-15T00:00:00Z", CapturedBy: "marketbot_sol",
 	}); err != nil {

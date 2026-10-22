@@ -49,7 +49,7 @@ func main() {
 	}
 
 	var response MapResponse
-	if err := json.Unmarshal(data, &response); err != nil {
+	if err = json.Unmarshal(data, &response); err != nil {
 		log.Fatalf("Failed to parse JSON: %v", err)
 	}
 

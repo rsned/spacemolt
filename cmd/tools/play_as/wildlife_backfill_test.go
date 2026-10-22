@@ -32,7 +32,7 @@ func TestBackfillCreatureObservations(t *testing.T) {
 		`{"creature_id":"broken",`,
 		`{"observed_utc":"2026-10-16T02:00:00Z","game_tick":900,"creature_id":"crt_g","species":"belt_grazer","name":"Belt-Grazer","hull":60,"max_hull":60}`,
 	}, "\n") + "\n"
-	if err := os.WriteFile(filepath.Join(dir, "observations.jsonl"), []byte(lines), 0o644); err != nil {
+	if err = os.WriteFile(filepath.Join(dir, "observations.jsonl"), []byte(lines), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

@@ -817,7 +817,7 @@ func upsertPublicFromFacilityList(ctx context.Context, kb publicFacilityStore, r
 		// line carries rental_fee_per_run.
 		AllyFacilities []map[string]any `json:"ally_facilities"`
 	}
-	if err := json.Unmarshal(raw, &resp); err != nil {
+	if err = json.Unmarshal(raw, &resp); err != nil {
 		return 0, 0, err
 	}
 	all := make([]map[string]any, 0,

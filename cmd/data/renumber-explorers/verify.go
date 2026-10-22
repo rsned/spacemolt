@@ -23,7 +23,7 @@ func verifyAgents(agentsDir string, ids []string) []string {
 			ID     string `json:"id"`
 			Empire string `json:"empire"`
 		}
-		if err := json.Unmarshal(b, &doc); err != nil {
+		if err = json.Unmarshal(b, &doc); err != nil {
 			probs = append(probs, fmt.Sprintf("%s: bad json: %v", id, err))
 			continue
 		}

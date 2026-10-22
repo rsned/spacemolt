@@ -60,7 +60,7 @@ func TestNewSQLiteKB_ConcurrentWriterWaitsForLock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("begin: %v", err)
 	}
-	if _, err := tx.Exec(`INSERT INTO seen_players (player_id, username, first_seen_utc, last_seen_utc) VALUES ('p1', 'one', 't', 't')`); err != nil {
+	if _, err = tx.Exec(`INSERT INTO seen_players (player_id, username, first_seen_utc, last_seen_utc) VALUES ('p1', 'one', 't', 't')`); err != nil {
 		t.Fatalf("holder insert: %v", err)
 	}
 	const holdFor = 300 * time.Millisecond

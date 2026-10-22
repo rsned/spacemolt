@@ -457,16 +457,17 @@ func (c *Collector) GetMatrix(ctx context.Context, q MatrixQuery) (*Matrix, erro
 	if err != nil {
 		return nil, fmt.Errorf("query matrix items: %w", err)
 	}
+	defer func() { _ = itemRows.Close() }()
 	type itemMeta struct{ id, name, category string }
 	var pageItems []itemMeta
 	for itemRows.Next() {
 		var im itemMeta
-		if err := itemRows.Scan(&im.id, &im.name, &im.category); err != nil {
+		if err = itemRows.Scan(&im.id, &im.name, &im.category); err != nil {
 			return nil, fmt.Errorf("scan matrix item: %w", err)
 		}
 		pageItems = append(pageItems, im)
 	}
-	if err := itemRows.Err(); err != nil {
+	if err = itemRows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate matrix items: %w", err)
 	}
 	_ = itemRows.Close()

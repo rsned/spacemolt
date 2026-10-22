@@ -56,12 +56,7 @@ func TestClientDispatcher_RouteField(t *testing.T) {
 
 // TestDispatch_findRouteStruct verifies route structure can be created and stored
 func TestDispatch_findRouteStruct(t *testing.T) {
-	dispatcher := &ClientDispatcher{
-		Client:  nil,
-		Logger:  log.New(os.Stderr, "[test] ", 0),
-		baseDir: "",
-		agentID: "",
-	}
+	dispatcher := &ClientDispatcher{}
 
 	// Test that Route field can be populated with proper structure
 	dispatcher.Route = &RouteProgress{

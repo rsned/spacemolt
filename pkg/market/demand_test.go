@@ -25,7 +25,7 @@ func TestLoadCurrentBuyOrders(t *testing.T) {
 	// Older capture at stn1: iron is superseded by the t2 capture; nickel is a
 	// buy order that VANISHES from the book by t2 — the liveness gate must drop
 	// it rather than resurrect this 30-min-stale rung.
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stn1", StationName: "Station One",
 		SystemID: "sys1", SystemName: "System One",
 		CapturedAt: t1,
@@ -38,7 +38,7 @@ func TestLoadCurrentBuyOrders(t *testing.T) {
 	}
 
 	// Newer capture at stn1: two buy rungs plus rows the query must filter.
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stn1", StationName: "Station One",
 		SystemID: "sys1", SystemName: "System One",
 		CapturedAt: t2,
@@ -54,7 +54,7 @@ func TestLoadCurrentBuyOrders(t *testing.T) {
 	}
 
 	// Second station, single capture — must coexist with stn1's latest.
-	if err := c.WriteSnapshot(ctx, MarketSnapshot{
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
 		StationID: "stn2", StationName: "Station Two",
 		SystemID: "sys2", SystemName: "System Two",
 		CapturedAt: t1,
@@ -84,8 +84,8 @@ func TestLoadCurrentBuyOrders(t *testing.T) {
 	// nickel-only scan: the station-latest CTE is NOT item-filtered, so even a
 	// single-item scan drops the vanished order (0 rows), proving the gate works
 	// in filtered mode.
-	if nickelOnly, err := c.LoadCurrentBuyOrders(ctx, "nickel"); err != nil || len(nickelOnly) != 0 {
-		t.Errorf("nickel filter: got %d orders err=%v, want 0/nil (gated out)", len(nickelOnly), err)
+	if nickelOnly, lerr := c.LoadCurrentBuyOrders(ctx, "nickel"); lerr != nil || len(nickelOnly) != 0 {
+		t.Errorf("nickel filter: got %d orders lerr=%v, want 0/nil (gated out)", len(nickelOnly), lerr)
 	}
 
 	// itemID filter: scope the scan to a single item, pushed into the SQL.

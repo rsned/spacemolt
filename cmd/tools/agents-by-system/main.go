@@ -123,7 +123,7 @@ func main() {
 	}
 	defer func() { _ = db.Close() }()
 
-	if _, err := db.Exec(fmt.Sprintf("ATTACH DATABASE '%s' AS kb", *kbPath)); err != nil {
+	if _, err = db.Exec(fmt.Sprintf("ATTACH DATABASE '%s' AS kb", *kbPath)); err != nil {
 		logger.Fatalf("attach knowledge db: %v", err)
 	}
 
@@ -137,7 +137,7 @@ func main() {
 	for rows.Next() {
 		var r row
 		var dockedInt int
-		if err := rows.Scan(
+		if err = rows.Scan(
 			&r.AgentID, &r.Username, &r.AgentEmpire, &r.ShipClass,
 			&dockedInt, &r.POIType,
 			&r.Fuel, &r.MaxFuel,
@@ -150,12 +150,12 @@ func main() {
 		r.Docked = dockedInt != 0
 		all = append(all, r)
 	}
-	if err := rows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		logger.Fatalf("rows: %v", err)
 	}
 	logger.Printf("loaded %d agent snapshots", len(all))
 
-	if err := os.MkdirAll(filepath.Dir(*outPath), 0o755); err != nil {
+	if err = os.MkdirAll(filepath.Dir(*outPath), 0o755); err != nil {
 		logger.Fatalf("mkdir: %v", err)
 	}
 	f, err := os.Create(*outPath)

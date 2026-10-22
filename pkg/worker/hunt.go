@@ -864,11 +864,11 @@ func huntObjectiveProgress(ctx context.Context, deps HuntDeps, activeID string) 
 		if m.MissionID != activeID {
 			continue
 		}
-		o, ok := huntKillObjective(m)
+		obj, ok := huntKillObjective(m)
 		if !ok {
-			return o, fmt.Errorf("mission %s carries no %s objective", activeID, objectiveKillCreature)
+			return obj, fmt.Errorf("mission %s carries no %s objective", activeID, objectiveKillCreature)
 		}
-		return o, nil
+		return obj, nil
 	}
 	return o, fmt.Errorf("mission %s is no longer in the active list", activeID)
 }

@@ -110,7 +110,7 @@ func (m *MCPClient) initialize(ctx context.Context) error {
 	}
 
 	requestJSON = append(requestJSON, '\n')
-	if _, err := m.stdin.Write(requestJSON); err != nil {
+	if _, err = m.stdin.Write(requestJSON); err != nil {
 		return fmt.Errorf("failed to write initialize: %w", err)
 	}
 
@@ -201,7 +201,7 @@ func (m *MCPClient) CallTool(ctx context.Context, toolName string, params map[st
 
 	// Send request
 	requestJSON = append(requestJSON, '\n')
-	if _, err := m.stdin.Write(requestJSON); err != nil {
+	if _, err = m.stdin.Write(requestJSON); err != nil {
 		return nil, fmt.Errorf("failed to write to server stdin: %w", err)
 	}
 

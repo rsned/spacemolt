@@ -98,7 +98,7 @@ func (e *Engine) Plan(ctx context.Context, target string, qty int, opts Options)
 			mb := MineOrBuy{Mineable: true}
 			// finditem.Result embeds market.ItemSeller: BestPrice / TotalQty,
 			// NOT Price / Quantity.
-			if sellers, err := e.src.Buyable(ctx, item, rem); err == nil && len(sellers) > 0 {
+			if sellers, berr := e.src.Buyable(ctx, item, rem); berr == nil && len(sellers) > 0 {
 				mb.MarketPrice = sellers[0].BestPrice
 				mb.MarketQty = sellers[0].TotalQty
 				mb.BestStation = sellers[0].StationID

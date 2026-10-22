@@ -541,7 +541,7 @@ func detectAndRecordChanges(ctx context.Context, logger *log.Logger, kb knowledg
 			"connections":     len(kbSys.Connections),
 			"position":        map[string]float64{"x": kbSys.Position.X, "y": kbSys.Position.Y},
 		})
-		if err := kb.RecordChangeSnapshot(ctx, knowledge.ChangeSnapshot{
+		if err = kb.RecordChangeSnapshot(ctx, knowledge.ChangeSnapshot{
 			EntityType:     "system",
 			EntityID:       systemID,
 			SystemID:       systemID,
@@ -1372,8 +1372,8 @@ func getUnvisitedNeighbors(state *game.State, expState *ExplorationState) []stri
 
 	// Collect unvisited neighbors with their LastUpdatedTick from KB
 	type neighborInfo struct {
-		SystemID         string
-		LastUpdatedTick  int64
+		SystemID        string
+		LastUpdatedTick int64
 	}
 
 	var neighbors []neighborInfo
@@ -1539,8 +1539,8 @@ func main() {
 		log.Fatalf("Failed to initialize knowledge base: %v", err)
 	}
 	defer func() {
-		if err := kb.Close(); err != nil {
-			logger.Printf("Warning: Failed to close knowledge base: %v", err)
+		if cerr := kb.Close(); cerr != nil {
+			logger.Printf("Warning: Failed to close knowledge base: %v", cerr)
 		}
 	}()
 	logger.Printf("✓ Knowledge base initialized (%s)", *dbBackend)

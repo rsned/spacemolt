@@ -17,7 +17,7 @@ func TestOverridesRoundTripAndSubtract(t *testing.T) {
 
 	o.Add("craftsman-1")
 	o.Add("craftsman-1") // idempotent
-	if err := SaveOverrides(path, o); err != nil {
+	if err = SaveOverrides(path, o); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 	back, err := LoadOverrides(path)
@@ -37,7 +37,7 @@ func TestOverridesRoundTripAndSubtract(t *testing.T) {
 	}
 
 	// Corrupt file -> empty + error (caller logs and continues).
-	if err := os.WriteFile(path, []byte("{nope"), 0o644); err != nil {
+	if err = os.WriteFile(path, []byte("{nope"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	o2, err := LoadOverrides(path)

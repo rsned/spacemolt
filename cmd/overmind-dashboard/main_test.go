@@ -164,13 +164,13 @@ func TestAdminRemoveEndpoint(t *testing.T) {
 		t.Fatalf("remove: want 200, got %d", resp.StatusCode)
 	}
 	var res ovdash.AdminResult
-	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		t.Fatal(err)
 	}
 	if res.Status != "recorded_offline" {
 		t.Fatalf("status = %q, want recorded_offline", res.Status)
 	}
-	if _, err := os.Stat(filepath.Join(statusDir, "haul-overrides.json")); err != nil {
+	if _, err = os.Stat(filepath.Join(statusDir, "haul-overrides.json")); err != nil {
 		t.Fatalf("overrides sidecar not created: %v", err)
 	}
 

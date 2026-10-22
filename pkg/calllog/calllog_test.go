@@ -54,7 +54,7 @@ func TestActionGoesToActionsFile(t *testing.T) {
 	req := json.RawMessage(`{"type":"mine"}`)
 	resp := json.RawMessage(`{"action":"mine","ok":true}`)
 
-	if err := logger.Log("mine", snap, req, resp); err != nil {
+	if err = logger.Log("mine", snap, req, resp); err != nil {
 		t.Fatal(err)
 	}
 	_ = logger.Close()
@@ -95,7 +95,7 @@ func TestQueryGoesToQueriesFile(t *testing.T) {
 	req := json.RawMessage(`{"type":"get_status"}`)
 	resp := json.RawMessage(`{"credits":1000}`)
 
-	if err := logger.Log("get_status", snap, req, resp); err != nil {
+	if err = logger.Log("get_status", snap, req, resp); err != nil {
 		t.Fatal(err)
 	}
 	_ = logger.Close()
@@ -122,11 +122,11 @@ func TestMixedCallsCreateBothFiles(t *testing.T) {
 	snap := testSnap()
 
 	// Action
-	if err := logger.Log("mine", snap, json.RawMessage(`{"type":"mine"}`), json.RawMessage(`{"ok":true}`)); err != nil {
+	if err = logger.Log("mine", snap, json.RawMessage(`{"type":"mine"}`), json.RawMessage(`{"ok":true}`)); err != nil {
 		t.Fatal(err)
 	}
 	// Query
-	if err := logger.Log("get_status", snap, json.RawMessage(`{"type":"get_status"}`), json.RawMessage(`{"credits":1}`)); err != nil {
+	if err = logger.Log("get_status", snap, json.RawMessage(`{"type":"get_status"}`), json.RawMessage(`{"credits":1}`)); err != nil {
 		t.Fatal(err)
 	}
 	_ = logger.Close()
@@ -168,10 +168,10 @@ func TestFileNameFormat(t *testing.T) {
 	fixed := time.Date(2026, 4, 7, 10, 30, 0, 0, logger.loc)
 	logger.nowFunc = func() time.Time { return fixed }
 
-	if err := logger.Log("mine", testSnap(), json.RawMessage(`{"type":"mine"}`), json.RawMessage(`{"ok":true}`)); err != nil {
+	if err = logger.Log("mine", testSnap(), json.RawMessage(`{"type":"mine"}`), json.RawMessage(`{"ok":true}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err := logger.Log("get_status", testSnap(), json.RawMessage(`{"type":"get_status"}`), json.RawMessage(`{}`)); err != nil {
+	if err = logger.Log("get_status", testSnap(), json.RawMessage(`{"type":"get_status"}`), json.RawMessage(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	_ = logger.Close()
@@ -204,7 +204,7 @@ func TestRotationAtMidnightPST(t *testing.T) {
 	beforeMidnight := time.Date(2026, 4, 7, 23, 59, 0, 0, logger.loc)
 	logger.nowFunc = func() time.Time { return beforeMidnight }
 
-	if err := logger.Log("mine", snap, json.RawMessage(`{"type":"mine"}`), json.RawMessage(`{"ok":true}`)); err != nil {
+	if err = logger.Log("mine", snap, json.RawMessage(`{"type":"mine"}`), json.RawMessage(`{"ok":true}`)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -212,7 +212,7 @@ func TestRotationAtMidnightPST(t *testing.T) {
 	afterMidnight := time.Date(2026, 4, 8, 0, 1, 0, 0, logger.loc)
 	logger.nowFunc = func() time.Time { return afterMidnight }
 
-	if err := logger.Log("mine", snap, json.RawMessage(`{"type":"mine"}`), json.RawMessage(`{"ok":true}`)); err != nil {
+	if err = logger.Log("mine", snap, json.RawMessage(`{"type":"mine"}`), json.RawMessage(`{"ok":true}`)); err != nil {
 		t.Fatal(err)
 	}
 	_ = logger.Close()
@@ -258,13 +258,13 @@ func TestRotationUsesDateNotUTC(t *testing.T) {
 	// 11 PM PST = 7 AM next day UTC. Should still be same PST day.
 	pst11pm := time.Date(2026, 4, 7, 23, 0, 0, 0, logger.loc)
 	logger.nowFunc = func() time.Time { return pst11pm }
-	if err := logger.Log("mine", snap, json.RawMessage(`{}`), json.RawMessage(`{}`)); err != nil {
+	if err = logger.Log("mine", snap, json.RawMessage(`{}`), json.RawMessage(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 
 	pst1130pm := time.Date(2026, 4, 7, 23, 30, 0, 0, logger.loc)
 	logger.nowFunc = func() time.Time { return pst1130pm }
-	if err := logger.Log("mine", snap, json.RawMessage(`{}`), json.RawMessage(`{}`)); err != nil {
+	if err = logger.Log("mine", snap, json.RawMessage(`{}`), json.RawMessage(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -290,7 +290,7 @@ func TestMultipleRotations(t *testing.T) {
 	for day := range 3 {
 		ts := time.Date(2026, 4, 5+day, 12, 0, 0, 0, logger.loc)
 		logger.nowFunc = func() time.Time { return ts }
-		if err := logger.Log("mine", snap, json.RawMessage(`{}`), json.RawMessage(`{}`)); err != nil {
+		if err = logger.Log("mine", snap, json.RawMessage(`{}`), json.RawMessage(`{}`)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -368,7 +368,7 @@ func TestStateSnapshotInOutput(t *testing.T) {
 		},
 	}
 
-	if err := logger.Log("mine", snap, json.RawMessage(`{"type":"mine"}`), json.RawMessage(`{"ok":true}`)); err != nil {
+	if err = logger.Log("mine", snap, json.RawMessage(`{"type":"mine"}`), json.RawMessage(`{"ok":true}`)); err != nil {
 		t.Fatal(err)
 	}
 	_ = logger.Close()

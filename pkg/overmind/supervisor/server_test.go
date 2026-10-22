@@ -60,7 +60,7 @@ func TestServerReceivesHelloStatusAndSends(t *testing.T) {
 
 	// Overmind -> worker send is received by the fake worker.
 	abort, _ := control.NewEnvelope(control.TypeAbort, "a", control.Abort{Reason: "test"})
-	if err := srv.Send("a", abort); err != nil {
+	if err = srv.Send("a", abort); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	got, err := dec.Decode()
@@ -119,7 +119,7 @@ func TestAdminConnRoutedAndAcked(t *testing.T) {
 	defer conn.Close() //nolint:errcheck
 	enc := control.NewEncoder(conn)
 	env, _ := control.NewEnvelope(control.TypeAdminRemove, "a1", control.AdminRequest{AgentID: "a1"})
-	if err := enc.Encode(env); err != nil {
+	if err = enc.Encode(env); err != nil {
 		t.Fatalf("encode: %v", err)
 	}
 	dec := control.NewDecoder(conn)

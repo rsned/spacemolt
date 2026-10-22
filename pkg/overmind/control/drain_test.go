@@ -12,7 +12,7 @@ func TestDrainEnvelopeRoundTrip(t *testing.T) {
 		t.Fatalf("NewEnvelope: %v", err)
 	}
 	var buf bytes.Buffer
-	if err := NewEncoder(&buf).Encode(env); err != nil {
+	if err = NewEncoder(&buf).Encode(env); err != nil {
 		t.Fatalf("encode: %v", err)
 	}
 	got, err := NewDecoder(&buf).Decode()

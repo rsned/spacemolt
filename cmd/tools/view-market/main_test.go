@@ -70,13 +70,13 @@ func openTestDB(t *testing.T) (*sql.DB, func()) {
 	}
 
 	ctx := context.Background()
-	if err := col.WriteSnapshot(ctx, snap1); err != nil {
+	if err = col.WriteSnapshot(ctx, snap1); err != nil {
 		t.Fatalf("WriteSnapshot snap1: %v", err)
 	}
-	if err := col.WriteSnapshot(ctx, snap2); err != nil {
+	if err = col.WriteSnapshot(ctx, snap2); err != nil {
 		t.Fatalf("WriteSnapshot snap2: %v", err)
 	}
-	if err := col.Close(); err != nil {
+	if err = col.Close(); err != nil {
 		t.Fatalf("col.Close: %v", err)
 	}
 
