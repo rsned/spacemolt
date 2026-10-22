@@ -81,6 +81,10 @@ zone** (15 of 22 haulers lost hulls there + goldcrest), Mera Sanctum is
 **wrecked** (no refuel/repair — arrive with fuel to leave), and it is
 `mera_sanctum` in market.db but `mera_sanctum_station` in the KB.
 
+**Realized 2026-10-22:** "Sold 756x Pirate Moonshine for 3780000 credits from
+Marlowe" — the 5,000 bid is REAL and filled (3.78M, nearly all the 798 on
+hand). ~2,112 units of that bid were left after this fill, if no one else took them.
+
 ## Stock on hand (2026-10-22)
 
 water_ice 296,963 · hydrogen_gas 169,254 · titanium_ingot 6,844 (6,003 at
