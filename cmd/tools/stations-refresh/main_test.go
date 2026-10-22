@@ -83,7 +83,8 @@ func newDB(t *testing.T) *sql.DB {
 			last_updated_tick INTEGER DEFAULT 0, story TEXT DEFAULT '',
 			pirate_rep_required INTEGER DEFAULT 0, condition TEXT DEFAULT '',
 			condition_text TEXT DEFAULT '', satisfaction_pct INTEGER DEFAULT 0,
-			satisfied_count INTEGER DEFAULT 0, total_service_infra INTEGER DEFAULT 0);
+			satisfied_count INTEGER DEFAULT 0, total_service_infra INTEGER DEFAULT 0,
+			type TEXT NOT NULL DEFAULT '', wrecked INTEGER NOT NULL DEFAULT 0);
 		CREATE TABLE base_services (base_id TEXT NOT NULL, service_name TEXT NOT NULL,
 			available BOOLEAN DEFAULT 1, PRIMARY KEY (base_id, service_name));`); err != nil {
 		t.Fatalf("schema: %v", err)
@@ -161,5 +162,54 @@ func TestWritePreservesLocalOnlyFields(t *testing.T) {
 	var got string
 	if err := db.QueryRow(`SELECT name FROM bases WHERE id='b2'`).Scan(&got); err != nil {
 		t.Fatalf("b2 not inserted: %v", err)
+	}
+}
+
+// TestWritePersistsTypeAndWrecked pins the dockability facts.
+//
+// stations-refresh always PARSED type and threw it away, so from the knowledge
+// base an outpost was indistinguishable from a station. That is what let
+// johnny_cab park on Ironlight Argon Shoal (an outpost) on 2026-10-21, cache
+// "docked", and fail every send_gift with not_docked for hours.
+//
+// type=outpost is faction-members-only. Both write paths must carry it: b1 is
+// an UPDATE of an existing row, b2 an INSERT, and a row that keeps a stale
+// type is as dangerous as one that never had it.
+func TestWritePersistsTypeAndWrecked(t *testing.T) {
+	db := newDB(t)
+	if _, err := db.Exec(`
+		INSERT INTO bases (id, poi_id, name, description, type, wrecked)
+		VALUES ('b1','STALE_POI','Old Name','old','outpost',1)`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	stations, err := fetch(serve(t, http.StatusOK, payload))
+	if err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+	if err := write(db, stations[1:], stations[:1]); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	var typ string
+	var wrecked int
+	// b1 is a STATION in the payload and was seeded as a wrecked outpost: the
+	// update must correct both, or a reopened station stays blacklisted.
+	if err := db.QueryRow(`SELECT type, wrecked FROM bases WHERE id='b1'`).Scan(&typ, &wrecked); err != nil {
+		t.Fatalf("read b1: %v", err)
+	}
+	if typ != "station" {
+		t.Errorf("b1 type = %q, want station (update must refresh a stale type)", typ)
+	}
+	if wrecked != 0 {
+		t.Errorf("b1 wrecked = %d, want 0 (update must clear a stale wreck)", wrecked)
+	}
+
+	// b2 is the inserted outpost — the case that strands an agent.
+	if err := db.QueryRow(`SELECT type, wrecked FROM bases WHERE id='b2'`).Scan(&typ, &wrecked); err != nil {
+		t.Fatalf("read b2: %v", err)
+	}
+	if typ != "outpost" {
+		t.Errorf("b2 type = %q, want outpost (insert must record it)", typ)
 	}
 }

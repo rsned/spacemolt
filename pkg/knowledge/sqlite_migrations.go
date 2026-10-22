@@ -338,6 +338,48 @@ func migrations() []Migration {
 				return ensureColumn(tx, "wildlife_stage_lore", "max_hull", "INTEGER NOT NULL DEFAULT 0")
 			},
 		},
+		{
+			version: 65,
+			name:    "bases_type_and_wrecked",
+			sql: `
+				-- A base is not always somewhere we can dock.
+				--
+				-- /api/stations returns type (station|outpost) and wrecked, and
+				-- stations-refresh has always PARSED type and thrown it away --
+				-- bases had no column for it. So from the knowledge base an
+				-- outpost, a wrecked station and a healthy one are
+				-- indistinguishable, and the fleet can only learn the
+				-- difference by flying there and being refused.
+				--
+				-- type=outpost is faction-members-only, explicitly. 21 of 87
+				-- bases are outposts and every one offers zero services. On
+				-- 2026-10-21 johnny_cab (a roaming taxi, no home pin) drifted
+				-- onto Ironlight Argon Shoal -- an outpost -- cached "docked",
+				-- and failed every send_gift with not_docked for hours while
+				-- the status file reported it healthy and docked.
+				--
+				-- Two distinct traps, both invisible until now:
+				--   * lhs_1140 holds BOTH Ironlight Crossroads (station) and
+				--     Ironlight Argon Shoal (outpost). Pick wrong, get stuck.
+				--   * 19 systems hold ONLY outposts. They are effectively
+				--     station-less for us -- no fuel, no market, no repair, no
+				--     dockable alternative -- and routing there is a dead end
+				--     of the same shape as a stronghold.
+				--
+				-- wrecked is stored but deliberately NOT treated as undockable.
+				-- Mera Sanctum is wrecked with zero services yet hosts 89
+				-- facilities including one of only two public Backwater Stills,
+				-- so it gates SERVICE expectations (fuel/repair/market), never
+				-- docking or facility use.
+			`,
+			fn: func(tx *sql.Tx) error {
+				if err := ensureColumn(tx, "bases", "type", "TEXT NOT NULL DEFAULT ''"); err != nil {
+					return err
+				}
+
+				return ensureColumn(tx, "bases", "wrecked", "INTEGER NOT NULL DEFAULT 0")
+			},
+		},
 	}
 }
 

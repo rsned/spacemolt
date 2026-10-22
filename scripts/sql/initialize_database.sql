@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 6
--- Last Regenerated: 2026-10-17
+-- Migrations applied: 7
+-- Last Regenerated: 2026-10-22
 
 -- ============================================================================
 -- TABLES
@@ -122,7 +122,7 @@ CREATE TABLE bases (
 	defense_level INTEGER DEFAULT 0,
 	has_drones BOOLEAN DEFAULT 0,
 	public_access BOOLEAN DEFAULT 1,
-	last_updated_tick INTEGER DEFAULT 0, story TEXT DEFAULT '', pirate_rep_required INTEGER DEFAULT 0, condition TEXT DEFAULT '', condition_text TEXT DEFAULT '', satisfaction_pct INTEGER DEFAULT 0, satisfied_count INTEGER DEFAULT 0, total_service_infra INTEGER DEFAULT 0,
+	last_updated_tick INTEGER DEFAULT 0, story TEXT DEFAULT '', pirate_rep_required INTEGER DEFAULT 0, condition TEXT DEFAULT '', condition_text TEXT DEFAULT '', satisfaction_pct INTEGER DEFAULT 0, satisfied_count INTEGER DEFAULT 0, total_service_infra INTEGER DEFAULT 0, type TEXT NOT NULL DEFAULT '', wrecked INTEGER NOT NULL DEFAULT 0,
 	FOREIGN KEY (poi_id) REFERENCES pois(id) ON DELETE CASCADE
 );
 
@@ -1318,4 +1318,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (61, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (62, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (63, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (64, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (65, datetime('now'));
 
