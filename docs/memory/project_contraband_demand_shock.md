@@ -84,6 +84,8 @@ zone** (15 of 22 haulers lost hulls there + goldcrest), Mera Sanctum is
 **Realized 2026-10-22:** "Sold 756x Pirate Moonshine for 3780000 credits from
 Marlowe" — the 5,000 bid is REAL and filled (3.78M, nearly all the 798 on
 hand). ~2,112 units of that bid were left after this fill, if no one else took them.
+The buyer is a PLAYER: **Marlowe**, the #1 Total Wealth player (2.0B, Nebula
+Collective). One rich player's order can be cancelled at any time, so this is not NPC demand.
 
 ## Stock on hand (2026-10-22)
 

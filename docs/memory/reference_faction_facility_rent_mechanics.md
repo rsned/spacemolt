@@ -41,6 +41,14 @@ arbitrage available for contraband because **contraband facilities cannot be
 built in empire space** — lawless/stronghold only, so the high rate is the
 price of the category, not a bad siting choice.
 
+⭐🔴 **CORRECTION 2026-10-22 — the run ceilings below are ~30× too low.** Live
+`ticks_per_run` is 2.4–4.2, so one 100-tick cycle holds 24–74 runs. The public
+fee everywhere is a flat **~83.3 cr per tick of machine time** (HEXC and MIN9
+alike: 225/2.7, 350/4.2, 100/1.2), which comes to ~8,333 per cycle against our
+850 rent. Owning breaks even at **~10% utilisation** on every recipe, and at
+full use costs ~1/10 of HEXC's per-run fee (moonshine 23 vs 225). Note that play_as's
+`Fee /hr` column actually prints `items_per_hour`.
+
 At 850/cycle a line needs only ~5-10% utilisation to clear its rent on
 production margin (ghost_rounds ~16,377/run breaks even at 4.5 runs/day
 against a 68/day ceiling; starshine ~7,107/run at 10.3 against 213;
