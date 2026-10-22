@@ -1,0 +1,301 @@
+# Spacemolt Project Memory
+
+<!-- INDEX ONLY. One line per memory — a linked title, then a one-clause hook; aim for ≤150 chars, never past 200. Detail lives in the file, never here. Full-text status lives in project_status_board.md, not in this file. Every memory file must appear here exactly once; a memory with no line here is unrecallable. -->
+
+## Resume here
+- [Status board](project_status_board.md) — **READ FIRST.** The ≤15 live items, dated and linked. Roll old ones to the archive; never grow it.
+- [Standing rules](feedback_standing_rules.md) — never `git add -A` with dirty data/*.json · haul `--stagger 10s` · unpushed? `git log origin/main..HEAD` · after memory edits: `make memory-sync` + commit docs/memory · NEVER edit an applied migration
+- ⭐🔴 [NO stronghold routing without pirate unlock](feedback_stronghold_routing_requires_pirate_unlock.md) — per-agent rule; strongholds are dead ends; 8 of 24 losses incl. assist-sol's tanker
+- Archives: [Aug](project_status_archive_2026_08.md) · [Jul 22–29](project_status_archive_2026_07.md) · [Jul 4–10](project_current_status.md) — misnamed: the OLDEST archive, 81 KB
+- ⭐ [Cold start: follow docs/COLD_START.md, but it lists 7 of 9 fleets](reference_cold_start_runbook_drift.md) — mining + shuttle + fleet-watch missing; pool ~90 is HEALTHY now, not starved
+- [Shipped-feature index](reference_shipped_history.md) — check before rebuilding anything
+- [Sunless systems = generation artifact](reference_sunless_systems_intentional.md) — 9 systems, LLM-map slip, do NOT chase; real reveal hook is gsc_0026 faint_signature
+
+## Fleet ops — live problems
+- ⭐🔴 [Faction storage reads REMOTELY; facility detail does NOT](reference_faction_capture_remote_vs_docked.md) — `facility` has no station param, so rent/level/status need a pinned resident; capture_faction is elected to ONE member (MIN player_id) and silently no-ops for the rest; `agent_storage_items` is PERSONAL only
+- ⭐🔴 [Facility rent: per-station, INVISIBLE until you build](reference_faction_facility_rent_mechanics.md) — 11 of 14 CRFT facilities repossessed 10-12; `faction_deposit_credits` needs storage AT that station (23,562 fails); `faction_build` ignores personal storage; gift the parked leader
+- ⭐🟢 [ROOT CAUSE of the IP blocks — FIXED](project_execute_loop_has_no_pacing_floor.md) — mine timeout desyncs w/ server pending → unpaced `loop -f` retries into instant "already pending" at 51/min vs a **30/min PER-SESSION** cap. Tick is 10s so 6/min is useful
+- ⭐🟢 [Mission-query loop FIXED, undeployed](project_mission_query_loop_burns_the_ip_budget.md) — 44% of traffic; board never refreshes on request so slow-poll is safe. **IP-block counter is SHARED across the address** (per-bot game_query is 300/min, never close)
+- [Player sightings timeline](project_player_sightings_timeline.md) — `2dfd83e9` DEPLOYED 08-29 to mb/assist/hunt/craft/shuttle; haul/unlock/mission-learn OLD binary; marketbot sensor net `2340e637` awaits mb restart
+- ⭐ [MoltenOne: PLAYER hunter, KILLED 08-29 by hand-flown craftsman-1](reference_moltenone_player_hunter_ip_block_kills.md) — 10 losses in IP-block windows; wreck cc2128e8 has our ore; new `player_kill` event undecoded
+- ⭐🔴 [Stronghold guard is re-written per role](reference_stronghold_guard_is_per_role.md) — 5 copies, ABSENT from assist/autopilot/hunt/explore/freight; 8 of 24 losses. Fix = one movement-layer gate
+- ⭐🔴 [Stronghold gate false-locks on a COLD session](reference_stronghold_gate_false_lock_on_cold_state.md) — empty Standings reads as LOCKED, so autopilot-as-first-command is refused for an unlock the agent HAS; seed `get_status` first
+- ⭐ [Tanker migration 08-14: how tankers work + hand-flown pickup](reference_assist_tanker_migration.md) — built-in pump, arrives full, 4 listings galaxy-wide, `switch_ship` is a SEPARATE step (nexus trap)
+- ⭐ [Assist pump gap + pump-blind claim election](project_assist_fleet_refueling_pump_gap.md) — pre-tanker history; stale `requested_at` defeats distance routing
+- ⭐🔴 [`facility_only=0` is NOT craftable in space](reference_facility_only_zero_is_not_craftable_in_space.md) — still needs a STATION plus the onboard refining module; reachability = hull + location + cargo, never the flag
+- ⭐🟢 [GSA tow = 500cr / 15min; use it instead of a tanker](reference_gsa_tow_beats_the_tanker_fleet.md) — `distress_signal` is implemented and NO fleet code calls it; the tanker fleet's real niche is BROKE agents, so gift credits first
+- ⭐🔴 [no_fuel_cells ≠ no_fuel_source](project_no_fuel_cells_refuel_deadlock.md) — cargo-cell fallback vs credits; nothing ever BUYS a cell. Service list is live at /api/stations: 61 of 76 refuel
+- ⭐🟢 [Assist fleet re-hulled 09-09 — RESOLVED](reference_assist_fleet_is_dry.md) — all five now fly real tankers (sol Capacity, krynn Morningstar); the fleet is BROKE though, and a 0-credit tanker gets detained
+- ⭐🔴 [Off-map == QUARANTINED, never launched](reference_rescue_queue_blocks_launch.md) — `restoreQuarantine` precedes the supervisor; `restarts:0` + zero `last_seen` is the tell
+- ⭐🔴 [Fleet overrides are removed-SETS](reference_secondment_overrides_are_removed_sets.md) — commenting out a rotating agent's yaml line makes release a NO-OP; list rotators in BOTH yamls
+- [Secondment drain must outlast RemoveDrainTimeout](reference_secondment_drain_and_rollback.md) — 4m; and must roll back on failure or the agent runs in no fleet
+- ⭐🔴 [Health checks miss a wedged worker](reference_standing_loop_wedge_after_reconnect.md) — 6 workers, 3.5 days, dead scheduler; fix = bound every dispatched command
+- ⭐🟢 [assist-frontier livelock FIXED 09-18](project_assist_frontier_mobile_capital_livelock.md) — 1.26M find_route (a QUERY, ~1/tick, not 11.5/min) vs dual-named MOBILE capital; restart doesn't fix, re-pin does; SIGHUP reloads a fleet yaml without restarting the overmind
+- ⭐🔴 [Health checks miss a livelocked worker](reference_livelock_invisible_to_health_checks.md) — 47h on "Already docked"; find one: grep 'held for next pass' at tick cadence
+- ⭐🔴 [MaxRestarts=100 parks an agent FOREVER](reference_crash_loop_cap_parks_agents_forever.md) — dashboard remove/readd does NOT free it; fixed `2114df0e`, undeployed
+- [Stall-watchdog kills workers during initial connect](project_overmind_stall_kill_connect_loop.md) — burns MaxRestarts in ~8min when the game is slow; FUTURE
+- ⭐🔴 [Settled-mission livelock](reference_settled_mission_livelock.md) — server lists a mission ACTIVE it refuses to complete; `abandon_mission` is the cure
+- ⭐🔴 [Idle loop ran 3x per tick](reference_idle_loop_ran_3x_per_tick.md) — SleepTick/3 → ~43 passes/sec fleet-wide, the floor under the IP blocks; fixed to one tick
+- ⭐🔴 [Rate-limit buckets, prose names, escalation](reference_rate_limit_buckets_and_escalation.md) — 1000 agents/IP is fine for others so SIZE IS NOT THE CAUSE; buckets named in PROSE; send_tally names the over-issued command
+- ⭐🔴 [IP block 09-09 at 170 workers: freeze + staged-thaw runbook](reference_ip_block_20260909_freeze_and_staged_thaw.md) — STOP overminds BEFORE workers (a supervisor relaunch is a login); heartbeats/craft-spam ruled OUT; the fleet is just bigger than the per-IP budget
+- ⭐🔴 [SIGSTOP/SIGCONT preserves game sessions](reference_sigstop_preserves_game_sessions.md) — zero logins; the safe tool during an IP block
+- ⭐🔴 [CargoUsed drifts upward forever](reference_client_cargo_used_drifts_upward.md) — `deposit_items` never cleared the client cargo list; fixed 08-22, uncommitted
+- ⭐ [15 of 22 haulers lost their freight hulls](project_haul_fleet_hull_attrition.md) — kill zones zaniah + goldcrest; the re-equip embargo is LIFTED (see next line)
+- ⭐ [Gift-sourced hauling: consignment + consigned routes](project_consignment_haul_relay.md) — send side + engine SHIPPED, generator OPEN; claim must precede the gift; never model it as buy_price 0 (poisons the pool)
+- ⭐🟢 [Re-hulling 10-10: congregation 1900 cargo @ ~6k = CONSUMABLE](project_haul_fleet_rehull_2026_10.md) — 74% of big-hull profit is from trips >65 units; rank on haul_results, never credit deltas
+- ⭐ [Buying a hull by hand](reference_buying_a_hull_by_hand.md) — buy_listed_ship AUTO-switches + stores the old hull; autopilot lands you in SPACE; apostrophe POI names fail, use the id
+- ⭐🔴 [congregation is OUTERRIM-EXCLUSIVE](reference_congregation_is_outerrim_exclusive.md) — only 7 outerrim shipyards; the ships table shows tier 0/no gate and does NOT reveal the lock, so commission_quote FIRST
+- ⭐🔴 [TWO haul overminds for 7 days; the worker-less one corrupts haul-status.json](reference_duplicate_haul_overmind_corrupts_status.md) — status file + dashboard roster both lie; trust /proc PPid only
+- [Haul routes through station-less Lawless systems](project_haul_lawless_routing.md) — stuck→restart; plus a cosmetic stale-docked heartbeat flag; fix queued
+- [Haul fleet runs an old bin/worker](project_haul_fleet_worker_update_due.md) — needs drain+relaunch onto current build; requested 07-26, not done
+- [Capture cadence retune APPLIED 09-08](reference_capture_cadence_retune.md) — 128 agents hourly→twice_daily; it did NOT stick from 08-30, so dry-run the script at EVERY fleet stop
+- ⭐🟢 [Pirate unlock campaign — UNBLOCKED 10-02](project_pirate_reputation_unlock_campaign.md) — 5 code bugs, not mechanics; `an_introduction` SUPPLIES its cargo + grants stronghold passage + IS the whole unlock (baseline→10 on all 9 keys); `chain_next` absent from get_active_missions
+- ⭐ [Marketbot unlock hot-swap rotation](project_marketbot_unlock_hotswap_rotation.md) — 09-09: stand-in GRADUATED but still parked in unlock; rotation #1 never started; 54 of 64 marketbots still locked
+- ⭐🔴 [A long play_as command starves the scheduler](reference_long_foreground_command_starves_the_scheduler.md) — auto-explore held execMu ~3h: 2 of 4 hourly runs LOST to dropped ticks, then a double-fire; fixed by a per-hop `yieldExec()`; workers unaffected
+- ⭐🔴 [Schedule seeding is ADDITIVE ONLY](reference_schedule_seeding_is_additive_only.md) — deleting a command from roles.yaml never removes it from agents; it fires forever. Pruning-by-absence is UNSAFE (per-agent tasks like capture_action_log exist)
+- ⭐ [Ore→component conversion, hourly](project_ore_to_component_conversion.md) — refine_steel + copper wiring/piping on miners & residents; beats the 100k/item cap (overmind was capped on iron AND copper). `quantity`=OUTPUT items; new hourly tasks fire an hour AFTER restart
+- ⭐ [Drone marketbots 010-019](project_drone_marketbots.md) — 09-11: drone_control 35-37 (+18 in 2 days), storage 66k→480k units. Watch **iron ore on 010 at 47% of the 100k PER-ITEM cap**; storage table keeps only the newest capture
+- [Energy crystals RESERVED for drone project](project_drone_project_crystal_reserve.md) — ~6.1k held; never sell/craft them without asking
+- [Titanium-alloy war demand](project_titanium_alloy_war_demand.md) — OPTION 08-30: galaxy-wide repair demand; 374k top-tier at grand_exchange; sol_central 242-ask arbitrage first; krynn pipeline pre-positioned
+- [Mining fleet](project_mining_fleet.md) — created 08-21 as the unlock campaign's graduation destination; two-system loop, ore-selection refinements
+- [Outer Rim capital is MOBILE; marketbot homes ≠ names](reference_outer_rim_mobile_capital_and_marketbot_homes.md) — Frontier has no station now; station-less residents never move; market_prime sits in Haven
+- [Spare marketbot accounts for smuggling](reference_smuggling_spare_marketbot_accounts.md) — nine dormant, credentials present, in no fleet yaml
+- ⭐🔴 [NEVER restart a disconnected worker](reference_never_restart_a_disconnected_worker.md) — a restart cannot reconnect it, only the gate can; 70 workers behind one paced gate ALWAYS outlast a 30min grace. FIXED a35f94c5
+- ⭐🔴 [False rescue records: max_fuel=0 = STATE-READ FAILURE](reference_stale_rescue_records_outlive_the_strand.md) — the reconnect WEDGE manufactures them with no block at all (haul 16→0 in 7h); 6-for-6 "real" strandees were docked+BROKE, 1.5k credits total. Never xargs a username
+- [Rescue pipeline bug package](project_rescue_pipeline_bugs.md) — failed records never retry, wrong assister claims, gift-locked fees (Distant Light, 07-16)
+- [Worker heartbeat credits read stale 0](reference_worker_heartbeat_credits_stale.md) — gifts look failed when they landed; confirm in-game, not the status file
+
+## Data loss / capture gaps
+- ⭐🔴 [Six ways we silently drop data](reference_capture_loss_taxonomy.md) — 18 KB tables have NEVER held a row; every mode looks like success. Detector spec'd, NOT built
+- ⭐🔴 [Stale status files read as LIVE](reference_fleet_status_fossil.md) — `fleet-status.json` 17 days dead; `mining-status.json` is the same now
+- ⭐🔴 [ship_modules has 0 rows, always](reference_ship_modules_never_captured.md) — we cannot see what is FITTED; hull capacity is the only proxy
+- [capture_* drop crew/boarding stats](project_assets_personnel_capture_gap.md) — LATER TASK 08-30: agent_hulls/agent_stats/faction_profile columns spec'd; do before Layer B
+- ⭐ [Fleet asset snapshots](project_fleet_asset_snapshots.md) — `agent_ships` = 0 rows ever; storage last captured 07-02
+- [Worker fleet never wires WireStorageCapture](project_worker_storage_capture_gap.md) — scheduling view_storage on a role stores nothing
+- [Action-log capture](project_action_log_capture.md) — 2 canaries live, fan-out pending
+- [Per-death loss capture](project_per_death_loss_capture.md) — hull + manifest + cause + insurance; FOLLOW-UP, so detour/PvP losses are measurable
+- [Survey anomaly capture](project_survey_anomaly_capture.md) — persist survey_system anomaly hints to the anomalies table
+- [12 unregistered wildlife species + open battle API](reference_unregistered_wildlife_from_battle_api.md) — Kiln-Snail@furud is Phase-Lurker-common; Bulwark/Wormwood ARMED; api/battles needs no auth, category=pvp untapped
+- ⭐🔴 [Wildlife 10-14: ids are not all `crt_` (leviathans are `lev_`), hull varies per INDIVIDUAL and GROWS](reference_wildlife_update_20261014_lev_ids_variable_hull.md) — the prefix gate silently discarded every leviathan scan; never gate capture on an id prefix; count individuals not rows
+- ⭐ [wildlife_observations: per-individual, per-tick (migration 62)](project_wildlife_lifecycle_observations.md) — PK (creature_id, game_tick) collapses the double-look; count DISTINCT creature WITHIN a stage; stage ''=MATURE; order by hull, never a hardcoded ladder; 0 of 1,971 seen growing
+- [Wildlife combat intelligence](project_wildlife_combat_intelligence.md) — capture wired `3dea78d7`, NOT scheduled; Leviathan kills a starter hull in 2 ticks
+
+## Haul & freight economics
+- ⭐🔴 [Haul revenue halved](project_haul_revenue_halved_v0547.md) — v0.547.1 moved the fat tier to `trade_authenticator`; real loss is ALLOCATION; `MinProfit: 1000` is the lever
+- ⭐🔴 [Book depth is the real haul ceiling](reference_book_depth_is_the_real_haul_ceiling.md) — `bookCap=ceil(srcUnits/cargoCap)`: a BIGGER hull gets FEWER slots
+- [Fleet capacity ceiling](reference_haul_fleet_capacity_ceiling.md) — DON'T add haulers; 21 saturate the fat tier, realized = 34.4% of predicted
+- ⭐🔴 [market.db index CORRUPT; prune dead since 09-15](project_market_db_corrupt_index_prune_dead.md) — `idx_orders_station_item` malformed → 254 failed prunes, 40GB file, scans 2min→22min, haul claims 651→111/day. Fix = REINDEX or market-rebuild, writers DOWN
+- [Scanner outage + expiry fix](project_scanner_outage_expiry_fix.md) — scanner is UNSUPERVISED; its death mimics "no opportunities". Check it first
+- [Earnings-per-jump dashboard](project_fleet_efficiency_dash.md) — SP1 LIVE `:8087`
+- [Stranded-recovery POIs bug](project_haul_stranded_recovery_pois_bug.md) — FindNearest never populates NearestResult.POIs, so the recovery branch is dead
+- [Book-coordination follow-ups](project_haul_book_coordination_followups.md) — two deferred items after the 07-18 merge
+- [Haul idle-trap gate](project_haul_idle_trap_gate.md) — `52b2cfa`; constraints 1-3 unbuilt
+- [Haul departs without enough fuel](project_haul_departs_without_enough_fuel.md) — autopilot said "Need N more" and left anyway, 11+ stranded; FIXED `4b84ac1b`
+- [Haul rolling drain on completion](project_haul_rolling_drain_on_completion.md) — FUTURE: zero-abort rolling upgrades
+- [Haul P&L adjustments](project_haul_pnl_adjustments.md) — deferred non-trading reconciliation
+- [Arbitrage net-of-fuel](project_arbitrage_net_of_fuel.md) — A+B merged 07-15; C (fuel-arbitrage chains) open
+- ⭐ [Unpriced freight is prime-carrier-only](reference_freight_unpriced_cargo_prime_gate.md) — accept lands the package in STORAGE AT ORIGIN, not your hold
+- [Freight orphan salvage](reference_freight_orphan_salvage_unpack.md) — a DEFAULTED contract's sealed package becomes loot; playbook
+- [No active-contracts listing](reference_shipping_no_active_contracts_listing.md) — no shipping equivalent of get_active_missions; track locally
+- [Freight load-confirm regression](project_freight_load_confirm_regression.md) — v0.2.1 check is a false negative: 0 deliveries fleetwide from 07-24
+- [Freight load-confirm + resume fixes](project_freight_load_confirm_and_resume.md) — MERGED `6e211cc` 07-24, not pushed/deployed
+- [Freight withdraw silent failure](project_freight_withdraw_silent_failure.md) — 52 events/18 agents; the withdraw SUCCEEDS, read the request_id-correlated action_result
+- [Freight returns only at origin](project_freight_wrong_origin_return.md) — wrong_origin retried forever, breached fighter-1; fixed `3f010dd`
+- [Freight probation bootstrap](project_freight_probation_bootstrap.md) — take a loss on first deliveries to escape probationary → 4x tiers; SHIPPED
+- [Freight probationary cargo fence](project_freight_probationary_cargo_fence.md) — senior carriers skip probationary-band cargo; DEPLOYED
+- [Shipping carrier feature](project_shipping_carrier.md) — A+B+C all MERGED; C `fcc1fda` 07-22
+- [Marketbot freight-demand scan](project_marketbot_freight_demand_scan.md) — ~40 parked marketbots as a demand sensor net; FEATURE
+- [Empire treasury payout collapse](project_empire_treasury_payout_collapse.md) — mission credits ~37% of advertised from 07-23, dev-confirmed treasury dry; XP still full
+
+## Server API
+- ⭐🔴 [v0.618: chart is PUBLIC, ship visibility is scanner-gated](reference_v0618_visibility_overhaul.md) — `get_system_agents` returns NOTHING (dispatcher reroutes it; schedules are additive-only); `scan <poi_id>` replaces it; get_base fuel capture SAFE; absorbed `6e9120a4`
+- ⭐ [v0.572.0 crew/boarding/prizes](reference_v0572_boarding_personnel.md) — A+C absorbed 08-30 (structs, 3 pushes, `ship_captures`, `seen_prize_events`); B = 6 commands DEFERRED; capture is a NEW loss mode
+- ⭐🔴 [v0.564–v0.565: pay_bounty, resistance fix, station ids](reference_api_v0564_v0565_bounty_station_ids.md) — client is ~18 versions behind; `pay_bounty` has 0 hits in our Go
+- [v0.549.0 freight + per-crew pirates](reference_v0549_freight_and_percrew_pirates.md) — late delivery replaces default; shipping action=active; package_id addressing
+- [v0.536.0 wildlife combat](reference_v0536_wildlife_combat.md) — First Hunt chain, Pirate Bounty gated on weapons L1, scouts engage small hulls
+- [Settled API changes](reference_server_api_history.md) — what is already absorbed into the client
+- [Patch notes source](reference_patch_notes_source.md) — where they live and the current server version
+- [server_docs sync](reference_server_docs_sync.md) — refreshed 08-29 (v0.571): repair_module dropped; 31 OpenAPI commands uncatalogued, no test for that direction
+- [API sync v0.495](project_api_sync_v0495.md) — espionage command, ShipClass price removal, prestige cluster
+- [API struct drift audit](project_api_struct_drift_audit.md) — DONE 07-08 across v0.398→v0.473; response-struct verification partial
+- [API currentness round v0.322](project_api_currentness_round.md) — 3 workstreams, historical
+- [server_restart_warning handled](project_server_restart_warning_event.md) — DONE 07-13; pre-0.473 drift unaudited
+- [`kind` discriminator drift](project_kind_discriminator_drift.md) — DONE `2b45a9d`
+- [v2 API migration gaps](project_v2_api_migration.md) — filed with the server team; blocks v1→v2
+- [request_id rollout](project_request_id_rollout.md) — LONG-TERM: fire-and-forget → Submit correlation
+- [get_poi retirement](project_get_poi_retirement.md)
+- [mbox backfill stopped at the first known row; private never backfilled](reference_mbox_backfill_holes.md) — a June DM invisible 3 months; FIXED 08-30, run `mbox backfill` once per parked pilot
+- ⭐🟢 [withdraw_items source+target: `faction`->`self` is STORAGE-to-STORAGE, no hull limit](reference_faction_withdraw_pulls_personal_storage.md) — 38k liquid_hydrogen in ONE call ≈ 19k fuel cells; `storage`-><player> gifts from storage; faction has COMPARTMENTS; `pending` ack ≠ success
+- ⭐🔴 [private chat target_id is a conversation key](reference_chat_target_id_conversation_key.md) — `"<recipient>:<sender>"`; killed databot silently for 2 months. FIXED
+- ⭐🔴 [Mission chain maps](reference_mission_chain_maps.md) — `chain_next` comes ONLY from the complete_mission reply and play_as drops it; smuggling chain mapped, Grand Circuit breaks at `frontier_extension` (never observed, craftsman-1 is 2 steps away)
+- [Mission board wire shape](reference_mission_board_wire_shape.md) — NO `requirements`
+- [craft is action_result-wrapped](reference_craft_action_result_wrapping.md) — job body arrives next tick in `{command,tick,result}`
+- [catalog(recipes) decode quirk](reference_catalog_recipes_shape.md) — full Recipe shape inside items[], not CatalogItem
+- [catalog_items omits `tradeable`](reference_catalog_items_tradeable_drift.md) — modules import as tradeable=0; bulk tools must default it
+- [Catalog refresh runbook](reference_catalog_refresh_runbook.md) — ships/items/recipes/skills from a scraper snapshot
+- [Legacy mining hulls erased by every catalog refresh](reference_legacy_ship_classes_erased_by_refresh.md) — `StoreShipClasses` is DELETE+INSERT
+- ⭐🟢 [Live KB at v60; chain collapsed to a v59 baseline](reference_live_kb_schema_drift.md) — applied 09-08 15:34 via `bin/kb-migrate` (54 ms, fleet live); backup = `VACUUM INTO`, never shell `.backup`; seen_players SQLITE_BUSY ~6/min is CHRONIC. NEVER edit an applied migration
+- [ships table migration trap](reference_ships_table_migration_trap.md) — MOOT since the 09-08 collapse (pre-59 DBs are refused)
+- ⭐ [Race suite 11m→2m (09-08)](reference_race_test_cost_sqlite_migrations.md) — SQLite migrations 3.5s/open under -race → `knowledgetest.Path(t)`; worker sleeps → `settle(ctx,d)` seam; `Client.Close` held the mutex = 5s per close. Never `time.Sleep` in pkg/worker
+- [GameClient interface → mocks](feedback_gameclient_interface_mocks.md) — `go build` misses it; run `go test ./...`
+- [Version constant](feedback_version_constant.md) — bump `BuiltForAPIVersion` with every struct/signature change
+- [Facility list strips level + rent](reference_facility_list_field_omissions.md) — default level=1 from catalog
+- [Facility list has 3 public sections](reference_facility_list_sections.md) — private lines omit production.public
+- [Facility rent cycle = 100 ticks](reference_facility_rent_cycle.md) — ≈17 min; 86.4 cycles/day
+- [Pirates standing key drift](reference_pirates_standing_key_drift.md) — generic "pirates" retired for nine per-stronghold keys; fixtures hid it
+- [faction_list is shuffled](project_faction_list_shuffle.md) — `--seed` loops-until-coverage works around it
+- [Faction events](project_faction_events.md) — faction_promote done, faction_demote pending server-side
+- [Faction info backfill](project_faction_info_backfill.md) — auto-fetch for factions seen on observed agents
+- [Notifications tick](project_notifications_tick.md) — get_notifications as a lightweight refresh after login and in the runner loop
+- [server-cmd spec-driven payloads](project_server_cmd_spec_driven_payloads.md) — DEFERRED: route through typed pkg/game wrappers
+
+## Combat & wildlife
+- ⭐🔴 [Combat damage pipeline](reference_combat_damage_pipeline.md) — `reach` gates firing; `brace` = 0.25 dmg, 0% offense; ESCAPE is `battle stance flee`, NOT `battle retreat` (one ring, never exits); worker has NO combat code
+- ⭐ [reload = get_ship module INSTANCE id + ammo item](reference_reload_weapon_ammo_pairing.md) — pairing is weapon `ammo_type` == ammo `effect.subtype`; ONE TICK PER MODULE; out_of_ammo repeats every tick. play_as resolves it (`aa511fca`), worker does not
+- ⭐ [Module wear/repair REMOVED](reference_module_wear_removed.md) — refitting is consequence-free; 29 agents on starters vs 170 idle hulls
+- ⭐ [Module cost scales with Engineering](reference_ship_module_costs_scale_with_engineering.md) — catalogue CPU/power are BASE, −1%/level; trains only at ≥90% fit
+- ⭐ [get_battle_log has the FULL reconstruction](reference_battle_log_api_replay_data.md) — positions, stance, loadouts, pipeline, autopilot reasoning; 30 ticks = 1.5MB
+- [Battle replay viewer](reference_battle_replay_viewer.md) — spacemolt.com/battles/<id>; don't scrape it
+- [Scan bracket = THREAT flag, not role](reference_creature_scan_bracket_threat_flag.md) — FIXED `35ae5f4b`
+- [Belt-Grazer grounds](reference_belt_grazer_hunting_grounds.md) — kochab/ironpeak, NOT khambalia
+- ⭐🔴 [get_nearby on arrival reads EMPTY](reference_wildlife_arrival_race.md) — 18% false-negative; hunt fleet rejected good grounds. Fixed `238f73a7`; table is `wildlife_surveys`
+- [Combat roadmap](project_combat_roadmap.md) — entered via wildlife/First Hunt, not PvP; the spar testbed exists but is dormant
+- [Spar testbed](project_spar_testbed.md) — cmd/tools/spar + pkg/spar, controlled PvP harness; BUILT, dormant
+- [Ship fitting calculator](project_ship_fitting_calculator.md) — pkg/fitting + cmd/tools/fit; open validation TODO
+- [Pirate bands](project_pirate_bands.md) — pirate-1..15 = three 5-agent bands, DORMANT on purpose
+- [play_as smart battle handler](project_play_as_smart_battle_handler.md) — DEFERRED: auto-retreat instead of dying passively
+- ⭐ [Battle holotable visualizer](project_battle_holotable_visualizer.md) — P1b shipped; NEXT = P2 record sheet; battle API is CORS-open but needs a logged-in session
+- [Battle visualization](project_battle_visualization.md) — longer-term top-down radar, after-the-fact then live
+
+## Gotchas — movement, docking, fuel
+- ⭐🔴 [Docked at 0 fuel is invisible to the watchdog](reference_docked_zero_fuel_invisible_to_watchdog.md) — `Stalled()` early-returns on Docked; hand-write a rescue record
+- ⭐🟢 [Ship-to-ship refuel WORKS dock-to-dock](reference_ship_to_ship_refuel_works_while_docked.md) — client fuel field stays 0 after; confirm via `tank_full` or a jump
+- ⭐🟢 [`connections` is CLEAN — resolved 10-12](reference_connections_phantom_edges.md) — matches the public v0.618 chart exactly (506 sys / 2132 edges / 0 phantom); wormholes are hidden POIs, never lanes, so nothing is missing
+- ⭐🔴 [`poi_resources.remaining=0` is NOT depletion](reference_poi_resources_remaining_is_unreliable.md) — ore REGENERATES slowly; capital belts sit at 0 from over-mining yet still yield. Rank by `richness`, prefer non-capital. max_remaining fixed `847d47d2`
+- ⭐ [Jump time + fuel formulas](reference_ship_jump_time_and_fuel_formulas.md) — `jumpTicks=max(1,7−speed)`, fuel `ceil(scale^1.5×speed)`; every flat constant is wrong
+- [Travel is priced before it is measured](reference_travel_priced_before_measured.md) — zero-distance move to your own POI rejected as "Insufficient fuel"
+- [Refuel fallback vs measurement](reference_refuel_fallback_vs_measurement.md) — a cargo-cell fallback misreports a dry station as one that sells fuel
+- ⭐🔴 [Standing AT a POI is not being DOCKED](reference_sell_leg_dock_gap.md) — resumed haul looped `not_docked`; FIXED `2fea237a`
+- [Pin-arrival needs FOUR checks](reference_pin_arrival_check_four_directions.md) — `docked_at_base` is EMPTY while docked
+- [docked_at_base lives on the PLAYER](reference_docked_at_base_gotcha.md) — never the ship; dock events historically never recorded it
+- [Pinned mission workers never refuel](reference_pinned_mission_workers_never_refuel.md) — refuelling is a ROLE property; FIXED `topUpAtPin`
+- ⭐ [Player stations can refuse your dock](reference_player_station_access.md) — access is LEARNED; unverified = closed
+- ⭐🔴 [Station ids are dual-named](reference_station_id_aliases.md) — find_item gives POI ids, docked_at_base gives BASE ids: never compare across commands; dronescript took POI-only until v0.598.3, now either
+- [Lawless transit is safe; idling is not](reference_lawless_transit_vs_idle.md)
+- ⭐ [GSA auto-recovery](reference_gsa_ship_recovery.md) — a drifting ship gets docked FOR you for a fee; a QUARANTINED agent needs its rescue record deleted
+- [Jettison → loot transfer flow](reference_jettison_loot_transfer_flow.md) — hand cargo to a ship that cannot dock; verified working
+- [Ship replacement workflow](reference_ship_replacement_workflow.md) — insurance pays credits, not a ship
+- [Cargo liquidation](project_cargo_liquidation_cut_losses.md) — best bid, else DEPOSIT (never jettison)
+- [drone_bay is an agent-wide ledger](reference_drone_bay_is_agent_wide.md) — drones keep mining across a ship switch; capacity fields report 0
+- ⭐ [send_gift ship_id transfers a hull FREE](reference_send_gift_ship_transfer.md) — remote send, but the ship STAYS PARKED; recipient must travel to it. Credit gifts need no co-location
+- ⭐🔴 [commission_ship has TWO modes](reference_ship_commissioning_is_credits_only.md) — credits-only 38,603 vs provide-materials 5,939 labour+components; BUYING at ~13,300 beats credits-only; outerrim hulls need an Outer Rim yard
+- ⭐ [Rank freight hulls FITTED, not by base stats](reference_prayer_class_freight_hulls.md) — `cargo_expander_iii` = +100/slot; congregation = 1900 cargo, tier 1
+- [Refueler ship roadmap](project_refueler_ship_roadmap.md) — Tanker step DONE 08-14 for 4 of 5 (see migration); tier-4 hulls next
+- [Idle script authoring traps](reference_idle_script_authoring_traps.md) — dead idle_params, stale POI cache after jump, first-belt selection, override path
+- [Reconnect wakes on input](project_reconnect_wake_on_input.md) — bounded burst then dormant, woken by REPL input
+
+## Gotchas — code & data
+- ⭐🔴 [SimpleHandler drops EVERY push](reference_simplehandler_drops_every_push.md) — combat/death/warnings decoded then discarded; invisible without set_debug. Fixed in play_as only (`fe600938`); 15 other binaries incl. the worker still blind
+- ⭐ [storeRawJSON key drift](reference_rawjson_key_drift.md) — cache keys reachable only via the action switch die when a reply omits `action`. Audit the rest
+- [Missions() vacuous-test trap](reference_missions_vacuous_test_trap.md) — bare `&game.State{}` early-returns before the code under test
+- [GameClock drifts forward](reference_gameclock_forward_drift.md) — syncs FORWARD only; no tight timeouts from it
+- [Exploration = content survey](reference_exploration_is_content_survey.md) — the map graph is fixed and known
+- ⭐🔴 [play_as statusline's last field is the GAME TICK, not credits](reference_play_as_statusline_last_field_is_the_tick.md) — misread it 09-09 and planned two ship buys on imaginary money; agent_profile.credits also goes stale
+- [Actual Sleep constants](reference_sleep_constants_actual.md) — CLAUDE.md's table is STALE
+- [spacemolt-kb shares the SQLite DB](reference_spacemolt_kb_shared_db.md) — poi_metadata_planets/stars are owned by the kb repo
+- [Ironlight Combine = the dev's faction](reference_ironlight_combine_dev_faction.md) — its charter describes our marketbot pattern
+- [POI merge provenance](project_poi_merge_provenance.md) — weak scans no longer clobber rich data
+- [Worker log tagging](project_worker_log_tagging.md) — `[worker:<id>]` v0.2.3 deployed; carrier-tier logging v0.2.4 committed, not deployed
+- [Deploy verification](reference_deploy_verification.md) — SIGUSR1 drain ABORTS if workers stay busy; verify by process start time vs binary mtime
+
+## Market & economy
+- ⭐🟢 [Station fuel-reserve capture](project_station_fuel_reserve_capture.md) — SHIPPED 08-15; 6 of 9 strongholds run DRY desks; faction bunkers member-only
+- [Fuel price spread = 13×](reference_station_fuel_price_spread.md) — sol_central is the DEAREST; name the station or cr/jump is meaningless
+- [Buy fuel at the cheaper end](project_refuel_timing_endpoint_choice.md) — `bc2adfe`, HAUL ONLY
+- ⭐🔴 [Unbuyable modules poison the arbitrage board](reference_unbuyable_module_arbitrage_trap.md) — block at GENERATION; FIXED `443c0604`
+- [market_orders stored duplicate books](reference_market_orders_duplicate_books.md) — phantom depth; FIXED `08fb75be`, a PARTIAL roll leaves it running
+- [market_ohlcv = order-book data](reference_market_ohlcv_orderbook.md) — not trades; 999999 sentinel fix
+- [GetReferenceAsk perf](reference_getreferenceask_perf.md) — 3.3s/call on 190M rows; needs the (item,side,station,captured_at) index
+- [storage_snapshots is upserted](reference_storage_snapshots_shape.md) — UNIQUE agent+base; quantities REAL
+- [empire field semantics](reference_empire_field_semantics.md) — get_system=REGION vs get_map=OWNERSHIP
+- [craftsman-1 vacuum bids](reference_craftsman1_vacuum_bid_economics.md) — INTENTIONAL, never cancel
+- [TRADING missions NOT market-validated](reference_trading_missions_not_market_validated.md) — reward and qty ignore the market
+- [bill_of_materials is LOSSY](reference_bom_table_lossy.md) — ceils fractions; drops has_alternatives
+- [Item category = sourcing rule](reference_item_category_sourcing.md) — ONLY `category='ore'` is mineable
+- [Customs mechanics](reference_customs_mechanics.md) — scans only pilots who STOP 10 ticks at a border; keep moving
+- [Empire tax day](reference_empire_tax_day.md) — weekly; get_tax_estimate shows amount + reason
+- [Pirate base registry](reference_pirate_base_registry.md) — ids + systems; stale, in knowledge.db only
+- [Market intelligence pkg](project_market_intelligence.md) — pkg/market, single source of volatile data; merged 06-21/22
+- [Demand ledger](project_demand_ledger.md) — Station Manager buy orders, fulfill-now + craftable matching
+- [find_item command](project_find_item_command.md) — BUILT `e1c73ff`; ranks stations by hops then price
+- [price command depth-walk](project_price_command_depthwalk.md) — single-best-ask today; revisit
+- [Arbitrage opportunity detail view](project_arbitrage_opportunity_detail_view.md) — FUTURE dashboard drill-down
+- [Citizen demand brainstorm](project_citizen_demand_brainstorm.md) — PARKED 08-14: ~25M population, ~30B infrastructure
+- [Passenger demand intel](project_passenger_demand_intel.md) — marketbots survey list_station_passengers into a KB table
+- [Idle mining marketbots](project_idle_mining_marketbots.md) — short idle-mining loop between scans; canary viable
+
+## Overmind / ops / deploy
+- [Overmind launch commands](reference_overmind_launch_commands.md) — all fleets; `rm -f` stale socks; /proc scan not `pgrep -f`; relaunch market-prune too
+- ⭐ [fleet-watch health watcher](reference_fleet_watch.md) — alerts on log SILENCE + daemon census; relaunch with the fleets. Logs ~20GB unrotated
+- [Pending rollout queue](project_pending_rollout_queue.md) — what is deployed per fleet; haul is the one left behind
+- ⭐🔴 [Park an agent: quiesce.json](reference_worker_quiesce_park.md) — survives restarts; a park does NOT free the game session (play_as needs roster removal + SIGHUP)
+- [Graceful drain](project_overmind_graceful_drain.md) — SIGUSR1/USR2/TERM
+- [Dynamic exit/join](project_fleet_pool_dynamic_membership.md) — MERGED `8016cd8`
+- [Fleet manager](project_overmind_fleet_manager.md) — NEXT = Phase 2
+- [Fleet role interchangeability](project_fleet_role_interchangeability.md) — operator vision 08-01: surge any agent into Haul; brainstorm first
+- [Generalist agent selector](project_generalist_agent_selector.md) — LONG-TERM: every agent weighs all income paths per juncture
+- [Idle-agent income paths](project_idle_agent_income_paths.md) — A mission-runner specced; B mining next; C combat deferred
+- [Dashboard v1 on :8091](project_overmind_dashboard_v1.md) — pkg/ovdash; MERGED 07-21
+- [System view](project_overmind_system_view.md) — click system → orbital view with live dots; LIVE
+- [Activity line](project_ovstatus_activity_line.md) — per-agent current-activity sub-line
+- [Dashboard task summary](project_overmind_dashboard_task_summary.md) — FUTURE per-worker task line
+- [Fleet version visibility](project_fleet_version_visibility.md) — current/behind per build
+- [Login rate limits](reference_login_rate_limits.md) — per-IP per-minute on /login; shapes fleet startup
+- [Login vs reconnect gating](reference_login_vs_reconnect_gating.md) — FRESH logins NOT gated; never mass-restart fast
+- [market.db pruning](reference_market_db_prune.md) — UNSUPERVISED; died 07-15 → 62GB; retry fix `a474d01d` undeployed
+- [Bulk-delete scale lesson](feedback_bulk_delete_scale.md) — NEVER unbatched DELETE on a huge table; 6.5h without committing
+- [Verify regen with stash](feedback_verify_regen_with_stash.md) — swap old code in with git stash, never `git checkout`
+- [Worker DB pool cap = NEGATIVE RESULT](reference_worker_db_pool_negative_result.md) — didn't cut CPU; real culprit was GetReferenceAsk
+- [Agent capability ledger](project_agent_capability_ledger.md) — pkg/assets, 16 commits on feat/agent-capability-ledger, UNMERGED
+- [Capability ledger slices 5–6](project_agent_capability_ledger_storage_faction.md) — storage + faction + ovdash panel; reviewed, unmerged
+- [Ship role naming scheme](project_ship_role_naming_scheme.md) — FUTURE: overmind re-allocates idle agents by hull name
+- [Server consolidation](project_server_consolidation.md) — agent-server features migrated into spacemolt-server; DONE
+- [Agent empire-band numbering](project_agent_empire_bands.md) — trailing number = empire band
+
+## Crafting & mining
+- ⭐ [supported_power = floor(remaining/20)](reference_supported_power_is_derived.md) — DERIVED, do not store; falls as a deposit depletes
+- ⭐🔴 [supported_power gates mining](reference_mining_supported_power_gate.md) — summed module power must be BELOW it; an over-fitted rig is locked OUT
+- ⭐🔴 [Mining yields a RANDOM resource from the site mix](reference_mining_yield_is_random_from_site_mix.md) — mining hulls = 100% ore cargo boost; 25 idle deeprock_harvesters
+- [Ore deposits REGENERATE](reference_ore_deposits_regenerate.md) — round-trip time beats deposit size; check `last_updated_tick`
+- ⭐🟢 [Fleet drone refit](project_fleet_drone_refit.md) — SPEC `898852c1` unpushed; only shortfall = 3,607 energy_crystal
+- ⭐🔴 [KB BoM explorer picks recipes ALPHABETICALLY](reference_kb_bom_explorer_alphabetical_default.md) — not cost-aware; one campaign read 13x too expensive
+- [public_facilities keys player stations by base_id](reference_public_facilities_player_station_id.md) — a POI-keyed join reported 0 for 231
+- [public_facilities prune-at-write](reference_public_facilities_prune.md) — SHIPPED 08-22; safe ONLY because listings are complete
+- [circuit_board intel](reference_circuit_board_production.md) — silicon_ore is the bottleneck
+- [Crafting brain](project_crafting_brain.md) — A1+A2 SHIPPED
+- [Executor B rollout](project_executor_b_rollout.md) — NOT LIVE
+- [Craft batch = Crafting skill](project_craft_batch_skill.md) — no longer hardcoded 10
+
+## Agents, play_as, social
+- ⭐🔴 [A BOUNTY IS UNPAID TAX](reference_tax_bounties_and_rates.md) — exactly the shortfall; weekly Sunday levy; Crimson 10% income/1% property
+- [Bounties are not from combat](reference_agent_bounties_not_combat.md) — every 0-credit agent has one
+- [Bounty auto-pays on entering the empire's space](reference_bounty_auto_pays_on_entering_territory.md) — trap: 0 credits → no fuel → stranded
+- ⭐🔴 [Citizenship mechanics](reference_citizenship_mechanics.md) — `empire` is ORIGIN; crimson EXCLUSIVE, outerrim NOT; voidborn free
+- ⭐ [send_gift + play_as mechanics](reference_send_gift_and_play_as_mechanics.md) — sender DOCKED, recipient = USERNAME, play_as needs `quit`
+- [play_as via go run](feedback_play_as_go_run.md) — always `go run ./cmd/tools/play_as`, never bin/
+- [play_as scheduler](project_play_as_scheduler.md) — cron-lite hourly/daily/weekly commands
+- [Passenger feature](project_passenger_feature.md) — carrying commands + formatters; RawCommand blocking change
+- [Treasury + shuttle role](project_treasury_and_shuttle.md) — 5% faction deposit/rescue; shuttle canary pending
+- [Smuggling enablement](project_smuggling_enablement.md) — treasure_cache tutorial chain, smuggling-2 courier gate, mission capture
+- [Mission learning pool](project_mission_learning_pool.md) — phase 2: categories beyond delivery, exploration first
+- [Mission category coverage](project_mission_category_coverage.md) — v1 = single-leg deliver_item only; trade is the biggest rejected bucket
+- [Mission scan rate backoff](project_mission_scan_rate_backoff.md) — QUEUED: stop re-polling boards every tick when dry/parked
+- [Captains-log task resume](project_captains_log_task_resume.md) — FUTURE: server-persistent notes so workers re-orient after restart
+- [Action-log analyzer](project_action_log_analyzer.md) — FUTURE: event timeline from get_action_log
+- [mbox spam folder](project_mbox_spam_folder.md) — per-agent blocklist for noisy senders
+- [LLM rollout](project_llm_rollout.md) — only miner-1 on ToT today
+- [ToT next steps](project_tot_next_steps.md) — prompt tuning, async planning, UI polish
+- [ToT prompt improvements](project_tot_prompt_improvements.md) — short-term memory, role-aware context, KB integration
+- [Shared knowledge dirs](project_shared_knowledge.md) — FUTURE: per-org shared directories instead of per-agent copies
+- [Pairwise jump cache](project_pairwise_jump_cache.md) — FOLLOW-UP: all-pairs distance cache for routing
+- [Stronghold reach page](project_stronghold_reach_page.md) — kb did-you-know page SHIPPED 07-26
