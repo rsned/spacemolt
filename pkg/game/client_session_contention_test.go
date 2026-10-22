@@ -110,7 +110,6 @@ func TestReconnectingHandler_BurstGivesUpThenWakesOnTrigger(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	r := NewReconnectingHandler(client, nil, ctx, log.New(io.Discard, "", 0))
-	r.reconnectBackoffUnit = time.Millisecond // keep the test fast
 
 	var attempts atomic.Int32
 	var fail atomic.Bool

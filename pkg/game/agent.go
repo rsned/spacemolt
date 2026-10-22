@@ -145,7 +145,7 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 	// mass start (a fleet redeploy) both stampede the same allowance. One gate
 	// instance serves both paths: the handler uses it for reconnects, the
 	// client for its internal retries, and the initial dial below.
-	gate := NewReconnectGate(DefaultReconnectGatePath(), reconnectGateCooldown)
+	gate := NewReconnectGate(DefaultReconnectGatePath(), DefaultGateConfig())
 	reconnectingHandler.SetReconnectGate(gate)
 	client.SetReconnectGate(gate)
 	client.SetHandler(reconnectingHandler)
@@ -226,7 +226,7 @@ func InitializeMCPAgent(agentID string, logger *log.Logger, ctx context.Context,
 	// gated attempt. The MCP transport reaches the same accounts over the same
 	// outbound IP, so it draws on the same per-IP auth budget as the WS path
 	// and must share the host-wide gate.
-	gate := NewReconnectGate(DefaultReconnectGatePath(), reconnectGateCooldown)
+	gate := NewReconnectGate(DefaultReconnectGatePath(), DefaultGateConfig())
 	if err := dialWithGate(ctx, gate,
 		func(ctx context.Context) error {
 			logger.Printf("Connecting to MCP server...")

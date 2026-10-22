@@ -66,6 +66,12 @@ const (
 	SleepChatPoll          = 1 * time.Hour    // Chat channel polling interval (background reconcile/ingest)
 	SleepIPRateLimitJitter = 60 * time.Second // Max random jitter added after IP rate limit expires
 
+	// Host-wide connection budgets enforced by ReconnectGate. They sit below the
+	// server's per-IP limits so the fleet never trips them.
+	ConnectWindow         = 60 * time.Second // server per-IP rate-limit window
+	ConnectDialBudget     = 60               // dials per window (server: 100)
+	ConnectPasswordBudget = 20               // password logins per window (server: 30)
+
 	SleepPartnerJoinWindow = 5 * time.Minute // Max wait for a human to attack a bot in spar partner mode
 
 	// WebSocket keepalive timing

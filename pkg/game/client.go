@@ -242,10 +242,6 @@ type ReconnectingHandler struct {
 	// client.Reconnect; overridable in tests to drive the retry loop without
 	// real network I/O.
 	reconnectFn func(ctx context.Context) error
-	// reconnectBackoffUnit is the base unit of the exponential backoff between
-	// reconnection attempts. Zero means time.Second (production default); tests
-	// set it tiny to keep the retry loop fast.
-	reconnectBackoffUnit time.Duration
 
 	// gate, when set, coordinates reconnect dials across every client sharing
 	// the host IP: it spaces dials apart so a mass disconnect (e.g. a server
@@ -254,22 +250,6 @@ type ReconnectingHandler struct {
 	// Nil disables coordination (the default for direct/test construction).
 	gate *ReconnectGate
 }
-
-// reconnectGateCooldown is the minimum spacing between reconnect dials across
-// all clients on one host (~12/min, ~2x under the observed per-IP throttle).
-const reconnectGateCooldown = 5 * time.Second
-
-// reconnectBlockDefault is how long the fleet holds off on a bare per-IP block
-// (HTTP 429 with no stated duration).
-//
-// 60s was an order of magnitude short. Every block actually observed stated
-// 444s to 1757s (2026-08-27/28), so a 60s hold released the whole fleet back
-// into a live block, which extended it -- the 8-minute block at 00:40 became
-// 15.5 minutes at 00:48. Under-recording is the expensive direction: waiting
-// too long costs idle time, waiting too little costs an escalating outage.
-// This is only the fallback -- a server that states its duration is believed,
-// and rateLimitDetail now makes sure that number actually reaches us.
-const reconnectBlockDefault = 5 * time.Minute
 
 // SetReconnectGate attaches a host-wide reconnect coordinator. Call it on the
 // production agent path; leaving it unset keeps reconnects uncoordinated.
@@ -385,50 +365,23 @@ func (r *ReconnectingHandler) attemptReconnection() {
 	defer r.wg.Done()
 	defer r.reconnecting.Store(false)
 
-	unit := r.reconnectBackoffUnit
-	if unit <= 0 {
-		unit = time.Second
-	}
-
 	for attempt := 1; attempt <= reconnectMaxAttempts; attempt++ {
 		if r.ctx.Err() != nil {
 			r.logger.Printf("Context cancelled, stopping reconnection attempts")
 			return
 		}
 
-		// Wait for the host-wide gate before dialing: this serializes reconnects
-		// across all clients on the IP and waits out any fleet-wide rate-limit
-		// block. Nil gate (tests/direct construction) is a no-op.
-		if err := r.gate.Acquire(r.ctx); err != nil {
-			r.logger.Printf("Context cancelled while waiting for reconnect gate")
-			return
-		}
-
-		// Try immediately on the first attempt so a user-triggered wake is
-		// responsive; back off only between subsequent retries.
-		if err := r.reconnectFn(r.ctx); err == nil {
+		// reconnectFn owns the host-wide gate: it claims exactly one slot per
+		// dial, so the gate's spacing and fleet-wide block are the backoff here.
+		err := r.reconnectFn(r.ctx)
+		if err == nil {
 			r.logger.Printf("✓ Reconnected successfully")
 			return
-		} else {
-			r.logger.Printf("Reconnection attempt %d/%d failed: %v", attempt, reconnectMaxAttempts, err)
-			// Propagate a per-IP block to the whole fleet so every client holds
-			// off and the block can expire instead of being re-triggered.
-			if d, ok := rateLimitBlock(err.Error(), reconnectBlockDefault); ok {
-				_ = r.gate.RecordBlock(d)
-			}
 		}
-
-		if attempt == reconnectMaxAttempts {
-			break
-		}
-		// Exponential backoff, capped so a burst stays brief.
-		backoff := min(unit<<uint(min(attempt, 5)), SleepReconnect)
-		select {
-		case <-r.ctx.Done():
-			r.logger.Printf("Context cancelled, stopping reconnection attempts")
-			return
-		case <-time.After(backoff):
-		}
+		r.logger.Printf("Reconnection attempt %d/%d failed: %v", attempt, reconnectMaxAttempts, err)
+		// Propagate a per-IP block to the whole fleet so every client holds
+		// off and the block can expire instead of being re-triggered.
+		recordRateLimitBlock(r.gate, err, "reconnect")
 	}
 
 	r.logger.Printf("Reconnect burst gave up after %d attempts; will retry on next command", reconnectMaxAttempts)
@@ -924,90 +877,63 @@ func (c *Client) Reconnect(ctx context.Context) error {
 	c.goroutineCtx, c.goroutineCancel = context.WithCancel(context.Background())
 	c.mu.Unlock()
 
-	// Wait a moment before reconnecting with exponential backoff
-	select {
-	case <-time.After(2 * time.Second):
-		// Continue
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-
-	// Reconnect with retries. Each retry re-authenticates, so attempts past the
-	// first must claim their own gate slot: the caller (attemptReconnection)
-	// acquired exactly one, and letting three logins ride on it is how a
-	// "coordinated" reconnect still overruns the per-IP auth budget.
+	// One gated try. The gate owns pacing and fleet-wide blocks, so there is no
+	// local sleep or retry loop: a failed dial is retried by the caller, and each
+	// retry claims its own slot.
 	c.mu.RLock()
 	gate := c.gate
 	c.mu.RUnlock()
 
-	maxRetries := 3
-	var lastErr error
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if attempt > 0 {
-			backoff := time.Duration(1<<uint(attempt)) * time.Second
-			c.debugLogger.Printf("Reconnect attempt %d/%d, waiting %v", attempt+1, maxRetries, backoff)
-			select {
-			case <-time.After(backoff):
-				// Continue
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-			if err := gate.Acquire(ctx); err != nil {
-				return err
-			}
-		}
-
-		if err := c.Connect(ctx); err != nil {
-			lastErr = err
-			recordRateLimitBlock(gate, err)
-			c.debugLogger.Printf("Reconnect attempt %d failed: %v", attempt+1, err)
-			continue
-		}
-
-		// Wait for connection to be ready
-		if err := c.WaitForReady(ctx, 10*time.Second); err != nil {
-			lastErr = err
-			c.debugLogger.Printf("Connection not ready after attempt %d: %v", attempt+1, err)
-			_ = c.Disconnect()
-			continue
-		}
-
-		// Re-authenticate
-		if err := c.Login(ctx); err != nil {
-			lastErr = err
-			recordRateLimitBlock(gate, err)
-			c.debugLogger.Printf("Login failed after attempt %d: %v", attempt+1, err)
-			_ = c.Disconnect()
-			continue
-		}
-
-		c.debugLogger.Printf("Reconnected and logged in successfully")
-
-		// Drain any messages staged by replayPending during the prior close.
-		c.drainPendingReplay(ctx)
-
-		// Resync authoritative state after the reconnect. A mid-run drop — the
-		// daily server-restart is the common cause — leaves our cached State stale,
-		// in particular Traveling and CurrentPOI, which the standing behaviors gate
-		// on. The login payload does not refresh them, so a worker that was dropped
-		// mid-jump would come back and act on a stale location (the path that
-		// stranded the shuttle). Reconnect is only ever the "already running"
-		// reconnect path, so this is the natural place to pull a fresh get_system
-		// (location/traveling) and get_status (wallet/hull/fuel) before handing
-		// control back, letting the next standing pass run its stranded-recovery
-		// against reality. Best-effort: a resync failure must not fail an otherwise
-		// good reconnect — the next standing pass refreshes state anyway.
-		if err := c.GetSystem(ctx); err != nil {
-			c.debugLogger.Printf("post-reconnect get_system resync failed: %v", err)
-		}
-		if err := c.GetStatus(ctx); err != nil {
-			c.debugLogger.Printf("post-reconnect get_status resync failed: %v", err)
-		}
-
-		return nil
+	if err := gate.Acquire(ctx, DialPassword); err != nil {
+		return err
 	}
 
-	return fmt.Errorf("reconnect failed after %d attempts: %w", maxRetries, lastErr)
+	if err := c.Connect(ctx); err != nil {
+		recordRateLimitBlock(gate, err, "reconnect")
+		c.debugLogger.Printf("Reconnect failed: %v", err)
+		return fmt.Errorf("reconnect: connect: %w", err)
+	}
+
+	// Wait for connection to be ready
+	if err := c.WaitForReady(ctx, 10*time.Second); err != nil {
+		c.debugLogger.Printf("Connection not ready: %v", err)
+		_ = c.Disconnect()
+		return fmt.Errorf("reconnect: wait for ready: %w", err)
+	}
+
+	// Re-authenticate
+	if err := c.Login(ctx); err != nil {
+		recordRateLimitBlock(gate, err, "reconnect")
+		c.debugLogger.Printf("Login failed: %v", err)
+		_ = c.Disconnect()
+		return fmt.Errorf("reconnect: login: %w", err)
+	}
+
+	c.debugLogger.Printf("Reconnected and logged in successfully")
+
+	// Drain any messages staged by replayPending during the prior close.
+	c.drainPendingReplay(ctx)
+
+	// Resync authoritative state after the reconnect. A mid-run drop — the
+	// daily server-restart is the common cause — leaves our cached State stale,
+	// in particular Traveling and CurrentPOI, which the standing behaviors gate
+	// on. The login payload does not refresh them, so a worker that was dropped
+	// mid-jump would come back and act on a stale location (the path that
+	// stranded the shuttle). Reconnect is only ever the "already running"
+	// reconnect path, so this is the natural place to pull a fresh get_system
+	// (location/traveling) and get_status (wallet/hull/fuel) before handing
+	// control back, letting the next standing pass run its stranded-recovery
+	// against reality. Best-effort: a resync failure must not fail an otherwise
+	// good reconnect — the next standing pass refreshes state anyway.
+	if err := c.GetSystem(ctx); err != nil {
+		c.debugLogger.Printf("post-reconnect get_system resync failed: %v", err)
+	}
+	if err := c.GetStatus(ctx); err != nil {
+		c.debugLogger.Printf("post-reconnect get_status resync failed: %v", err)
+	}
+
+	return nil
+
 }
 
 // SetHandler sets the message handler

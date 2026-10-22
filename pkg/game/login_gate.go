@@ -16,15 +16,15 @@ import "context"
 // A nil gate is a no-op, which keeps direct and test construction uncoordinated
 // by default.
 func dialWithGate(ctx context.Context, g *ReconnectGate, connect, login func(context.Context) error) error {
-	if err := g.Acquire(ctx); err != nil {
+	if err := g.Acquire(ctx, DialPassword); err != nil {
 		return err
 	}
 	if err := connect(ctx); err != nil {
-		recordRateLimitBlock(g, err)
+		recordRateLimitBlock(g, err, "dial")
 		return err
 	}
 	if err := login(ctx); err != nil {
-		recordRateLimitBlock(g, err)
+		recordRateLimitBlock(g, err, "dial")
 		return err
 	}
 	return nil
@@ -35,11 +35,11 @@ func dialWithGate(ctx context.Context, g *ReconnectGate, connect, login func(con
 // being re-triggered. Errors that are not rate limits (a refused dial, bad
 // credentials) are ignored — stalling the whole host on those would be worse
 // than the failure itself.
-func recordRateLimitBlock(g *ReconnectGate, err error) {
+func recordRateLimitBlock(g *ReconnectGate, err error, source string) {
 	if g == nil || err == nil {
 		return
 	}
-	if d, ok := rateLimitBlock(err.Error(), reconnectBlockDefault); ok {
-		_ = g.RecordBlock(d)
+	if d, ok := rateLimitBlock(err.Error(), g.DefaultBlock()); ok {
+		_ = g.RecordBlock(d, source)
 	}
 }

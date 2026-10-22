@@ -15,7 +15,7 @@ import (
 // and login timeouts across the mining, haul and unlock fleets.
 func TestDialWithGate_AcquiresBeforeConnecting(t *testing.T) {
 	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
-	g := newTestGate(t, filepath.Join(t.TempDir(), "g"), 5*time.Second, clk)
+	g := newTestGate(t, filepath.Join(t.TempDir(), "g"), testGateCfg, clk)
 
 	var order []string
 	connect := func(context.Context) error { order = append(order, "connect"); return nil }
@@ -53,7 +53,7 @@ func TestDialWithGate_AcquiresBeforeConnecting(t *testing.T) {
 func TestDialWithGate_PublishesBlockFoundAtLogin(t *testing.T) {
 	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
 	path := filepath.Join(t.TempDir(), "g")
-	g := newTestGate(t, path, 5*time.Second, clk)
+	g := newTestGate(t, path, testGateCfg, clk)
 
 	connect := func(context.Context) error { return nil }
 	login := func(context.Context) error {
@@ -66,8 +66,8 @@ func TestDialWithGate_PublishesBlockFoundAtLogin(t *testing.T) {
 	// A second client on the same host must now honor the 90s block, which is
 	// far longer than the 5s cooldown it would otherwise wait.
 	clk2 := &fakeClock{t: clk.t}
-	g2 := newTestGate(t, path, 5*time.Second, clk2)
-	if err := g2.Acquire(context.Background()); err != nil {
+	g2 := newTestGate(t, path, testGateCfg, clk2)
+	if err := g2.Acquire(context.Background(), DialToken); err != nil {
 		t.Fatalf("second client Acquire: %v", err)
 	}
 	var total time.Duration
@@ -82,7 +82,7 @@ func TestDialWithGate_PublishesBlockFoundAtLogin(t *testing.T) {
 // A connect failure must not be followed by a login attempt.
 func TestDialWithGate_StopsWhenConnectFails(t *testing.T) {
 	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
-	g := newTestGate(t, filepath.Join(t.TempDir(), "g"), 5*time.Second, clk)
+	g := newTestGate(t, filepath.Join(t.TempDir(), "g"), testGateCfg, clk)
 
 	connect := func(context.Context) error { return errors.New("dial tcp: connection refused") }
 	loginCalls := 0
@@ -116,9 +116,9 @@ func TestDialWithGate_NilGateStillDials(t *testing.T) {
 // A cancelled context must abort before dialing, not after.
 func TestDialWithGate_HonorsCancelledContext(t *testing.T) {
 	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
-	g := newTestGate(t, filepath.Join(t.TempDir(), "g"), 5*time.Second, clk)
+	g := newTestGate(t, filepath.Join(t.TempDir(), "g"), testGateCfg, clk)
 	// Claim the slot so the next Acquire has to wait.
-	if err := g.Acquire(context.Background()); err != nil {
+	if err := g.Acquire(context.Background(), DialToken); err != nil {
 		t.Fatalf("priming Acquire: %v", err)
 	}
 	g.sleep = func(ctx context.Context, _ time.Duration) error { return context.Canceled }
@@ -141,13 +141,13 @@ func TestDialWithGate_HonorsCancelledContext(t *testing.T) {
 func TestRecordRateLimitBlock_IgnoresNonRateLimitErrors(t *testing.T) {
 	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
 	path := filepath.Join(t.TempDir(), "g")
-	g := newTestGate(t, path, 5*time.Second, clk)
+	g := newTestGate(t, path, testGateCfg, clk)
 
-	recordRateLimitBlock(g, errors.New("login failed: invalid credentials"))
+	recordRateLimitBlock(g, errors.New("login failed: invalid credentials"), "test")
 
 	clk2 := &fakeClock{t: clk.t}
-	g2 := newTestGate(t, path, 5*time.Second, clk2)
-	if err := g2.Acquire(context.Background()); err != nil {
+	g2 := newTestGate(t, path, testGateCfg, clk2)
+	if err := g2.Acquire(context.Background(), DialToken); err != nil {
 		t.Fatalf("Acquire: %v", err)
 	}
 	var total time.Duration

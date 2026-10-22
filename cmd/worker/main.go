@@ -170,7 +170,7 @@ func main() {
 	// ── Step 3: Dial control socket (bounded retry) ──────────────────────────
 	//
 	// This runs BEFORE the game login on purpose. Logins are paced by the
-	// host-wide gate (one dial per reconnectGateCooldown across every client on
+	// host-wide gate (a rolling dial budget shared by every client on
 	// the IP), so on a full-fleet boot a worker can legitimately sit in that
 	// queue for minutes. The supervisor's BootTimeout measures launch->Hello,
 	// so greeting it only after login made a queued worker look wedged: it
