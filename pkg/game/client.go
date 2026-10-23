@@ -122,6 +122,11 @@ type Client struct {
 	ipBlockedUntil time.Time
 	ipBlockedMu    sync.RWMutex
 
+	// displaced is set when the server closes with 4001 (session_replaced):
+	// another login owns this player, so the client parks instead of
+	// reconnecting. Cleared by clearDisplaced when a retry is attempted.
+	displaced atomic.Bool
+
 	// Diagnostic tracking
 	connectionID     string    // Unique ID for this connection instance
 	connectTime      time.Time // When this connection was established
@@ -764,6 +769,12 @@ func (c *Client) Disconnect() error {
 	return nil
 }
 
+// Displaced reports whether the last close was 4001 session_replaced.
+func (c *Client) Displaced() bool { return c.displaced.Load() }
+
+// clearDisplaced ends the parked state ahead of a gated retry.
+func (c *Client) clearDisplaced() { c.displaced.Store(false) }
+
 // handleClose runs the close-code policy: replay outstanding mutations
 // on graceful closes, fail-fast otherwise. Called by the listen loop
 // after a close frame is observed.
@@ -779,6 +790,23 @@ func (c *Client) handleClose(closeErr *websocket.CloseError) {
 	switch policy.action {
 	case closeReplay:
 		c.replayPending(closeErr)
+	case closeRateLimited:
+		// In-flight requests cannot be replayed on a rate-limited socket.
+		c.failPending(&ConnectionClosed{Code: closeErr.Code, Reason: closeErr.Reason})
+		c.mu.Lock()
+		gate := c.gate
+		c.mu.Unlock()
+		d, ok := closeRetryAfter(closeErr.Reason)
+		if !ok {
+			d = gate.DefaultBlock()
+		}
+		if err := gate.RecordBlock(d, "close4003"); err != nil {
+			c.debugLogger.Printf("gate: record close4003 block: %v", err)
+		}
+	case closeDisplaced:
+		c.failPending(&ConnectionClosed{Code: closeErr.Code, Reason: closeErr.Reason})
+		c.displaced.Store(true)
+		log.Printf("WARN: session_replaced: parking; reconnect suppressed until the displaced-retry timer fires")
 	default: // closeFailFast
 		c.failPending(&ConnectionClosed{Code: closeErr.Code, Reason: closeErr.Reason})
 	}
@@ -3925,9 +3953,25 @@ func (c *Client) mergeSystemDataLocked(ext serverapi.SystemData) {
 }
 
 // parseErrorState extracts state changes from error messages
+//
+// The ip_timed_out block is also fed to the host-wide reconnect gate. That is
+// file I/O under an flock, so it runs after c.mu is released: the locked
+// section lives in parseErrorStateLocked, which reports the block duration.
 func (c *Client) parseErrorState(payload map[string]any) {
+	block, gate := c.parseErrorStateLocked(payload)
+	if block > 0 {
+		if err := gate.RecordBlock(block, "ip_timed_out"); err != nil {
+			c.debugLogger.Printf("gate: record ip_timed_out block: %v", err)
+		}
+	}
+}
+
+// parseErrorStateLocked does the c.mu-guarded part of parseErrorState. It
+// returns the server-announced IP block (zero when none) and the gate to feed.
+func (c *Client) parseErrorStateLocked(payload map[string]any) (block time.Duration, gate *ReconnectGate) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	gate = c.gate
 
 	// Store the last error for diagnostics
 	c.lastErrorMu.Lock()
@@ -3961,6 +4005,7 @@ func (c *Client) parseErrorState(payload map[string]any) {
 			c.ipBlockedUntil = time.Now().Add(blockDuration)
 			c.ipBlockedMu.Unlock()
 			c.debugLogger.Printf("IP rate limited for %d seconds + %v jitter = %v total pause", seconds, jitter, blockDuration)
+			block = time.Duration(seconds) * time.Second
 		}
 	}
 
@@ -3972,6 +4017,7 @@ func (c *Client) parseErrorState(payload map[string]any) {
 			c.state.Doc = true
 		}
 	}
+	return block, gate
 }
 
 // ipBlockSecondsRe matches "in N seconds" in IP rate limit messages.
