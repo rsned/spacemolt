@@ -35,6 +35,14 @@ type Client struct {
 	// emit several login attempts. Nil disables coordination.
 	gate *ReconnectGate
 
+	// minter, when set, mints a single-use Clerk ws-token for each Reconnect
+	// try; nil means password logins. Guarded by mu.
+	minter TokenMinter
+	// mintFallbackOnce limits the "clerk mint failed; falling back to
+	// password" warning to once per process across the initial dial and
+	// every reconnect.
+	mintFallbackOnce sync.Once
+
 	conn        *websocket.Conn
 	url         string
 	username    string
@@ -274,6 +282,14 @@ func (c *Client) SetReconnectGate(g *ReconnectGate) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.gate = g
+}
+
+// SetTokenMinter makes Reconnect authenticate with a freshly minted Clerk
+// ws-token per try instead of the password. Nil restores password logins.
+func (c *Client) SetTokenMinter(m TokenMinter) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.minter = m
 }
 
 // NewReconnectingHandler creates a handler that automatically reconnects on disconnect
@@ -659,84 +675,39 @@ func (c *Client) isQuietEventType(t string) bool {
 	return ok
 }
 
-// Connect establishes a WebSocket connection to the game server
-// Implements retry logic with exponential backoff for rate limiting (429 errors)
+// Connect establishes a WebSocket connection to the game server with exactly
+// one dial. It never retries: every dial draws on the per-IP budget, so the
+// host-wide gate (dialWithGate / Reconnect) is the only retry mechanism. A
+// 429's stated wait is carried in the error for recordRateLimitBlock.
 func (c *Client) Connect(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	maxRetries := 5
-	baseDelay := 2 * time.Second
-
-	var ws *websocket.Conn
-	var err error
-
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		var resp *http.Response
-		ws, resp, err = websocket.Dial(ctx, c.url, &websocket.DialOptions{
-			HTTPHeader: http.Header{
-				"User-Agent": []string{UserAgent},
-			},
-			// Enable permessage-deflate to cut bandwidth on the repetitive
-			// JSON game-state stream. ContextTakeover reuses a 32 KB sliding
-			// window for the best ratio; it falls back to NoContextTakeover,
-			// then to disabled, if the server does not advertise support.
-			CompressionMode: websocket.CompressionContextTakeover,
-		})
-		// Read the server's stated back-off BEFORE closing the body: it is the
-		// only place the real block duration is published, and discarding it is
-		// what made the gate record a 60s default against a 900s block.
-		rlDetail := ""
-		if resp != nil {
-			rlDetail = rateLimitDetail(resp)
-			if resp.Body != nil {
-				_ = resp.Body.Close()
-			}
+	ws, resp, err := websocket.Dial(ctx, c.url, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"User-Agent": []string{UserAgent},
+		},
+		// Enable permessage-deflate to cut bandwidth on the repetitive
+		// JSON game-state stream. ContextTakeover reuses a 32 KB sliding
+		// window for the best ratio; it falls back to NoContextTakeover,
+		// then to disabled, if the server does not advertise support.
+		CompressionMode: websocket.CompressionContextTakeover,
+	})
+	// Read the server's stated back-off BEFORE closing the body: it is the
+	// only place the real block duration is published, and discarding it is
+	// what made the gate record a 60s default against a 900s block.
+	rlDetail := ""
+	if resp != nil {
+		rlDetail = rateLimitDetail(resp)
+		if resp.Body != nil {
+			_ = resp.Body.Close()
 		}
-		if err == nil {
-			// Success!
-			break
+	}
+	if err != nil {
+		if rlDetail != "" {
+			return fmt.Errorf("failed to connect: %w (%s)", err, rlDetail)
 		}
-
-		// Check if this is a 429 (rate limit) error
-		errMsg := err.Error()
-		isRateLimited := strings.Contains(errMsg, "429") ||
-			(resp != nil && resp.StatusCode == http.StatusTooManyRequests)
-
-		// Carry the stated duration into the error so the caller's
-		// recordRateLimitBlock publishes the REAL block to the host-wide gate.
-		wrap := func() error {
-			if rlDetail != "" {
-				return fmt.Errorf("failed to connect: %w (%s)", err, rlDetail)
-			}
-			return fmt.Errorf("failed to connect: %w", err)
-		}
-
-		// If this is the last attempt, or not a rate limit error, fail
-		if attempt >= maxRetries || !isRateLimited {
-			return wrap()
-		}
-
-		// The server told us how long the block lasts. Retrying inside this
-		// loop cannot outlast it -- the whole budget here is ~62s against
-		// blocks of 444s and up -- and every dial re-triggers the block for
-		// everyone. Return now so the gate records it and the caller waits it
-		// out properly, instead of burning six dials per gated login slot.
-		if _, stated := rateLimitBlock(rlDetail, 0); stated {
-			return wrap()
-		}
-
-		// Calculate exponential backoff delay
-		delay := baseDelay * time.Duration(1<<uint(attempt))
-		c.debugLogger.Printf("Rate limited (429), retrying in %v (attempt %d/%d)", delay, attempt+1, maxRetries)
-
-		// Wait before retrying (check for context cancellation)
-		select {
-		case <-time.After(delay):
-			// Continue to next retry
-		case <-ctx.Done():
-			return fmt.Errorf("connection cancelled: %w", ctx.Err())
-		}
+		return fmt.Errorf("failed to connect: %w", err)
 	}
 
 	// Set a large read limit (10MB) to handle large state updates
@@ -950,49 +921,63 @@ func (c *Client) drainPendingReplay(ctx context.Context) {
 	}
 }
 
-// Reconnect disconnects and reconnects to the server
-func (c *Client) Reconnect(ctx context.Context) error {
-	c.debugLogger.Printf("Attempting to reconnect...")
-
-	// Close existing connection if any
+// resetForDial closes any existing connection and gives the next Connect a
+// fresh goroutine context, so a new dial never shares a socket or listener
+// with a failed one.
+func (c *Client) resetForDial() {
 	_ = c.Disconnect()
-
-	// Reset goroutine context for the new connection
 	c.mu.Lock()
 	c.goroutineCancel()
 	c.goroutineCtx, c.goroutineCancel = context.WithCancel(context.Background())
 	c.mu.Unlock()
+}
 
-	// One gated try. The gate owns pacing and fleet-wide blocks, so there is no
-	// local sleep or retry loop: a failed dial is retried by the caller, and each
-	// retry claims its own slot.
+// Reconnect disconnects and reconnects to the server
+func (c *Client) Reconnect(ctx context.Context) error {
+	c.debugLogger.Printf("Attempting to reconnect...")
+	c.resetForDial()
+
+	// One gated try (Acquire → mint → connect → login), the same body the
+	// fresh-start dial uses. The gate owns pacing and fleet-wide blocks, so
+	// there is no local sleep or retry loop: a failed dial is retried by the
+	// caller, and each retry claims its own slot.
 	c.mu.RLock()
-	gate := c.gate
+	gate, minter := c.gate, c.minter
 	c.mu.RUnlock()
 
-	if err := gate.Acquire(ctx, DialPassword); err != nil {
-		return err
+	a := authAttempt{
+		mint: minter,
+		connect: func(ctx context.Context) error {
+			if err := c.Connect(ctx); err != nil {
+				c.debugLogger.Printf("Reconnect failed: %v", err)
+				return fmt.Errorf("connect: %w", err)
+			}
+			if err := c.WaitForReady(ctx, 10*time.Second); err != nil {
+				c.debugLogger.Printf("Connection not ready: %v", err)
+				_ = c.Disconnect()
+				return fmt.Errorf("wait for ready: %w", err)
+			}
+			return nil
+		},
+		login: func(ctx context.Context, token string) error {
+			var err error
+			if token != "" {
+				err = c.LoginWithToken(ctx, token)
+			} else {
+				err = c.Login(ctx)
+			}
+			if err != nil {
+				c.debugLogger.Printf("Login failed: %v", err)
+				_ = c.Disconnect()
+				return fmt.Errorf("login: %w", err)
+			}
+			return nil
+		},
+		logger:       c.eventLogger,
+		fallbackOnce: &c.mintFallbackOnce,
 	}
-
-	if err := c.Connect(ctx); err != nil {
-		recordRateLimitBlock(gate, err, "reconnect")
-		c.debugLogger.Printf("Reconnect failed: %v", err)
-		return fmt.Errorf("reconnect: connect: %w", err)
-	}
-
-	// Wait for connection to be ready
-	if err := c.WaitForReady(ctx, 10*time.Second); err != nil {
-		c.debugLogger.Printf("Connection not ready: %v", err)
-		_ = c.Disconnect()
-		return fmt.Errorf("reconnect: wait for ready: %w", err)
-	}
-
-	// Re-authenticate
-	if err := c.Login(ctx); err != nil {
-		recordRateLimitBlock(gate, err, "reconnect")
-		c.debugLogger.Printf("Login failed: %v", err)
-		_ = c.Disconnect()
-		return fmt.Errorf("reconnect: login: %w", err)
+	if err := a.try(ctx, gate); err != nil {
+		return fmt.Errorf("reconnect: %w", err)
 	}
 
 	c.debugLogger.Printf("Reconnected and logged in successfully")
@@ -1104,8 +1089,13 @@ func (c *Client) send(ctx context.Context, msg protocol.Message) error {
 		c.debugLogger.Printf("Message RequestID: '%s'", msg.RequestID)
 	}
 	if len(msg.Payload) > 0 {
-		payloadJSON, _ := json.Marshal(msg.Payload)
-		c.debugLogger.Printf("Message Payload: %s", string(payloadJSON))
+		if isAuthFrame(msg.Type) {
+			// Passwords and single-use tokens never reach a log.
+			c.debugLogger.Printf("Message Payload: [redacted]")
+		} else {
+			payloadJSON, _ := json.Marshal(msg.Payload)
+			c.debugLogger.Printf("Message Payload: %s", string(payloadJSON))
+		}
 	}
 	//c.debugLogger.Printf("Full JSON being sent to WebSocket: %s", string(data))
 
@@ -1126,6 +1116,9 @@ func (c *Client) send(ctx context.Context, msg protocol.Message) error {
 	if c.CallLogger != nil {
 		c.lastSentMsgMu.Lock()
 		c.lastSentMsg = json.RawMessage(data)
+		if isAuthFrame(msg.Type) {
+			c.lastSentMsg = json.RawMessage(`{"type":"` + msg.Type + `","payload":"[redacted]"}`)
+		}
 		c.lastSentMsgType = msg.Type
 		c.lastSentMsgMu.Unlock()
 	}
@@ -1169,6 +1162,33 @@ func (c *Client) Login(ctx context.Context) error {
 	}
 	if resp.Type != protocol.TypeLoggedIn {
 		return fmt.Errorf("login: unexpected response type %q", resp.Type)
+	}
+	return nil
+}
+
+// LoginWithToken authenticates with a single-use Clerk ws-token instead of the
+// password. Same shape and timeout as Login; the token is never logged.
+func (c *Client) LoginWithToken(ctx context.Context, token string) error {
+	if token == "" {
+		return fmt.Errorf("no login token")
+	}
+
+	msg := protocol.Message{
+		Type:      "login_token",
+		Payload:   map[string]any{"token": token},
+		Timestamp: time.Now().UnixMilli(),
+	}
+
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(c.authTimeoutOrDefault()))
+	if err != nil {
+		return fmt.Errorf("failed to send login_token: %w", err)
+	}
+	resp, err := c.await(ctx, h)
+	if err != nil {
+		return fmt.Errorf("login_token failed: %w", err)
+	}
+	if resp.Type != protocol.TypeLoggedIn {
+		return fmt.Errorf("login_token: unexpected response type %q", resp.Type)
 	}
 	return nil
 }

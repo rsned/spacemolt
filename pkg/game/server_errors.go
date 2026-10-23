@@ -5,6 +5,7 @@ package game
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 // ServerError is a structured error returned by waitForActionResponse
@@ -14,6 +15,9 @@ import (
 type ServerError struct {
 	Code    string
 	Message string
+	// RetryAfter is the server's stated wait for a rate_limited error
+	// (details.retry_after, else the payload root); zero when none was given.
+	RetryAfter time.Duration
 }
 
 // Error returns the server's human-readable message, falling back to

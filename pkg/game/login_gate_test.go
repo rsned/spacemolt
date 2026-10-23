@@ -1,11 +1,18 @@
 package game
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"log"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/game/clerk"
 )
 
 // A fresh worker start dialed and authenticated outside the host-wide gate:
@@ -18,33 +25,30 @@ func TestDialWithGate_AcquiresBeforeConnecting(t *testing.T) {
 	g := newTestGate(t, filepath.Join(t.TempDir(), "g"), testGateCfg, clk)
 
 	var order []string
-	connect := func(context.Context) error { order = append(order, "connect"); return nil }
-	login := func(context.Context) error { order = append(order, "login"); return nil }
+	a := authAttempt{
+		connect: func(context.Context) error { order = append(order, "connect"); return nil },
+		login:   func(context.Context, string) error { order = append(order, "login"); return nil },
+	}
 
 	// First dial claims the free slot without waiting.
-	if err := dialWithGate(context.Background(), g, connect, login); err != nil {
+	if err := dialWithGate(context.Background(), g, 1, a); err != nil {
 		t.Fatalf("first dial: %v", err)
 	}
 	if len(clk.slept) != 0 {
 		t.Fatalf("first dial should not wait, slept=%v", clk.slept)
 	}
 
-	// The second dial must wait out the cooldown -- that is the whole point:
+	// The second dial must wait out the spacing -- that is the whole point:
 	// two fresh logins on one host are spaced, not simultaneous.
-	if err := dialWithGate(context.Background(), g, connect, login); err != nil {
+	if err := dialWithGate(context.Background(), g, 1, a); err != nil {
 		t.Fatalf("second dial: %v", err)
 	}
 	if len(clk.slept) == 0 {
 		t.Error("second dial did not wait for the gate; fresh logins are ungated")
 	}
 	want := []string{"connect", "login", "connect", "login"}
-	if len(order) != len(want) {
+	if strings.Join(order, ",") != strings.Join(want, ",") {
 		t.Fatalf("call order = %v, want %v", order, want)
-	}
-	for i := range want {
-		if order[i] != want[i] {
-			t.Fatalf("call order = %v, want %v", order, want)
-		}
 	}
 }
 
@@ -55,26 +59,24 @@ func TestDialWithGate_PublishesBlockFoundAtLogin(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "g")
 	g := newTestGate(t, path, testGateCfg, clk)
 
-	connect := func(context.Context) error { return nil }
-	login := func(context.Context) error {
-		return errors.New("login failed: 429 too many requests, try again in 90 seconds")
+	a := authAttempt{
+		connect: func(context.Context) error { return nil },
+		login: func(context.Context, string) error {
+			return errors.New("login failed: 429 too many requests, try again in 90 seconds")
+		},
 	}
-	if err := dialWithGate(context.Background(), g, connect, login); err == nil {
+	if err := dialWithGate(context.Background(), g, 1, a); err == nil {
 		t.Fatal("dialWithGate should surface the login error")
 	}
 
 	// A second client on the same host must now honor the 90s block, which is
-	// far longer than the 5s cooldown it would otherwise wait.
+	// far longer than the spacing it would otherwise wait.
 	clk2 := &fakeClock{t: clk.t}
 	g2 := newTestGate(t, path, testGateCfg, clk2)
 	if err := g2.Acquire(context.Background(), DialToken); err != nil {
 		t.Fatalf("second client Acquire: %v", err)
 	}
-	var total time.Duration
-	for _, d := range clk2.slept {
-		total += d
-	}
-	if total < 60*time.Second {
+	if total := totalSlept(clk2); total < 60*time.Second {
 		t.Errorf("second client waited %v; want >= 60s from the published block", total)
 	}
 }
@@ -84,11 +86,12 @@ func TestDialWithGate_StopsWhenConnectFails(t *testing.T) {
 	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
 	g := newTestGate(t, filepath.Join(t.TempDir(), "g"), testGateCfg, clk)
 
-	connect := func(context.Context) error { return errors.New("dial tcp: connection refused") }
 	loginCalls := 0
-	login := func(context.Context) error { loginCalls++; return nil }
-
-	if err := dialWithGate(context.Background(), g, connect, login); err == nil {
+	a := authAttempt{
+		connect: func(context.Context) error { return errors.New("dial tcp: connection refused") },
+		login:   func(context.Context, string) error { loginCalls++; return nil },
+	}
+	if err := dialWithGate(context.Background(), g, 1, a); err == nil {
 		t.Fatal("expected the connect error to surface")
 	}
 	if loginCalls != 0 {
@@ -100,11 +103,10 @@ func TestDialWithGate_StopsWhenConnectFails(t *testing.T) {
 // than panicking or blocking.
 func TestDialWithGate_NilGateStillDials(t *testing.T) {
 	connected, loggedIn := false, false
-	err := dialWithGate(context.Background(),
-		nil,
-		func(context.Context) error { connected = true; return nil },
-		func(context.Context) error { loggedIn = true; return nil },
-	)
+	err := dialWithGate(context.Background(), nil, 1, authAttempt{
+		connect: func(context.Context) error { connected = true; return nil },
+		login:   func(context.Context, string) error { loggedIn = true; return nil },
+	})
 	if err != nil {
 		t.Fatalf("nil gate: %v", err)
 	}
@@ -113,7 +115,8 @@ func TestDialWithGate_NilGateStillDials(t *testing.T) {
 	}
 }
 
-// A cancelled context must abort before dialing, not after.
+// A cancelled context must abort before dialing, not after, and must not burn
+// the remaining tries.
 func TestDialWithGate_HonorsCancelledContext(t *testing.T) {
 	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
 	g := newTestGate(t, filepath.Join(t.TempDir(), "g"), testGateCfg, clk)
@@ -126,8 +129,10 @@ func TestDialWithGate_HonorsCancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	connectCalls := 0
-	err := dialWithGate(ctx, g, func(context.Context) error { connectCalls++; return nil },
-		func(context.Context) error { return nil })
+	err := dialWithGate(ctx, g, dialAttempts, authAttempt{
+		connect: func(context.Context) error { connectCalls++; return nil },
+		login:   func(context.Context, string) error { return nil },
+	})
 	if err == nil {
 		t.Fatal("expected a context error")
 	}
@@ -150,11 +155,196 @@ func TestRecordRateLimitBlock_IgnoresNonRateLimitErrors(t *testing.T) {
 	if err := g2.Acquire(context.Background(), DialToken); err != nil {
 		t.Fatalf("Acquire: %v", err)
 	}
-	var total time.Duration
-	for _, d := range clk2.slept {
-		total += d
-	}
-	if total >= 60*time.Second {
+	if total := totalSlept(clk2); total >= 60*time.Second {
 		t.Errorf("a bad-credentials error published a %v block; want none", total)
+	}
+}
+
+// The ws-token is single-use and expires in ~5 minutes, so minting before the
+// gate grants the slot can hand login a token that died in the queue. The
+// order per try is fixed: acquire, mint, connect, login.
+func TestDialWithGate_MintsAfterAcquire(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "g")
+	g := newTestGate(t, path, testGateCfg, clk)
+	// Prime the gate so the next Acquire must sleep; the sleep marks "acquire".
+	if err := g.Acquire(context.Background(), DialToken); err != nil {
+		t.Fatalf("priming Acquire: %v", err)
+	}
+	var order []string
+	g.sleep = func(ctx context.Context, d time.Duration) error {
+		order = append(order, "acquire")
+		return clk.sleep(ctx, d)
+	}
+
+	var gotToken string
+	a := authAttempt{
+		mint:    func(context.Context) (string, error) { order = append(order, "mint"); return "tok-1", nil },
+		connect: func(context.Context) error { order = append(order, "connect"); return nil },
+		login: func(_ context.Context, tok string) error {
+			order = append(order, "login")
+			gotToken = tok
+			return nil
+		},
+	}
+	if err := dialWithGate(context.Background(), g, dialAttempts, a); err != nil {
+		t.Fatalf("dialWithGate: %v", err)
+	}
+	want := []string{"acquire", "mint", "connect", "login"}
+	if strings.Join(order, ",") != strings.Join(want, ",") {
+		t.Fatalf("call order = %v, want %v", order, want)
+	}
+	if gotToken != "tok-1" {
+		t.Errorf("login token = %q, want the minted %q", gotToken, "tok-1")
+	}
+	if st := readGateFile(t, path); len(st.PasswordLogins) != 0 {
+		t.Errorf("token dial consumed the password budget: %v", st.PasswordLogins)
+	}
+}
+
+// A mint 429 is the Clerk endpoint metering this host. It must become a
+// fleet-wide block (so siblings do not hammer the mint too) and must NOT fall
+// back to a password login, which would spend the scarcer budget.
+func TestDialWithGate_Mint429RecordsBlockAndRetries(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "g")
+	g := newTestGate(t, path, testGateCfg, clk)
+	start := clk.t
+
+	mints := 0
+	var logins []string
+	a := authAttempt{
+		mint: func(context.Context) (string, error) {
+			mints++
+			if mints == 1 {
+				return "", &clerk.HTTPError{Status: 429, Method: "POST", URL: "/api/player/p/ws-token", RetryAfter: 7 * time.Second}
+			}
+			return "tok-2", nil
+		},
+		connect: func(context.Context) error { return nil },
+		login:   func(_ context.Context, tok string) error { logins = append(logins, tok); return nil },
+	}
+	if err := dialWithGate(context.Background(), g, dialAttempts, a); err != nil {
+		t.Fatalf("dialWithGate: %v", err)
+	}
+	st := readGateFile(t, path)
+	if st.BlockSource != "mint429" {
+		t.Errorf("block_source = %q, want mint429", st.BlockSource)
+	}
+	if want := start.Add(7 * time.Second).UnixNano(); st.BlockedUntilNanos != want {
+		t.Errorf("blocked_until = %v, want %v", time.Unix(0, st.BlockedUntilNanos), time.Unix(0, want))
+	}
+	if len(logins) != 1 || logins[0] != "tok-2" {
+		t.Errorf("logins = %q, want exactly one with tok-2 (no password fallback)", logins)
+	}
+	if got := totalSlept(clk); got < 7*time.Second {
+		t.Errorf("second try waited %v; want >= 7s for the mint block", got)
+	}
+	if len(st.PasswordLogins) != 0 {
+		t.Errorf("mint 429 fell back to password: password_logins=%v", st.PasswordLogins)
+	}
+}
+
+// A non-rate-limit mint failure (revoked key, unowned player) falls back to a
+// password login, which must be charged to the password budget. The warning is
+// logged once per process, not once per try, or a bad key floods every log.
+func TestDialWithGate_MintAuthFailureFallsBackToPasswordBudget(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "g")
+	g := newTestGate(t, path, testGateCfg, clk)
+
+	var buf bytes.Buffer
+	var logins []string
+	a := authAttempt{
+		mint: func(context.Context) (string, error) {
+			return "", &clerk.HTTPError{Status: 401, Method: "POST", URL: "/api/player/p/ws-token"}
+		},
+		connect:      func(context.Context) error { return nil },
+		login:        func(_ context.Context, tok string) error { logins = append(logins, tok); return nil },
+		logger:       log.New(&buf, "", 0),
+		fallbackOnce: new(sync.Once),
+	}
+	if err := dialWithGate(context.Background(), g, dialAttempts, a); err != nil {
+		t.Fatalf("dialWithGate: %v", err)
+	}
+	if len(logins) != 1 || logins[0] != "" {
+		t.Fatalf("logins = %q, want one password login (empty token)", logins)
+	}
+	if st := readGateFile(t, path); len(st.PasswordLogins) != 1 {
+		t.Errorf("password_logins = %v, want exactly one entry", st.PasswordLogins)
+	}
+
+	// Three more failing tries sharing the process-wide once: still one line.
+	a.connect = func(context.Context) error { return errors.New("dial tcp: connection refused") }
+	if err := dialWithGate(context.Background(), g, dialAttempts, a); err == nil {
+		t.Fatal("expected the connect error to surface")
+	}
+	if n := strings.Count(buf.String(), "falling back to password"); n != 1 {
+		t.Errorf("fallback log appeared %d times across 4 tries, want 1:\n%s", n, buf.String())
+	}
+}
+
+// dialWithGate is the only retry mechanism for a fresh start: exactly
+// `attempts` gated tries, then the last error.
+func TestDialWithGate_StopsAfterAttempts(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	g := newTestGate(t, filepath.Join(t.TempDir(), "g"), testGateCfg, clk)
+
+	connects := 0
+	a := authAttempt{
+		connect: func(context.Context) error { connects++; return errors.New("dial tcp: connection refused") },
+		login:   func(context.Context, string) error { t.Error("login after failed connect"); return nil },
+	}
+	err := dialWithGate(context.Background(), g, dialAttempts, a)
+	if err == nil || !strings.Contains(err.Error(), "connection refused") {
+		t.Fatalf("err = %v, want the last connect error", err)
+	}
+	if connects != 3 {
+		t.Errorf("connect called %d times, want 3", connects)
+	}
+}
+
+// Without a minter every dial is a password login and is charged as one.
+func TestDialWithGate_NoMinterIsPasswordKind(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "g")
+	g := newTestGate(t, path, testGateCfg, clk)
+
+	a := authAttempt{
+		connect: func(context.Context) error { return nil },
+		login:   func(context.Context, string) error { return nil },
+	}
+	if err := dialWithGate(context.Background(), g, dialAttempts, a); err != nil {
+		t.Fatalf("dialWithGate: %v", err)
+	}
+	st := readGateFile(t, path)
+	if len(st.PasswordLogins) != 1 || len(st.Dials) != 1 {
+		t.Errorf("dials=%v password_logins=%v, want one of each", st.Dials, st.PasswordLogins)
+	}
+}
+
+// A caller re-recording a mint 429 (the ReconnectingHandler does, after a
+// failed Reconnect) must keep the server's 7s, not stretch it to the 5-minute
+// bare-429 default the error text alone would yield.
+func TestRecordRateLimitBlock_ClerkRetryAfterNotInflated(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "g")
+	g := newTestGate(t, path, testGateCfg, clk)
+
+	err := fmt.Errorf("reconnect: %w", &clerk.HTTPError{Status: 429, Method: "POST", URL: "/x", RetryAfter: 7 * time.Second})
+	recordRateLimitBlock(g, err, "reconnect")
+	if got, want := readGateFile(t, path).BlockedUntilNanos, clk.t.Add(7*time.Second).UnixNano(); got != want {
+		t.Errorf("blocked for %v, want 7s", time.Duration(got-clk.t.UnixNano()))
+	}
+
+	// A non-429 clerk error is not a per-IP block.
+	path2 := filepath.Join(t.TempDir(), "g2")
+	g2 := newTestGate(t, path2, testGateCfg, clk)
+	recordRateLimitBlock(g2, &clerk.HTTPError{Status: 401, Method: "POST", URL: "/x"}, "reconnect")
+	if err := g2.Acquire(context.Background(), DialToken); err != nil {
+		t.Fatal(err)
+	}
+	if st := readGateFile(t, path2); st.BlockedUntilNanos != 0 {
+		t.Errorf("a 401 mint error recorded a block: %+v", st)
 	}
 }
