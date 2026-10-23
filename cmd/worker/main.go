@@ -87,6 +87,7 @@ func main() {
 	enableFreight := flag.Bool("enable-freight", false, "Opt the missions role into the /shipping carrier path (freight evaluated co-equally with the mission board; default off)")
 	freightMaxPackages := flag.Int("freight-max-packages", 1, "Max concurrent freight contracts for the missions role (sub-project C multi-package trips; 1 = single-contract v1 behavior)")
 	consignSpec := flag.String("consign", "", "Standing consignment rules, comma-separated item:recipient:min[:keep] — hand allow-listed goods from this station's personal storage to a named hauler on each idle pass (e.g. adamantite_ore:salvager-2:50). Explicit allow-list only: gifting is irreversible.")
+	consignOfferSpec := flag.String("consign-offer", "", "Consignment offers, comma-separated item[:keep] — advertise allow-listed goods in this station's personal storage to the hauler fleet as consigned routes; the claiming hauler is gifted them via the handoff queue (needs --handoff-queue). Explicit allow-list only: gifting is irreversible.")
 	freightBootstrap := flag.Bool("freight-bootstrap", true, "Enable the probationary loss-leader freight floor for the missions role (default on when --enable-freight; set =false to keep freight on but disable bootstrapping)")
 	secondmentPath := flag.String("secondment-ledger", "", "Shared fleet-loan ledger a hauler writes its pirate-unlock nomination into (empty disables nominating; only the haul fleet sets it)")
 	fleetName := flag.String("fleet-name", "", "This worker's home fleet name, recorded on a secondment nomination so the reconciler knows where to return it")
@@ -99,6 +100,15 @@ func main() {
 	consignRules, consignErr := worker.ParseConsignRules(*consignSpec)
 	if consignErr != nil {
 		log.Fatalf("--consign: %v", consignErr)
+	}
+	consignOffers, offerErr := worker.ParseConsignOffers(*consignOfferSpec)
+	if offerErr != nil {
+		log.Fatalf("--consign-offer: %v", offerErr)
+	}
+	// An offer the claiming hauler can never be paid out on would strand it at
+	// the source, so refuse the combination outright.
+	if len(consignOffers) > 0 && *handoffQueuePath == "" {
+		log.Fatalf("--consign-offer needs --handoff-queue: the gift to the claiming hauler travels through it")
 	}
 
 	if *agentID == "" {
@@ -452,6 +462,7 @@ func main() {
 			if *handoffQueuePath != "" {
 				handoffQueue = handoff.NewQueue(*handoffQueuePath)
 			}
+			dispatch.Handoff = handoffQueue
 			sched, schedErr := worker.LoadScheduler(filepath.Join("data", "agents", *agentID, "schedule.json"))
 			if schedErr != nil {
 				logger.Printf("warning: load scheduler: %v", schedErr)
@@ -540,6 +551,25 @@ func main() {
 							logger.Printf("consign: %v", cerr)
 						case n > 0:
 							logger.Printf("consign: sent %d gift(s)", n)
+						}
+					}
+				}
+				if len(consignOffers) > 0 && mc != nil {
+					deps.ConsignOffer = func(c context.Context) {
+						st := client.GetState()
+						if st == nil {
+							return
+						}
+						owed, oerr := worker.HandoffOwed(handoffQueue, *agentID, st.Player.DockedAtBase)
+						if oerr != nil {
+							// Without the owed figure the report would advertise
+							// units already promised; skip it and let the last
+							// report stand until the queue reads again.
+							logger.Printf("consign offer: read handoff queue: %v", oerr)
+							return
+						}
+						if rerr := worker.ReportConsignStock(c, client, mc, *agentID, consignOffers, owed); rerr != nil {
+							logger.Printf("consign offer: %v", rerr)
 						}
 					}
 				}

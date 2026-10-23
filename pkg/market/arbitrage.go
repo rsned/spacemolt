@@ -84,6 +84,9 @@ type arbCandidate struct {
 	fromStation, toStation, itemID  string
 	buyPrice, sellPrice, qty, gross float64
 	sourceUnits                     float64
+	// actionType, discovered and notes default to an ordinary scanner row
+	// (buy_then_sell / arbitrage_scanner / logistics:deferred) when empty.
+	actionType, discovered, notes string
 }
 
 // ScanArbitrage detects cross-station buy-low/sell-high spreads from the latest
@@ -206,6 +209,19 @@ func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanRe
 	if len(candidates) > opts.Limit {
 		candidates = candidates[:opts.Limit]
 	}
+	// Consigned routes go on after the cap: they are few, cost nothing to
+	// source, and are the only outlet for a collector's stock.
+	accepted, err := c.consignRoutesAccepted(ctx)
+	if err != nil {
+		return ScanResult{}, err
+	}
+	if accepted {
+		consigned, cerr := c.consignCandidates(ctx, opts, now)
+		if cerr != nil {
+			return ScanResult{}, cerr
+		}
+		candidates = append(candidates, consigned...)
+	}
 
 	expiresAt := now.Add(opts.ExpiresIn).Format(time.RFC3339)
 	discoveredAt := now.Format(time.RFC3339)
@@ -230,15 +246,19 @@ func (c *Collector) ScanArbitrage(ctx context.Context, opts ScanOptions) (ScanRe
 		inserted := 0
 		for _, cand := range candidates {
 			cyclesSeen := prior[routeKey(cand.itemID, cand.fromStation, cand.toStation)] + 1
+			action, by, notes := cand.actionType, cand.discovered, cand.notes
+			if action == "" {
+				action, by, notes = "buy_then_sell", "arbitrage_scanner", "logistics:deferred"
+			}
 			_, err := tx.ExecContext(ctx, `
 				INSERT INTO arbitrage_opportunities
 				  (from_station_id, to_station_id, item_id, action_type, buy_price, sell_price,
 				   quantity, source_units, gross_profit, fuel_cost, travel_ticks, cargo_required, cycles_seen, status,
 				   expires_at, discovered_at, discovered_by, notes)
 				VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-				cand.fromStation, cand.toStation, cand.itemID, "buy_then_sell",
+				cand.fromStation, cand.toStation, cand.itemID, action,
 				cand.buyPrice, cand.sellPrice, cand.qty, cand.sourceUnits, cand.gross,
-				0.0, 0, cand.qty, cyclesSeen, "available", expiresAt, discoveredAt, "arbitrage_scanner", "logistics:deferred")
+				0.0, 0, cand.qty, cyclesSeen, "available", expiresAt, discoveredAt, by, notes)
 			if err != nil {
 				return fmt.Errorf("insert opportunity: %w", err)
 			}

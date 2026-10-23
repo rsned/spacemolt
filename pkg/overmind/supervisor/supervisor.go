@@ -89,6 +89,9 @@ func SpawnWith(cfg SpawnConfig) SpawnFunc {
 		if len(spec.Consign) > 0 {
 			args = append(args, "--consign", strings.Join(spec.Consign, ","))
 		}
+		if len(spec.ConsignOffer) > 0 {
+			args = append(args, "--consign-offer", strings.Join(spec.ConsignOffer, ","))
+		}
 		cmd := exec.CommandContext(ctx, cfg.WorkerBin, args...)
 		cmd.Stdout = log.Writer()
 		cmd.Stderr = log.Writer()

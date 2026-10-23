@@ -14,6 +14,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/assets"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/handoff"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 )
@@ -40,6 +41,10 @@ type WorkerDispatch struct {
 	// credentials.json), used by Deliver to resolve a gift recipient's agent
 	// id to its in-game username. Empty -> DefaultAgentsDir ("data/agents").
 	AgentsDir string
+	// Handoff is the shared stock-handoff queue (--handoff-queue). The haul
+	// role requests a consigned route's gift through it; nil leaves consigned
+	// routes unrunnable (they release before the hauler flies).
+	Handoff *handoff.Queue
 	// EnableFreight opts the missions role into the /shipping carrier path
 	// (freight evaluated co-equally with the mission board). Default false =
 	// the freight code is fully inert.
@@ -354,6 +359,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			FuelPrices:        d.Market,
 			SetActivity:       d.setActivity,
 			NominateForUnlock: d.nominateUnlockFn(),
+			Handoff:           d.Handoff,
 			RecaptureBuyMarket: func(ctx context.Context) error {
 				if err := d.Client.ViewMarket(ctx, map[string]any{}); err != nil {
 					return err

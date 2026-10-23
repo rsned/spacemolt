@@ -13,6 +13,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/handoff"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/navigation"
@@ -687,6 +688,10 @@ type HaulDeps struct {
 	// the chain is cheap to run. nil disables the whole path, which is the default
 	// for every fleet that is not haul.
 	NominateForUnlock func(ctx context.Context, stationID, systemID string) error
+	// Handoff is the shared stock-handoff queue a consigned route's gift
+	// travels through: the hauler requests it on claim, the collector's
+	// HandoffPass fulfills it. nil makes every consigned route unrunnable.
+	Handoff *handoff.Queue
 }
 
 // haulActivityLabel renders a claimed opportunity as the status-page activity line,
@@ -1225,6 +1230,18 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 
 	fmt.Fprintf(out, "haul: opp %d %s: buy %.0f @%s -> sell @%s\n", opp.ID, opp.ItemID, opp.Quantity, opp.FromStationName, opp.ToStationName) //nolint:errcheck
 
+	if opp.IsConsigned() {
+		// Ask the collector for the goods before flying, so its gift lands
+		// while this hauler is in transit rather than after it arrives.
+		var hold float64
+		if st := deps.Client.GetState(); st != nil {
+			hold = st.Ship.CargoCapacity
+		}
+		if err := requestConsignGift(ctx, deps, opp, hold); err != nil {
+			return releaseBookAnd(ctx, deps, out, opp, bookClaimID, err.Error())
+		}
+	}
+
 	if err := haulAutopilot(ctx, deps, out, buySys, opp.FromStationID, nil); err != nil {
 		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, fmt.Sprintf("transit to buy failed: %v", err))
 	}
@@ -1282,9 +1299,23 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, reason)
 	}
 	if opp.IsConsigned() {
-		// The goods are already ours in storage at this station, put there by
-		// a colleague's send_gift. Load them instead of buying: the rest of
-		// the run -- travel, sell, settle, results -- is unchanged.
+		// The goods are ours in storage at this station once the collector's
+		// gift lands. Load them instead of buying: the rest of the run --
+		// travel, sell, settle, results -- is unchanged.
+		moved, gerr := awaitConsignGift(ctx, deps, opp)
+		switch {
+		case errors.Is(gerr, errConsignSourceGone):
+			return abandonCollapsed(ctx, deps, out, opp, bookClaimID, gerr.Error())
+		case gerr != nil:
+			return releaseBookAnd(ctx, deps, out, opp, bookClaimID, gerr.Error())
+		}
+		// The gate sized on unit count; the hold is measured in space.
+		fits := math.Floor(cargoFree / itemUnitSize(ctx, deps.KB, opp.ItemID))
+		qty = min(qty, float64(moved), fits)
+		if qty < 1 {
+			return releaseBookAnd(ctx, deps, out, opp, bookClaimID,
+				fmt.Sprintf("nothing consigned fits (gifted %d, hold fits %.0f)", moved, fits))
+		}
 		if err := deps.Client.WithdrawItems(ctx, opp.ItemID, qty); err != nil {
 			return releaseBookAnd(ctx, deps, out, opp, bookClaimID,
 				fmt.Sprintf("withdraw failed: %v", err))

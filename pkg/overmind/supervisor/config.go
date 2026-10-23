@@ -42,6 +42,12 @@ type WorkerSpec struct {
 	// at the SENDING station and waits for them, so a pinned collector can
 	// consign to a hauler that is days away.
 	Consign []string `yaml:"consign,omitempty"`
+	// ConsignOffer forwards --consign-offer: items this collector advertises
+	// to the whole hauler fleet as consigned (withdraw_then_sell) routes,
+	// instead of naming a recipient. Whichever hauler claims the route gets
+	// the gift, through the handoff queue. Each entry is item[:keep]; the same
+	// allow-list discipline as Consign applies.
+	ConsignOffer []string `yaml:"consign_offer,omitempty"`
 	// DisableFreightBootstrap forwards --freight-bootstrap=false, turning off the
 	// probationary loss-leader floor while leaving freight enabled. Zero value
 	// (false) keeps the CLI default (bootstrap on).

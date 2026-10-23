@@ -105,6 +105,12 @@ type StandingDeps struct {
 	// be withdrawn, while an idle-pass step is switched by the fleet yaml and
 	// is genuinely reversible.
 	Consign func(context.Context)
+
+	// ConsignOffer, when set, runs once per non-drained idle pass under ExecMu,
+	// after Handoffs and Consign, to report this collector's offered stock so
+	// the scanner can turn it into consigned routes. Running after Handoffs
+	// means gifts made this pass are already out of storage when it reads.
+	ConsignOffer func(context.Context)
 }
 
 // RunStanding drives a worker's default standing behavior until ctx is
@@ -282,6 +288,9 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		}
 		if deps.Consign != nil {
 			deps.Consign(ctx)
+		}
+		if deps.ConsignOffer != nil {
+			deps.ConsignOffer(ctx)
 		}
 		if task := deps.nextTask(); task != nil {
 			deps.runTask(ctx, task)

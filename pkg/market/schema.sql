@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS arbitrage_opportunities (
     from_station_id     TEXT NOT NULL,
     to_station_id       TEXT NOT NULL,
     item_id             TEXT NOT NULL,
-    action_type         TEXT NOT NULL CHECK (action_type IN ('buy_then_sell', 'sell_then_buy')),
+    action_type         TEXT NOT NULL CHECK (action_type IN ('buy_then_sell', 'sell_then_buy', 'withdraw_then_sell')),
     buy_price           REAL NOT NULL,
     sell_price          REAL NOT NULL,
     quantity            REAL NOT NULL,
@@ -108,6 +108,21 @@ CREATE TABLE IF NOT EXISTS arbitrage_opportunities (
 
 CREATE INDEX IF NOT EXISTS idx_arbitrage_status ON arbitrage_opportunities(status, expires_at);
 CREATE INDEX IF NOT EXISTS idx_arbitrage_item ON arbitrage_opportunities(item_id, status);
+
+-- Consignment stock: goods a collector agent holds in station storage and will
+-- send_gift to whichever hauler claims a consigned (withdraw_then_sell) route
+-- for them. Re-reported by the collector on every idle pass; the scanner offers
+-- only fresh rows. station_id is the market id (voss_redoubt), base_id the
+-- docked-base id the handoff queue keys on (voss_redoubt_station).
+CREATE TABLE IF NOT EXISTS consign_stock (
+    holder      TEXT NOT NULL,
+    station_id  TEXT NOT NULL,
+    base_id     TEXT NOT NULL,
+    item_id     TEXT NOT NULL,
+    units       REAL NOT NULL,
+    updated_at  TEXT NOT NULL,
+    PRIMARY KEY (holder, station_id, item_id)
+);
 
 -- Haul book coordination: one row per active claim on a book (item + source
 -- station). Concurrency cap and destination fan-out are derived from this roster.
