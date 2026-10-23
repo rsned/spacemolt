@@ -49,3 +49,12 @@ deciding factor.
 
 Related: [[project_no_fuel_cells_refuel_deadlock]] (nothing ever BUYS a cell) ·
 [[reference_assist_tanker_migration]] · [[project_rescue_pipeline_bugs]]
+
+**Spotting a towed quarantine (2026-10-22, trader-7):** a rescue record whose
+assists all failed with `refuel: player_not_found` at a station-less POI means
+the ship is GONE from there — towed. trader-7 sat UNRESCUABLE 16h at
+quartzfield_star; operator rule of thumb: stranded >15 min = towed. Fix:
+`go run ./cmd/tools/rescue-clear -agents <id>`; it relaunched docked at
+Treasure Cache (reconcile logs `system changed ... docked changed false->true`)
+and resumed hauling in seconds. Watch its first pass: it liquidated its stale
+cargo (279 liquid_hydrogen) into a local bid "@1".
