@@ -64,12 +64,25 @@ func (a *authAttempt) try(ctx context.Context, g *ReconnectGate) error {
 		switch {
 		case err == nil:
 			token = tok
-		case errors.As(err, &he) && he.RateLimited():
+		case errors.As(err, &he) && (he.RateLimited() || he.Unavailable()):
+			// One key, one Clerk: a throttle or an outage on the mint endpoint
+			// is fleet-wide, so record it on the host gate and let the next
+			// try re-mint after the wait. Never fall back to a password here
+			// — that would spend the shared session_auth budget exactly when
+			// we are already being told to slow down (429), or rotate away
+			// from a perfectly good key during a Clerk outage (503).
 			d := he.RetryAfter
+			source := "mint429"
+			if he.Unavailable() {
+				source = "mint503"
+				if d <= 0 {
+					d = ConnectWindow // an outage of unknown length, not a rate limit
+				}
+			}
 			if d <= 0 {
 				d = g.DefaultBlock()
 			}
-			_ = g.RecordBlock(d, "mint429")
+			_ = g.RecordBlock(d, source)
 			return err
 		default:
 			a.logFallback(err)
@@ -115,7 +128,14 @@ func (a *authAttempt) logFallback(err error) {
 	if logger == nil {
 		logger = log.Default()
 	}
-	logIt := func() { logger.Printf("WARN: clerk mint failed (%v); falling back to password", err) }
+	logIt := func() {
+		var he *clerk.HTTPError
+		if errors.As(err, &he) && (he.Status == 401 || he.Status == 403) {
+			logger.Printf("WARN: clerk key rejected (HTTP %d) — check SPACEMOLT_CLERK_API_KEY / the key file, or regenerate it; falling back to password", he.Status)
+			return
+		}
+		logger.Printf("WARN: clerk mint failed (%v); falling back to password", err)
+	}
 	if a.fallbackOnce == nil {
 		logIt()
 		return

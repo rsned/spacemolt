@@ -327,6 +327,12 @@ func runClerk(ctx context.Context, url string, creds *game.Credentials, count in
 		os.Exit(2)
 	}
 	src := clerk.NewSource(key)
+	// GET /api/me first: a bad key or a Clerk outage should fail here with the
+	// operator's guidance, not as nine identical mint errors.
+	if meErr := src.Me(ctx); meErr != nil {
+		fmt.Fprintln(os.Stderr, "error:", clerk.KeyCheckMessage(meErr))
+		os.Exit(2)
+	}
 	fmt.Printf("=== CLERK mode: %d ws-token logins, one per %v, as %s ===\n", count, interval, creds.Username)
 
 	gameLog := log.New(io.Discard, "", 0)

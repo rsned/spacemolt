@@ -30,7 +30,14 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	players, err := clerk.NewSource(key).ListPlayers(ctx)
+	src := clerk.NewSource(key)
+	// Check the key first (GET /api/me) so a revoked key or a Clerk outage is
+	// reported as such, instead of as a confusing "list players" failure.
+	if meErr := src.Me(ctx); meErr != nil {
+		fmt.Fprintln(os.Stderr, clerk.KeyCheckMessage(meErr))
+		os.Exit(2)
+	}
+	players, err := src.ListPlayers(ctx)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "list players:", err)
 		os.Exit(1)

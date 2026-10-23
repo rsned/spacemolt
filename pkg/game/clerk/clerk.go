@@ -67,6 +67,46 @@ func (e *HTTPError) Error() string {
 // RateLimited reports whether the server answered 429.
 func (e *HTTPError) RateLimited() bool { return e.Status == http.StatusTooManyRequests }
 
+// Unavailable reports whether the server answered 503: Clerk is down, not the
+// key. The operator's guidance is to wait Retry-After and retry — never to
+// rotate the key or fall back to another credential.
+func (e *HTTPError) Unavailable() bool { return e.Status == http.StatusServiceUnavailable }
+
+// Me checks the API key against GET /api/me, the server operator's documented
+// health check: nil on 200 (key good), *HTTPError otherwise — 401/403 means
+// the key is bad, 503 means Clerk is down (see Unavailable). It is a one-shot
+// operator check for clerk-sync and the login probe, not something a worker
+// should call at every boot: 170 workers cold-starting would spend 170
+// requests on a question each mint answers anyway.
+func (s *Source) Me(ctx context.Context) error {
+	_, err := s.do(ctx, http.MethodGet, "/api/me")
+	return err
+}
+
+// KeyCheckMessage turns a Me error into the one-line operator guidance the
+// server documents, so every CLI says the same thing: a 401/403 is the key,
+// a 503 is Clerk — wait, do not rotate. Empty for a nil error; the plain error
+// text for anything else. Never includes the key.
+func KeyCheckMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	var he *HTTPError
+	if errors.As(err, &he) {
+		switch {
+		case he.Status == http.StatusUnauthorized || he.Status == http.StatusForbidden:
+			return fmt.Sprintf("Clerk API key rejected (HTTP %d): check SPACEMOLT_CLERK_API_KEY / the key file, or regenerate the key on the website", he.Status)
+		case he.Unavailable():
+			wait := "a moment"
+			if he.RetryAfter > 0 {
+				wait = he.RetryAfter.String()
+			}
+			return fmt.Sprintf("Clerk is unavailable (HTTP 503): wait %s and retry; do NOT rotate the key", wait)
+		}
+	}
+	return err.Error()
+}
+
 // Option configures a Source.
 type Option func(*Source)
 

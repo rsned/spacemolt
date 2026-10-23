@@ -412,3 +412,67 @@ func TestDialWithGate_PerPlayerRateLimitWaitsLocally(t *testing.T) {
 		t.Errorf("per-player limit recorded a fleet-wide block: %+v", st)
 	}
 }
+
+// A 503 from the mint endpoint means Clerk is down, not that the key is bad:
+// the operator's guidance is to wait Retry-After and retry, never to fall back
+// (or rotate). The wait is fleet-wide — one key, one Clerk — like a mint 429.
+func TestDialWithGate_Mint503WaitsAndRetries(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "g")
+	g := newTestGate(t, path, testGateCfg, clk)
+	start := clk.t
+
+	mints := 0
+	var logins []string
+	a := authAttempt{
+		mint: func(context.Context) (string, error) {
+			mints++
+			if mints == 1 {
+				return "", &clerk.HTTPError{Status: 503, Method: "POST", URL: "/api/player/p/ws-token", RetryAfter: 4 * time.Second}
+			}
+			return "tok-2", nil
+		},
+		connect: func(context.Context) error { return nil },
+		login:   func(_ context.Context, tok string) error { logins = append(logins, tok); return nil },
+	}
+	if err := dialWithGate(context.Background(), g, dialAttempts, a); err != nil {
+		t.Fatalf("dialWithGate: %v", err)
+	}
+	st := readGateFile(t, path)
+	if st.BlockSource != "mint503" {
+		t.Errorf("block_source = %q, want mint503", st.BlockSource)
+	}
+	if want := start.Add(4 * time.Second).UnixNano(); st.BlockedUntilNanos != want {
+		t.Errorf("blocked_until = %v, want %v", time.Unix(0, st.BlockedUntilNanos), time.Unix(0, want))
+	}
+	if len(logins) != 1 || logins[0] != "tok-2" {
+		t.Errorf("logins = %q, want exactly one with tok-2 (no password fallback)", logins)
+	}
+	if len(st.PasswordLogins) != 0 {
+		t.Errorf("mint 503 fell back to password: password_logins=%v", st.PasswordLogins)
+	}
+}
+
+// A 503 with no Retry-After is an outage of unknown length, not a rate limit:
+// wait one window, not the 5-minute bare-block default.
+func TestDialWithGate_Mint503NoRetryAfterWaitsOneWindow(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "g")
+	g := newTestGate(t, path, testGateCfg, clk)
+	start := clk.t
+
+	a := authAttempt{
+		mint: func(context.Context) (string, error) {
+			return "", &clerk.HTTPError{Status: 503, Method: "POST", URL: "/x"}
+		},
+		connect: func(context.Context) error { t.Fatal("connect must not run after a mint 503"); return nil },
+		login:   func(context.Context, string) error { return nil },
+	}
+	if err := dialWithGate(context.Background(), g, 1, a); err == nil {
+		t.Fatal("expected the mint error back")
+	}
+	st := readGateFile(t, path)
+	if want := start.Add(ConnectWindow).UnixNano(); st.BlockedUntilNanos != want {
+		t.Errorf("blocked_until = %v, want start+ConnectWindow %v", time.Unix(0, st.BlockedUntilNanos), time.Unix(0, want))
+	}
+}

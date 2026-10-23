@@ -147,3 +147,49 @@ func TestMintWSToken_HTMLBodyIsBounded(t *testing.T) {
 		t.Errorf("len(Body) = %d", len(he.Body))
 	}
 }
+
+// /api/me is the key health check the server operator documents: 200 = key
+// good, 401 = key bad, 503 + Retry-After = Clerk is down, wait and do NOT
+// rotate the key. The three outcomes must be distinguishable to a caller.
+func TestMe_OKRejectedUnavailable(t *testing.T) {
+	ok := newTestSource(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/me" || r.Method != http.MethodGet {
+			t.Errorf("got %s %s, want GET /api/me", r.Method, r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"id":"u1"}`))
+	})
+	if err := ok.Me(context.Background()); err != nil {
+		t.Fatalf("Me on 200: %v", err)
+	}
+
+	rejected := newTestSource(t, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusUnauthorized) })
+	var he *HTTPError
+	if err := rejected.Me(context.Background()); !errors.As(err, &he) || he.Status != 401 || he.Unavailable() || he.RateLimited() {
+		t.Fatalf("Me on 401 = %v, want *HTTPError{Status:401}", err)
+	}
+
+	down := newTestSource(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Retry-After", "30")
+		w.WriteHeader(http.StatusServiceUnavailable)
+	})
+	if err := down.Me(context.Background()); !errors.As(err, &he) || !he.Unavailable() || he.RetryAfter != 30*time.Second {
+		t.Fatalf("Me on 503 = %v, want Unavailable with retry_after 30s", err)
+	}
+}
+
+func TestKeyCheckMessage(t *testing.T) {
+	cases := map[string]struct {
+		err  error
+		want string
+	}{
+		"nil":      {nil, ""},
+		"rejected": {&HTTPError{Status: 401}, "Clerk API key rejected (HTTP 401): check SPACEMOLT_CLERK_API_KEY / the key file, or regenerate the key on the website"},
+		"down":     {&HTTPError{Status: 503, RetryAfter: 30 * time.Second}, "Clerk is unavailable (HTTP 503): wait 30s and retry; do NOT rotate the key"},
+		"other":    {errors.New("dial tcp: refused"), "dial tcp: refused"},
+	}
+	for name, c := range cases {
+		if got := KeyCheckMessage(c.err); got != c.want {
+			t.Errorf("%s: KeyCheckMessage = %q, want %q", name, got, c.want)
+		}
+	}
+}

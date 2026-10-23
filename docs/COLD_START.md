@@ -151,7 +151,11 @@ Prerequisites, once per host:
 
 - **Clerk API key.** Read from `SPACEMOLT_CLERK_API_KEY`, else the file named by
   `SPACEMOLT_CLERK_KEY_FILE`, else `~/.config/spacemolt/clerk_api_key`. Without it every worker
-  falls back to password login, which still works but is metered at 20/min.
+  falls back to password login, which still works but is metered at 20/min. `clerk-sync` and
+  `login-probe --mode clerk` check the key against `GET /api/me` first: **401 = the key is bad**
+  (regenerate it on the website); **503 = Clerk is down — wait the stated Retry-After, do NOT
+  rotate the key**. A worker that gets a 503 while minting records the wait on the host gate and
+  re-mints; it never falls back to a password for an outage.
 - **`player_id` in each agent's `credentials.json`.** Run `go run ./cmd/tools/clerk-sync` once,
   and again after any new account is registered or claimed (`--dry-run` previews;
   `--agents data/agents` is the default root). It prints Written / Unchanged / Unmatched /
