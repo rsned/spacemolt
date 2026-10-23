@@ -38,7 +38,7 @@ metadata:
 - ⭐🔴 [SIGSTOP/SIGCONT preserves game sessions](reference_sigstop_preserves_game_sessions.md) — zero logins; the safe tool during an IP block
 - ⭐🔴 [CargoUsed drifts upward forever](reference_client_cargo_used_drifts_upward.md) — `deposit_items` never cleared the client cargo list; fixed 08-22, uncommitted
 - ⭐ [15 of 22 haulers lost their freight hulls](project_haul_fleet_hull_attrition.md) — kill zones zaniah + goldcrest; the re-equip embargo is LIFTED (see next line)
-- ⭐ [Gift-sourced hauling: consignment + consigned routes](project_consignment_haul_relay.md) — send side + engine SHIPPED, generator OPEN; claim must precede the gift; never model it as buy_price 0 (poisons the pool)
+- ⭐ [Gift-sourced hauling: consignment + consigned routes](project_consignment_haul_relay.md) — generator BUILT 10-22 (uncommitted); 🔴 live arbitrage_opportunities CHECK rejects withdraw_then_sell — table rebuild needed before anything flows
 - ⭐🟢 [Re-hulling 10-10: congregation 1900 cargo @ ~6k = CONSUMABLE](project_haul_fleet_rehull_2026_10.md) — 74% of big-hull profit is from trips >65 units; rank on haul_results, never credit deltas
 - ⭐ [Buying a hull by hand](reference_buying_a_hull_by_hand.md) — buy_listed_ship AUTO-switches + stores the old hull; autopilot lands you in SPACE; apostrophe POI names fail, use the id
 - ⭐🔴 [congregation is OUTERRIM-EXCLUSIVE](reference_congregation_is_outerrim_exclusive.md) — only 7 outerrim shipyards; the ships table shows tier 0/no gate and does NOT reveal the lock, so commission_quote FIRST

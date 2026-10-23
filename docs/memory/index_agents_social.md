@@ -14,6 +14,7 @@ metadata:
 - [Bounty auto-pays on entering the empire's space](reference_bounty_auto_pays_on_entering_territory.md) — trap: 0 credits → no fuel → stranded
 - ⭐🔴 [Citizenship mechanics](reference_citizenship_mechanics.md) — `empire` is ORIGIN; crimson EXCLUSIVE, outerrim NOT; voidborn free
 - ⭐ [send_gift + play_as mechanics](reference_send_gift_and_play_as_mechanics.md) — sender DOCKED, recipient = USERNAME, play_as needs `quit`
+- ⭐ [Handoff gifts from STORAGE](reference_handoff_gifts_from_storage.md) — `send_gift source=storage` skips cargo; old handoff pass misread size-2 overflow as "storage empty"
 - [play_as via go run](feedback_play_as_go_run.md) — always `go run ./cmd/tools/play_as`, never bin/
 - [play_as scheduler](project_play_as_scheduler.md) — cron-lite hourly/daily/weekly commands
 - [Passenger feature](project_passenger_feature.md) — carrying commands + formatters; RawCommand blocking change

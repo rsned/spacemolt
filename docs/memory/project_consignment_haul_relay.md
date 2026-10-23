@@ -1,6 +1,6 @@
 ---
 name: project_consignment_haul_relay
-description: "Gift-sourced hauling: ConsignRule (send side, SHIPPED) + consigned arbitrage routes (engine, SHIPPED, inert). The generator is the open piece; claim must precede the gift."
+description: "Gift-sourced hauling: ConsignRule + consigned routes + (2026-10-22, UNCOMMITTED/UNDEPLOYED) the generator. BLOCKER: live arbitrage_opportunities CHECK rejects withdraw_then_sell — needs a table rebuild"
 metadata:
   type: project
 ---
@@ -48,26 +48,28 @@ synthetic zero-price row poisons the pool rather than failing.
 A failed withdraw is `releaseBookAnd`, not `abandonCollapsed`, so the arrival
 race costs a wasted pass and not the route.
 
-## OPEN: the generator, and the claim-before-gift ordering
+## BUILT 2026-10-22 (uncommitted, undeployed): the generator
 
-The recipient cannot be known until a hauler claims, and the goods cannot be
-gifted until the recipient is known. The existing claim machinery resolves it:
+- Collector: fleet yaml `consign_offer: ["item[:keep]"]` -> `--consign-offer`
+  (needs `--handoff-queue`). Idle pass, after Handoffs, upserts market.db
+  `consign_stock` = held - keep - pending handoffs owed (`ReportConsignStock`).
+  No storage reading -> reports NOTHING (never a false zero).
+- Scanner: `ScanArbitrage` turns fresh (<2h) stock into withdraw_then_sell rows,
+  appended AFTER the Limit cap; nets out consigned claims made after the last
+  report. Holder+base ride in `notes` ("consign holder=X base=Y"), parsed by
+  `market.ConsignSource` — the opp reads do not select discovered_by.
+- Hauler: on claim, enqueue handoff `consign/<opp>/<agent>` for
+  min(opp qty, hold/size); at the source, wait (15 x SleepLong) for it, then
+  withdraw min(gate qty, moved, free/size). Failed gift -> abandonCollapsed.
+- Stronghold guard already covers the SOURCE (`haul.go` FromSystemName), so
+  only pirate-unlocked haulers claim Voss routes.
 
-```
-1. collector creates a consigned opportunity, goods still in ITS OWN storage,
-   from_station = where it sits, status = available
-2. a hauler claims it            -> ClaimedBy = <agent>
-3. collector's next idle pass reads ClaimedBy on its own offers, send_gifts
-4. hauler arrives, withdraws, flies, sells, settles
-```
-
-Claim-to-gift is one idle pass (seconds); gift-to-arrival is a journey
-(minutes), so the gift normally lands first. The exception is a hauler already
-docked at the collector when it claims.
-
-**Unverified before building:** opportunity rows are currently produced by the
-scanner only. Check the claim/expiry machinery does not assume scanner
-provenance before having workers inject rows.
+⭐🔴 **BLOCKER: the live `arbitrage_opportunities` has
+`CHECK (action_type IN ('buy_then_sell','sell_then_buy'))`** (1.66M rows,
+9.8 GB market.db). Any withdraw_then_sell insert fails and rolls back the
+WHOLE scan. The code checks sqlite_master first and skips consignment on an
+old table, so deploying before migrating is safe — but nothing flows until the
+table is rebuilt (or its CHECK widened). schema.sql is fixed for fresh DBs.
 
 ## Path 2, not started: haul + re-gift relay
 

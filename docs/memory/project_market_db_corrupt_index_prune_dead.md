@@ -1,9 +1,19 @@
 ---
 name: project_market_db_corrupt_index_prune_dead
-description: "market.db index idx_orders_station_item is corrupt; market-prune has failed every run since 2026-09-15 22:21, so market_orders is unpruned and the file is 40GB"
+description: "market_orders indexes go malformed and silently kill market-prune: idx_orders_station_item 09-15, AGAIN 2026-10-22 ~15:00 (idx_orders_item_time seek path). Fix = REINDEX with writers down"
 metadata:
   type: project
 ---
+
+⭐🔴 **RECURRED 2026-10-22, between 14:42 (last clean prune) and 15:15 (first
+`malformed (779)`).** This time `SELECT MAX(captured_at) FROM market_orders`
+(plan: COVERING INDEX `idx_orders_item_time`) fails, while `... NOT INDEXED`
+works and a full `COUNT(*) ... INDEXED BY` over all five indexes succeeds — a
+count walks pages without comparing keys, a seek does, so the damage is key
+order inside the index. Timeline proves it predates that day's
+arbitrage_opportunities rebuild (16:48) and VACUUM INTO backup (16:30). A
+VACUUM INTO backup reads clean because it rebuilds indexes from rows — a clean
+backup does NOT prove the live indexes were clean. Not yet fixed.
 
 **`idx_orders_station_item` is corrupt, and it has silently killed pruning
 since 2026-09-15 22:21** (found 2026-09-21). 254 consecutive failures:
