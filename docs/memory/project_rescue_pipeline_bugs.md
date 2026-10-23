@@ -76,3 +76,8 @@ mid-`jump`, and the restarted worker inherited the same pending action.
 Remedy is the proven one above: for the 11 at The Veil Anchor the strandee is AT a station — gift credits, play_as
 `dock` + `refuel`, re-arm or archive the record. Fund the assist fleet from the banker/treasury first or every
 re-armed record fails the same way. [[reference_clerk_token_login_and_connection_gate]] for the deploy windows.
+**Outcome 10-23 15:50 PDT:** all 18 mining records cleared with `rescue-clear`, the overmind logged `no record for
+quarantined X; releasing` for all 18 within 60 s and relaunched them; every one logged in with its gift and docked
+/refuelled itself (random-4 by hand first: `dock` → "Already docked", `refuel` → 99 units for 198 cr — the pending-mine
+wedge had cleared by itself after ~12 h). Gift + clear is the whole fix for a broke strandee AT a station; no tanker,
+no tow. The 9 haul/unlock stall records (not broke) were left for triage.

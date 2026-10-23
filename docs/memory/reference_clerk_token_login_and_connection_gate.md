@@ -1,6 +1,6 @@
 ---
 name: reference_clerk_token_login_and_connection_gate
-description: "SHIPPED 2026-10-23 (merge 1112f7de): fleet logs in with single-use Clerk ws-tokens (one API key, player_id in credentials.json via clerk-sync) behind a host-wide rolling 60 dials/min gate; --stagger is dead; 4001 parks the worker; play_as writes a lease. Live rollout steps still pending."
+description: "SHIPPED 2026-10-23 (merge 1112f7de): fleet logs in with single-use Clerk ws-tokens (one API key, player_id in credentials.json via clerk-sync) behind a host-wide rolling 60 dials/min gate; --stagger is dead; play_as writes a lease. Key regenerated 10-23. KNOWN GAP: 4001 does NOT park a running worker — it reconnects in 2 s and displaces play_as."
 metadata:
   node_type: memory
   type: reference
@@ -64,3 +64,14 @@ fallback; `clerk-sync` and `login-probe --mode clerk` call `/api/me` first and p
 (pre-existing); a `clerk_login_token` error with no retry_after re-mints immediately; fresh-start worker ignores
 the lease; stale-lease detection by dead pid. Design: `docs/superpowers/specs/2026-10-22-clerk-connection-pacer-design.md`.
 See [[reference_login_vs_reconnect_gating]], [[reference_rate_limit_buckets_and_escalation]], [[reference_login_rate_limits]].
+
+**2026-10-23 follow-ups.** Clerk key REGENERATED (operator, 10-23) — the key-in-transcript item is closed; `/api/me` → 200.
+19 h of production: 0×429, 0×`rate_limited`, 0×`session_replaced` from our own dials; five server deploy-503 windows
+produced 74 `gate block` lines (15 s `retry_after`, one bare 5 m) and every worker reconnected cleanly.
+**⭐🔴 The 4001 park does NOT work in the live worker.** Three times running, `play_as the_banker` logged in, the
+banker worker got `4001 session_replaced` and logged `✓ Reconnected successfully` **2 s later** (no
+"session_replaced: parking" WARN at all), displacing play_as mid-script. The park code is in `pkg/game/client.go:920`
+but the worker's reconnect path evidently bypasses it. Until fixed, to drive an agent whose worker is running:
+**SIGSTOP its overmind FIRST, then the worker**, run play_as, `rm` the lease (play_as leaves it behind when it is
+displaced), then SIGCONT both. A worker frozen without its overmind frozen is killed and respawned by the stall
+watchdog within ~90 s, and the respawn displaces you again. [[reference_sigstop_preserves_game_sessions]]

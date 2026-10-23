@@ -1,6 +1,6 @@
 ---
 name: project_banker_fleet
-description: "the_banker (outerrim, sol_central, role resident) funded with 10M on 2026-10-22. A NEW agent must EARN 1000cr before it can accept or send credits. cmd/tools/banker is operator-driven; exclude the bogus `overmind` roster entry."
+description: "the_banker (outerrim, sol_central, role resident) funded with 10M on 2026-10-22; 9.66M after the 10-23 sweep. A NEW agent must EARN 1000cr before it can accept or send credits. cmd/tools/banker is operator-driven; `overmind` IS a real agent; freeze overmind+worker before play_as the_banker."
 metadata:
   node_type: memory
   type: project
@@ -59,9 +59,18 @@ nothing without `--execute`. Flags: `--from`, `--floor` (default 10000),
 `--max-total`, `--max-age` (refuses a status file older than 1h), `--emit-script`.
 Point it at `--from the_banker`.
 
-**Before any `--execute`:** the plan includes a roster entry literally named
-`overmind`, username `overmind` — not a real agent. `send_gift` addresses the
-username, so that grant misfires. Exclude it.
+**Correction 2026-10-23:** `overmind` IS a real mining-fleet agent (agent_id and
+username both `overmind`, Theoria hull, homes at The Anvil). `send_gift "overmind"
+credits 10000` landed and its worker came up with `Credits: 10000`. The earlier
+"exclude it" note was wrong.
+
+**Driving the_banker while its worker runs (2026-10-23):** the worker does NOT park
+on 4001 — it reconnects in 2 s and displaces play_as mid-script (happened 3×, each
+time after 1–11 gifts). SIGSTOP the banker OVERMIND first, then the worker, run
+`play_as the_banker` with `run <grants file>` (put `sleep 2s` between gifts), `rm`
+the stale lease, then SIGCONT both. A worker frozen alone is killed and respawned by
+its overmind in ~90 s and the respawn displaces you. The emitted script's `run`
+works as documented; `send_gift` returns `credits_sent` per grant.
 
 At `--floor 10000` the sweep was **46 grants / 366,649 cr** — trivial against
 the 10M float.
