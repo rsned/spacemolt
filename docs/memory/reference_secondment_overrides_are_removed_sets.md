@@ -96,3 +96,16 @@ Two ppids for one agent_id is the signature; map ppid to fleet by reading the
 supervisor's `/proc/<ppid>/cmdline`. Never `pgrep -f` — it matches your own
 shell. 56 `session_replaced` events were logged while the doubles ran.
 
+
+## 2026-10-23: returning SOME graduated agents, not all
+
+`ReconcileSecondments` returns every `seconded` entry whose `Graduated()` is true for the `--home` fleet it is run
+with — there is no per-agent return flag. The daemon runs `--home haul`, so craft-homed entries (`e.HomeFleet !=
+home.Name`) are skipped forever until someone runs a craft-homed sweep, and THAT would return all eight graduated
+craftsmen at once. To return a subset, mirror `moveAgent` by hand: away-overrides `removed` += ids → SIGHUP away
+overmind (logs `membership: removing X — drain sent, force-stop after 4m0s`; a quarantined agent is `removed from
+fleet` instantly) → wait for the worker process to exit → clear any rescue record → home-overrides `removed` −= ids →
+SIGHUP home overmind → set the ledger entries to `phase: home` with a note (`fleet-secondment --status` to verify).
+Gotcha that bit me: `ps -eo args | grep -E 'bin/worker .*agent X'` matches the grep's OWN bash -c wrapper, so a
+wait loop on it never terminates — anchor on the pid column (`grep -E '^ *[0-9]+ +[0-9]+ bin/worker --agent X '`).
+Home launched its worker while away's drain was still running → ~3 min of `session_replaced` ping-pong, self-healing.
