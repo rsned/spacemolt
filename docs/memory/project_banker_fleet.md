@@ -65,11 +65,12 @@ credits 10000` landed and its worker came up with `Credits: 10000`. The earlier
 "exclude it" note was wrong.
 
 **Driving the_banker while its worker runs (2026-10-23):** the worker does NOT park
-on 4001 — it reconnects in 2 s and displaces play_as mid-script (happened 3×, each
-time after 1–11 gifts). SIGSTOP the banker OVERMIND first, then the worker, run
-`play_as the_banker` with `run <grants file>` (put `sleep 2s` between gifts), `rm`
-the stale lease, then SIGCONT both. A worker frozen alone is killed and respawned by
-its overmind in ~90 s and the respawn displaces you. The emitted script's `run`
+on 4001 — it reconnects in 2 s and displaces play_as mid-script (happened 3×). SIGSTOP
+just the banker WORKER, run `play_as the_banker` with `run <grants file>` (`sleep 2s`
+between gifts, ≤10 gifts per session), `rm data/agents/the_banker/play_as.lease`,
+SIGCONT. The supervisor kills a silent worker at 90 s (`SilenceTimeout`), and freezing
+the overmind instead rolling-restarts the whole fleet on thaw — see
+[[reference_clerk_token_login_and_connection_gate]]. The emitted script's `run`
 works as documented; `send_gift` returns `credits_sent` per grant.
 
 At `--floor 10000` the sweep was **46 grants / 366,649 cr** — trivial against

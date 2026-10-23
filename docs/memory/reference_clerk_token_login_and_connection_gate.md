@@ -72,6 +72,9 @@ produced 74 `gate block` lines (15 s `retry_after`, one bare 5 m) and every work
 banker worker got `4001 session_replaced` and logged `✓ Reconnected successfully` **2 s later** (no
 "session_replaced: parking" WARN at all), displacing play_as mid-script. The park code is in `pkg/game/client.go:920`
 but the worker's reconnect path evidently bypasses it. Until fixed, to drive an agent whose worker is running:
-**SIGSTOP its overmind FIRST, then the worker**, run play_as, `rm` the lease (play_as leaves it behind when it is
-displaced), then SIGCONT both. A worker frozen without its overmind frozen is killed and respawned by the stall
-watchdog within ~90 s, and the respawn displaces you again. [[reference_sigstop_preserves_game_sessions]]
+**SIGSTOP only that worker, finish play_as within 60 s, `rm` the lease, SIGCONT.** The supervisor's
+`SilenceTimeout` is 90 s (pkg/overmind/supervisor/supervisor.go): a frozen worker is killed and respawned at ~90 s
+and the respawn displaces you — so keep each play_as session short (≤ ~10 gifts with `sleep 2s`). **Do NOT freeze the
+overmind for longer than that either:** I froze the mining overmind for 2 min 20 s on 10-23 and on thaw it saw every
+heartbeat >90 s stale and ROLLING-RESTARTED ALL 27 WORKERS (5 s apart, `killed=false`, workers exit on
+`context canceled` when the control socket closes). Harmless but a full fleet relog. [[reference_sigstop_preserves_game_sessions]]
