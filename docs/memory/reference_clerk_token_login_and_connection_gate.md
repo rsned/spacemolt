@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: reference
   originSessionId: ae0c813d-9d8e-4b7b-a04f-87f7158b2502
-  modified: 2026-10-23T06:56:57.710Z
+  modified: 2026-10-23T07:06:47.770Z
 ---
 
 **What changed (branch `worktree-clerk-connection-pacer`, 16 commits, merged 2026-10-23):**
@@ -54,11 +54,13 @@ still on pre-merge binaries (read-only, harmless).
 agent via `POST /api/player/{id}/ws-token` (5 min), `login_token` on the socket, honor HTTP 429 `Retry-After` /
 `rate_limited retry_after` / close 4003, one persistent connection per agent, staggered ramp-up. Two endpoints
 we did not know: **`GET /api/me`** checks the key (200 good, 401 bad, **503 + Retry-After = wait, do NOT rotate**)
-and **`GET /api/players`** lists owned characters (equivalent to our `/api/registration-code`). Gap to fix: a 503
-from the mint endpoint currently falls back to a password login for that try instead of waiting and re-minting.
+and **`GET /api/players`** lists owned characters (equivalent to our `/api/registration-code`). **Fixed 10-23:**
+a mint 503 now records the wait on the gate (`mint503`, Retry-After else one window) and re-mints — no password
+fallback; `clerk-sync` and `login-probe --mode clerk` call `/api/me` first and print the operator's guidance
+(`clerk.KeyCheckMessage`); a 401 on mint logs "clerk key rejected". bin/worker + bin/overmind rebuilt with this —
+**the running fleet picks it up at the key-regeneration restart.**
 
-**Known follow-ups (parked at merge):** 503-with-Retry-After on mint → wait + re-mint, no password fallback;
-`/api/me` key check at clerk-sync and worker boot; tools/observer/`pkg/agent/manager.go` still dial outside the gate
+**Known follow-ups (parked at merge):** tools/observer/`pkg/agent/manager.go` still dial outside the gate
 (pre-existing); a `clerk_login_token` error with no retry_after re-mints immediately; fresh-start worker ignores
 the lease; stale-lease detection by dead pid. Design: `docs/superpowers/specs/2026-10-22-clerk-connection-pacer-design.md`.
 See [[reference_login_vs_reconnect_gating]], [[reference_rate_limit_buckets_and_escalation]], [[reference_login_rate_limits]].
