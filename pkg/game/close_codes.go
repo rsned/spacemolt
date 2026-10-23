@@ -2,7 +2,10 @@ package game
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coder/websocket"
 )
@@ -18,7 +21,35 @@ const (
 	// Used for abnormal or ambiguous closes where re-sending risks
 	// double-execution.
 	closeFailFast
+	// closeDisplaced: 4001 session_replaced. Fail pending, mark the client
+	// displaced and do not auto-reconnect.
+	closeDisplaced
+	// closeRateLimited: 4003 connection_rate_limited. Fail pending and feed
+	// retry_after to the host-wide gate.
+	closeRateLimited
 )
+
+// Private server close codes.
+const (
+	CloseSessionReplaced       websocket.StatusCode = 4001
+	CloseAuthTimeout           websocket.StatusCode = 4002
+	CloseConnectionRateLimited websocket.StatusCode = 4003
+)
+
+var closeRetryAfterRe = regexp.MustCompile(`retry_after=(\d+)`)
+
+// closeRetryAfter extracts the retry_after seconds hint from a close reason.
+func closeRetryAfter(reason string) (time.Duration, bool) {
+	m := closeRetryAfterRe.FindStringSubmatch(reason)
+	if m == nil {
+		return 0, false
+	}
+	n, err := strconv.Atoi(m[1])
+	if err != nil {
+		return 0, false
+	}
+	return time.Duration(n) * time.Second, true
+}
 
 // String renders the action name so log lines read "action=replay"
 // instead of "action=0".
@@ -28,6 +59,10 @@ func (a closeAction) String() string {
 		return "replay"
 	case closeFailFast:
 		return "fail-fast"
+	case closeDisplaced:
+		return "displaced"
+	case closeRateLimited:
+		return "rate-limited"
 	default:
 		return fmt.Sprintf("closeAction(%d)", int(a))
 	}
@@ -53,6 +88,9 @@ var knownCloseCodes = []closeCodePolicy{
 	},
 	{code: websocket.StatusGoingAway, action: closeFailFast, note: "going away"},
 	{code: websocket.StatusAbnormalClosure, action: closeFailFast, note: "abnormal close (no close frame)"},
+	{code: CloseSessionReplaced, action: closeDisplaced, note: "session_replaced — another login owns this player; do not auto-reconnect"},
+	{code: CloseAuthTimeout, action: closeFailFast, note: "auth_timeout — reconnect and authenticate promptly"},
+	{code: CloseConnectionRateLimited, action: closeRateLimited, note: "connection_rate_limited — honor retry_after"},
 	{code: websocket.StatusInternalError, action: closeFailFast, note: "server internal error"},
 }
 

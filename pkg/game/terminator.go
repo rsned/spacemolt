@@ -1,6 +1,8 @@
 package game
 
 import (
+	"time"
+
 	"github.com/rsned/spacemolt/internal/protocol"
 )
 
@@ -88,5 +90,12 @@ func terminateOnTypes(types ...string) Terminator {
 func serverErrorFromPayload(p map[string]any) error {
 	code, _ := p["code"].(string)
 	msg, _ := p["message"].(string)
-	return &ServerError{Code: code, Message: msg}
+	se := &ServerError{Code: code, Message: msg}
+	if ev, ok := rateLimitBucketFrom(p); ok {
+		se.Bucket = ev.Bucket
+		if ev.RetryAfter > 0 {
+			se.RetryAfter = time.Duration(ev.RetryAfter) * time.Second
+		}
+	}
+	return se
 }

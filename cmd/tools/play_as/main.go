@@ -152,6 +152,21 @@ func main() {
 		}
 	}()
 
+	// Operator presence: while this lease exists the agent's displaced worker
+	// waits instead of taking the session back. Removed on every exit path.
+	lease := acquireOperatorLease(agentID, logger)
+	defer lease.release()
+	stopIntRelease := lease.releaseOnSignal()
+	// play_as never parks on a 4001: whoever replaced us (a worker whose lease
+	// check raced us, or another play_as) owns the session now.
+	if wsClient, ok := client.(*game.Client); ok {
+		wsClient.SetOnDisplaced(func() {
+			fmt.Println("\nsession replaced by another client (play_as or a worker); exiting")
+			lease.release()
+			os.Exit(0)
+		})
+	}
+
 	logger.Printf("Connected as: %s (Empire: %s)", creds.Username, creds.Empire)
 	globalClient = client
 
@@ -298,7 +313,9 @@ func main() {
 	// Load config
 	cfg := loadConfig(*configPath)
 
-	// Run REPL loop
+	// Run REPL loop. The REPL owns SIGINT from here (it interrupts the running
+	// command); its exits return normally and run the deferred lease release.
+	stopIntRelease()
 	runREPL(client, ctx, cfg, agentID, creds.Username)
 }
 

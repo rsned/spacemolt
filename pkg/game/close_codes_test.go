@@ -1,6 +1,7 @@
 package game
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -75,5 +76,109 @@ func TestHandleClose_FailFastPropagates(t *testing.T) {
 		}
 	case <-time.After(50 * time.Millisecond):
 		t.Fatal("pending request not failed on close")
+	}
+}
+
+func TestClosePolicy_4001IsDisplaced(t *testing.T) {
+	p, known := lookupClosePolicy(CloseSessionReplaced, "")
+	if !known || p.action != closeDisplaced {
+		t.Errorf("got action=%v known=%v, want closeDisplaced/true", p.action, known)
+	}
+}
+
+func TestClosePolicy_4002IsFailFast(t *testing.T) {
+	p, known := lookupClosePolicy(CloseAuthTimeout, "")
+	if !known || p.action != closeFailFast {
+		t.Errorf("got action=%v known=%v, want closeFailFast/true", p.action, known)
+	}
+}
+
+func TestClosePolicy_4003IsRateLimited(t *testing.T) {
+	p, known := lookupClosePolicy(CloseConnectionRateLimited, "")
+	if !known || p.action != closeRateLimited {
+		t.Errorf("got action=%v known=%v, want closeRateLimited/true", p.action, known)
+	}
+}
+
+func TestCloseRetryAfter(t *testing.T) {
+	tests := []struct {
+		reason string
+		want   time.Duration
+		ok     bool
+	}{
+		{"rate_limited retry_after=30", 30 * time.Second, true},
+		{"retry_after=5", 5 * time.Second, true},
+		{"rate_limited", 0, false},
+		{"", 0, false},
+	}
+	for _, tt := range tests {
+		got, ok := closeRetryAfter(tt.reason)
+		if got != tt.want || ok != tt.ok {
+			t.Errorf("closeRetryAfter(%q) = %v,%v want %v,%v", tt.reason, got, ok, tt.want, tt.ok)
+		}
+	}
+}
+
+func newGatedCloseClient(t *testing.T) (*Client, string, *fakeClock) {
+	t.Helper()
+	clk := &fakeClock{t: time.Unix(1_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "gate")
+	c := newSubmitClientSkeleton()
+	c.gate = newTestGate(t, path, testGateCfg, clk)
+	return c, path, clk
+}
+
+func TestHandleClose_4003RecordsBlockOnGate(t *testing.T) {
+	c, path, clk := newGatedCloseClient(t)
+	c.handleClose(&websocket.CloseError{Code: CloseConnectionRateLimited, Reason: "rate_limited retry_after=30"})
+	st := readGateFile(t, path)
+	if want := clk.t.Add(30 * time.Second).UnixNano(); st.BlockedUntilNanos != want {
+		t.Errorf("blocked_until = %d, want %d", st.BlockedUntilNanos, want)
+	}
+	if st.BlockSource != "close4003" {
+		t.Errorf("block_source = %q, want close4003", st.BlockSource)
+	}
+}
+
+func TestHandleClose_4003NoHintUsesDefaultBlock(t *testing.T) {
+	c, path, clk := newGatedCloseClient(t)
+	c.handleClose(&websocket.CloseError{Code: CloseConnectionRateLimited})
+	st := readGateFile(t, path)
+	if want := clk.t.Add(ConnectBareBlock).UnixNano(); st.BlockedUntilNanos != want {
+		t.Errorf("blocked_until = %d, want %d", st.BlockedUntilNanos, want)
+	}
+}
+
+func TestHandleClose_4001SetsDisplaced(t *testing.T) {
+	c := newSubmitClientSkeleton()
+	ch := make(chan protocol.Response, 1)
+	c.router.registerByID("req-disp", ch, terminateOnAction)
+	c.handleClose(&websocket.CloseError{Code: CloseSessionReplaced, Reason: "session_replaced"})
+	if !c.Displaced() {
+		t.Error("Displaced() = false, want true")
+	}
+	select {
+	case resp := <-ch:
+		if code, _ := resp.Payload["code"].(string); code != "connection_closed" {
+			t.Errorf("code = %q, want connection_closed", code)
+		}
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("pending request not failed on 4001")
+	}
+	c.clearDisplaced()
+	if c.Displaced() {
+		t.Error("Displaced() = true after clearDisplaced")
+	}
+}
+
+func TestParseErrorState_IPTimedOutRecordsBlock(t *testing.T) {
+	c, path, clk := newGatedCloseClient(t)
+	c.parseErrorState(map[string]any{"code": "ip_timed_out", "message": "too many requests, try again in 120 seconds"})
+	st := readGateFile(t, path)
+	if min := clk.t.Add(120 * time.Second).UnixNano(); st.BlockedUntilNanos < min {
+		t.Errorf("blocked_until = %d, want >= %d", st.BlockedUntilNanos, min)
+	}
+	if st.BlockSource != "ip_timed_out" {
+		t.Errorf("block_source = %q, want ip_timed_out", st.BlockSource)
 	}
 }

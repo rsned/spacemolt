@@ -58,6 +58,12 @@ const (
 	// finishing) bypass this entirely; it only governs noticing turnover while
 	// sitting still.
 	SleepMissionBoardPoll = 30 * SleepTick // 5min dry mission-board re-poll
+	// SleepDisplacedRetry is how long a client parks after a 4001
+	// session_replaced close (another login took its slot, typically an
+	// operator's play_as) before ONE gated reconnect attempt. Fighting for the
+	// slot only thrashes both sessions; the worker returns on its own once the
+	// operator's session ends.
+	SleepDisplacedRetry = 60 * SleepTick // 10min
 	// SleepKeepalive is how often an otherwise-silent worker proves liveness to
 	// the server. It is a liveness heartbeat, NOT a poll: an idle agent has
 	// nothing to learn from get_status, and at fleet scale a per-tick poll is
@@ -65,6 +71,21 @@ const (
 	SleepKeepalive         = 15 * time.Minute
 	SleepChatPoll          = 1 * time.Hour    // Chat channel polling interval (background reconcile/ingest)
 	SleepIPRateLimitJitter = 60 * time.Second // Max random jitter added after IP rate limit expires
+
+	// Host-wide connection budgets enforced by ReconnectGate. They sit below the
+	// server's per-IP limits so the fleet never trips them.
+	ConnectWindow         = 60 * time.Second // server per-IP rate-limit window
+	ConnectDialBudget     = 60               // dials per window (server: 100)
+	ConnectPasswordBudget = 20               // password logins per window (server: 30)
+
+	// ConnectBareBlock is how long the fleet holds off on a per-IP block (HTTP 429)
+	// that states no duration. It is deliberately NOT ConnectWindow: every block
+	// actually observed stated 444s to 1757s (2026-08-27/28), so a 60s hold
+	// released the whole fleet back into a live block, which extended it -- an
+	// 8-minute block became 15.5 minutes. Under-recording is the expensive
+	// direction: waiting too long costs idle time, waiting too little costs an
+	// escalating outage. A server that states its duration is still believed.
+	ConnectBareBlock = 5 * time.Minute
 
 	SleepPartnerJoinWindow = 5 * time.Minute // Max wait for a human to attack a bot in spar partner mode
 

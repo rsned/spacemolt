@@ -1,6 +1,6 @@
 // Command login-probe empirically measures the game server's per-IP /login
-// rate limit so the overmind supervisor's StaggerInterval (default
-// game.SleepMedium = 5s) can be validated against the real ceiling.
+// rate limit so launch pacing (now the host-wide connection gate; formerly
+// the supervisor StaggerInterval) can be validated against the real ceiling.
 //
 // It runs from the SAME host/IP as the fleet, so tripping the limit will
 // briefly lock out this IP (the server returns code="ip_timed_out" with a
@@ -14,7 +14,16 @@
 //	         block plus the reported block duration. Capped by --max.
 //	paced  - log in once per --interval for --duration. If no block occurs the
 //	         pace is safe; the first block stops the run and flags the pace as
-//	         too aggressive. Default --interval is the supervisor StaggerInterval.
+//	         too aggressive. Default --interval is game.SleepMedium (5s).
+//	clerk  - log in --count times using Clerk ws-tokens instead of the password.
+//	         One token is minted per login (a ws-token is single-use), then a
+//	         fresh connection is opened and LoginWithToken is called. Logins are
+//	         spaced by --interval and the run stops at the first error. Requires
+//	         the agent's credentials.json to carry a player_id (run clerk-sync)
+//	         and a Clerk key in SPACEMOLT_CLERK_API_KEY or the key file. Neither
+//	         the key nor any token is printed. --count defaults to 9: one
+//	         account may make only 10 login_token calls per minute, so more
+//	         would trip the per-player limit instead of measuring the per-IP one.
 //
 // Each login uses a fresh connection because login is a once-per-connection
 // operation. The probe stops the instant it sees a rate-limit — it never keeps
@@ -38,6 +47,7 @@ import (
 
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/clerk"
 )
 
 const defaultURL = "wss://game.spacemolt.com/ws"
@@ -308,13 +318,93 @@ func runPaced(ctx context.Context, url string, creds credentials, interval, dura
 	}
 }
 
+// runClerk performs count paced ws-token logins, minting one token per login.
+// It stops at the first error.
+func runClerk(ctx context.Context, url string, creds *game.Credentials, count int, interval time.Duration, debug bool) {
+	key, err := clerk.LoadKey()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error: no Clerk key: set SPACEMOLT_CLERK_API_KEY or ~/.config/spacemolt/clerk_api_key")
+		os.Exit(2)
+	}
+	src := clerk.NewSource(key)
+	fmt.Printf("=== CLERK mode: %d ws-token logins, one per %v, as %s ===\n", count, interval, creds.Username)
+
+	gameLog := log.New(io.Discard, "", 0)
+	if debug {
+		gameLog = log.New(os.Stderr, "[game] ", 0)
+	}
+
+	start := time.Now()
+	done, rateLimited := 0, 0
+	for i := range count {
+		if ctx.Err() != nil {
+			fmt.Println("\ninterrupted.")
+			break
+		}
+		t0 := time.Now()
+		if err := clerkLoginOnce(ctx, src, url, creds, gameLog, debug); err != nil {
+			l := strings.ToLower(err.Error())
+			if (strings.Contains(l, "rate") && strings.Contains(l, "limit")) || strings.Contains(l, "429") {
+				rateLimited++
+			}
+			fmt.Printf("  #%-2d  error  %v\n", i+1, err)
+			break
+		}
+		done++
+		fmt.Printf("  #%-2d  ok %d\n", i+1, time.Since(t0).Milliseconds())
+		if i == count-1 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(interval):
+		}
+	}
+	el := time.Since(start)
+	rate := 0.0
+	if el > 0 {
+		rate = float64(done) / el.Minutes()
+	}
+	fmt.Printf("\n%d logins in %v (%.1f/min), %d rate_limited\n", done, el.Round(time.Millisecond), rate, rateLimited)
+}
+
+// clerkLoginOnce mints a token and logs in over a fresh connection.
+func clerkLoginOnce(ctx context.Context, src *clerk.Source, url string, creds *game.Credentials, gameLog *log.Logger, debug bool) error {
+	tok, err := src.MintWSToken(ctx, creds.PlayerID)
+	if err != nil {
+		return fmt.Errorf("mint: %w", err)
+	}
+	client := game.NewClient(url, creds.Username, creds.Password, gameLog)
+	client.SetDebugLogging(debug)
+	actx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+	if err := client.Connect(actx); err != nil {
+		_ = client.Close()
+		return fmt.Errorf("connect: %w", err)
+	}
+	// Close blocks while draining goroutines; detach so timing reflects login.
+	defer func() { go func() { _ = client.Close() }() }()
+	rctx, rcancel := context.WithTimeout(actx, game.SleepTick)
+	defer rcancel()
+	select {
+	case <-client.Ready():
+	case <-rctx.Done():
+		return fmt.Errorf("timed out waiting for ready")
+	}
+	if err := client.LoginWithToken(actx, tok.Value); err != nil {
+		return fmt.Errorf("login: %w", err)
+	}
+	return nil
+}
+
 func main() {
-	mode := flag.String("mode", "burst", "burst | paced")
+	mode := flag.String("mode", "burst", "burst | paced | clerk")
+	count := flag.Int("count", 9, "clerk: number of ws-token logins (per-player login_token limit is 10/min)")
 	account := flag.String("account", "", "agent id under data/agents/<id>/credentials.json (required)")
 	url := flag.String("url", defaultURL, "game server websocket URL")
 	maxAttempts := flag.Int("max", 30, "burst: max login attempts before giving up")
 	concurrency := flag.Int("concurrency", 1, "burst: simultaneous logins per wave")
-	interval := flag.Duration("interval", game.SleepMedium, "paced: delay between logins (defaults to supervisor StaggerInterval)")
+	interval := flag.Duration("interval", game.SleepMedium, "paced/clerk: delay between logins")
 	duration := flag.Duration("duration", 2*time.Minute, "paced: total run time")
 	settle := flag.Duration("settle", 0, "pause between ready and login (0 = none)")
 	debug := flag.Bool("debug", false, "verbose game-client logging to stderr")
@@ -324,6 +414,20 @@ func main() {
 		fmt.Fprintln(os.Stderr, "error: --account is required (e.g. --account miner-1)")
 		flag.Usage()
 		os.Exit(2)
+	}
+
+	if *mode == "clerk" {
+		cc, err := game.LoadCredentials(filepath.Join("data", "agents", *account))
+		if err != nil {
+			log.Fatalf("credentials: %v", err)
+		}
+		if cc.PlayerID == "" {
+			fmt.Fprintln(os.Stderr, "error: credentials have no player_id: run clerk-sync first")
+			os.Exit(2)
+		}
+		fmt.Printf("Target: %s\n\n", *url)
+		runClerk(context.Background(), *url, cc, *count, *interval, *debug)
+		return
 	}
 
 	creds, err := loadCreds(*account)
@@ -340,6 +444,6 @@ func main() {
 	case "paced":
 		runPaced(ctx, *url, creds, *interval, *duration, *settle, *debug)
 	default:
-		log.Fatalf("unknown --mode %q (want burst|paced)", *mode)
+		log.Fatalf("unknown --mode %q (want burst|paced|clerk)", *mode)
 	}
 }

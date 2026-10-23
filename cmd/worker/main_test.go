@@ -111,6 +111,17 @@ func TestBuildStatusCarriesDisconnected(t *testing.T) {
 	}
 }
 
+func TestBuildStatus_Displaced(t *testing.T) {
+	st := &game.State{CurrentSystem: "sol"}
+	got := buildStatus(st, "hauler", "", "", statusFlags{Connected: false, Displaced: true}, time.Unix(1000, 0))
+	if !got.Disconnected || !got.Displaced {
+		t.Fatalf("Disconnected=%v Displaced=%v, want both true", got.Disconnected, got.Displaced)
+	}
+	if got := buildStatus(st, "hauler", "", "", statusFlags{Connected: true}, time.Unix(1000, 0)); got.Displaced {
+		t.Fatalf("Displaced = true, want false")
+	}
+}
+
 func TestRolesConfigLoads(t *testing.T) {
 	roles, err := worker.LoadRoles(filepath.Join("..", "..", "data", "overmind", "roles.yaml"))
 	if err != nil {

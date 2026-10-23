@@ -3,12 +3,14 @@ package game
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/rsned/spacemolt/internal/protocol"
+	"github.com/rsned/spacemolt/pkg/game/clerk"
 )
 
 const (
@@ -26,11 +28,69 @@ const (
 	DefaultCatalogURL = "https://game.spacemolt.com/api/catalog.json"
 )
 
+// clerkBaseURL overrides the Clerk API origin for tests; empty in production.
+var clerkBaseURL string
+
+// resolveTokenMinter decides how this process authenticates and logs the
+// decision once: "auth=clerk player_id=<id>" or "auth=password reason=<r>".
+// It returns nil (password logins) when no Clerk key is configured, when the
+// player list cannot be read, or when the key's account does not own
+// creds.Username. With creds.PlayerID set it never lists players.
+func resolveTokenMinter(creds *Credentials, logger *log.Logger) TokenMinter {
+	key, err := clerk.LoadKey()
+	if err != nil {
+		if !errors.Is(err, clerk.ErrNoKey) {
+			// LoadKey's errors never include the key itself.
+			logger.Printf("clerk key unreadable: %v", err)
+		}
+		logger.Printf("auth=password reason=no_key")
+		return nil
+	}
+
+	var opts []clerk.Option
+	if clerkBaseURL != "" {
+		opts = append(opts, clerk.WithBaseURL(clerkBaseURL))
+	}
+	src := clerk.NewSource(key, opts...)
+
+	id := creds.PlayerID
+	if id == "" {
+		// The Source's HTTP client bounds this call (30s).
+		players, err := src.ListPlayers(context.Background())
+		if err != nil {
+			logger.Printf("clerk list players: %v", err)
+			logger.Printf("auth=password reason=list_failed")
+			return nil
+		}
+		for _, p := range players {
+			if p.Username == creds.Username {
+				id = p.ID
+				break
+			}
+		}
+		if id == "" {
+			logger.Printf("auth=password reason=not_owned")
+			return nil
+		}
+		logger.Printf("player_id missing from credentials.json; run clerk-sync")
+	}
+
+	logger.Printf("auth=clerk player_id=%s", id)
+	return func(ctx context.Context) (string, error) {
+		t, err := src.MintWSToken(ctx, id)
+		return t.Value, err
+	}
+}
+
 // Credentials holds agent authentication information loaded from credentials.json
 type Credentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Empire   string `json:"empire"`
+	// PlayerID is the Clerk-owned player id, written by cmd/tools/clerk-sync.
+	// It lets a worker mint a ws-token without listing every player first.
+	// Optional: empty means not yet synced.
+	PlayerID string `json:"player_id,omitempty"`
 }
 
 // SimpleHandler is a basic message handler for agents
@@ -139,18 +199,38 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 	// Coordinate authentication across every agent on this host/IP. The server
 	// budgets auth per IP, so a mass disconnect (a game-server restart) and a
 	// mass start (a fleet redeploy) both stampede the same allowance. One gate
-	// instance serves both paths: the handler uses it for reconnects, the
-	// client for its internal retries, and the initial dial below.
-	gate := NewReconnectGate(DefaultReconnectGatePath(), reconnectGateCooldown)
+	// instance serves both paths: the client claims a slot per Reconnect try
+	// (driven by the handler), and the initial dial below claims its own.
+	gate := NewReconnectGate(DefaultReconnectGatePath(), DefaultGateConfig())
 	reconnectingHandler.SetReconnectGate(gate)
 	client.SetReconnectGate(gate)
 	client.SetHandler(reconnectingHandler)
 
-	// Steps 4-6: Connect, wait for ready, and authenticate -- as one gated
-	// attempt, so a fresh start is spaced against every other client on the
-	// host instead of racing them into a per-IP block.
-	if err := dialWithGate(ctx, gate,
-		func(ctx context.Context) error {
+	// While play_as holds this agent's lease, a displaced worker waits instead
+	// of taking the session back from the operator.
+	reconnectingHandler.SetDisplacedHold(displacedLeaseHold(agentID))
+
+	// Clerk ws-token auth when this host has a key and owns the player; else
+	// passwords. The client keeps the minter so Reconnect mints per try too.
+	minter := resolveTokenMinter(creds, logger)
+	client.SetTokenMinter(minter)
+
+	// Steps 4-6: Connect, wait for ready, and authenticate -- in up to
+	// dialAttempts gated tries, so a fresh start is spaced against every other
+	// client on the host instead of racing them into a per-IP block. The gate
+	// is the only retry mechanism; Connect itself dials once.
+	//
+	// Hold the handler's reconnect guard while dialing: tearing down a failed
+	// try's socket fires OnDisconnected, which must not start a reconnect
+	// burst racing this loop for the same gate slots.
+	reconnectingHandler.reconnecting.Store(true)
+	tries := 0
+	dialErr := dialWithGate(ctx, gate, dialAttempts, authAttempt{
+		mint: minter,
+		connect: func(ctx context.Context) error {
+			if tries++; tries > 1 {
+				client.resetForDial()
+			}
 			logger.Printf("Connecting to game server...")
 			if err := client.Connect(ctx); err != nil {
 				return fmt.Errorf("failed to connect to game server: %w", err)
@@ -163,16 +243,34 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 				return ctx.Err()
 			}
 		},
-		func(ctx context.Context) error {
+		login: func(ctx context.Context, token string) error {
 			logger.Printf("Logging in...")
-			if err := client.Login(ctx); err != nil {
+			var err error
+			if token != "" {
+				err = client.LoginWithToken(ctx, token)
+			} else {
+				err = client.Login(ctx)
+			}
+			if err != nil {
 				return fmt.Errorf("failed to login: %w", err)
 			}
 			return nil
 		},
-	); err != nil {
-		return nil, nil, err
+		logger:       logger,
+		fallbackOnce: &client.mintFallbackOnce,
+	})
+	if dialErr != nil {
+		// The caller never sees this client; close it while the guard is held
+		// so its listener cannot start a reconnect after we return.
+		_ = client.Disconnect()
+		reconnectingHandler.reconnecting.Store(false)
+		return nil, nil, dialErr
 	}
+	// Release through finishReconnect, not a bare Store(false): a 4001 that
+	// landed between the login and here lost OnDisconnected's CAS, and only
+	// finishReconnect re-parks it. (The failure path above must not re-park:
+	// that client is discarded.)
+	reconnectingHandler.finishReconnect()
 
 	// Step 7: Get initial state to confirm successful login
 	state := client.GetState()
@@ -184,6 +282,16 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 		state.Credits, state.Ship.Name, state.Ship.CargoUsed, state.Ship.CargoCapacity)
 
 	return client, creds, nil
+}
+
+// displacedLeaseHold reports, each time it is called, whether agentID's
+// play_as lease file exists.
+func displacedLeaseHold(agentID string) func() bool {
+	path := DisplacedLeasePath(agentID)
+	return func() bool {
+		_, err := os.Stat(path)
+		return err == nil
+	}
 }
 
 // InitializeMCPAgent creates and initializes an MCP game client for an autonomous agent.
@@ -222,16 +330,17 @@ func InitializeMCPAgent(agentID string, logger *log.Logger, ctx context.Context,
 	// gated attempt. The MCP transport reaches the same accounts over the same
 	// outbound IP, so it draws on the same per-IP auth budget as the WS path
 	// and must share the host-wide gate.
-	gate := NewReconnectGate(DefaultReconnectGatePath(), reconnectGateCooldown)
-	if err := dialWithGate(ctx, gate,
-		func(ctx context.Context) error {
+	gate := NewReconnectGate(DefaultReconnectGatePath(), DefaultGateConfig())
+	// Password-only, single attempt: the MCP transport has no token login.
+	if err := dialWithGate(ctx, gate, 1, authAttempt{
+		connect: func(ctx context.Context) error {
 			logger.Printf("Connecting to MCP server...")
 			if err := client.Connect(ctx); err != nil {
 				return fmt.Errorf("failed to connect to MCP server: %w", err)
 			}
 			return nil
 		},
-		func(ctx context.Context) error {
+		login: func(ctx context.Context, _ string) error {
 			logger.Printf("Logging in via MCP...")
 			if err := client.Login(ctx); err != nil {
 				_ = client.Close()
@@ -239,7 +348,7 @@ func InitializeMCPAgent(agentID string, logger *log.Logger, ctx context.Context,
 			}
 			return nil
 		},
-	); err != nil {
+	}); err != nil {
 		return nil, nil, err
 	}
 

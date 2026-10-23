@@ -31,7 +31,7 @@ func rlDetail(t *testing.T, status int, hdr map[string]string, body string) stri
 // 15.5 minutes.
 func TestRateLimitDetail_ExtractsRetryAfterHeader(t *testing.T) {
 	d := rlDetail(t, 429, map[string]string{"Retry-After": "913"}, "")
-	got, ok := rateLimitBlock(d, reconnectBlockDefault)
+	got, ok := rateLimitBlock(d, ConnectBareBlock)
 	if !ok {
 		t.Fatalf("rateLimitBlock(%q) reported no block", d)
 	}
@@ -43,7 +43,7 @@ func TestRateLimitDetail_ExtractsRetryAfterHeader(t *testing.T) {
 func TestRateLimitDetail_ExtractsTryAgainFromBody(t *testing.T) {
 	body := "Your IP has been temporarily blocked due to excessive rate limit violations. Try again in 444 seconds."
 	d := rlDetail(t, 429, nil, body)
-	got, ok := rateLimitBlock(d, reconnectBlockDefault)
+	got, ok := rateLimitBlock(d, ConnectBareBlock)
 	if !ok {
 		t.Fatalf("rateLimitBlock(%q) reported no block", d)
 	}
@@ -54,7 +54,7 @@ func TestRateLimitDetail_ExtractsTryAgainFromBody(t *testing.T) {
 
 func TestRateLimitDetail_ExtractsJSONRetryAfter(t *testing.T) {
 	d := rlDetail(t, 429, nil, `{"error":"rate limited","retry_after":1757}`)
-	got, ok := rateLimitBlock(d, reconnectBlockDefault)
+	got, ok := rateLimitBlock(d, ConnectBareBlock)
 	if !ok {
 		t.Fatalf("rateLimitBlock(%q) reported no block", d)
 	}
@@ -86,8 +86,8 @@ func TestRateLimitDetail_NilResponseIsSafe(t *testing.T) {
 // 1757s on 2026-08-27/28), so it guaranteed the fleet re-entered the block it
 // was meant to be waiting out.
 func TestBareBlockDefault_IsNotWildlyShorterThanRealBlocks(t *testing.T) {
-	if reconnectBlockDefault < 5*time.Minute {
-		t.Errorf("reconnectBlockDefault = %v; every observed per-IP block was >= 444s, so this releases the fleet mid-block",
-			reconnectBlockDefault)
+	if ConnectBareBlock < 5*time.Minute {
+		t.Errorf("ConnectBareBlock = %v; every observed per-IP block was >= 444s, so this releases the fleet mid-block",
+			ConnectBareBlock)
 	}
 }

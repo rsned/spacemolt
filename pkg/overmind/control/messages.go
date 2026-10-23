@@ -84,7 +84,13 @@ type Status struct {
 	// self-healing: a restart forces a fresh login that cannot succeed during a
 	// per-IP rate-limit block and deepens it. Omitted (false) means connected,
 	// so an older worker binary that never sets it is treated as connected.
-	Disconnected bool   `json:"disconnected,omitempty"`
+	Disconnected bool `json:"disconnected,omitempty"`
+	// Displaced reports that the server closed the worker's socket with 4001
+	// session_replaced (another login took its session). The worker parks and
+	// retries once through the gate every game.SleepDisplacedRetry. Implies
+	// Disconnected; the supervisor never restarts it, since a fresh login would
+	// only fight whoever holds the session.
+	Displaced bool `json:"displaced,omitempty"`
 	// CommandTimeouts counts dispatched commands that blew the worker's own
 	// command bound since process start, and LastCommandTimeout names the most
 	// recent one ("jump xamidimura @ 09:12:04Z"). A client-side timeout says
