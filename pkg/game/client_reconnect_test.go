@@ -10,9 +10,15 @@ import (
 	"time"
 )
 
+// displacedTestHandler pairs a handler with the cancel of its context.
+type displacedTestHandler struct {
+	*ReconnectingHandler
+	cancel context.CancelFunc
+}
+
 // newDisplacedTestHandler builds a handler over a displaced client whose
 // reconnectFn counts calls instead of dialing.
-func newDisplacedTestHandler(t *testing.T) (*ReconnectingHandler, *atomic.Int32) {
+func newDisplacedTestHandler(t *testing.T) (*displacedTestHandler, *atomic.Int32) {
 	t.Helper()
 	client := newTestClientForContentionTests()
 	client.connectTime = time.Now().Add(-1 * time.Second) // short-lived uptime
@@ -20,7 +26,10 @@ func newDisplacedTestHandler(t *testing.T) (*ReconnectingHandler, *atomic.Int32)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	r := NewReconnectingHandler(client, nil, ctx, log.New(io.Discard, "", 0))
+	r := &displacedTestHandler{
+		ReconnectingHandler: NewReconnectingHandler(client, nil, ctx, log.New(io.Discard, "", 0)),
+		cancel:              cancel,
+	}
 	r.displacedRetryDelay = 10 * time.Millisecond
 
 	var calls atomic.Int32
@@ -33,16 +42,30 @@ func newDisplacedTestHandler(t *testing.T) (*ReconnectingHandler, *atomic.Int32)
 
 func TestReconnectingHandler_DisplacedDoesNotReconnectImmediately(t *testing.T) {
 	r, calls := newDisplacedTestHandler(t)
+	r.displacedRetryDelay = time.Hour // never fires inside the test
 	r.OnDisconnected(errors.New("4001"))
-	time.Sleep(5 * time.Millisecond)
 	if got := calls.Load(); got != 0 {
 		t.Errorf("reconnectFn called %d times immediately after displacement, want 0", got)
 	}
-	r.WaitForShutdown(time.Second)
+	r.cancel()
+	if !r.WaitForShutdown(time.Second) {
+		t.Fatal("parked timer did not exit on cancel")
+	}
+	if got := calls.Load(); got != 0 {
+		t.Errorf("reconnectFn called %d times after cancel, want 0", got)
+	}
 }
 
 func TestReconnectingHandler_DisplacedRetriesOnceAfterDelay(t *testing.T) {
 	r, calls := newDisplacedTestHandler(t)
+	start := time.Now()
+	r.reconnectFn = func(context.Context) error {
+		if time.Since(start) < r.displacedRetryDelay {
+			t.Error("reconnectFn ran before the displaced delay elapsed")
+		}
+		calls.Add(1)
+		return errors.New("slot still taken")
+	}
 	r.OnDisconnected(errors.New("4001"))
 	if !r.WaitForShutdown(time.Second) {
 		t.Fatal("displaced timer did not finish")
@@ -63,7 +86,6 @@ func TestReconnectingHandler_TriggerReconnectNoopWhileDisplaced(t *testing.T) {
 	if r.TriggerReconnect() {
 		t.Error("TriggerReconnect returned true while displaced")
 	}
-	time.Sleep(30 * time.Millisecond)
 	if got := calls.Load(); got != 0 {
 		t.Errorf("reconnectFn called %d times, want 0", got)
 	}
@@ -84,5 +106,57 @@ func TestReconnectingHandler_DisplacedDoesNotCountAsContention(t *testing.T) {
 	}
 	if r.shortLivedCount != 0 {
 		t.Errorf("shortLivedCount = %d, want 0", r.shortLivedCount)
+	}
+}
+
+// A 4001 that lands while the reconnecting guard is held loses the CAS in
+// OnDisconnected; the exit step must re-park so the worker is not stranded.
+func TestReconnectingHandler_DisplacedDuringParkedAttemptReparks(t *testing.T) {
+	r, _ := newDisplacedTestHandler(t)
+	var times []time.Time
+	r.reconnectFn = func(context.Context) error {
+		times = append(times, time.Now())
+		if len(times) == 1 {
+			r.client.displaced.Store(true)
+			r.OnDisconnected(errors.New("4001")) // loses the CAS
+		}
+		return nil
+	}
+	r.OnDisconnected(errors.New("4001"))
+	if !r.WaitForShutdown(2 * time.Second) {
+		t.Fatal("handler did not settle")
+	}
+	if len(times) != 2 {
+		t.Fatalf("reconnectFn called %d times, want 2", len(times))
+	}
+	if gap := times[1].Sub(times[0]); gap < r.displacedRetryDelay {
+		t.Errorf("second attempt after %v, want >= %v", gap, r.displacedRetryDelay)
+	}
+}
+
+// Same hole from a normal reconnect burst: a 4001 during the burst's login.
+func TestReconnectingHandler_DisplacedDuringNormalBurstParks(t *testing.T) {
+	r, _ := newDisplacedTestHandler(t)
+	r.client.clearDisplaced()
+	var times []time.Time
+	r.reconnectFn = func(context.Context) error {
+		times = append(times, time.Now())
+		if len(times) == 1 {
+			r.client.displaced.Store(true)
+			r.OnDisconnected(errors.New("4001")) // loses the CAS
+		}
+		return nil
+	}
+	if !r.TriggerReconnect() {
+		t.Fatal("TriggerReconnect did not start a burst")
+	}
+	if !r.WaitForShutdown(2 * time.Second) {
+		t.Fatal("handler did not settle")
+	}
+	if len(times) != 2 {
+		t.Fatalf("reconnectFn called %d times, want 2 (burst then parked retry)", len(times))
+	}
+	if gap := times[1].Sub(times[0]); gap < r.displacedRetryDelay {
+		t.Errorf("parked retry after %v, want >= %v", gap, r.displacedRetryDelay)
 	}
 }

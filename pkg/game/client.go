@@ -379,48 +379,54 @@ func (r *ReconnectingHandler) TriggerReconnect() bool {
 	return true
 }
 
+// finishReconnect is the shared exit step of every reconnect goroutine. It
+// releases the reconnecting guard, then re-parks if a 4001 landed while the
+// guard was held: OnDisconnected loses its CAS in that window, and
+// TriggerReconnect is inert while displaced, so nobody else would recover the
+// worker. Callers must run it before their wg.Done.
+func (r *ReconnectingHandler) finishReconnect() {
+	r.reconnecting.Store(false)
+	if r.client.Displaced() && !r.client.IsConnected() && r.ctx.Err() == nil &&
+		r.reconnecting.CompareAndSwap(false, true) {
+		r.wg.Add(1)
+		go r.parkDisplaced()
+	}
+}
+
 // parkDisplaced waits out the displaced-retry delay, then makes ONE gated
 // reconnect attempt. The caller holds the reconnecting guard and a wg slot.
-// A failed attempt does not loop: the next 4001 re-parks via OnDisconnected,
-// and a later TriggerReconnect re-enters the normal path. If the connection
-// is displaced again before the guard is released, park again here, since
-// OnDisconnected would have lost the CAS.
+// A failed attempt does not loop: the next 4001 re-parks via OnDisconnected
+// (or finishReconnect), and a later TriggerReconnect re-enters the normal path.
 func (r *ReconnectingHandler) parkDisplaced() {
 	defer r.wg.Done()
-	defer r.reconnecting.Store(false)
+	defer r.finishReconnect()
 
 	delay := r.displacedRetryDelay
 	if delay <= 0 {
 		delay = SleepDisplacedRetry
 	}
 
-	for {
-		timer := time.NewTimer(delay)
-		select {
-		case <-r.ctx.Done():
-			timer.Stop()
-			r.logger.Printf("Context cancelled, abandoning displaced reconnect")
-			return
-		case <-timer.C:
-		}
-
-		r.client.clearDisplaced()
-		err := r.reconnectFn(r.ctx)
-		if err != nil {
-			r.logger.Printf("Displaced reconnect attempt failed: %v", err)
-			recordRateLimitBlock(r.gate, err, "reconnect")
-		} else {
-			r.logger.Printf("Displaced reconnect attempt succeeded")
-		}
-		if !r.client.Displaced() {
-			return
-		}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-r.ctx.Done():
+		r.logger.Printf("Context cancelled, abandoning displaced reconnect")
+		return
+	case <-timer.C:
 	}
+
+	r.client.clearDisplaced()
+	if err := r.reconnectFn(r.ctx); err != nil {
+		r.logger.Printf("Displaced reconnect attempt failed: %v", err)
+		recordRateLimitBlock(r.gate, err, "reconnect")
+		return
+	}
+	r.logger.Printf("Displaced reconnect attempt succeeded")
 }
 
 func (r *ReconnectingHandler) attemptReconnection() {
 	defer r.wg.Done()
-	defer r.reconnecting.Store(false)
+	defer r.finishReconnect()
 
 	for attempt := 1; attempt <= reconnectMaxAttempts; attempt++ {
 		if r.ctx.Err() != nil {

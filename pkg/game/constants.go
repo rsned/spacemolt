@@ -58,16 +58,16 @@ const (
 	// finishing) bypass this entirely; it only governs noticing turnover while
 	// sitting still.
 	SleepMissionBoardPoll = 30 * SleepTick // 5min dry mission-board re-poll
-	// SleepKeepalive is how often an otherwise-silent worker proves liveness to
-	// the server. It is a liveness heartbeat, NOT a poll: an idle agent has
-	// nothing to learn from get_status, and at fleet scale a per-tick poll is
-	// what saturates the shared per-IP rate limiter.
 	// SleepDisplacedRetry is how long a client parks after a 4001
 	// session_replaced close (another login took its slot, typically an
 	// operator's play_as) before ONE gated reconnect attempt. Fighting for the
 	// slot only thrashes both sessions; the worker returns on its own once the
 	// operator's session ends.
-	SleepDisplacedRetry    = 60 * SleepTick // 10min
+	SleepDisplacedRetry = 60 * SleepTick // 10min
+	// SleepKeepalive is how often an otherwise-silent worker proves liveness to
+	// the server. It is a liveness heartbeat, NOT a poll: an idle agent has
+	// nothing to learn from get_status, and at fleet scale a per-tick poll is
+	// what saturates the shared per-IP rate limiter.
 	SleepKeepalive         = 15 * time.Minute
 	SleepChatPoll          = 1 * time.Hour    // Chat channel polling interval (background reconcile/ingest)
 	SleepIPRateLimitJitter = 60 * time.Second // Max random jitter added after IP rate limit expires
