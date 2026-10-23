@@ -81,3 +81,17 @@ quarantined X; releasing` for all 18 within 60 s and relaunched them; every one 
 /refuelled itself (random-4 by hand first: `dock` → "Already docked", `refuel` → 99 units for 198 cr — the pending-mine
 wedge had cleared by itself after ~12 h). Gift + clear is the whole fix for a broke strandee AT a station; no tanker,
 no tow. The 9 haul/unlock stall records (not broke) were left for triage.
+**Three stragglers after the 10-23 relaunch, and the bugs they expose:**
+- **The miner idle UNDOCKS to jump home BEFORE refuelling.** `overmind` (The Anvil Arsenal) and `prophet-2`
+  (Ironhearth Station) relaunched DOCKED with 10k/20k credits and fuel 1/0, logged `Automatically undocked (required
+  for jump)` → `Insufficient fuel for jump`, then sat undocked at the station POI running a 100× `mine` loop of
+  "Nothing to mine here". The 15 others recovered only because their home was the system they were in. Fix: in the
+  miner standing, refuel while docked whenever fuel < one jump, before `ensure_home` undocks. Hand fix: freeze
+  mining overmind + worker, play_as `dock`/`refuel` (119 u for 1,309 cr; 120 u for 1,560 cr), thaw.
+- **random-npc was towed/strayed into a STATION-LESS system** (Struve 1321: star, 3 planets, nebula, gas cloud,
+  ice field, collapsed wormhole — no base). Refuel there is `no_fuel_source`/`no_fuel_cells`. Used the built-in:
+  `distress_signal fuel` via play_as → `mission_id`, `expires_seconds: 10800`. Valid `distress_type` values per
+  client.go: `fuel`, `repair`, `combat`. First fleet use of distress_signal ([[reference_gsa_tow_beats_the_tanker_fleet]]).
+- **`rescue-clear` does not stop the rescue FEE.** Relaunched miners each paid `rescue-fee: paid 1000 cr to
+  shipside_assist_nexus` on their first pass although no rescuer ever reached them (the debt was booked at claim
+  time in `data/agents/<id>/rescue-debts.json`). 18 × 1,000 cr went to the assists — harmless here, wrong in general.
