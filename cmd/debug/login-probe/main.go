@@ -21,7 +21,9 @@
 //	         spaced by --interval and the run stops at the first error. Requires
 //	         the agent's credentials.json to carry a player_id (run clerk-sync)
 //	         and a Clerk key in SPACEMOLT_CLERK_API_KEY or the key file. Neither
-//	         the key nor any token is printed.
+//	         the key nor any token is printed. --count defaults to 9: one
+//	         account may make only 10 login_token calls per minute, so more
+//	         would trip the per-player limit instead of measuring the per-IP one.
 //
 // Each login uses a fresh connection because login is a once-per-connection
 // operation. The probe stops the instant it sees a rate-limit — it never keeps
@@ -397,7 +399,7 @@ func clerkLoginOnce(ctx context.Context, src *clerk.Source, url string, creds *g
 
 func main() {
 	mode := flag.String("mode", "burst", "burst | paced | clerk")
-	count := flag.Int("count", 20, "clerk: number of ws-token logins")
+	count := flag.Int("count", 9, "clerk: number of ws-token logins (per-player login_token limit is 10/min)")
 	account := flag.String("account", "", "agent id under data/agents/<id>/credentials.json (required)")
 	url := flag.String("url", defaultURL, "game server websocket URL")
 	maxAttempts := flag.Int("max", 30, "burst: max login attempts before giving up")
