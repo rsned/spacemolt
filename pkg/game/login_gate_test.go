@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -346,5 +348,67 @@ func TestRecordRateLimitBlock_ClerkRetryAfterNotInflated(t *testing.T) {
 	}
 	if st := readGateFile(t, path2); st.BlockedUntilNanos != 0 {
 		t.Errorf("a 401 mint error recorded a block: %+v", st)
+	}
+}
+
+// The per-player login_token limit is the account's, not the host's: spec §4
+// says it waits retry_after locally and re-mints, never blocking the fleet.
+func TestServerError_BucketPopulated(t *testing.T) {
+	err := serverErrorFromPayload(map[string]any{
+		"code":    "rate_limited",
+		"message": "too many login_token calls",
+		"details": map[string]any{"limit": "clerk_login_token", "retry_after": float64(3)},
+	})
+	var se *ServerError
+	if !errors.As(err, &se) {
+		t.Fatalf("not a *ServerError: %T", err)
+	}
+	if se.Bucket != "clerk_login_token" || se.RetryAfter != 3*time.Second {
+		t.Errorf("bucket=%q retry_after=%v, want clerk_login_token/3s", se.Bucket, se.RetryAfter)
+	}
+}
+
+func TestRecordRateLimitBlock_SkipsPerPlayerBucket(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "g")
+	g := newTestGate(t, path, testGateCfg, clk)
+
+	err := fmt.Errorf("login: %w", &ServerError{Code: "rate_limited", Bucket: perPlayerLoginBucket, RetryAfter: 30 * time.Second})
+	recordRateLimitBlock(g, err, "login")
+	if _, statErr := os.Stat(path); !os.IsNotExist(statErr) {
+		t.Errorf("gate file touched by a per-player limit (stat err=%v)", statErr)
+	}
+}
+
+func TestDialWithGate_PerPlayerRateLimitWaitsLocally(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "g")
+	g := newTestGate(t, path, testGateCfg, clk)
+
+	mints, logins := 0, 0
+	var sleptBeforeSecond []time.Duration
+	a := authAttempt{
+		mint:    func(context.Context) (string, error) { mints++; return fmt.Sprintf("tok-%d", mints), nil },
+		connect: func(context.Context) error { return nil },
+		login: func(context.Context, string) error {
+			logins++
+			if logins == 1 {
+				return &ServerError{Code: "rate_limited", Bucket: perPlayerLoginBucket, RetryAfter: 3 * time.Second}
+			}
+			sleptBeforeSecond = slices.Clone(clk.slept)
+			return nil
+		},
+	}
+	if err := dialWithGate(context.Background(), g, 2, a); err != nil {
+		t.Fatalf("dialWithGate: %v", err)
+	}
+	if mints != 2 || logins != 2 {
+		t.Errorf("mints=%d logins=%d, want 2/2 (re-mint after the local wait)", mints, logins)
+	}
+	if !slices.Contains(sleptBeforeSecond, 3*time.Second) {
+		t.Errorf("slept %v before the second try; want a 3s local wait", sleptBeforeSecond)
+	}
+	if st := readGateFile(t, path); st.BlockedUntilNanos != 0 {
+		t.Errorf("per-player limit recorded a fleet-wide block: %+v", st)
 	}
 }

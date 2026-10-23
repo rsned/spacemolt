@@ -189,8 +189,10 @@ type Supervisor struct {
 	procMu sync.Mutex
 	procs  map[string]*workerProc
 
-	// StaggerInterval spaces initial worker launches to stay under the per-IP
-	// /login rate limit. BootTimeout bounds how long a worker may be alive but
+	// StaggerInterval is an optional extra delay between initial worker
+	// launches. The default is 0: each worker's login is paced by the
+	// host-wide connection gate (pkg/game/reconnect_gate.go), which replaced
+	// this as the per-IP rate-limit guard. BootTimeout bounds how long a worker may be alive but
 	// not yet have sent Hello before it is treated as wedged. KillGrace is the
 	// SIGTERM->SIGKILL escalation window.
 	StaggerInterval time.Duration

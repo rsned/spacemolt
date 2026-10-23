@@ -91,6 +91,16 @@ func gateSleep(ctx context.Context, d time.Duration) error {
 	}
 }
 
+// localWait sleeps d through the gate's sleep seam without touching the gate
+// file: a wait owed by this client alone (the per-player login_token limit).
+// A nil gate sleeps on the wall clock.
+func (g *ReconnectGate) localWait(ctx context.Context, d time.Duration) error {
+	if g == nil {
+		return gateSleep(ctx, d)
+	}
+	return g.sleep(ctx, d)
+}
+
 type gateState struct {
 	Dials             []int64 `json:"dials"`
 	PasswordLogins    []int64 `json:"password_logins"`

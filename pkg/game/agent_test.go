@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
-	"path/filepath"
 	"testing"
 )
 
@@ -169,5 +169,30 @@ func TestResolveTokenMinter_UsesPlayerIDWithoutListing(t *testing.T) {
 	}
 	if strings.Contains(buf.String(), "k-test") {
 		t.Error("the Clerk key leaked into the log")
+	}
+}
+
+// The hold InitializeAgent installs tracks the play_as lease file live.
+func TestDisplacedLeaseHold_TracksLeaseFile(t *testing.T) {
+	t.Chdir(t.TempDir())
+	hold := displacedLeaseHold("miner-1")
+	if hold() {
+		t.Fatal("hold true with no lease file")
+	}
+	path := DisplacedLeasePath("miner-1")
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("2026-10-22T00:00:00Z 123\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !hold() {
+		t.Error("hold false while the lease exists")
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if hold() {
+		t.Error("hold still true after the lease was removed")
 	}
 }

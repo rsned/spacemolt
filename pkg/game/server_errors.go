@@ -18,6 +18,10 @@ type ServerError struct {
 	// RetryAfter is the server's stated wait for a rate_limited error
 	// (details.retry_after, else the payload root); zero when none was given.
 	RetryAfter time.Duration
+	// Bucket names the rate-limit bucket of a rate_limited error
+	// (details.limit, else inferred from the message; "unknown" when neither
+	// names one). Empty for errors that are not rate limits.
+	Bucket string
 }
 
 // Error returns the server's human-readable message, falling back to

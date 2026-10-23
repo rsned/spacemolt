@@ -12,6 +12,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -256,17 +257,27 @@ type ReconnectingHandler struct {
 	// real network I/O.
 	reconnectFn func(ctx context.Context) error
 
-	// gate, when set, coordinates reconnect dials across every client sharing
-	// the host IP: it spaces dials apart so a mass disconnect (e.g. a server
-	// restart) does not stampede the login endpoint, and propagates a per-IP
-	// rate-limit block to the whole fleet so it expires instead of escalating.
-	// Nil disables coordination (the default for direct/test construction).
+	// gate is the host-wide coordinator this handler's client uses. The
+	// handler no longer acquires or records on it: reconnectFn
+	// (Client.Reconnect, via authAttempt.try) claims each slot and records any
+	// rate-limit block exactly once. Nil for direct/test construction.
 	gate *ReconnectGate
 
 	// displacedRetryDelay is how long a displaced (4001) client stays parked
 	// before its one gated reconnect attempt. Zero means SleepDisplacedRetry;
 	// tests set it tiny.
 	displacedRetryDelay time.Duration
+
+	// displacedHold, when set, is consulted after each displaced-retry wait:
+	// true means an operator holds the session (a play_as lease), so the
+	// parked client waits another interval instead of taking it back. Set
+	// before the client connects.
+	displacedHold func() bool
+
+	// onDisplaced, when set, replaces parking on a 4001: an interactive client
+	// that was displaced exits instead of fighting for the session. Atomic
+	// because it is installed after connect, while the listener may fire.
+	onDisplaced atomic.Pointer[func()]
 }
 
 // SetReconnectGate attaches a host-wide reconnect coordinator. Call it on the
@@ -275,9 +286,47 @@ func (r *ReconnectingHandler) SetReconnectGate(g *ReconnectGate) {
 	r.gate = g
 }
 
+// SetDisplacedHold installs the hook a parked (4001) client consults before
+// its gated retry. While fn returns true the client never dials: it logs once
+// and waits another full interval. Call before the client connects.
+func (r *ReconnectingHandler) SetDisplacedHold(fn func() bool) {
+	r.displacedHold = fn
+}
+
+// SetOnDisplaced makes a 4001 call fn instead of parking. Nil restores parking.
+func (r *ReconnectingHandler) SetOnDisplaced(fn func()) {
+	if fn == nil {
+		r.onDisplaced.Store(nil)
+		return
+	}
+	r.onDisplaced.Store(&fn)
+}
+
+// displacedOverride runs the onDisplaced hook when one is installed and
+// reports whether it did.
+func (r *ReconnectingHandler) displacedOverride() bool {
+	fn := r.onDisplaced.Load()
+	if fn == nil {
+		return false
+	}
+	(*fn)()
+	return true
+}
+
+// SetOnDisplaced forwards to the installed *ReconnectingHandler (see
+// ReconnectingHandler.SetOnDisplaced); it is a no-op without one.
+func (c *Client) SetOnDisplaced(fn func()) {
+	c.mu.Lock()
+	h := c.handler
+	c.mu.Unlock()
+	if rh, ok := h.(*ReconnectingHandler); ok {
+		rh.SetOnDisplaced(fn)
+	}
+}
+
 // SetReconnectGate attaches the host-wide coordinator to the client itself, so
-// Reconnect's internal retries claim their own slots instead of riding on the
-// single slot the caller acquired. Pass the same gate instance the handler got.
+// every Reconnect try claims its own slot through the shared authAttempt.try.
+// Pass the same gate instance the handler got.
 func (c *Client) SetReconnectGate(g *ReconnectGate) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -340,7 +389,12 @@ func (r *ReconnectingHandler) OnDisconnected(err error) {
 
 	// A 4001 means another login took our slot. Park instead of fighting it:
 	// no contention counting, no process exit, one retry per interval.
+	// An interactive client (play_as) installs onDisplaced to exit instead.
 	if r.client.Displaced() {
+		if r.displacedOverride() {
+			r.reconnecting.Store(false)
+			return
+		}
 		r.wg.Add(1)
 		go r.parkDisplaced()
 		return
@@ -402,8 +456,13 @@ func (r *ReconnectingHandler) TriggerReconnect() bool {
 // worker. Callers must run it before their wg.Done.
 func (r *ReconnectingHandler) finishReconnect() {
 	r.reconnecting.Store(false)
-	if r.client.Displaced() && !r.client.IsConnected() && r.ctx.Err() == nil &&
-		r.reconnecting.CompareAndSwap(false, true) {
+	if !r.client.Displaced() || r.client.IsConnected() || r.ctx.Err() != nil {
+		return
+	}
+	if r.displacedOverride() {
+		return
+	}
+	if r.reconnecting.CompareAndSwap(false, true) {
 		r.wg.Add(1)
 		go r.parkDisplaced()
 	}
@@ -411,8 +470,10 @@ func (r *ReconnectingHandler) finishReconnect() {
 
 // parkDisplaced waits out the displaced-retry delay, then makes ONE gated
 // reconnect attempt. The caller holds the reconnecting guard and a wg slot.
-// A failed attempt does not loop: the next 4001 re-parks via OnDisconnected
-// (or finishReconnect), and a later TriggerReconnect re-enters the normal path.
+// While the displacedHold hook reports an operator lease, it waits further
+// full intervals and never dials. A failed attempt does not loop: the next
+// 4001 re-parks via OnDisconnected (or finishReconnect), and a later
+// TriggerReconnect re-enters the normal path.
 func (r *ReconnectingHandler) parkDisplaced() {
 	defer r.wg.Done()
 	defer r.finishReconnect()
@@ -424,17 +485,28 @@ func (r *ReconnectingHandler) parkDisplaced() {
 
 	timer := time.NewTimer(delay)
 	defer timer.Stop()
-	select {
-	case <-r.ctx.Done():
-		r.logger.Printf("Context cancelled, abandoning displaced reconnect")
-		return
-	case <-timer.C:
+	loggedHold := false
+	for {
+		select {
+		case <-r.ctx.Done():
+			r.logger.Printf("Context cancelled, abandoning displaced reconnect")
+			return
+		case <-timer.C:
+		}
+		if r.displacedHold == nil || !r.displacedHold() {
+			break
+		}
+		if !loggedHold {
+			r.logger.Printf("displaced retry held: operator lease present")
+			loggedHold = true
+		}
+		timer.Reset(delay)
 	}
 
 	r.client.clearDisplaced()
+	// reconnectFn owns recording any rate-limit block on the gate.
 	if err := r.reconnectFn(r.ctx); err != nil {
 		r.logger.Printf("Displaced reconnect attempt failed: %v", err)
-		recordRateLimitBlock(r.gate, err, "reconnect")
 		return
 	}
 	r.logger.Printf("Displaced reconnect attempt succeeded")
@@ -449,18 +521,21 @@ func (r *ReconnectingHandler) attemptReconnection() {
 			r.logger.Printf("Context cancelled, stopping reconnection attempts")
 			return
 		}
+		// A 4001 mid-burst: stop dialing; finishReconnect parks the client so
+		// it makes at most one gated dial per displaced interval.
+		if r.client.Displaced() {
+			return
+		}
 
 		// reconnectFn owns the host-wide gate: it claims exactly one slot per
-		// dial, so the gate's spacing and fleet-wide block are the backoff here.
+		// dial and records any rate-limit block, so the gate's spacing and
+		// fleet-wide block are the backoff here.
 		err := r.reconnectFn(r.ctx)
 		if err == nil {
 			r.logger.Printf("✓ Reconnected successfully")
 			return
 		}
 		r.logger.Printf("Reconnection attempt %d/%d failed: %v", attempt, reconnectMaxAttempts, err)
-		// Propagate a per-IP block to the whole fleet so every client holds
-		// off and the block can expire instead of being re-triggered.
-		recordRateLimitBlock(r.gate, err, "reconnect")
 	}
 
 	r.logger.Printf("Reconnect burst gave up after %d attempts; will retry on next command", reconnectMaxAttempts)
@@ -801,6 +876,13 @@ func (c *Client) Disconnect() error {
 // Displaced reports whether the last close was 4001 session_replaced.
 func (c *Client) Displaced() bool { return c.displaced.Load() }
 
+// DisplacedLeasePath is the operator-presence lease play_as holds for agentID
+// while it runs. A displaced worker for that agent does not take its session
+// back while the file exists (see ReconnectingHandler.SetDisplacedHold).
+func DisplacedLeasePath(agentID string) string {
+	return filepath.Join("data", "agents", agentID, "play_as.lease")
+}
+
 // clearDisplaced ends the parked state ahead of a gated retry.
 func (c *Client) clearDisplaced() { c.displaced.Store(false) }
 
@@ -838,6 +920,9 @@ func (c *Client) handleClose(closeErr *websocket.CloseError) {
 		log.Printf("WARN: session_replaced: parking; one gated reconnect attempt in %v", SleepDisplacedRetry)
 	default: // closeFailFast
 		c.failPending(&ConnectionClosed{Code: closeErr.Code, Reason: closeErr.Reason})
+		if closeErr.Code == CloseAuthTimeout {
+			log.Printf("WARN: auth_timeout (4002): reconnecting")
+		}
 	}
 }
 

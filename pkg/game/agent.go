@@ -199,12 +199,16 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 	// Coordinate authentication across every agent on this host/IP. The server
 	// budgets auth per IP, so a mass disconnect (a game-server restart) and a
 	// mass start (a fleet redeploy) both stampede the same allowance. One gate
-	// instance serves both paths: the handler uses it for reconnects, the
-	// client for its internal retries, and the initial dial below.
+	// instance serves both paths: the client claims a slot per Reconnect try
+	// (driven by the handler), and the initial dial below claims its own.
 	gate := NewReconnectGate(DefaultReconnectGatePath(), DefaultGateConfig())
 	reconnectingHandler.SetReconnectGate(gate)
 	client.SetReconnectGate(gate)
 	client.SetHandler(reconnectingHandler)
+
+	// While play_as holds this agent's lease, a displaced worker waits instead
+	// of taking the session back from the operator.
+	reconnectingHandler.SetDisplacedHold(displacedLeaseHold(agentID))
 
 	// Clerk ws-token auth when this host has a key and owns the player; else
 	// passwords. The client keeps the minter so Reconnect mints per try too.
@@ -259,11 +263,14 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 		// The caller never sees this client; close it while the guard is held
 		// so its listener cannot start a reconnect after we return.
 		_ = client.Disconnect()
-	}
-	reconnectingHandler.reconnecting.Store(false)
-	if dialErr != nil {
+		reconnectingHandler.reconnecting.Store(false)
 		return nil, nil, dialErr
 	}
+	// Release through finishReconnect, not a bare Store(false): a 4001 that
+	// landed between the login and here lost OnDisconnected's CAS, and only
+	// finishReconnect re-parks it. (The failure path above must not re-park:
+	// that client is discarded.)
+	reconnectingHandler.finishReconnect()
 
 	// Step 7: Get initial state to confirm successful login
 	state := client.GetState()
@@ -275,6 +282,16 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 		state.Credits, state.Ship.Name, state.Ship.CargoUsed, state.Ship.CargoCapacity)
 
 	return client, creds, nil
+}
+
+// displacedLeaseHold reports, each time it is called, whether agentID's
+// play_as lease file exists.
+func displacedLeaseHold(agentID string) func() bool {
+	path := DisplacedLeasePath(agentID)
+	return func() bool {
+		_, err := os.Stat(path)
+		return err == nil
+	}
 }
 
 // InitializeMCPAgent creates and initializes an MCP game client for an autonomous agent.

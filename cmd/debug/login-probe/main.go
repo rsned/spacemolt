@@ -1,6 +1,6 @@
 // Command login-probe empirically measures the game server's per-IP /login
-// rate limit so the overmind supervisor's StaggerInterval (default
-// game.SleepMedium = 5s) can be validated against the real ceiling.
+// rate limit so launch pacing (now the host-wide connection gate; formerly
+// the supervisor StaggerInterval) can be validated against the real ceiling.
 //
 // It runs from the SAME host/IP as the fleet, so tripping the limit will
 // briefly lock out this IP (the server returns code="ip_timed_out" with a
@@ -14,7 +14,7 @@
 //	         block plus the reported block duration. Capped by --max.
 //	paced  - log in once per --interval for --duration. If no block occurs the
 //	         pace is safe; the first block stops the run and flags the pace as
-//	         too aggressive. Default --interval is the supervisor StaggerInterval.
+//	         too aggressive. Default --interval is game.SleepMedium (5s).
 //	clerk  - log in --count times using Clerk ws-tokens instead of the password.
 //	         One token is minted per login (a ws-token is single-use), then a
 //	         fresh connection is opened and LoginWithToken is called. Logins are
@@ -402,7 +402,7 @@ func main() {
 	url := flag.String("url", defaultURL, "game server websocket URL")
 	maxAttempts := flag.Int("max", 30, "burst: max login attempts before giving up")
 	concurrency := flag.Int("concurrency", 1, "burst: simultaneous logins per wave")
-	interval := flag.Duration("interval", game.SleepMedium, "paced: delay between logins (defaults to supervisor StaggerInterval)")
+	interval := flag.Duration("interval", game.SleepMedium, "paced/clerk: delay between logins")
 	duration := flag.Duration("duration", 2*time.Minute, "paced: total run time")
 	settle := flag.Duration("settle", 0, "pause between ready and login (0 = none)")
 	debug := flag.Bool("debug", false, "verbose game-client logging to stderr")

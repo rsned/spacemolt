@@ -5,14 +5,22 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game/clerk"
 )
 
 // dialAttempts is how many gated tries a fresh start makes before giving up.
 // The gate is the only retry mechanism: each try claims its own slot, so the
-// spacing between tries is the gate's, never a local sleep.
+// spacing between tries is the gate's, never a local sleep. The one exception
+// is the per-player login_token limit, which waits its retry_after locally.
 const dialAttempts = 3
+
+// perPlayerLoginBucket is the server's per-player login_token rate-limit
+// bucket (10/min per account). It is the account's limit, not the host's, so
+// it never becomes a fleet-wide gate block: the try waits its retry_after
+// locally and the next try re-mints.
+const perPlayerLoginBucket = "clerk_login_token"
 
 // TokenMinter mints one single-use Clerk ws-token for this client's player.
 type TokenMinter func(ctx context.Context) (string, error)
@@ -76,10 +84,27 @@ func (a *authAttempt) try(ctx context.Context, g *ReconnectGate) error {
 		return err
 	}
 	if err := a.login(ctx, token); err != nil {
+		if d, ok := perPlayerRetryAfter(err); ok {
+			// Wait locally so the next try's fresh token is not refused too.
+			if werr := g.localWait(ctx, d); werr != nil {
+				return werr
+			}
+			return err
+		}
 		recordRateLimitBlock(g, err, "login")
 		return err
 	}
 	return nil
+}
+
+// perPlayerRetryAfter reports the retry_after of a per-player login_token rate
+// limit found in err.
+func perPlayerRetryAfter(err error) (time.Duration, bool) {
+	var se *ServerError
+	if errors.As(err, &se) && se.Bucket == perPlayerLoginBucket {
+		return se.RetryAfter, true
+	}
+	return 0, false
 }
 
 // logFallback emits the mint-fallback warning at most once per fallbackOnce.
@@ -90,7 +115,7 @@ func (a *authAttempt) logFallback(err error) {
 	if logger == nil {
 		logger = log.Default()
 	}
-	logIt := func() { logger.Printf("clerk mint failed (%v); falling back to password", err) }
+	logIt := func() { logger.Printf("WARN: clerk mint failed (%v); falling back to password", err) }
 	if a.fallbackOnce == nil {
 		logIt()
 		return
@@ -159,6 +184,9 @@ func recordRateLimitBlock(g *ReconnectGate, err error, source string) {
 		}
 		_ = g.RecordBlock(d, source)
 		return
+	}
+	if _, ok := perPlayerRetryAfter(err); ok {
+		return // the account's limit, not the host's; the try waits locally
 	}
 	var se *ServerError
 	if errors.As(err, &se) && se.RetryAfter > 0 {

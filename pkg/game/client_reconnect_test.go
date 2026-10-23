@@ -160,3 +160,78 @@ func TestReconnectingHandler_DisplacedDuringNormalBurstParks(t *testing.T) {
 		t.Errorf("parked retry after %v, want >= %v", gap, r.displacedRetryDelay)
 	}
 }
+
+// A 4001 that lands during a failed burst attempt must end the burst: the
+// remaining attempts would be extra gated dials inside one displaced interval.
+func TestReconnectingHandler_BurstStopsWhenDisplaced(t *testing.T) {
+	r, _ := newDisplacedTestHandler(t)
+	r.client.clearDisplaced()
+	var times []time.Time
+	r.reconnectFn = func(context.Context) error {
+		times = append(times, time.Now())
+		if len(times) == 1 {
+			r.client.displaced.Store(true) // 4001 arrived; its OnDisconnected lost the CAS
+		}
+		return errors.New("session replaced")
+	}
+	if !r.TriggerReconnect() {
+		t.Fatal("TriggerReconnect did not start a burst")
+	}
+	if !r.WaitForShutdown(2 * time.Second) {
+		t.Fatal("handler did not settle")
+	}
+	if len(times) != 2 {
+		t.Fatalf("reconnectFn called %d times, want 2 (one burst try, then one parked retry)", len(times))
+	}
+	if gap := times[1].Sub(times[0]); gap < r.displacedRetryDelay {
+		t.Errorf("second dial after %v, want >= %v (burst kept dialing)", gap, r.displacedRetryDelay)
+	}
+}
+
+// An operator lease (play_as) holds the parked client: it must not dial while
+// the hold reports true, and must dial exactly once after it clears.
+func TestReconnectingHandler_DisplacedHoldSkipsDial(t *testing.T) {
+	r, calls := newDisplacedTestHandler(t)
+	var holds atomic.Int32
+	r.SetDisplacedHold(func() bool {
+		if calls.Load() != 0 {
+			t.Error("reconnectFn ran while the hold was still being consulted")
+		}
+		return holds.Add(1) <= 2
+	})
+	start := time.Now()
+	r.OnDisconnected(errors.New("4001"))
+	if !r.WaitForShutdown(2 * time.Second) {
+		t.Fatal("handler did not settle")
+	}
+	if got := calls.Load(); got != 1 {
+		t.Errorf("reconnectFn called %d times, want exactly 1 after the hold cleared", got)
+	}
+	if got := holds.Load(); got != 3 {
+		t.Errorf("hold consulted %d times, want 3 (two held intervals, then clear)", got)
+	}
+	if elapsed := time.Since(start); elapsed < 3*r.displacedRetryDelay {
+		t.Errorf("dialed after %v, want >= 3 intervals (%v)", elapsed, 3*r.displacedRetryDelay)
+	}
+}
+
+// play_as must not park: onDisplaced replaces parking entirely.
+func TestReconnectingHandler_OnDisplacedOverridesParking(t *testing.T) {
+	r, calls := newDisplacedTestHandler(t)
+	var fired atomic.Int32
+	r.SetOnDisplaced(func() { fired.Add(1) })
+	r.OnDisconnected(errors.New("4001"))
+	// A parked retry would hold a wg slot, so WaitForShutdown would see it dial.
+	if !r.WaitForShutdown(time.Second) {
+		t.Fatal("handler did not settle")
+	}
+	if got := fired.Load(); got != 1 {
+		t.Errorf("onDisplaced fired %d times, want 1", got)
+	}
+	if got := calls.Load(); got != 0 {
+		t.Errorf("reconnectFn called %d times, want 0 (client must not park)", got)
+	}
+	if r.reconnecting.Load() {
+		t.Error("reconnecting guard left set after onDisplaced")
+	}
+}
