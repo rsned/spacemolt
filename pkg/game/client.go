@@ -254,6 +254,11 @@ type ReconnectingHandler struct {
 	// rate-limit block to the whole fleet so it expires instead of escalating.
 	// Nil disables coordination (the default for direct/test construction).
 	gate *ReconnectGate
+
+	// displacedRetryDelay is how long a displaced (4001) client stays parked
+	// before its one gated reconnect attempt. Zero means SleepDisplacedRetry;
+	// tests set it tiny.
+	displacedRetryDelay time.Duration
 }
 
 // SetReconnectGate attaches a host-wide reconnect coordinator. Call it on the
@@ -317,6 +322,14 @@ func (r *ReconnectingHandler) OnDisconnected(err error) {
 		return
 	}
 
+	// A 4001 means another login took our slot. Park instead of fighting it:
+	// no contention counting, no process exit, one retry per interval.
+	if r.client.Displaced() {
+		r.wg.Add(1)
+		go r.parkDisplaced()
+		return
+	}
+
 	if uptime > 0 && uptime < SessionContentionMinUptime {
 		r.shortLivedCount++
 	} else {
@@ -355,7 +368,7 @@ const reconnectMaxAttempts = 3
 // means a burst already running, or a live connection, makes this a no-op.
 // Returns true when it actually started a new burst.
 func (r *ReconnectingHandler) TriggerReconnect() bool {
-	if r.client.IsConnected() {
+	if r.client.IsConnected() || r.client.Displaced() {
 		return false
 	}
 	if !r.reconnecting.CompareAndSwap(false, true) {
@@ -364,6 +377,45 @@ func (r *ReconnectingHandler) TriggerReconnect() bool {
 	r.wg.Add(1)
 	go r.attemptReconnection()
 	return true
+}
+
+// parkDisplaced waits out the displaced-retry delay, then makes ONE gated
+// reconnect attempt. The caller holds the reconnecting guard and a wg slot.
+// A failed attempt does not loop: the next 4001 re-parks via OnDisconnected,
+// and a later TriggerReconnect re-enters the normal path. If the connection
+// is displaced again before the guard is released, park again here, since
+// OnDisconnected would have lost the CAS.
+func (r *ReconnectingHandler) parkDisplaced() {
+	defer r.wg.Done()
+	defer r.reconnecting.Store(false)
+
+	delay := r.displacedRetryDelay
+	if delay <= 0 {
+		delay = SleepDisplacedRetry
+	}
+
+	for {
+		timer := time.NewTimer(delay)
+		select {
+		case <-r.ctx.Done():
+			timer.Stop()
+			r.logger.Printf("Context cancelled, abandoning displaced reconnect")
+			return
+		case <-timer.C:
+		}
+
+		r.client.clearDisplaced()
+		err := r.reconnectFn(r.ctx)
+		if err != nil {
+			r.logger.Printf("Displaced reconnect attempt failed: %v", err)
+			recordRateLimitBlock(r.gate, err, "reconnect")
+		} else {
+			r.logger.Printf("Displaced reconnect attempt succeeded")
+		}
+		if !r.client.Displaced() {
+			return
+		}
+	}
 }
 
 func (r *ReconnectingHandler) attemptReconnection() {
@@ -806,7 +858,7 @@ func (c *Client) handleClose(closeErr *websocket.CloseError) {
 	case closeDisplaced:
 		c.failPending(&ConnectionClosed{Code: closeErr.Code, Reason: closeErr.Reason})
 		c.displaced.Store(true)
-		log.Printf("WARN: session_replaced: parking; reconnect suppressed until the displaced-retry timer fires")
+		log.Printf("WARN: session_replaced: parking; one gated reconnect attempt in %v", SleepDisplacedRetry)
 	default: // closeFailFast
 		c.failPending(&ConnectionClosed{Code: closeErr.Code, Reason: closeErr.Reason})
 	}
