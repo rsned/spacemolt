@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: ae0c813d-9d8e-4b7b-a04f-87f7158b2502
-  modified: 2026-10-23T02:01:05.275Z
+  modified: 2026-10-23T03:12:01.786Z
 ---
 
 Moved out of `MEMORY.md` on 2026-08-29 so the index stays an index. This file
@@ -15,7 +15,7 @@ Live block at ≤15 entries**; when it overflows, roll the oldest into
 
 ## Live (as of 2026-10-23)
 
-- **⭐🟢 10-23 — CLERK-TOKEN LOGIN + CONNECTION GATE MERGED (`1112f7de`, 16 commits), NOT YET ROLLED OUT.** Fleet auth moves from passwords (30/min shared) to per-player ws-tokens; the gate is a rolling 60 dials/min host-wide budget that honors every `retry_after`; `--stagger` is gone; 4001 parks a worker; `play_as` writes a lease. **Next: `clerk-sync` → probe → full stop of EVERY fleet (incl. mining/shuttle/fleet-watch) → rebuild → relaunch back-to-back → regenerate the Clerk key (it is in a transcript) → restart fleets.** [[reference_clerk_token_login_and_connection_gate]]
+- **⭐🟢✅ 10-22 — CLERK-TOKEN LOGIN + CONNECTION GATE LIVE (`1112f7de`, pushed `6f302f2e`): ~150 workers / 10 fleets relaunched in ~5 min with ZERO 429s, all `auth=clerk`.** Was 15–30 min with `--stagger 10s`. Auth is per-player ws-tokens (10/min per player, one API key in `~/.config/spacemolt/clerk_api_key`); the gate is a rolling 60 dials/min host-wide budget honoring every `retry_after`; `--stagger` is gone; 4001 parks a worker; `play_as` writes a lease. **Still to do: regenerate the Clerk key (it is in a transcript) and restart fleets; restart dashboards + market-prune (pre-merge binaries). Follow-up: one-off tools still dial outside the gate.** [[reference_clerk_token_login_and_connection_gate]]
 
 - **⭐🟢✅ 10-22 — NINE-FLEET ROLLOUT COMPLETE: 169 workers, zero losses, all on `6624cec2`.** Binaries had been **18 days / 55 commits stale** and a restart deploys nothing without a rebuild. Drained haul with **SIGUSR1** (zero aborted trips, two full 1,900 holds landed). Pruned retired `get_system_agents` from **65** schedules (~9,360 calls/day). [[reference_rebuild_before_restart]]
 - **⭐🔴 10-22 — OUTPOSTS ARE UNDOCKABLE AND WE COULD NOT SEE IT.** `type=outpost` = faction-members-only, 21 of 87 bases, zero services; **19 systems hold ONLY outposts** = station-less dead ends that will bite haul. Migration 65 + stations-refresh now store `type`/`wrecked` (`6f5218b1`). **THE ROUTING GATE IS STILL UNBUILT** — and must live in the movement layer, since haul never consults `deps.Access`. [[reference_outpost_vs_station_dockability]]

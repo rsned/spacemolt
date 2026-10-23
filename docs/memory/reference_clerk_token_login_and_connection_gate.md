@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: reference
   originSessionId: ae0c813d-9d8e-4b7b-a04f-87f7158b2502
-  modified: 2026-10-23T02:00:40.716Z
+  modified: 2026-10-23T03:12:01.723Z
 ---
 
 **What changed (branch `worktree-clerk-connection-pacer`, 16 commits, merged 2026-10-23):**
@@ -39,10 +39,16 @@ metadata:
 - **`--stagger` defaults to 0** and COLD_START's "one fleet at a time / --stagger 10s" rule is gone.
 - Probe: `bin/login-probe --mode clerk --account battle_bot1 --count 9 --interval 1s` (9, not 20: per-player 10/min).
 
-**Live rollout still to do (docs/COLD_START.md has the sequence):** `clerk-sync` → probe (fleet stopped) →
-**full stop of every fleet incl. mining/shuttle/fleet-watch, confirm no pre-merge binary** → rebuild bin/ →
-relaunch fleet-by-fleet, watch first worker's `auth=clerk … Ready!` → regenerate key → restart fleets.
-Expect ~90 live agents connected in 1–2 min (was 15–30).
+**ROLLED OUT 2026-10-22 19:48–19:55 PDT — RESULT: ~150 workers across 10 fleets logged in with ZERO 429s,
+ZERO `gate block` lines, every worker `auth=clerk`.** Sequence that worked: `clerk-sync` (215 written) →
+`login-probe --mode clerk --count 9 --interval 1s` against the live IP (9/9 ok) → full stop → rebuild all 8 bins →
+mb (54) first, 15 Ready in seconds → the other 8 overminds launched back-to-back 1 s apart → 149 workers running
+~2 min after the first launch; haul after the next marketbot capture. Workers come up ~1 s apart (gate min
+spacing) and `Ready!` ≈1 s after connect. A `play_as craftsman-1` session on the OLD binary ran throughout as
+the human-side 429 canary: nothing. **Cold start is now ~5 min for the whole fleet, down from 15–30.**
+Still to do: regenerate the Clerk key on the website (it is in a transcript), update
+`~/.config/spacemolt/clerk_api_key`, restart every fleet; restart the two dashboards + market-prune, which are
+still on pre-merge binaries (read-only, harmless).
 
 **Known follow-ups (parked at merge):** tools/observer/`pkg/agent/manager.go` still dial outside the gate
 (pre-existing); a `clerk_login_token` error with no retry_after re-mints immediately; fresh-start worker ignores
