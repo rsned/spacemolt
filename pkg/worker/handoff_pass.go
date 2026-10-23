@@ -25,14 +25,14 @@ func defaultHandoffPersist(q *handoff.Queue, id string, from, to handoff.Status,
 // record it was processing to a terminal state itself — either by
 // successfully transitioning it to failed, or by logging a best-effort
 // attempt to when that transition also failed. Ownership of the record's
-// fate passed to the batch loop the moment its own progress-persist call
+// fate passed to moveHandoffStock the moment its own progress-persist call
 // stopped succeeding as expected (a CAS loss or a write error), so the
 // caller (fulfillHandoff) must not transition or log it further.
-var errHandoffRecordResolved = errors.New("handoff: record already resolved during batch persist")
+var errHandoffRecordResolved = errors.New("handoff: record already resolved during progress persist")
 
 // HandoffPass fulfills pending handoff records owned by this agent
-// (d.AgentID) at its current docked station: withdraw the staged stock from
-// storage into cargo, gift it to the resolved recipient, and mark the
+// (d.AgentID) at its current docked station: gift the staged stock straight
+// from storage to the resolved recipient, and mark the
 // record done with however much actually moved. Records held by another
 // agent, or staged at a station this worker isn't currently docked at, are
 // left untouched — those belong to a different pass (a different agent's,
@@ -70,8 +70,8 @@ func (d *WorkerDispatch) HandoffPass(ctx context.Context, q *handoff.Queue) erro
 // fulfillHandoff processes one pending record already confirmed to be held
 // by this agent at the currently-docked station. It rejects a self-targeted
 // record as an invalid plan state (controller decision 2), resolves the
-// recipient's in-game username, withdraws and gifts staged stock in
-// cargo-sized batches, and transitions the record to done (with the actual
+// recipient's in-game username, gifts the staged stock from storage, and
+// transitions the record to done (with the actual
 // MovedQty, which may be less than Qty on short storage) or failed. A
 // transient failure (e.g. a mid-pass disconnect) is logged and the record is
 // left pending for the next pass to retry — it is never marked done or
@@ -98,10 +98,10 @@ func (d *WorkerDispatch) fulfillHandoff(ctx context.Context, q *handoff.Queue, r
 	}
 
 	// rec.MovedQty carries progress persisted by an earlier, partially
-	// completed pass (see moveHandoffStock's per-batch CAS updates below).
+	// completed pass (see moveHandoffStock's CAS update below).
 	// Only the remainder still needs to move; if a prior pass already moved
 	// everything (or more, which shouldn't happen but is handled the same
-	// way), there's nothing left to withdraw or gift — just finalize.
+	// way), there's nothing left to gift — just finalize.
 	remaining := rec.Qty - rec.MovedQty
 	if remaining <= 0 {
 		ok, terr := d.handoffPersist(q, rec.ID, handoff.StatusPending, handoff.StatusDone, nil)
@@ -124,7 +124,7 @@ func (d *WorkerDispatch) fulfillHandoff(ctx context.Context, q *handoff.Queue, r
 		return
 	}
 
-	movedThisPass, definitive, err := d.moveHandoffStock(ctx, q, rec, username, remaining)
+	movedThisPass, err := d.moveHandoffStock(ctx, q, rec, username, remaining)
 	if err != nil {
 		if !errors.Is(err, errHandoffRecordResolved) {
 			fmt.Fprintf(d.Out, "handoff %s: %v (leaving pending)\n", rec.ID, err) //nolint:errcheck
@@ -134,13 +134,8 @@ func (d *WorkerDispatch) fulfillHandoff(ctx context.Context, q *handoff.Queue, r
 		// nothing more to do here.
 		return
 	}
-	if !definitive {
-		// No progress this pass against stock the queue believes is
-		// present (e.g. cargo hold full) — leave pending, retry next pass.
-		return
-	}
 
-	// A definitive pass that moved NOTHING across the whole record (nothing
+	// A pass that read storage and moved NOTHING across the whole record (nothing
 	// now, nothing from a prior pass) means the holder's storage is empty of
 	// this item — the queue's belief is stale. Don't fake-done a zero handoff
 	// (a downstream craft would proceed and fail blaming the wrong node): fail
@@ -152,11 +147,9 @@ func (d *WorkerDispatch) fulfillHandoff(ctx context.Context, q *handoff.Queue, r
 		return
 	}
 
-	// The per-batch persists inside moveHandoffStock already brought the
-	// live record's MovedQty to baseline + everything moved this pass (each
-	// batch persisted its own delta against the live record under lock) —
-	// this transition only needs to flip the status. Adding movedThisPass
-	// again here would double-count the last batch.
+	// moveHandoffStock already added this pass's delta to the live record's
+	// MovedQty under lock; this transition only flips the status. Adding
+	// movedThisPass again here would double-count it.
 	ok, terr := d.handoffPersist(q, rec.ID, handoff.StatusPending, handoff.StatusDone, nil)
 	if terr != nil {
 		fmt.Fprintf(d.Out, "handoff: transition %s to done: %v\n", rec.ID, terr) //nolint:errcheck
@@ -170,130 +163,86 @@ func (d *WorkerDispatch) fulfillHandoff(ctx context.Context, q *handoff.Queue, r
 		rec.ID, movedThisPass, rec.MovedQty+movedThisPass, rec.Qty, rec.ItemID, rec.Recipient)
 }
 
-// moveHandoffStock withdraws and gifts up to remaining units of rec.ItemID
-// (the still-outstanding balance — rec.Qty minus whatever a prior pass
-// already moved) in cargo-hold-sized batches, mirroring Deliver's
-// cargo-refresh discipline: the live client does not update state.Ship.Cargo
-// on WithdrawItems or SendGift, so GetCargo is called after each. After every
-// batch that successfully gifts at least one unit, it persists progress by
-// CAS-updating the still-pending record's MovedQty with a DELTA against the
-// live record under lock (r.MovedQty += the batch's own gifted quantity) —
-// never a precomputed cumulative — so a concurrent writer's update to
-// MovedQty between this record's pickup and this persist is preserved
-// rather than clobbered, and a transient failure partway through a
-// multi-batch pass does not lose the batches that already landed. The next
-// pass resumes from the remainder instead of re-gifting the full quantity.
+// moveHandoffStock gifts up to remaining units of rec.ItemID (the
+// still-outstanding balance — rec.Qty minus whatever a prior pass already
+// moved) straight out of station storage with send_gift source=storage. The
+// goods never enter the hold, so cargo space and item size play no part: the
+// 2026-10-22 adamantite handoff (2,837 units of a size-2 ore, 100-capacity
+// hold) failed as "holder storage empty" when this withdrew a cargo-sized
+// batch first, because the oversized withdraw's "not enough cargo space"
+// reply read as short supply.
 //
-// Every persist's CAS result is checked: a false ok means the record left
-// pending under us (another actor already transitioned it, e.g. to failed)
-// — processing stops immediately, no further batches are withdrawn or
-// gifted. A non-nil error means the persist itself failed (e.g. a write
-// error) after the gift already landed in the recipient's cargo; that is
-// escalated to a failed transition carrying the gifted-but-unpersisted
-// quantity, because leaving the record pending with a stale, too-low
-// MovedQty would cause the next pass to re-gift those same units. Both of
-// these outcomes are logged (and, for the escalation, persisted) internally
-// here, signaled to the caller via errHandoffRecordResolved so it does not
-// also try to transition or log the record.
+// The gift is sized from a fresh view_storage, capped at what is held, so it
+// is never oversized. After it lands, progress is persisted by CAS-updating
+// the still-pending record's MovedQty with a DELTA against the live record
+// under lock (r.MovedQty += gifted) — never a precomputed cumulative — so a
+// concurrent writer's update between this record's pickup and this persist
+// is preserved rather than clobbered.
 //
-// It returns the total actually moved this pass and whether the outcome is
-// definitive:
+// A persist that returns ok=false means the record left pending under us
+// (another actor already transitioned it): the gift stands and the record is
+// left as that actor set it. A persist that errors after the gift landed is
+// escalated to failed carrying the gifted-but-unpersisted quantity, because
+// leaving the record pending with a stale, too-low MovedQty would make the
+// next pass re-gift those same units. Both are signalled to the caller via
+// errHandoffRecordResolved so it does not also transition or log the record.
 //
-//   - definitive=true, err=nil: either the full remaining quantity moved, or
-//     a withdraw came back with fewer units than requested for a definitive
-//     reason (isShortSupplyErr — the source really doesn't have any more).
-//     The caller marks the record done.
-//   - definitive=false, err=nil: the pass made no progress for a transient,
-//     non-error reason (the cargo hold has no free space this pass). The
-//     caller leaves the record pending.
-//   - err is errHandoffRecordResolved: the record has already been left in
-//     its terminal state (or a best-effort attempt logged) by this
-//     function; the caller must not touch it further.
-//   - err != nil (any other error): a real (non-short-supply) client error
-//     — transient by assumption (e.g. a disconnect). The caller leaves the
-//     record pending and logs it; whatever was already gifted (and
-//     persisted) in this pass stands, and is not re-attempted next pass.
-func (d *WorkerDispatch) moveHandoffStock(ctx context.Context, q *handoff.Queue, rec handoff.Record, username string, remaining int) (moved int, definitive bool, err error) {
-	for remaining > 0 {
-		free := cargoFreeSpace(d.Client.GetState())
-		if free <= 0 {
-			return moved, moved > 0, nil
-		}
-		want := min(remaining, free)
-
-		before := cargoCount(d.Client.GetState(), rec.ItemID)
-		werr := d.Client.WithdrawItems(ctx, rec.ItemID, float64(want))
-		if werr != nil && !isShortSupplyErr(werr) {
-			return moved, moved > 0, fmt.Errorf("withdraw %s: %w", rec.ItemID, werr)
-		}
-		if cerr := d.Client.GetCargo(ctx); cerr != nil {
-			return moved, moved > 0, fmt.Errorf("refresh cargo after withdraw %s: %w", rec.ItemID, cerr)
-		}
-		got := cargoCount(d.Client.GetState(), rec.ItemID) - before
-		short := got < want
-
-		if got > 0 {
-			if gerr := d.Client.SendGift(ctx, map[string]any{
-				"recipient": username,
-				"item_id":   rec.ItemID,
-				"quantity":  float64(got),
-			}); gerr != nil {
-				return moved, moved > 0, fmt.Errorf("gift %s to %s: %w", rec.ItemID, rec.Recipient, gerr)
-			}
-			if cerr := d.Client.GetCargo(ctx); cerr != nil {
-				return moved, moved > 0, fmt.Errorf("refresh cargo after gift %s: %w", rec.ItemID, cerr)
-			}
-			moved += got
-			remaining -= got
-
-			// Persist progress immediately so a later transient failure
-			// within this same pass (or a crash) never loses a batch that
-			// already landed in the recipient's cargo.
-			gotThisBatch := got
-			ok, terr := d.handoffPersist(q, rec.ID, handoff.StatusPending, handoff.StatusPending, func(r *handoff.Record) {
-				r.MovedQty += gotThisBatch
-			})
-			switch {
-			case terr != nil:
-				// The gift already landed, but recording it failed (e.g. a
-				// disk write error) — the on-disk MovedQty was NOT updated
-				// by the call above (it errors before or during the
-				// write/rename, never after a successful one). Escalate to
-				// failed so an operator looks, instead of leaving a stale,
-				// too-low MovedQty that would make the next pass re-gift
-				// these same units.
-				//
-				// TODO: a disk failure between the gift succeeding and BOTH
-				// this escalation attempt and its own transition failing
-				// leaves a residual window where units are gifted but
-				// unaccounted for anywhere in the queue; would need manual
-				// reconciliation tooling if ever observed in practice.
-				msg := fmt.Sprintf("gifted %d %s to %s but failed to persist progress: %v", gotThisBatch, rec.ItemID, rec.Recipient, terr)
-				if _, ferr := d.handoffPersist(q, rec.ID, handoff.StatusPending, handoff.StatusFailed, func(r *handoff.Record) {
-					r.MovedQty += gotThisBatch
-					r.Error = msg
-				}); ferr != nil {
-					fmt.Fprintf(d.Out, "handoff %s: CRITICAL: %s; also failed to mark the record failed: %v\n", rec.ID, msg, ferr) //nolint:errcheck
-				} else {
-					fmt.Fprintf(d.Out, "handoff %s: failed: %s\n", rec.ID, msg) //nolint:errcheck
-				}
-				return moved, true, errHandoffRecordResolved
-			case !ok:
-				// CAS lost: the record left the pending status under us
-				// (e.g. another actor already marked it done or failed).
-				// Stop gifting further batches for a record that may
-				// already be settled elsewhere.
-				fmt.Fprintf(d.Out, "handoff %s: record left pending during pass (handled elsewhere) — stopping further batches\n", rec.ID) //nolint:errcheck
-				return moved, true, errHandoffRecordResolved
-			}
-		}
-
-		if short {
-			// Definitive: this batch's withdraw came up short of what was
-			// asked for — the source is exhausted, another pass will not
-			// find more. Whatever moved so far stands.
-			return moved, true, nil
-		}
+// It returns the quantity moved this pass:
+//
+//   - err=nil: storage was read and what it held (up to remaining) was
+//     gifted — possibly nothing, when storage holds none. The caller marks
+//     the record done, or failed when nothing has ever moved.
+//   - err is errHandoffRecordResolved: the record is already in its terminal
+//     state (or a best-effort attempt was logged); the caller must not touch it.
+//   - err != nil (any other error): storage could not be read, or the gift
+//     failed — transient by assumption (e.g. a disconnect). Nothing moved; the
+//     caller leaves the record pending for the next pass.
+func (d *WorkerDispatch) moveHandoffStock(ctx context.Context, q *handoff.Queue, rec handoff.Record, username string, remaining int) (moved int, err error) {
+	if serr := d.Client.ViewStorage(ctx); serr != nil {
+		return 0, fmt.Errorf("view storage: %w", serr)
 	}
-	return moved, true, nil
+	// An undecodable frame is no information, never an empty storage: failing
+	// the record on it would park a plan node for a read glitch.
+	held, ok := consignHeld(d.Client.GetRawJSON("storage"))
+	if !ok {
+		return 0, fmt.Errorf("view storage: no readable storage frame")
+	}
+	give := min(remaining, held[rec.ItemID])
+	if give <= 0 {
+		return 0, nil
+	}
+
+	if gerr := d.Client.SendGift(ctx, map[string]any{
+		"recipient": username,
+		"item_id":   rec.ItemID,
+		"quantity":  float64(give),
+		"source":    "storage",
+	}); gerr != nil {
+		return 0, fmt.Errorf("gift %s to %s: %w", rec.ItemID, rec.Recipient, gerr)
+	}
+
+	ok, terr := d.handoffPersist(q, rec.ID, handoff.StatusPending, handoff.StatusPending, func(r *handoff.Record) {
+		r.MovedQty += give
+	})
+	switch {
+	case terr != nil:
+		// TODO: a disk failure between the gift succeeding and BOTH this
+		// escalation attempt and its own transition failing leaves a residual
+		// window where units are gifted but unaccounted for anywhere in the
+		// queue; would need manual reconciliation tooling if ever observed.
+		msg := fmt.Sprintf("gifted %d %s to %s but failed to persist progress: %v", give, rec.ItemID, rec.Recipient, terr)
+		if _, ferr := d.handoffPersist(q, rec.ID, handoff.StatusPending, handoff.StatusFailed, func(r *handoff.Record) {
+			r.MovedQty += give
+			r.Error = msg
+		}); ferr != nil {
+			fmt.Fprintf(d.Out, "handoff %s: CRITICAL: %s; also failed to mark the record failed: %v\n", rec.ID, msg, ferr) //nolint:errcheck
+		} else {
+			fmt.Fprintf(d.Out, "handoff %s: failed: %s\n", rec.ID, msg) //nolint:errcheck
+		}
+		return give, errHandoffRecordResolved
+	case !ok:
+		fmt.Fprintf(d.Out, "handoff %s: record left pending during the gift (handled elsewhere) — leaving it as set\n", rec.ID) //nolint:errcheck
+		return give, errHandoffRecordResolved
+	}
+	return give, nil
 }

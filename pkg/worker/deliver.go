@@ -110,8 +110,9 @@ func isShortSupplyErr(err error) bool {
 
 // Deliver moves ITEM xQTY from the worker's own storage at FROM to RECIPIENT
 // at TO. recipient "self" (or the worker's own agent id) means deposit into
-// own storage at TO instead of gifting. Gifts are cargo-only (live-verified,
-// 2026-07-10): the verb withdraws into cargo at FROM, then travels to TO and
+// own storage at TO instead of gifting. A gift lands at the SENDER's station,
+// so goods bound for TO must be carried there (send_gift source=storage gifts
+// in place, which is what HandoffPass uses): the verb withdraws into cargo at FROM, then travels to TO and
 // gifts/deposits from cargo, repeating in cargo-capacity-sized batches until
 // qty is satisfied. If FROM held less than qty, it delivers what existed and
 // returns nil with a short-delivery note written to d.Out instead of looping

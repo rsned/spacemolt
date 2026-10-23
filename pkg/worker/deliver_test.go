@@ -133,12 +133,48 @@ func (f *deliverFakeClient) SendGift(ctx context.Context, payload map[string]any
 		f.calls = append(f.calls, fmt.Sprintf("send_gift_err:%v", payload))
 		return f.giftErr
 	}
-	f.calls = append(f.calls, fmt.Sprintf("send_gift:%v", payload))
-	f.giftCalls = append(f.giftCalls, payload)
 	itemID, _ := payload["item_id"].(string)
 	qty, _ := payload["quantity"].(float64)
+	if payload["source"] == "storage" {
+		// A storage gift never touches cargo: it draws straight from the
+		// station storage, and an oversized one moves nothing.
+		if qty > f.storageStock[itemID] {
+			f.calls = append(f.calls, fmt.Sprintf("send_gift_short:%v", payload))
+			return fmt.Errorf("insufficient_storage: You only have %.0f x %s in storage.", f.storageStock[itemID], itemID)
+		}
+		f.storageStock[itemID] -= qty
+		f.calls = append(f.calls, fmt.Sprintf("send_gift:%v", payload))
+		f.giftCalls = append(f.giftCalls, payload)
+		return nil
+	}
+	f.calls = append(f.calls, fmt.Sprintf("send_gift:%v", payload))
+	f.giftCalls = append(f.giftCalls, payload)
 	f.stageDrain(itemID, qty)
 	return nil
+}
+
+// GetRawJSON serves "storage" as a view_storage frame built from storageStock
+// at the docked base (nil when storageStock is nil, i.e. no storage modelled),
+// deferring every other key to the embedded fakeClient.
+func (f *deliverFakeClient) GetRawJSON(key string) []byte {
+	if key != "storage" || f.storageStock == nil {
+		return f.fakeClient.GetRawJSON(key)
+	}
+	type item struct {
+		ItemID   string  `json:"item_id"`
+		Quantity float64 `json:"quantity"`
+	}
+	frame := struct {
+		BaseID string `json:"base_id"`
+		Items  []item `json:"items"`
+	}{BaseID: f.state.Player.DockedAtBase}
+	for id, q := range f.storageStock {
+		if q > 0 {
+			frame.Items = append(frame.Items, item{id, q})
+		}
+	}
+	raw, _ := json.Marshal(frame)
+	return raw
 }
 
 // stageDrain records qty of itemID as gifted/deposited but not yet removed
