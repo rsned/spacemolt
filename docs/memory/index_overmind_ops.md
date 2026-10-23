@@ -1,8 +1,11 @@
 ---
 name: index-overmind-ops
-description: Overmind, ops & deploy: launch commands, fleet-watch, rollout queue, quiesce/park, drain, dashboards, login limits, market.db prune, bulk deletes, capability ledger
+description: "Overmind, ops & deploy: launch commands, fleet-watch, rollout queue, quiesce/park, drain, dashboards, login limits, market.db prune, bulk deletes, capability ledger"
 metadata:
+  node_type: memory
   type: reference
+  originSessionId: ae0c813d-9d8e-4b7b-a04f-87f7158b2502
+  modified: 2026-10-23T02:01:01.006Z
 ---
 
 # Overmind / ops / deploy
@@ -24,8 +27,9 @@ metadata:
 - [Activity line](project_ovstatus_activity_line.md) — per-agent current-activity sub-line
 - [Dashboard task summary](project_overmind_dashboard_task_summary.md) — FUTURE per-worker task line
 - [Fleet version visibility](project_fleet_version_visibility.md) — current/behind per build
-- [Login rate limits](reference_login_rate_limits.md) — per-IP per-minute on /login; shapes fleet startup
-- [Login vs reconnect gating](reference_login_vs_reconnect_gating.md) — FRESH logins NOT gated; never mass-restart fast
+- ⭐🟢 [Clerk-token login + connection gate (10-23)](reference_clerk_token_login_and_connection_gate.md) — one API key, player_id via clerk-sync, 60 dials/min host-wide, --stagger dead, 4001 parks, play_as lease
+- [Login rate limits](reference_login_rate_limits.md) — per-IP per-minute on /login (password path; largely bypassed by Clerk tokens since 10-23)
+- [Login vs reconnect gating](reference_login_vs_reconnect_gating.md) — BOTH fresh logins and reconnects are gated (history of the old ungated era inside)
 - [market.db pruning](reference_market_db_prune.md) — UNSUPERVISED; died 07-15 → 62GB; retry fix `a474d01d` undeployed
 - [Bulk-delete scale lesson](feedback_bulk_delete_scale.md) — NEVER unbatched DELETE on a huge table; 6.5h without committing
 - [Verify regen with stash](feedback_verify_regen_with_stash.md) — swap old code in with git stash, never `git checkout`

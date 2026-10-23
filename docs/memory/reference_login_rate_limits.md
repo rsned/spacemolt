@@ -5,7 +5,10 @@ metadata:
   node_type: memory
   type: reference
   originSessionId: 696d1b09-e994-42b5-8a6c-d8be5aa101d8
+  modified: 2026-10-23T02:01:10.166Z
 ---
+
+> **2026-10-23:** the numbers below describe the PASSWORD login path (`session_auth`, 30/min per IP shared by every account). The fleet now logs in with Clerk ws-tokens whose limit is 10/min **per player**, so the only shared budget left is the WS-connection cap (100/min per IP). See [[reference_clerk_token_login_and_connection_gate]].
 
 The game server throttles new connections **per-IP**; too many logins from one IP in a short window get choked. Once a session is logged in, there are **few per-IP limits** on subsequent activity.
 

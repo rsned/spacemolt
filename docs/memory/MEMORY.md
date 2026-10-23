@@ -9,6 +9,7 @@
 - [Standing rules](feedback_standing_rules.md) — never `git add -A` with dirty data/*.json · haul `--stagger 10s` · unpushed? `git log origin/main..HEAD` · after memory edits: `make memory-sync` + commit docs/memory · NEVER edit an applied migration
 - ⭐🔴 [NO stronghold routing without pirate unlock](feedback_stronghold_routing_requires_pirate_unlock.md) — per-agent rule; strongholds are dead ends; 8 of 24 losses incl. assist-sol's tanker
 - Archives: [Aug](project_status_archive_2026_08.md) · [Jul 22–29](project_status_archive_2026_07.md) · [Jul 4–10](project_current_status.md) — misnamed: the OLDEST archive, 81 KB
+- ⭐🟢 [Clerk-token login + host-wide connection gate SHIPPED 10-23](reference_clerk_token_login_and_connection_gate.md) — `--stagger` is dead; key in ~/.config/spacemolt/clerk_api_key; run clerk-sync; 4001 parks; play_as lease; **live rollout + key regen still pending**
 - ⭐ [Cold start: follow docs/COLD_START.md, but it lists 7 of 9 fleets](reference_cold_start_runbook_drift.md) — mining + shuttle + fleet-watch missing; pool ~90 is HEALTHY now, not starved
 - [Shipped-feature index](reference_shipped_history.md) — check before rebuilding anything
 - [Sunless systems = generation artifact](reference_sunless_systems_intentional.md) — 9 systems, LLM-map slip, do NOT chase; real reveal hook is gsc_0026 faint_signature
