@@ -52,3 +52,27 @@ pipeline bug, and no retry will ever succeed. Resolution is manual: the strandee
 stronghold access (play_as it out), or clear the record to release the quarantine.
 
 Related: [[project_overmind_stall_kill_connect_loop]] [[project_treasury_and_shuttle]]
+
+**⭐🔴 2026-10-23 — 27 QUARANTINED, 26 RESCUES `failed` AT 5/5 ATTEMPTS, AND MOST ATTEMPTS WERE BURNED IN ~20 MINUTES.**
+Mass strand overnight 03:19–03:58 PDT: **17 mining-fleet agents** (11 of them at BD+20 2457 / The Veil Anchor —
+a public STATION POI) went `fuel-dead` with fuel 0–3 and **credits=0**, because a server-side pending `mine`
+action never cleared: every `dock`/`refuel`/`jump` answered "Another action is already pending (mine)" for 90
+min (the [[project_reconnect_wake_on_input]] desync, now without the unpaced retry storm — the loop was paced,
+so no IP block, but also no recovery). Plus 6 haul (salvager-2/3/8, hauler-0, trader-3/5, later trader-9) and 3
+unlock (craftsman-8, pirate-11/12) via "3 futile stall-restarts" — stall watchdog restarts killed workers
+mid-`jump`, and the restarted worker inherited the same pending action.
+**Three new rescue failure modes, all visible in `rescue-queue.json` `.error`:**
+1. **`travel: find_route failed: not connected`** (12 records) — that is the RESCUER's own websocket being down,
+   not a map-connectivity verdict. 13 of the 27 `updated_at` stamps fall in 04:51–04:53 PDT = the server's
+   deploy-503 window; the assist workers kept polling/claiming while disconnected and each failure consumed an
+   attempt and a `failed_by` slot. Rescue claiming must be gated on the rescuer being connected (and ideally on
+   no active gate block).
+2. **`action pending: another action () is in progress`** on the rescuer's first jump (10 records) — the
+   rescuers themselves hit the pending-action wedge. One blocked rescuer should not be able to burn an attempt per
+   10-min pass against every record.
+3. **`insufficient fuel for route ... 11 available`** (3 records) — assist-sol/nexus/frontier are BROKE
+   (1001 / 100 / 1 cr at 15:25 PDT), assist-krynn has 30k but is **gift-locked** (bug #3 again, "must earn 1000"),
+   only assist-haven (258k) can actually fund anything; intra-assist rescue-fee debts are 11,000 cr and growing.
+Remedy is the proven one above: for the 11 at The Veil Anchor the strandee is AT a station — gift credits, play_as
+`dock` + `refuel`, re-arm or archive the record. Fund the assist fleet from the banker/treasury first or every
+re-armed record fails the same way. [[reference_clerk_token_login_and_connection_gate]] for the deploy windows.
