@@ -205,3 +205,13 @@ data/overmind/**/*.lock
 # Hunt fleet per-agent chain records (runtime state)
 data/agents/*/hunt-chain.json
 data/wildlife-growth/
+
+# Clerk API key and anything that looks like one (the real key lives in
+# ~/.config/spacemolt/clerk_api_key, outside the repo; this is belt-and-braces)
+clerk_api_key
+clerk_api_key.*
+*.clerk_key
+**/clerk_api_key
+
+# play_as operator lease files (runtime state; a parked worker waits on these)
+data/agents/*/play_as.lease
