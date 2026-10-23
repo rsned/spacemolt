@@ -1,6 +1,6 @@
 # Clerk-token login + host-wide connection pacer — design
 
-Date: 2026-10-22. Status: draft, awaiting approval.
+Date: 2026-10-22. Status: approved 2026-10-22; implemented 2026-10-23 (branch worktree-clerk-connection-pacer).
 
 ## Intent
 
@@ -149,7 +149,7 @@ and `password_logins` (every password `login`/`register` — the
 
 **`Acquire(ctx, kind)`** where `kind` is `DialToken` or `DialPassword`: wait out `blocked_until`; then, if the window is full for `dials` (and, for `DialPassword`, also for `password_logins`), sleep until the oldest expires; then enforce `minSpacing` from the newest dial; then append `now` to the relevant counters and return. Existing callers pass `DialToken` when a token was minted and `DialPassword` otherwise (`InitializeMCPAgent`, `register`, `claim`, `play_as` on an unowned account).
 
-**`RecordBlock(d, source)`**: as today but records which signal produced it (`"http429"`, `"mint429"`, `"close4003"`, `"rate_limited:connection"`, `"rate_limited:session_auth"`, `"ip_timed_out"`) for the log line. When a signal carries **no** duration, the default is one `window` (60 s), replacing today's `reconnectBlockDefault = 5 min`: a bare 429 on a cold start must not idle the whole fleet for five minutes.
+**`RecordBlock(d, source)`**: as today but records which signal produced it (`"http429"`, `"mint429"`, `"close4003"`, `"rate_limited:connection"`, `"rate_limited:session_auth"`, `"ip_timed_out"`) for the log line. When a signal carries **no** duration, the default is `ConnectBareBlock` = 5 min. Every observed bare block ran 444–1757 s, and a 60 s hold in Aug 2026 released the fleet into a live block and escalated it (8 → 15.5 min); under-recording is the expensive direction. The 60 s `window` remains only the rolling window and minimum spacing.
 
 **Signals that feed it** (the port's main correctness work):
 | Where | Signal | Action |
@@ -226,7 +226,7 @@ relaunch remains the backstop, not the mechanism.
 - Token is minted before the dial, never after.
 - 4002 reconnects (server guidance); 4003 records the hint and reconnects; 4001 parks the worker with one gated retry every 10 minutes.
 - Deploy is a full stop, then fleet-by-fleet relaunch on the new binary.
-- Bare rate-limit signals with no duration record a 60 s block, not 5 min.
+- Bare rate-limit signals with no duration record a `ConnectBareBlock` = 5 min block, not 60 s (controller ruling, 2026-10-23; see section 4).
 - Fresh-start retry lives in `dialWithGate` (3 gated attempts), supervisor relaunch is the backstop.
 
 ## Appendix: spike record (2026-10-22, gameserver v0.645.0)
@@ -242,3 +242,8 @@ POST /api/player/573b…cf7/ws-token                -> 200  {"token": <64 chars>
 mint probe: 70 × POST ws-token in 33.7 s -> all 200, no Retry-After / X-RateLimit headers
 ownership: 171 live agents -> 166 owned; unowned random-6, random-8, random-9 (+ random-7, empire-crimson, empire-crimson-real among non-live dirs)
 ```
+
+## Implementation notes (2026-10-23)
+
+- `clerk-sync` dry-run: 215 written, 6 unmatched (random-6, random-7, random-8, random-9, empire-crimson, empire-crimson-real), and 10 orphan owned players with no agent directory.
+- The password-fallback path consumes the password budget through a second `Acquire` (`DialPassword`), after the first `Acquire` (`DialToken`) taken for the aborted token attempt.
