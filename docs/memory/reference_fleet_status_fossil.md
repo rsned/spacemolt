@@ -56,3 +56,11 @@ state was then 168/169, the only stale worker being hauler-0.
 file's MTIME first and skip anything older than ~1 hour as a retired fleet,
 instead of counting its workers as dead. Nothing cleans these up when a
 fleet is retired, so there will be more.
+
+**2026-10-23 — `activity` in `<fleet>-status.json` is STICKY, not live.** It holds the last task string a worker
+was assigned (e.g. `Opportunity #1687396 · buying up to 1350 …`) and is never cleared when the worker goes idle:
+14 drained haul workers showed byte-identical activity strings for 45 minutes while their logs were nothing but
+5-minute `send_tally` idle reconciles. The status file also carries no `drained` field. To know whether a hauler is
+really busy, read its recent non-heartbeat log lines (`grep '\[worker:<id>\]' haul-overmind.log | grep -v heartbeat
+| tail`) — `send_tally` with only faction_info/get_skills/get_status/list_ships/shipping = idle. The overmind's
+SIGUSR1 drain poll gives up after ~3 min (`drain poll ended`), so it cannot confirm completion either.

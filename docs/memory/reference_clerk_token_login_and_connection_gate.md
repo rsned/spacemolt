@@ -78,3 +78,10 @@ and the respawn displaces you — so keep each play_as session short (≤ ~10 gi
 overmind for longer than that either:** I froze the mining overmind for 2 min 20 s on 10-23 and on thaw it saw every
 heartbeat >90 s stale and ROLLING-RESTARTED ALL 27 WORKERS (5 s apart, `killed=false`, workers exit on
 `context canceled` when the control socket closes). Harmless but a full fleet relog. [[reference_sigstop_preserves_game_sessions]]
+
+**Key rotated 2026-10-23:** new key installed at `~/.config/spacemolt/clerk_api_key` (old key → 401 confirmed),
+all 10 fleets restarted onto it one at a time (`restart-fleet.sh`-style: SIGTERM overmind → wait → relaunch; use
+the `[o]vermind` bracket trick in pkill -f or it kills your own shell). Haul was SIGUSR1-drained first and
+restarted ~90 min later once its workers were idle (see [[reference_fleet_status_fossil]] for why the status
+file's `activity` field cannot tell you that). Result: 0 password fallbacks, 0 key-rejected, 0 rate-limit hits.
+`.gitignore` now excludes `clerk_api_key*`, `*.clerk_key` and `data/agents/*/play_as.lease`.
