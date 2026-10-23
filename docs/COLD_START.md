@@ -28,6 +28,17 @@ for d in /proc/[0-9]*; do c=$(tr '\0' ' ' < $d/cmdline 2>/dev/null); \
   echo "$(basename $d) ${c:0:100}";; esac; done
 ```
 
+The scan must also come back empty for the **mining, shuttle and fleet-watch** overminds and
+their workers. The launch sequence below does not cover those three, so a full stop that only
+walks the fleets in step 3 leaves them running. Stop them too.
+
+Then confirm no worker from a pre-merge build survives. A pre-Clerk binary still logs in with
+the password outside the shared connection gate.
+
+```bash
+ps -eo pid,lstart,cmd | grep bin/worker    # must list nothing started before the new build
+```
+
 **b. Confirm it was a hard stop, and how long ago.** The last timestamp in each
 `data/overmind/*-overmind.log` is the moment of death. If every log ends at the same second
 with no `shutdown complete` banner, the processes were killed rather than drained — expect
@@ -146,28 +157,40 @@ Prerequisites, once per host:
   `--agents data/agents` is the default root). It prints Written / Unchanged / Unmatched /
   Orphans / Ambiguous. Exit 1 means Ambiguous matches that need a human; exit 2 means no key.
   Unmatched dirs are agents the key's account does not own; they keep using password login.
+- **After regenerating the Clerk key, restart every fleet.** Running processes hold the old key
+  in memory, so their mints fail and they fall back to password logins.
 
 `--connect-budget N` on the overmind is the one pacing knob (default 60 dials/min; the server
 limit is 100). It is exported to the workers as `SPACEMOLT_CONNECT_BUDGET`. Leave it alone unless
-a block log says otherwise.
+a block log says otherwise. Pass the same `--connect-budget` to every overmind on the host: the
+window is shared, so the largest value governs.
 
 What the logs tell you:
 
 - `auth=clerk player_id=…` at worker boot: logged in with a ws-token. The normal case.
 - `auth=password reason=no_key|not_owned|list_failed`: fell back. `no_key` — no Clerk key found;
   `not_owned` — the key's account does not own this agent (run `clerk-sync`, check Unmatched);
-  `list_failed` — the ownership lookup errored. A mint failure that is not a rate limit also
-  falls back to password once per try and logs `clerk mint failed (...); falling back to
-  password` once per process.
+  `list_failed` — the ownership lookup errored.
+- `WARN: clerk mint failed (...); falling back to password`: a token mint failed for a reason
+  other than a rate limit, so that one login try used the password instead. Every such try falls
+  back, but the line is logged only once per process. A rate-limited mint never falls back; it
+  records a gate block instead.
+- A per-player `clerk_login_token` rate limit (10 logins/min per account) is not a gate block.
+  The worker waits the server's `retry_after` itself and re-mints; other workers are unaffected.
+- `WARN: auth_timeout (4002): reconnecting`: the socket opened but did not authenticate in time.
+  The worker reconnects through the gate on its own.
 - `gate block source=<src> for=<d> until=<t>`: the gate saw a rate-limit signal and is holding
   every dial in every process until `until`. Where a signal states no duration the gate holds
   for 5 minutes (observed bare blocks ran 7–29 minutes; under-holding is the costly error).
   Do not restart workers to "clear" it; the held dials resume on their own.
 - A worker showing `displaced` in the heartbeat is parked on purpose: it got close code 4001
   (`session_replaced`) because another session logged in as the same player. The supervisor logs
-  once and never restarts it; it retries once every 10 minutes. An operator's `play_as` therefore
-  no longer needs the worker stopped first — it displaces the bot, and the bot returns within
-  10 minutes of the operator leaving.
+  once and never restarts it. `play_as` writes a lease (`data/agents/<agent>/play_as.lease`)
+  while it runs. The displaced worker waits for the lease to clear and then takes its session
+  back within 10 minutes. A worker that stays displaced with no lease is visible in the overmind
+  log. If `play_as` is itself displaced, it prints `session replaced by another client` and
+  exits instead of parking. A `play_as` killed with SIGKILL leaves its lease behind; delete the
+  file by hand or the worker stays parked.
 
 Every fleet carries `--assets-db-path data/assets.db`. The overmind forwards it to each worker
 it spawns, which is what turns on the scheduled `capture_profile` / `capture_storage` /
@@ -201,7 +224,6 @@ setsid nohup ./bin/overmind --socket data/overmind/assist.sock --fleet data/over
   --status-file data/overmind/assist-status.json --history-file data/overmind/assist-history.jsonl \
   --assets-db-path data/assets.db >> data/overmind/assist-overmind.log 2>&1 < /dev/null &
 
-# ~60s later:
 setsid nohup ./bin/overmind --socket data/overmind/hunt.sock --fleet data/overmind/hunt-fleet.yaml \
   --worker-bin bin/worker --status-file data/overmind/hunt-status.json \
   --history-file data/overmind/hunt-history.jsonl \

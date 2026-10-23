@@ -175,6 +175,19 @@ of the operator leaving, with no kick-fight and at most one dial per ten
 minutes per displaced worker. The `play_as` runbook note ("stop the worker
 first") becomes unnecessary once this ships.
 
+*Amended 2026-10-22 (final review).* The server sends 4001 to the OLD
+session, so a bare 10-minute retry always wins by replacing the operator's
+`play_as`, which then parked in turn. Two additions close that loop.
+`play_as` writes a lease, `data/agents/<agent>/play_as.lease` (ISO-8601
+timestamp and pid), on startup and removes it on every exit path, including
+SIGINT, SIGTERM and SIGHUP. A parked worker consults the lease after each
+interval (`ReconnectingHandler.SetDisplacedHold`, wired by `InitializeAgent`).
+While the lease exists it logs `displaced retry held: operator lease present`
+once and waits another full interval, never dialing. `play_as` itself never
+parks: its `SetOnDisplaced` hook prints `session replaced by another client
+(play_as or a worker); exiting` and exits 0 after removing the lease. A lease
+left by a SIGKILLed `play_as` holds the worker until it is deleted by hand.
+
 **Fresh start retries.** `InitializeAgent` currently makes a single gated
 attempt and the worker exits fatally on failure, leaving the supervisor
 relaunch (1 per 5 s reap tick, counted against `MaxRestarts`) as the only
@@ -207,7 +220,7 @@ relaunch remains the backstop, not the mechanism.
 ## Verification
 
 - Unit: gate rolling window (both counters, budget exhaustion, pruning, min-spacing, old-format read, block precedence, no-duration default) with injected clock; `clerk` package against an `httptest` server (200, 429 with header, 429 with body, 5xx, malformed); mint-before-dial ordering and `Login` dispatch (token / mint rate-limited / mint failed → password budget / no key); `lookupClosePolicy` for 4001/4002/4003 including `retry_after` parse; `Displaced` stickiness against `RequestReconnect`; `dialWithGate` retry loop honoring a recorded block.
-- Live, before fleet rollout: `cmd/debug/login-probe` gains a `--clerk` mode: 20 token logins at 1 s spacing from this host → expect 20 `logged_in`, zero `rate_limited`. Run only with the fleet stopped.
+- Live, before fleet rollout: `cmd/debug/login-probe` gains a `--clerk` mode: 9 token logins at 1 s spacing (`--count 9 --interval 1s`) from this host → expect 9 `logged_in`, zero `rate_limited`. Nine, not twenty: one account is limited to 10 `login_token` calls per minute (the per-player `clerk_login_token` bucket), so 20 in 20 s would trip that limit rather than measure the per-IP one. Run only with the fleet stopped.
 - Live, rollout: time from first overmind launch to last worker `Ready!` for one fleet; expect under 2 minutes for ~20 workers.
 
 ## Left to the builder

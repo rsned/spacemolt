@@ -454,7 +454,7 @@
   git commit -m "docs(cold-start): Clerk-token login and the connection gate replace --stagger"
   ```
 - [ ] **Step 3 (live, fleet stopped): `go run ./cmd/tools/clerk-sync`** — expect ~215 written, the six known unmatched dirs.
-- [ ] **Step 4 (live, fleet stopped): `bin/login-probe --mode clerk --account battle_bot1 --count 20 --interval 1s`** — expect 20 `ok`, 0 `rate_limited`, summary ≈ 60/min.
+- [ ] **Step 4 (live, fleet stopped): `bin/login-probe --mode clerk --account battle_bot1 --count 9 --interval 1s`** — expect 9 `ok`, 0 `rate_limited`, summary ≈ 60/min. Nine, not twenty: one account may make only 10 `login_token` calls per minute (the per-player `clerk_login_token` bucket), so 20 in 20 s would trip that limit instead of measuring the per-IP one.
 - [ ] **Step 5 (live): full stop of every overmind, `go build -o bin/worker ./cmd/worker && go build -o bin/overmind ./cmd/overmind`, relaunch the smallest fleet first.** Watch its first worker log `auth=clerk player_id=… Ready!` and the overmind log for any `gate block`. Then launch the rest back-to-back. Record first-launch → last `Ready!` time per fleet; expect < 2 min for a ~20-worker fleet.
 - [ ] **Step 6: Regenerate the Clerk key on the website** (it was pasted into a chat transcript during the spike), update `~/.config/spacemolt/clerk_api_key`, and restart one fleet to confirm the new key works. Do this only after Step 5 — regeneration invalidates the old key immediately.
 - [ ] **Step 7 (session owner): update memory** — `reference_login_vs_reconnect_gating.md` (fresh logins are gated; budget model), add a pointer for the Clerk key location and `clerk-sync`, then `make memory-sync` and commit `docs/memory` per the standing rule.
