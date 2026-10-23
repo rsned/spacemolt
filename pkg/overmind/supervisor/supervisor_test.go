@@ -1,10 +1,12 @@
 package supervisor
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log"
 	"os/exec"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -647,5 +649,43 @@ func TestDisconnectedAndSilentWorkerIsStillRestarted(t *testing.T) {
 
 	if got := spawned.Load(); got != 2 {
 		t.Fatalf("a silent worker must still be restarted even while disconnected, got %d spawns", got)
+	}
+}
+
+func TestNewSupervisor_DefaultStaggerIsZero(t *testing.T) {
+	sup := NewSupervisor(nil, NewFleet(), nil, nil, nil)
+	if sup.StaggerInterval != 0 {
+		t.Fatalf("StaggerInterval = %v, want 0 (the host-wide gate paces launches)", sup.StaggerInterval)
+	}
+}
+
+// A displaced worker (4001 session_replaced) parks itself and retries through
+// the gate; the supervisor must announce it exactly once and never restart it.
+func TestSupervisor_DisplacedLogsOnceAndNeverRestarts(t *testing.T) {
+	var spawned atomic.Int32
+	var buf bytes.Buffer
+	specs := []WorkerSpec{{AgentID: "displaced"}}
+	fleet := NewFleet()
+	sup := NewSupervisor(nil, fleet, specs, aliveSpawn(&spawned), log.New(&buf, "", 0))
+	sup.StallTimeout = time.Nanosecond
+	sup.KillGrace = time.Second
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sup.launch(ctx, specs[0])
+	now := time.Now()
+	procOf(sup, "displaced").launchedAt = now.Add(-time.Hour)
+	fleet.ApplyHello(control.Hello{AgentID: "displaced", Role: "hauler"}, 1, now.Add(-time.Hour))
+	fleet.ApplyStatus("displaced", control.Status{Fuel: 300, MaxFuel: 420, Disconnected: true, Displaced: true}, now)
+
+	for range 4 {
+		sup.reapAndRestart(ctx)
+	}
+
+	if got := spawned.Load(); got != 1 {
+		t.Fatalf("a displaced worker must never be restarted, got %d spawns", got)
+	}
+	if got := strings.Count(buf.String(), "displaced (session_replaced)"); got != 1 {
+		t.Fatalf("displaced line logged %d times, want 1; log:\n%s", got, buf.String())
 	}
 }

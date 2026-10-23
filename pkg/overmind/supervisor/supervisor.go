@@ -155,6 +155,10 @@ type Supervisor struct {
 	// "disconnected past grace, not restarting" line printed, so a long
 	// outage logs once per agent per incident instead of every reap tick.
 	disconnectLogged map[string]bool
+	// displacedLogged is the same once-per-incident guard for the
+	// "displaced (session_replaced)" line; cleared when a heartbeat reports
+	// the worker no longer displaced.
+	displacedLogged map[string]bool
 
 	// Stranded-quarantine tuning (see Stranded in fleet.go). OnQuarantine is
 	// invoked (from the reap goroutine) after a worker is quarantined so the
@@ -211,13 +215,14 @@ func NewSupervisor(server *Server, fleet *Fleet, specs []WorkerSpec, spawn Spawn
 		StallTimeout:     90 * game.SleepTick,  // 15min: undocked-and-frozen tolerance (stall watchdog)
 		DisconnectGrace:  180 * game.SleepTick, // 30min: leave a reconnecting worker to the gate before restarting
 		BootTimeout:      30 * game.SleepTick,  // 5min: max alive-but-no-Hello before a boot is "wedged"
-		StaggerInterval:  game.SleepMedium,     // 5s between initial spawns (per-IP /login pacing)
+		StaggerInterval:  0,                    // the host-wide connection gate paces launches
 		KillGrace:        game.SleepMedium,     // 5s SIGTERM->SIGKILL window
 		RestartBatch:     1,                    // 1 relaunch per reap tick (~12/min, mirrors stagger)
 		MaxRestarts:      100,
 		restarts:         make(map[string]int),
 		crashCapLogged:   make(map[string]bool),
 		disconnectLogged: make(map[string]bool),
+		displacedLogged:  make(map[string]bool),
 		procs:            make(map[string]*workerProc),
 
 		FuelStrandFraction: 0.10, // fuel-dead when fuel < max(10% of tank, floor)
@@ -443,6 +448,16 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 				// DisconnectGrace now governs only when this becomes loud, so a
 				// worker that never comes back is visible instead of silently
 				// parked.
+				//
+				// A displaced worker (4001 session_replaced) is announced on the
+				// first tick that sees it, independent of the grace.
+				if !w.LastStatus.Displaced {
+					delete(s.displacedLogged, spec.AgentID)
+				} else if s.logger != nil && !s.displacedLogged[spec.AgentID] {
+					s.displacedLogged[spec.AgentID] = true
+					s.logger.Printf("%s displaced (session_replaced); parked, NOT restarting — it retries via the gate every %s",
+						spec.AgentID, game.SleepDisplacedRetry)
+				}
 				if s.logger != nil && s.DisconnectGrace > 0 &&
 					now.Sub(w.DisconnectedSince) > s.DisconnectGrace &&
 					!s.disconnectLogged[spec.AgentID] {
@@ -491,6 +506,7 @@ func (s *Supervisor) reapAndRestart(ctx context.Context) {
 				delete(s.restarts, spec.AgentID)
 				delete(s.crashCapLogged, spec.AgentID)
 				delete(s.disconnectLogged, spec.AgentID)
+				delete(s.displacedLogged, spec.AgentID)
 			default:
 				// Still booting (alive, no Hello yet, within BootTimeout): leave it.
 			}

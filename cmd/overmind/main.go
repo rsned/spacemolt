@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -34,7 +35,8 @@ func main() {
 	workerBin := flag.String("worker-bin", "bin/worker", "Path to the worker binary")
 	fleetPath := flag.String("fleet", "data/overmind/fleet.yaml", "Path to fleet roster YAML")
 	tasksPath := flag.String("tasks", "data/overmind/tasks.yaml", "Path to the assigned-task seed file")
-	stagger := flag.Duration("stagger", game.SleepMedium, "Delay between initial worker launches (per-IP /login pacing)")
+	stagger := flag.Duration("stagger", 0, "Extra delay between initial worker launches (0 = let the host-wide connection gate pace)")
+	connectBudget := flag.Int("connect-budget", 0, "Dials per minute for this host's connection gate (0 = game.ConnectDialBudget); exported to workers as SPACEMOLT_CONNECT_BUDGET")
 	restartBatch := flag.Int("restart-batch", 1, "Max worker relaunches per reap tick (per-IP /login pacing for mass restarts; <=0 disables)")
 	removeDrainTimeout := flag.Duration("remove-drain-timeout", supervisor.DefaultRemoveDrainTimeout,
 		"How long a removed worker may drain before it is force-stopped; 0 waits indefinitely for it to stand down at its role's safe point (use for zero-abort rolling upgrades of long-running fleets like haul)")
@@ -54,6 +56,15 @@ func main() {
 	holdersRosterPath := flag.String("holders-roster", "data/overmind/mb-fleet.yaml", "Fleet roster YAML for marketbot stock holders (the plan runner's Managed set; required when --plan-queue is set)")
 	overridesPath := flag.String("overrides-file", "", "Membership overrides sidecar (default: <socket dir>/<fleet>-overrides.json)")
 	flag.Parse()
+
+	// Workers inherit the environment (the supervisor sets no cmd.Env), and
+	// game.DefaultGateConfig reads this override, so export it before anything
+	// is spawned.
+	if *connectBudget > 0 {
+		if err := os.Setenv("SPACEMOLT_CONNECT_BUDGET", strconv.Itoa(*connectBudget)); err != nil {
+			log.Fatalf("set SPACEMOLT_CONNECT_BUDGET: %v", err)
+		}
+	}
 
 	logger := log.New(os.Stdout, "[overmind] ", log.LstdFlags)
 

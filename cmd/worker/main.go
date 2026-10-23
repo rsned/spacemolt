@@ -611,6 +611,7 @@ func main() {
 				status := buildStatus(nowState, standing, tid, act, statusFlags{
 					Drained:            drained.Load(),
 					Connected:          client.IsConnected(),
+					Displaced:          client.Displaced(),
 					Quiesced:           quiesced.Load(),
 					QuiesceReason:      quiesceReason.Load().(string),
 					CommandTimeouts:    int(cmdTimeouts.Load()),
@@ -710,6 +711,7 @@ func nudgeReconnect(c reconnectable) bool {
 type statusFlags struct {
 	Drained       bool   // held idle by a drain (fleet SIGUSR1 or a pending removal)
 	Connected     bool   // game-server connection is up
+	Displaced     bool   // server closed the socket with 4001 session_replaced; parked
 	Quiesced      bool   // held idle by an operator park (data/agents/<id>/quiesce.json)
 	QuiesceReason string // operator's note, surfaced on the dashboard
 	// CommandTimeouts is the process-lifetime count of dispatched commands that
@@ -721,6 +723,7 @@ type statusFlags struct {
 func buildStatus(st *game.State, standing, taskID, activity string, f statusFlags, now time.Time) control.Status {
 	return control.Status{
 		Disconnected: !f.Connected,
+		Displaced:    f.Displaced,
 		System:       displaySystem(st),
 		POI:          st.CurrentPOI,
 		// Docked must reflect a real station/outpost dock, not merely "parked at
