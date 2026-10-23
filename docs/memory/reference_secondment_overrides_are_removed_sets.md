@@ -109,3 +109,7 @@ SIGHUP home overmind → set the ledger entries to `phase: home` with a note (`f
 Gotcha that bit me: `ps -eo args | grep -E 'bin/worker .*agent X'` matches the grep's OWN bash -c wrapper, so a
 wait loop on it never terminates — anchor on the pid column (`grep -E '^ *[0-9]+ +[0-9]+ bin/worker --agent X '`).
 Home launched its worker while away's drain was still running → ~3 min of `session_replaced` ping-pong, self-healing.
+**Pinning a craftsman to a station does nothing by itself (10-23).** `roles.yaml` craftsman `idle: idle_market` is
+`dock; refuel` only; `ensure_home` (which flies to `station:` via autopilot — no stronghold guard, so an UNLOCKED
+agent may be pinned to a stronghold) lives in `resident_market`. Switched craftsman to `resident_market` on 10-23;
+workers read roles.yaml at boot, so restart them after editing. Idle scripts are `data/scripts/*.smolt`.

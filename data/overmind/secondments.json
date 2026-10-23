@@ -1,0 +1,318 @@
+{
+  "entries": [
+    {
+      "agent_id": "trader-10",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-13T14:17:23Z",
+      "station_id": "treasure_cache_trading_post",
+      "system_id": "treasure_cache",
+      "phase": "home",
+      "updated_at": "2026-08-13T22:22:21Z"
+    },
+    {
+      "agent_id": "hauler-0",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-13T14:42:13Z",
+      "station_id": "cargo_lanes_freight_depot",
+      "system_id": "cargo_lanes",
+      "phase": "home",
+      "updated_at": "2026-08-24T07:31:26Z"
+    },
+    {
+      "agent_id": "trader-1",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-13T15:06:23Z",
+      "station_id": "the_levy_customs_station",
+      "system_id": "the_levy",
+      "phase": "home",
+      "updated_at": "2026-09-01T20:46:15Z"
+    },
+    {
+      "agent_id": "salvager-2",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-13T15:27:23Z",
+      "station_id": "gold_run_extraction_hub",
+      "system_id": "gold_run",
+      "phase": "home",
+      "updated_at": "2026-10-13T21:34:32Z"
+    },
+    {
+      "agent_id": "trader-2",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-13T15:28:53Z",
+      "station_id": "cargo_lanes_freight_depot",
+      "system_id": "cargo_lanes",
+      "phase": "home",
+      "updated_at": "2026-10-13T21:34:32Z"
+    },
+    {
+      "agent_id": "trader-7",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-13T16:24:43Z",
+      "station_id": "factory_belt_manufacturing_hub",
+      "system_id": "factory_belt",
+      "phase": "home",
+      "updated_at": "2026-08-26T11:46:16Z"
+    },
+    {
+      "agent_id": "salvager-3",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-14T02:40:53Z",
+      "station_id": "market_prime_exchange",
+      "system_id": "market_prime",
+      "phase": "home",
+      "updated_at": "2026-10-13T21:34:32Z"
+    },
+    {
+      "agent_id": "trader-5",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-14T03:37:54Z",
+      "station_id": "gold_run_extraction_hub",
+      "system_id": "gold_run",
+      "phase": "home",
+      "updated_at": "2026-08-26T11:30:59Z"
+    },
+    {
+      "agent_id": "salvager-9",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-14T16:38:00Z",
+      "station_id": "the_levy_customs_station",
+      "system_id": "the_levy",
+      "phase": "home",
+      "updated_at": "2026-08-27T07:46:38Z"
+    },
+    {
+      "agent_id": "salvager-10",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-14T21:15:50Z",
+      "station_id": "the_levy_customs_station",
+      "system_id": "the_levy",
+      "phase": "home",
+      "updated_at": "2026-08-27T07:37:04Z"
+    },
+    {
+      "agent_id": "trader-4",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-15T11:58:01Z",
+      "station_id": "grand_exchange",
+      "system_id": "haven",
+      "phase": "home",
+      "updated_at": "2026-08-27T14:27:24Z"
+    },
+    {
+      "agent_id": "salvager-5",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-15T14:24:00Z",
+      "station_id": "gold_run_extraction_hub",
+      "system_id": "gold_run",
+      "phase": "home",
+      "updated_at": "2026-08-27T14:14:04Z"
+    },
+    {
+      "agent_id": "salvager-4",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-15T14:32:40Z",
+      "station_id": "cargo_lanes_freight_depot",
+      "system_id": "cargo_lanes",
+      "phase": "home",
+      "updated_at": "2026-08-27T23:40:55Z"
+    },
+    {
+      "agent_id": "trader-3",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-15T17:28:30Z",
+      "station_id": "cargo_lanes_freight_depot",
+      "system_id": "cargo_lanes",
+      "phase": "home",
+      "updated_at": "2026-08-28T03:29:22Z"
+    },
+    {
+      "agent_id": "salvager-7",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-15T17:53:10Z",
+      "station_id": "gold_run_extraction_hub",
+      "system_id": "gold_run",
+      "phase": "home",
+      "updated_at": "2026-08-28T04:24:54Z"
+    },
+    {
+      "agent_id": "salvager-6",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-15T18:05:00Z",
+      "station_id": "grand_exchange",
+      "system_id": "haven",
+      "phase": "home",
+      "updated_at": "2026-08-28T19:41:47Z"
+    },
+    {
+      "agent_id": "salvager-1",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-15T18:11:00Z",
+      "station_id": "gold_run_extraction_hub",
+      "system_id": "gold_run",
+      "phase": "home",
+      "updated_at": "2026-08-28T17:28:17Z"
+    },
+    {
+      "agent_id": "salvager-8",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-16T03:24:00Z",
+      "station_id": "the_levy_customs_station",
+      "system_id": "the_levy",
+      "phase": "home",
+      "updated_at": "2026-10-13T21:34:32Z"
+    },
+    {
+      "agent_id": "trader-9",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-16T18:01:30Z",
+      "station_id": "grand_exchange",
+      "system_id": "haven",
+      "phase": "home",
+      "updated_at": "2026-08-28T22:07:35Z"
+    },
+    {
+      "agent_id": "trader-8",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-16T20:40:40Z",
+      "station_id": "factory_belt_manufacturing_hub",
+      "system_id": "factory_belt",
+      "phase": "home",
+      "updated_at": "2026-10-13T21:34:32Z"
+    },
+    {
+      "agent_id": "trader-6",
+      "home_fleet": "haul",
+      "away_fleet": "unlock",
+      "reason": "sold in nebula space without the pirate unlock",
+      "nominated_at": "2026-08-20T17:00:41Z",
+      "station_id": "factory_belt_manufacturing_hub",
+      "system_id": "factory_belt",
+      "phase": "home",
+      "updated_at": "2026-10-13T21:34:32Z"
+    },
+    {
+      "agent_id": "craftsman-9",
+      "home_fleet": "craft",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
+      "nominated_at": "2026-10-13T21:32:59Z",
+      "phase": "seconded",
+      "updated_at": "2026-10-13T21:33:19Z"
+    },
+    {
+      "agent_id": "craftsman-10",
+      "home_fleet": "craft",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
+      "nominated_at": "2026-10-13T21:32:59Z",
+      "phase": "home",
+      "updated_at": "2026-10-23T23:48:54Z",
+      "note": "operator return 2026-10-23: unlock earned (baseline 10 x9); pinned voss_redoubt for contraband crafting"
+    },
+    {
+      "agent_id": "craftsman-2",
+      "home_fleet": "craft",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
+      "nominated_at": "2026-10-13T21:32:59Z",
+      "phase": "seconded",
+      "updated_at": "2026-10-13T21:33:49Z"
+    },
+    {
+      "agent_id": "craftsman-3",
+      "home_fleet": "craft",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
+      "nominated_at": "2026-10-13T21:32:59Z",
+      "phase": "seconded",
+      "updated_at": "2026-10-13T21:34:32Z"
+    },
+    {
+      "agent_id": "craftsman-7",
+      "home_fleet": "craft",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
+      "nominated_at": "2026-10-13T21:32:59Z",
+      "phase": "seconded",
+      "updated_at": "2026-10-13T21:34:32Z"
+    },
+    {
+      "agent_id": "craftsman-8",
+      "home_fleet": "craft",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
+      "nominated_at": "2026-10-13T21:32:59Z",
+      "phase": "home",
+      "updated_at": "2026-10-23T23:48:54Z",
+      "note": "operator return 2026-10-23: unlock earned (baseline 10 x9); pinned voss_redoubt for contraband crafting"
+    },
+    {
+      "agent_id": "craftsman-4",
+      "home_fleet": "craft",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
+      "nominated_at": "2026-10-13T21:32:59Z",
+      "phase": "seconded",
+      "updated_at": "2026-10-13T21:34:32Z"
+    },
+    {
+      "agent_id": "craftsman-5",
+      "home_fleet": "craft",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
+      "nominated_at": "2026-10-13T21:32:59Z",
+      "phase": "seconded",
+      "updated_at": "2026-10-13T21:34:33Z"
+    },
+    {
+      "agent_id": "craftsman-6",
+      "home_fleet": "craft",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
+      "nominated_at": "2026-10-13T21:32:59Z",
+      "phase": "seconded",
+      "updated_at": "2026-10-13T21:34:33Z"
+    }
+  ]
+}

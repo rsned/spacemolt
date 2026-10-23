@@ -152,7 +152,7 @@ roles:
       - { every: hourly, command: "craft refine_steel 500 cheap" }
       - { every: hourly, command: "craft process_copper_wiring 600 cheap" }
       - { every: hourly, command: "craft draw_copper_piping 200 cheap" }
-    idle: idle_market
+    idle: resident_market  # 2026-10-23: was idle_market (dock; refuel) — craftsmen never travelled to their pinned `station:`; resident_market adds ensure_home so Voss-pinned crafters actually go to Voss
   # Wildlife-cull fleet (pkg/worker/hunt.go). Like the miner role, the asset
   # captures are the only schedule it carries: a hunt pass reads the mission
   # board itself, and update_market would only add tick cost at a station it is
