@@ -3,9 +3,11 @@ package worker
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // MineQtyMaxDryPasses bounds how many consecutive Mine() calls that grow the
@@ -161,6 +163,42 @@ func strongholdBlocked(strongholds map[string]bool, systemID, systemName string)
 		return false
 	}
 	return strongholds[systemID] || (systemName != "" && strongholds[systemName])
+}
+
+// lawlessBlocked reports whether a bot may not mine in sys. A Lawless system
+// has no police protection, and a bot whose pirate baseline is below the unlock
+// threshold is a pirate target there, so a locked bot is refused.
+//
+// Unknown security (nil system or empty SecurityStatus) fails OPEN with a
+// warning reason: the KB simply has not captured the system yet, which is not
+// evidence that it is dangerous, and blocking would strand the miner.
+func lawlessBlocked(sys *knowledge.System, unlocked bool) (blocked bool, reason string) {
+	if sys == nil || sys.SecurityStatus == "" {
+		id := "system"
+		if sys != nil {
+			id = sys.ID
+		}
+		return false, fmt.Sprintf("security of %s unknown; proceeding", id)
+	}
+	if unlocked || !strings.Contains(strings.ToLower(sys.SecurityStatus), "lawless") {
+		return false, ""
+	}
+	return true, fmt.Sprintf("%s is Lawless (%s) and this agent lacks the pirate unlock", sys.ID, sys.SecurityStatus)
+}
+
+// pirateUnlocked reports whether this agent holds the pirate unlock, read from
+// the latest standings capture. No asset store, or a read error, means false:
+// the safe reading for a gate is "locked". A read error is logged to d.Out.
+func (d *WorkerDispatch) pirateUnlocked(ctx context.Context) bool {
+	if d.Assets == nil {
+		return false
+	}
+	ok, err := d.Assets.HoldsPirateUnlock(ctx, d.AgentID)
+	if err != nil {
+		fmt.Fprintf(d.Out, "mine_qty: pirate unlock check: %v (treating as locked)\n", err) //nolint:errcheck
+		return false
+	}
+	return ok
 }
 
 // mineStrongholdRefs is the mining path's copy of haul's guard: the stronghold

@@ -493,3 +493,42 @@ func TestMineQtyDepartsWhenFuelIsAdequate(t *testing.T) {
 		t.Error("MineQty did not mine despite a full tank — the guard is too strict")
 	}
 }
+
+func TestLawlessBlockedRefusesLockedBot(t *testing.T) {
+	sys := &knowledge.System{ID: "glenhaven", SecurityStatus: "Lawless (no police protection)", PoliceLevel: 0}
+	blocked, reason := lawlessBlocked(sys, false)
+	if !blocked || !strings.Contains(reason, "glenhaven") {
+		t.Fatalf("want blocked with system in reason, got %v %q", blocked, reason)
+	}
+}
+
+func TestLawlessBlockedAdmitsUnlockedBot(t *testing.T) {
+	sys := &knowledge.System{ID: "glenhaven", SecurityStatus: "Lawless (no police protection)"}
+	if blocked, _ := lawlessBlocked(sys, true); blocked {
+		t.Fatal("unlocked bot must pass")
+	}
+}
+
+func TestLawlessBlockedFailsOpenOnUnknownSecurity(t *testing.T) {
+	sys := &knowledge.System{ID: "alniyat", SecurityStatus: "", PoliceLevel: 0}
+	blocked, reason := lawlessBlocked(sys, false)
+	if blocked {
+		t.Fatal("unknown security must not block")
+	}
+	if !strings.Contains(reason, "unknown") {
+		t.Fatalf("want a warning reason, got %q", reason)
+	}
+}
+
+func TestLawlessBlockedIgnoresCase(t *testing.T) {
+	if blocked, _ := lawlessBlocked(&knowledge.System{ID: "x", SecurityStatus: "LAWLESS"}, false); !blocked {
+		t.Fatal("case-insensitive match")
+	}
+}
+
+func TestPirateUnlockedFalseWithoutAssets(t *testing.T) {
+	d := &WorkerDispatch{AgentID: "miner-1", Out: io.Discard}
+	if d.pirateUnlocked(context.Background()) {
+		t.Fatal("nil Assets store must read as locked")
+	}
+}
