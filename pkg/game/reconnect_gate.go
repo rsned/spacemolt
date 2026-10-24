@@ -306,11 +306,20 @@ func rateLimitBlock(errText string, deflt time.Duration) (time.Duration, bool) {
 			return time.Duration(n) * time.Second, true
 		}
 	}
+	if http429Re.MatchString(errText) {
+		return deflt, true
+	}
 	lower := strings.ToLower(errText)
-	for _, sub := range []string{"429", "temporarily blocked", "rate limit"} {
+	for _, sub := range []string{"temporarily blocked", "rate limit"} {
 		if strings.Contains(lower, sub) {
 			return deflt, true
 		}
 	}
 	return 0, false
 }
+
+// http429Re matches 429 only where it can be an HTTP status: not glued to a
+// preceding digit, ':' or '.', and not followed by a digit. On 2026-10-22 the
+// bare substring match recorded a 5-minute fleet-wide block from a DNS error
+// whose ephemeral source port (`127.0.0.1:42901`) happened to contain "429".
+var http429Re = regexp.MustCompile(`(^|[^0-9:.])429([^0-9]|$)`)

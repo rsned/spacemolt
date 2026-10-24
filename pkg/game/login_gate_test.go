@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
@@ -474,5 +475,27 @@ func TestDialWithGate_Mint503NoRetryAfterWaitsOneWindow(t *testing.T) {
 	st := readGateFile(t, path)
 	if want := start.Add(ConnectWindow).UnixNano(); st.BlockedUntilNanos != want {
 		t.Errorf("blocked_until = %v, want start+ConnectWindow %v", time.Unix(0, st.BlockedUntilNanos), time.Unix(0, want))
+	}
+}
+
+// A DNS failure is the host's resolver, not the server's rate limiter. On
+// 2026-10-22 one parked the whole fleet for five minutes because the error text
+// happened to contain "429" inside an ephemeral port number.
+func TestRecordRateLimitBlock_IgnoresDNSError(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "g")
+	g := newTestGate(t, path, testGateCfg, clk)
+
+	dnsErr := &net.DNSError{Err: "read udp 127.0.0.1:42901->127.0.0.53:53: i/o timeout", Name: "game.spacemolt.com", IsTimeout: true}
+	wrapped := fmt.Errorf("failed to connect: failed to WebSocket dial: %w", &net.OpError{Op: "dial", Net: "tcp", Err: dnsErr})
+	recordRateLimitBlock(g, wrapped, "connect")
+
+	// Nothing may have been recorded: the gate file does not even exist until
+	// the first write, so a missing file is the expected outcome.
+	if _, err := os.Stat(path); err == nil {
+		st := readGateFile(t, path)
+		if st.BlockedUntilNanos != 0 {
+			t.Fatalf("DNS error recorded a block until %v (source %q); want none", time.Unix(0, st.BlockedUntilNanos), st.BlockSource)
+		}
 	}
 }

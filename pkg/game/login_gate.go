@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net"
 	"sync"
 	"time"
 
@@ -191,6 +192,13 @@ func dialWithGate(ctx context.Context, g *ReconnectGate, attempts int, a authAtt
 // re-recording a 7s mint block would stretch it to the 5-minute default.
 func recordRateLimitBlock(g *ReconnectGate, err error, source string) {
 	if g == nil || err == nil {
+		return
+	}
+	// A resolver failure is this host's problem, not the server's limiter.
+	// Recording it would idle the fleet for ConnectBareBlock on every DNS
+	// blip (seen live 2026-10-22 22:07).
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
 		return
 	}
 	var he *clerk.HTTPError

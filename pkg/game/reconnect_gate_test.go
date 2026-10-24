@@ -316,9 +316,18 @@ func TestRateLimitBlockParsing(t *testing.T) {
 		{"Your IP has been temporarily blocked due to excessive rate limit violations. Try again in 952 seconds.", 952 * time.Second, true},
 		{"try again in 80 second(s)", 80 * time.Second, true},
 		{"failed to WebSocket dial: expected handshake response status code 101 but got 429", deflt, true},
+		{"HTTP 429 Too Many Requests", deflt, true},
+		{"clerk: POST /api/player/x/ws-token -> 429", deflt, true},
 		{"temporarily blocked", deflt, true},
 		{"find_route failed: not connected", 0, false},
 		{"some unrelated error", 0, false},
+		// 2026-10-22 22:07: a local DNS outage was recorded as a 5-minute
+		// fleet-wide block because the resolver error carried an ephemeral
+		// source port containing "429". Digits glued to a ':' or another digit
+		// are never an HTTP status.
+		{`dial tcp: lookup game.spacemolt.com on 127.0.0.53:53: read udp 127.0.0.1:42901->127.0.0.53:53: i/o timeout`, 0, false},
+		{"connection reset by peer (conn 584291)", 0, false},
+		{"request_id 1429.7 timed out", 0, false},
 	}
 	for _, c := range cases {
 		gotD, gotOK := rateLimitBlock(c.in, deflt)
