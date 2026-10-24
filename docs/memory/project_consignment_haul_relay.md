@@ -119,4 +119,7 @@ rebuild ran). Hauler-claim half: see the status board for the result.
 3. The scanner priced a grand_exchange destination with NO grand_exchange bid in market_orders (6,308 matches
    thane_keep's bid) — source of that price unknown; investigate `consignCandidates` destination list.
 Resolution: trader-8 removed from the haul roster (overrides), flown by play_as to treasure_cache_trading_post
-(the one ungated Empire market), asks posted there. Treasure Cache's own moonshine bids are 1-cr junk walls only.
+(the one ungated Empire market), **ask posted 04:01 PDT: 72 pirate_moonshine @5,500, order `3667a747…`, listing fee
+5,940 = 1.5% of face value** — the first fleet-posted contraband ask. Treasure Cache's own moonshine bids are 1-cr
+junk walls only, so this ask is the shopkeeper experiment: watch `market_orders.my_quantity` for trader-8 at
+treasure_cache to see fills. trader-8 returned to the haul roster afterwards.
