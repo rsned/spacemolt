@@ -85,12 +85,63 @@ func (d *WorkerDispatch) MineQty(ctx context.Context, itemID string, qty int, to
 		}
 	}
 
+	return d.deliverMined(ctx, itemID, qty, to, recipient)
+}
+
+// deliverMined hands whatever target-item cargo is aboard (capped at qty) to
+// RECIPIENT at TO. Shared tail of MineQty and MineQtyAt; Task 3 replaces the
+// MineQtyAt call with a hand-off-everything step.
+func (d *WorkerDispatch) deliverMined(ctx context.Context, itemID string, qty int, to, recipient string) error {
 	minedQty := cargoCount(d.Client.GetState(), itemID)
 	if minedQty <= 0 {
 		return fmt.Errorf("mine_qty: %s not found at any known resource POI and none in cargo", itemID)
 	}
-	deliverQty := min(minedQty, qty)
-	return d.Deliver(ctx, itemID, deliverQty, "", to, recipient)
+	return d.Deliver(ctx, itemID, min(minedQty, qty), "", to, recipient)
+}
+
+// MineQtyAt is MineQty pinned to an explicit (system, POI) instead of the
+// nearest known deposit. It applies the same fuel floor and stronghold gate,
+// plus the Lawless gate: a bot without the pirate unlock refuses a Lawless
+// system, while unknown security fails open with a warning on d.Out.
+func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, systemID, poiID, to, recipient string) error {
+	if qty < 1 {
+		return fmt.Errorf("mine_qty_at: qty must be >= 1, got %d", qty)
+	}
+	state := d.Client.GetState()
+	if state == nil || state.System.ID == "" {
+		return fmt.Errorf("mine_qty_at: current system unknown")
+	}
+	if state.Ship.Fuel < MineQtyMinFuelReserve {
+		return fmt.Errorf("mine_qty_at: fuel %d below reserve %d — refusing to depart (refuel first)",
+			int(state.Ship.Fuel), MineQtyMinFuelReserve)
+	}
+	if d.KB == nil {
+		return fmt.Errorf("mine_qty_at: no knowledge base configured")
+	}
+	sys, err := d.KB.GetSystem(ctx, systemID)
+	if err != nil {
+		return fmt.Errorf("mine_qty_at: look up system %q: %w", systemID, err)
+	}
+	if sys != nil && strongholdBlocked(d.mineStrongholdRefs(ctx, state), sys.ID, sys.Name) {
+		return fmt.Errorf("mine_qty_at: %s is a pirate stronghold and this agent lacks the pirate unlock", systemID)
+	}
+	blocked, reason := lawlessBlocked(sys, d.pirateUnlocked(ctx))
+	if blocked {
+		return fmt.Errorf("mine_qty_at: lawless gate: %s", reason)
+	}
+	if reason != "" {
+		fmt.Fprintf(d.Out, "mine_qty_at: %s\n", reason) //nolint:errcheck
+	}
+
+	if cargoCount(state, itemID) < qty {
+		if err := d.autopilotAndUndock(ctx, systemID, poiID); err != nil {
+			return fmt.Errorf("mine_qty_at: travel to %s: %w", poiID, err)
+		}
+		if err := d.mineLoop(ctx, itemID, qty, poiID); err != nil {
+			return err
+		}
+	}
+	return d.deliverMined(ctx, itemID, qty, to, recipient)
 }
 
 // mineLoop repeatedly calls Mine(ctx) — sleeping game.SleepTick (via

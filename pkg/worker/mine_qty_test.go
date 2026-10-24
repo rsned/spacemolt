@@ -1,8 +1,10 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -530,5 +532,117 @@ func TestPirateUnlockedFalseWithoutAssets(t *testing.T) {
 	d := &WorkerDispatch{AgentID: "miner-1", Out: io.Discard}
 	if d.pirateUnlocked(context.Background()) {
 		t.Fatal("nil Assets store must read as locked")
+	}
+}
+
+// newMineAtTestKB seeds a Glenhaven system (with the given security and
+// stronghold flag) and its ice belt on top of the mine/deliver fixtures.
+func newMineAtTestKB(t *testing.T, security string, stronghold bool) *knowledge.SQLiteKB {
+	t.Helper()
+	kb := newMineTestKB(t, "raw_ore")
+	ctx := context.Background()
+	if err := kb.RememberSystem(ctx, knowledge.System{
+		ID: "glenhaven", Name: "Glenhaven", SecurityStatus: security, IsStronghold: stronghold, LastUpdatedTick: 1,
+	}); err != nil {
+		t.Fatalf("RememberSystem(glenhaven): %v", err)
+	}
+	if err := kb.RememberPOI(ctx, knowledge.POI{
+		ID: "glenhaven_ice_belt", SystemID: "glenhaven", Name: "Ice Belt", Type: "asteroid_belt", LastUpdatedTick: 1,
+	}); err != nil {
+		t.Fatalf("RememberPOI(glenhaven_ice_belt): %v", err)
+	}
+	return kb
+}
+
+func newMineAtClient(fuel float64, yields ...float64) *mineFakeClient {
+	return &mineFakeClient{
+		deliverFakeClient: &deliverFakeClient{
+			fakeClient: &fakeClient{state: &game.State{
+				System: game.SystemData{ID: "glenhaven"},
+				Ship:   game.Ship{CargoCapacity: 100, Fuel: fuel, MaxFuel: 130},
+			}},
+			storageStock: map[string]float64{},
+		},
+		mineItemID: "ice",
+		mineYields: yields,
+	}
+}
+
+func hasCallPrefix(calls []string, prefixes ...string) bool {
+	for _, c := range calls {
+		for _, p := range prefixes {
+			if strings.HasPrefix(c, p) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func TestMineQtyAtUsesThePinnedPOI(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMineAtTestKB(t, "", false) // unknown security fails open
+	client := newMineAtClient(130, 5)
+	d := noWaitMineDispatch(client, kb, agentsDir)
+	var out bytes.Buffer
+	d.Out = &out
+
+	if err := d.MineQtyAt(context.Background(), "ice", 5, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("MineQtyAt: %v", err)
+	}
+	if !slices.Contains(client.calls, "travel:glenhaven_ice_belt") {
+		t.Fatalf("calls %v lack travel to the pinned POI", client.calls)
+	}
+	if !slices.Contains(client.calls, "mine") {
+		t.Fatalf("calls %v lack mine", client.calls)
+	}
+	if len(client.giftCalls) != 1 || client.giftCalls[0]["quantity"] != float64(5) {
+		t.Fatalf("gift calls = %+v, want one gift of 5", client.giftCalls)
+	}
+	if !strings.Contains(out.String(), "unknown") {
+		t.Fatalf("expected unknown-security warning on Out, got %q", out.String())
+	}
+}
+
+func TestMineQtyAtRefusesLawlessWhenLocked(t *testing.T) {
+	kb := newMineAtTestKB(t, "Lawless (no police protection)", false)
+	client := newMineAtClient(130, 5)
+	d := noWaitMineDispatch(client, kb, t.TempDir()) // Assets nil => locked
+
+	err := d.MineQtyAt(context.Background(), "ice", 5, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3")
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "lawless") || !strings.Contains(err.Error(), "glenhaven") {
+		t.Fatalf("err = %v, want lawless refusal naming glenhaven", err)
+	}
+	if hasCallPrefix(client.calls, "travel:", "jump:", "mine", "undock") {
+		t.Fatalf("locked bot moved/mined: %v", client.calls)
+	}
+}
+
+func TestMineQtyAtRefusesStrongholdWhenLocked(t *testing.T) {
+	kb := newMineAtTestKB(t, "Lawless (no police protection)", true)
+	client := newMineAtClient(130, 5)
+	d := noWaitMineDispatch(client, kb, t.TempDir())
+
+	err := d.MineQtyAt(context.Background(), "ice", 5, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3")
+	if err == nil || !strings.Contains(err.Error(), "stronghold") {
+		t.Fatalf("err = %v, want stronghold refusal", err)
+	}
+	if hasCallPrefix(client.calls, "travel:", "jump:", "mine", "undock") {
+		t.Fatalf("locked bot moved/mined: %v", client.calls)
+	}
+}
+
+func TestMineQtyAtKeepsFuelFloor(t *testing.T) {
+	kb := newMineAtTestKB(t, "", false)
+	client := newMineAtClient(MineQtyMinFuelReserve-1, 5)
+	d := noWaitMineDispatch(client, kb, t.TempDir())
+
+	err := d.MineQtyAt(context.Background(), "ice", 5, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3")
+	if err == nil || !strings.Contains(err.Error(), "reserve") {
+		t.Fatalf("err = %v, want fuel reserve refusal", err)
+	}
+	if hasCallPrefix(client.calls, "travel:", "jump:", "mine", "undock") {
+		t.Fatalf("grounded bot moved/mined: %v", client.calls)
 	}
 }
