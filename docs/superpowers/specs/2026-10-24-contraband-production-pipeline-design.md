@@ -379,6 +379,11 @@ hold hundreds of thousands.
   to it with `send_gift … source=storage` across the dock. Second node:
   Treasure Cache, fed by the shuttle hauler's otherwise-empty return leg.
   Further strongholds are added one at a time as the two saturate.
+- **Treasure Cache is the demand hub, not just a convenience (operator):**
+  every agent still at pirate baseline −30 would be killed trying to reach a
+  stronghold market, so Treasure Cache is where the locked majority of buyers
+  can actually buy contraband. Expect it to clear more than Voss, and treat
+  its shopkeeper's fill rate as the price-discovery signal for the line.
 - The dashboard's "market saturated" state for a Sell node means asks ageing
   past the window at the floor; "starved" means the shopkeeper's stock tank is
   below one ask lot.
