@@ -210,7 +210,7 @@ var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true, "ensure_home": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
 	"hunt": true,
-	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true,"deliver": true, "buy_directed": true, "craft_node": true, "craft": true,
+	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "buy_directed": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "launch_drones": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
