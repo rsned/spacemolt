@@ -1,8 +1,10 @@
 package worker
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
@@ -89,8 +91,7 @@ func (d *WorkerDispatch) MineQty(ctx context.Context, itemID string, qty int, to
 }
 
 // deliverMined hands whatever target-item cargo is aboard (capped at qty) to
-// RECIPIENT at TO. Shared tail of MineQty and MineQtyAt; Task 3 replaces the
-// MineQtyAt call with a hand-off-everything step.
+// RECIPIENT at TO. Tail of MineQty; MineQtyAt uses handOffHold instead.
 func (d *WorkerDispatch) deliverMined(ctx context.Context, itemID string, qty int, to, recipient string) error {
 	minedQty := cargoCount(d.Client.GetState(), itemID)
 	if minedQty <= 0 {
@@ -134,14 +135,45 @@ func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, 
 	}
 
 	if cargoCount(state, itemID) < qty {
-		if err := d.autopilotAndUndock(ctx, systemID, poiID); err != nil {
+		if err = d.autopilotAndUndock(ctx, systemID, poiID); err != nil {
 			return fmt.Errorf("mine_qty_at: travel to %s: %w", poiID, err)
 		}
-		if err := d.mineLoop(ctx, itemID, qty, poiID); err != nil {
+		if err = d.mineLoop(ctx, itemID, qty, poiID); err != nil {
 			return err
 		}
 	}
-	return d.deliverMined(ctx, itemID, qty, to, recipient)
+	delivered, err := d.handOffHold(ctx, to, recipient, nil)
+	if err != nil {
+		return err
+	}
+	if delivered == 0 {
+		fmt.Fprintf(d.Out, "mine_qty_at: hold empty after mining %s at %s — nothing to hand off\n", itemID, poiID) //nolint:errcheck
+	}
+	return nil
+}
+
+// handOffHold delivers every cargo line not in keep to RECIPIENT at TO, largest
+// quantity first, so a byproduct mined alongside the target does not sit in the
+// hold. fuel_cell is always kept: it is the refuel fallback. It returns the
+// number of cargo lines delivered. The first failed delivery aborts the rest,
+// since a bad recipient or station fails every line.
+func (d *WorkerDispatch) handOffHold(ctx context.Context, to, recipient string, keep map[string]bool) (delivered int, err error) {
+	state := d.Client.GetState()
+	if state == nil {
+		return 0, nil
+	}
+	lines := slices.Clone(state.Ship.Cargo)
+	slices.SortStableFunc(lines, func(a, b game.CargoItem) int { return cmp.Compare(b.Quantity, a.Quantity) })
+	for _, line := range lines {
+		if line.Quantity <= 0 || line.ItemID == "fuel_cell" || keep[line.ItemID] {
+			continue
+		}
+		if err := d.Deliver(ctx, line.ItemID, int(line.Quantity), "", to, recipient); err != nil {
+			return delivered, fmt.Errorf("hand off %s: %w", line.ItemID, err)
+		}
+		delivered++
+	}
+	return delivered, nil
 }
 
 // mineLoop repeatedly calls Mine(ctx) — sleeping game.SleepTick (via
