@@ -85,3 +85,15 @@ the `[o]vermind` bracket trick in pkill -f or it kills your own shell). Haul was
 restarted ~90 min later once its workers were idle (see [[reference_fleet_status_fossil]] for why the status
 file's `activity` field cannot tell you that). Result: 0 password fallbacks, 0 key-rejected, 0 rate-limit hits.
 `.gitignore` now excludes `clerk_api_key*`, `*.clerk_key` and `data/agents/*/play_as.lease`.
+
+**First night under the gate (Oct 22 19:48 → Oct 23 15:00) — the design did its job:** two full-fleet reconnect
+storms at the server's restart windows (**176 workers at 21:21 Oct 22, 144 at 04:51 Oct 23**) went through the
+gate and fully recovered; **0 `ip_timed_out`, 0 IP blocks**. Gate blocks recorded: 19× `connect 15s` at 21:21
+(Clerk answered **503 retry_after 15s** during the restart; the first-rollout binary did not know 503 and fell
+back to password logins — the gap fixed later that day), ~20× `mint503 15s`/`connect 15s` at 04:51 (post-fix
+workers waited as designed), and ONE false `connect 5m0s` at 22:07 from a **local DNS outage** whose error text
+carried an ephemeral port containing "429" → fixed (`http429Re` token match + `*net.DNSError` never records;
+bins rebuilt, deploys at the next restart). Also seen: 9 stall-watchdog quarantines overnight (6 haul, 3 unlock,
+"3 futile stall-restarts without progress") — heartbeating-but-frozen gameplay stalls, same class as 10-22, NOT
+connection related. **Beware stale greps:** `displaced|session_replaced` matches thousands of pre-rollout
+(Jun–Oct 11) close-frame lines, and `429` matches player_ids — exclude `player_id=` and bound by date.
