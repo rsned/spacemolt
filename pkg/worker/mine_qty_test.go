@@ -28,6 +28,23 @@ type mineFakeClient struct {
 	yieldItemID string // if non-empty, yield to this item instead of mineItemID
 	mineYields  []float64
 	mineCalls   int
+	// byproductID, when set, gains byproductYields[i] on the i-th Mine call,
+	// alongside the main yield.
+	byproductID     string
+	byproductYields []float64
+}
+
+// addCargo adds qty of itemID to the fake's hold.
+func (f *mineFakeClient) addCargo(itemID string, qty float64) {
+	for i := range f.state.Ship.Cargo {
+		if f.state.Ship.Cargo[i].ItemID == itemID {
+			f.state.Ship.Cargo[i].Quantity += qty
+			f.state.Ship.CargoUsed += qty
+			return
+		}
+	}
+	f.state.Ship.Cargo = append(f.state.Ship.Cargo, game.CargoItem{ItemID: itemID, Quantity: qty})
+	f.state.Ship.CargoUsed += qty
 }
 
 func (f *mineFakeClient) Mine(ctx context.Context) error {
@@ -36,25 +53,25 @@ func (f *mineFakeClient) Mine(ctx context.Context) error {
 	if f.mineCalls < len(f.mineYields) {
 		yield = f.mineYields[f.mineCalls]
 	}
+	var byproduct float64
+	if f.mineCalls < len(f.byproductYields) {
+		byproduct = f.byproductYields[f.mineCalls]
+	}
 	f.mineCalls++
-	if yield <= 0 || f.state == nil {
+	if f.state == nil {
+		return nil
+	}
+	if byproduct > 0 && f.byproductID != "" {
+		f.addCargo(f.byproductID, byproduct)
+	}
+	if yield <= 0 {
 		return nil
 	}
 	yieldTo := f.mineItemID
 	if f.yieldItemID != "" {
 		yieldTo = f.yieldItemID
 	}
-	found := false
-	for i := range f.state.Ship.Cargo {
-		if f.state.Ship.Cargo[i].ItemID == yieldTo {
-			f.state.Ship.Cargo[i].Quantity += yield
-			found = true
-		}
-	}
-	if !found {
-		f.state.Ship.Cargo = append(f.state.Ship.Cargo, game.CargoItem{ItemID: yieldTo, Quantity: yield})
-	}
-	f.state.Ship.CargoUsed += yield
+	f.addCargo(yieldTo, yield)
 	return nil
 }
 
@@ -662,14 +679,11 @@ func TestMineQtyAtHandsOffByproduct(t *testing.T) {
 	agentsDir := t.TempDir()
 	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
 	kb := newMineAtTestKB(t, "", false)
-	client := newMineAtClient(130, 10)
+	client := newMineAtClient(130, 60, 50)
 	client.mineItemID = "water_ice"
+	client.byproductID = "nitrogen_ice"
+	client.byproductYields = []float64{30, 30}
 	client.state.Ship.CargoCapacity = 500
-	client.state.Ship.CargoUsed = 160
-	client.state.Ship.Cargo = []game.CargoItem{
-		{ItemID: "nitrogen_ice", Quantity: 60},
-		{ItemID: "water_ice", Quantity: 100},
-	}
 	d := noWaitMineDispatch(client, kb, agentsDir)
 	d.Out = io.Discard
 
@@ -690,13 +704,42 @@ func TestMineQtyAtHandsOffByproduct(t *testing.T) {
 	}
 }
 
+// Spec D1: the hand-off is the load plus the byproduct mined on THIS trip.
+// Whatever was aboard before departure stays aboard, and energy_crystal is
+// never gifted.
+func TestMineQtyAtHandsOffOnlyGrowthSinceDeparture(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMineAtTestKB(t, "", false)
+	client := newMineAtClient(130, 60, 50)
+	client.mineItemID = "water_ice"
+	client.byproductID = "nitrogen_ice"
+	client.byproductYields = []float64{30, 30}
+	client.state.Ship.CargoCapacity = 500
+	client.state.Ship.CargoUsed = 60
+	client.state.Ship.Cargo = []game.CargoItem{
+		{ItemID: "energy_crystal", Quantity: 40},
+		{ItemID: "nitrogen_ice", Quantity: 20},
+	}
+	d := noWaitMineDispatch(client, kb, agentsDir)
+	d.Out = io.Discard
+
+	if err := d.MineQtyAt(context.Background(), "water_ice", 110, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("MineQtyAt: %v", err)
+	}
+	got := giftsByItem(client)
+	if len(client.giftCalls) != 2 || got["water_ice"] != 110 || got["nitrogen_ice"] != 60 || got["energy_crystal"] != 0 {
+		t.Fatalf("gift calls = %+v, want only water_ice 110 and nitrogen_ice 60", client.giftCalls)
+	}
+}
+
 func TestMineQtyAtHandsOffEvenWithZeroTarget(t *testing.T) {
 	agentsDir := t.TempDir()
 	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
 	kb := newMineAtTestKB(t, "", false)
-	client := newMineAtClient(130) // dry belt: no yields
-	client.state.Ship.CargoUsed = 40
-	client.state.Ship.Cargo = []game.CargoItem{{ItemID: "nitrogen_ice", Quantity: 40}}
+	client := newMineAtClient(130) // target never yields
+	client.byproductID = "nitrogen_ice"
+	client.byproductYields = []float64{40}
 	d := noWaitMineDispatch(client, kb, agentsDir)
 	d.Out = io.Discard
 
@@ -732,16 +775,42 @@ func TestHandOffHoldSkipsKeepList(t *testing.T) {
 	client := newMineAtClient(130)
 	client.state.Ship.Cargo = []game.CargoItem{
 		{ItemID: "fuel_cell", Quantity: 20},
+		{ItemID: "energy_crystal", Quantity: 30},
 		{ItemID: "nitrogen_ice", Quantity: 5},
+		{ItemID: "water_ice", Quantity: 7},
 	}
 	d := noWaitMineDispatch(client, kb, agentsDir)
 	d.Out = io.Discard
 
-	n, err := d.handOffHold(context.Background(), "to_base", "craftsman-3", map[string]bool{})
+	// Empty snapshot: every line grew, so only the keep list holds goods back.
+	n, err := d.handOffHold(context.Background(), "to_base", "craftsman-3", map[string]int{}, map[string]bool{"water_ice": true})
 	if err != nil || n != 1 {
 		t.Fatalf("handOffHold = %d, %v; want 1, nil", n, err)
 	}
-	if got := giftsByItem(client); len(client.giftCalls) != 1 || got["nitrogen_ice"] != 5 || got["fuel_cell"] != 0 {
+	if got := giftsByItem(client); len(client.giftCalls) != 1 || got["nitrogen_ice"] != 5 {
 		t.Fatalf("gift calls = %+v, want only nitrogen_ice", client.giftCalls)
+	}
+}
+
+func TestHandOffHoldGiftsOnlyGrowth(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMineAtTestKB(t, "", false)
+	client := newMineAtClient(130)
+	client.state.Ship.Cargo = []game.CargoItem{
+		{ItemID: "nitrogen_ice", Quantity: 25},
+		{ItemID: "iron_ore", Quantity: 9},
+		{ItemID: "water_ice", Quantity: 4},
+	}
+	d := noWaitMineDispatch(client, kb, agentsDir)
+	d.Out = io.Discard
+
+	before := map[string]int{"nitrogen_ice": 20, "iron_ore": 9, "water_ice": 10}
+	n, err := d.handOffHold(context.Background(), "to_base", "craftsman-3", before, nil)
+	if err != nil || n != 1 {
+		t.Fatalf("handOffHold = %d, %v; want 1, nil", n, err)
+	}
+	if got := giftsByItem(client); len(client.giftCalls) != 1 || got["nitrogen_ice"] != 5 {
+		t.Fatalf("gift calls = %+v, want only the 5 grown nitrogen_ice", client.giftCalls)
 	}
 }

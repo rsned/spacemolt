@@ -134,6 +134,8 @@ func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, 
 		fmt.Fprintf(d.Out, "mine_qty_at: %s\n", reason) //nolint:errcheck
 	}
 
+	// Snapshot before departure: only what this trip adds is handed off.
+	before := cargoQuantities(state)
 	if cargoCount(state, itemID) < qty {
 		if err = d.autopilotAndUndock(ctx, systemID, poiID); err != nil {
 			return fmt.Errorf("mine_qty_at: travel to %s: %w", poiID, err)
@@ -142,7 +144,7 @@ func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, 
 			return err
 		}
 	}
-	delivered, err := d.handOffHold(ctx, to, recipient, nil)
+	delivered, err := d.handOffHold(ctx, to, recipient, before, nil)
 	if err != nil {
 		return err
 	}
@@ -152,28 +154,58 @@ func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, 
 	return nil
 }
 
-// handOffHold delivers every cargo line not in keep to RECIPIENT at TO, largest
-// quantity first, so a byproduct mined alongside the target does not sit in the
-// hold. fuel_cell is always kept: it is the refuel fallback. It returns the
-// number of cargo lines delivered. The first failed delivery aborts the rest,
-// since a bad recipient or station fails every line.
-func (d *WorkerDispatch) handOffHold(ctx context.Context, to, recipient string, keep map[string]bool) (delivered int, err error) {
+// handOffAlwaysKept are never handed off, whatever the snapshot says:
+// fuel_cell is the refuel fallback and energy crystals are reserved.
+var handOffAlwaysKept = map[string]bool{"fuel_cell": true, "energy_crystal": true}
+
+// handOffHold delivers to RECIPIENT at TO, per item, only the units that grew
+// since the BEFORE snapshot: the load plus the byproduct mined on this trip
+// (spec D1). Anything aboard before departure stays aboard. Items in keep or
+// in handOffAlwaysKept are never delivered. Lines go largest growth first. It
+// returns the number of items delivered. The first failed delivery aborts the
+// rest, since a bad recipient or station fails every line.
+func (d *WorkerDispatch) handOffHold(ctx context.Context, to, recipient string, before map[string]int, keep map[string]bool) (delivered int, err error) {
 	state := d.Client.GetState()
 	if state == nil {
 		return 0, nil
 	}
-	lines := slices.Clone(state.Ship.Cargo)
-	slices.SortStableFunc(lines, func(a, b game.CargoItem) int { return cmp.Compare(b.Quantity, a.Quantity) })
-	for _, line := range lines {
-		if line.Quantity <= 0 || line.ItemID == "fuel_cell" || keep[line.ItemID] {
+	type growth struct {
+		item string
+		qty  int
+	}
+	var lines []growth
+	for item, after := range cargoQuantities(state) {
+		if handOffAlwaysKept[item] || keep[item] {
 			continue
 		}
-		if err := d.Deliver(ctx, line.ItemID, int(line.Quantity), "", to, recipient); err != nil {
-			return delivered, fmt.Errorf("hand off %s: %w", line.ItemID, err)
+		if grew := after - before[item]; grew > 0 {
+			lines = append(lines, growth{item, grew})
+		}
+	}
+	slices.SortFunc(lines, func(a, b growth) int {
+		return cmp.Or(cmp.Compare(b.qty, a.qty), cmp.Compare(a.item, b.item))
+	})
+	for _, line := range lines {
+		if err := d.Deliver(ctx, line.item, line.qty, "", to, recipient); err != nil {
+			return delivered, fmt.Errorf("hand off %s: %w", line.item, err)
 		}
 		delivered++
 	}
 	return delivered, nil
+}
+
+// cargoQuantities sums the hold's quantity per item id, in whole units.
+func cargoQuantities(state *game.State) map[string]int {
+	out := map[string]int{}
+	if state == nil {
+		return out
+	}
+	for _, line := range state.Ship.Cargo {
+		if line.Quantity > 0 {
+			out[line.ItemID] += int(line.Quantity)
+		}
+	}
+	return out
 }
 
 // mineLoop repeatedly calls Mine(ctx) — sleeping game.SleepTick (via

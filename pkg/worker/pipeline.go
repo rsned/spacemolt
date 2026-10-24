@@ -8,7 +8,8 @@ import (
 )
 
 // Pipeline pins a worker to one mine-and-hand-off route: mine Item at POI in
-// SystemID, then hand the whole hold to Recipient at To.
+// SystemID, then hand what the trip mined (load plus byproduct) to Recipient
+// at To.
 type Pipeline struct {
 	Item, SystemID, POI, To, Recipient string
 }
