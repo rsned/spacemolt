@@ -1,6 +1,6 @@
 # Contraband production pipeline — design
 
-Date: 2026-10-24. Status: draft for builder review.
+Date: 2026-10-24. Status: builder-checked; operator answers folded in; awaiting approval.
 
 ## Intent
 
@@ -31,6 +31,10 @@ and craftsman-10 are docked at Voss, and 31 fresh miningbots are idle.
   click-through to the node view.
 
 ## Non-goals (version one)
+
+- Hitting standing bids as the primary sell mechanism. The Sell node posts
+  asks (D9); bid-filling via consigned routes stays available as a fallback
+  for stations with no shopkeeper.
 
 - Starshine. It consumes the reserved energy crystals
   (`project_drone_project_crystal_reserve`). It stays off the board.
@@ -352,12 +356,44 @@ hold hundreds of thousands.
   is the automation phase.
 - Read-only. No auth needed beyond what the existing dashboards have.
 
+### D9. Sell node = shopkeeper task on a pinned resident (operator: "post asks at known location/prices")
+
+- **Not a new agent.** A `shopkeep` step in the resident idle pass (beside
+  `ConsignRule`), switched on per agent in the fleet yaml:
+  `shopkeep: ["item:start_price[:floor]"]`. It posts asks from the agent's
+  **personal storage** for allow-listed items only, tracks its own open orders
+  (the own-orders listing the market capture already records as
+  `my_quantity`), and adjusts price: step up while the previous ask cleared
+  inside the window, step down after an ask sits unsold for N hours, never
+  below the floor. Step, window and N are yaml params with defaults the builder
+  picks; the operator supplies the start price per item and station.
+- **Where (operator fact 2026-10-24):** contraband asks at Empire stations are
+  gated by smuggling skill, **except Treasure Cache**, the one Empire station
+  that sells contraband with no skill gate. So the shopkeeper set is the eight
+  pirate-unlocked residents: marketbot_alhena (Voss), marketbot_algol (Dross),
+  marketbot_bellatrix (Crix), marketbot_gliese_581 (Korr), marketbot_sheratan
+  (Thane Keep), marketbot_xamidimura (Kael), marketbot_barnard_44 (Sable) and
+  marketbot_treasure_cache.
+- **Moonshine's first Sell node has no haul link:** marketbot_alhena is docked
+  at the same station as the still, so craftsman-10 (later -8) moves product
+  to it with `send_gift … source=storage` across the dock. Second node:
+  Treasure Cache, fed by the shuttle hauler's otherwise-empty return leg.
+  Further strongholds are added one at a time as the two saturate.
+- The dashboard's "market saturated" state for a Sell node means asks ageing
+  past the window at the floor; "starved" means the shopkeeper's stock tank is
+  below one ask lot.
+- Needs a new worker verb for `CreateSellOrder` (the client call exists in
+  pkg/game/client_commands.go; nothing dispatches it) plus an own-orders
+  reader. The price-policy details are the builder's.
+
 ### D8. Rollout order
 
 1. Fund bots; fit harvesters; create fleet + role; launch wave 1 into unlock;
    non-wave bots start the secure-space ice fallback (or wait).
-2. Seed craftsman-8; start its craft schedule; second the two haulers; long
-   hauler does the first Sirius culture run.
+2. Promote craftsman-8 to Officer; start the craft schedule (craftsman-10
+   until then); switch on `shopkeep` for marketbot_alhena with the 72 test
+   units; move the two haulers; long hauler does the first Sirius culture run;
+   shuttle hauler starts the Treasure Cache loop with moonshine backhaul.
 3. Dashboard v1 with the moonshine line only; measure units/day for a week.
 4. Switch on gutter flux (needs the Starfall convert node and craftsman-10),
    then ghost rounds, then hot cells if plasma gas is found.
