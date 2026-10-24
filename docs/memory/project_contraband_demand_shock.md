@@ -69,6 +69,11 @@ six stronghold-resident marketbots (algol/Dross, bellatrix/Crix,
 gliese_581/Korr, sheratan/Thane Keep, xamidimura/Kael, barnard_44/Sable) all
 hold pirate baseline 10. Empire premium is only ~13% (80,460 vs 71,382).
 
+**Operator 2026-10-24: treasure_cache_trading_post is the ONLY Empire station that
+sells contraband with no smuggling-skill gate** — so the contraband shopkeeper set is the 7
+stronghold residents + marketbot_treasure_cache (design:
+docs/superpowers/specs/2026-10-24-contraband-production-pipeline-design.md D9).
+
 **But `resident_market` is `ensure_home; dock; refuel` — residents NEVER post
 asks.** The 100× channel has no fleet implementation. That shopkeeper behaviour
 is the single highest-value missing piece.
