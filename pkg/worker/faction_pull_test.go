@@ -184,3 +184,24 @@ func TestFactionPullDepositsWhatLandedInCargo(t *testing.T) {
 		t.Fatalf("cargo should be drained, got %d", cargoCount(f.state, "pirate_moonshine"))
 	}
 }
+
+func TestFactionPullDrainsStrandedCargoWhenFactionIsEmpty(t *testing.T) {
+	// Live 2026-10-24 14:30: the failed passes had moved every unit from
+	// faction storage into cargo; with faction quantity 0 the pull skipped
+	// the item and the 60 units sat in cargo forever. Allow-listed cargo
+	// must be deposited even when there is nothing left to withdraw.
+	f := newFactionPullFake(150, `{"base_id":"b1","items":[]}`)
+	f.addCargo("pirate_moonshine", 60)
+	f.state.Ship.CargoUsed += 60
+	var out bytes.Buffer
+	moved, err := FactionPull(context.Background(), f, []string{"pirate_moonshine"}, &out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.withdrawn["pirate_moonshine"] != 0 {
+		t.Fatalf("nothing to withdraw, got %v", f.withdrawn)
+	}
+	if f.deposited["pirate_moonshine"] != 60 || moved != 60 {
+		t.Fatalf("want deposit 60 from cargo, got deposited %v moved %d", f.deposited, moved)
+	}
+}

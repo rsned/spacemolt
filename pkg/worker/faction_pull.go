@@ -41,6 +41,16 @@ func FactionPull(ctx context.Context, client game.GameClient, items []string, ou
 		if cerr := ctx.Err(); cerr != nil {
 			return moved, cerr
 		}
+		// Drain anything of this item already aboard first — a withdraw that an
+		// earlier pass could not deposit (live 2026-10-24: 60 units stranded
+		// with faction storage at zero, so the withdraw branch never ran).
+		if aboard := cargoCount(client.GetState(), item); aboard > 0 {
+			if derr := client.DepositItems(ctx, item, float64(aboard)); derr != nil {
+				return moved, fmt.Errorf("deposit %d stranded %s (left in cargo): %w", aboard, item, derr)
+			}
+			moved += aboard
+			_, _ = fmt.Fprintf(out, "faction_pull: moved %d stranded %s cargo->personal\n", aboard, item)
+		}
 		st := client.GetState()
 		if st == nil {
 			return moved, nil
