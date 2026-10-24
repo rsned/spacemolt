@@ -102,3 +102,21 @@ running process.** One `bin/arbitrage-scanner scan --items pirate_moonshine` wit
 `consign holder=craftsman-10 base=voss_redoubt_station`). Restarted the watcher with the COLD_START command
 (docs/COLD_START.md:127). The `arbitrage_opportunities` CHECK already admits `withdraw_then_sell` (the 60bdcb32
 rebuild ran). Hauler-claim half: see the status board for the result.
+
+**Hauler-claim half, live 2026-10-24 03:15–03:52 PDT (route 1704948, 72 pirate_moonshine):** trader-8
+(pirate-unlocked, smuggling 16) claimed voss_redoubt → grand_exchange @6,308; craftsman-10's handoff gifted the
+72 to trader-8's storage at Voss in 26 s; trader-8 flew 5 jumps, withdrew, reached Grand Exchange — and stuck:
+1. Grand Exchange's live book could not absorb 72, so the demand watchdog chose the COST ORDER, and a consigned
+   route's cost basis is 0 → `invalid_payload: Price must be greater than 0` every pass. **FIXED** (haul.go, commit
+   "consigned-route cost order lists at the planned sell price"): `unitBuy <= 0` falls back to `opp.SellPrice`.
+2. Then the real gate: `contraband_restricted: Pirate Moonshine is contraband. This market (level 5) requires
+   smuggling level 25` — the Empire rule is **smuggling ≥ 5 × market level**, and the error text carries the
+   level, so the capture gap ("we store tier nowhere") can be closed from this reply. The haul loop does NOT treat
+   `contraband_restricted` as goods-unsellable: it re-posted every ~18 s until the opp was completed by hand
+   (`bin/arbitrage-scanner complete --id 1704948 --agent trader-8`). TODO (plan 1, sell-destination task): scanner
+   must skip Empire destinations for contraband unless the holder's smuggling ≥ 5 × level; haul must treat
+   `contraband_restricted` like `haulGoodsGone` (re-route/abandon, never loop).
+3. The scanner priced a grand_exchange destination with NO grand_exchange bid in market_orders (6,308 matches
+   thane_keep's bid) — source of that price unknown; investigate `consignCandidates` destination list.
+Resolution: trader-8 removed from the haul roster (overrides), flown by play_as to treasure_cache_trading_post
+(the one ungated Empire market), asks posted there. Treasure Cache's own moonshine bids are 1-cr junk walls only.
