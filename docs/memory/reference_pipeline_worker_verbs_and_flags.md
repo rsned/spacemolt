@@ -45,7 +45,7 @@ hold until moved back to storage). Smoke fleet: `data/overmind/crft-mining-fleet
 ice → Frontier Station → trader-8), overmind launched with the standard flags + `--handoff-queue` + `--fleet-name crft-mining`.
 **Server rule (live 10-24): "You need an ice harvester module to mine ice here."** Ice fields refuse the mining laser.
 Cobble budget: CPU 12 / power 24, utility 2, weapon 1. Stock fit pulse_laser_i (2/5) + cargo_expander_iii (3/3)
-+ mining_laser_iii (6/12) = 11/20. Per-group fits for the rollout plan: **ice** = drop mining_laser_iii, fit
++ mining_laser_iii (6/12) = 11/20. **Operator rule 10-24: a miningbot fits exactly ONE harvesting module at a time (gas, ice, or mining laser)** — group = fit; regrouping is a docked refit. Per-group fits for the rollout plan: **ice** = drop mining_laser_iii, fit
 ice_harvester_ii (6/12) → 11/20 OK; **gas** = gas_harvester_iii is 9/15 → must drop BOTH the mining laser AND the
 pulse laser (3+9 = 12 CPU, 3+15 = 18 power); **titanium** = keep the stock fit. Module ids: `ice_harvester_ii`,
 `gas_harvester_iii`; play_as `install <item-id>` / `uninstall <module-id>` (docked).

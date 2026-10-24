@@ -246,9 +246,16 @@ bot changes from `treasure_cache_trading_post`/hauler to `voss_redoubt`/
   intended POI. If `mine_qty` cannot take an explicit POI today, add that
   (small change) rather than trusting nearest.
 - The harvester modules in each bot's home storage are fitted before the first
-  trip (ice_harvester for the ice group, gas_harvester for chlorine/plasma);
-  titanium bots keep the mining laser. Builder confirms fitting is a one-off
-  play_as/script step at Distant Light before the fleet leaves.
+  trip (ice_harvester_ii for the ice group, gas_harvester_iii for
+  chlorine/plasma); titanium bots keep the mining laser. **Operator rule
+  (2026-10-24): a miningbot can fit exactly ONE harvesting module at a time
+  — gas, ice, or mining laser — so a bot's group is fixed by its fit, and
+  moving a bot between groups is a docked refit.** Smoke-verified on the
+  Cobble: 12 CPU total; ice = drop mining_laser_iii, fit ice_harvester_ii;
+  gas = drop mining_laser_iii AND pulse_laser_i, fit gas_harvester_iii;
+  titanium = stock fit. Ice fields refuse the mining laser outright. Fitting
+  is a one-off play_as step at the bot's current station (`uninstall
+  <module-id>` then `install <item-id>`, docked).
 
 ### D4. Haul links are named agents running `deliver`
 
