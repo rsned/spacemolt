@@ -57,3 +57,9 @@ SIGTERM the overmind and relaunch it with its exact `ps` args (craft restarted 1
 2 workers relogged). The other 9 overminds still need this before any pipeline/shopkeep/faction_pull yaml line.
 Smoke result 14:03: miningbot_0000 mined to full (117 water_ice of 175), flew back, gifted both cargo lines to
 trader-8 at mobile_capital (= Frontier Station's POI id) in two per-line deliveries, no errors.
+**⭐ faction_withdraw_items is TICK-DEFERRED (live 10-24 14:10):** the call returns on the ack; the goods land in
+cargo on the next tick, and the client cargo cache updates only on `GetCargo`. The first faction_pull deposited
+immediately → `item not found in cargo` every pass while each pass withdrew another 6 (stranding them in cargo).
+Fixed (commit "faction_pull waits a tick and deposits what landed in cargo"): settle(SleepTick) → GetCargo →
+deposit `cargoCount` (drains stranded units too). Same pattern as Deliver's withdraw refresh (deliver.go:244-251).
+Any new verb that chains a mutation into a read of ship state needs the same settle+refresh.
