@@ -52,6 +52,9 @@ type WorkerSpec struct {
 	// station's exchange from personal storage, each item:start[:floor]. The
 	// same allow-list discipline as Consign applies: a sale is irreversible.
 	Shopkeep []string `yaml:"shopkeep,omitempty"`
+	// FactionPull forwards --faction-pull: explicit item ids this crafter
+	// moves from faction storage to personal storage on the idle pass.
+	FactionPull []string `yaml:"faction_pull,omitempty"`
 	// Pipeline forwards --pipeline "item,system,poi,to,recipient": the pinned
 	// mine-and-hand-off route of a pipeline_miner worker.
 	Pipeline string `yaml:"pipeline,omitempty"`

@@ -116,6 +116,12 @@ type StandingDeps struct {
 	// after ConsignOffer, to post and reprice asks for allow-listed goods in
 	// this station's personal storage. nil when the worker has no shop rules.
 	Shopkeep func(context.Context)
+
+	// FactionPull, when set, runs once per non-drained idle pass under ExecMu,
+	// before Consign/ConsignOffer/Shopkeep, to move allow-listed product from
+	// faction storage into personal storage so those steps see it the same
+	// pass. nil when the worker has no --faction-pull list.
+	FactionPull func(context.Context)
 }
 
 // RunStanding drives a worker's default standing behavior until ctx is
@@ -290,6 +296,9 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		}
 		if deps.Handoffs != nil {
 			deps.Handoffs(ctx)
+		}
+		if deps.FactionPull != nil {
+			deps.FactionPull(ctx)
 		}
 		if deps.Consign != nil {
 			deps.Consign(ctx)

@@ -95,6 +95,9 @@ func SpawnWith(cfg SpawnConfig) SpawnFunc {
 		if len(spec.Shopkeep) > 0 {
 			args = append(args, "--shopkeep", strings.Join(spec.Shopkeep, ","))
 		}
+		if len(spec.FactionPull) > 0 {
+			args = append(args, "--faction-pull", strings.Join(spec.FactionPull, ","))
+		}
 		if spec.Pipeline != "" {
 			args = append(args, "--pipeline", spec.Pipeline)
 		}
