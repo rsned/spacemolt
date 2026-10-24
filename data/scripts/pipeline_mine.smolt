@@ -1,0 +1,7 @@
+# Pinned pipeline mining cycle: mine the configured item at the configured POI
+# and hand the whole hold to the configured recipient (see --pipeline).
+# refuel FIRST, while still docked from the prior cycle: it tops the tank up
+# before each trip AND recovers a bot that has run itself to empty. A trailing
+# refuel can't do that — an empty bot can't undock to reach it.
+refuel
+pipeline_mine

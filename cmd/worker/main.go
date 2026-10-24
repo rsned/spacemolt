@@ -87,6 +87,7 @@ func main() {
 	enableFreight := flag.Bool("enable-freight", false, "Opt the missions role into the /shipping carrier path (freight evaluated co-equally with the mission board; default off)")
 	freightMaxPackages := flag.Int("freight-max-packages", 1, "Max concurrent freight contracts for the missions role (sub-project C multi-package trips; 1 = single-contract v1 behavior)")
 	consignSpec := flag.String("consign", "", "Standing consignment rules, comma-separated item:recipient:min[:keep] — hand allow-listed goods from this station's personal storage to a named hauler on each idle pass (e.g. adamantite_ore:salvager-2:50). Explicit allow-list only: gifting is irreversible.")
+	pipelineSpec := flag.String("pipeline", "", "Pinned pipeline route item,system,poi,to,recipient — the pipeline_miner role mines item at poi in system and hands the whole hold to recipient at to on each idle pass.")
 	consignOfferSpec := flag.String("consign-offer", "", "Consignment offers, comma-separated item[:keep] — advertise allow-listed goods in this station's personal storage to the hauler fleet as consigned routes; the claiming hauler is gifted them via the handoff queue (needs --handoff-queue). Explicit allow-list only: gifting is irreversible.")
 	freightBootstrap := flag.Bool("freight-bootstrap", true, "Enable the probationary loss-leader freight floor for the missions role (default on when --enable-freight; set =false to keep freight on but disable bootstrapping)")
 	secondmentPath := flag.String("secondment-ledger", "", "Shared fleet-loan ledger a hauler writes its pirate-unlock nomination into (empty disables nominating; only the haul fleet sets it)")
@@ -100,6 +101,10 @@ func main() {
 	consignRules, consignErr := worker.ParseConsignRules(*consignSpec)
 	if consignErr != nil {
 		log.Fatalf("--consign: %v", consignErr)
+	}
+	pipeline, pipelineErr := worker.ParsePipeline(*pipelineSpec)
+	if pipelineErr != nil {
+		log.Fatalf("--pipeline: %v", pipelineErr)
 	}
 	consignOffers, offerErr := worker.ParseConsignOffers(*consignOfferSpec)
 	if offerErr != nil {
@@ -463,6 +468,7 @@ func main() {
 				handoffQueue = handoff.NewQueue(*handoffQueuePath)
 			}
 			dispatch.Handoff = handoffQueue
+			dispatch.Pipeline = pipeline
 			sched, schedErr := worker.LoadScheduler(filepath.Join("data", "agents", *agentID, "schedule.json"))
 			if schedErr != nil {
 				logger.Printf("warning: load scheduler: %v", schedErr)

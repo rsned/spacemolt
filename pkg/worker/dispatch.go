@@ -60,6 +60,9 @@ type WorkerDispatch struct {
 	// missions role (nil/empty -> delivery only; the learning pool adds
 	// "exploration").
 	MissionCategories []string
+	// Pipeline pins the pipeline_miner role's mine-and-hand-off route
+	// (--pipeline). Nil leaves the pipeline_mine verb erroring.
+	Pipeline *Pipeline
 
 	// treasury rate-limits faction-treasury rescue withdrawals across idle passes.
 	// Held here (not per Run call) so the cooldown survives between command passes.
@@ -207,7 +210,7 @@ var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true, "ensure_home": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
 	"hunt": true,
-	"mine": true, "mine_qty": true, "mine_qty_at": true, "deliver": true, "buy_directed": true, "craft_node": true, "craft": true,
+	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true,"deliver": true, "buy_directed": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "launch_drones": true,
 	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
@@ -464,6 +467,8 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			return fmt.Errorf("mine_qty_at: bad qty %q", args[1])
 		}
 		return d.MineQtyAt(ctx, args[0], qty, args[2], args[3], args[4], args[5])
+	case "pipeline_mine":
+		return d.PipelineMine(ctx)
 	case "fit_drones":
 		if len(args) < 1 {
 			return fmt.Errorf("fit_drones: want SCRIPT [BAYS] [DRONES] [BAY_ITEM] [DRONE_ITEM] [DEPLOY] [STRIP] [RESUME], got %v", args)

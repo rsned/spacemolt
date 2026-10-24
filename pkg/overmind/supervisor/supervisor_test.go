@@ -689,3 +689,26 @@ func TestSupervisor_DisplacedLogsOnceAndNeverRestarts(t *testing.T) {
 		t.Fatalf("displaced line logged %d times, want 1; log:\n%s", got, buf.String())
 	}
 }
+
+func TestWorkerSpecPipelineForwardsFlag(t *testing.T) {
+	const pipe = "water_ice,glenhaven,glenhaven_ice_belt,treasure_cache_trading_post,trader-1"
+	spawn := DefaultSpawn("true", "", "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd, err := spawn(ctx, WorkerSpec{AgentID: "pm-1", Role: "pipeline_miner", Pipeline: pipe}, "/tmp/does-not-matter.sock")
+	if err != nil {
+		t.Fatalf("spawn: %v", err)
+	}
+	_ = cmd.Wait()
+	if !hasArgPair(cmd.Args, "--pipeline", pipe) {
+		t.Errorf("args %v missing --pipeline %s", cmd.Args, pipe)
+	}
+	cmd, err = spawn(ctx, WorkerSpec{AgentID: "plain"}, "/tmp/does-not-matter.sock")
+	if err != nil {
+		t.Fatalf("spawn: %v", err)
+	}
+	_ = cmd.Wait()
+	if hasArg(cmd.Args, "--pipeline") {
+		t.Errorf("args %v must not carry --pipeline", cmd.Args)
+	}
+}

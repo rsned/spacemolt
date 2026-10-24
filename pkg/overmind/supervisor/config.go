@@ -48,6 +48,9 @@ type WorkerSpec struct {
 	// the gift, through the handoff queue. Each entry is item[:keep]; the same
 	// allow-list discipline as Consign applies.
 	ConsignOffer []string `yaml:"consign_offer,omitempty"`
+	// Pipeline forwards --pipeline "item,system,poi,to,recipient": the pinned
+	// mine-and-hand-off route of a pipeline_miner worker.
+	Pipeline string `yaml:"pipeline,omitempty"`
 	// DisableFreightBootstrap forwards --freight-bootstrap=false, turning off the
 	// probationary loss-leader floor while leaving freight enabled. Zero value
 	// (false) keeps the CLI default (bootstrap on).

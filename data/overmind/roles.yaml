@@ -95,6 +95,16 @@ roles:
       - { every: daily, command: "capture_citizenship" }
       - { every: hourly, command: "capture_fuel" }
     idle: idle_mine
+  pipeline_miner:
+    idle_ticks: 2  # pinned mine-and-hand-off; half idle rate like the miner pool
+    schedule:
+      - { every: hourly, command: "capture_profile" }
+      - { every: hourly, command: "capture_fuel" }
+      - { every: hourly, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
+      - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
+    idle: pipeline_mine
   hauler:
     schedule:
       - { every: hourly, command: "capture_profile" }
