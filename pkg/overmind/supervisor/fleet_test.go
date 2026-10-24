@@ -313,3 +313,17 @@ func TestApplyHelloStoresBuildIdentity(t *testing.T) {
 		t.Fatalf("dirty flags not stored: CodeDirty=%v Modified=%v", w.CodeDirty, w.Modified)
 	}
 }
+
+func TestStallTimeoutForPipelineMiner(t *testing.T) {
+	base := 15 * time.Minute
+	for _, role := range []string{"miner", "pipeline_miner"} {
+		if got := StallTimeoutFor(WorkerInfo{Role: role}, base); got != base*MinerStallFactor {
+			t.Fatalf("%s: got %v, want %v", role, got, base*MinerStallFactor)
+		}
+	}
+	for _, role := range []string{"resident", "minerva", "determined"} {
+		if got := StallTimeoutFor(WorkerInfo{Role: role}, base); got != base {
+			t.Fatalf("%s must keep base, got %v", role, got)
+		}
+	}
+}

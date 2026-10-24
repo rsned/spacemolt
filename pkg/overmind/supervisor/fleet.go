@@ -228,15 +228,15 @@ func Stalled(info WorkerInfo, now time.Time, stallTimeout time.Duration) bool {
 const MinerStallFactor = 6
 
 // StallTimeoutFor returns the stall window that applies to one worker: the
-// configured base for every role except miner, which gets MinerStallFactor
-// times it. Callers pass the configured StallTimeout and the role adjustment
+// configured base for every role except miner and any *_miner role (such as
+// pipeline_miner), which get MinerStallFactor times it. Callers pass the configured StallTimeout and the role adjustment
 // happens here, so Stalled and Stranded (which gates on Stalled) cannot drift
 // apart.
 func StallTimeoutFor(info WorkerInfo, base time.Duration) time.Duration {
 	if base <= 0 {
 		return base
 	}
-	if info.Role == "miner" {
+	if info.Role == "miner" || strings.HasSuffix(info.Role, "_miner") {
 		return base * MinerStallFactor
 	}
 	return base
