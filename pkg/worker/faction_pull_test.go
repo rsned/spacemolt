@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -115,5 +116,17 @@ func TestParseFactionPull(t *testing.T) {
 	}
 	if _, err := ParseFactionPull("pirate_moonshine,energy_crystal"); err == nil {
 		t.Error("energy_crystal must be refused")
+	}
+}
+
+// A repeated id would reuse the one faction-storage reading and over-withdraw
+// on its second pass, so the first occurrence wins.
+func TestParseFactionPullDedupes(t *testing.T) {
+	got, err := ParseFactionPull("moonshine, stolen_art,moonshine ,stolen_art,iron_ore")
+	if err != nil {
+		t.Fatalf("ParseFactionPull: %v", err)
+	}
+	if want := []string{"moonshine", "stolen_art", "iron_ore"}; !slices.Equal(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
 	}
 }

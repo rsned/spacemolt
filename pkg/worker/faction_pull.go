@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -67,6 +68,8 @@ func FactionPull(ctx context.Context, client game.GameClient, items []string, ou
 
 // ParseFactionPull decodes the --faction-pull flag: comma-separated explicit
 // item ids. energy_crystal is refused because those crystals are reserved.
+// A repeated id is dropped, first occurrence wins: FactionPull reads faction
+// storage once per pass, so a second entry would withdraw units already moved.
 func ParseFactionPull(s string) ([]string, error) {
 	var out []string
 	for part := range strings.SplitSeq(s, ",") {
@@ -76,6 +79,9 @@ func ParseFactionPull(s string) ([]string, error) {
 		}
 		if id == "energy_crystal" {
 			return nil, fmt.Errorf("energy_crystal is reserved and may not be pulled")
+		}
+		if slices.Contains(out, id) {
+			continue
 		}
 		out = append(out, id)
 	}
