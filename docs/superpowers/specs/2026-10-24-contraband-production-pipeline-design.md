@@ -206,6 +206,20 @@ them automatically. The daemon only sweeps `--home haul`; run a second sweep
 for the new fleet (watch mode or cron). Both fleet yamls must list every bot
 (the removed-sets rule).
 
+**Enforced in code (my call, from the builder check):** `mine_qty` gains a
+Lawless gate beside its stronghold gate: if the target system's KB
+`security_status` says Lawless (or `police_level` is 0) and the agent's pirate
+baseline is below 10, the verb refuses the trip and logs why, failing closed
+like the stronghold gate. If the KB has no security record for the system the
+verb proceeds and logs a warning, so stale data cannot stall an unlocked bot.
+
+**Command-rate headroom (my call):** the fleet already runs ~170 workers and
+the 2026-09-09 IP block came from the `missions` loop's query volume. The
+Clerk gate fixed logins, not the per-IP command buckets. So: waves of 10 as
+above, `idle_ticks: 2` on `pipeline_miner`, no existing pool is shrunk, and the
+rollout watches for `rate_limited` / `gate block` lines after each wave; the
+operator decides whether to park a pool only if they appear.
+
 Once unlocked, a bot drops directly at Voss (Glenhaven is 1 jump) and the
 Treasure Cache leg disappears for that bot. The yaml `to`/`recipient` for the
 bot changes from `treasure_cache_trading_post`/hauler to `voss_redoubt`/
@@ -234,8 +248,13 @@ bot changes from `treasure_cache_trading_post`/hauler to `voss_redoubt`/
 
 ### D4. Haul links are named agents running `deliver`
 
-Two pirate-unlocked haulers from the haul fleet are seconded to the line
-(same secondment mechanism, home = haul, away = crft-mining):
+Two pirate-unlocked haulers move **permanently** from `haul-fleet.yaml` to
+`crft-mining-fleet.yaml` (two yaml lines, plus the haul overrides if they are
+mid-rotation). **My call, replacing the earlier "seconded" wording:** the
+reconciler filters only on `HomeFleet`, its only graduation predicate is the
+pirate unlock (already true for these two), and `--max-in-flight` is shared
+with the unlock queue, so it cannot express an open-ended loan. The haul fleet
+loses two hulls on its books; that is the accounting.
 
 - **shuttle hauler**: loops `deliver water_ice <qty> treasure_cache_trading_post
   voss_redoubt craftsman-8` (and the same for culture when it lands at
@@ -251,14 +270,42 @@ Two pirate-unlocked haulers from the haul fleet are seconded to the line
 dashboard link has an agent on it. Hull choice is the builder's; a 1,900-hold
 congregation makes the Sirius run a monthly trip.
 
+**Sell destinations (my call):** strongholds and player-faction stations only,
+which memory records as always sellable for contraband; Empire stations need
+smuggling >= 5 x a market tier we do not capture, and customs can seize cargo in
+transit. The scanner's consigned-route filter and the long hauler's route
+choice both apply that rule. The Sirius culture run carries no contraband, so
+the high-security leg is clean.
+
 ### D5. Production node
 
 craftsman-8 at Voss runs `distill_moonshine` at its maximum batch on a short
-schedule (every 10 min is fine; the craft is 2.7 ticks/run), consuming only
-what is in **its own** storage. The 428 ice + 250 liquid nitrogen in
-craftsman-1's storage at Voss are gifted to craftsman-8 once by hand to seed
-the first runs. craftsman-10 is reserved for the second line. Outputs stay in
-craftsman-8's storage until the sell link withdraws them.
+schedule (every 10 min is fine; the craft is 2.7 ticks/run). craftsman-10 is
+reserved for the second line.
+
+**Faction storage is the store (live test 2026-10-24 02:25 PDT, job
+`2452b6fe…`, 10 runs queued by craftsman-10):** when the crafter's personal
+storage cannot cover the inputs, the server draws them from **CRFT faction
+storage** and the output lands in faction storage ("Faction storage and
+treasury are covering this job because your own can't; outputs go to faction
+storage"). That needs the faction **Treasury** permission, which Officers have
+and Members do not: the identical craft was refused for craftsman-8 (Member)
+and accepted for craftsman-10 (Officer). **craftsman-8 must be promoted to
+Officer** (`faction_promote <player-id> officer` from the leader,
+craftsman-boss). Treasury access must not be given to the Member role, since
+all 31 miningbots are Members.
+
+Consequences: the Store node for every line is the faction storage at Voss
+(`view_faction_storage`), and inputs can be delivered into faction storage by
+any member (`deposit_items ... --target=faction` or equivalent) rather than
+gifted to a specific crafter. The consignment stock report
+(`ReportConsignStock`) reads only **personal** storage, so the sell link needs
+one extra step: the crafter's idle pass withdraws finished product from faction
+storage into its personal storage (`faction_withdraw_items <item> <qty>
+--target=storage`, allow-listed items only) before `consign_offer` can
+advertise it. **My call:** that withdraw step over making the stock report
+faction-aware, because the gift that follows must come from the holder's own
+storage anyway.
 
 ### D6. Money
 
@@ -278,6 +325,16 @@ hold hundreds of thousands.
   (or line output) units/day over the last 24 h, and the active alert text
   ("output stalled waiting on inputs", "market saturated", "facility busy",
   "hauler starved", "source depleted", "agent broke/stranded").
+- **The reference screenshot** (operator-supplied, not in the repo): a dark
+  grid canvas; a legend top-left with three dots, green "Optimal", yellow
+  "Starved", red "Choked / Backed up"; a pause button top-right. Nodes are
+  rounded rectangles with a small status dot and a short name ("Iron Mine",
+  "Iron Smelter", "Circuit Assembler"), each with a thick bottom border in its
+  state colour; two parallel chains converge into one node and continue. Links
+  are dashed green lines with gentle curves. Below the canvas a stats row of
+  three figures ("Output Rate 43.2 /s", "Avg Factory Eff 72%", "Active Alerts
+  0 units"), then one horizontal slider per input ("Iron Ore Extraction 85%",
+  "Copper Ore Extraction 40%"). Reproduce that grammar; polish later.
 - **Line view** (click a row): the chain as boxes and links like the
   reference screenshot. Node types: Mine, Purchase, Haul link, Convert,
   Produce, Store, Sell. Each node shows its fill level (units in the relevant
@@ -302,6 +359,19 @@ hold hundreds of thousands.
 4. Switch on gutter flux (needs the Starfall convert node and craftsman-10),
    then ghost rounds, then hot cells if plasma gas is found.
 5. Automation phase: alerts drive yaml edits.
+
+## Must-fix findings from the builder check (verified in code)
+
+- `mine_qty` delivers only ITEM; byproduct (nitrogen ice etc.) stays aboard
+  trip after trip. Add a hand-off-everything step at the drop so D1's "gift
+  the byproduct" holds.
+- `StallTimeoutFor` (pkg/overmind/supervisor/fleet.go) matches the literal
+  role name "miner"; `pipeline_miner` would get the 15-minute window and be
+  killed mid-pass (same as ad3f4488). Match by prefix or list the new role.
+- `ReconcileSecondments` filters on `HomeFleet` only; add an `AwayFleet`
+  filter so a crft-mining-homed sweep and the haul sweep cannot interfere.
+- `idle_params` in roles.yaml is dead config; per-worker pipeline params need
+  a real plumbing path (yaml -> supervisor args -> worker flag).
 
 ## Left to the builder
 
