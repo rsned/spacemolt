@@ -44,3 +44,16 @@ weapon 1, defense 1). The rollout plan must decide per group: drop the pulse las
 harvester (ice/gas groups) or keep the laser (titanium). The harvester now sits in the bot's CARGO (size 10 — eats
 hold until moved back to storage). Smoke fleet: `data/overmind/crft-mining-fleet.yaml` (one bot, Altais outer
 ice → Frontier Station → trader-8), overmind launched with the standard flags + `--handoff-queue` + `--fleet-name crft-mining`.
+**Server rule (live 10-24): "You need an ice harvester module to mine ice here."** Ice fields refuse the mining laser.
+Cobble budget: CPU 12 / power 24, utility 2, weapon 1. Stock fit pulse_laser_i (2/5) + cargo_expander_iii (3/3)
++ mining_laser_iii (6/12) = 11/20. Per-group fits for the rollout plan: **ice** = drop mining_laser_iii, fit
+ice_harvester_ii (6/12) → 11/20 OK; **gas** = gas_harvester_iii is 9/15 → must drop BOTH the mining laser AND the
+pulse laser (3+9 = 12 CPU, 3+15 = 18 power); **titanium** = keep the stock fit. Module ids: `ice_harvester_ii`,
+`gas_harvester_iii`; play_as `install <item-id>` / `uninstall <module-id>` (docked).
+**⭐🔴 New yaml fields need the overmind RESTARTED, not SIGHUPed.** The running overminds (all launched 10-23 15:07)
+are the pre-merge binary: on SIGHUP they parse `pipeline:`/`shopkeep:`/`faction_pull:` as unknown fields, see a
+"spec change", and relaunch the worker WITHOUT the new flags (craftsman-10, 10-24 13:45 — no error anywhere). Fix:
+SIGTERM the overmind and relaunch it with its exact `ps` args (craft restarted 14:07 on the new bin/overmind; its
+2 workers relogged). The other 9 overminds still need this before any pipeline/shopkeep/faction_pull yaml line.
+Smoke result 14:03: miningbot_0000 mined to full (117 water_ice of 175), flew back, gifted both cargo lines to
+trader-8 at mobile_capital (= Frontier Station's POI id) in two per-line deliveries, no errors.
