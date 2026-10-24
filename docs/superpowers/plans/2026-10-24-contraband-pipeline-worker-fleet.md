@@ -136,7 +136,7 @@ git commit -m "feat(worker): mine_qty_at — pinned POI mining behind the strong
 
 **Interfaces:**
 - Consumes: `state.Ship.Cargo []game.CargoItem{ItemID string, Quantity float64}` (`pkg/game/types.go:182,225`); `d.Deliver(ctx, item, qty, "", to, recipient)`.
-- Produces: `func (d *WorkerDispatch) handOffHold(ctx context.Context, to, recipient string, keep map[string]bool) (delivered int, err error)` — delivers every cargo line not in `keep`, largest quantity first.
+- Produces: `handOffHold` — AS BUILT (final-review amendment, commit dd10dec9): `MineQtyAt` snapshots cargo before departure and hands off, largest line first, the FULL current quantity of (a) the target item always and (b) every other line that grew on this trip; `fuel_cell` and `energy_crystal` are always kept (`handOffAlwaysKept`); unrelated lines that did not grow stay aboard. The original "everything but fuel_cell" wording below is superseded.
 
 - [ ] **Step 1: Write the failing tests**
 
