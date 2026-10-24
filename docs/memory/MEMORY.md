@@ -30,6 +30,8 @@
 - [NEVER unbatched DELETE on a huge table](feedback_bulk_delete_scale.md)
 - [Never `time.Sleep` in pkg/worker](reference_race_test_cost_sqlite_migrations.md) — use the `settle(ctx,d)` seam
 
+- [Faction-storage crafting needs Officer rank; faction_withdraw lands in cargo](reference_faction_storage_crafting_and_withdraw.md) — live 10-24; craft falls back to CRFT storage, output goes there too
+
 ## Area hubs — read the hub before working in that area
 - [Fleet ops](index_fleet_ops.md) — 52: IP blocks/rate limits, stronghold gates, rescue/quarantine, tankers/refuel, secondment, wedge/livelock, MaxRestarts, haul hulls, marketbots, drones, faction facilities
 - [Data capture gaps](index_data_capture.md) — 13: silent data loss, stale status files, ship_modules, asset/storage/action-log capture, wildlife observations
