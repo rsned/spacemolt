@@ -92,3 +92,13 @@ discriminator. A 1,900-cargo congregation carries 950 units (size 2) =
 
 Related: [[project_haul_fleet_rehull_2026_10]] ·
 [[reference_book_depth_is_the_real_haul_ceiling]]
+
+**⭐ 2026-10-24 LIVE: the generator works end to end up to the route.** craftsman-10 (`consign_offer:
+[pirate_moonshine]` in craft-fleet.yaml, SIGHUP relaunched the worker with `--consign-offer`) reported
+`consign_stock` = 72 within two idle passes of the deposit. **But the live scanner produced nothing for 40 min: the
+`arbitrage-scanner watch` process had been running since 2026-09-21 — a binary rebuilt on 10-22 does not replace a
+running process.** One `bin/arbitrage-scanner scan --items pirate_moonshine` with the rebuilt binary wrote 6+
+`withdraw_then_sell` rows (voss_redoubt → war_citadel 14 @6,654, the_core 14, the_anvil_arsenal 5, …; notes
+`consign holder=craftsman-10 base=voss_redoubt_station`). Restarted the watcher with the COLD_START command
+(docs/COLD_START.md:127). The `arbitrage_opportunities` CHECK already admits `withdraw_then_sell` (the 60bdcb32
+rebuild ran). Hauler-claim half: see the status board for the result.
