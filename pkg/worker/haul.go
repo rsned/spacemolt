@@ -1412,6 +1412,13 @@ func haulSellLeg(ctx context.Context, deps HaulDeps, out io.Writer, opp market.A
 	if m != nil && m.buyPrice > 0 {
 		unitBuy = m.buyPrice
 	}
+	// A consigned route (withdraw_then_sell) has a zero cost basis — the stock
+	// was gifted — and the server rejects a sell order at price 0, which left
+	// trader-8 re-posting every pass with the cargo aboard (2026-10-24). The
+	// planned sell price is the only price the route ever had; list at that.
+	if unitBuy <= 0 {
+		unitBuy = opp.SellPrice
+	}
 	if orders, oerr := deps.Market.GetStationOrders(ctx, opp.ToStationID, opp.ItemID); oerr != nil {
 		fmt.Fprintf(out, "haul: opp %d demand check failed (%v); selling normally\n", opp.ID, oerr) //nolint:errcheck
 	} else if haulDestCaptured(ctx, deps, opp.ToStationID, orders) && arrivalDecision(orders, held, unitBuy*held, watchdogConfig{}) == postCostOrder {

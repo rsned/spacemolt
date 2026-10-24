@@ -1652,3 +1652,25 @@ func TestHaulResumePublishesActivity(t *testing.T) {
 		}
 	}
 }
+
+func TestHaulSellLegCostOrderOnConsignedRouteUsesPlannedSellPrice(t *testing.T) {
+	// A consigned route's cost basis is zero (the stock was gifted). The
+	// thin-demand cost order must not inherit that zero — the server rejects
+	// price 0 and the hauler loops forever (trader-8, 2026-10-24) — so it
+	// lists at the route's planned sell price instead.
+	o := opp(7, "b", "a", 100)
+	o.ActionType, o.BuyPrice, o.SellPrice = market.ActionWithdrawThenSell, 0, 6308
+	fc := &fakeClient{state: &game.State{
+		System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100,
+		Ship: game.Ship{Cargo: []game.CargoItem{{ItemID: "iron_ore", Quantity: 10}}},
+	}, route: []game.RouteStep{{SystemID: "a", Name: "A"}}}
+	f := &fakeStore{orders: []market.Order{{Side: "buy", PriceEach: 50, Quantity: 2}}}
+	m := &haulMetrics{buyPrice: 0, qty: 10}
+	deps := HaulDeps{Client: fc, Market: f, AgentID: "t"}
+	if err := haulSellLeg(context.Background(), deps, io.Discard, o, "a", m, 0); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(fc.calls, "sell_order:iron_ore@6308") {
+		t.Fatalf("want cost order at the planned sell price 6308, got %v", fc.calls)
+	}
+}
