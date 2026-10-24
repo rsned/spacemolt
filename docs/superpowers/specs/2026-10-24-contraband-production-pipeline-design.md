@@ -301,8 +301,11 @@ any member (`deposit_items ... --target=faction` or equivalent) rather than
 gifted to a specific crafter. The consignment stock report
 (`ReportConsignStock`) reads only **personal** storage, so the sell link needs
 one extra step: the crafter's idle pass withdraws finished product from faction
-storage into its personal storage (`faction_withdraw_items <item> <qty>
---target=storage`, allow-listed items only) before `consign_offer` can
+storage into its personal storage. Live-verified 02:32 PDT: `faction_withdraw_items
+<item> <qty>` lands the goods in **cargo** (whatever the server's "self"
+wording says; `--target=storage` is rejected), so it is two commands —
+`faction_withdraw_items` then `deposit <item> <qty>` — bounded by the hold
+(150 on craftsman-10's Prospector); allow-listed items only before `consign_offer` can
 advertise it. **My call:** that withdraw step over making the stock report
 faction-aware, because the gift that follows must come from the holder's own
 storage anyway.
