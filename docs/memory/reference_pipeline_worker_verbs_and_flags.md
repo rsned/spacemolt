@@ -34,8 +34,7 @@ docs/superpowers/plans/2026-10-24-contraband-pipeline-worker-fleet.md (spec: doc
 Known deferred minors (final review): prices < 20 never step up; a hand-posted ask of the same item is adopted;
 state keyed by item only; ViewStorage+ViewOrders+Save every idle tick (watch command budget); free hold in units
 (size-1 assumption); FactionPull has no docked check (logs a skip every pass when undocked).
-**Post-merge smoke (plan Task 9) in progress 10-24:** bins rebuilt; craftsman-10 line staged with faction_pull +
-shopkeep ("pirate_moonshine:5500:4000"); pipeline bot smoke pending. Plans 2 (rollout) and 3 (dashboard) not written.
+**Post-merge smoke (plan Task 9) DONE 10-24 14:46 PDT:** pipeline miner cycles unattended (miningbot_0000, Altais ice → Frontier Station → trader-8, still running as a one-bot `crft-mining` fleet); craftsman-10 `faction_pull` drained 60 units and `shopkeep` posted 50 pirate_moonshine @5,500 at Voss (order 50ccc5df…, state in data/agents/craftsman-10/shopkeep.json). Two faction_pull bugs found and fixed in the smoke (tick-deferred withdraw; stranded-cargo drain). Plans 2 (rollout) and 3 (dashboard) not written.
 
 **Smoke findings 10-24 (miningbot_0000, Cobble):** module ids are `ice_harvester_ii` / `gas_harvester_iii` (not
 `ice_harvester`). **A Cobble cannot fit the harvester alongside its current fit:** `install ice_harvester_ii` →
@@ -63,3 +62,6 @@ immediately → `item not found in cargo` every pass while each pass withdrew an
 Fixed (commit "faction_pull waits a tick and deposits what landed in cargo"): settle(SleepTick) → GetCargo →
 deposit `cargoCount` (drains stranded units too). Same pattern as Deliver's withdraw refresh (deliver.go:244-251).
 Any new verb that chains a mutation into a read of ship state needs the same settle+refresh.
+**Second fix (10-24 14:45): faction_pull deposits allow-listed cargo FIRST** (a failed pass had stranded 60 units in
+cargo with faction storage at zero, so the withdraw branch never ran). Live after the fix: `moved 60 stranded` then
+`shopkeep: posted 50 pirate_moonshine @5500` 9 s later; the next passes left the open ask alone.
