@@ -236,6 +236,40 @@ func TestReconcileLeavesSettledTripsAlone(t *testing.T) {
 	}
 }
 
+// TestReconcileSkipsEntriesForAnotherAwayFleet: the ledger holds rotations for
+// every away fleet, so a haul->unlock sweep must not move an entry bound for a
+// different away fleet. An entry with no AwayFleet (legacy) is still processed.
+func TestReconcileSkipsEntriesForAnotherAwayFleet(t *testing.T) {
+	dir := t.TempDir()
+	var trace []string
+	home := &fakeFleet{name: "haul", ovPath: filepath.Join(dir, "haul-ov.json"), stopAfter: -1, trace: &trace}
+	away := &fakeFleet{name: "unlock", ovPath: filepath.Join(dir, "unlock-ov.json"), stopAfter: -1, trace: &trace}
+	other := Secondment{AgentID: "hauler-1", HomeFleet: "haul", AwayFleet: "crft-mining", Phase: PhaseNominated, NominatedAt: "2026-08-12T22:00:00Z"}
+	path := seedLedger(t, dir, other)
+
+	log, err := ReconcileSecondments(path, home.side(), away.side(), testOpts(&trace))
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	if len(log) != 0 || len(trace) != 0 {
+		t.Fatalf("entry for another away fleet must be left alone; log %v trace %v", log, trace)
+	}
+	led, _ := LoadSecondments(path)
+	if led.Entries[0].Phase != PhaseNominated {
+		t.Fatalf("phase = %q, want nominated", led.Entries[0].Phase)
+	}
+
+	legacy := Secondment{AgentID: "hauler-2", HomeFleet: "haul", Phase: PhaseNominated, NominatedAt: "2026-08-12T22:00:00Z"}
+	path = seedLedger(t, t.TempDir(), legacy)
+	if _, err := ReconcileSecondments(path, home.side(), away.side(), testOpts(&trace)); err != nil {
+		t.Fatalf("reconcile legacy: %v", err)
+	}
+	led, _ = LoadSecondments(path)
+	if led.Entries[0].Phase == PhaseNominated {
+		t.Fatalf("legacy entry with empty AwayFleet must still be processed")
+	}
+}
+
 // TestReconcileReportsARunningCheckFailure: an unanswerable "is it stopped?" must
 // fail the trip, never be read as "stopped".
 func TestReconcileReportsARunningCheckFailure(t *testing.T) {

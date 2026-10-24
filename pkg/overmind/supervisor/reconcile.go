@@ -145,6 +145,13 @@ func ReconcileSecondments(ledgerPath string, home, awayFleet FleetSide, opts Rec
 		if e.HomeFleet != "" && e.HomeFleet != home.Name {
 			continue
 		}
+		// Likewise the ledger holds rotations bound for every AWAY fleet. A
+		// sweep run as `--home haul --away unlock` would otherwise move an
+		// entry bound for another away fleet into unlock. AwayFleet is empty on
+		// legacy ledgers; those entries are processed as before.
+		if e.AwayFleet != "" && e.AwayFleet != awayFleet.Name {
+			continue
+		}
 		switch e.Phase {
 		case PhaseNominated:
 			if away >= opts.maxInFlight() {
