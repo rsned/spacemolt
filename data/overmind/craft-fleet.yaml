@@ -12,4 +12,4 @@ workers:
   - { agent_id: craftsman-7, role: craftsman, station: war_citadel }                # krynn
   - { agent_id: craftsman-8, role: craftsman, station: voss_redoubt }                # alhena / Voss Redoubt — contraband crafting (moved 2026-10-23)
   - { agent_id: craftsman-9, role: craftsman, station: mobile_capital }             # deep_range — outerrim
-  - { agent_id: craftsman-10, role: craftsman, station: voss_redoubt }            # alhena / Voss Redoubt — contraband crafting (moved 2026-10-23)
+  - { agent_id: craftsman-10, role: craftsman, station: voss_redoubt, faction_pull: [pirate_moonshine], shopkeep: ["pirate_moonshine:5500:4000"] }            # alhena / Voss Redoubt — contraband crafting (moved 2026-10-23)

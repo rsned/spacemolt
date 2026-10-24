@@ -36,3 +36,11 @@ state keyed by item only; ViewStorage+ViewOrders+Save every idle tick (watch com
 (size-1 assumption); FactionPull has no docked check (logs a skip every pass when undocked).
 **Post-merge smoke (plan Task 9) in progress 10-24:** bins rebuilt; craftsman-10 line staged with faction_pull +
 shopkeep ("pirate_moonshine:5500:4000"); pipeline bot smoke pending. Plans 2 (rollout) and 3 (dashboard) not written.
+
+**Smoke findings 10-24 (miningbot_0000, Cobble):** module ids are `ice_harvester_ii` / `gas_harvester_iii` (not
+`ice_harvester`). **A Cobble cannot fit the harvester alongside its current fit:** `install ice_harvester_ii` →
+`cpu_exceeded: Need 6, have 1` with pulse_laser_i + cargo_expander_iii + mining_laser_iii aboard (utility 2,
+weapon 1, defense 1). The rollout plan must decide per group: drop the pulse laser and/or the mining laser for the
+harvester (ice/gas groups) or keep the laser (titanium). The harvester now sits in the bot's CARGO (size 10 — eats
+hold until moved back to storage). Smoke fleet: `data/overmind/crft-mining-fleet.yaml` (one bot, Altais outer
+ice → Frontier Station → trader-8), overmind launched with the standard flags + `--handoff-queue` + `--fleet-name crft-mining`.

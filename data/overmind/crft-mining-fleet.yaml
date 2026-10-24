@@ -1,0 +1,15 @@
+# CRFT mining fleet — the contraband pipeline's miners (design:
+# docs/superpowers/specs/2026-10-24-contraband-production-pipeline-design.md D1–D3).
+#
+# One worker per miningbot, role pipeline_miner, pinned by `pipeline:` to
+#   item,system,poi,drop-station,recipient
+# The idle pass is: refuel, fly to the POI, mine until full, fly to the drop
+# station, gift the whole target line plus whatever grew this trip to the
+# recipient (energy_crystal and fuel_cell are always kept), repeat.
+#
+# 2026-10-24: SMOKE ROSTER. One bot, secure space (Altais outer ice, high
+# security, 1 jump from Distant Light), dropping at Frontier Station to
+# trader-8. The 31-bot allocation (4 ice / 8 chlorine / 8 titanium / 6 hot
+# cells / 5 spare) and the unlock waves arrive with the rollout plan.
+workers:
+  - { agent_id: miningbot_0000, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,altais,altais_outer_ice,frontier_station,trader-8" }
