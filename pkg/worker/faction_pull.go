@@ -56,11 +56,26 @@ func FactionPull(ctx context.Context, client game.GameClient, items []string, ou
 		if werr := client.FactionWithdrawItems(ctx, item, qty); werr != nil {
 			return moved, fmt.Errorf("faction withdraw %d %s: %w", qty, item, werr)
 		}
-		if derr := client.DepositItems(ctx, item, float64(qty)); derr != nil {
-			return moved, fmt.Errorf("deposit %d %s (left in cargo): %w", qty, item, derr)
+		// The withdraw is tick-deferred: its ack returns before the server has
+		// moved the goods, and the client's cargo cache only updates on an
+		// explicit refresh (live 2026-10-24: an immediate deposit failed "not
+		// found in cargo" every pass while each pass withdrew another lot).
+		// Wait a tick, refresh, and deposit what is actually aboard — which
+		// also drains units an earlier pass left stranded in cargo.
+		settle(ctx, game.SleepTick)
+		if cerr := client.GetCargo(ctx); cerr != nil {
+			return moved, fmt.Errorf("refresh cargo after faction withdraw %s: %w", item, cerr)
 		}
-		moved += qty
-		_, _ = fmt.Fprintf(out, "faction_pull: moved %d %s faction->personal\n", qty, item)
+		aboard := cargoCount(client.GetState(), item)
+		if aboard <= 0 {
+			_, _ = fmt.Fprintf(out, "faction_pull: %s not in cargo yet after withdraw; retrying next pass\n", item)
+			return moved, nil
+		}
+		if derr := client.DepositItems(ctx, item, float64(aboard)); derr != nil {
+			return moved, fmt.Errorf("deposit %d %s (left in cargo): %w", aboard, item, derr)
+		}
+		moved += aboard
+		_, _ = fmt.Fprintf(out, "faction_pull: moved %d %s faction->personal\n", aboard, item)
 	}
 
 	return moved, nil

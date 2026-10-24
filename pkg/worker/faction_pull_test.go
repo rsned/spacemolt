@@ -17,6 +17,7 @@ type factionPullFake struct {
 	*fakeClient
 	withdrawn  map[string]int
 	deposited  map[string]int
+	pending    map[string]int // withdrawn but not yet landed in cargo (tick-deferred)
 	withdrawEr error
 	depositEr  error
 }
@@ -26,7 +27,28 @@ func newFactionPullFake(free float64, raw string) *factionPullFake {
 	if raw != "" {
 		fc.raw = map[string][]byte{"faction_storage": []byte(raw)}
 	}
-	return &factionPullFake{fakeClient: fc, withdrawn: map[string]int{}, deposited: map[string]int{}}
+	f := &factionPullFake{fakeClient: fc, withdrawn: map[string]int{}, deposited: map[string]int{}, pending: map[string]int{}}
+	// The real server executes a withdraw on the next tick and the client's
+	// cargo cache only updates on an explicit GetCargo, so the fake lands the
+	// withdrawn units in state.Ship.Cargo on that refresh and not before.
+	fc.onGetCargo = func() {
+		for id, q := range f.pending {
+			f.addCargo(id, q)
+			f.state.Ship.CargoUsed += float64(q)
+		}
+		f.pending = map[string]int{}
+	}
+	return f
+}
+
+func (f *factionPullFake) addCargo(id string, q int) {
+	for i := range f.state.Ship.Cargo {
+		if f.state.Ship.Cargo[i].ItemID == id {
+			f.state.Ship.Cargo[i].Quantity += float64(q)
+			return
+		}
+	}
+	f.state.Ship.Cargo = append(f.state.Ship.Cargo, game.CargoItem{ItemID: id, Quantity: float64(q)})
 }
 
 func (f *factionPullFake) ViewFactionStorage(context.Context) error { return nil }
@@ -36,7 +58,7 @@ func (f *factionPullFake) FactionWithdrawItems(_ context.Context, id string, q i
 		return f.withdrawEr
 	}
 	f.withdrawn[id] += q
-	f.state.Ship.CargoUsed += float64(q)
+	f.pending[id] += q
 	return nil
 }
 
@@ -44,7 +66,11 @@ func (f *factionPullFake) DepositItems(_ context.Context, id string, q float64) 
 	if f.depositEr != nil {
 		return f.depositEr
 	}
+	if cargoCount(f.state, id) < int(q) {
+		return errors.New("item " + id + " not found in cargo")
+	}
 	f.deposited[id] += int(q)
+	f.addCargo(id, -int(q))
 	f.state.Ship.CargoUsed -= q
 	return nil
 }
@@ -128,5 +154,33 @@ func TestParseFactionPullDedupes(t *testing.T) {
 	}
 	if want := []string{"moonshine", "stolen_art", "iron_ore"}; !slices.Equal(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
+	}
+}
+
+func TestFactionPullDepositsWhatLandedInCargo(t *testing.T) {
+	// Live 2026-10-24: the withdraw ack returns before the server moves the
+	// goods, so an immediate deposit failed "not found in cargo" every pass
+	// while each pass withdrew another 6 into cargo. The pull must wait a
+	// tick, refresh cargo, and deposit what is actually aboard — including
+	// units a previous pass left stranded.
+	f := newFactionPullFake(150, factionReply)
+	f.addCargo("pirate_moonshine", 12) // stranded by an earlier failed pass
+	f.state.Ship.CargoUsed += 12
+	var out bytes.Buffer
+	moved, err := FactionPull(context.Background(), f, []string{"pirate_moonshine"}, &out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.withdrawn["pirate_moonshine"] != 72 {
+		t.Fatalf("want withdraw 72, got %v", f.withdrawn)
+	}
+	if f.deposited["pirate_moonshine"] != 84 || moved != 84 {
+		t.Fatalf("want deposit 84 (72 landed + 12 stranded) and moved 84, got deposited %v moved %d", f.deposited, moved)
+	}
+	if !slices.Contains(f.calls, "get_cargo") {
+		t.Fatalf("want a cargo refresh between withdraw and deposit, calls %v", f.calls)
+	}
+	if cargoCount(f.state, "pirate_moonshine") != 0 {
+		t.Fatalf("cargo should be drained, got %d", cargoCount(f.state, "pirate_moonshine"))
 	}
 }
