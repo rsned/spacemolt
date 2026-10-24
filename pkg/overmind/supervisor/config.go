@@ -48,6 +48,10 @@ type WorkerSpec struct {
 	// the gift, through the handoff queue. Each entry is item[:keep]; the same
 	// allow-list discipline as Consign applies.
 	ConsignOffer []string `yaml:"consign_offer,omitempty"`
+	// Shopkeep forwards --shopkeep: items this resident lists on its own
+	// station's exchange from personal storage, each item:start[:floor]. The
+	// same allow-list discipline as Consign applies: a sale is irreversible.
+	Shopkeep []string `yaml:"shopkeep,omitempty"`
 	// Pipeline forwards --pipeline "item,system,poi,to,recipient": the pinned
 	// mine-and-hand-off route of a pipeline_miner worker.
 	Pipeline string `yaml:"pipeline,omitempty"`

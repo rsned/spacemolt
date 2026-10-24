@@ -92,6 +92,9 @@ func SpawnWith(cfg SpawnConfig) SpawnFunc {
 		if len(spec.ConsignOffer) > 0 {
 			args = append(args, "--consign-offer", strings.Join(spec.ConsignOffer, ","))
 		}
+		if len(spec.Shopkeep) > 0 {
+			args = append(args, "--shopkeep", strings.Join(spec.Shopkeep, ","))
+		}
 		if spec.Pipeline != "" {
 			args = append(args, "--pipeline", spec.Pipeline)
 		}

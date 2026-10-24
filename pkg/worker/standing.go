@@ -111,6 +111,11 @@ type StandingDeps struct {
 	// the scanner can turn it into consigned routes. Running after Handoffs
 	// means gifts made this pass are already out of storage when it reads.
 	ConsignOffer func(context.Context)
+
+	// Shopkeep, when set, runs once per non-drained idle pass under ExecMu,
+	// after ConsignOffer, to post and reprice asks for allow-listed goods in
+	// this station's personal storage. nil when the worker has no shop rules.
+	Shopkeep func(context.Context)
 }
 
 // RunStanding drives a worker's default standing behavior until ctx is
@@ -291,6 +296,9 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		}
 		if deps.ConsignOffer != nil {
 			deps.ConsignOffer(ctx)
+		}
+		if deps.Shopkeep != nil {
+			deps.Shopkeep(ctx)
 		}
 		if task := deps.nextTask(); task != nil {
 			deps.runTask(ctx, task)

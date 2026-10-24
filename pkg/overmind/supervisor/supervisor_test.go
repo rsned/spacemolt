@@ -712,3 +712,26 @@ func TestWorkerSpecPipelineForwardsFlag(t *testing.T) {
 		t.Errorf("args %v must not carry --pipeline", cmd.Args)
 	}
 }
+
+func TestWorkerSpecShopkeepForwardsFlag(t *testing.T) {
+	spawn := DefaultSpawn("true", "", "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd, err := spawn(ctx, WorkerSpec{AgentID: "mb-1", Role: "marketbot",
+		Shopkeep: []string{"pirate_moonshine:5000:4800", "stolen_art:9000"}}, "/tmp/does-not-matter.sock")
+	if err != nil {
+		t.Fatalf("spawn: %v", err)
+	}
+	_ = cmd.Wait()
+	if !hasArgPair(cmd.Args, "--shopkeep", "pirate_moonshine:5000:4800,stolen_art:9000") {
+		t.Errorf("args %v missing --shopkeep pirate_moonshine:5000:4800,stolen_art:9000", cmd.Args)
+	}
+	cmd, err = spawn(ctx, WorkerSpec{AgentID: "plain"}, "/tmp/does-not-matter.sock")
+	if err != nil {
+		t.Fatalf("spawn: %v", err)
+	}
+	_ = cmd.Wait()
+	if hasArg(cmd.Args, "--shopkeep") {
+		t.Errorf("args %v must not carry --shopkeep", cmd.Args)
+	}
+}

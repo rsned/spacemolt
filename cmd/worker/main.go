@@ -89,6 +89,7 @@ func main() {
 	consignSpec := flag.String("consign", "", "Standing consignment rules, comma-separated item:recipient:min[:keep] — hand allow-listed goods from this station's personal storage to a named hauler on each idle pass (e.g. adamantite_ore:salvager-2:50). Explicit allow-list only: gifting is irreversible.")
 	pipelineSpec := flag.String("pipeline", "", "Pinned pipeline route item,system,poi,to,recipient — the pipeline_miner role mines item at poi in system and hands the whole hold to recipient at to on each idle pass.")
 	consignOfferSpec := flag.String("consign-offer", "", "Consignment offers, comma-separated item[:keep] — advertise allow-listed goods in this station's personal storage to the hauler fleet as consigned routes; the claiming hauler is gifted them via the handoff queue (needs --handoff-queue). Explicit allow-list only: gifting is irreversible.")
+	shopkeepSpec := flag.String("shopkeep", "", "Shop rules, comma-separated item:start[:floor] — keep one ask open per allow-listed item in this station's personal storage, stepping the price up after a fill and down (never below floor, default start/2) when stale. Explicit allow-list only: a sale is irreversible.")
 	freightBootstrap := flag.Bool("freight-bootstrap", true, "Enable the probationary loss-leader freight floor for the missions role (default on when --enable-freight; set =false to keep freight on but disable bootstrapping)")
 	secondmentPath := flag.String("secondment-ledger", "", "Shared fleet-loan ledger a hauler writes its pirate-unlock nomination into (empty disables nominating; only the haul fleet sets it)")
 	fleetName := flag.String("fleet-name", "", "This worker's home fleet name, recorded on a secondment nomination so the reconciler knows where to return it")
@@ -109,6 +110,10 @@ func main() {
 	consignOffers, offerErr := worker.ParseConsignOffers(*consignOfferSpec)
 	if offerErr != nil {
 		log.Fatalf("--consign-offer: %v", offerErr)
+	}
+	shopRules, shopErr := worker.ParseShopRules(*shopkeepSpec)
+	if shopErr != nil {
+		log.Fatalf("--shopkeep: %v", shopErr)
 	}
 	// An offer the claiming hauler can never be paid out on would strand it at
 	// the source, so refuse the combination outright.
@@ -576,6 +581,25 @@ func main() {
 						}
 						if rerr := worker.ReportConsignStock(c, client, mc, *agentID, consignOffers, owed); rerr != nil {
 							logger.Printf("consign offer: %v", rerr)
+						}
+					}
+				}
+				if len(shopRules) > 0 {
+					shopPath := filepath.Join("data", "agents", *agentID, "shopkeep.json")
+					shopState, lerr := worker.LoadShopState(shopPath)
+					if lerr != nil {
+						// Without its memory the shopkeeper would re-list at
+						// start prices and lose its fill history; leave it off
+						// and say why rather than guess.
+						logger.Printf("shopkeep disabled: %v", lerr)
+					} else {
+						deps.Shopkeep = func(c context.Context) {
+							if _, _, serr := worker.Shopkeep(c, client, shopRules, shopState, worker.ShopOptions{}, logOut); serr != nil {
+								logger.Printf("shopkeep: %v", serr)
+							}
+							if serr := shopState.Save(shopPath); serr != nil {
+								logger.Printf("shopkeep: save state: %v", serr)
+							}
 						}
 					}
 				}

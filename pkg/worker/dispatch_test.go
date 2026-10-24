@@ -98,6 +98,16 @@ type fakeClient struct {
 	// single static snapshot.
 	activeMissionsSeq  [][]byte
 	activeMissionsCall int
+
+	// Shopkeep plumbing. sellOrderPayloads records every CreateSellOrder
+	// payload (the calls entry keeps only item@price); sellOrderReply, when
+	// set, is stored as raw["create_sell_order"] on a successful create, the
+	// way the real client stores the action_result. viewOrdersErr fails
+	// ViewOrders; modifyOrderErr fails ModifyOrder.
+	sellOrderPayloads []map[string]any
+	sellOrderReply    []byte
+	viewOrdersErr     error
+	modifyOrderErr    error
 }
 
 // refuelShipCall records one RefuelShip(ctx, target, quantity) invocation.
@@ -134,7 +144,25 @@ func (f *fakeClient) Sell(ctx context.Context, itemID string, qty float64) error
 }
 func (f *fakeClient) CreateSellOrder(ctx context.Context, payload map[string]any) error {
 	f.calls = append(f.calls, fmt.Sprintf("sell_order:%v@%v", payload["item_id"], payload["price_each"]))
-	return f.sellOrderErr
+	if f.sellOrderErr != nil {
+		return f.sellOrderErr
+	}
+	f.sellOrderPayloads = append(f.sellOrderPayloads, payload)
+	if f.sellOrderReply != nil {
+		if f.raw == nil {
+			f.raw = map[string][]byte{}
+		}
+		f.raw["create_sell_order"] = f.sellOrderReply
+	}
+	return nil
+}
+func (f *fakeClient) ModifyOrder(ctx context.Context, payload map[string]any) error {
+	f.calls = append(f.calls, fmt.Sprintf("modify_order:%v@%v", payload["order_id"], payload["price_each"]))
+	return f.modifyOrderErr
+}
+func (f *fakeClient) ViewOrders(ctx context.Context) error {
+	f.calls = append(f.calls, "view_orders")
+	return f.viewOrdersErr
 }
 func (f *fakeClient) Refuel(ctx context.Context) error {
 	f.calls = append(f.calls, "refuel")
