@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -33,10 +34,11 @@ type ShopRule struct {
 }
 
 // ParseShopRules parses a comma-separated list of item:start[:floor] rules.
-// Start must be at least 1; floor defaults to start/2 and may not exceed
-// start. An empty spec yields no rules. A malformed rule is an error, never
-// skipped: a typo that parsed to fewer rules would leave goods unlisted, and
-// one that parsed to a wrong price would sell them cheap.
+// Start must be at least 1; floor defaults to max(1, start/2), must be at
+// least 1 and may not exceed start. energy_crystal is refused: those crystals
+// are reserved. An empty spec yields no rules. A malformed rule is an error,
+// never skipped: a typo that parsed to fewer rules would leave goods unlisted,
+// and one that parsed to a wrong price would sell them cheap.
 func ParseShopRules(s string) ([]ShopRule, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -53,6 +55,9 @@ func ParseShopRules(s string) ([]ShopRule, error) {
 		if item == "" {
 			return nil, fmt.Errorf("shop rule %q: empty item", raw)
 		}
+		if item == "energy_crystal" {
+			return nil, fmt.Errorf("shop rule %q: energy_crystal is reserved and may not be sold", raw)
+		}
 		if seen[item] {
 			return nil, fmt.Errorf("shop rule %q: item %s listed twice", raw, item)
 		}
@@ -60,11 +65,11 @@ func ParseShopRules(s string) ([]ShopRule, error) {
 		if err != nil || start < 1 {
 			return nil, fmt.Errorf("shop rule %q: start must be an integer >= 1", raw)
 		}
-		floor := start / 2
+		floor := max(1, start/2)
 		if len(parts) == 3 {
 			floor, err = strconv.Atoi(strings.TrimSpace(parts[2]))
-			if err != nil || floor < 0 {
-				return nil, fmt.Errorf("shop rule %q: floor must be an integer >= 0", raw)
+			if err != nil || floor < 1 {
+				return nil, fmt.Errorf("shop rule %q: floor must be an integer >= 1", raw)
 			}
 			if floor > start {
 				return nil, fmt.Errorf("shop rule %q: floor %d above start %d", raw, floor, start)
@@ -76,6 +81,36 @@ func ParseShopRules(s string) ([]ShopRule, error) {
 
 	return rules, nil
 }
+
+// ShopkeepConsignOverlap returns, sorted and without repeats, the item ids
+// that are both shopkept and in either consign list. The same storage units
+// would be escrowed on the exchange and advertised to haulers in one pass, so
+// the worker refuses such a configuration at startup.
+func ShopkeepConsignOverlap(shop []ShopRule, rules []ConsignRule, offers []ConsignOffer) []string {
+	shopped := map[string]bool{}
+	for _, r := range shop {
+		shopped[r.Item] = true
+	}
+	var out []string
+	add := func(item string) {
+		if shopped[item] && !slices.Contains(out, item) {
+			out = append(out, item)
+		}
+	}
+	for _, r := range rules {
+		add(r.Item)
+	}
+	for _, o := range offers {
+		add(o.Item)
+	}
+	slices.Sort(out)
+
+	return out
+}
+
+// shopMinPrice is the lowest price any ask is posted or repriced at: an ask at
+// 0 gives the goods away.
+const shopMinPrice = 1
 
 // ShopState is the shopkeeper's memory between passes, persisted per agent.
 type ShopState struct {
@@ -240,7 +275,7 @@ func Shopkeep(ctx context.Context, client game.GameClient, rules []ShopRule, st 
 				cur.PostedAt = now
 			}
 			if now.Sub(cur.PostedAt) > opts.StaleAfter {
-				next := max(r.Floor, cur.Price*(100-opts.StepPct)/100)
+				next := max(shopMinPrice, r.Floor, cur.Price*(100-opts.StepPct)/100)
 				if next < cur.Price {
 					if merr := client.ModifyOrder(ctx, map[string]any{
 						"order_id": ask.OrderID, "price_each": next,
@@ -262,7 +297,7 @@ func Shopkeep(ctx context.Context, client game.GameClient, rules []ShopRule, st 
 			// A pending post that never showed up may have failed rather
 			// than filled, so only a known order's absence steps the price.
 			if cur.OrderID != shopPending {
-				cur.Price = cur.Price * (100 + opts.StepPct) / 100
+				cur.Price = max(shopMinPrice, cur.Price*(100+opts.StepPct)/100)
 				cur.LastFillAt = now
 			}
 			cur.OrderID = ""
@@ -270,7 +305,7 @@ func Shopkeep(ctx context.Context, client game.GameClient, rules []ShopRule, st 
 		if cur.Price <= 0 {
 			cur.Price = r.Start
 		}
-		cur.Price = max(cur.Price, r.Floor)
+		cur.Price = max(shopMinPrice, cur.Price, r.Floor)
 
 		if units >= 1 {
 			qty := min(units, opts.Lot)

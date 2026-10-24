@@ -90,7 +90,7 @@ func main() {
 	pipelineSpec := flag.String("pipeline", "", "Pinned pipeline route item,system,poi,to,recipient — the pipeline_miner role mines item at poi in system and hands what the trip mined (load plus byproduct; never energy_crystal or fuel_cell) to recipient at to on each idle pass.")
 	consignOfferSpec := flag.String("consign-offer", "", "Consignment offers, comma-separated item[:keep] — advertise allow-listed goods in this station's personal storage to the hauler fleet as consigned routes; the claiming hauler is gifted them via the handoff queue (needs --handoff-queue). Explicit allow-list only: gifting is irreversible.")
 	factionPullSpec := flag.String("faction-pull", "", "Item ids, comma-separated — each idle pass, move these from faction storage into personal storage (bounded by free hold) so consign/shopkeep can see them. Explicit ids only; energy_crystal is refused.")
-	shopkeepSpec := flag.String("shopkeep", "", "Shop rules, comma-separated item:start[:floor] — keep one ask open per allow-listed item in this station's personal storage, stepping the price up after a fill and down (never below floor, default start/2) when stale. Explicit allow-list only: a sale is irreversible.")
+	shopkeepSpec := flag.String("shopkeep", "", "Shop rules, comma-separated item:start[:floor] — keep one ask open per allow-listed item in this station's personal storage, stepping the price up after a fill and down (never below floor, default max(1, start/2), floor >= 1) when stale. Explicit allow-list only: a sale is irreversible; energy_crystal is refused, and an item may not also be in --consign or --consign-offer.")
 	freightBootstrap := flag.Bool("freight-bootstrap", true, "Enable the probationary loss-leader freight floor for the missions role (default on when --enable-freight; set =false to keep freight on but disable bootstrapping)")
 	secondmentPath := flag.String("secondment-ledger", "", "Shared fleet-loan ledger a hauler writes its pirate-unlock nomination into (empty disables nominating; only the haul fleet sets it)")
 	fleetName := flag.String("fleet-name", "", "This worker's home fleet name, recorded on a secondment nomination so the reconciler knows where to return it")
@@ -124,6 +124,12 @@ func main() {
 	// the source, so refuse the combination outright.
 	if len(consignOffers) > 0 && *handoffQueuePath == "" {
 		log.Fatalf("--consign-offer needs --handoff-queue: the gift to the claiming hauler travels through it")
+	}
+	// The same storage units cannot be both escrowed on the exchange and
+	// advertised to haulers, so an item may be shopkept or consigned, not both.
+	if overlap := worker.ShopkeepConsignOverlap(shopRules, consignRules, consignOffers); len(overlap) > 0 {
+		log.Fatalf("--shopkeep overlaps --consign/--consign-offer on %s: an item is either sold or consigned, not both",
+			strings.Join(overlap, ", "))
 	}
 
 	if *agentID == "" {

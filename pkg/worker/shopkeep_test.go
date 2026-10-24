@@ -84,7 +84,9 @@ func TestParseShopRules(t *testing.T) {
 			{Item: "pirate_moonshine", Start: 5000, Floor: 4800},
 			{Item: "stolen_art", Start: 9001, Floor: 4500},
 		}},
-		{"x:1", []ShopRule{{Item: "x", Start: 1, Floor: 0}}},
+		{"x:1", []ShopRule{{Item: "x", Start: 1, Floor: 1}}},
+		{"moonshine:1", []ShopRule{{Item: "moonshine", Start: 1, Floor: 1}}},
+		{"x:3", []ShopRule{{Item: "x", Start: 3, Floor: 1}}},
 		{"x:10:10", []ShopRule{{Item: "x", Start: 10, Floor: 10}}},
 	}
 	for _, c := range cases {
@@ -101,10 +103,96 @@ func TestParseShopRules(t *testing.T) {
 	for _, bad := range []string{
 		"pirate_moonshine", ":5000", "x:0", "x:-5", "x:abc", "x:10:11",
 		"x:10:-1", "x:10:y", "x:1:2:3", "x:10,,y:10", "x:10,x:20",
+		// A floor of 0 lets a stale ask walk down to giving the goods away.
+		"moonshine:10:0",
 	} {
 		if _, err := ParseShopRules(bad); err == nil {
 			t.Errorf("ParseShopRules(%q) accepted a malformed rule", bad)
 		}
+	}
+}
+
+func TestParseShopRulesRefusesEnergyCrystal(t *testing.T) {
+	_, err := ParseShopRules("pirate_moonshine:5000,energy_crystal:100")
+	if err == nil || !strings.Contains(err.Error(), "energy_crystal") {
+		t.Fatalf("err = %v, want energy_crystal refused", err)
+	}
+}
+
+// No computed price may reach 0: an ask at 0 gives the goods away.
+func TestShopkeepNeverPricesBelowOne(t *testing.T) {
+	stale := func() (*fakeClient, *ShopState) {
+		f := newShopClient(t, map[string]int{"moonshine": 5}, []serverapi.ExchangeOrder{
+			{OrderID: "o9", Side: "sell", ItemID: "moonshine", Quantity: 5, Remaining: 5, PriceEach: 1, CreatedBy: shopUser},
+		})
+		st := &ShopState{Items: map[string]ShopItemState{
+			"moonshine": {Price: 1, OrderID: "o9", PostedAt: shopNow.Add(-7 * time.Hour)},
+		}}
+		return f, st
+	}
+
+	// A parsed rule: floor 1.
+	f, st := stale()
+	if _, repriced, err := Shopkeep(context.Background(), f,
+		[]ShopRule{{Item: "moonshine", Start: 1, Floor: 1}}, st, shopOpts(), io.Discard); err != nil || repriced != 0 {
+		t.Fatalf("floor 1: repriced %d, err %v; want no reprice", repriced, err)
+	}
+	if got := shopCalls(f, "modify_order"); len(got) != 0 {
+		t.Errorf("floor 1: modify calls %v, want none", got)
+	}
+
+	// A rule built without the parser, floor 0: 1 less 5% rounds to 0.
+	f, st = stale()
+	if _, repriced, err := Shopkeep(context.Background(), f,
+		[]ShopRule{{Item: "moonshine", Start: 1, Floor: 0}}, st, shopOpts(), io.Discard); err != nil || repriced != 0 {
+		t.Fatalf("floor 0: repriced %d, err %v; want no reprice", repriced, err)
+	}
+	if got := shopCalls(f, "modify_order"); len(got) != 0 {
+		t.Errorf("floor 0: modify calls %v, want none", got)
+	}
+	if got := st.Items["moonshine"].Price; got != 1 {
+		t.Errorf("floor 0: price %d, want 1", got)
+	}
+
+	// First post from a zero rule is clamped to 1.
+	f = newShopClient(t, map[string]int{"moonshine": 5}, nil)
+	f.sellOrderReply = sellReply("o1")
+	st = &ShopState{}
+	if posted, _, err := Shopkeep(context.Background(), f,
+		[]ShopRule{{Item: "moonshine", Start: 0, Floor: 0}}, st, shopOpts(), io.Discard); err != nil || posted != 1 {
+		t.Fatalf("zero rule: posted %d, err %v; want 1", posted, err)
+	}
+	if p := f.sellOrderPayloads[0]; p["price_each"] != 1 {
+		t.Errorf("zero rule: payload %+v, want price_each 1", p)
+	}
+}
+
+func TestShopkeepConsignOverlap(t *testing.T) {
+	shop := []ShopRule{{Item: "moonshine", Start: 10, Floor: 5}, {Item: "stolen_art", Start: 90, Floor: 45}}
+	cases := []struct {
+		name   string
+		shop   []ShopRule
+		rules  []ConsignRule
+		offers []ConsignOffer
+		want   []string
+	}{
+		{"none configured", nil, nil, nil, nil},
+		{"shop only", shop, nil, nil, nil},
+		{"disjoint", shop, []ConsignRule{{Item: "iron_ore", To: "salvager-2", Min: 1}}, []ConsignOffer{{Item: "water_ice"}}, nil},
+		{"consign overlap", shop, []ConsignRule{{Item: "moonshine", To: "salvager-2", Min: 1}}, nil, []string{"moonshine"}},
+		{"offer overlap", shop, nil, []ConsignOffer{{Item: "stolen_art"}}, []string{"stolen_art"}},
+		{"both lists, sorted and deduped", shop,
+			[]ConsignRule{{Item: "stolen_art", To: "a", Min: 1}, {Item: "moonshine", To: "b", Min: 1}},
+			[]ConsignOffer{{Item: "moonshine"}},
+			[]string{"moonshine", "stolen_art"}},
+		{"consign without shop", nil, []ConsignRule{{Item: "moonshine", To: "a", Min: 1}}, []ConsignOffer{{Item: "moonshine"}}, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := ShopkeepConsignOverlap(c.shop, c.rules, c.offers); !slices.Equal(got, c.want) {
+				t.Errorf("overlap = %v, want %v", got, c.want)
+			}
+		})
 	}
 }
 
