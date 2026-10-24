@@ -704,10 +704,10 @@ func TestMineQtyAtHandsOffByproduct(t *testing.T) {
 	}
 }
 
-// Spec D1: the hand-off is the load plus the byproduct mined on THIS trip.
-// Whatever was aboard before departure stays aboard, and energy_crystal is
-// never gifted.
-func TestMineQtyAtHandsOffOnlyGrowthSinceDeparture(t *testing.T) {
+// The hand-off is the whole target line plus every other line that grew on
+// this trip, in full. A line that did not grow stays aboard, and
+// energy_crystal is never gifted.
+func TestMineQtyAtHandsOffTargetAndGrownLines(t *testing.T) {
 	agentsDir := t.TempDir()
 	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
 	kb := newMineAtTestKB(t, "", false)
@@ -716,10 +716,11 @@ func TestMineQtyAtHandsOffOnlyGrowthSinceDeparture(t *testing.T) {
 	client.byproductID = "nitrogen_ice"
 	client.byproductYields = []float64{30, 30}
 	client.state.Ship.CargoCapacity = 500
-	client.state.Ship.CargoUsed = 60
+	client.state.Ship.CargoUsed = 65
 	client.state.Ship.Cargo = []game.CargoItem{
 		{ItemID: "energy_crystal", Quantity: 40},
 		{ItemID: "nitrogen_ice", Quantity: 20},
+		{ItemID: "repair_kit", Quantity: 5},
 	}
 	d := noWaitMineDispatch(client, kb, agentsDir)
 	d.Out = io.Discard
@@ -728,8 +729,58 @@ func TestMineQtyAtHandsOffOnlyGrowthSinceDeparture(t *testing.T) {
 		t.Fatalf("MineQtyAt: %v", err)
 	}
 	got := giftsByItem(client)
-	if len(client.giftCalls) != 2 || got["water_ice"] != 110 || got["nitrogen_ice"] != 60 || got["energy_crystal"] != 0 {
-		t.Fatalf("gift calls = %+v, want only water_ice 110 and nitrogen_ice 60", client.giftCalls)
+	if len(client.giftCalls) != 2 || got["water_ice"] != 110 || got["nitrogen_ice"] != 80 {
+		t.Fatalf("gift calls = %+v, want only water_ice 110 and nitrogen_ice 80", client.giftCalls)
+	}
+}
+
+// A load left aboard by a failed hand-off is gifted on the next pass, even
+// though no mining happens.
+func TestMineQtyAtHandsOffLeftoverTargetWithoutMining(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMineAtTestKB(t, "", false)
+	client := newMineAtClient(130)
+	client.mineItemID = "water_ice"
+	client.state.Ship.CargoCapacity = 500
+	client.state.Ship.CargoUsed = 140
+	client.state.Ship.Cargo = []game.CargoItem{
+		{ItemID: "water_ice", Quantity: 100},
+		{ItemID: "energy_crystal", Quantity: 40},
+	}
+	d := noWaitMineDispatch(client, kb, agentsDir)
+	d.Out = io.Discard
+
+	if err := d.MineQtyAt(context.Background(), "water_ice", 100, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("MineQtyAt: %v", err)
+	}
+	if slices.Contains(client.calls, "mine") {
+		t.Fatalf("calls %v: mined although the target was already aboard", client.calls)
+	}
+	if got := giftsByItem(client); len(client.giftCalls) != 1 || got["water_ice"] != 100 {
+		t.Fatalf("gift calls = %+v, want one gift of water_ice 100", client.giftCalls)
+	}
+}
+
+// Target units aboard before the trip go with the load: 100 aboard, qty 110,
+// mines 10, gifts 110.
+func TestMineQtyAtHandsOffPreloadedTargetInFull(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMineAtTestKB(t, "", false)
+	client := newMineAtClient(130, 10)
+	client.mineItemID = "water_ice"
+	client.state.Ship.CargoCapacity = 500
+	client.state.Ship.CargoUsed = 100
+	client.state.Ship.Cargo = []game.CargoItem{{ItemID: "water_ice", Quantity: 100}}
+	d := noWaitMineDispatch(client, kb, agentsDir)
+	d.Out = io.Discard
+
+	if err := d.MineQtyAt(context.Background(), "water_ice", 110, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("MineQtyAt: %v", err)
+	}
+	if got := giftsByItem(client); len(client.giftCalls) != 1 || got["water_ice"] != 110 {
+		t.Fatalf("gift calls = %+v, want one gift of water_ice 110", client.giftCalls)
 	}
 }
 
@@ -763,8 +814,34 @@ func TestMineQtyAtEmptyHoldAfterDryBeltIsNil(t *testing.T) {
 	if err := d.MineQtyAt(context.Background(), "ice", 5, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3"); err != nil {
 		t.Fatalf("MineQtyAt: %v", err)
 	}
-	if len(client.giftCalls) != 0 || !strings.Contains(out.String(), "empty") {
-		t.Fatalf("gifts = %+v, out = %q; want no gifts and an empty-hold log", client.giftCalls, out.String())
+	if len(client.giftCalls) != 0 || !strings.Contains(out.String(), "nothing to hand off") {
+		t.Fatalf("gifts = %+v, out = %q; want no gifts and a nothing-to-hand-off log", client.giftCalls, out.String())
+	}
+}
+
+// A hold of kept and unchanged lines is not empty, so the log must not say so.
+func TestMineQtyAtKeptHoldLogsNothingToHandOff(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMineAtTestKB(t, "", false)
+	client := newMineAtClient(130) // dry belt
+	client.state.Ship.CargoUsed = 45
+	client.state.Ship.Cargo = []game.CargoItem{
+		{ItemID: "energy_crystal", Quantity: 40},
+		{ItemID: "repair_kit", Quantity: 5},
+	}
+	d := noWaitMineDispatch(client, kb, agentsDir)
+	var out bytes.Buffer
+	d.Out = &out
+
+	if err := d.MineQtyAt(context.Background(), "ice", 5, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("MineQtyAt: %v", err)
+	}
+	if len(client.giftCalls) != 0 {
+		t.Fatalf("gift calls = %+v, want none", client.giftCalls)
+	}
+	if log := out.String(); !strings.Contains(log, "nothing to hand off") || strings.Contains(log, "hold empty") {
+		t.Fatalf("out = %q, want a nothing-to-hand-off log that does not claim the hold is empty", log)
 	}
 }
 
@@ -783,7 +860,7 @@ func TestHandOffHoldSkipsKeepList(t *testing.T) {
 	d.Out = io.Discard
 
 	// Empty snapshot: every line grew, so only the keep list holds goods back.
-	n, err := d.handOffHold(context.Background(), "to_base", "craftsman-3", map[string]int{}, map[string]bool{"water_ice": true})
+	n, err := d.handOffHold(context.Background(), "to_base", "craftsman-3", "", map[string]int{}, map[string]bool{"water_ice": true})
 	if err != nil || n != 1 {
 		t.Fatalf("handOffHold = %d, %v; want 1, nil", n, err)
 	}
@@ -792,7 +869,7 @@ func TestHandOffHoldSkipsKeepList(t *testing.T) {
 	}
 }
 
-func TestHandOffHoldGiftsOnlyGrowth(t *testing.T) {
+func TestHandOffHoldGiftsTargetAndGrownLinesWhole(t *testing.T) {
 	agentsDir := t.TempDir()
 	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
 	kb := newMineAtTestKB(t, "", false)
@@ -801,16 +878,23 @@ func TestHandOffHoldGiftsOnlyGrowth(t *testing.T) {
 		{ItemID: "nitrogen_ice", Quantity: 25},
 		{ItemID: "iron_ore", Quantity: 9},
 		{ItemID: "water_ice", Quantity: 4},
+		{ItemID: "repair_kit", Quantity: 3},
 	}
 	d := noWaitMineDispatch(client, kb, agentsDir)
 	d.Out = io.Discard
 
-	before := map[string]int{"nitrogen_ice": 20, "iron_ore": 9, "water_ice": 10}
-	n, err := d.handOffHold(context.Background(), "to_base", "craftsman-3", before, nil)
-	if err != nil || n != 1 {
-		t.Fatalf("handOffHold = %d, %v; want 1, nil", n, err)
+	// nitrogen_ice grew (whole line goes); water_ice shrank but is the target
+	// (whole line goes); iron_ore and repair_kit are unchanged (stay).
+	before := map[string]int{"nitrogen_ice": 20, "iron_ore": 9, "water_ice": 10, "repair_kit": 3}
+	n, err := d.handOffHold(context.Background(), "to_base", "craftsman-3", "water_ice", before, nil)
+	if err != nil || n != 2 {
+		t.Fatalf("handOffHold = %d, %v; want 2, nil", n, err)
 	}
-	if got := giftsByItem(client); len(client.giftCalls) != 1 || got["nitrogen_ice"] != 5 {
-		t.Fatalf("gift calls = %+v, want only the 5 grown nitrogen_ice", client.giftCalls)
+	got := giftsByItem(client)
+	if len(client.giftCalls) != 2 || got["nitrogen_ice"] != 25 || got["water_ice"] != 4 {
+		t.Fatalf("gift calls = %+v, want nitrogen_ice 25 and water_ice 4", client.giftCalls)
+	}
+	if first, _ := client.giftCalls[0]["item_id"].(string); first != "nitrogen_ice" {
+		t.Fatalf("first gift = %q, want largest line nitrogen_ice first", first)
 	}
 }

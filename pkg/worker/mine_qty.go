@@ -134,7 +134,8 @@ func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, 
 		fmt.Fprintf(d.Out, "mine_qty_at: %s\n", reason) //nolint:errcheck
 	}
 
-	// Snapshot before departure: only what this trip adds is handed off.
+	// Snapshot before departure: besides the target, only lines this trip
+	// grew are handed off.
 	before := cargoQuantities(state)
 	if cargoCount(state, itemID) < qty {
 		if err = d.autopilotAndUndock(ctx, systemID, poiID); err != nil {
@@ -144,12 +145,13 @@ func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, 
 			return err
 		}
 	}
-	delivered, err := d.handOffHold(ctx, to, recipient, before, nil)
+	delivered, err := d.handOffHold(ctx, to, recipient, itemID, before, nil)
 	if err != nil {
 		return err
 	}
 	if delivered == 0 {
-		fmt.Fprintf(d.Out, "mine_qty_at: hold empty after mining %s at %s — nothing to hand off\n", itemID, poiID) //nolint:errcheck
+		fmt.Fprintf(d.Out, "mine_qty_at: nothing to hand off after mining %s at %s: every line aboard is kept or unchanged\n", //nolint:errcheck
+			itemID, poiID)
 	}
 	return nil
 }
@@ -158,36 +160,38 @@ func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, 
 // fuel_cell is the refuel fallback and energy crystals are reserved.
 var handOffAlwaysKept = map[string]bool{"fuel_cell": true, "energy_crystal": true}
 
-// handOffHold delivers to RECIPIENT at TO, per item, only the units that grew
-// since the BEFORE snapshot: the load plus the byproduct mined on this trip
-// (spec D1). Anything aboard before departure stays aboard. Items in keep or
-// in handOffAlwaysKept are never delivered. Lines go largest growth first. It
-// returns the number of items delivered. The first failed delivery aborts the
-// rest, since a bad recipient or station fails every line.
-func (d *WorkerDispatch) handOffHold(ctx context.Context, to, recipient string, before map[string]int, keep map[string]bool) (delivered int, err error) {
+// handOffHold delivers to RECIPIENT at TO, in full, the TARGET line and every
+// other cargo line that grew since the BEFORE snapshot: the load plus the
+// byproduct mined on this trip (spec D1). The target goes whether or not it
+// grew, so a load left aboard by a failed hand-off goes on the next pass. A
+// line that did not grow stays aboard. Items in keep or in handOffAlwaysKept
+// are never delivered, even as the target. Lines go largest first. It returns
+// the number of items delivered. The first failed delivery aborts the rest,
+// since a bad recipient or station fails every line.
+func (d *WorkerDispatch) handOffHold(ctx context.Context, to, recipient, target string, before map[string]int, keep map[string]bool) (delivered int, err error) {
 	state := d.Client.GetState()
 	if state == nil {
 		return 0, nil
 	}
-	type growth struct {
+	type line struct {
 		item string
 		qty  int
 	}
-	var lines []growth
-	for item, after := range cargoQuantities(state) {
+	var lines []line
+	for item, qty := range cargoQuantities(state) {
 		if handOffAlwaysKept[item] || keep[item] {
 			continue
 		}
-		if grew := after - before[item]; grew > 0 {
-			lines = append(lines, growth{item, grew})
+		if item == target || qty > before[item] {
+			lines = append(lines, line{item, qty})
 		}
 	}
-	slices.SortFunc(lines, func(a, b growth) int {
+	slices.SortFunc(lines, func(a, b line) int {
 		return cmp.Or(cmp.Compare(b.qty, a.qty), cmp.Compare(a.item, b.item))
 	})
-	for _, line := range lines {
-		if err := d.Deliver(ctx, line.item, line.qty, "", to, recipient); err != nil {
-			return delivered, fmt.Errorf("hand off %s: %w", line.item, err)
+	for _, l := range lines {
+		if err := d.Deliver(ctx, l.item, l.qty, "", to, recipient); err != nil {
+			return delivered, fmt.Errorf("hand off %s: %w", l.item, err)
 		}
 		delivered++
 	}
