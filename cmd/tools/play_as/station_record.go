@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -124,4 +125,31 @@ func recordExecution(client game.GameClient, parts []string, cmdErr error) error
 		fmt.Printf("(station record: %v)\n", err)
 	}
 	return cmdErr
+}
+
+// snapshotCommands are the reads one station_snapshot runs, in order.
+func snapshotCommands() [][]string {
+	return [][]string{
+		{"get_status"},
+		{"faction_info"},
+		{"view_faction_storage"},
+		{"station", "info"},
+		{"facility", "list"},
+		{"facility", "faction_list"},
+	}
+}
+
+// runSnapshot runs every snapshot read under one shared snapshot id. A failing
+// read (e.g. station info before founding) does not stop the rest; all
+// failures come back joined.
+func runSnapshot(exec func([]string) error) error {
+	globalSnapshotID = time.Now().UTC().Format("20060102T150405Z")
+	defer func() { globalSnapshotID = "" }()
+	var errs []error
+	for _, p := range snapshotCommands() {
+		if err := exec(p); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", strings.Join(p, " "), err))
+		}
+	}
+	return errors.Join(errs...)
 }

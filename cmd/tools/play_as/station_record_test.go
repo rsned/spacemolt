@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -159,5 +160,47 @@ func TestRecordExecution_CapturesFailure(t *testing.T) {
 	}
 	if lines[0]["error"] != "not_docked" || lines[0]["command"] != "station" {
 		t.Errorf("event = %v", lines[0])
+	}
+}
+
+func TestSnapshotCommands_Order(t *testing.T) {
+	want := [][]string{
+		{"get_status"},
+		{"faction_info"},
+		{"view_faction_storage"},
+		{"station", "info"},
+		{"facility", "list"},
+		{"facility", "faction_list"},
+	}
+	got := snapshotCommands()
+	if !slices.EqualFunc(got, want, slices.Equal[[]string]) {
+		t.Errorf("snapshotCommands() = %v, want %v", got, want)
+	}
+}
+
+func TestRunSnapshot_ContinuesAfterFailure(t *testing.T) {
+	var ran []string
+	var ids []string
+	err := runSnapshot(func(p []string) error {
+		ran = append(ran, strings.Join(p, " "))
+		ids = append(ids, globalSnapshotID)
+		if p[0] == "station" {
+			return errors.New("not_docked")
+		}
+		return nil
+	})
+	if len(ran) != 6 {
+		t.Fatalf("ran %d reads, want 6: %v", len(ran), ran)
+	}
+	if err == nil || !strings.Contains(err.Error(), "station info") {
+		t.Errorf("err = %v, want mention of station info", err)
+	}
+	for i, id := range ids {
+		if id == "" || id != ids[0] {
+			t.Errorf("read %d snapshot id %q, want shared non-empty id", i, id)
+		}
+	}
+	if globalSnapshotID != "" {
+		t.Errorf("snapshot id left set: %q", globalSnapshotID)
 	}
 }

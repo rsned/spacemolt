@@ -9331,6 +9331,11 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 		printState(client)
 		return nil
 
+	case "station_snapshot":
+		return runSnapshot(func(p []string) error {
+			return executeCommand(client, ctx, p, format)
+		})
+
 	case "raw":
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: raw <key>")
@@ -10668,6 +10673,7 @@ func printHelp() {
 	fmt.Println("  faction_withdraw_credits <amt> - Withdraw from treasury")
 	fmt.Println("  faction_deposit_items <item> <qty>  - Deposit to faction storage")
 	fmt.Println("  faction_withdraw_items <item> <qty> - Withdraw from faction storage")
+	fmt.Println("  station_snapshot       - Run the station reads (status, faction, storage, station info, facilities) under one snapshot id; recorded with --record-dir")
 	fmt.Println("  view_faction_storage [filter] [--group] [--station_id ID]  - View faction storage (--group: by category; filter: id/name substring; --station_id: view a remote station without docking)")
 	fmt.Println("  faction_create_buy_order <item> <qty> <price>  - Faction buy order")
 	fmt.Println("  faction_create_sell_order <item> <qty> <price> - Faction sell order")
