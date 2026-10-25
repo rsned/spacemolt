@@ -566,10 +566,10 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 					args[2], strings.Join(game.CraftRoutingPresets, ", "))
 			}
 
-			return d.Client.CraftWithPreset(ctx, args[0], qty, args[2])
+			return d.craftShrinking(ctx, args[0], qty, args[2])
 		}
 
-		return d.Client.CraftWithQuantity(ctx, args[0], qty)
+		return d.craftShrinking(ctx, args[0], qty, "")
 	case "craft_node":
 		if len(args) < 4 {
 			return fmt.Errorf("craft_node: want RECIPE NUM_OUTPUTS STATION FACILITY [EST_FEE], got %v", args)
