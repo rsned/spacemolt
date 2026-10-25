@@ -89,9 +89,10 @@ func TestLevelsMissingRowIsZeroWithZeroTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// ghost is unknown: zero levels. craftsman-10 gets both items in item order.
-	if len(levels) != 2 {
-		t.Fatalf("got %d levels, want 2: %+v", len(levels), levels)
+	// craftsman-10 gets both items in item order; ghost is unknown to
+	// assets.db, so its levels are zero and never captured.
+	if len(levels) != 4 {
+		t.Fatalf("got %d levels, want 4: %+v", len(levels), levels)
 	}
 	if levels[1].Item != "moonshine" || levels[1].Units != 0 || !levels[1].CapturedAt.IsZero() {
 		t.Errorf("missing row level = %+v", levels[1])
@@ -99,8 +100,63 @@ func TestLevelsMissingRowIsZeroWithZeroTime(t *testing.T) {
 	if levels[0].CapturedAt.IsZero() {
 		t.Errorf("present row has zero time")
 	}
+	for _, lv := range levels[2:] {
+		if lv.Holder.Agent != "ghost" || lv.Units != 0 || !lv.CapturedAt.IsZero() {
+			t.Errorf("unknown holder level = %+v, want zero units and zero time", lv)
+		}
+	}
 	if !Freshest(nil).IsZero() {
 		t.Errorf("Freshest(nil) not zero")
+	}
+}
+
+// An empty tank of a holder whose storage snapshot exists carries the
+// snapshot's header time: captured, and empty, is not never-captured.
+func TestLevelsEmptyTankTakesHeaderTime(t *testing.T) {
+	path := seedTanks(t)
+	store, err := assets.Open(assets.Config{DBPath: path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{
+		`INSERT INTO agent_storage(player_id, base_id, captured_at) VALUES ('p10', 'voss', '2026-10-24T10:00:00Z')`,
+		`INSERT INTO agent_storage(player_id, base_id, captured_at) VALUES ('p10', 'other', '2026-10-24T10:00:00Z')`,
+		`INSERT INTO faction_storage(faction_id, base_id, captured_at) VALUES ('f1', 'voss', '2026-10-24T11:30:15.5Z')`,
+	} {
+		if _, err = store.DB().Exec(s); err != nil {
+			t.Fatalf("seed %q: %v", s, err)
+		}
+	}
+	if err = store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	tk, err := OpenTanks(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = tk.Close() })
+
+	n := Node{
+		Items: []string{"moonshine"},
+		Holders: []Holder{
+			{Agent: "craftsman-10", Station: "voss"},
+			{Agent: "craftsman-10", Station: "nowhere"}, // snapshot exists, no row at this base
+			{Faction: "CRFT", Station: "voss"},
+		},
+	}
+	levels, err := tk.Levels(context.Background(), n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(levels) != 3 {
+		t.Fatalf("got %d levels, want 3", len(levels))
+	}
+	agentAt := time.Date(2026, 10, 24, 10, 0, 0, 0, time.UTC)
+	factionAt := time.Date(2026, 10, 24, 11, 30, 15, 500_000_000, time.UTC)
+	for i, want := range []time.Time{agentAt, agentAt, factionAt} {
+		if levels[i].Units != 0 || !levels[i].CapturedAt.Equal(want) {
+			t.Errorf("level %d = %+v, want 0 units captured %v", i, levels[i], want)
+		}
 	}
 }
 

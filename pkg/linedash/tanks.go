@@ -113,55 +113,83 @@ func (t *Tanks) player(ctx context.Context, agentID string) (string, bool, error
 // Close closes the database handle.
 func (t *Tanks) Close() error { return t.db.Close() }
 
+// storageQueries are the item and snapshot-header queries of one holder kind.
+type storageQueries struct{ item, header string }
+
+var (
+	agentStorage = storageQueries{
+		item:   `SELECT quantity, captured_at FROM agent_storage_items WHERE player_id = ? AND base_id = ? AND item_id = ?`,
+		header: `SELECT COALESCE(MAX(captured_at), '') FROM agent_storage WHERE player_id = ?`,
+	}
+	factionStorage = storageQueries{
+		item:   `SELECT quantity, captured_at FROM faction_storage_items WHERE faction_id = ? AND base_id = ? AND item_id = ?`,
+		header: `SELECT COALESCE(MAX(captured_at), '') FROM faction_storage WHERE faction_id = ?`,
+	}
+)
+
 // Levels returns one TankLevel per (holder, item) for the node, in the node's
-// holder order then item order. Missing rows yield Units 0 and a zero
-// CapturedAt. A holder agent unknown to assets.db yields no levels; an unknown
-// faction tag is an error.
+// holder order then item order. A missing item row yields Units 0 and the
+// holder's storage snapshot time (the snapshot replaces the whole set, so a
+// missing row means "captured, and empty"). A holder never captured, or an
+// agent unknown to assets.db, yields zero levels with a zero CapturedAt. An
+// unknown faction tag is an error.
 func (t *Tanks) Levels(ctx context.Context, n Node) ([]TankLevel, error) {
 	var out []TankLevel
 	for _, h := range n.Holders {
-		var query, owner string
-		switch {
-		case h.Agent != "":
-			player, ok, err := t.player(ctx, h.Agent)
-			if err != nil {
-				return nil, err
-			}
-			if !ok {
-				continue
-			}
-			query = `SELECT quantity, captured_at FROM agent_storage_items WHERE player_id = ? AND base_id = ? AND item_id = ?`
-			owner = player
-		case h.Faction != "":
-			id, ok := t.factionIDs[h.Faction]
-			if !ok {
-				return nil, fmt.Errorf("unknown faction tag %q", h.Faction)
-			}
-			query = `SELECT quantity, captured_at FROM faction_storage_items WHERE faction_id = ? AND base_id = ? AND item_id = ?`
-			owner = id
-		default:
-			return nil, fmt.Errorf("node %q: holder has neither agent nor faction", n.ID)
+		q, owner, known, err := t.holderOwner(ctx, n.ID, h)
+		if err != nil {
+			return nil, err
 		}
+		if !known {
+			for _, item := range n.Items {
+				out = append(out, TankLevel{Holder: h, Item: item})
+			}
+
+			continue
+		}
+		var header string
+		if err := t.db.QueryRowContext(ctx, q.header, owner).Scan(&header); err != nil {
+			return nil, fmt.Errorf("storage header %s: %w", h.Station, err)
+		}
+		headerAt := parseTime(header)
 		for _, item := range n.Items {
-			lv := TankLevel{Holder: h, Item: item}
+			lv := TankLevel{Holder: h, Item: item, CapturedAt: headerAt}
 			var qty float64
 			var captured string
-			err := t.db.QueryRowContext(ctx, query, owner, h.Station, item).Scan(&qty, &captured)
+			err := t.db.QueryRowContext(ctx, q.item, owner, h.Station, item).Scan(&qty, &captured)
 			switch {
 			case errors.Is(err, sql.ErrNoRows):
 			case err != nil:
 				return nil, fmt.Errorf("storage %s/%s: %w", h.Station, item, err)
 			default:
 				lv.Units = qty
-				if ts, perr := time.Parse(time.RFC3339Nano, captured); perr == nil {
-					lv.CapturedAt = ts
-				}
+				lv.CapturedAt = parseTime(captured)
 			}
 			out = append(out, lv)
 		}
 	}
 
 	return out, nil
+}
+
+// holderOwner resolves a holder to its storage queries and owner id. known is
+// false for an agent assets.db has never seen.
+func (t *Tanks) holderOwner(ctx context.Context, nodeID string, h Holder) (storageQueries, string, bool, error) {
+	switch {
+	case h.Agent != "":
+		player, ok, err := t.player(ctx, h.Agent)
+
+		return agentStorage, player, ok, err
+	case h.Faction != "":
+		id, ok := t.factionIDs[h.Faction]
+		if !ok {
+			return storageQueries{}, "", false, fmt.Errorf("unknown faction tag %q", h.Faction)
+		}
+
+		return factionStorage, id, true, nil
+	default:
+		return storageQueries{}, "", false, fmt.Errorf("node %q: holder has neither agent nor faction", nodeID)
+	}
 }
 
 // SumUnits totals the units of one item across levels.

@@ -40,9 +40,10 @@ type shopState struct {
 
 // shopItemState mirrors worker.ShopItemState (only the fields read here).
 type shopItemState struct {
-	Price    int
-	OrderID  string
-	PostedAt time.Time
+	Price      int
+	OrderID    string
+	PostedAt   time.Time
+	LastFillAt time.Time
 }
 
 // Market reads order books from market.db, read-only.
@@ -88,7 +89,8 @@ WHERE station_id = ? AND item_id = ? AND side = 'buy' AND COALESCE(source, '') <
 
 // OurAsk returns our standing ask for (station, item). The exchange row is the
 // truth for price and units; shopkeep.json supplies the order id and posted
-// time. ok is false when neither source knows an ask.
+// time. A row is dropped when shopkeep.json holds no order and last saw a fill
+// after the row's capture. ok is false when neither source knows an ask.
 func (m *Market) OurAsk(ctx context.Context, agent, station, item string) (OurAsk, bool, error) {
 	a := OurAsk{Station: station}
 	const q = `
@@ -111,6 +113,11 @@ ORDER BY captured_at DESC, id DESC LIMIT 1`
 	if haveJSON {
 		a.PostedAt = st.PostedAt
 		a.OrderID = st.OrderID
+	}
+	// The shopkeeper saw the ask fill after this capture and holds no order:
+	// the row is a sold-out ask, not a standing one.
+	if haveRow && haveJSON && st.OrderID == "" && st.LastFillAt.After(a.SeenAt) {
+		haveRow = false
 	}
 	if haveRow {
 		return a, true, nil

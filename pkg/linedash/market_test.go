@@ -181,6 +181,29 @@ func TestOurAskNoRowNoJsonIsFalse(t *testing.T) {
 	}
 }
 
+// The shopkeeper saw the ask fill after the last capture that showed it: the
+// row is a sold-out ask, not a standing one.
+func TestOurAskDropsSoldOutRow(t *testing.T) {
+	m := openTestMarket(t, []orderRow{
+		{"st1", "moonshine", "sell", 3000, 20, 15, "", "2026-10-24T10:00:00Z"},
+	}, writeShop(t, `{"Items":{"moonshine":{"Price":3000,"OrderID":"","LastFillAt":"2026-10-24T10:30:00Z"}}}`))
+	a, ok, err := m.OurAsk(context.Background(), "a1", "st1", "moonshine")
+	if err != nil || ok || a != (OurAsk{Station: "st1"}) {
+		t.Fatalf("a=%+v ok=%v err=%v, want no ask", a, ok, err)
+	}
+}
+
+// A fill older than the capture says nothing about the row: it is kept.
+func TestOurAskKeepsRowSeenAfterLastFill(t *testing.T) {
+	m := openTestMarket(t, []orderRow{
+		{"st1", "moonshine", "sell", 3000, 20, 15, "", "2026-10-24T10:00:00Z"},
+	}, writeShop(t, `{"Items":{"moonshine":{"Price":3000,"OrderID":"","LastFillAt":"2026-10-24T09:30:00Z"}}}`))
+	a, ok, err := m.OurAsk(context.Background(), "a1", "st1", "moonshine")
+	if err != nil || !ok || a.Price != 3000 || a.Units != 15 {
+		t.Fatalf("a=%+v ok=%v err=%v, want the row", a, ok, err)
+	}
+}
+
 func TestOurAskCorruptJSONStillUsesExchangeRow(t *testing.T) {
 	m := openTestMarket(t, []orderRow{
 		{"st1", "moonshine", "sell", 3000, 20, 15, "", "2026-10-24T10:00:00Z"},
