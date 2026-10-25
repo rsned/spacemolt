@@ -12,6 +12,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"log"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/linedash"
 )
 
@@ -101,7 +103,11 @@ func (s *server) current(ctx context.Context) []linedash.LineReport {
 	if !builtAt.IsZero() && time.Since(builtAt) < maxAge {
 		return reports // another request rebuilt while we waited
 	}
-	reports = s.build(ctx)
+	// The build outlives the request that triggered it: its result is cached
+	// for every viewer, so a client disconnect must not fail its queries.
+	bctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), game.SleepLong)
+	defer cancel()
+	reports = s.build(bctx)
 	s.mu.Lock()
 	s.reports, s.builtAt = reports, time.Now()
 	s.mu.Unlock()
@@ -145,9 +151,15 @@ func (s *server) build(ctx context.Context) []linedash.LineReport {
 	if err != nil {
 		warn("fleet yamls", err)
 	}
+	if len(roster) == 0 {
+		warn("overmind-dir", errors.New("no fleet yamls found"))
+	}
 	live, err := linedash.LoadLive(s.opt.overmindDir)
 	if err != nil {
 		warn("status files", err)
+	}
+	if len(live) == 0 {
+		warn("overmind-dir", errors.New("no status files found"))
 	}
 
 	reports := make([]linedash.LineReport, 0, len(cfg.Lines))
@@ -212,7 +224,7 @@ func (s *server) loadLineInputs(ctx context.Context, line linedash.Line, in *lin
 			if n.Type != linedash.NodeSell {
 				continue
 			}
-			item := sellItem(line, n)
+			item := linedash.SellItem(n, line.OutputItem)
 			d, err := s.market.Demand(ctx, n.Station, item)
 			if err != nil {
 				warn("market.db", err)
@@ -234,16 +246,6 @@ func (s *server) loadLineInputs(ctx context.Context, line linedash.Line, in *lin
 			}
 		}
 	}
-}
-
-// sellItem mirrors the evaluator: the line's output item when the node
-// carries it (or carries nothing), else the node's first item.
-func sellItem(line linedash.Line, n linedash.Node) string {
-	if len(n.Items) == 0 || slices.Contains(n.Items, line.OutputItem) {
-		return line.OutputItem
-	}
-
-	return n.Items[0]
 }
 
 // eventWindow is the longest look-back any rule needs.
