@@ -6834,11 +6834,19 @@ func formatFloat(f float64) string {
 // executeCommand runs one REPL command and, with --record-dir set, appends
 // it and the server's raw reply to the station record set.
 func executeCommand(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
-	err := executeCommandInner(client, ctx, parts, format)
 	if globalRecordDir == "" || len(parts) == 0 || unrecordedCommands[strings.ToLower(parts[0])] {
-		return err
+		return executeCommandInner(client, ctx, parts, format)
 	}
-	return recordExecution(client, parts, err)
+	// Handlers that bypass simpleCommand still await through the client, so
+	// an outer sink catches their correlated frame; simpleCommand's own sink
+	// shadows it and is preferred via noteReply.
+	currentReply = protocol.Response{}
+	var outer protocol.Response
+	err := executeCommandInner(client, game.WithResultSink(ctx, &outer), parts, format)
+	if currentReply.Type == "" {
+		noteReply(outer)
+	}
+	return recordExecution(client, parts, err, replyForRecord(currentReply))
 }
 
 func executeCommandInner(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
@@ -9787,7 +9795,9 @@ func chooseErrorJSON(sink protocol.Response, client game.GameClient) []byte {
 func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx context.Context, wait time.Duration, command string, format outputFormat) error {
 	var sink protocol.Response
 	cctx := game.WithResultSink(ctx, &sink)
-	if err := fn(cctx); err != nil {
+	err := fn(cctx)
+	noteReply(sink)
+	if err != nil {
 		// Propagate the goal-reached sentinel unchanged for the loop
 		// executor / REPL dispatcher to display.
 		var goal *game.GoalReachedError

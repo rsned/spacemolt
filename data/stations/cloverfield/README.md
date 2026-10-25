@@ -28,4 +28,7 @@ Inside play_as:
 
 - Never `git add -A` (the tree has dirty agent data). Commit this directory by path.
 - Field names come from the recorded raw replies, not from the docs.
+- `raw` is only the reply correlated to that exact request (default ws transport). An
+  event with no `raw` means no correlated frame arrived (local error, timeout, or
+  `--transport mcp`); it is never filled from a previous command.
 - Treasury floor 1M; consumable purchases ≤1M total; each facility build is approved first.

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
@@ -77,36 +78,36 @@ func appendStationEvent(dir string, ev stationEvent) error {
 	return appendJSONLine(dir, "events.jsonl", ev)
 }
 
-// rawForRecord picks the reply bytes for cmd: the error body on failure,
-// otherwise the command's own raw slot, falling back to "_last". Non-JSON
-// bytes are kept as a JSON string so events.jsonl stays parseable.
-func rawForRecord(client game.GameClient, cmd string, cmdErr error) json.RawMessage {
-	var data []byte
-	if cmdErr != nil {
-		data = client.GetRawJSON("_last_error")
-	} else {
-		key := cmd
-		if k, ok := rawJSONKeyForCommand[cmd]; ok {
-			key = k
-		}
-		data = client.GetRawJSON(key)
-		if len(data) == 0 {
-			data = client.GetRawJSON("_last")
-		}
+// currentReply is the request-correlated server frame for the command being
+// executed, as chosen by simpleCommand. executeCommand resets it per command.
+// The recorder never reads the shared _last / _last_error / command-keyed raw
+// slots: they are not cleared between commands and the chat poller writes
+// them, so they can hold a previous command's reply.
+var currentReply protocol.Response
+
+// noteReply keeps r as the current command's reply when it is a real frame.
+func noteReply(r protocol.Response) {
+	if r.Type != "" && len(r.Payload) > 0 {
+		currentReply = r
 	}
-	if len(data) == 0 {
+}
+
+// replyForRecord marshals a correlated frame's payload; nil when there is none.
+func replyForRecord(r protocol.Response) json.RawMessage {
+	if r.Type == "" || len(r.Payload) == 0 {
 		return nil
 	}
-	if json.Valid(data) {
-		return json.RawMessage(data)
+	raw, err := json.Marshal(r.Payload)
+	if err != nil {
+		quoted, _ := json.Marshal(fmt.Sprint(r.Payload))
+		return quoted
 	}
-	quoted, _ := json.Marshal(string(data))
-	return quoted
+	return raw
 }
 
 // recordExecution writes the event for one executed command and returns
 // cmdErr unchanged: a recording failure is reported, never propagated.
-func recordExecution(client game.GameClient, parts []string, cmdErr error) error {
+func recordExecution(client game.GameClient, parts []string, cmdErr error, raw json.RawMessage) error {
 	if globalRecordDir == "" || len(parts) == 0 {
 		return cmdErr
 	}
@@ -115,7 +116,7 @@ func recordExecution(client game.GameClient, parts []string, cmdErr error) error
 		Command:    strings.ToLower(parts[0]),
 		Args:       parts[1:],
 		SnapshotID: globalSnapshotID,
-		Raw:        rawForRecord(client, strings.ToLower(parts[0]), cmdErr),
+		Raw:        raw,
 	}
 	if st := client.GetState(); st != nil {
 		ev.Tick = st.CurrentTick
@@ -135,7 +136,7 @@ func snapshotCommands() [][]string {
 		{"get_status"},
 		{"faction_info"},
 		{"view_faction_storage"},
-		{"station", "info"},
+		{"station", "--action", "info"},
 		{"facility", "list"},
 		{"facility", "faction_list"},
 	}

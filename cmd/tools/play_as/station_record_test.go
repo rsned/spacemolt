@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
@@ -105,22 +107,59 @@ func TestAppendStationEvent_EmptyDirNoop(t *testing.T) {
 	}
 }
 
-func TestRawForRecord_ErrorUsesLastError(t *testing.T) {
-	c := stubRecordClient{raw: map[string][]byte{
-		"_last_error": []byte(`{"error":"no_faction_storage"}`),
-		"facility":    []byte(`{"stale":true}`),
-	}}
-	got := rawForRecord(c, "facility", errors.New("boom"))
-	if string(got) != `{"error":"no_faction_storage"}` {
+func TestReplyForRecord_EmptySinkIsNil(t *testing.T) {
+	if got := replyForRecord(protocol.Response{}); got != nil {
+		t.Errorf("empty sink recorded as %s", got)
+	}
+}
+
+func TestReplyForRecord_UsesSinkPayload(t *testing.T) {
+	r := protocol.Response{Type: "ok", Payload: map[string]any{"error": "not_docked"}}
+	if got := string(replyForRecord(r)); got != `{"error":"not_docked"}` {
 		t.Errorf("got %s", got)
 	}
 }
 
-func TestRawForRecord_NonJSONWrapped(t *testing.T) {
-	c := stubRecordClient{raw: map[string][]byte{"_last": []byte("not json")}}
-	got := rawForRecord(c, "build_base", nil)
-	if string(got) != `"not json"` {
-		t.Errorf("got %s", got)
+// A failure that produced no correlated frame (a local usage error) must not
+// be recorded with a stale reply left in the shared _last/_last_error slots.
+func TestExecuteCommand_StaleSlotsNotRecorded(t *testing.T) {
+	dir := t.TempDir()
+	old := globalRecordDir
+	globalRecordDir = dir
+	t.Cleanup(func() { globalRecordDir = old })
+
+	c := stubRecordClient{raw: map[string][]byte{
+		"_last_error":      []byte(`{"error":"stale_from_earlier"}`),
+		"_last":            []byte(`{"stale":true}`),
+		"complete_mission": []byte(`{"stale":true}`),
+	}}
+	if err := executeCommand(c, context.Background(), []string{"complete_mission"}, formatRaw); err == nil {
+		t.Fatal("want usage error")
+	}
+	lines := readJSONLines(t, filepath.Join(dir, "events.jsonl"))
+	if len(lines) != 1 {
+		t.Fatalf("got %d events, want 1", len(lines))
+	}
+	if raw, ok := lines[0]["raw"]; ok {
+		t.Errorf("stale reply recorded: %v", raw)
+	}
+	if lines[0]["error"] == nil {
+		t.Error("error not recorded")
+	}
+}
+
+func TestExecuteCommand_LedgerIsNotAnEvent(t *testing.T) {
+	dir := t.TempDir()
+	old := globalRecordDir
+	globalRecordDir = dir
+	t.Cleanup(func() { globalRecordDir = old })
+
+	c := stubRecordClient{}
+	if err := executeCommand(c, context.Background(), []string{"ledger", "purchase", "credits", "-10"}, formatRaw); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "events.jsonl")); !os.IsNotExist(err) {
+		t.Errorf("ledger wrote an event (stat err %v)", err)
 	}
 }
 
@@ -134,11 +173,11 @@ func TestRecordedExecute_RecordErrorDoesNotFailCommand(t *testing.T) {
 	t.Cleanup(func() { globalRecordDir = old })
 
 	c := stubRecordClient{raw: map[string][]byte{}}
-	if err := recordExecution(c, []string{"get_status"}, nil); err != nil {
+	if err := recordExecution(c, []string{"get_status"}, nil, nil); err != nil {
 		t.Errorf("recording failure leaked into command result: %v", err)
 	}
 	want := errors.New("server said no")
-	if err := recordExecution(c, []string{"get_status"}, want); !errors.Is(err, want) {
+	if err := recordExecution(c, []string{"get_status"}, want, nil); !errors.Is(err, want) {
 		t.Errorf("command error not returned unchanged: %v", err)
 	}
 }
@@ -149,16 +188,14 @@ func TestRecordExecution_CapturesFailure(t *testing.T) {
 	globalRecordDir = dir
 	t.Cleanup(func() { globalRecordDir = old })
 
-	c := stubRecordClient{tick: 77, raw: map[string][]byte{
-		"_last_error": []byte(`{"error":"not_docked"}`),
-	}}
-	_ = recordExecution(c, []string{"station", "info"}, errors.New("not_docked"))
+	c := stubRecordClient{tick: 77}
+	_ = recordExecution(c, []string{"station", "info"}, errors.New("not_docked"), json.RawMessage(`{"error":"not_docked"}`))
 
 	lines := readJSONLines(t, filepath.Join(dir, "events.jsonl"))
 	if len(lines) != 1 {
 		t.Fatalf("got %d events, want 1", len(lines))
 	}
-	if lines[0]["error"] != "not_docked" || lines[0]["command"] != "station" {
+	if lines[0]["error"] != "not_docked" || lines[0]["command"] != "station" || lines[0]["tick"] != float64(77) {
 		t.Errorf("event = %v", lines[0])
 	}
 }
@@ -168,7 +205,7 @@ func TestSnapshotCommands_Order(t *testing.T) {
 		{"get_status"},
 		{"faction_info"},
 		{"view_faction_storage"},
-		{"station", "info"},
+		{"station", "--action", "info"},
 		{"facility", "list"},
 		{"facility", "faction_list"},
 	}
@@ -192,7 +229,7 @@ func TestRunSnapshot_ContinuesAfterFailure(t *testing.T) {
 	if len(ran) != 6 {
 		t.Fatalf("ran %d reads, want 6: %v", len(ran), ran)
 	}
-	if err == nil || !strings.Contains(err.Error(), "station info") {
+	if err == nil || !strings.Contains(err.Error(), "station --action info") {
 		t.Errorf("err = %v, want mention of station info", err)
 	}
 	for i, id := range ids {
