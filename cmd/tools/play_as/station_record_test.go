@@ -204,3 +204,57 @@ func TestRunSnapshot_ContinuesAfterFailure(t *testing.T) {
 		t.Errorf("snapshot id left set: %q", globalSnapshotID)
 	}
 }
+
+func TestParseLedger_Valid(t *testing.T) {
+	e, err := parseLedgerArgs([]string{"ammo", "ferrous_slug_case", "500", "convoy", "one"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Category != "ammo" || e.Item != "ferrous_slug_case" || e.Qty != 500 || e.Note != "convoy one" || e.Credits != 0 {
+		t.Errorf("got %+v", e)
+	}
+}
+
+func TestParseLedger_Credits(t *testing.T) {
+	e, err := parseLedgerArgs([]string{"founding", "credits", "-5000000"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e.Item != "credits" || e.Credits != -5000000 {
+		t.Errorf("got %+v", e)
+	}
+}
+
+func TestParseLedger_BadCategory(t *testing.T) {
+	_, err := parseLedgerArgs([]string{"snacks", "credits", "10"})
+	if err == nil || !strings.Contains(err.Error(), "usage: ledger") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestParseLedger_BadQty(t *testing.T) {
+	_, err := parseLedgerArgs([]string{"ammo", "ferrous_slug_case", "lots"})
+	if err == nil || !strings.Contains(err.Error(), "usage: ledger") {
+		t.Errorf("err = %v", err)
+	}
+}
+
+func TestLedgerCommand_NoAppendOnError(t *testing.T) {
+	dir := t.TempDir()
+	if err := runLedger(dir, []string{"ammo", "x"}); err == nil {
+		t.Fatal("want usage error")
+	}
+	if _, err := os.Stat(filepath.Join(dir, "ledger.jsonl")); !os.IsNotExist(err) {
+		t.Errorf("ledger.jsonl created on bad input (stat err %v)", err)
+	}
+	if err := runLedger("", []string{"ammo", "x", "1"}); err == nil || !strings.Contains(err.Error(), "--record-dir") {
+		t.Errorf("want --record-dir error, got %v", err)
+	}
+	if err := runLedger(dir, []string{"haul-in", "steel_plate", "200"}); err != nil {
+		t.Fatal(err)
+	}
+	lines := readJSONLines(t, filepath.Join(dir, "ledger.jsonl"))
+	if len(lines) != 1 || lines[0]["category"] != "haul-in" || lines[0]["qty"] != float64(200) {
+		t.Errorf("ledger = %v", lines)
+	}
+}

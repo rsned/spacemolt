@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -152,4 +154,64 @@ func runSnapshot(exec func([]string) error) error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// ledgerCategories are the accepted ledger entry categories.
+var ledgerCategories = []string{
+	"founding", "build", "maintenance-items", "maintenance-labor", "ammo",
+	"haul-in", "purchase", "revenue", "transfer",
+}
+
+const ledgerUsage = "usage: ledger <category> <item|credits> <qty> [note...]  (negative qty = out; categories: %s)"
+
+// ledgerEntry is one line of <record-dir>/ledger.jsonl: a categorised credit
+// or item movement, the raw material for the station's finance books.
+type ledgerEntry struct {
+	ObservedUTC string `json:"observed_utc"`
+	AgentID     string `json:"agent_id"`
+	Category    string `json:"category"`
+	Item        string `json:"item"`
+	Qty         int    `json:"qty"`
+	Credits     int    `json:"credits,omitempty"`
+	Note        string `json:"note,omitempty"`
+}
+
+// parseLedgerArgs parses `<category> <item|credits> <qty> [note...]`.
+func parseLedgerArgs(args []string) (ledgerEntry, error) {
+	usage := fmt.Errorf(ledgerUsage, strings.Join(ledgerCategories, ", "))
+	if len(args) < 3 || !slices.Contains(ledgerCategories, args[0]) {
+		return ledgerEntry{}, usage
+	}
+	qty, err := strconv.Atoi(args[2])
+	if err != nil {
+		return ledgerEntry{}, usage
+	}
+	e := ledgerEntry{
+		Category: args[0],
+		Item:     args[1],
+		Qty:      qty,
+		Note:     strings.Join(args[3:], " "),
+	}
+	if e.Item == "credits" {
+		e.Credits = qty
+	}
+	return e, nil
+}
+
+// runLedger parses args and appends the entry to dir/ledger.jsonl.
+func runLedger(dir string, args []string) error {
+	if dir == "" {
+		return errors.New("ledger needs --record-dir")
+	}
+	e, err := parseLedgerArgs(args)
+	if err != nil {
+		return err
+	}
+	e.ObservedUTC = time.Now().UTC().Format(time.RFC3339)
+	e.AgentID = globalAgentID
+	if err := appendJSONLine(dir, "ledger.jsonl", e); err != nil {
+		return err
+	}
+	fmt.Printf("📒 ledger: %s %s %d\n", e.Category, e.Item, e.Qty)
+	return nil
 }
