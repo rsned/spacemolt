@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 0188c4c3-7b1f-459b-bf39-6c78fe769ae2
-  modified: 2026-10-25T17:08:32.100Z
+  modified: 2026-10-25T17:18:20.958Z
 ---
 
 **Where we are (2026-10-25 10:15 PDT, main = 06cd562b, pushed):**
@@ -20,7 +20,8 @@ metadata:
   Record the first full-day numbers on the status board ~2026-10-25 19:00 PDT.
 - Tasks 8–9 of plan 3 are done (hourly captures on the six line agents; memory). Open from the dashboard's first
   honest reading: trader-10 never made its Sirius culture run ("no purchase in 24h"); the Voss faction-storage
-  snapshot was 16 h old at 10:07 (first hourly `capture_faction` pending); trader-8 holds 2,389 water_ice at
+  snapshot was 16 h old at 10:07 — faction storage is captured only by the CRFT captor (miningbot_0000, lowest
+  player_id), whose capture_faction is now hourly (6d7d4370, relaunched 10:17); trader-8 holds 2,389 water_ice at
   frontier_station outside the line (smoke-config gift) — one `deliver` by trader-8 to Voss returns it.
 - Next code work candidates: faction-deposit deliver mode (craftsman-8 starves otherwise); `contraband_restricted`
   loop in haul; "facility busy" alert needs a craft-refused capture signal; later lines (gutter flux etc.) = a
