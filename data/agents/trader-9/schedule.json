@@ -6,12 +6,6 @@
     "created_at": "2026-08-09T04:35:22.180552235Z"
   },
   {
-    "id": 2,
-    "frequency": "daily",
-    "command": "capture_storage",
-    "created_at": "2026-08-09T04:35:22.180702873Z"
-  },
-  {
     "id": 3,
     "frequency": "daily",
     "command": "capture_faction",
@@ -43,13 +37,13 @@
   },
   {
     "id": 10,
-    "frequency": "ten_minutely",
+    "frequency": "hourly",
     "command": "deliver water_ice 1900 treasure_cache_trading_post voss_redoubt craftsman-10",
     "created_at": "2026-10-25T01:22:45Z"
   },
   {
     "id": 11,
-    "frequency": "ten_minutely",
+    "frequency": "hourly",
     "command": "deliver pirate_moonshine 1900 voss_redoubt treasure_cache_trading_post marketbot_treasure_cache",
     "created_at": "2026-10-25T01:22:45Z"
   },
@@ -88,5 +82,17 @@
     "frequency": "hourly",
     "command": "capture_storage",
     "created_at": "2026-10-25T01:36:04Z"
+  },
+  {
+    "id": 18,
+    "frequency": "hourly",
+    "command": "deliver water_ice 1900 frontier_station voss_redoubt craftsman-10",
+    "created_at": "2026-10-25T02:01:22Z"
+  },
+  {
+    "id": 19,
+    "frequency": "hourly",
+    "command": "deliver water_ice 1900 deep_range_outpost voss_redoubt craftsman-10",
+    "created_at": "2026-10-25T02:01:22Z"
   }
 ]
