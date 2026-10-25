@@ -154,3 +154,13 @@ func expectLoadError(t *testing.T, y, want string) {
 		t.Errorf("error %q does not contain %q", err, want)
 	}
 }
+
+func TestLoadLinesRejectsUnknownKey(t *testing.T) {
+	y := strings.Replace(validLine("a"), "holders: [ { agent: bob, station: s1 } ]", "holder: [ { agent: bob, station: s1 } ]", 1)
+	expectLoadError(t, y, "holder")
+}
+
+func TestValidateRejectsUnknownEdgeKind(t *testing.T) {
+	y := strings.Replace(validLine("a"), "kind: consign }", "kind: hual }", 1)
+	expectLoadError(t, y, "hual")
+}

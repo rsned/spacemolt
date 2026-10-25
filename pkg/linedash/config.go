@@ -3,7 +3,10 @@
 package linedash
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"slices"
 	"time"
@@ -103,7 +106,9 @@ func LoadLines(path string) (Config, error) {
 		return Config{}, fmt.Errorf("read lines config: %w", err)
 	}
 	var c Config
-	if err := yaml.Unmarshal(data, &c); err != nil {
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true) // a typo such as "holder:" is an error, not an empty field
+	if err := dec.Decode(&c); err != nil && !errors.Is(err, io.EOF) {
 		return Config{}, fmt.Errorf("parse lines config %s: %w", path, err)
 	}
 	c.Thresholds = c.Thresholds.withDefaults()
@@ -165,6 +170,11 @@ func (l Line) validate() error {
 			if !ids[end] {
 				return fmt.Errorf("line %q: edge %s->%s names unknown node %q", l.ID, e.From, e.To, end)
 			}
+		}
+		switch e.Kind {
+		case EdgeHaul, EdgeConsign, EdgeCraft:
+		default:
+			return fmt.Errorf("line %q: edge %s->%s has unknown kind %q", l.ID, e.From, e.To, e.Kind)
 		}
 		if err := checkItem(l.ID, fmt.Sprintf("edge %s->%s item", e.From, e.To), e.Item); err != nil {
 			return err
