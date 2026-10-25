@@ -1,0 +1,37 @@
+# Contraband production lines for the line dashboard (design D7).
+# Declarative: nodes are tanks/agents, edges are the links between them.
+# Holders say where a tank's units sit; events are attributed by agent_id.
+thresholds: { haul_window: 4h, mine_window: 4h, craft_window: 1h, sell_window: 6h, sell_stale: 6h, stale_data: 2h, rate_window: 24h, sell_lot: 50, choke_units: 1000, broke_credits: 500, fuel_floor_pct: 10 }
+lines:
+  - id: moonshine
+    name: Pirate Moonshine
+    output_item: pirate_moonshine
+    capacity_per_day: 19200        # 3,200 runs x 6 at 2.7 ticks/run (spec)
+    nodes:
+      - { id: ice_mine, type: mine, name: "Ice Mine", items: [water_ice],
+          agents: [miningbot_0000, miningbot_0001, miningbot_0002, miningbot_0003],
+          holders: [ { agent: trader-9, station: frontier_station }, { agent: trader-9, station: deep_range_outpost } ] }
+      - { id: culture_buy, type: purchase, name: "Culture Purchase", items: [pharmaceutical_culture],
+          agents: [trader-10], station: sirius_observatory_station,
+          holders: [ { agent: trader-10, station: sirius_observatory_station } ] }
+      - { id: voss_inputs, type: store, name: "Voss Inputs", items: [water_ice, pharmaceutical_culture],
+          holders: [ { faction: CRFT, station: voss_redoubt_station }, { agent: craftsman-8, station: voss_redoubt_station }, { agent: craftsman-10, station: voss_redoubt_station } ] }
+      - { id: still, type: produce, name: "Backwater Still", items: [pirate_moonshine],
+          agents: [craftsman-8, craftsman-10], station: voss_redoubt_station,
+          recipe: distill_moonshine, units_per_run: 6, batch_runs: 60,
+          inputs_per_run: { water_ice: 10, pharmaceutical_culture: 2 } }
+      - { id: voss_output, type: store, name: "Voss Output", items: [pirate_moonshine],
+          holders: [ { faction: CRFT, station: voss_redoubt_station }, { agent: craftsman-8, station: voss_redoubt_station }, { agent: craftsman-10, station: voss_redoubt_station }, { agent: trader-9, station: voss_redoubt_station } ] }
+      - { id: alhena_sell, type: sell, name: "Voss Shop", items: [pirate_moonshine],
+          agents: [marketbot_alhena], station: voss_redoubt_station,
+          holders: [ { agent: marketbot_alhena, station: voss_redoubt_station } ] }
+      - { id: tc_sell, type: sell, name: "Treasure Cache Shop", items: [pirate_moonshine],
+          agents: [marketbot_treasure_cache], station: treasure_cache_trading_post,
+          holders: [ { agent: marketbot_treasure_cache, station: treasure_cache_trading_post } ] }
+    edges:
+      - { from: ice_mine,    to: voss_inputs, kind: haul,    item: water_ice,              agents: [trader-9] }
+      - { from: culture_buy, to: voss_inputs, kind: haul,    item: pharmaceutical_culture, agents: [trader-10] }
+      - { from: voss_inputs, to: still,       kind: craft }
+      - { from: still,       to: voss_output, kind: craft }
+      - { from: voss_output, to: alhena_sell, kind: consign, item: pirate_moonshine,       agents: [craftsman-8] }
+      - { from: voss_output, to: tc_sell,     kind: haul,    item: pirate_moonshine,       agents: [trader-9] }
