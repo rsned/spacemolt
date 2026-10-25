@@ -1,0 +1,10 @@
+withdraw ice_harvester_ii 1
+sleep 6s
+uninstall mining_laser_iii
+sleep 8s
+install ice_harvester_ii
+sleep 8s
+deposit mining_laser_iii 1
+sleep 5s
+ship
+exit

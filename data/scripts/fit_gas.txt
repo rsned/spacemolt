@@ -1,0 +1,14 @@
+withdraw gas_harvester_iii 1
+sleep 6s
+uninstall mining_laser_iii
+sleep 8s
+uninstall pulse_laser_i
+sleep 8s
+install gas_harvester_iii
+sleep 8s
+deposit mining_laser_iii 1
+sleep 5s
+deposit pulse_laser_i 1
+sleep 5s
+ship
+exit
