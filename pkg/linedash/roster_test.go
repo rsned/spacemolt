@@ -1,6 +1,11 @@
 package linedash
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestLoadRosterReadsPipelineFields(t *testing.T) {
 	r, err := LoadRoster("testdata/fleet")
@@ -34,6 +39,27 @@ func TestRosterSecondedAndRemoved(t *testing.T) {
 	}
 	if e := r["miningbot_0026"]; !e.Removed {
 		t.Errorf("0026 should be removed: %+v", e)
+	}
+}
+
+func TestLoadRosterSkipsCorruptOverridesKeepsFleet(t *testing.T) {
+	dir := t.TempDir()
+	fleet, err := os.ReadFile("testdata/fleet/crft-mining-fleet.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(dir, "crft-mining-fleet.yaml"), fleet, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(dir, "crft-mining-overrides.json"), []byte(`{"removed": ["mining`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r, err := LoadRoster(dir)
+	if err == nil || !strings.Contains(err.Error(), "crft-mining-overrides.json") {
+		t.Fatalf("err = %v, want mention of overrides file", err)
+	}
+	if len(r) != 4 || r["miningbot_0004"].Removed {
+		t.Errorf("fleet should load with no removals: %+v", r)
 	}
 }
 

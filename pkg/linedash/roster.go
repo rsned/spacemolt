@@ -1,6 +1,7 @@
 package linedash
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -26,23 +27,32 @@ type RosterEntry struct {
 // LoadRoster reads every <fleet>-fleet.yaml in dir, its <fleet>-overrides.json
 // if present, and secondments.json. An agent listed in two yamls keeps the
 // entry whose fleet has it NOT removed; ties keep the first by file name.
-// A missing dir yields an empty roster.
+// A missing dir yields an empty roster and a nil error.
+//
+// A non-nil error together with a non-nil map means "partial": the named files
+// were skipped (a corrupt overrides or secondments file counts as "no removals"
+// or "no secondments"). The caller should log the error and render the map.
 func LoadRoster(dir string) (map[string]RosterEntry, error) {
 	files, err := filepath.Glob(filepath.Join(dir, "*"+fleetSuffix))
 	if err != nil {
 		return nil, fmt.Errorf("glob fleet yamls: %w", err)
 	}
+	var errs []error
 	// Glob returns sorted names, which makes the tie-break deterministic.
 	roster := map[string]RosterEntry{}
 	for _, f := range files {
 		fleet := strings.TrimSuffix(filepath.Base(f), fleetSuffix)
 		specs, lerr := supervisor.LoadFleet(f)
 		if lerr != nil {
-			return nil, lerr
+			errs = append(errs, fmt.Errorf("fleet %s: %w", filepath.Base(f), lerr))
+			continue
 		}
-		ov, oerr := supervisor.LoadOverrides(filepath.Join(dir, fleet+"-overrides.json"))
+		ovPath := filepath.Join(dir, fleet+"-overrides.json")
+		ov, oerr := supervisor.LoadOverrides(ovPath)
 		if oerr != nil {
-			return nil, oerr
+			// A bad sidecar means "no removals" for this fleet.
+			errs = append(errs, fmt.Errorf("overrides %s: %w", filepath.Base(ovPath), oerr))
+			ov = supervisor.Overrides{}
 		}
 		for _, w := range specs {
 			e := RosterEntry{
@@ -62,9 +72,10 @@ func LoadRoster(dir string) (map[string]RosterEntry, error) {
 			roster[w.AgentID] = e
 		}
 	}
-	secs, err := supervisor.LoadSecondments(filepath.Join(dir, "secondments.json"))
-	if err != nil {
-		return nil, err
+	secs, serr := supervisor.LoadSecondments(filepath.Join(dir, "secondments.json"))
+	if serr != nil {
+		errs = append(errs, fmt.Errorf("secondments.json: %w", serr))
+		secs = supervisor.Secondments{}
 	}
 	for id, e := range roster {
 		if s, ok := secs.Active(id); ok {
@@ -72,7 +83,7 @@ func LoadRoster(dir string) (map[string]RosterEntry, error) {
 			roster[id] = e
 		}
 	}
-	return roster, nil
+	return roster, errors.Join(errs...)
 }
 
 // ShopFloor parses "item:start[:floor]" rules; floor defaults to start when

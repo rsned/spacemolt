@@ -1,6 +1,9 @@
 package linedash
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -26,6 +29,27 @@ func TestLoadLiveDedupesByFreshest(t *testing.T) {
 	c := m["craftsman-8"]
 	if c.Fleet != "crft-mining" || !c.Quarantined || !c.LastSeen.IsZero() {
 		t.Errorf("craftsman-8 = %+v", c)
+	}
+}
+
+func TestLoadLiveSkipsCorruptFileKeepsOthers(t *testing.T) {
+	dir := t.TempDir()
+	good, err := os.ReadFile("testdata/status/crft-mining-status.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(dir, "crft-mining-status.json"), good, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(dir, "broken-status.json"), []byte(`{"captured_at": "2026-10`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	m, err := LoadLive(dir)
+	if err == nil || !strings.Contains(err.Error(), "broken-status.json") {
+		t.Fatalf("err = %v, want mention of broken-status.json", err)
+	}
+	if _, ok := m["craftsman-8"]; !ok || len(m) != 2 {
+		t.Errorf("good agents missing: %v", m)
 	}
 }
 

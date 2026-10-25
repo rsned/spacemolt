@@ -2,6 +2,7 @@ package linedash
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,21 +24,28 @@ type Live struct {
 }
 
 // LoadLive reads every *-status.json in dir. The same agent in two files keeps
-// the freshest captured_at. A missing dir yields an empty map.
+// the freshest captured_at. A missing dir yields an empty map and a nil error.
+//
+// A non-nil error together with a non-nil map means "partial": the named
+// unreadable or unparsable files were skipped. The caller should log the error
+// and render the map.
 func LoadLive(dir string) (map[string]Live, error) {
 	files, err := filepath.Glob(filepath.Join(dir, "*"+statusSuffix))
 	if err != nil {
 		return nil, fmt.Errorf("glob status files: %w", err)
 	}
+	var errs []error
 	out := map[string]Live{}
 	for _, f := range files {
-		raw, err := os.ReadFile(f)
-		if err != nil {
-			return nil, fmt.Errorf("read status %s: %w", f, err)
+		raw, rerr := os.ReadFile(f)
+		if rerr != nil {
+			errs = append(errs, fmt.Errorf("read status %s: %w", filepath.Base(f), rerr))
+			continue
 		}
 		var sf balances.StatusFile
-		if err := json.Unmarshal(raw, &sf); err != nil {
-			return nil, fmt.Errorf("parse status %s: %w", f, err)
+		if jerr := json.Unmarshal(raw, &sf); jerr != nil {
+			errs = append(errs, fmt.Errorf("parse status %s: %w", filepath.Base(f), jerr))
+			continue
 		}
 		fleet := strings.TrimSuffix(filepath.Base(f), statusSuffix)
 		captured := parseTime(sf.CapturedAt)
@@ -63,7 +71,7 @@ func LoadLive(dir string) (map[string]Live, error) {
 			}
 		}
 	}
-	return out, nil
+	return out, errors.Join(errs...)
 }
 
 // parseTime parses RFC3339 (fractional seconds accepted); garbage is the zero time.
