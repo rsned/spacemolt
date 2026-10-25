@@ -1,18 +1,30 @@
 ---
 name: project_contraband_pipeline_resume
-description: "RESUME POINT 2026-10-24 19:40 PDT for the contraband production pipeline: plans 1 (code) and 2 (rollout) are DONE and merged (main e96429e5); the moonshine line is live end to end; plan 3 (dashboard) not started. Live state, open watchers, known gaps, exact next steps."
+description: "RESUME POINT 2026-10-25 10:15 PDT for the contraband production pipeline: plans 1 (code), 2 (rollout) and 3 (line dashboard) are DONE and merged (main 06cd562b); the moonshine line is live and the dashboard on :8093 reads it. Live state, known gaps, exact next steps."
 metadata:
+  node_type: memory
   type: project
+  originSessionId: 0188c4c3-7b1f-459b-bf39-6c78fe769ae2
+  modified: 2026-10-25T17:08:32.100Z
 ---
 
-**Where we are (2026-10-24 19:40 PDT, main = e96429e5, pushed):**
+**Where we are (2026-10-25 10:15 PDT, main = 06cd562b, pushed):**
 - Design: docs/superpowers/specs/2026-10-24-contraband-production-pipeline-design.md (D1–D9, approved).
 - Plan 1 (worker/fleet code) merged d761593d: verbs/flags in [[reference_pipeline_worker_verbs_and_flags]].
 - Plan 2 (rollout runbook) executed and merged: docs/superpowers/plans/2026-10-24-contraband-pipeline-rollout.md.
-  SDD ledgers with every ruling: `.superpowers/sdd/2026-10-24-contraband-pipeline-rollout/progress.md` (git-ignored).
-- Plan 3 (dashboard, D7) NOT written. The 24-h day-one metrics (produced = Σ `faction_pull: moved` in
-  craft-overmind.log; sold = shopkeep re-posts after a disappearance + `market_orders.my_quantity` drops for
-  marketbot_alhena/marketbot_treasure_cache) are due ~2026-10-25 19:00 PDT — record them on the status board.
+- Plan 3 (dashboard, D7) DONE and merged: docs/superpowers/plans/2026-10-24-contraband-pipeline-dashboard.md;
+  how to run/read/extend it in [[reference_line_dashboard]]. Server running on :8093 (pid 4092508). SDD ledgers with
+  every ruling: `.superpowers/sdd/2026-10-24-contraband-pipeline-{rollout,dashboard}/progress.md` (git-ignored).
+- Day-one metrics now come from the dashboard: `curl -s localhost:8093/api/line/moonshine.json` →
+  ProducedPerDay / SoldPerDay (24-h window of action-log events). First partial read 10-25 10:07: 540 / 15.
+  Record the first full-day numbers on the status board ~2026-10-25 19:00 PDT.
+- Tasks 8–9 of plan 3 are done (hourly captures on the six line agents; memory). Open from the dashboard's first
+  honest reading: trader-10 never made its Sirius culture run ("no purchase in 24h"); the Voss faction-storage
+  snapshot was 16 h old at 10:07 (first hourly `capture_faction` pending); trader-8 holds 2,389 water_ice at
+  frontier_station outside the line (smoke-config gift) — one `deliver` by trader-8 to Voss returns it.
+- Next code work candidates: faction-deposit deliver mode (craftsman-8 starves otherwise); `contraband_restricted`
+  loop in haul; "facility busy" alert needs a craft-refused capture signal; later lines (gutter flux etc.) = a
+  `lines.yaml` block each plus the chlorine convert node.
 
 **Live state to expect on resume:**
 - 11 overminds, all post-merge binary. crft-mining (12 workers): miningbot_0000–0003 ice (interim secure sites

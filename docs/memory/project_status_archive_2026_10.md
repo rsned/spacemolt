@@ -1,12 +1,19 @@
 ---
 name: project_status_archive_2026_10
-description: "Status-board entries rolled out of the Live block on 2026-10-22. Verbatim; most have their own memory file linked inline."
+description: Status-board entries rolled out of the Live block on 2026-10-22. Verbatim; most have their own memory file linked inline.
 metadata:
+  node_type: memory
   type: project
+  originSessionId: 0188c4c3-7b1f-459b-bf39-6c78fe769ae2
+  modified: 2026-10-25T17:08:14.797Z
 ---
 
 Rolled off [[project_status_board]] on 2026-10-22 when the nine-fleet rollout
 and the contraband/outpost work filled the Live block. Verbatim.
+
+## Rolled 2026-10-25
+
+- **⭐🟢✅ 10-22 — NINE-FLEET ROLLOUT COMPLETE: 169 workers, zero losses, all on `6624cec2`.** Binaries had been **18 days / 55 commits stale** and a restart deploys nothing without a rebuild. Drained haul with **SIGUSR1** (zero aborted trips, two full 1,900 holds landed). Pruned retired `get_system_agents` from **65** schedules (~9,360 calls/day). [[reference_rebuild_before_restart]]
 
 ## Rolled 2026-10-22 (were dated 08-01 .. 09-08)
 
