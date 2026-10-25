@@ -11,6 +11,11 @@ Each entry: date · **measured** | **doc-quoted** · the fact · evidence
   station comes with top-tier storage, market, refuel, repair, shipyard,
   crafting, power and life support. To confirm with the first `station_snapshot`
   (facility list, power block, services).
+- 2026-10-25 · **measured** · Right after founding, `view_storage` at the new station
+  returns `no_storage`: *"This station does not offer storage. Use 'get_base' to
+  see available services."* A fresh station has **no personal storage service**,
+  which backs up the server hint over the factions guide. `get_base` is the
+  command the server points to for listing a station's services.
 - 2026-10-25 · **measured** (server hint) · *"Keep the station's faction storage
   stocked with each facility's maintenance inputs or those facilities go
   offline."* So maintenance runs **per facility**, and an empty station has
