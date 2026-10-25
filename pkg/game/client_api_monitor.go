@@ -235,6 +235,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	"mute_notifications":        reflect.TypeOf(serverapi.NotificationSettingsResponse{}),
 	"unmute_notifications":      reflect.TypeOf(serverapi.NotificationSettingsResponse{}),
 	"station":                   reflect.TypeOf(serverapi.StationConfigResponse{}),
+	"info":                      reflect.TypeOf(serverapi.StationConfigResponse{}), // station action=info
 	"view_insurance":            reflect.TypeOf(serverapi.ViewInsuranceResponse{}),
 	"scrap_ship":                reflect.TypeOf(serverapi.ScrapShipResponse{}),
 	"dismantle_outpost":         reflect.TypeOf(serverapi.DismantleOutpostResponse{}),

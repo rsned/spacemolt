@@ -259,3 +259,21 @@ func TestExpectedFieldsForAction_Stance(t *testing.T) {
 		}
 	}
 }
+
+// `station action=info` replies with action "info" (live 2026-10-25, Conjunction
+// Junction): every field of the captured payload must be expected, so the
+// monitor stays quiet on the owner's station read.
+func TestStationInfoActionRegistered(t *testing.T) {
+	fields, known := expectedFieldsForAction("info")
+	if !known {
+		t.Fatal(`station action "info" should be registered`)
+	}
+	for _, f := range []string{
+		"action", "allow_outsider_facilities", "auto_buy_fuel", "base_id",
+		"contraband_items", "contraband_mode", "description", "name", "public_access",
+	} {
+		if !fields[f] {
+			t.Errorf("info expected fields missing %q", f)
+		}
+	}
+}

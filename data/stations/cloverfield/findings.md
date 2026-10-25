@@ -16,6 +16,12 @@ Each entry: date · **measured** | **doc-quoted** · the fact · evidence
   see available services."* A fresh station has **no personal storage service**,
   which backs up the server hint over the factions guide. `get_base` is the
   command the server points to for listing a station's services.
+- 2026-10-25 · **measured** · `station --action info` (15:12 PDT) replies with
+  `action: "info"`, `public_access: false`, `allow_outsider_facilities: false`,
+  `auto_buy_fuel: false`, `contraband_mode: "default"`, `contraband_items: null`,
+  and description *"A faction station founded by Crafting Collective."* So the
+  founding faction is **CRFT**, and there is **no `service_access` map** on a
+  station with no facilities.
 - 2026-10-25 · **measured** (server hint) · *"Keep the station's faction storage
   stocked with each facility's maintenance inputs or those facilities go
   offline."* So maintenance runs **per facility**, and an empty station has
