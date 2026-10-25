@@ -6896,6 +6896,9 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 	}
 	parts = resolved
 	cmd := strings.ToLower(parts[0])
+	if cmd == "station" {
+		parts = stationParts(parts)
+	}
 
 	fmt.Printf("▶ Executing: %s %s\n", cmd, strings.Join(parts[1:], " "))
 
