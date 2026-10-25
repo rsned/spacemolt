@@ -101,9 +101,11 @@ func main() {
 	wildlifeGrowthDir := flag.String("wildlife-growth-dir", "data/wildlife-growth", "TEMPORARY: base directory for per-creature hull observations (observations.jsonl), used to design permanent storage now that creature hull varies per individual; empty to disable")
 	xpTracking := flag.Bool("xp-tracking", true, "Enable XP observation tracking to the knowledge base")
 	transport := flag.String("transport", "ws", "Game transport: 'ws' (WebSocket, default) or 'mcp' (MCP over HTTP)")
+	recordDir := flag.String("record-dir", "", "Append every command and its raw reply to <dir>/events.jsonl (station record set); empty disables")
 	flag.Parse()
 
 	globalIntelDir = *intelDir
+	globalRecordDir = *recordDir
 	globalWildlifeGrowthDir = *wildlifeGrowthDir
 
 	args := flag.Args()
@@ -331,6 +333,7 @@ func printUsage() {
 	fmt.Println("  --registry-url <url>   Status registry URL (e.g., http://localhost:8081)")
 	fmt.Println("  --xp-tracking=false    Disable XP observation tracking (default: true)")
 	fmt.Println("  --transport <ws|mcp>   Game transport (default: ws)")
+	fmt.Println("  --record-dir <dir>     Record every command + raw reply to <dir>/events.jsonl")
 	fmt.Println("\nThis tool provides an interactive terminal for playing Spacemolt.")
 	fmt.Println("All commands are case-insensitive. Use 'help' to see available commands.")
 }
@@ -6828,7 +6831,17 @@ func formatFloat(f float64) string {
 	return strconv.FormatFloat(f, 'f', 2, 64)
 }
 
+// executeCommand runs one REPL command and, with --record-dir set, appends
+// it and the server's raw reply to the station record set.
 func executeCommand(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
+	err := executeCommandInner(client, ctx, parts, format)
+	if globalRecordDir == "" || len(parts) == 0 || unrecordedCommands[strings.ToLower(parts[0])] {
+		return err
+	}
+	return recordExecution(client, parts, err)
+}
+
+func executeCommandInner(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {
 	// Resolve $TOKEN$ variables against live state before dispatch. This is the
 	// single chokepoint for all command paths (bare commands, single-form loops
 	// via runLoopSingle, and block loops via the runStatement closure), so token
