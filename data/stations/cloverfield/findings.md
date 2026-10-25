@@ -1,6 +1,6 @@
 # Cloverfield station: findings
 
-Each entry: date · **measured** | **doc-quoted** · the fact · evidence
+Each entry: date · **measured** | **doc-quoted** | **player-reported** (unverified) · the fact · evidence
 (an events.jsonl snapshot_id / tick, or a doc URL).
 
 ## What comes with a station
@@ -11,10 +11,19 @@ Each entry: date · **measured** | **doc-quoted** · the fact · evidence
   station comes with top-tier storage, market, refuel, repair, shipyard,
   crafting, power and life support. To confirm with the first `station_snapshot`
   (facility list, power block, services).
+- 2026-10-25 · **player-reported** (LT1428, 15:12) · A new station comes with
+  **500k faction storage** (per item type, so top tier, matching the factions
+  guide), but **0 power and 0 life support**. Verify with `view_faction_storage`
+  and `facility list` (power block).
+- 2026-10-25 · **player-reported** (LT1428) · Best early build order: **locker bay
+  → faction workshop → atmospheric recycler**, then fuel production can start.
+  (Our guess at what each does: locker bay = personal storage service, faction
+  workshop = crafting, atmospheric recycler = life support. Confirm each with
+  `facility types`.)
 - 2026-10-25 · **measured** · Right after founding, `view_storage` at the new station
   returns `no_storage`: *"This station does not offer storage. Use 'get_base' to
-  see available services."* A fresh station has **no personal storage service**,
-  which backs up the server hint over the factions guide. `get_base` is the
+  see available services."* A fresh station has **no personal storage service**.
+  (*Corrected below:* faction storage DOES exist; `view_storage` is personal storage.) `get_base` is the
   command the server points to for listing a station's services.
 - 2026-10-25 · **measured** · `station --action info` (15:12 PDT) replies with
   `action: "info"`, `public_access: false`, `allow_outsider_facilities: false`,

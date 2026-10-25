@@ -29,6 +29,7 @@ feed a KB station guide (~/spacemolt/kb) and later a SCADA/HMI station console.
   build planned + user-approved first (credits + materials); the_banker tops up.
 - User's top fear: facilities going offline from missing maintenance inputs — stock
   each facility's inputs BEFORE building it.
-- Docs are wrong: a fresh station is EMPTY (no storage service — `view_storage` →
-  no_storage). Server says build Faction Storage, then power, life support, services.
+- Fresh station: 500k FACTION storage included (player-reported, LT1428), but 0 power /
+  0 life support and NO personal storage (`view_storage` → no_storage). Reported best
+  build order: locker bay → faction workshop → atmospheric recycler → then fuel production.
 - Don't `set_home_base` until checked against fleet routing.
