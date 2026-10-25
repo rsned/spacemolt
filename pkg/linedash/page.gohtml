@@ -31,7 +31,7 @@ header.bar { display: flex; align-items: center; justify-content: space-between;
 .dot.optimal { background: var(--optimal); } .dot.starved { background: var(--starved); }
 .dot.choked { background: var(--choked); } .dot.unknown { background: var(--unknown); }
 .right { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); }
-#pause { background: var(--panel); color: var(--text); border: 1px solid var(--panel-edge); border-radius: 6px; padding: 5px 12px; font: inherit; cursor: pointer; }
+#pause, #refresh { background: var(--panel); color: var(--text); border: 1px solid var(--panel-edge); border-radius: 6px; padding: 5px 12px; font: inherit; cursor: pointer; text-decoration: none; }
 #pause:disabled { opacity: 0.4; cursor: default; }
 body[data-paused="true"] #pause { border-color: var(--starved); color: var(--starved); }
 main { padding: 0 16px 24px; }
@@ -85,6 +85,7 @@ svg .elabel.k { fill: var(--text); }
   </div>
   <div class="right">
     <span>updated {{.Generated}}</span>
+    <a id="refresh" href="?refresh=1" title="rebuild from the files and DBs now">Refresh</a>
     <button id="pause" type="button"{{if le .Refresh 0}} disabled title="auto-refresh off"{{end}}>Pause</button>
   </div>
 </header>
@@ -95,7 +96,9 @@ svg .elabel.k { fill: var(--text); }
 (function () {
   var body = document.body, btn = document.getElementById("pause");
   var secs = parseInt(body.getAttribute("data-refresh"), 10) || 0, timer = null;
-  function start() { if (secs > 0) { timer = setInterval(function () { location.reload(); }, secs * 1000); } }
+  // Reload without the query string so a manual ?refresh=1 does not force a
+  // rebuild on every automatic tick afterwards.
+  function start() { if (secs > 0) { timer = setInterval(function () { location.replace(location.pathname); }, secs * 1000); } }
   btn.addEventListener("click", function () {
     if (body.getAttribute("data-paused") === "true") {
       body.setAttribute("data-paused", "false"); btn.textContent = "Pause"; start();

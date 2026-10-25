@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"log"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -76,11 +78,60 @@ func TestCurrentIgnoresCancelledRequest(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	for _, r := range s.current(ctx) {
+	for _, r := range s.current(ctx, false) {
 		for _, src := range r.StaleSources {
 			if strings.Contains(src, "canceled") {
 				t.Errorf("StaleSources entry %q from a cancelled request context", src)
 			}
+		}
+	}
+}
+
+// TestCurrentForceRebuilds pins the manual refresh: within the cache window a
+// plain call returns the cached build, a forced call rebuilds.
+func TestCurrentForceRebuilds(t *testing.T) {
+	dir := t.TempDir()
+	s := testServer(dir)
+	defer s.closeHandles()
+	ctx := context.Background()
+
+	s.current(ctx, false)
+	s.mu.RLock()
+	first := s.builtAt
+	s.mu.RUnlock()
+	if first.IsZero() {
+		t.Fatal("first call did not build")
+	}
+
+	s.current(ctx, false)
+	s.mu.RLock()
+	cached := s.builtAt
+	s.mu.RUnlock()
+	if !cached.Equal(first) {
+		t.Fatalf("unforced call rebuilt inside the cache window: %v -> %v", first, cached)
+	}
+
+	s.current(ctx, true)
+	s.mu.RLock()
+	forcedAt := s.builtAt
+	s.mu.RUnlock()
+	if !forcedAt.After(first) {
+		t.Fatalf("forced call did not rebuild: builtAt still %v", forcedAt)
+	}
+}
+
+func TestForcedQuery(t *testing.T) {
+	for _, tc := range []struct {
+		url  string
+		want bool
+	}{
+		{"/line/moonshine", false},
+		{"/line/moonshine?refresh=1", true},
+		{"/api/lines.json?refresh", true},
+	} {
+		r := httptest.NewRequest(http.MethodGet, tc.url, nil)
+		if got := forced(r); got != tc.want {
+			t.Errorf("forced(%q) = %v, want %v", tc.url, got, tc.want)
 		}
 	}
 }

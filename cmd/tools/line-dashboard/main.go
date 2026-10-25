@@ -60,7 +60,7 @@ func main() {
 	s := &server{opt: opt, logger: log.New(log.Writer(), "[line-dashboard] ", log.LstdFlags)}
 	defer s.closeHandles()
 
-	reports := s.current(context.Background())
+	reports := s.current(context.Background(), false)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleBoard)
@@ -85,13 +85,15 @@ func main() {
 }
 
 // current returns the cached reports, rebuilding them when they are older
-// than refresh/2 seconds.
-func (s *server) current(ctx context.Context) []linedash.LineReport {
+// than refresh/2 seconds. force rebuilds regardless of age (the page's
+// Refresh link and a ?refresh=1 query); a forced rebuild still serialises
+// on buildMu, so two operators clicking at once build once.
+func (s *server) current(ctx context.Context, force bool) []linedash.LineReport {
 	maxAge := time.Duration(s.opt.refresh) * time.Second / 2
 	s.mu.RLock()
 	reports, builtAt := s.reports, s.builtAt
 	s.mu.RUnlock()
-	if !builtAt.IsZero() && time.Since(builtAt) < maxAge {
+	if !force && !builtAt.IsZero() && time.Since(builtAt) < maxAge {
 		return reports
 	}
 
@@ -100,7 +102,7 @@ func (s *server) current(ctx context.Context) []linedash.LineReport {
 	s.mu.RLock()
 	reports, builtAt = s.reports, s.builtAt
 	s.mu.RUnlock()
-	if !builtAt.IsZero() && time.Since(builtAt) < maxAge {
+	if !force && !builtAt.IsZero() && time.Since(builtAt) < maxAge {
 		return reports // another request rebuilt while we waited
 	}
 	// The build outlives the request that triggered it: its result is cached
@@ -300,8 +302,11 @@ func oneLine(err error) string {
 	return strings.ReplaceAll(err.Error(), "\n", "; ")
 }
 
-func (s *server) find(ctx context.Context, id string) (linedash.LineReport, bool) {
-	for _, r := range s.current(ctx) {
+// forced reports whether the request asks for a rebuild (?refresh=1).
+func forced(r *http.Request) bool { return r.URL.Query().Has("refresh") }
+
+func (s *server) find(ctx context.Context, id string, force bool) (linedash.LineReport, bool) {
+	for _, r := range s.current(ctx, force) {
 		if r.ID == id {
 			return r, true
 		}
@@ -311,12 +316,12 @@ func (s *server) find(ctx context.Context, id string) (linedash.LineReport, bool
 }
 
 func (s *server) handleBoard(w http.ResponseWriter, r *http.Request) {
-	page, err := linedash.RenderBoard(s.current(r.Context()), s.opt.refresh)
+	page, err := linedash.RenderBoard(s.current(r.Context(), forced(r)), s.opt.refresh)
 	s.writeHTML(w, page, err)
 }
 
 func (s *server) handleLine(w http.ResponseWriter, r *http.Request) {
-	rep, ok := s.find(r.Context(), r.PathValue("id"))
+	rep, ok := s.find(r.Context(), r.PathValue("id"), forced(r))
 	if !ok {
 		http.NotFound(w, r)
 
@@ -327,7 +332,7 @@ func (s *server) handleLine(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleLinesJSON(w http.ResponseWriter, r *http.Request) {
-	s.writeJSON(w, s.current(r.Context()))
+	s.writeJSON(w, s.current(r.Context(), forced(r)))
 }
 
 func (s *server) handleLineJSON(w http.ResponseWriter, r *http.Request) {
@@ -337,7 +342,7 @@ func (s *server) handleLineJSON(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-	rep, found := s.find(r.Context(), id)
+	rep, found := s.find(r.Context(), id, forced(r))
 	if !found {
 		http.NotFound(w, r)
 

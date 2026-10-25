@@ -140,3 +140,18 @@ func TestAgo(t *testing.T) {
 		}
 	}
 }
+
+// TestRenderHasManualRefreshLink pins the operator's manual refresh: both
+// pages carry a Refresh link to ?refresh=1, and the auto-reload drops the
+// query so a forced rebuild is not repeated on every tick.
+func TestRenderHasManualRefreshLink(t *testing.T) {
+	board, err := RenderBoard(nil, 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`href="?refresh=1"`, `location.replace(location.pathname)`} {
+		if !strings.Contains(string(board), want) {
+			t.Errorf("board page missing %q", want)
+		}
+	}
+}
