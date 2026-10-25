@@ -81,6 +81,31 @@ Each entry: date · **measured** | **doc-quoted** | **player-reported** (unverif
 
 1 cycle = 100 ticks ≈ 16.7 min ≈ 86.4 cycles/day.
 
+Source: **catalog-quoted** from `data/game-api/20261018/catalog_facilities.json`
+(`maintenance_inputs`, `maintenance_fuel`). Per day = per cycle × 86.4. To be
+confirmed **measured** from storage differences once each facility is running.
+
+| Facility | Build (credits + materials) | Build time | Maintenance / cycle | ≈ / day | Supplies |
+|---|---|---|---|---|---|
+| Locker Bay (service: storage) | 500,000 + 1,600 steel_plate | 80 ticks | 1 steel_plate, 1 flex_polymer | 87 + 87 | personal storage |
+| Faction Workshop (service: crafting) | 500,000 + 800 steel_plate + 400 circuit_board | 100 | 1 circuit_board, 1 focused_crystal | 87 + 87 | crafting |
+| Atmospheric Recycler (infra) | 600,000 + 1,200 steel_plate + 200 water_recycler | 150 | 1 sunspindle, 3 water_ice, 1 purified_water, 2 oxygen_gas, 1 catalytic_scrubber_cartridge | 87 / 260 / 87 / 173 / 87 | life support 12 |
+| Life Support System (infra) | 600,000 + 1,200 steel_plate + 200 water_recycler | 150 | — (none listed) | — | (no supply listed) |
+| Stellar Collector Grid (infra) | 900,000 + 2,000 steel_plate + 1,200 circuit_board | 250 | 2 circuit_board | 173 | power 20 |
+| Fuel Cell Generator (infra) | 500,000 + 2,000 steel_plate + 400 power_cell | 200 | 2 fuel_cell, 1 liquid_hydrogen | 173 + 87 | power 12 |
+| Bunker-Fed Reactor (infra) | 500,000 + 2,000 steel_plate + 400 power_cell | 200 | 55 fuel | 4,752 fuel | power 12 |
+| Scrap Reactor (infra) | 80,000 + 40 steel_plate + 30 salvage_metal | 120 | 2 fuel_cell, 2 salvage_metal | 173 + 173 | power 10 |
+
+- **catalog-quoted** · Locker Bay, Faction Workshop and Atmospheric Recycler list
+  **no `power_draw` or `life_support_draw`**, so services may run on a station with
+  0 power. Production facilities do list draws (e.g. power 6, life support 1).
+  Confirm with `facility list` power block after the locker bay finishes.
+- **catalog-quoted** · Faction Workshop maintenance eats **focused_crystal**
+  (recipe: 4 energy crystal + 1 palladium each), so about **346 energy crystals a day**.
+  Energy crystals are reserved, so this needs a decision before building it.
+- Cloverfield has a star, and the Stellar Collector Grid's only upkeep is 2
+  circuit_board per cycle, the simplest power source to keep supplied.
+
 ## Power & life support
 
 ## Defense
