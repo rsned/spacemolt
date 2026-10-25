@@ -24,7 +24,8 @@ func fixtureLine(t *testing.T) Line {
 }
 
 // baseInputs returns inputs where every line agent is live, fresh, docked,
-// funded and fuelled, with no tanks and no events.
+// funded and fuelled, every holder's tanks are freshly captured and empty,
+// and there are no events.
 func baseInputs(line Line) Inputs {
 	in := Inputs{
 		Now:     evalNow,
@@ -42,8 +43,30 @@ func baseInputs(line Line) Inputs {
 			Credits: 10000, Fuel: 100, MaxFuel: 100, LastSeen: evalNow, CapturedAt: evalNow}
 		in.Cursors[a] = evalNow
 	}
+	for _, n := range line.Nodes {
+		for _, h := range n.Holders {
+			for _, it := range n.Items {
+				in.Tanks[n.ID] = append(in.Tanks[n.ID], TankLevel{Holder: h, Item: it, CapturedAt: evalNow})
+			}
+		}
+	}
 
 	return in
+}
+
+// staleCursor ages one agent's action-log cursor by h hours.
+func staleCursor(in *Inputs, agent string, h float64) { in.Cursors[agent] = at(h) }
+
+func wantStaleNode(t *testing.T, n NodeReport, lastKnown ...string) {
+	t.Helper()
+	if n.State != StateUnknown || !n.Stale || !slices.Equal(n.Alerts, []Alert{AlertDataStale}) {
+		t.Errorf("%s state=%q stale=%v alerts=%v, want unknown/true/[data stale]", n.ID, n.State, n.Stale, n.Alerts)
+	}
+	for _, l := range lastKnown {
+		if !slices.Contains(n.Detail, "last known: "+l) {
+			t.Errorf("%s detail %v lacks %q", n.ID, n.Detail, "last known: "+l)
+		}
+	}
 }
 
 func tank(item string, units float64) TankLevel {
@@ -484,53 +507,202 @@ func TestEvalCraftEdgesTakeProduceState(t *testing.T) {
 	wantState(t, "still->output idle", edgeOf(t, r, "still", "voss_output").State, StateChoked)
 }
 
+// The live case: every heartbeat and tank is fresh, one crafter's action log
+// is 4h old. The oldest source decides, so the still is unknown, and its
+// would-be verdict survives only as "last known" detail.
 func TestEvalStaleSourceGreysNode(t *testing.T) {
 	line := fixtureLine(t)
 	in := baseInputs(line)
-	stillInputsFull(&in)
-	in.Events = []Event{craft("craftsman-8", 60, 0.5)}
-	for _, a := range []string{"craftsman-8", "craftsman-10"} {
-		l := in.Live[a]
-		l.LastSeen = at(3)
-		in.Live[a] = l
-		in.Cursors[a] = at(3)
-	}
-	stale := tank("pirate_moonshine", 30)
-	stale.CapturedAt = at(5)
-	in.Tanks["voss_output"] = []TankLevel{stale}
+	in.Tanks["voss_inputs"] = []TankLevel{tank("water_ice", 300), tank("pharmaceutical_culture", 500)}
+	staleCursor(&in, "craftsman-10", 4)
 
 	r := Evaluate(line, in)
 	still := nodeOf(t, r, "still")
-	wantState(t, "still", still.State, StateUnknown)
-	if !still.Stale || !hasAlert(still, AlertDataStale) {
-		t.Errorf("still stale=%v alerts=%v", still.Stale, still.Alerts)
+	wantStaleNode(t, still, string(AlertInputsStarved), "water_ice 300/600 for one batch")
+	if !agentOf(t, still, "craftsman-10").Live || !agentOf(t, still, "craftsman-8").Live {
+		t.Error("crafters with fresh last_seen not live")
 	}
-	wantState(t, "still->output", edgeOf(t, r, "still", "voss_output").State, StateUnknown)
-	out := nodeOf(t, r, "voss_output")
-	wantState(t, "voss_output", out.State, StateUnknown)
-	if !out.Stale {
-		t.Error("voss_output with a 5h-old tank not stale")
+	if slices.Contains(r.Alerts, AlertInputsStarved) {
+		t.Errorf("line alerts %v carry a stale verdict", r.Alerts)
 	}
-	// voss_inputs has fresh tanks; no-source nodes are never stale.
-	if nodeOf(t, r, "voss_inputs").Stale {
-		t.Error("voss_inputs stale with fresh tanks")
+	// voss_inputs' outflow is the still's crafts, from the same stale log.
+	wantStaleNode(t, nodeOf(t, r, "voss_inputs"))
+	wantState(t, "inputs->still", edgeOf(t, r, "voss_inputs", "still").State, StateUnknown)
+	if nodeOf(t, r, "culture_buy").Stale {
+		t.Error("culture_buy stale with fresh sources")
 	}
-	if !slices.Equal(r.StaleSources, []string{"still", "voss_output"}) {
+	if !slices.Equal(r.StaleSources, []string{"voss_inputs", "still"}) {
 		t.Errorf("StaleSources = %v", r.StaleSources)
 	}
 
-	// One fresh cursor keeps the node fresh.
-	in.Cursors["craftsman-10"] = at(1)
-	if nodeOf(t, Evaluate(line, in), "still").Stale {
-		t.Error("still stale with one fresh cursor")
+	// Fresh again: the rule's verdict shows.
+	in.Cursors["craftsman-10"] = at(0.5)
+	still = nodeOf(t, Evaluate(line, in), "still")
+	wantState(t, "still fresh", still.State, StateStarved)
+	if still.Stale || !hasAlert(still, AlertInputsStarved) {
+		t.Errorf("fresh still stale=%v alerts=%v", still.Stale, still.Alerts)
 	}
 }
 
-func TestEvalStaleNodeWithoutSources(t *testing.T) {
+func TestEvalStaleTankGreysNode(t *testing.T) {
 	line := fixtureLine(t)
 	in := baseInputs(line)
-	if nodeOf(t, Evaluate(line, in), "voss_output").Stale {
-		t.Error("node with no tanks and no agents marked stale")
+	old := tank("pirate_moonshine", 30)
+	old.CapturedAt = at(15)
+	in.Tanks["voss_output"] = append(in.Tanks["voss_output"], old)
+
+	wantStaleNode(t, nodeOf(t, Evaluate(line, in), "voss_output"), string(StateOptimal))
+}
+
+// Mine drops are logged by the holder (trader-9), not the miners: a stale
+// holder log greys the mine however fresh the miners' heartbeats are.
+func TestEvalMineStaleHolderCursor(t *testing.T) {
+	line := fixtureLine(t)
+	in := baseInputs(line)
+	staleCursor(&in, "trader-9", 4)
+
+	r := Evaluate(line, in)
+	mine := nodeOf(t, r, "ice_mine")
+	wantStaleNode(t, mine, string(AlertSourceDepleted))
+	if mine.LiveAgents != 4 {
+		t.Errorf("LiveAgents = %d, want 4 fresh miners", mine.LiveAgents)
+	}
+	wantState(t, "ice haul", edgeOf(t, r, "ice_mine", "voss_inputs").State, StateUnknown)
+	if !slices.Contains(r.StaleSources, "ice_mine->voss_inputs") {
+		t.Errorf("StaleSources %v lack the ice haul edge", r.StaleSources)
+	}
+}
+
+// A haul edge whose agent's log is stale is unknown and raises no hauler
+// starved on its (fresh) from node, and cannot choke the line.
+func TestEvalStaleHaulEdge(t *testing.T) {
+	line := fixtureLine(t)
+	line.Edges[0].Agents = []string{"hauler-x"} // ice_mine -> voss_inputs
+	in := baseInputs(line)
+	in.Tanks["ice_mine"] = []TankLevel{tank("water_ice", 200)}
+	in.Events = []Event{drop("miningbot_0000", 1)}
+	staleCursor(&in, "hauler-x", 4)
+
+	r := Evaluate(line, in)
+	e := edgeOf(t, r, "ice_mine", "voss_inputs")
+	wantState(t, "ice haul", e.State, StateUnknown)
+	if !e.Stale {
+		t.Error("edge not marked stale")
+	}
+	mine := nodeOf(t, r, "ice_mine")
+	wantState(t, "ice_mine", mine.State, StateOptimal)
+	if hasAlert(mine, AlertHaulerStarved) {
+		t.Errorf("ice_mine alerts %v carry hauler starved from a stale edge", mine.Alerts)
+	}
+	if r.State == StateChoked {
+		t.Error("stale edge choked the line")
+	}
+	if !slices.Equal(r.StaleSources, []string{"ice_mine->voss_inputs"}) {
+		t.Errorf("StaleSources = %v", r.StaleSources)
+	}
+
+	// Fresh, the same data chokes the edge and starves the hauler.
+	in.Cursors["hauler-x"] = evalNow
+	r = Evaluate(line, in)
+	wantState(t, "ice haul fresh", edgeOf(t, r, "ice_mine", "voss_inputs").State, StateChoked)
+	if !hasAlert(nodeOf(t, r, "ice_mine"), AlertHaulerStarved) {
+		t.Error("fresh choked edge raised no hauler starved")
+	}
+}
+
+// assets.db down: no cursors and no tanks. Every node and haul/consign edge
+// greys; nothing claims depleted or empty.
+func TestEvalNoAssetsGreysEverything(t *testing.T) {
+	line := fixtureLine(t)
+	in := baseInputs(line)
+	in.Cursors = map[string]time.Time{}
+	in.Tanks = map[string][]TankLevel{}
+
+	r := Evaluate(line, in)
+	for _, n := range r.Nodes {
+		if !n.Stale || n.State != StateUnknown {
+			t.Errorf("%s stale=%v state=%q, want stale unknown", n.ID, n.Stale, n.State)
+		}
+	}
+	for _, e := range r.Edges {
+		wantState(t, e.From+"->"+e.To, e.State, StateUnknown)
+	}
+	wantState(t, "line", r.State, StateUnknown)
+	if !slices.Equal(r.Alerts, []Alert{AlertDataStale}) {
+		t.Errorf("line alerts = %v, want only data stale", r.Alerts)
+	}
+}
+
+// No status record for any miner means no data, not no bots.
+func TestEvalMineNoLiveRecordsIsUnknown(t *testing.T) {
+	line := fixtureLine(t)
+	in := baseInputs(line)
+	for _, a := range line.Nodes[0].Agents {
+		delete(in.Live, a)
+	}
+
+	mine := nodeOf(t, Evaluate(line, in), "ice_mine")
+	wantStaleNode(t, mine)
+	if hasAlert(mine, AlertNoBotsLive) {
+		t.Error("no-bots alert raised with no status data")
+	}
+}
+
+func TestEvalSellStaleAskRow(t *testing.T) {
+	line := fixtureLine(t)
+	in := baseInputs(line)
+	in.Asks["alhena_sell"] = &OurAsk{Price: 900, Units: 50, SeenAt: at(3), PostedAt: at(1)}
+	wantStaleNode(t, nodeOf(t, Evaluate(line, in), "alhena_sell"), string(StateOptimal))
+
+	in.Asks["alhena_sell"].SeenAt = at(1)
+	wantState(t, "fresh ask row", nodeOf(t, Evaluate(line, in), "alhena_sell").State, StateOptimal)
+}
+
+// The absence window ends at the oldest cursor, not at Now: a craft 30 min
+// before a 50-min-old cursor is "within 1h" although it is 80 min ago.
+func TestEvalCraftWindowAnchoredAtCursor(t *testing.T) {
+	line := fixtureLine(t)
+	in := baseInputs(line)
+	stillInputsFull(&in)
+	for _, a := range []string{"craftsman-8", "craftsman-10"} {
+		staleCursor(&in, a, 50.0/60)
+	}
+	in.Events = []Event{craft("craftsman-8", 60, 80.0/60)}
+	wantState(t, "still", nodeOf(t, Evaluate(line, in), "still").State, StateOptimal)
+
+	in.Events = []Event{craft("craftsman-8", 60, 2)}
+	wantState(t, "still, craft before the window", nodeOf(t, Evaluate(line, in), "still").State, StateChoked)
+}
+
+func TestEvalBrokeOnlyForLiveHomeAgents(t *testing.T) {
+	line := fixtureLine(t)
+	in := baseInputs(line)
+	for _, a := range []string{"craftsman-8", "craftsman-10", "trader-10"} {
+		l := in.Live[a]
+		l.Credits = 1
+		in.Live[a] = l
+	}
+	l := in.Live["craftsman-8"]
+	l.LastSeen = at(3)
+	in.Live["craftsman-8"] = l
+	e := in.Roster["craftsman-10"]
+	e.Removed = true
+	in.Roster["craftsman-10"] = e
+	e = in.Roster["trader-10"]
+	e.AwayFleet = "salvage"
+	in.Roster["trader-10"] = e
+
+	r := Evaluate(line, in)
+	for _, id := range []string{"still", "culture_buy"} {
+		n := nodeOf(t, r, id)
+		for _, a := range n.Agents {
+			if a.Broke || a.Stranded {
+				t.Errorf("%s/%s flagged broke=%v stranded=%v", id, a.AgentID, a.Broke, a.Stranded)
+			}
+		}
+		if hasAlert(n, AlertAgentBroke) {
+			t.Errorf("%s raised broke for stale/removed/away agents", id)
+		}
 	}
 }
 

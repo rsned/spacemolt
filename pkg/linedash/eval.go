@@ -14,8 +14,8 @@ type Alert string
 const (
 	AlertInputsStarved   Alert = "output stalled waiting on inputs"
 	AlertMarketSaturated Alert = "market saturated"
-	// AlertFacilityBusy is reserved: facility busy has no capture signal;
-	// reserved, never raised in v1.
+	// AlertFacilityBusy is reserved: facility busy has no capture signal, so
+	// it is never raised in v1.
 	AlertFacilityBusy   Alert = "facility busy"
 	AlertHaulerStarved  Alert = "hauler starved"
 	AlertSourceDepleted Alert = "source depleted"
@@ -24,6 +24,9 @@ const (
 	AlertOutputNotDrawn Alert = "output not drawn" // produce output tank growing, no faction_pull/withdraw
 	AlertDataStale      Alert = "data stale"
 )
+
+// lastKnown prefixes the rule verdict of a stale node or edge in Detail.
+const lastKnown = "last known: "
 
 // AgentReport is one attached agent's condition as shown on a node.
 type AgentReport struct {
@@ -49,9 +52,11 @@ type NodeReport struct {
 	Demand                     *Demand // sell nodes
 	Ask                        *OurAsk // sell nodes
 	LastEventAt                time.Time
-	Stale                      bool     // freshest relevant source older than StaleData
+	Stale                      bool     // a source the node rule read is zero or older than StaleData
 	Detail                     []string // human lines shown under the node
 	X, Y                       int      // filled by layout
+
+	srcs []source
 }
 
 // EdgeReport is the evaluated state of one edge.
@@ -62,7 +67,11 @@ type EdgeReport struct {
 	State            State
 	Agents           []string
 	LastMovedAt      time.Time
-	MovedUnitsWindow int // RateWindow sum of gift_sent units by edge agents for Item
+	MovedUnitsWindow int      // RateWindow sum of gift_sent units by edge agents for Item
+	Stale            bool     // a source the edge rule read is zero or older than StaleData
+	Detail           []string // stale sources and the last-known verdict of a stale edge
+
+	srcs []source
 }
 
 // LineReport is the evaluated state of a whole line.
@@ -74,7 +83,7 @@ type LineReport struct {
 	EffPct                                     int
 	Nodes                                      []NodeReport
 	Edges                                      []EdgeReport
-	StaleSources                               []string // ids of nodes whose data is stale, in node order
+	StaleSources                               []string // stale node ids in node order, then stale edges as "<from>-><to>"
 	GeneratedAt                                time.Time
 }
 
@@ -89,6 +98,13 @@ type Inputs struct {
 	Cursors map[string]time.Time
 	Demand  map[string]Demand  // node id -> demand (sell nodes)
 	Asks    map[string]*OurAsk // node id -> ask (sell nodes)
+}
+
+// source is one input a verdict read and when it was captured. A zero time
+// means never captured.
+type source struct {
+	name string
+	at   time.Time
 }
 
 // AgentsOf returns every agent on any node, edge or holder of the line,
@@ -111,6 +127,16 @@ func AgentsOf(line Line) []string {
 	return slices.Compact(out)
 }
 
+// SellItem is the item a sell node is judged on: the line's output item when
+// the node carries it (or carries nothing), else the node's first item.
+func SellItem(n Node, outputItem string) string {
+	if slices.Contains(n.Items, outputItem) || len(n.Items) == 0 {
+		return outputItem
+	}
+
+	return n.Items[0]
+}
+
 // evaluator carries one Evaluate call's inputs and the line graph.
 type evaluator struct {
 	line  Line
@@ -119,6 +145,13 @@ type evaluator struct {
 }
 
 // Evaluate classifies every node and edge of line and computes its rates.
+//
+// Every rule records the sources it read: the action-log cursors of the
+// agents whose logs carry its events, the capture time of every tank level,
+// and a sell node's exchange-row time. The oldest source decides: a node or
+// edge with any source zero or older than StaleData is unknown, carries only
+// AlertDataStale, and keeps its rule verdict as "last known" detail.
+// Heartbeats (Live.LastSeen) are never a node source.
 func Evaluate(line Line, in Inputs) LineReport {
 	ev := &evaluator{line: line, in: in, nodes: make(map[string]Node, len(line.Nodes))}
 	for _, n := range line.Nodes {
@@ -130,9 +163,12 @@ func Evaluate(line Line, in Inputs) LineReport {
 		r.Nodes = append(r.Nodes, ev.evalNode(n))
 		index[n.ID] = i
 	}
+	var staleEdges []string
 	for _, e := range line.Edges {
 		er, haulerStarved := ev.evalEdge(e)
-		if haulerStarved {
+		if ev.applyStaleEdge(&er) {
+			staleEdges = append(staleEdges, e.From+"->"+e.To)
+		} else if haulerStarved {
 			addAlert(&r.Nodes[index[e.From]], AlertHaulerStarved)
 		}
 		r.Edges = append(r.Edges, er)
@@ -142,6 +178,7 @@ func Evaluate(line Line, in Inputs) LineReport {
 			r.StaleSources = append(r.StaleSources, r.Nodes[i].ID)
 		}
 	}
+	r.StaleSources = append(r.StaleSources, staleEdges...)
 	// Craft edges take the produce node's final (post-stale) state.
 	for i, e := range line.Edges {
 		if e.Kind == EdgeCraft {
@@ -162,10 +199,10 @@ func Evaluate(line Line, in Inputs) LineReport {
 func (ev *evaluator) evalNode(n Node) NodeReport {
 	nr := NodeReport{
 		ID: n.ID, Type: n.Type, Name: n.Name,
-		Tanks:          ev.in.Tanks[n.ID],
 		Units:          map[string]float64{},
 		AssignedAgents: len(n.Agents),
 	}
+	nr.Tanks = ev.useTanks(&nr.srcs, n.ID)
 	for _, it := range n.Items {
 		nr.Units[it] = SumUnits(nr.Tanks, it)
 	}
@@ -200,8 +237,9 @@ func (ev *evaluator) evalNode(n Node) NodeReport {
 }
 
 // agentReport joins roster and live data. An agent absent from Live has zero
-// figures and is never flagged broke or stranded (no data). Stranded also
-// needs a known MaxFuel.
+// figures and is never flagged broke or stranded (no data). Broke and
+// stranded are raised only for a live (fresh last_seen) agent that is neither
+// removed nor seconded away; stranded also needs a known MaxFuel.
 func (ev *evaluator) agentReport(id string) AgentReport {
 	re := ev.in.Roster[id]
 	ar := AgentReport{
@@ -225,16 +263,20 @@ func (ev *evaluator) agentReport(id string) AgentReport {
 	if l.MaxFuel > 0 {
 		ar.FuelPct = l.Fuel / l.MaxFuel * 100
 	}
-	ar.Broke = l.Credits < float64(ev.in.Cfg.BrokeCredits)
-	ar.Stranded = !l.Docked && l.MaxFuel > 0 && ar.FuelPct < float64(ev.in.Cfg.FuelFloorPct)
+	if ar.Live && !ar.Removed && ar.AwayFleet == "" {
+		ar.Broke = l.Credits < float64(ev.in.Cfg.BrokeCredits)
+		ar.Stranded = !l.Docked && l.MaxFuel > 0 && ar.FuelPct < float64(ev.in.Cfg.FuelFloorPct)
+	}
 
 	return ar
 }
 
 // evalMine: drops are gift_received rows logged by the node's holder agents
-// whose Sender is an attached agent, for a node item.
+// whose Sender is an attached agent, for a node item. The holders' cursors are
+// the event sources; the miners' logs are never read.
 func (ev *evaluator) evalMine(n Node, nr *NodeReport) {
 	holders := holderAgents(n)
+	ref := ev.useCursors(&nr.srcs, holders)
 	lastDrop := ev.newest(func(e Event) bool {
 		return e.Type == EventGiftReceived && slices.Contains(holders, e.AgentID) &&
 			slices.Contains(n.Agents, e.Sender) && slices.Contains(n.Items, e.Item)
@@ -242,30 +284,35 @@ func (ev *evaluator) evalMine(n Node, nr *NodeReport) {
 	nr.LastEventAt = lastDrop
 	switch {
 	case nr.LiveAgents == 0:
+		if !ev.anyLiveRecord(n.Agents) {
+			// No status data for any miner: unknown, not "no bots".
+			nr.srcs = append(nr.srcs, source{name: "status files (attached agents)"})
+		}
 		setState(nr, StateStarved, AlertNoBotsLive)
 		for _, a := range nr.Agents {
 			if a.AwayFleet != "" {
 				nr.Detail = append(nr.Detail, fmt.Sprintf("%s: %s in %s", a.AgentID, a.Phase, a.AwayFleet))
 			}
 		}
-	case ev.within(lastDrop, ev.in.Cfg.MineWindow):
+	case ev.seen(lastDrop, ref, ev.in.Cfg.MineWindow):
 		nr.State = StateOptimal
 	default:
 		setState(nr, StateStarved, AlertSourceDepleted)
 	}
-	if ev.anyChoked(nr) && !ev.haulMoved(ev.outgoing(n.ID, EdgeHaul)) {
+	if ev.anyChoked(nr) && !ev.haulMoved(&nr.srcs, ev.outgoing(n.ID, EdgeHaul)) {
 		nr.State = StateChoked
 	}
 }
 
 // evalPurchase: a hauler lot in the tank, or a buy within RateWindow, is optimal.
 func (ev *evaluator) evalPurchase(n Node, nr *NodeReport) {
+	ref := ev.useCursors(&nr.srcs, n.Agents)
 	lastBuy := ev.newest(func(e Event) bool {
 		return e.Type == EventExchangeFill && e.Role == "buyer" &&
 			slices.Contains(n.Items, e.Item) && slices.Contains(n.Agents, e.AgentID)
 	})
 	nr.LastEventAt = lastBuy
-	if ev.anyChoked(nr) || ev.within(lastBuy, ev.in.Cfg.RateWindow) {
+	if ev.anyChoked(nr) || ev.seen(lastBuy, ref, ev.in.Cfg.RateWindow) {
 		nr.State = StateOptimal
 
 		return
@@ -274,8 +321,10 @@ func (ev *evaluator) evalPurchase(n Node, nr *NodeReport) {
 	nr.Detail = append(nr.Detail, "no purchase in "+fmtDur(ev.in.Cfg.RateWindow))
 }
 
-// evalStore: empty is starved; a full item with no outflow in HaulWindow is choked.
+// evalStore: empty is starved; a full item with no outflow in HaulWindow is
+// choked. The outflow agents' cursors are the event sources.
 func (ev *evaluator) evalStore(n Node, nr *NodeReport) {
+	ref := ev.useCursors(&nr.srcs, ev.storeOutflowAgents(n.ID))
 	outflow := ev.newest(ev.storeOutflow(n.ID))
 	nr.LastEventAt = latest(outflow, ev.newest(ev.storeInflow(n.ID)))
 	empty := true
@@ -287,7 +336,7 @@ func (ev *evaluator) evalStore(n Node, nr *NodeReport) {
 	switch {
 	case empty:
 		nr.State = StateStarved
-	case ev.anyChoked(nr) && !ev.within(outflow, ev.in.Cfg.HaulWindow):
+	case ev.anyChoked(nr) && !ev.seen(outflow, ref, ev.in.Cfg.HaulWindow):
 		nr.State = StateChoked
 	default:
 		nr.State = StateOptimal
@@ -295,11 +344,14 @@ func (ev *evaluator) evalStore(n Node, nr *NodeReport) {
 }
 
 // evalProduce: inputs below one batch starve the still; inputs present with no
-// craft in CraftWindow is choked; an undrawn full output tank is choked.
+// craft in CraftWindow is choked; an undrawn full output tank is choked. The
+// upstream and downstream stores' tanks are sources too.
 func (ev *evaluator) evalProduce(n Node, nr *NodeReport) {
+	ref := ev.useCursors(&nr.srcs, n.Agents)
 	lastCraft := ev.newest(craftedBy(ev.nodes[n.ID]))
 	nr.LastEventAt = lastCraft
-	upstream := ev.tanksOf(ev.from(n.ID))
+	upstream := ev.useTanks(&nr.srcs, ev.from(n.ID))
+	downstream := ev.useTanks(&nr.srcs, ev.to(n.ID))
 	starved := false
 	for _, item := range sortedKeys(n.InputsPerRun) {
 		need := n.InputsPerRun[item] * n.BatchRuns
@@ -311,7 +363,7 @@ func (ev *evaluator) evalProduce(n Node, nr *NodeReport) {
 	switch {
 	case starved:
 		setState(nr, StateStarved, AlertInputsStarved)
-	case ev.within(lastCraft, ev.in.Cfg.CraftWindow):
+	case ev.seen(lastCraft, ref, ev.in.Cfg.CraftWindow):
 		nr.State = StateOptimal
 	default:
 		nr.State = StateChoked
@@ -321,8 +373,8 @@ func (ev *evaluator) evalProduce(n Node, nr *NodeReport) {
 	lastDraw := ev.newest(func(e Event) bool {
 		return e.Type == EventWithdraw && e.Item == out && slices.Contains(n.Agents, e.AgentID)
 	})
-	if SumUnits(ev.tanksOf(ev.to(n.ID)), out) >= float64(ev.in.Cfg.ChokeUnits) &&
-		!ev.within(lastDraw, ev.in.Cfg.HaulWindow) {
+	if SumUnits(downstream, out) >= float64(ev.in.Cfg.ChokeUnits) &&
+		!ev.seen(lastDraw, ref, ev.in.Cfg.HaulWindow) {
 		setState(nr, StateChoked, AlertOutputNotDrawn)
 	}
 }
@@ -330,14 +382,20 @@ func (ev *evaluator) evalProduce(n Node, nr *NodeReport) {
 // evalSell: see the brief's ordered rules. The floor comes from the first
 // attached agent with a shopkeep rule for the item; with no rule the floor is
 // 0, so an ask is only "at the floor" when its price is <= 0 (in practice
-// never). An ask with an unknown PostedAt is never stale.
+// never). An ask with an unknown PostedAt is never stale. An ask seen on the
+// exchange is a source at its SeenAt; an ask known only from shopkeep.json
+// (zero SeenAt) is the worker's own current state and adds no source.
 func (ev *evaluator) evalSell(n Node, nr *NodeReport) {
-	item := ev.sellItem(n)
+	ref := ev.useCursors(&nr.srcs, n.Agents)
+	item := SellItem(n, ev.line.OutputItem)
 	if d, ok := ev.in.Demand[n.ID]; ok {
 		nr.Demand = &d
 	}
 	ask := ev.in.Asks[n.ID]
 	nr.Ask = ask
+	if ask != nil && !ask.SeenAt.IsZero() {
+		nr.srcs = append(nr.srcs, source{name: "our ask on the exchange", at: ask.SeenAt})
+	}
 	lastFill := ev.newest(func(e Event) bool {
 		return e.Type == EventExchangeFill && e.Role == "seller" && e.Station == n.Station &&
 			slices.Contains(n.Items, e.Item) && slices.Contains(n.Agents, e.AgentID)
@@ -350,7 +408,7 @@ func (ev *evaluator) evalSell(n Node, nr *NodeReport) {
 		nr.Detail = append(nr.Detail, fmt.Sprintf("stock %.0f below one lot", nr.Units[item]))
 	case stale && ask.Price <= float64(ev.shopFloor(n, item)):
 		setState(nr, StateChoked, AlertMarketSaturated)
-	case ev.within(lastFill, ev.in.Cfg.SellWindow):
+	case ev.seen(lastFill, ref, ev.in.Cfg.SellWindow):
 		nr.State = StateOptimal
 	case ask != nil && !stale:
 		nr.State = StateOptimal
@@ -359,14 +417,17 @@ func (ev *evaluator) evalSell(n Node, nr *NodeReport) {
 	}
 }
 
-// evalEdge classifies a haul/consign edge. haulerStarved reports that goods
-// wait on the from node, which then carries AlertHaulerStarved. Craft edges get
-// their state later from the produce node.
+// evalEdge classifies a haul/consign edge from its agents' gift_sent rows and
+// the from node's tanks. haulerStarved reports that goods wait on the from
+// node, which then carries AlertHaulerStarved unless the edge is stale. Craft
+// edges get their state later from the produce node.
 func (ev *evaluator) evalEdge(e Edge) (EdgeReport, bool) {
 	er := EdgeReport{From: e.From, To: e.To, Kind: e.Kind, Item: e.Item, Label: e.Label, Agents: e.Agents}
 	if e.Kind == EdgeCraft {
 		return er, false
 	}
+	ref := ev.useCursors(&er.srcs, e.Agents)
+	from := ev.useTanks(&er.srcs, e.From)
 	moved := movedBy(e)
 	er.LastMovedAt = ev.newest(moved)
 	for _, x := range ev.in.Events {
@@ -375,9 +436,9 @@ func (ev *evaluator) evalEdge(e Edge) (EdgeReport, bool) {
 		}
 	}
 	switch {
-	case ev.within(er.LastMovedAt, ev.in.Cfg.HaulWindow):
+	case ev.seen(er.LastMovedAt, ref, ev.in.Cfg.HaulWindow):
 		er.State = StateOptimal
-	case SumUnits(ev.tanksOf(e.From), e.Item) >= float64(ev.in.Cfg.SellLot):
+	case SumUnits(from, e.Item) >= float64(ev.in.Cfg.SellLot):
 		er.State = StateChoked
 
 		return er, true
@@ -388,28 +449,116 @@ func (ev *evaluator) evalEdge(e Edge) (EdgeReport, bool) {
 	return er, false
 }
 
-// applyStale greys a node whose freshest source (tank capture, attached
-// agent's cursor or last_seen) is older than StaleData. A node with no
-// sources at all is not stale. Rule-derived alerts are kept.
+// applyStale greys a node when any source its rule read is zero or older than
+// StaleData. The alerts become exactly [AlertDataStale]; the stale sources,
+// the rule's state, alerts and detail move into Detail.
 func (ev *evaluator) applyStale(nr *NodeReport) bool {
-	n := ev.nodes[nr.ID]
-	if len(nr.Tanks) == 0 && len(n.Agents) == 0 {
+	stale := ev.staleSources(nr.srcs)
+	if len(stale) == 0 {
 		return false
 	}
-	freshest := Freshest(nr.Tanks)
-	for _, a := range n.Agents {
-		freshest = latest(freshest, ev.in.Cursors[a])
-		if l, ok := ev.in.Live[a]; ok {
-			freshest = latest(freshest, l.LastSeen)
-		}
+	detail := append(stale, lastKnown+string(nr.State))
+	for _, a := range nr.Alerts {
+		detail = append(detail, lastKnown+string(a))
 	}
-	if ev.within(freshest, ev.in.Cfg.StaleData) {
-		return false
+	for _, d := range nr.Detail {
+		detail = append(detail, lastKnown+d)
 	}
-	nr.Stale = true
-	setState(nr, StateUnknown, AlertDataStale)
+	nr.Stale, nr.State, nr.Alerts, nr.Detail = true, StateUnknown, []Alert{AlertDataStale}, detail
 
 	return true
+}
+
+// applyStaleEdge greys an edge whose sources are stale, as applyStale does.
+func (ev *evaluator) applyStaleEdge(er *EdgeReport) bool {
+	stale := ev.staleSources(er.srcs)
+	if len(stale) == 0 {
+		return false
+	}
+	er.Stale, er.Detail = true, append(stale, lastKnown+string(er.State))
+	er.State = StateUnknown
+
+	return true
+}
+
+// staleSources returns one "stale: <source> <age>" line per distinct source
+// name that is zero or older than StaleData, judged by its oldest time.
+func (ev *evaluator) staleSources(srcs []source) []string {
+	oldest := map[string]time.Time{}
+	var names []string
+	for _, s := range srcs {
+		t, seen := oldest[s.name]
+		if !seen {
+			names = append(names, s.name)
+		}
+		if !seen || s.at.Before(t) {
+			oldest[s.name] = s.at
+		}
+	}
+	var out []string
+	for _, name := range names {
+		t := oldest[name]
+		switch {
+		case t.IsZero():
+			out = append(out, "stale: "+name+" never captured")
+		case !ev.within(t, ev.in.Cfg.StaleData):
+			out = append(out, "stale: "+name+" "+fmtDur(ev.in.Now.Sub(t).Round(time.Minute))+" old")
+		}
+	}
+
+	return out
+}
+
+// useCursors records each agent's action-log cursor as a source and returns
+// the reference time of the rule's absence windows: the oldest set cursor,
+// capped at Now, so a window never reaches past what the logs can know. With
+// no set cursor the reference is Now (the node is stale anyway when a cursor
+// is missing).
+func (ev *evaluator) useCursors(srcs *[]source, agents []string) time.Time {
+	ref := ev.in.Now
+	for _, a := range agents {
+		at := ev.in.Cursors[a]
+		*srcs = append(*srcs, source{name: a + " action log", at: at})
+		if !at.IsZero() && at.Before(ref) {
+			ref = at
+		}
+	}
+
+	return ref
+}
+
+// useTanks returns a node's tank levels and records every level's capture
+// time as a source. A node with holders but no levels (assets.db unreadable)
+// records one never-captured source.
+func (ev *evaluator) useTanks(srcs *[]source, nodeID string) []TankLevel {
+	levels := ev.in.Tanks[nodeID]
+	if len(levels) == 0 && len(ev.nodes[nodeID].Holders) > 0 {
+		*srcs = append(*srcs, source{name: nodeID + " storage"})
+	}
+	for _, l := range levels {
+		*srcs = append(*srcs, source{name: holderName(l.Holder) + " storage", at: l.CapturedAt})
+	}
+
+	return levels
+}
+
+func holderName(h Holder) string {
+	if h.Agent != "" {
+		return h.Agent + "@" + h.Station
+	}
+
+	return h.Faction + "@" + h.Station
+}
+
+// anyLiveRecord reports any of agents has a status record at all.
+func (ev *evaluator) anyLiveRecord(agents []string) bool {
+	for _, a := range agents {
+		if _, ok := ev.in.Live[a]; ok {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (ev *evaluator) producedPerDay() int {
@@ -448,9 +597,16 @@ func (ev *evaluator) soldPerDay() int {
 	return total
 }
 
-// within reports t is set, not after Now, and no older than w.
+// within reports t is set, not after Now, and no older than w. Rates and
+// heartbeats use it; absence verdicts use seen.
 func (ev *evaluator) within(t time.Time, w time.Duration) bool {
 	return !t.IsZero() && !t.After(ev.in.Now) && ev.in.Now.Sub(t) <= w
+}
+
+// seen reports an event at t falls in the absence window ending at ref (the
+// oldest event-source cursor): t is set, not after Now, and not before ref-w.
+func (ev *evaluator) seen(t, ref time.Time, w time.Duration) bool {
+	return !t.IsZero() && !t.After(ev.in.Now) && !t.Before(ref.Add(-w))
 }
 
 // newest returns the latest At among matching events not after Now.
@@ -475,8 +631,6 @@ func (ev *evaluator) anyChoked(nr *NodeReport) bool {
 
 	return false
 }
-
-func (ev *evaluator) tanksOf(nodeID string) []TankLevel { return ev.in.Tanks[nodeID] }
 
 // outgoing returns the node's outgoing edges of kind k.
 func (ev *evaluator) outgoing(nodeID string, k EdgeKind) []Edge {
@@ -510,15 +664,18 @@ func (ev *evaluator) to(nodeID string) string {
 	return ""
 }
 
-// haulMoved reports any of the edges moved within HaulWindow.
-func (ev *evaluator) haulMoved(edges []Edge) bool {
+// haulMoved reports any of the edges moved within HaulWindow, recording the
+// edge agents' cursors as sources of the caller's verdict.
+func (ev *evaluator) haulMoved(srcs *[]source, edges []Edge) bool {
+	moved := false
 	for _, e := range edges {
-		if ev.within(ev.newest(movedBy(e)), ev.in.Cfg.HaulWindow) {
-			return true
+		ref := ev.useCursors(srcs, e.Agents)
+		if ev.seen(ev.newest(movedBy(e)), ref, ev.in.Cfg.HaulWindow) {
+			moved = true
 		}
 	}
 
-	return false
+	return moved
 }
 
 // storeOutflow: completed crafts of the produce node a store feeds, else
@@ -527,9 +684,26 @@ func (ev *evaluator) storeOutflow(nodeID string) func(Event) bool {
 	if craft := ev.outgoing(nodeID, EdgeCraft); len(craft) > 0 {
 		return craftedBy(ev.nodes[craft[0].To])
 	}
-	edges := append(ev.outgoing(nodeID, EdgeHaul), ev.outgoing(nodeID, EdgeConsign)...)
 
-	return anyMoved(edges)
+	return anyMoved(ev.storeOutEdges(nodeID))
+}
+
+// storeOutflowAgents are the agents whose logs carry a store's outflow: the
+// fed produce node's agents, else the outgoing haul/consign edges' agents.
+func (ev *evaluator) storeOutflowAgents(nodeID string) []string {
+	if craft := ev.outgoing(nodeID, EdgeCraft); len(craft) > 0 {
+		return ev.nodes[craft[0].To].Agents
+	}
+	var agents []string
+	for _, e := range ev.storeOutEdges(nodeID) {
+		agents = append(agents, e.Agents...)
+	}
+
+	return agents
+}
+
+func (ev *evaluator) storeOutEdges(nodeID string) []Edge {
+	return append(ev.outgoing(nodeID, EdgeHaul), ev.outgoing(nodeID, EdgeConsign)...)
 }
 
 // storeInflow: gift_sent on incoming haul/consign edges, or completed crafts
@@ -560,16 +734,6 @@ func (ev *evaluator) storeInflow(nodeID string) func(Event) bool {
 
 		return false
 	}
-}
-
-// sellItem is the line's output item when the node carries it, else the
-// node's first item.
-func (ev *evaluator) sellItem(n Node) string {
-	if slices.Contains(n.Items, ev.line.OutputItem) || len(n.Items) == 0 {
-		return ev.line.OutputItem
-	}
-
-	return n.Items[0]
 }
 
 func (ev *evaluator) shopFloor(n Node, item string) int {
