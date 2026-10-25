@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -731,5 +732,32 @@ func TestResolveBaseTwoStepLookup(t *testing.T) {
 
 	if _, _, err := resolveBase(ctx, knowledge.NewMemoryKB(), "from_base"); err == nil {
 		t.Fatal("resolveBase against a non-SQLiteKB must error")
+	}
+}
+
+// TestDeliverAlreadyDockedAtSourceStillDelivers: a resident hauler scheduled to
+// deliver FROM the station it is pinned to is already docked there, and the
+// server answers its dock with "Already docked". That is the desired
+// postcondition, not a failure — live 2026-10-25 trader-9 failed every hourly
+// moonshine backhaul from Voss for seven passes on exactly this refusal while
+// 572 units waited in its storage.
+func TestDeliverAlreadyDockedAtSourceStillDelivers(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+
+	client := &deliverFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: 100}}, dockErr: errors.New("action_error: Already docked at from_base")},
+		storageStock: map[string]float64{"pressure_seal": 10},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	if err := d.Deliver(context.Background(), "pressure_seal", 5, "from_base", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("Deliver with an Already-docked source refusal must succeed, got: %v", err)
+	}
+	if len(client.giftCalls) != 1 {
+		t.Fatalf("SendGift calls = %d, want 1 (%+v)", len(client.giftCalls), client.giftCalls)
 	}
 }

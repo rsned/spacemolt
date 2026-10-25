@@ -316,7 +316,10 @@ func (d *WorkerDispatch) autopilotAndDock(ctx context.Context, system, poi strin
 	if err := Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out, KB: d.KB}, system, poi); err != nil {
 		return err
 	}
-	return d.Client.Dock(ctx)
+	// A resident delivering FROM its own pinned station is already docked
+	// there; "Already docked" is the postcondition we want, not a failure
+	// (live 2026-10-25: trader-9 failed seven hourly backhauls on it).
+	return dockIdempotent(ctx, d.Client)
 }
 
 // agentsDir returns the configured agent-credentials directory, defaulting to
