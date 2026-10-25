@@ -17,8 +17,9 @@ Each entry: date · **measured** | **doc-quoted** | **player-reported** (unverif
   still fails with `no_storage`. Yet `facility faction_list` says *"Faction Storage
   is required before any other faction facility"* and lists no facilities. So
   either the built-in storage counts and that hint is generic, or a Faction Storage
-  facility still has to be built before anything else. **Open, settle on the first
-  faction_build.**
+  facility still has to be built before anything else. **Settled 23:43Z: the
+  built-in storage counts.** `faction_build locker_bay` succeeded with no separate
+  storage facility.
 - 2026-10-25 · **measured** · Docking reply `station_condition`: `thriving`,
   *"No service facilities to maintain."*, `satisfaction_pct` 100,
   `total_service_infra` 0. This is where the maintenance status will show up.
@@ -64,6 +65,17 @@ Each entry: date · **measured** | **doc-quoted** | **player-reported** (unverif
     interest nearby"). It does not take over an existing planet, and you choose
     no POI. The founding ship ends up **docked** there automatically.
   - Station Core consumed? Not stated in the reply. Check craftsman-1's cargo.
+
+## Build log
+
+- 2026-10-25 23:43Z (tick 2233808) · **measured** · `facility faction_build locker_bay`
+  → **Locker Bay**, facility_id `ccebca67f80b05ac66e9fef340579706`,
+  `under_construction: true`, **`rent_per_cycle: 0`** (no rent at our own station,
+  as documented), `faction_service: ""`. It awarded **750 corporation_management XP
+  to each of 38 members** (`members_awarded_xp: 38`). The reply gives **no cost,
+  materials, or build time**. Measure them from the storage and treasury
+  difference (before: 2,400 steel_plate, treasury 1,290,929 at 22:41Z) and from
+  `faction_list` while it builds.
 
 ## Maintenance (per facility, per cycle)
 
