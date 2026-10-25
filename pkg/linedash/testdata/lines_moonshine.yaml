@@ -18,9 +18,9 @@ lines:
           holders: [ { faction: CRFT, station: voss_redoubt_station }, { agent: craftsman-8, station: voss_redoubt_station }, { agent: craftsman-10, station: voss_redoubt_station } ] }
       - { id: still, type: produce, name: "Backwater Still", items: [pirate_moonshine],
           agents: [craftsman-8, craftsman-10], station: voss_redoubt_station,
-          # the crafters' schedule is `craft distill_moonshine 60` = 60 UNITS = 10 runs (6/run):
-          # one batch needs 100 water_ice + 20 pharmaceutical_culture
-          recipe: distill_moonshine, units_per_run: 6, batch_runs: 10,
+          # the craft verb shrinks a refused job down to 10 UNITS = 2 runs (6/run):
+          # "one batch" = the smallest batch the still will run = 20 water_ice + 4 pharmaceutical_culture
+          recipe: distill_moonshine, units_per_run: 6, batch_runs: 2,
           inputs_per_run: { water_ice: 10, pharmaceutical_culture: 2 } }
       - { id: voss_output, type: store, name: "Voss Output", items: [pirate_moonshine],
           holders: [ { faction: CRFT, station: voss_redoubt_station }, { agent: craftsman-8, station: voss_redoubt_station }, { agent: craftsman-10, station: voss_redoubt_station }, { agent: trader-9, station: voss_redoubt_station } ] }

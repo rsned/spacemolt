@@ -332,8 +332,8 @@ func TestEvalStoreEmptyStarved(t *testing.T) {
 func TestEvalProduceStarvedBelowOneBatch(t *testing.T) {
 	line := fixtureLine(t)
 	in := baseInputs(line)
-	// One batch = batch_runs (10) x inputs_per_run: 100 water_ice + 20 culture.
-	in.Tanks["voss_inputs"] = []TankLevel{tank("water_ice", 50), tank("pharmaceutical_culture", 500)}
+	// One batch = batch_runs (2) x inputs_per_run: 20 water_ice + 4 culture.
+	in.Tanks["voss_inputs"] = []TankLevel{tank("water_ice", 10), tank("pharmaceutical_culture", 500)}
 	in.Events = []Event{craft("craftsman-8", 60, 0.5)}
 
 	n := nodeOf(t, Evaluate(line, in), "still")
@@ -341,7 +341,7 @@ func TestEvalProduceStarvedBelowOneBatch(t *testing.T) {
 	if !hasAlert(n, AlertInputsStarved) {
 		t.Errorf("alerts %v lack %q", n.Alerts, AlertInputsStarved)
 	}
-	if !slices.Equal(n.Detail, []string{"water_ice 50/100 for one batch"}) {
+	if !slices.Equal(n.Detail, []string{"water_ice 10/20 for one batch"}) {
 		t.Errorf("detail = %v", n.Detail)
 	}
 }
@@ -514,12 +514,12 @@ func TestEvalCraftEdgesTakeProduceState(t *testing.T) {
 func TestEvalStaleSourceGreysNode(t *testing.T) {
 	line := fixtureLine(t)
 	in := baseInputs(line)
-	in.Tanks["voss_inputs"] = []TankLevel{tank("water_ice", 50), tank("pharmaceutical_culture", 500)}
+	in.Tanks["voss_inputs"] = []TankLevel{tank("water_ice", 10), tank("pharmaceutical_culture", 500)}
 	staleCursor(&in, "craftsman-10", 4)
 
 	r := Evaluate(line, in)
 	still := nodeOf(t, r, "still")
-	wantStaleNode(t, still, string(AlertInputsStarved), "water_ice 50/100 for one batch")
+	wantStaleNode(t, still, string(AlertInputsStarved), "water_ice 10/20 for one batch")
 	if !agentOf(t, still, "craftsman-10").Live || !agentOf(t, still, "craftsman-8").Live {
 		t.Error("crafters with fresh last_seen not live")
 	}
