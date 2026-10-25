@@ -38,7 +38,7 @@ for bot in "$@"; do
   printf '%s\n' "$out"
   rm -f "data/agents/$bot/play_as.lease"
   cur=""
-  if [ "$rc" -ne 0 ] || printf '%s\n' "$out" | grep -qi 'error' || ! printf '%s\n' "$out" | grep -q "$want"; then
+  if [ "$rc" -ne 0 ] || printf '%s\n' "$raw" | grep -qi 'error' || ! printf '%s\n' "$out" | grep -q "$want"; then
     failed+=("$bot")
   fi
 done
