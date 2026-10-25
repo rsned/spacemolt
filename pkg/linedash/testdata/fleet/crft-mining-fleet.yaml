@@ -1,0 +1,17 @@
+workers:
+  - agent_id: miningbot_0000
+    role: pipeline_miner
+    station: sol_central
+    pipeline: "pirate_moonshine_ingredient,sol,belt_1,crft_hub,craftsman-8"
+  - agent_id: miningbot_0004
+    role: miner
+    station: sol_central
+  - agent_id: miningbot_0026
+    role: miner
+    station: sol_central
+  - agent_id: craftsman-8
+    role: crafter
+    station: sol_central
+    consign: ["pirate_moonshine:marketbot_alhena:50"]
+    shopkeep: ["pirate_moonshine:3000:1500"]
+    faction_pull: ["ore_iron"]

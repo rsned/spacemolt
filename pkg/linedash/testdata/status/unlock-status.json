@@ -1,0 +1,3 @@
+{"captured_at": "2026-10-25T10:05:00.5Z", "workers": [
+  {"agent_id": "miningbot_0000", "system": "alpha", "poi": "new_poi", "docked": true, "credits": 250, "fuel": 90, "max_fuel": 100, "cargo_used": 0, "cargo_capacity": 50, "healthy": true, "last_seen": "2026-10-25T10:04:00Z"}
+]}

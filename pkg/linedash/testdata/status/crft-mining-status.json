@@ -1,0 +1,4 @@
+{"captured_at": "2026-10-25T10:00:00Z", "workers": [
+  {"agent_id": "miningbot_0000", "system": "sol", "poi": "old_poi", "docked": false, "credits": 100, "fuel": 50, "max_fuel": 100, "cargo_used": 5, "cargo_capacity": 50, "healthy": true, "last_seen": "2026-10-25T09:59:59Z"},
+  {"agent_id": "craftsman-8", "system": "sol", "poi": "sol_central", "docked": true, "credits": 9000, "healthy": true, "quarantined": true, "last_seen": "garbage"}
+]}

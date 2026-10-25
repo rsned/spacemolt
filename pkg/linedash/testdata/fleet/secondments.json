@@ -1,0 +1,4 @@
+{"entries": [
+  {"agent_id": "miningbot_0004", "home_fleet": "crft-mining", "away_fleet": "unlock", "phase": "seconded"},
+  {"agent_id": "miningbot_0000", "home_fleet": "crft-mining", "away_fleet": "unlock", "phase": "home"}
+]}

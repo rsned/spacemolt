@@ -1,0 +1,7 @@
+workers:
+  - agent_id: miningbot_0004
+    role: miner
+    station: unlock_base
+  - agent_id: miningbot_0026
+    role: miner
+    station: unlock_base
