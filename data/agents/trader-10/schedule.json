@@ -4,60 +4,74 @@
     "frequency": "hourly",
     "command": "capture_profile",
     "created_at": "2026-08-09T06:51:01.975064033Z",
-    "last_run": "2026-08-19T06:00:18.771745677Z"
+    "last_run": "2026-09-22T19:25:16.114869989Z"
   },
   {
     "id": 2,
     "frequency": "daily",
     "command": "capture_storage",
     "created_at": "2026-08-09T06:51:01.975210276Z",
-    "last_run": "2026-08-19T00:00:08.791420142Z"
+    "last_run": "2026-09-22T00:56:36.181052336Z"
   },
   {
     "id": 3,
     "frequency": "daily",
     "command": "capture_faction",
     "created_at": "2026-08-09T06:51:01.975307577Z",
-    "last_run": "2026-08-19T00:00:08.791420142Z"
+    "last_run": "2026-09-22T00:25:53.840651165Z"
   },
   {
     "id": 4,
     "frequency": "hourly",
     "command": "update_market",
     "created_at": "2026-08-13T14:23:15.31189501Z",
-    "last_run": "2026-08-19T06:00:18.771745677Z"
+    "last_run": "2026-09-22T19:01:56.114461828Z"
   },
   {
     "id": 5,
     "frequency": "hourly",
     "command": "capture_fuel",
     "created_at": "2026-08-13T14:23:15.312050906Z",
-    "last_run": "2026-08-19T06:00:18.771745677Z"
+    "last_run": "2026-09-22T19:14:36.114375134Z"
   },
   {
     "id": 6,
     "frequency": "daily",
     "command": "kb_update",
     "created_at": "2026-08-13T14:23:15.315331571Z",
-    "last_run": "2026-08-19T00:00:08.791420142Z"
+    "last_run": "2026-09-22T00:11:54.932591694Z"
   },
   {
     "id": 7,
-    "frequency": "hourly",
+    "frequency": "twice_daily",
     "command": "capture_action_log",
     "created_at": "2026-08-18T07:32:04.956121Z",
-    "last_run": "2026-08-19T06:00:18.771745677Z"
+    "last_run": "2026-09-22T12:49:56.115891167Z"
   },
   {
     "id": 8,
     "frequency": "daily",
-    "command": "capture_citizenship",
-    "created_at": "2026-08-19T06:42:04.000000000Z"
+    "command": "capture_tax",
+    "created_at": "2026-09-14T19:59:59.015736253Z",
+    "last_run": "2026-09-22T00:25:53.840651165Z"
   },
   {
     "id": 9,
     "frequency": "daily",
-    "command": "capture_tax",
-    "created_at": "2026-08-19T06:42:30.000000000Z"
+    "command": "capture_citizenship",
+    "created_at": "2026-09-14T19:59:59.015927164Z",
+    "last_run": "2026-09-22T00:56:36.181052336Z"
+  },
+  {
+    "id": 10,
+    "frequency": "daily",
+    "command": "buy_directed pharmaceutical_culture 850 sirius_observatory_station 10 self",
+    "created_at": "2026-10-25T01:22:45Z"
+  },
+  {
+    "id": 11,
+    "frequency": "daily",
+    "command": "deliver pharmaceutical_culture 850 sirius_observatory_station voss_redoubt craftsman-10",
+    "created_at": "2026-10-25T01:22:45Z"
   }
 ]

@@ -267,11 +267,11 @@ workers:
   # - { agent_id: random-clark, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] } # sol, 17
 
   # 24 jumps — Nexus Prime cluster.
-  - { agent_id: pirate-11, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: pirate-12, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: pirate-11, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: pirate-12, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: pirate-13, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: pirate-14, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: pirate-15, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: pirate-14, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: pirate-15, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: miner-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: miner-6, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: prophet-1, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
@@ -280,12 +280,12 @@ workers:
   # design (blocked on combat dynamics); mission running is the only work they
   # have until that lands.
   - { agent_id: pirate-1, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: pirate-2, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: pirate-3, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }             # 0/150 FUEL, must refuel before it can move
-  - { agent_id: pirate-4, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: pirate-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: pirate-3, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }             # 0/150 FUEL, must refuel before it can move
+  - { agent_id: pirate-4, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: pirate-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: miner-7, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
-  - { agent_id: miner-8, role: unlock, station: "", mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miner-7, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miner-8, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
 
   # === JOHNNY CAB — the passenger carrier, on loan from the shuttle fleet ====
   #
@@ -377,3 +377,77 @@ workers:
   - { agent_id: engineer-6, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 21 jumps, fuel 220, 1.37M cr
   - { agent_id: engineer-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 24 jumps, fuel 174, 3.14M cr
   - { agent_id: explorer-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 24 jumps, fuel 171, 12.7k cr
+  # Seconded from the assist fleet 2026-10-04. The rescue fleet is locked out of
+  # every stronghold, which is exactly where unlocked agents strand: trader-1/3/5
+  # and salvager-10 all stuck at Xamidimura, Barnard 44 and Sheratan with no
+  # tanker able to follow. assist-haven is the only one that can fix that cheaply
+  # -- Treasure Cache is 3 jumps away and in nebula, its OWN empire, so it never
+  # leaves the territory it covers. The others are 12-26 jumps into foreign space.
+  # Release it back to assist once it holds the unlock (it is listed in BOTH
+  # yamls; removing the line here would make the release a no-op).
+  - { agent_id: assist-haven, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 3 jumps, fuel 4000, 85k cr
+  # Rotation #1 (2026-10-08). marketbot_008 is a station-pinned resident, so it can
+  # only reach the giver by being seconded; marketbot_ramens_rest holds The Zero
+  # Point Nexus meanwhile. This line is PERMANENT -- membership is switched by the
+  # removed-sets, and commenting it out would make the release a no-op.
+  - { agent_id: marketbot_008, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 5 jumps, Shard, fuel 90
+  # === CRAFT FLEET SECONDMENT 2026-10-13 ==============================
+  # The entire craft fleet (craftsman-2..10) at pirate baseline -30, idle, and
+  # seconded here to run the three-step unlock at the giver. Two reasons:
+  #   1. SAFETY. -30 is the only hostile default: attacked on sight, no
+  #      stronghold docking. Nine agents were sitting at it doing nothing.
+  #   2. CRFT needs more than one Voss-capable crafter. The Unmarked Munitions
+  #      Line and Crystal Infusion Still are `pirate_base_only`, their material
+  #      packages are complete at voss_redoubt, and craftsman-1 is currently the
+  #      ONLY CRFT member that can dock there. Six of these nine are CRFT
+  #      members (2, 3, 7, 8, 9, 10), so each unlock adds a crafter.
+  #
+  # Distances to the giver measured 2026-10-13: craftsman-9/-10 are 1 jump out
+  # (Altais), -2/-4 13, -3 15, -5/-6 18, -7/-8 30 from Krynn. All have full
+  # tanks. craftsman-9 holds 0 credits -- the chain supplies its own cargo so
+  # only fuel is ever owed, and it is one jump away.
+  #
+  # These lines are PERMANENT. Membership is switched by the removed-sets in
+  # unlock-overrides.json / craft-overrides.json; commenting a line out here
+  # would make the release back to craft a silent no-op and leave the agent
+  # running in NO fleet (reference_secondment_overrides_are_removed_sets).
+  - { agent_id: craftsman-9, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 1 jump, CRFT
+  - { agent_id: craftsman-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 1 jump, CRFT
+  - { agent_id: craftsman-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 13 jumps, CRFT
+  - { agent_id: craftsman-3, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 15 jumps, CRFT
+  - { agent_id: craftsman-7, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 30 jumps, CRFT
+  - { agent_id: craftsman-8, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 30 jumps, CRFT
+  - { agent_id: craftsman-4, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 13 jumps
+  - { agent_id: craftsman-5, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 18 jumps
+  - { agent_id: craftsman-6, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 18 jumps
+  - { agent_id: miningbot_0000, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0001, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0002, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0003, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0004, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0005, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0006, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0007, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0008, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0009, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0010, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0011, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0012, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0013, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0014, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0015, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0016, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0017, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0018, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0019, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0020, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0021, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0022, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0023, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0024, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0025, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0026, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0027, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0028, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0029, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0030, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }

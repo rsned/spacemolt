@@ -22,8 +22,6 @@ workers:
   - { agent_id: trader-6, role: hauler, station: "" }
   - { agent_id: trader-7, role: hauler, station: "" }
   - { agent_id: trader-8, role: hauler, station: "" }
-  - { agent_id: trader-9, role: hauler, station: "" }  # recovered + refueled 2026-06-27 (cargo sold manually elsewhere)
-  - { agent_id: trader-10, role: hauler, station: "" }
   # === CANARY 2026-08-12: stronghold arbitrage ===================
   # explorer-1 already HOLDS the pirate unlock (smuggling 19, baseline 10) and
   # flies a Floor Price: 420 cargo at 1 fuel/jump. strongholdRefsFor keeps

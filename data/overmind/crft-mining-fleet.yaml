@@ -7,9 +7,41 @@
 # station, gift the whole target line plus whatever grew this trip to the
 # recipient (energy_crystal and fuel_cell are always kept), repeat.
 #
-# 2026-10-24: SMOKE ROSTER. One bot, secure space (Altais outer ice, high
-# security, 1 jump from Distant Light), dropping at Frontier Station to
-# trader-8. The 31-bot allocation (4 ice / 8 chlorine / 8 titanium / 6 hot
-# cells / 5 spare) and the unlock waves arrive with the rollout plan.
+# 2026-10-24: FULL ROSTER. 31 miningbots: 4 ice (0000-0003) / 8 chlorine
+# (0004-0011) / 8 titanium (0012-0019) / 6 hot cells (0020-0025) / 5 spare
+# (0026-0030, no pipeline, parked). Chlorine, titanium and spares sit in
+# crft-mining-overrides.json `removed` until they graduate from the unlock queue.
 workers:
-  - { agent_id: miningbot_0000, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,altais,altais_outer_ice,frontier_station,trader-8" }
+  - { agent_id: miningbot_0000, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,frontier,icecap_drift,frontier_station,trader-9" }
+  - { agent_id: miningbot_0001, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,frontier,icecap_drift,frontier_station,trader-9" }
+  - { agent_id: miningbot_0002, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,altais,altais_outer_ice,frontier_station,trader-9" }
+  - { agent_id: miningbot_0003, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,deep_range,deep_range_cryobelt,deep_range_outpost,trader-9" }
+  - { agent_id: miningbot_0004, role: pipeline_miner, station: frontier_station, pipeline: "chlorine_gas,glenhaven,glenhaven_gas_cloud,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0005, role: pipeline_miner, station: frontier_station, pipeline: "chlorine_gas,glenhaven,glenhaven_gas_cloud,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0006, role: pipeline_miner, station: frontier_station, pipeline: "chlorine_gas,glenhaven,glenhaven_gas_cloud,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0007, role: pipeline_miner, station: frontier_station, pipeline: "chlorine_gas,glenhaven,glenhaven_gas_cloud,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0008, role: pipeline_miner, station: frontier_station, pipeline: "chlorine_gas,glenhaven,glenhaven_gas_cloud,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0009, role: pipeline_miner, station: frontier_station, pipeline: "chlorine_gas,glenhaven,glenhaven_gas_cloud,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0010, role: pipeline_miner, station: frontier_station, pipeline: "chlorine_gas,glenhaven,glenhaven_gas_cloud,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0011, role: pipeline_miner, station: frontier_station, pipeline: "chlorine_gas,glenhaven,glenhaven_gas_cloud,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0012, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0013, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0014, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0015, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0016, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0017, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0018, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0019, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0020, role: pipeline_miner, station: frontier_station, pipeline: "plasma_gas,timberline,timberline_gas_pocket,alpha_centauri_colonial_station,trader-9" }
+  - { agent_id: miningbot_0021, role: pipeline_miner, station: frontier_station, pipeline: "plasma_gas,timberline,timberline_gas_pocket,alpha_centauri_colonial_station,trader-9" }
+  - { agent_id: miningbot_0022, role: pipeline_miner, station: frontier_station, pipeline: "plasma_gas,timberline,timberline_gas_pocket,alpha_centauri_colonial_station,trader-9" }
+  - { agent_id: miningbot_0023, role: pipeline_miner, station: frontier_station, pipeline: "plasma_gas,timberline,timberline_gas_pocket,alpha_centauri_colonial_station,trader-9" }
+  - { agent_id: miningbot_0024, role: pipeline_miner, station: frontier_station, pipeline: "plasma_gas,timberline,timberline_gas_pocket,alpha_centauri_colonial_station,trader-9" }
+  - { agent_id: miningbot_0025, role: pipeline_miner, station: frontier_station, pipeline: "plasma_gas,timberline,timberline_gas_pocket,alpha_centauri_colonial_station,trader-9" }
+  - { agent_id: miningbot_0026, role: pipeline_miner, station: frontier_station }
+  - { agent_id: miningbot_0027, role: pipeline_miner, station: frontier_station }
+  - { agent_id: miningbot_0028, role: pipeline_miner, station: frontier_station }
+  - { agent_id: miningbot_0029, role: pipeline_miner, station: frontier_station }
+  - { agent_id: miningbot_0030, role: pipeline_miner, station: frontier_station }
+  - { agent_id: trader-9, role: resident, station: treasure_cache_trading_post }
+  - { agent_id: trader-10, role: resident, station: voss_redoubt }
