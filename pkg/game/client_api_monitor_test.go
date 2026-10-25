@@ -277,3 +277,15 @@ func TestStationInfoActionRegistered(t *testing.T) {
 		}
 	}
 }
+
+// A bare `facility types` returns a discovery index with kind "discovery"
+// (live 2026-10-25); the monitor must expect the discriminator.
+func TestFacilityTypesExpectsKind(t *testing.T) {
+	fields, known := expectedFieldsForAction("types")
+	if !known {
+		t.Fatal(`"types" should be registered`)
+	}
+	if !fields["kind"] {
+		t.Error(`"types" expected fields must include "kind"`)
+	}
+}

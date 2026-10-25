@@ -11,6 +11,22 @@ Each entry: date · **measured** | **doc-quoted** | **player-reported** (unverif
   station comes with top-tier storage, market, refuel, repair, shipyard,
   crafting, power and life support. To confirm with the first `station_snapshot`
   (facility list, power block, services).
+- 2026-10-25 · **measured** (events 22:12–23:35Z) · Faction storage **works on a bare
+  station**: `faction_deposit_items steel_plate 1200` succeeded twice, and
+  `view_faction_storage` at the station lists the steel. Personal `deposit_items`
+  still fails with `no_storage`. Yet `facility faction_list` says *"Faction Storage
+  is required before any other faction facility"* and lists no facilities. So
+  either the built-in storage counts and that hint is generic, or a Faction Storage
+  facility still has to be built before anything else. **Open, settle on the first
+  faction_build.**
+- 2026-10-25 · **measured** · Docking reply `station_condition`: `thriving`,
+  *"No service facilities to maintain."*, `satisfaction_pct` 100,
+  `total_service_infra` 0. This is where the maintenance status will show up.
+- 2026-10-25 · **measured** · An unfiltered `facility types` returns a discovery
+  index (`kind: "discovery"`): 2,910 types, of which defense 12/14 buildable,
+  faction 24/56, infrastructure (power + life support) 28/103, personal 4/13,
+  production 816/2,625, service 23/96, and ranch 3. Add `facility_type=<id>` for
+  build materials and maintenance.
 - 2026-10-25 · **player-reported** (LT1428, 15:12) · A new station comes with
   **500k faction storage** (per item type, so top tier, matching the factions
   guide), but **0 power and 0 life support**. Verify with `view_faction_storage`
@@ -58,6 +74,13 @@ Each entry: date · **measured** | **doc-quoted** | **player-reported** (unverif
 ## Defense
 
 ## Costs we paid
+
+- 2026-10-25 · **measured** · Hauled **2,400 steel_plate** from Grand Exchange into
+  station faction storage (2 runs × 1,200, Enterprise hull). Also started crafting
+  400 circuit boards at GE (`carbon_arc_circuit_etching`).
+- 2026-10-25 · **measured** · CRFT treasury per `view_faction_storage`: 1,338,377
+  at 22:12Z, then **1,290,929 at 22:41Z** (−47,448 in 29 min, while rent is still
+  paid at other stations).
 
 ## Doc contradictions
 

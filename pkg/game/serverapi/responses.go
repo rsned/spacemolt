@@ -1205,7 +1205,11 @@ func (r FacilityFactionOwnedResponse) RentSummary() FacilityRentSummary {
 // FacilityTypesResponse wraps the response from facility action="types" which
 // returns a paginated list of facility type details.
 type FacilityTypesResponse struct {
-	Action     string             `json:"action"`
+	Action string `json:"action"`
+	// Kind is "discovery" for an unfiltered `facility types`: the reply is a
+	// per-category index (Categories as an object of {buildable,count,
+	// description}) with no Types list.
+	Kind       string             `json:"kind,omitempty"`
 	Hint       string             `json:"hint,omitempty"`
 	Page       int                `json:"page,omitempty"`
 	PerPage    int                `json:"per_page,omitempty"`
@@ -1246,9 +1250,11 @@ type FacilityTypesResponse struct {
 	// Pagination/filter envelope fields (added when action="types" returns
 	// a list — the server now includes a categories index, applied filters,
 	// and a pagination block alongside the page/per_page/total fields above).
-	Categories []string       `json:"categories,omitempty"`
-	Filters    map[string]any `json:"filters,omitempty"`
-	Pagination map[string]any `json:"pagination,omitempty"`
+	// Categories is a list of names on a filtered listing but an object keyed
+	// by category on the discovery index, so it is kept raw.
+	Categories json.RawMessage `json:"categories,omitempty"`
+	Filters    map[string]any  `json:"filters,omitempty"`
+	Pagination map[string]any  `json:"pagination,omitempty"`
 }
 
 // FacilityListResponse wraps the response from the `facility action=list`

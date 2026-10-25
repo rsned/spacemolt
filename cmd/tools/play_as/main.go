@@ -2431,13 +2431,45 @@ func formatFacilityFactionBuild(raw []byte) string {
 	return b.String()
 }
 
+// formatFacilityTypeCategories renders the discovery index an unfiltered
+// `facility types` returns: one row per category with buildable/total counts.
+func formatFacilityTypeCategories(raw json.RawMessage, total int, hint string) string {
+	var cats map[string]struct {
+		Buildable   int    `json:"buildable"`
+		Count       int    `json:"count"`
+		Description string `json:"description"`
+	}
+	if err := json.Unmarshal(raw, &cats); err != nil || len(cats) == 0 {
+		return "  (no facility types)\n"
+	}
+	names := slices.Sorted(maps.Keys(cats))
+	nameW := len("Category")
+	for _, n := range names {
+		nameW = max(nameW, len(n))
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "  %-*s  %9s  %6s  %s\n", nameW, "Category", "Buildable", "Total", "Description")
+	for _, n := range names {
+		c := cats[n]
+		fmt.Fprintf(&b, "  %-*s  %9d  %6d  %s\n", nameW, n, c.Buildable, c.Count, c.Description)
+	}
+	fmt.Fprintf(&b, "\n  %d facility types. Filter with --category, --name, --level; --facility_type <id> for build materials and maintenance.\n", total)
+	if hint != "" {
+		fmt.Fprintf(&b, "\nℹ %s\n", hint)
+	}
+	return b.String()
+}
+
 // formatFacilityTypes renders a `facility types` listing as an aligned
 // table, sorted alphabetically by id.
 func formatFacilityTypes(raw []byte) string {
 	var resp struct {
-		Page       int `json:"page"`
-		TotalPages int `json:"total_pages"`
-		Total      int `json:"total"`
+		Kind       string          `json:"kind"`
+		Hint       string          `json:"hint"`
+		Categories json.RawMessage `json:"categories"`
+		Page       int             `json:"page"`
+		TotalPages int             `json:"total_pages"`
+		Total      int             `json:"total"`
 		Types      []struct {
 			ID        string `json:"id"`
 			Name      string `json:"name"`
@@ -2448,6 +2480,9 @@ func formatFacilityTypes(raw []byte) string {
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
+	}
+	if len(resp.Types) == 0 && resp.Kind == "discovery" {
+		return formatFacilityTypeCategories(resp.Categories, resp.Total, resp.Hint)
 	}
 	if len(resp.Types) == 0 {
 		return "  (no facility types)\n"
