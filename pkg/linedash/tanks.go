@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -32,12 +31,9 @@ type Tanks struct {
 // OpenTanks opens assets.db read-only and caches the faction tag and agent
 // lookups. A missing file is an error.
 func OpenTanks(ctx context.Context, assetsPath string) (*Tanks, error) {
-	if _, err := os.Stat(assetsPath); err != nil {
-		return nil, fmt.Errorf("stat assets db: %w", err)
-	}
-	db, err := sql.Open("sqlite", "file:"+assetsPath+"?mode=ro&_pragma=busy_timeout(5000)")
+	db, err := openReadOnly(assetsPath)
 	if err != nil {
-		return nil, fmt.Errorf("open assets db: %w", err)
+		return nil, err
 	}
 	t := &Tanks{db: db, factionIDs: map[string]string{}, players: map[string]string{}}
 	if err := t.loadFactions(ctx); err != nil {

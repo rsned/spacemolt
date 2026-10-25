@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -46,12 +45,9 @@ type Events struct{ db *sql.DB }
 
 // OpenEvents opens assets.db read-only. A missing file is an error.
 func OpenEvents(_ context.Context, assetsPath string) (*Events, error) {
-	if _, err := os.Stat(assetsPath); err != nil {
-		return nil, fmt.Errorf("stat assets db: %w", err)
-	}
-	db, err := sql.Open("sqlite", "file:"+assetsPath+"?mode=ro&_pragma=busy_timeout(5000)")
+	db, err := openReadOnly(assetsPath)
 	if err != nil {
-		return nil, fmt.Errorf("open assets db: %w", err)
+		return nil, err
 	}
 
 	return &Events{db: db}, nil
@@ -67,21 +63,25 @@ func placeholders(n int) string {
 // senderResolver maps a gift sender string to an agent_id.
 type senderResolver struct {
 	byUsername map[string]string
+	agentIDs   map[string]bool
 }
 
 func (e *Events) loadSenders(ctx context.Context) (*senderResolver, error) {
-	rows, err := e.db.QueryContext(ctx, `SELECT agent_id, username FROM agents WHERE agent_id <> '' AND username <> '' ORDER BY last_seen`)
+	rows, err := e.db.QueryContext(ctx, `SELECT agent_id, username FROM agents WHERE agent_id <> '' ORDER BY last_seen`)
 	if err != nil {
 		return nil, fmt.Errorf("agents: %w", err)
 	}
 	defer rows.Close() //nolint:errcheck
-	r := &senderResolver{byUsername: map[string]string{}}
+	r := &senderResolver{byUsername: map[string]string{}, agentIDs: map[string]bool{}}
 	for rows.Next() {
 		var agent, user string
 		if err := rows.Scan(&agent, &user); err != nil {
 			return nil, fmt.Errorf("scan agents: %w", err)
 		}
-		r.byUsername[user] = agent // later last_seen wins
+		r.agentIDs[agent] = true
+		if user != "" {
+			r.byUsername[user] = agent // later last_seen wins
+		}
 	}
 
 	return r, rows.Err()
@@ -91,15 +91,17 @@ func (r *senderResolver) resolve(sender string) string {
 	if id, ok := r.byUsername[sender]; ok {
 		return id
 	}
+	if r.agentIDs[sender] {
+		return sender
+	}
 
-	// A bare agent id (miningbots, whose username equals their id) or an
-	// unknown name stays as the raw string.
+	// Unknown names stay as the raw string.
 	return sender
 }
 
 // Window returns the six event types above for the given agents with
 // created_at >= since, ordered created_at then event_id ascending. Credit gifts
-// (no item_id) are skipped.
+// (no item_id) and rows with an unparseable created_at are skipped.
 func (e *Events) Window(ctx context.Context, agents []string, since time.Time) ([]Event, error) {
 	if len(agents) == 0 {
 		return nil, nil
@@ -150,9 +152,11 @@ ORDER BY ev.created_at ASC, ev.event_id ASC`
 			Role:    p["role"],
 			Price:   atoi(p["price"]),
 		}
-		if ts, perr := time.Parse(time.RFC3339Nano, created); perr == nil {
-			ev.At = ts
+		ts, perr := time.Parse(time.RFC3339Nano, created)
+		if perr != nil {
+			continue // cannot be placed in any window
 		}
+		ev.At = ts
 		if typ == EventGiftReceived {
 			ev.Sender = senders.resolve(p["sender"])
 		}

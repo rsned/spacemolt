@@ -66,12 +66,14 @@ func TestWindowParsesStringPayloads(t *testing.T) {
 		{"p9", 4, "trading.gift_received", "2026-10-24T10:00:04Z", `{"item_id":"water_ice","quantity":"21","recipient":"x","sender":"y"}`},
 		{"p10", 5, "faction.withdraw", "2026-10-24T10:00:05Z", `{"base_id":"voss","faction_id":"f1","item_id":"grain","quantity":"500"}`},
 		{"p10", 6, "storage.deposit_items", "2026-10-24T10:00:06Z", `{"item_id":"moonshine","quantity":"7"}`},
+		{"p10", 8, "storage.deposit_items", "garbage", `{"item_id":"zzz","quantity":"1"}`},
 		{"p10", 7, "trading.other", "2026-10-24T10:00:07Z", `{}`},
 	})
 	got, err := ev.Window(context.Background(), []string{"craftsman-10", "trader-9"}, eventsT0)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// the garbage-created_at row is dropped; its neighbours are present.
 	if len(got) != 6 {
 		t.Fatalf("got %d events, want 6: %+v", len(got), got)
 	}
