@@ -13,7 +13,7 @@
   },
   {
     "id": 4,
-    "frequency": "twice_daily",
+    "frequency": "hourly",
     "command": "capture_action_log",
     "created_at": "2026-08-18T07:32:04.956121Z"
   },

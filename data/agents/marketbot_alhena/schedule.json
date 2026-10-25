@@ -3,106 +3,85 @@
     "id": 1,
     "frequency": "hourly",
     "command": "kb_update",
-    "created_at": "2026-06-24T06:39:01.781685759Z",
-    "last_run": "2026-09-22T02:04:03.519554634Z"
+    "created_at": "2026-06-24T06:39:01.781685759Z"
   },
   {
     "id": 2,
     "frequency": "hourly",
     "command": "view_market",
-    "created_at": "2026-06-24T06:39:01.781819511Z",
-    "last_run": "2026-09-22T02:04:03.519554634Z"
+    "created_at": "2026-06-24T06:39:01.781819511Z"
   },
   {
     "id": 5,
     "frequency": "hourly",
     "command": "capture_fuel",
-    "created_at": "2026-08-11T19:13:28.221541791Z",
-    "last_run": "2026-09-22T02:20:43.520298348Z"
+    "created_at": "2026-08-11T19:13:28.221541791Z"
   },
   {
     "id": 6,
     "frequency": "hourly",
     "command": "capture_profile",
-    "created_at": "2026-08-11T19:13:28.221927391Z",
-    "last_run": "2026-09-22T01:22:43.518995792Z"
-  },
-  {
-    "id": 8,
-    "frequency": "daily",
-    "command": "capture_storage",
-    "created_at": "2026-08-11T19:13:28.222146262Z",
-    "last_run": "2026-09-22T00:27:43.519860358Z"
+    "created_at": "2026-08-11T19:13:28.221927391Z"
   },
   {
     "id": 9,
     "frequency": "daily",
     "command": "capture_faction",
-    "created_at": "2026-08-11T19:13:28.222275816Z",
-    "last_run": "2026-09-22T00:39:03.519614587Z"
+    "created_at": "2026-08-11T19:13:28.222275816Z"
   },
   {
     "id": 10,
     "frequency": "hourly",
     "command": "facilities",
-    "created_at": "2026-08-13T12:04:24.099406877Z",
-    "last_run": "2026-09-22T02:04:03.519554634Z"
+    "created_at": "2026-08-13T12:04:24.099406877Z"
   },
   {
     "id": 11,
     "frequency": "ten_minutely",
     "command": "update_market",
-    "created_at": "2026-08-14T18:44:03.870392641Z",
-    "last_run": "2026-09-22T02:12:23.515654485Z"
+    "created_at": "2026-08-14T18:44:03.870392641Z"
   },
   {
     "id": 12,
-    "frequency": "twice_daily",
+    "frequency": "hourly",
     "command": "capture_action_log",
-    "created_at": "2026-08-18T07:32:04.956121Z",
-    "last_run": "2026-09-22T00:52:23.518915904Z"
+    "created_at": "2026-08-18T07:32:04.956121Z"
   },
   {
     "id": 14,
     "frequency": "ten_minutely",
     "command": "get_nearby",
-    "created_at": "2026-08-29T23:35:57.620997875Z",
-    "last_run": "2026-09-22T02:12:23.515654485Z"
+    "created_at": "2026-08-29T23:35:57.620997875Z"
   },
   {
     "id": 15,
     "frequency": "hourly",
     "command": "craft refine_steel 500",
-    "created_at": "2026-09-12T16:42:23.360379316Z",
-    "last_run": "2026-09-22T02:04:03.519554634Z"
+    "created_at": "2026-09-12T16:42:23.360379316Z"
   },
   {
     "id": 16,
     "frequency": "hourly",
     "command": "craft process_copper_wiring 600",
-    "created_at": "2026-09-12T16:42:23.360575828Z",
-    "last_run": "2026-09-22T02:04:03.519554634Z"
+    "created_at": "2026-09-12T16:42:23.360575828Z"
   },
   {
     "id": 17,
     "frequency": "hourly",
     "command": "craft draw_copper_piping 200",
-    "created_at": "2026-09-12T16:42:23.361135699Z",
-    "last_run": "2026-09-22T02:04:03.519554634Z"
+    "created_at": "2026-09-12T16:42:23.361135699Z"
   },
   {
     "id": 18,
     "frequency": "daily",
     "command": "capture_tax",
-    "created_at": "2026-09-21T20:43:14.667541133Z",
-    "last_run": "2026-09-22T00:56:43.519283593Z"
+    "created_at": "2026-09-21T20:43:14.667541133Z"
   },
   {
     "id": 19,
     "frequency": "daily",
     "command": "capture_citizenship",
-    "created_at": "2026-09-21T20:43:14.66788278Z",
-    "last_run": "2026-09-22T00:43:23.518860879Z"
+    "created_at": "2026-09-21T20:43:14.66788278Z"
   },
   {
     "id": 20,

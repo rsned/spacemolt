@@ -24,20 +24,14 @@
     "created_at": "2026-08-08T03:21:47.469904224Z"
   },
   {
-    "id": 5,
-    "frequency": "daily",
-    "command": "capture_storage",
-    "created_at": "2026-08-08T03:21:47.470295612Z"
-  },
-  {
     "id": 6,
-    "frequency": "daily",
+    "frequency": "hourly",
     "command": "capture_faction",
     "created_at": "2026-08-08T03:21:47.470432553Z"
   },
   {
     "id": 7,
-    "frequency": "twice_daily",
+    "frequency": "hourly",
     "command": "capture_action_log",
     "created_at": "2026-08-18T07:32:04.956121Z"
   },
