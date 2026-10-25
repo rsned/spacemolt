@@ -3,61 +3,84 @@
     "id": 1,
     "frequency": "hourly",
     "command": "update_market",
-    "created_at": "2026-07-12T15:24:47.612736283Z",
-    "last_run": "2026-08-18T22:00:05.642884357Z"
+    "created_at": "2026-07-12T15:24:47.612736283Z"
   },
   {
     "id": 2,
     "frequency": "hourly",
     "command": "facilities",
-    "created_at": "2026-07-12T15:24:47.612859609Z",
-    "last_run": "2026-08-18T22:00:05.642884357Z"
+    "created_at": "2026-07-12T15:24:47.612859609Z"
   },
   {
     "id": 3,
     "frequency": "daily",
     "command": "kb_update",
-    "created_at": "2026-07-12T15:24:47.612978517Z",
-    "last_run": "2026-08-18T07:45:20.939006845Z"
+    "created_at": "2026-07-12T15:24:47.612978517Z"
   },
   {
     "id": 4,
     "frequency": "hourly",
     "command": "capture_profile",
-    "created_at": "2026-08-08T03:21:47.469904224Z",
-    "last_run": "2026-08-18T22:00:05.642884357Z"
+    "created_at": "2026-08-08T03:21:47.469904224Z"
   },
   {
     "id": 5,
     "frequency": "daily",
     "command": "capture_storage",
-    "created_at": "2026-08-08T03:21:47.470295612Z",
-    "last_run": "2026-08-18T07:45:20.939006845Z"
+    "created_at": "2026-08-08T03:21:47.470295612Z"
   },
   {
     "id": 6,
     "frequency": "daily",
     "command": "capture_faction",
-    "created_at": "2026-08-08T03:21:47.470432553Z",
-    "last_run": "2026-08-18T07:45:20.939006845Z"
+    "created_at": "2026-08-08T03:21:47.470432553Z"
   },
   {
     "id": 7,
-    "frequency": "hourly",
+    "frequency": "twice_daily",
     "command": "capture_action_log",
-    "created_at": "2026-08-18T07:32:04.956121Z",
-    "last_run": "2026-08-18T22:00:05.642884357Z"
+    "created_at": "2026-08-18T07:32:04.956121Z"
   },
   {
     "id": 8,
-    "frequency": "daily",
-    "command": "capture_citizenship",
-    "created_at": "2026-08-19T06:42:04.000000000Z"
+    "frequency": "hourly",
+    "command": "craft refine_steel 500 cheap",
+    "created_at": "2026-09-12T18:33:57.283339725Z"
   },
   {
     "id": 9,
+    "frequency": "hourly",
+    "command": "craft process_copper_wiring 600 cheap",
+    "created_at": "2026-09-12T18:33:57.283866024Z"
+  },
+  {
+    "id": 10,
+    "frequency": "hourly",
+    "command": "craft draw_copper_piping 200 cheap",
+    "created_at": "2026-09-12T18:33:57.284125432Z"
+  },
+  {
+    "id": 11,
     "frequency": "daily",
     "command": "capture_tax",
-    "created_at": "2026-08-19T06:42:30.000000000Z"
+    "created_at": "2026-09-21T20:57:44.868951146Z"
+  },
+  {
+    "id": 12,
+    "frequency": "daily",
+    "command": "capture_citizenship",
+    "created_at": "2026-09-21T20:57:44.869264731Z"
+  },
+  {
+    "id": 13,
+    "frequency": "hourly",
+    "command": "capture_fuel",
+    "created_at": "2026-10-13T21:36:02.368054009Z"
+  },
+  {
+    "id": 14,
+    "frequency": "ten_minutely",
+    "command": "craft distill_moonshine 60",
+    "created_at": "2026-10-25T01:33:34Z"
   }
 ]

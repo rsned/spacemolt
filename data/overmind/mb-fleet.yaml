@@ -60,7 +60,7 @@ workers:
   # That is the same loop that drained alhena and sheratan to ZERO on 08-12,
   # reached from the other direction.
   - { agent_id: marketbot_algol, role: resident, station: dross_citadel }      # Algol / Dross Citadel — gas_cloud
-  - { agent_id: marketbot_alhena, role: resident, station: voss_redoubt }      # Alhena / Voss Redoubt — NOTHING mineable; capture only
+  - { agent_id: marketbot_alhena, role: resident, station: voss_redoubt, shopkeep: ["pirate_moonshine:3000:1500"] }      # Alhena / Voss Redoubt — NOTHING mineable; capture only
   - { agent_id: marketbot_barnard_44, role: resident, station: sable_port }            # Barnard 44 / Sable Port (unscanned) — asteroid_belt
   - { agent_id: marketbot_bellatrix, role: resident, station: crix_stronghold } # Bellatrix / Crix Stronghold — ice_field
   - { agent_id: marketbot_gliese_581, role: resident, station: korr_fortress }         # Gliese 581 / Korr Fortress (unscanned) — NOTHING mineable; capture only
@@ -114,7 +114,7 @@ workers:
   - { agent_id: marketbot_node_gamma, role: resident, station: "" }
   - { agent_id: marketbot_nova_terra, role: resident, station: "" }
   - { agent_id: marketbot_procyon, role: resident_gas, station: "" }  # has gas+ice; defaulted to gas — flip to resident_ice if you fit an ice_harvester
-  - { agent_id: marketbot_ramens_rest, role: resident, station: "" }
+  - { agent_id: marketbot_ramens_rest, role: resident, station: 91b887ed660acdcdc166e1e659c43ba0 }  # rotation #1: holding The Zero Point Nexus while marketbot_008 is away unlocking
   - { agent_id: marketbot_sirius, role: resident_gas, station: "" }
   - { agent_id: marketbot_sol, role: resident, station: "" }
   - { agent_id: marketbot_starfall, role: resident, station: "" }
@@ -126,7 +126,7 @@ workers:
   - { agent_id: marketbot_the_rampart, role: resident, station: "" }
   - { agent_id: marketbot_the_telescope, role: resident, station: unknown_edge_waystation }
   - { agent_id: marketbot_traders_rest, role: resident, station: "" }
-  - { agent_id: marketbot_treasure_cache, role: resident, station: "" }
+  - { agent_id: marketbot_treasure_cache, role: resident, station: treasure_cache_trading_post, shopkeep: ["pirate_moonshine:3000:1500"] }
   - { agent_id: marketbot_unknown_edge, role: resident, station: "" }
   - { agent_id: marketbot_void_gate, role: resident, station: "" }
 
@@ -157,4 +157,36 @@ workers:
   - { agent_id: marketbot_011, role: resident, station: 2574b16e0e18d90b98354bcae963854e }  # The Hush Chamber (diphda) - 22 jumps; belt crystalline_field_diphda
   - { agent_id: marketbot_012, role: resident, station: 1e2d6bd532e06724b80851cff3d68e2e }  # Stellar Leap Station (tiaki) - 23 jumps; belt dense_nickel_field_tiaki (of 2)
   - { agent_id: marketbot_013, role: resident, station: d6bc503e703c4422a0bbbc95f5ed9b18 }  # The Whisper Point (gsc_0034) - 23 jumps; belt gsc_0034_belt
+  # =========================================================================
+
+  # === WAVE 1 of the 014-020 postings (2026-09-08) =========================
+  # All seven are fitted, scripted and STOWED (fit_drones deploy=false), so each
+  # one launches its drones with launch_drones once it is docked at its post.
+  #
+  # Split into waves because three of these stations have NEVER been flown by us
+  # -- access is unknown, not open, and a refusal strands the bot the way
+  # johnny_cab's fare did. lilii_borea and gsc_0010 are docked-verified, so they
+  # carry no risk. The other three each get ONE scout here; their partners
+  # (019 -> zosma, 020 -> ironhearth) stay out until the scout docks, so a closed
+  # station costs one stranded bot instead of two.
+  #
+  # Belt-first per the operator's rule; ranked by `richness`, never by
+  # `remaining`, which reads 0 on producing POIs
+  # ([[reference_poi_resources_remaining_is_unreliable]]).
+  - { agent_id: marketbot_016, role: resident, station: 56da4dcca499808b0e76ab482fdfa71c }  # Echo Protocol Hub (lilii_borea) OPEN - gas
+  - { agent_id: marketbot_017, role: resident, station: ef377cbdf4962c2b8c8a8b4e4665742e }  # Plasma Echo Station (gsc_0010) OPEN - gas
+  - { agent_id: marketbot_014, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d }  # SCOUT: Hex Wellspring (zosma) UNFLOWN - zosma_belt
+  - { agent_id: marketbot_015, role: resident, station: ironhearth_station }                # SCOUT: Ironhearth Station UNFLOWN, struggling - ironhearth_fields
+  - { agent_id: marketbot_018, role: resident, station: 6a286d5d8c48468a8d50e57da6cb3690 }  # SCOUT: Carnegie Hall (winterhold) UNFLOWN, 4 services - gas
+  # WAVE 2, released as each scout docks:
+  # zosma CONFIRMED OPEN 2026-09-08 10:15 -- marketbot_014 docked at Hex
+  # Wellspring and held there ("already docked; skipped" at tick cadence, not the
+  # undock/re-dock thrash a base-id pin causes). Note the station-access ledger
+  # did NOT record it: the resident dock path does not feed RecordDock, so
+  # station-access.json still lists this station as unknown.
+  - { agent_id: marketbot_019, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d }  # Hex Wellspring (zosma) 2nd - zosma_ice_belt
+  # ironhearth CONFIRMED OPEN 2026-09-08 10:36 (scout 015 docked and held);
+  # winterhold CONFIRMED OPEN 10:26 (scout 018). All three unflown stations
+  # admitted us -- 0 refusals across the wave.
+  - { agent_id: marketbot_020, role: resident, station: ironhearth_station }                # Ironhearth Station 2nd - the_old_seam (iron_ore richness 85)
   # =========================================================================
