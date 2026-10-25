@@ -98,6 +98,10 @@ setsid nohup ./bin/overmind-dashboard \
 
 setsid nohup ./bin/overmind-status --addr ":8087" --refresh 300 \
   >> data/overmind/overmind-status.log 2>&1 < /dev/null &             # :8087
+
+go build -o bin/line-dashboard ./cmd/tools/line-dashboard
+setsid nohup ./bin/line-dashboard --addr ":8093" \
+  >> data/overmind/line-dashboard.log 2>&1 < /dev/null &              # :8093 contraband lines
 ```
 
 - `overmind-dashboard` needs a built `frontend/dist`; it logs `505 systems loaded, serving on :8091`.
@@ -108,12 +112,16 @@ setsid nohup ./bin/overmind-status --addr ":8087" --refresh 300 \
 - **Do not use `scripts/start-overmind-status.sh` right after a build.** Its singleton guard is
   `pgrep -f bin/overmind-status`, which also matches a concurrent `go build -o bin/overmind-status`,
   so it refuses to start and blames a process that is really the compiler.
+- `line-dashboard` logs `[line-dashboard] serving N lines on :8093`. It reads `data/overmind/lines.yaml`
+  on every rebuild and opens `assets.db` and `market.db` read-only; a source it cannot read shows
+  as a `data stale` badge instead of an error page.
 
-**Checkpoint:** both return HTTP 200.
+**Checkpoint:** all three return HTTP 200.
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8091/
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8087/
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8093/healthz
 ```
 
 ---

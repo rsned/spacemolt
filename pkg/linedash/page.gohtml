@@ -1,0 +1,181 @@
+{{define "head"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Line Dashboard</title>
+{{if gt .Refresh 0}}<noscript><meta http-equiv="refresh" content="{{.Refresh}}"></noscript>{{end}}
+<style>
+:root {
+  --bg: #0f1420; --panel: #161d2d; --panel-edge: #26304a; --grid: rgba(148,163,184,0.07);
+  --text: #e2e8f0; --muted: #94a3b8; --dim: #4b5563;
+  --optimal: #22c55e; --starved: #eab308; --choked: #ef4444; --unknown: #6b7280;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 20px 20px;
+  color: var(--text);
+  font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  min-height: 100vh;
+}
+a { color: var(--text); }
+header.bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; flex-wrap: wrap; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--unknown); }
+.dot.optimal { background: var(--optimal); } .dot.starved { background: var(--starved); }
+.dot.choked { background: var(--choked); } .dot.unknown { background: var(--unknown); }
+.right { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); }
+#pause { background: var(--panel); color: var(--text); border: 1px solid var(--panel-edge); border-radius: 6px; padding: 5px 12px; font: inherit; cursor: pointer; }
+#pause:disabled { opacity: 0.4; cursor: default; }
+body[data-paused="true"] #pause { border-color: var(--starved); color: var(--starved); }
+main { padding: 0 16px 24px; }
+h1 { font-size: 18px; font-weight: 600; margin: 4px 0 12px; display: flex; align-items: center; gap: 10px; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--unknown); color: var(--muted); font-weight: 400; }
+.stalelist { color: var(--muted); font-size: 12px; margin: -6px 0 12px; }
+table.board { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 8px; overflow: hidden; }
+table.board th, table.board td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--panel-edge); vertical-align: top; }
+table.board th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 500; }
+table.board td.num { white-space: nowrap; }
+.canvas { overflow-x: auto; border: 1px solid var(--panel-edge); border-radius: 8px; background: rgba(15,20,32,0.6); }
+.canvas svg { display: block; width: 100%; min-width: 720px; height: auto; }
+svg .box { fill: var(--panel); stroke: var(--panel-edge); stroke-width: 1; }
+svg .sbar, svg .sdot { fill: var(--unknown); }
+svg .optimal .sbar, svg .optimal .sdot { fill: var(--optimal); }
+svg .starved .sbar, svg .starved .sdot { fill: var(--starved); }
+svg .choked .sbar, svg .choked .sdot { fill: var(--choked); }
+svg .node.unknown .box { stroke-dasharray: 4 3; }
+svg text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+svg .nname { fill: var(--text); font-size: 13px; font-weight: 600; }
+svg .tank { fill: var(--text); font-size: 11px; }
+svg .agent { fill: var(--muted); font-size: 11px; }
+svg .agent.off { fill: var(--dim); text-decoration: line-through; }
+svg .detail { fill: var(--muted); font-size: 10px; font-style: italic; }
+svg .alert { fill: var(--choked); font-size: 10px; }
+svg .edge { fill: none; stroke: var(--unknown); stroke-width: 2.5; stroke-dasharray: 8 6; }
+svg .edge.optimal { stroke: var(--optimal); } svg .edge.starved { stroke: var(--starved); }
+svg .edge.choked { stroke: var(--choked); }
+svg .elabel { fill: var(--muted); font-size: 10px; text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+svg .elabel.k { fill: var(--text); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+.stat { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 8px; padding: 12px 14px; }
+.stat .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.stat .v { font-size: 24px; font-weight: 600; margin-top: 4px; }
+.stat .v small { font-size: 13px; color: var(--muted); font-weight: 400; }
+.sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.sliders label { display: flex; flex-direction: column; gap: 6px; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 8px; padding: 10px 14px; font-size: 12px; color: var(--muted); }
+.sliders input { width: 100%; accent-color: var(--optimal); }
+.alerts { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+.foot { color: var(--muted); font-size: 11px; margin-top: 16px; }
+@media (max-width: 640px) { .stats { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body data-refresh="{{.Refresh}}" data-paused="false">
+<header class="bar">
+  <div class="legend">
+    <span><i class="dot optimal"></i>Optimal</span>
+    <span><i class="dot starved"></i>Starved</span>
+    <span><i class="dot choked"></i>Choked / Backed up</span>
+    <span><i class="dot unknown"></i>Unknown / stale</span>
+  </div>
+  <div class="right">
+    <span>updated {{.Generated}}</span>
+    <button id="pause" type="button"{{if le .Refresh 0}} disabled title="auto-refresh off"{{end}}>Pause</button>
+  </div>
+</header>
+{{end}}
+
+{{define "foot"}}
+<script>
+(function () {
+  var body = document.body, btn = document.getElementById("pause");
+  var secs = parseInt(body.getAttribute("data-refresh"), 10) || 0, timer = null;
+  function start() { if (secs > 0) { timer = setInterval(function () { location.reload(); }, secs * 1000); } }
+  btn.addEventListener("click", function () {
+    if (body.getAttribute("data-paused") === "true") {
+      body.setAttribute("data-paused", "false"); btn.textContent = "Pause"; start();
+    } else {
+      body.setAttribute("data-paused", "true"); clearInterval(timer); timer = null; btn.textContent = "Resume";
+    }
+  });
+  start();
+})();
+</script>
+</body>
+</html>
+{{end}}
+
+{{define "board"}}{{template "head" .}}
+<main>
+  <h1>Production lines</h1>
+  <table class="board">
+    <thead><tr><th>Line</th><th>State</th><th>Produced</th><th>Sold</th><th>Alerts</th></tr></thead>
+    <tbody>
+    {{range .Rows}}
+      <tr>
+        <td><a href="/line/{{.ID}}">{{.Name}}</a>{{if .Stale}} <span class="badge" title="{{range $i, $s := .Stale}}{{if $i}}, {{end}}{{$s}}{{end}}">data stale</span>{{end}}
+          {{if .Stale}}<div class="stalelist">{{range $i, $s := .Stale}}{{if $i}}, {{end}}{{$s}}{{end}}</div>{{end}}</td>
+        <td><span class="dot {{.State}}"></span> {{.StateWord}}</td>
+        <td class="num">{{.Produced}} /day produced</td>
+        <td class="num">{{.Sold}} /day sold</td>
+        <td>{{.Alerts}}</td>
+      </tr>
+    {{else}}
+      <tr><td colspan="5">no lines configured</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  <p class="foot">JSON: <a href="/api/lines.json">/api/lines.json</a></p>
+</main>
+{{template "foot" .}}{{end}}
+
+{{define "line"}}{{template "head" .}}
+<main>
+  <h1><span class="dot {{.State}}"></span>{{.Name}} <span class="badge">{{.Word}}</span>{{if .Stale}} <span class="badge">data stale</span>{{end}}</h1>
+  {{if .Stale}}<div class="stalelist">stale: {{range $i, $s := .Stale}}{{if $i}}, {{end}}{{$s}}{{end}}</div>{{end}}
+  <div class="canvas">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="line diagram">
+    {{- range .Edges}}
+    <path class="edge {{.State}}" d="{{.D}}"><title>{{.From}} → {{.To}}: {{.FullLabel}}</title></path>
+    {{- end}}
+    {{- $rx := .RX}}{{$bh := .BarH}}{{$dr := .DotR}}
+    {{- range .Nodes}}
+    <g class="node {{.State}}">
+      <rect class="box" x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" rx="{{$rx}}"/>
+      <rect class="sbar" x="{{.X}}" y="{{.BarY}}" width="{{.W}}" height="{{$bh}}" rx="3"/>
+      <circle class="sdot" cx="{{.DotX}}" cy="{{.DotY}}" r="{{$dr}}"/>
+      <text class="nname" x="{{.NameX}}" y="{{.NameY}}">{{.Name}}</text>
+      {{- range .Lines}}
+      <text class="{{.Class}}" x="{{.X}}" y="{{.Y}}">{{.Text}}</text>
+      {{- end}}
+    </g>
+    {{- end}}
+    {{- range .Edges}}
+    <text class="elabel k" x="{{.LX}}" y="{{.LY1}}">{{.Label}}<title>{{.FullLabel}}</title></text>
+    {{- if .Sub}}
+    <text class="elabel" x="{{.LX}}" y="{{.LY2}}">{{.Sub}}</text>
+    {{- end}}
+    {{- end}}
+  </svg>
+  </div>
+  <section class="stats">
+    <div class="stat"><div class="k">Output Rate</div><div class="v">{{.Output}} <small>/day</small></div></div>
+    <div class="stat"><div class="k">Avg Factory Eff</div><div class="v">{{.Eff}}%</div></div>
+    <div class="stat"><div class="k">Active Alerts</div><div class="v">{{.AlertCount}}</div></div>
+  </section>
+  {{if .Alerts}}<p class="alerts">{{range $i, $a := .Alerts}}{{if $i}} · {{end}}{{$a}}{{end}}</p>{{end}}
+  {{if .Sliders}}
+  <section class="sliders">
+    {{- range .Sliders}}
+    <label>{{.Name}} {{.Live}}/{{.Assigned}} bots<input type="range" disabled min="0" max="{{.Assigned}}" value="{{.Live}}"></label>
+    {{- end}}
+  </section>
+  {{end}}
+  <p class="foot"><a href="/">all lines</a> · JSON: <a href="/api/line/{{.ID}}.json">/api/line/{{.ID}}.json</a></p>
+</main>
+{{template "foot" .}}{{end}}
