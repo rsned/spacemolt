@@ -190,3 +190,11 @@ workers:
   # admitted us -- 0 refusals across the wave.
   - { agent_id: marketbot_020, role: resident, station: ironhearth_station }                # Ironhearth Station 2nd - the_old_seam (iron_ore richness 85)
   # =========================================================================
+
+  # === CRFT HOME STATION (2026-10-25) =======================================
+  # Conjunction Junction, our own player station in cloverfield (lawless
+  # crossroads Haven <-> Outer Rim), founded 10-25. PUBLIC since tick 2234224,
+  # so a non-member dock works. outerrim account -> spawns at the Outer Rim
+  # capital. Pinned by POI id (base id is c976fa7df53c87f9616165d7d411b41a).
+  # No market facility yet, so update_market captures nothing until one exists.
+  - { agent_id: marketbot_home, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # Conjunction Junction (cloverfield) - CRFT home

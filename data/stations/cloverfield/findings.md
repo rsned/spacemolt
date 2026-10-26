@@ -149,6 +149,17 @@ modified orders follow the current policy.
 
 ## Maintenance (per facility, per cycle)
 
+**Where to read it (measured 2026-10-26):**
+- `facility list` → each `faction_facilities[]` entry carries **`maintenance_satisfied`** (bool)
+  and **`maintenance_level`** (0–1; the Locker Bay read **0.4** at 02:03Z after running with no
+  flex_polymer), and its `description` switches to the facility's *degraded* text.
+- `facility types --facility_type <id>` → `maintenance_per_cycle`, the catalog's input list.
+- `get_base` / docking → only the station roll-up (`condition`, `satisfied_count`,
+  `total_service_infra`), not which items are missing.
+- Once life support exists, `get_base` and `facility` replies carry a `life_support` block
+  with `maintenance` (per-cycle items) and **`starved`** (items it's short of) + `remediation`.
+- `faction_rent.grace_cycles: 260` at our own station (rent is 0 here anyway).
+
 1 cycle = 100 ticks ≈ 16.7 min ≈ 86.4 cycles/day.
 
 Source: **catalog-quoted** from `data/game-api/20261018/catalog_facilities.json`
