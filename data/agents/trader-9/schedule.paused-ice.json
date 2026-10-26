@@ -1,0 +1,20 @@
+[
+  {
+    "id": 10,
+    "frequency": "hourly",
+    "command": "deliver water_ice 1900 treasure_cache_trading_post voss_redoubt craftsman-10",
+    "created_at": "2026-10-25T01:22:45Z"
+  },
+  {
+    "id": 18,
+    "frequency": "hourly",
+    "command": "deliver water_ice 1900 frontier_station voss_redoubt craftsman-10",
+    "created_at": "2026-10-25T02:01:22Z"
+  },
+  {
+    "id": 19,
+    "frequency": "hourly",
+    "command": "deliver water_ice 1900 deep_range_outpost voss_redoubt craftsman-10",
+    "created_at": "2026-10-25T02:01:22Z"
+  }
+]

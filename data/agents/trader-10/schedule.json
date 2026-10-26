@@ -38,7 +38,7 @@
   {
     "id": 10,
     "frequency": "daily",
-    "command": "buy_directed pharmaceutical_culture 850 sirius_observatory_station 10 self",
+    "command": "buy_directed pharmaceutical_culture 850 sirius_observatory_station 50 self",
     "created_at": "2026-10-25T01:22:45Z"
   },
   {

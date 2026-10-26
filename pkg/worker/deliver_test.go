@@ -53,6 +53,10 @@ type deliverFakeClient struct {
 	// between a record's pickup and its progress persist.
 	hookOnAttempt int
 	hook          func()
+
+	// atomicWithdraw mirrors the live server: a withdraw larger than the
+	// stock moves nothing and answers "Storage only has N x item".
+	atomicWithdraw bool
 }
 
 type depositCall struct {
@@ -63,6 +67,9 @@ type depositCall struct {
 func (f *deliverFakeClient) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
 	f.calls = append(f.calls, fmt.Sprintf("withdraw:%s:%.0f", itemID, quantity))
 	avail := f.storageStock[itemID]
+	if f.atomicWithdraw && quantity > avail {
+		return fmt.Errorf("insufficient_storage: Storage only has %.0f x %s. Use 'view_storage' to check.", avail, itemID)
+	}
 	got := quantity
 	if got > avail {
 		got = avail
@@ -359,6 +366,38 @@ func TestDeliverSourceShortGiftsWhatExists(t *testing.T) {
 	}
 	if got := client.giftCalls[0]["quantity"]; got != float64(3) {
 		t.Fatalf("gift quantity = %v, want 3", got)
+	}
+}
+
+// TestDeliverAtomicShortWithdrawTakesWhatIsThere: the live server refuses a
+// withdraw larger than the stock outright ("Storage only has 1222 x
+// pirate_moonshine") and moves nothing. Deliver must retry for the stock the
+// refusal names and deliver it, not report the source empty.
+func TestDeliverAtomicShortWithdrawTakesWhatIsThere(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "marketbot_treasure_cache", "Cache Keeper")
+
+	client := &deliverFakeClient{
+		fakeClient:     &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: 1900}}},
+		storageStock:   map[string]float64{"pirate_moonshine": 1222},
+		atomicWithdraw: true,
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "trader-9"
+	d.AgentsDir = agentsDir
+
+	if err := d.Deliver(context.Background(), "pirate_moonshine", 1900, "from_base", "to_base", "marketbot_treasure_cache"); err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	if len(client.giftCalls) != 1 {
+		t.Fatalf("SendGift calls = %d, want 1 (%+v)", len(client.giftCalls), client.giftCalls)
+	}
+	if got := client.giftCalls[0]["quantity"]; got != float64(1222) {
+		t.Fatalf("gift quantity = %v, want 1222", got)
+	}
+	if got := client.storageStock["pirate_moonshine"]; got != 0 {
+		t.Fatalf("source storage left = %v, want 0", got)
 	}
 }
 

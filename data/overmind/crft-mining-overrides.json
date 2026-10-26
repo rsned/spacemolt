@@ -1,27 +1,16 @@
 {
   "removed": [
-    "miningbot_0004",
-    "miningbot_0005",
-    "miningbot_0006",
-    "miningbot_0007",
-    "miningbot_0008",
-    "miningbot_0009",
-    "miningbot_0010",
-    "miningbot_0011",
-    "miningbot_0012",
-    "miningbot_0013",
-    "miningbot_0014",
-    "miningbot_0015",
-    "miningbot_0016",
-    "miningbot_0017",
-    "miningbot_0018",
-    "miningbot_0019",
     "miningbot_0026",
     "miningbot_0027",
     "miningbot_0028",
     "miningbot_0029",
-    "miningbot_0030"
+    "miningbot_0030",
+    "miningbot_0023",
+    "miningbot_0000",
+    "miningbot_0001",
+    "miningbot_0002",
+    "miningbot_0003"
   ],
-  "updated_at": "2026-10-25T01:22:45Z",
-  "by": "rollout: Lawless groups wait for unlock; spares parked"
+  "updated_at": "2026-10-26T19:33:17Z",
+  "by": "pause moonshine ice: 39k+ water_ice at Voss (2026-10-26); re-add 0000-0003 to resume"
 }

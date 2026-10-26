@@ -278,7 +278,7 @@ func Shopkeep(ctx context.Context, client game.GameClient, rules []ShopRule, st 
 				next := max(shopMinPrice, r.Floor, cur.Price*(100-opts.StepPct)/100)
 				if next < cur.Price {
 					if merr := client.ModifyOrder(ctx, map[string]any{
-						"order_id": ask.OrderID, "price_each": next,
+						"order_id": ask.OrderID, "new_price": next,
 					}); merr != nil {
 						_, _ = fmt.Fprintf(out, "shopkeep: reprice %s order %s failed: %v\n", r.Item, ask.OrderID, merr)
 					} else {

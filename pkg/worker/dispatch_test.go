@@ -157,7 +157,7 @@ func (f *fakeClient) CreateSellOrder(ctx context.Context, payload map[string]any
 	return nil
 }
 func (f *fakeClient) ModifyOrder(ctx context.Context, payload map[string]any) error {
-	f.calls = append(f.calls, fmt.Sprintf("modify_order:%v@%v", payload["order_id"], payload["price_each"]))
+	f.calls = append(f.calls, fmt.Sprintf("modify_order:%v@%v", payload["order_id"], payload["new_price"]))
 	return f.modifyOrderErr
 }
 func (f *fakeClient) ViewOrders(ctx context.Context) error {

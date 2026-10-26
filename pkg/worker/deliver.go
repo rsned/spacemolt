@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -106,6 +108,24 @@ func isShortSupplyErr(err error) bool {
 	}
 	s := strings.ToLower(err.Error())
 	return strings.Contains(s, "not enough") || strings.Contains(s, "no such item") || strings.Contains(s, "insufficient")
+}
+
+// storageOnlyHasRE matches the server's short-withdraw refusal, which names
+// the stock actually held: "Storage only has 1222 x pirate_moonshine".
+var storageOnlyHasRE = regexp.MustCompile(`only has (\d+) x `)
+
+// storageOnlyHas returns the stock a short-withdraw refusal names, if err is
+// one.
+func storageOnlyHas(err error) (int, bool) {
+	if err == nil {
+		return 0, false
+	}
+	m := storageOnlyHasRE.FindStringSubmatch(err.Error())
+	if m == nil {
+		return 0, false
+	}
+	n, convErr := strconv.Atoi(m[1])
+	return n, convErr == nil
 }
 
 // Deliver moves ITEM xQTY from the worker's own storage at FROM to RECIPIENT
@@ -240,6 +260,17 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 	werr := d.Client.WithdrawItems(ctx, itemID, float64(want))
 	if werr != nil && !isShortSupplyErr(werr) {
 		return 0, false, false, fmt.Errorf("deliver: withdraw %s at %s: %w", itemID, baseLabel, werr)
+	}
+	// The server refuses an oversized withdraw outright and names the stock
+	// ("Storage only has 1222 x pirate_moonshine"); take that much instead
+	// of reporting the source empty.
+	if have, ok := storageOnlyHas(werr); ok && have > 0 && have < want {
+		fmt.Fprintf(d.Out, "deliver: %s at %s holds %d of %d wanted — withdrawing that\n", itemID, baseLabel, have, want) //nolint:errcheck
+		want = have
+		werr = d.Client.WithdrawItems(ctx, itemID, float64(want))
+		if werr != nil && !isShortSupplyErr(werr) {
+			return 0, false, false, fmt.Errorf("deliver: withdraw %s at %s: %w", itemID, baseLabel, werr)
+		}
 	}
 	// The live client's parseActionResult has no case for "withdraw_items"
 	// (unlike "deposit_items"), so a successful or short-supply withdraw does

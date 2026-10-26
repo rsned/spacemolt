@@ -126,7 +126,7 @@ workers:
   - { agent_id: marketbot_the_rampart, role: resident, station: "" }
   - { agent_id: marketbot_the_telescope, role: resident, station: unknown_edge_waystation }
   - { agent_id: marketbot_traders_rest, role: resident, station: "" }
-  - { agent_id: marketbot_treasure_cache, role: resident, station: treasure_cache_trading_post, shopkeep: ["pirate_moonshine:3000:1500"] }
+  - { agent_id: marketbot_treasure_cache, role: resident, station: treasure_cache_trading_post, shopkeep: ["pirate_moonshine:1500:1500"] }
   - { agent_id: marketbot_unknown_edge, role: resident, station: "" }
   - { agent_id: marketbot_void_gate, role: resident, station: "" }
 
