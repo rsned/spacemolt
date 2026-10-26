@@ -1,0 +1,10 @@
+withdraw ice_harvester_iii 1
+sleep 6s
+uninstall gas_harvester_iii
+sleep 8s
+install ice_harvester_iii
+sleep 8s
+faction_deposit_items gas_harvester_iii 1
+sleep 5s
+ship
+exit

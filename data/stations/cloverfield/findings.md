@@ -147,6 +147,72 @@ modified orders follow the current policy.
   difference (before: 2,400 steel_plate, treasury 1,290,929 at 22:41Z) and from
   `faction_list` while it builds.
 
+- 2026-10-26 (tick 2237437) · **measured** · `facility faction_build stellar_collector_grid`
+  → **Stellar Collector Grid**, facility_id `09960be12c023698746990244760a86d`,
+  `under_construction: true`, `rent_per_cycle: 0`, again 750 corporation_management XP to
+  each of 38 members. Catalog: 900,000 cr + 2,000 steel_plate + 1,200 circuit_board, build
+  time 250, power supply 20, upkeep 2 circuit_board/cycle. Faction storage held only ~798
+  steel_plate just before this — so where the other ~1,200 plate came from (builder's cargo?
+  personal storage?) is **still to measure**.
+- 2026-10-26 (tick 2237416) · **measured** · `facility faction_build faction_fuel_bunker` is
+  **refused** on your own station: `build_failed: a private Faction Fuel Bunker doesn't make
+  sense on your own station — its fuel would just sit unused. Build a Fuel Tank Expansion
+  (faction_build facility_type=fuel_tank_expansion) to grow the station's own shared tank
+  instead`. See "Fuel" below.
+
+## Fuel (measured + catalog, 2026-10-26)
+
+- **Faction Fuel Bunker cannot be built at your own station** (server refusal above). Its
+  whole family (`faction_fuel_bunker` / `faction_large_fuel_bunker` /
+  `faction_capital_fuel_bunker`) is for NPC stations.
+- **Fuel Tank Expansion** (`fuel_tank_expansion`, infrastructure, `player_station_buildable`):
+  500,000 cr + 8,000 steel_plate + 1,500 ceramite_plating + 800 fuel_tank; build 100; **+50,000
+  fuel capacity** each ("build more for more capacity"); upkeep 5 steel_plate/cycle. Fill it
+  from fuel-production facilities or by depositing a docked ship's fuel (storage deposit,
+  `item_id=fuel`).
+- **Refueling Dock** (`refueling_dock`, service `refuel`, `player_station_buildable`):
+  500,000 cr + 800 steel_plate + 2,000 fuel_cell; build 80; own 5,000-fuel tank; upkeep
+  2 fuel_cell + 1 liquid_hydrogen/cycle. *Faction members draw from the shared tank for free;
+  everyone else pays station price* — this is the facility that **sells** fuel, the crossroads
+  refuel business. *Guess, unverified:* tank expansions grow the reserve this dock dispenses.
+- Our miners at the station currently get `no_fuel_source … insufficient credits for station
+  refueling` (misleading: there is simply no refuel service yet).
+
+## What can be built on a player station
+
+The facility catalog carries **`player_station_buildable: true`** on **63 of 2,907**
+facilities (catalog 2026-10-26). That flag, not the official guide, is the list to plan
+from: it includes locker_bay, faction_workshop, atmospheric_recycler, the power plants
+(stellar_collector_grid, fuel_cell_generator, bunker_fed_reactor, scrap_reactor,
+dark_matter_reactor), fuel_tank_expansion, refueling_dock, trade_concourse, repair_slip,
+outfitting_bay, the defense line (point_defense_battery … siege_lance), and food/leisure
+venues. `faction_*` facilities (e.g. the fuel bunkers) are NOT flagged.
+
+## Target service set (user, 2026-10-26)
+
+A full station lists 11 `services`: crafting, marine_training, market, medical, missions,
+personnel, refuel, repair, salvage_yard, shipyard, storage. Every one has a level-1
+`player_station_buildable` facility at **500,000 cr** (catalog 2026-10-26):
+
+| Service | Level 1 | Upgrades (L2 → L4) | Upkeep / cycle |
+|---|---|---|---|
+| storage | locker_bay | — | 1 steel_plate, 1 flex_polymer |
+| crafting | faction_workshop | — | 1 circuit_board, 1 focused_crystal |
+| refuel | refueling_dock | — | 2 fuel_cell, 1 liquid_hydrogen |
+| market | trade_concourse | — | 1 trade_authenticator |
+| repair | repair_slip | — | 1 repair_kit, 1 steel_plate |
+| missions | contract_terminal | — | 1 circuit_board, 1 copper_wiring |
+| salvage_yard | reclamation_dock | — | 1 steel_plate, 1 fuel_cell |
+| shipyard | outfitting_bay | fabrication_yard → assembly_complex → grand_shipworks | 2 steel_plate, 1 titanium_alloy |
+| medical | first_aid_ward | trauma_clinic → surgical_center → regenerative_medical_complex | none listed |
+| personnel | crew_registry | personnel_bureau → sector_labor_exchange → fleet_personnel_command | none listed |
+| marine_training | security_training_post | marine_training_barracks → fleet_marine_academy → expeditionary_warfare_command | none listed |
+
+All 11 at level 1 = 5.5M cr. Founding + power + life support + fuel storage + all 11 = 12.5M cr
+(KB guide sidebar). Upkeep inputs to source: steel_plate, flex_polymer, focused_crystal,
+fuel_cell, liquid_hydrogen, trade_authenticator, repair_kit, circuit_board, copper_wiring,
+titanium_alloy.
+
 ## Maintenance (per facility, per cycle)
 
 **Where to read it (measured 2026-10-26):**

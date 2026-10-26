@@ -1,1 +1,6 @@
 {"observed_utc": "2026-10-25T20:49:18Z", "agent_id": "craftsman-1", "category": "founding", "item": "credits", "qty": -5000000, "credits": -5000000, "note": "build_base fee_paid; backfilled"}
+{"observed_utc": "2026-10-25T23:43:00Z", "agent_id": "craftsman-1", "category": "build", "item": "credits", "qty": -500000, "credits": -500000, "note": "locker_bay build; catalog cost, backfilled; catalog materials 1600 steel_plate"}
+{"observed_utc": "2026-10-26T09:50:00Z", "agent_id": "craftsman-1", "category": "build", "item": "credits", "qty": -900000, "credits": -900000, "note": "stellar_collector_grid build (tick 2237437); catalog cost"}
+{"observed_utc": "2026-10-26T09:50:00Z", "agent_id": "craftsman-1", "category": "build", "item": "steel_plate", "qty": -2000, "credits": 0, "note": "stellar_collector_grid build materials; catalog"}
+{"observed_utc": "2026-10-26T09:50:00Z", "agent_id": "craftsman-1", "category": "build", "item": "circuit_board", "qty": -1200, "credits": 0, "note": "stellar_collector_grid build materials; catalog"}
+{"observed_utc": "2026-10-25T23:43:00Z", "agent_id": "craftsman-1", "category": "build", "item": "steel_plate", "qty": -1600, "credits": 0, "note": "locker_bay build materials; catalog 1600, matches faction storage 2400 -> ~800 (measured)"}
