@@ -154,6 +154,12 @@ modified orders follow the current policy.
   time 250, power supply 20, upkeep 2 circuit_board/cycle. Faction storage held only ~798
   steel_plate just before this — so where the other ~1,200 plate came from (builder's cargo?
   personal storage?) is **still to measure**.
+- 2026-10-26 · **measured** · Stellar Collector Grid **finished**. `get_base` now carries a
+  **`power` block** (absent on the bare station): `{"supply":20, "current_draw":0,
+  "battery_capacity":0, "battery_stored":0, "efficiency":1}` — supply 20 matches the catalog.
+  `condition: thriving`, `satisfied_count 2 / total_service_infra 2` (Locker Bay + Grid: infra
+  facilities count toward station health too), `services: ["storage"]`. Base: hull 60,000,
+  shield 12,000, armor 15, fuel 0/200, weapon_dps 0.
 - 2026-10-26 (tick 2237416) · **measured** · `facility faction_build faction_fuel_bunker` is
   **refused** on your own station: `build_failed: a private Faction Fuel Bunker doesn't make
   sense on your own station — its fuel would just sit unused. Build a Fuel Tank Expansion
