@@ -401,10 +401,20 @@ func alreadyAtPOI(client game.GameClient, targetPOI string) bool {
 		return false
 	}
 	state := client.GetState()
-	if state == nil || state.Player.CurrentPOI == "" {
+	if state == nil {
 		return false
 	}
-	return strings.EqualFold(state.Player.CurrentPOI, targetPOI)
+	// state.CurrentPOI follows every jump and in-system arrival;
+	// Player.CurrentPOI is refreshed only by get_status, so after a hop it can
+	// still name the POI we just left. Prefer the fresh one.
+	here := state.CurrentPOI
+	if here == "" {
+		here = state.Player.CurrentPOI
+	}
+	if here == "" {
+		return false
+	}
+	return strings.EqualFold(here, targetPOI)
 }
 
 // isInsufficientFuelErr reports whether a travel/jump error is the server's out-of-fuel

@@ -74,3 +74,30 @@ func TestTravelToPOIUnknownLocationStillTravels(t *testing.T) {
 		t.Fatalf("unknown location must still attempt travel, got %v", fc.calls)
 	}
 }
+
+// TestTravelToPOIStalePlayerPOIStillTravels: Player.CurrentPOI is refreshed
+// only by get_status, while in-system travel updates state.CurrentPOI. Live
+// 2026-10-26: miningbot_0019 jumped into Cloverfield (get_status put
+// Player.CurrentPOI at the station), traveled to cloverfield_belt and mined,
+// then skipped the hop back as "Already at <station>" and failed to dock with
+// "No station at this location". The fresh location must win.
+func TestTravelToPOIStalePlayerPOIStillTravels(t *testing.T) {
+	fc := &fakeClient{
+		state: &game.State{
+			CurrentPOI: "cloverfield_belt",
+			Player:     game.Player{CurrentPOI: "862e07fa76571d0a76cab3cbaf4046e7"},
+		},
+	}
+	if err := autopilotTravelToPOI(context.Background(), fc, io.Discard, "862e07fa76571d0a76cab3cbaf4046e7"); err != nil {
+		t.Fatalf("travel: %v", err)
+	}
+	var traveled bool
+	for _, c := range fc.calls {
+		if c == "travel:862e07fa76571d0a76cab3cbaf4046e7" {
+			traveled = true
+		}
+	}
+	if !traveled {
+		t.Fatal("a stale Player.CurrentPOI must not stand in for the ship's real location")
+	}
+}
