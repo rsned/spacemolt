@@ -33,3 +33,11 @@ feed a KB station guide (~/spacemolt/kb) and later a SCADA/HMI station console.
   0 life support and NO personal storage (`view_storage` → no_storage). Reported best
   build order: locker bay → faction workshop → atmospheric recycler → then fuel production.
 - Don't `set_home_base` until checked against fleet routing.
+- KB guide (2026-10-25): `~/spacemolt/kb` has `cmd/generate-guides` + `pkg/stationplan` +
+  `guides/player-stations.md` → `kb/guides/` (catalog-driven build steps, sticky upkeep sidebar),
+  merged to KB LOCAL main 74cdd577, NOT pushed. KB local main has DIVERGED from origin (24 local
+  vs 10 remote, incl. origin 167f8fd4 "Did You Know in the top nav" which touches kbnav.Items) —
+  user chose to leave it; resolve before pushing. Guides is linked from kb/index.html only; adding
+  it to kbnav.Items needs a full ~14k-page regen (TestGeneratedPagesMatchNav).
+- Station went CRITICAL after the Locker Bay finished with no flex_polymer stocked; fix =
+  faction_deposit_items flex_polymer (CRFT has ~1,940 at GE, craftsman-1 1,164 personal).
