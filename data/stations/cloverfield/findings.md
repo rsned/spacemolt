@@ -30,7 +30,7 @@ is sent as `action`). Raw form: `{"type":"station","payload":{"action":"…", �
 |---|---|---|---|---|
 | `info` ✅ 2026-10-25 | — | `station info` | `{"action":"info"}` | Current config: name, description, public_access, allow_outsider_facilities, auto_buy_fuel, contraband_mode/items, service_access (once services exist). |
 | `set_name` | `name` | `station set_name --name "Conjunction Junction"` | `{"action":"set_name","name":"Conjunction Junction"}` | Rename the station. |
-| `set_description` | `description` (≤500 chars) | `station set_description --description "CRFT home. Crossroads of Haven and the Rim."` | `{"action":"set_description","description":"…"}` | Station blurb shown on dock. |
+| `set_description` ✅ 2026-10-25 | `description` (≤500 chars) | `station set_description --description "CRFT home. Crossroads of Haven and the Rim."` | `{"action":"set_description","description":"…"}` | Station blurb shown on dock. |
 | `set_public` ✅ reply seen 2026-10-25 | `public` true/false | `station set_public true` | `{"action":"set_public","public":true}` | When false, only the owning faction, allowed factions and allowed players may dock. |
 | `set_build_policy` | `allow_outsiders` true/false | `station set_build_policy --allow_outsiders true` | `{"action":"set_build_policy","allow_outsiders":true}` | Let non-members build their own facilities. Tenants pay rent each cycle to our treasury. |
 | `set_service_access` | `service` = market\|refuel\|repair\|shipyard\|crafting\|salvage_yard\|missions, `access` = public\|allies\|faction | `station set_service_access --service refuel --access public` | `{"action":"set_service_access","service":"refuel","access":"public"}` | Gate one service to the faction, allies, or everyone. |
@@ -53,6 +53,12 @@ is sent as `action`). Raw form: `{"type":"station","payload":{"action":"…", �
   not refused.** `station set_public true` from an older play_as dropped the bare `true`,
   and the server made (kept) the station private. play_as now maps bare values to each
   action's parameter and refuses to send a setter with its value missing.
+
+- 2026-10-25 · **measured** (tick 2234224) · `station set_public true` → `public_access: true`,
+  *"Station is now public — any pilot may dock."* Description set to *"Our first tentative
+  steps to the stars"*. `allow_outsider_facilities` stays false (only docking opened, not
+  building). A public station means non-members such as marketbot_home can dock without
+  joining CRFT.
 
 Existing market orders stay active after a contraband or access change; new and
 modified orders follow the current policy.
