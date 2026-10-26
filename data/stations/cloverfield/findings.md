@@ -80,6 +80,16 @@ modified orders follow the current policy.
   facility still has to be built before anything else. **Settled 23:43Z: the
   built-in storage counts.** `faction_build locker_bay` succeeded with no separate
   storage facility.
+- 2026-10-26 · **measured** · ⚠ After the Locker Bay finished, `get_base` shows the station
+  **`critical`**: *"Critical infrastructure failure. Emergency lighting only. Station barely
+  functional."* `total_service_infra` 1, `satisfied_count` 0, `satisfaction_pct` 0, and
+  **`services: []`**, so the Locker Bay is built but delivers nothing. Its catalog upkeep is
+  1 steel_plate + 1 flex_polymer per cycle. The faction storage had ~800 steel and **no flex
+  polymer**. Lesson for the guide: **stock every upkeep input before the build finishes.**
+  One unsatisfied facility takes the whole station from `thriving` to `critical`.
+- 2026-10-26 · **measured** · `get_base` station stats: hull 60,000/60,000, shield
+  12,000/12,000, armor 15 (matches the docs' stock station), **fuel 0 / max 200**,
+  weapon_dps 0, weapon_reach 0, `type: station`, owner_id `a50924913cef881c5e4d14257589d9ba`.
 - 2026-10-25 · **measured** · Docking reply `station_condition`: `thriving`,
   *"No service facilities to maintain."*, `satisfaction_pct` 100,
   `total_service_infra` 0. This is where the maintenance status will show up.
