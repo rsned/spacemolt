@@ -185,6 +185,13 @@ modified orders follow the current policy.
   facilities consume their `maintenance_inputs`.
 - Still open: Grand Exchange reports `life_support.maintenance_cycle_ticks: 100` (*measured*), so
   life support may run on its own 100-tick cycle. Confirm at our own station once life support exists.
+- **First consumption seen (measured 2026-10-26):** faction steel_plate at Conjunction Junction read
+  **799** in the CRFT capture at 08:33Z and **798** in craftsman-1's `view_faction_storage` at ~09:25Z,
+  which is one Locker Bay cycle (1 steel_plate). No flex_polymer was in storage before the user stocked
+  100, so no flex reading to compare yet. Stock seen at ~09:25Z: circuit_board 2000, flex_polymer 100,
+  focused_crystal 100, iron_ore 46 (first pipeline deposit by miningbot_0019 at 02:20:50 PDT = 09:20:50Z),
+  steel_plate 798. To bracket the cycle length: re-read and note the tick each time steel_plate and
+  flex_polymer drop together.
 - ⚠ The catalog upkeep table below and the KB guide still multiply by 86.4/day. At ~2.9/day the
   real daily upkeep is **~30× lower** (Locker Bay ≈ 3 steel + 3 flex polymer a day; Workshop ≈ 3
   focused crystals ≈ 12 energy crystals a day). To measure it: deposit an exact count, note the

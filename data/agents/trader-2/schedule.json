@@ -3,40 +3,84 @@
     "id": 1,
     "frequency": "hourly",
     "command": "capture_profile",
-    "created_at": "2026-08-09T23:41:52.191693932Z",
-    "last_run": "2026-08-19T06:00:11.414769594Z"
+    "created_at": "2026-08-09T23:41:52.191693932Z"
   },
   {
     "id": 2,
     "frequency": "daily",
     "command": "capture_storage",
-    "created_at": "2026-08-09T23:41:52.191902815Z",
-    "last_run": "2026-08-19T00:00:11.415562921Z"
+    "created_at": "2026-08-09T23:41:52.191902815Z"
   },
   {
     "id": 3,
     "frequency": "daily",
     "command": "capture_faction",
-    "created_at": "2026-08-09T23:41:52.192020376Z",
-    "last_run": "2026-08-19T00:00:11.415562921Z"
+    "created_at": "2026-08-09T23:41:52.192020376Z"
   },
   {
     "id": 4,
-    "frequency": "hourly",
+    "frequency": "twice_daily",
     "command": "capture_action_log",
-    "created_at": "2026-08-18T07:32:04.956121Z",
-    "last_run": "2026-08-19T06:00:11.414769594Z"
-  },
-  {
-    "id": 5,
-    "frequency": "daily",
-    "command": "capture_citizenship",
-    "created_at": "2026-08-19T06:42:04.000000000Z"
+    "created_at": "2026-08-18T07:32:04.956121Z"
   },
   {
     "id": 6,
+    "frequency": "hourly",
+    "command": "capture_fuel",
+    "created_at": "2026-08-25T03:21:30.415094571Z"
+  },
+  {
+    "id": 8,
     "frequency": "daily",
     "command": "capture_tax",
-    "created_at": "2026-08-19T06:42:30.000000000Z"
+    "created_at": "2026-09-16T21:34:47.848009237Z"
+  },
+  {
+    "id": 9,
+    "frequency": "daily",
+    "command": "capture_citizenship",
+    "created_at": "2026-09-16T21:34:47.848244253Z"
+  },
+  {
+    "id": 10,
+    "frequency": "hourly",
+    "command": "deliver copper_wiring 10000 8f8c70ee692d37d78dc7741e053e0f87 c976fa7df53c87f9616165d7d411b41a faction",
+    "created_at": "2026-10-26T08:59:22Z"
+  },
+  {
+    "id": 11,
+    "frequency": "hourly",
+    "command": "deliver steel_plate 10000 8f8c70ee692d37d78dc7741e053e0f87 c976fa7df53c87f9616165d7d411b41a faction",
+    "created_at": "2026-10-26T08:59:22Z"
+  },
+  {
+    "id": 12,
+    "frequency": "hourly",
+    "command": "kb_update",
+    "created_at": "2026-10-26T08:59:25.339362519Z"
+  },
+  {
+    "id": 13,
+    "frequency": "hourly",
+    "command": "view_market",
+    "created_at": "2026-10-26T08:59:25.340075344Z"
+  },
+  {
+    "id": 14,
+    "frequency": "ten_minutely",
+    "command": "update_market",
+    "created_at": "2026-10-26T08:59:25.34032717Z"
+  },
+  {
+    "id": 15,
+    "frequency": "ten_minutely",
+    "command": "get_nearby",
+    "created_at": "2026-10-26T08:59:25.340547251Z"
+  },
+  {
+    "id": 16,
+    "frequency": "hourly",
+    "command": "facilities",
+    "created_at": "2026-10-26T08:59:25.340790473Z"
   }
 ]

@@ -24,14 +24,14 @@ workers:
   - { agent_id: miningbot_0009, role: pipeline_miner, station: frontier_station, pipeline: "chlorine_gas,glenhaven,glenhaven_gas_cloud,treasure_cache_trading_post,trader-9" }
   - { agent_id: miningbot_0010, role: pipeline_miner, station: frontier_station, pipeline: "chlorine_gas,glenhaven,glenhaven_gas_cloud,treasure_cache_trading_post,trader-9" }
   - { agent_id: miningbot_0011, role: pipeline_miner, station: frontier_station, pipeline: "chlorine_gas,glenhaven,glenhaven_gas_cloud,treasure_cache_trading_post,trader-9" }
-  - { agent_id: miningbot_0012, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
-  - { agent_id: miningbot_0013, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
-  - { agent_id: miningbot_0014, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
-  - { agent_id: miningbot_0015, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
-  - { agent_id: miningbot_0016, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
-  - { agent_id: miningbot_0017, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
-  - { agent_id: miningbot_0018, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
-  - { agent_id: miningbot_0019, role: pipeline_miner, station: frontier_station, pipeline: "titanium_ore,ashmark,ashmark_iron_ti_reef,treasure_cache_trading_post,trader-9" }
+  - { agent_id: miningbot_0012, role: pipeline_miner, station: frontier_station, pipeline: "iron_ore,cloverfield,cloverfield_belt,c976fa7df53c87f9616165d7d411b41a,faction" }   # 2026-10-26 Cloverfield Belt -> Conjunction Junction faction storage (whole hold)
+  - { agent_id: miningbot_0013, role: pipeline_miner, station: frontier_station, pipeline: "iron_ore,cloverfield,cloverfield_belt,c976fa7df53c87f9616165d7d411b41a,faction" }   # 2026-10-26 Cloverfield Belt -> Conjunction Junction faction storage (whole hold)
+  - { agent_id: miningbot_0014, role: pipeline_miner, station: frontier_station, pipeline: "iron_ore,cloverfield,cloverfield_belt,c976fa7df53c87f9616165d7d411b41a,faction" }   # 2026-10-26 Cloverfield Belt -> Conjunction Junction faction storage (whole hold)
+  - { agent_id: miningbot_0015, role: pipeline_miner, station: frontier_station, pipeline: "copper_ore,cloverfield,cloverfield_belt,c976fa7df53c87f9616165d7d411b41a,faction" }   # 2026-10-26 Cloverfield Belt -> Conjunction Junction faction storage (whole hold)
+  - { agent_id: miningbot_0016, role: pipeline_miner, station: frontier_station, pipeline: "copper_ore,cloverfield,cloverfield_belt,c976fa7df53c87f9616165d7d411b41a,faction" }   # 2026-10-26 Cloverfield Belt -> Conjunction Junction faction storage (whole hold)
+  - { agent_id: miningbot_0017, role: pipeline_miner, station: frontier_station, pipeline: "copper_ore,cloverfield,cloverfield_belt,c976fa7df53c87f9616165d7d411b41a,faction" }   # 2026-10-26 Cloverfield Belt -> Conjunction Junction faction storage (whole hold)
+  - { agent_id: miningbot_0018, role: pipeline_miner, station: frontier_station, pipeline: "zinc_ore,cloverfield,cloverfield_belt,c976fa7df53c87f9616165d7d411b41a,faction" }   # 2026-10-26 Cloverfield Belt -> Conjunction Junction faction storage (whole hold)
+  - { agent_id: miningbot_0019, role: pipeline_miner, station: frontier_station, pipeline: "iron_ore,cloverfield,cloverfield_belt,c976fa7df53c87f9616165d7d411b41a,faction" }   # 2026-10-26 smoke: Cloverfield Belt iron -> Conjunction Junction faction storage
   - { agent_id: miningbot_0020, role: pipeline_miner, station: frontier_station, pipeline: "plasma_gas,timberline,timberline_gas_pocket,alpha_centauri_colonial_station,trader-9" }
   - { agent_id: miningbot_0021, role: pipeline_miner, station: frontier_station, pipeline: "plasma_gas,timberline,timberline_gas_pocket,alpha_centauri_colonial_station,trader-9" }
   - { agent_id: miningbot_0022, role: pipeline_miner, station: frontier_station, pipeline: "plasma_gas,timberline,timberline_gas_pocket,alpha_centauri_colonial_station,trader-9" }
@@ -45,3 +45,4 @@ workers:
   - { agent_id: miningbot_0030, role: pipeline_miner, station: frontier_station }
   - { agent_id: trader-9, role: resident, station: treasure_cache_trading_post }
   - { agent_id: trader-10, role: resident, station: voss_redoubt }
+  - { agent_id: trader-2, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d }   # 2026-10-26 Hex Wellspring (Zosma) -> Conjunction Junction faction storage: marketbot_014 wiring/plate, 10k each (schedule deliver ... faction)

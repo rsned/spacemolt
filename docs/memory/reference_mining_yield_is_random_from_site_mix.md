@@ -79,3 +79,11 @@ them (commission via `shipyard_tier`), but some appear in `ship_listings`: 2026-
 569,484. We owned exactly one `bonanza_king` (idle) and one `bedrock`.
 
 Related: [[project_mining_fleet]] · [[project_fleet_drone_refit]]
+
+**Pipeline consequence (2026-10-26, user restated it):** the `pipeline:` item is only a label —
+which bot gets which ore is out of our control. mineLoop used to count a pass that landed a
+non-target ore as DRY, so Cloverfield Belt bots quit after 5 such passes with a part-empty
+hold. Now: a `faction` (station-feeding) pipeline counts ANY cargo gain as progress and
+deposits the whole hold; contraband pipelines keep the target-only dry rule (pinned by
+TestMineQtyDryCounterIgnoresOtherItemYields) so they still abandon a POI that stopped
+yielding the target.

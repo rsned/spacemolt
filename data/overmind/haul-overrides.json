@@ -1,7 +1,8 @@
 {
   "removed": [
-    "craftsman-1"
+    "craftsman-1",
+    "trader-2"
   ],
-  "updated_at": "2026-10-24T11:02:02Z",
-  "by": "operator: trader-8 back after Treasure Cache relist 2026-10-24"
+  "updated_at": "2026-10-26T08:52:15Z",
+  "by": "operator: trader-2 seconded to crft-mining for Hex Wellspring -> Conjunction Junction transfer 2026-10-26"
 }
