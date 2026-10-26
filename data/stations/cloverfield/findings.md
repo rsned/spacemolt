@@ -172,8 +172,10 @@ modified orders follow the current policy.
   (`[{item_id,name,quantity}]`) plus **`labor_per_cycle`** (Haven Fleet Operations 700, Haven
   Promenade 30). That's the treasury labor charge.
 - `construction.pending[]`: `{definition_id, build_cost, status:"waiting_for_materials",
-  materials:[{item_id, quantity_required, quantity_in_storage, quantity_missing}]}`. A build
-  can be queued before its materials are all there.
+  materials:[{item_id, quantity_required, quantity_in_storage, quantity_missing}]}`. This is the
+  **station owner's** build queue. At Grand Exchange it's the Nebula empire's Synthesize
+  Pan-Galactic Matrix Factory, not ours (corrected by the user). At our own station it should
+  show our faction's builds, including any waiting for materials.
 - **Why own a station, in one number:** CRFT's 11 facilities at Grand Exchange show
   `faction_rent.est_rent_per_day` **443,932** (5,162/cycle).
 
