@@ -2,6 +2,7 @@ package main
 
 import (
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -97,5 +98,77 @@ func TestStationPayload_DefaultsToInfo(t *testing.T) {
 	}
 	if p["action"] != "info" {
 		t.Errorf("bare station action = %#v, want info", p["action"])
+	}
+}
+
+// `station set_public true` went out with no `public` key (live 2026-10-25,
+// tick 2234173) and the server read the missing value as false -- the opposite
+// of what was typed. Bare values must land on the action's parameter.
+func TestStationPayload_PositionalValues(t *testing.T) {
+	cases := []struct {
+		in   []string
+		key  string
+		want any
+	}{
+		{[]string{"station", "set_public", "true"}, "public", true},
+		{[]string{"station", "set_build_policy", "false"}, "allow_outsiders", false},
+		{[]string{"station", "set_market_fee", "3"}, "fee_percent", 3},
+		{[]string{"station", "set_refuel_price", "12"}, "price", 12},
+		{[]string{"station", "allow_player", "marketbot_home"}, "player", "marketbot_home"},
+		{[]string{"station", "set_name", "Conjunction", "Junction"}, "name", "Conjunction Junction"},
+		{[]string{"station", "set_contraband", "pirate_moonshine"}, "contraband_items", []string{"pirate_moonshine"}},
+	}
+	for _, c := range cases {
+		p, err := stationPayload(stationParts(c.in))
+		if err != nil {
+			t.Errorf("%v: %v", c.in, err)
+			continue
+		}
+		got := p[c.key]
+		if gs, ok := got.([]string); ok {
+			if !slices.Equal(gs, c.want.([]string)) {
+				t.Errorf("%v: %s = %#v, want %#v", c.in, c.key, got, c.want)
+			}
+			continue
+		}
+		if got != c.want {
+			t.Errorf("%v: %s = %#v, want %#v", c.in, c.key, got, c.want)
+		}
+	}
+}
+
+func TestStationPayload_ServiceAccessTwoPositionals(t *testing.T) {
+	p, err := stationPayload(stationParts([]string{"station", "set_service_access", "refuel", "public"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p["service"] != "refuel" || p["access"] != "public" {
+		t.Errorf("payload = %#v", p)
+	}
+}
+
+// A setter missing its value must not be sent: the server fills the gap with
+// a default (false / 0) instead of refusing.
+func TestStationPayload_MissingValueRefused(t *testing.T) {
+	for _, in := range [][]string{
+		{"station", "set_public"},
+		{"station", "set_market_fee"},
+		{"station", "set_service_access", "refuel"},
+		{"station", "ban"},
+	} {
+		if _, err := stationPayload(stationParts(in)); err == nil || !strings.Contains(err.Error(), "missing") {
+			t.Errorf("%v: want missing-value error, got %v", in, err)
+		}
+	}
+	for _, in := range [][]string{{"station", "info"}, {"station", "reset_contraband"}} {
+		if _, err := stationPayload(stationParts(in)); err != nil {
+			t.Errorf("%v: %v", in, err)
+		}
+	}
+}
+
+func TestStationPayload_NonNumericFee(t *testing.T) {
+	if _, err := stationPayload(stationParts([]string{"station", "set_market_fee", "lots"})); err == nil {
+		t.Error("want error for non-numeric fee")
 	}
 }
