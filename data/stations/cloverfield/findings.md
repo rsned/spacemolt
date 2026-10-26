@@ -20,10 +20,11 @@ untested until it gets a ✅ and a date.
 **play_as syntax:** `station <action> --param value` (since `04ab5c3b` the first word
 is sent as `action`). Raw form: `{"type":"station","payload":{"action":"…", …}}`.
 
-> ⚠ The play_as generic passthrough sends every `--flag value` as a **string**
-> (`"false"`, `"5"`). Boolean and number parameters may be refused until we see
-> the server accept them. `set_contraband` takes an **array**, which the passthrough
-> cannot send yet. Record the first real reply of each.
+> play_as types the payload (since the station-payload commit): `public`,
+> `allow_outsiders`, `auto_buy_fuel` go out as JSON booleans (bare `--public` = true);
+> `fee_percent` and `price` as numbers; names and ids always as strings;
+> `contraband_items` as an array (comma list, `["a","b"]`, or `@file`), and
+> `--contraband_items "[]"` sends an **empty array** (allows all), never null.
 
 | Action | Params | play_as example | Raw payload | What it does |
 |---|---|---|---|---|
@@ -37,7 +38,7 @@ is sent as `action`). Raw form: `{"type":"station","payload":{"action":"…", �
 | `set_refuel_price` | `price` (per fuel unit) | `station set_refuel_price --price 12` | `{"action":"set_refuel_price","price":12}` | What outside pilots pay per unit of fuel; to treasury. |
 | `set_repair_price` | `price` (per hull point) | `station set_repair_price --price 4` | `{"action":"set_repair_price","price":4}` | What outside pilots pay per hull point repaired; to treasury. |
 | `set_auto_buy_fuel` | `auto_buy_fuel` true/false | `station set_auto_buy_fuel --auto_buy_fuel true` | `{"action":"set_auto_buy_fuel","auto_buy_fuel":true}` | Off by default. When on, any docked pilot can sell fuel from their tank into our shared tank at live scarcity prices, paid from the treasury (capped to what it can afford). |
-| `set_contraband` | `contraband_items` (array of item ids) | *(not sendable via passthrough yet)* | `{"action":"set_contraband","contraband_items":["pirate_moonshine"]}` | Replaces this station market's contraband (banned) list. `[]` allows **all** items. Smuggling skill bypass still applies; empire customs unchanged. |
+| `set_contraband` | `contraband_items` (array of item ids) | `station set_contraband --contraband_items pirate_moonshine,void_spice` | `{"action":"set_contraband","contraband_items":["pirate_moonshine"]}` | Replaces this station market's contraband (banned) list. `[]` allows **all** items. Smuggling skill bypass still applies; empire customs unchanged. |
 | `reset_contraband` | — | `station reset_contraband` | `{"action":"reset_contraband"}` | Back to the default contraband rules. |
 | `allow_player` | `player` (id or username) | `station allow_player --player marketbot_home` | `{"action":"allow_player","player":"marketbot_home"}` | Let a non-member dock while the station is private. |
 | `remove_player` | `player` | `station remove_player --player marketbot_home` | `{"action":"remove_player","player":"marketbot_home"}` | Take a player off the allow list. |

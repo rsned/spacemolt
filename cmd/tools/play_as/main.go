@@ -9377,6 +9377,15 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 		printState(client)
 		return nil
 
+	case "station":
+		payload, err := stationPayload(parts)
+		if err != nil {
+			return err
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "station", payload)
+		}, ctx, 0, cmd, format)
+
 	case "ledger":
 		return runLedger(globalRecordDir, parts[1:])
 
