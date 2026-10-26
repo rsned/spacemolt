@@ -160,6 +160,23 @@ modified orders follow the current policy.
   with `maintenance` (per-cycle items) and **`starved`** (items it's short of) + `remediation`.
 - `faction_rent.grace_cycles: 260` at our own station (rent is 0 here anyway).
 
+**Field shapes from a full grid (Grand Exchange `facility list`, measured 2026-10-26):**
+- `power`: `{"supply":200, "current_draw":1, "battery_capacity":180, "battery_stored":180,
+  "efficiency":1}`. `efficiency` < 1 is presumably the "undersupplied grid throttles the station"
+  signal.
+- `life_support`: `{"supply":132, "demand":102, "plants":1, "maintenance_cycle_ticks":100,
+  "maintenance":[{"item_id":"honeyglobe","quantity_per_cycle":3},{"item_id":"water_ice",
+  "quantity_per_cycle":6}]}` (`starved` / `remediation` only appear when short).
+- Per facility: `maintenance_level` (0–1, e.g. Haven Grand Bazaar 0.838 unsatisfied, Fleet
+  Personnel Command 0), `maintenance_satisfied`, and on some infra `maintenance_per_cycle`
+  (`[{item_id,name,quantity}]`) plus **`labor_per_cycle`** (Haven Fleet Operations 700, Haven
+  Promenade 30). That's the treasury labor charge.
+- `construction.pending[]`: `{definition_id, build_cost, status:"waiting_for_materials",
+  materials:[{item_id, quantity_required, quantity_in_storage, quantity_missing}]}`. A build
+  can be queued before its materials are all there.
+- **Why own a station, in one number:** CRFT's 11 facilities at Grand Exchange show
+  `faction_rent.est_rent_per_day` **443,932** (5,162/cycle).
+
 1 cycle = 100 ticks ≈ 16.7 min ≈ 86.4 cycles/day.
 
 Source: **catalog-quoted** from `data/game-api/20261018/catalog_facilities.json`
