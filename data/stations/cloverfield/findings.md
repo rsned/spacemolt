@@ -3,6 +3,52 @@
 Each entry: date · **measured** | **doc-quoted** | **player-reported** (unverified) · the fact · evidence
 (an events.jsonl snapshot_id / tick, or a doc URL).
 
+## Station command reference
+
+**Source:** **doc-quoted** from the server's own `get_commands` entry for `station`
+(cached at `data/game-api/20261018/get_commands.json`, category `base`). Rows
+marked ✅ have been run live at Conjunction Junction. Every other row is
+untested until it gets a ✅ and a date.
+
+**Rules (server notes):**
+- You must be **docked** at a station or outpost your faction owns.
+- `info` is open to any member. Every other action needs **ManageBases** (leader/officer).
+- Outposts support only `info`, `set_name`, and `set_description`.
+  The rest are station-only.
+- `set_contraband` / `reset_contraband` need a player-owned station or mobile base.
+
+**play_as syntax:** `station <action> --param value` (since `04ab5c3b` the first word
+is sent as `action`). Raw form: `{"type":"station","payload":{"action":"…", …}}`.
+
+> ⚠ The play_as generic passthrough sends every `--flag value` as a **string**
+> (`"false"`, `"5"`). Boolean and number parameters may be refused until we see
+> the server accept them. `set_contraband` takes an **array**, which the passthrough
+> cannot send yet. Record the first real reply of each.
+
+| Action | Params | play_as example | Raw payload | What it does |
+|---|---|---|---|---|
+| `info` ✅ 2026-10-25 | — | `station info` | `{"action":"info"}` | Current config: name, description, public_access, allow_outsider_facilities, auto_buy_fuel, contraband_mode/items, service_access (once services exist). |
+| `set_name` | `name` | `station set_name --name "Conjunction Junction"` | `{"action":"set_name","name":"Conjunction Junction"}` | Rename the station. |
+| `set_description` | `description` (≤500 chars) | `station set_description --description "CRFT home. Crossroads of Haven and the Rim."` | `{"action":"set_description","description":"…"}` | Station blurb shown on dock. |
+| `set_public` | `public` true/false | `station set_public --public true` | `{"action":"set_public","public":true}` | When false, only the owning faction, allowed factions and allowed players may dock. |
+| `set_build_policy` | `allow_outsiders` true/false | `station set_build_policy --allow_outsiders true` | `{"action":"set_build_policy","allow_outsiders":true}` | Let non-members build their own facilities. Tenants pay rent each cycle to our treasury. |
+| `set_service_access` | `service` = market\|refuel\|repair\|shipyard\|crafting\|salvage_yard\|missions, `access` = public\|allies\|faction | `station set_service_access --service refuel --access public` | `{"action":"set_service_access","service":"refuel","access":"public"}` | Gate one service to the faction, allies, or everyone. |
+| `set_market_fee` | `fee_percent` 0–10 | `station set_market_fee --fee_percent 3` | `{"action":"set_market_fee","fee_percent":3}` | Listing fee outside traders pay; goes to our treasury. |
+| `set_refuel_price` | `price` (per fuel unit) | `station set_refuel_price --price 12` | `{"action":"set_refuel_price","price":12}` | What outside pilots pay per unit of fuel; to treasury. |
+| `set_repair_price` | `price` (per hull point) | `station set_repair_price --price 4` | `{"action":"set_repair_price","price":4}` | What outside pilots pay per hull point repaired; to treasury. |
+| `set_auto_buy_fuel` | `auto_buy_fuel` true/false | `station set_auto_buy_fuel --auto_buy_fuel true` | `{"action":"set_auto_buy_fuel","auto_buy_fuel":true}` | Off by default. When on, any docked pilot can sell fuel from their tank into our shared tank at live scarcity prices, paid from the treasury (capped to what it can afford). |
+| `set_contraband` | `contraband_items` (array of item ids) | *(not sendable via passthrough yet)* | `{"action":"set_contraband","contraband_items":["pirate_moonshine"]}` | Replaces this station market's contraband (banned) list. `[]` allows **all** items. Smuggling skill bypass still applies; empire customs unchanged. |
+| `reset_contraband` | — | `station reset_contraband` | `{"action":"reset_contraband"}` | Back to the default contraband rules. |
+| `allow_player` | `player` (id or username) | `station allow_player --player marketbot_home` | `{"action":"allow_player","player":"marketbot_home"}` | Let a non-member dock while the station is private. |
+| `remove_player` | `player` | `station remove_player --player marketbot_home` | `{"action":"remove_player","player":"marketbot_home"}` | Take a player off the allow list. |
+| `ban` | `player` | `station ban --player <username>` | `{"action":"ban","player":"<username>"}` | Blocks docking immediately and drops them from the allow list. |
+| `unban` | `player` | `station unban --player <username>` | `{"action":"unban","player":"<username>"}` | Lift a ban. |
+| `allow_faction` | `faction` (id) | `station allow_faction --faction 6686e24354619eadffc738b607425457` | `{"action":"allow_faction","faction":"6686e…"}` | Let a whole faction dock while private (example id: Explorers Guild, a CRFT ally). |
+| `remove_faction` | `faction` (id) | `station remove_faction --faction 6686e24354619eadffc738b607425457` | `{"action":"remove_faction","faction":"6686e…"}` | Remove that faction's access. |
+
+Existing market orders stay active after a contraband or access change; new and
+modified orders follow the current policy.
+
 ## What comes with a station
 
 - 2026-10-25 · **measured** (server hint, tick 2232761) · The `build_base` reply
