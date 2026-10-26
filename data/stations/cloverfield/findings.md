@@ -179,7 +179,13 @@ modified orders follow the current policy.
 - **Why own a station, in one number:** CRFT's 11 facilities at Grand Exchange show
   `faction_rent.est_rent_per_day` **443,932** (5,162/cycle).
 
-1 cycle = 100 ticks ≈ 16.7 min ≈ 86.4 cycles/day.
+1 cycle = 100 ticks ≈ 16.7 min ≈ 86.4 cycles/day. ⚠ **OPEN CONFLICT (2026-10-26):**
+the user reports the **station maintenance cycle is ~3,000 ticks** (≈ 8.3 h, ≈ 2.9 cycles/day).
+The 100-tick figure comes from the *rent* cycle and from Grand Exchange's
+`life_support.maintenance_cycle_ticks: 100` (measured). If service and infrastructure upkeep runs
+every 3,000 ticks, every per-day upkeep figure here and in the KB guide is **~30× too high**.
+Settle it by depositing an exact count of flex_polymer, noting the tick, and re-reading
+`view_faction_storage` after 3,000+ ticks.
 
 Source: **catalog-quoted** from `data/game-api/20261018/catalog_facilities.json`
 (`maintenance_inputs`, `maintenance_fuel`). Per day = per cycle × 86.4. To be
