@@ -82,7 +82,7 @@ func (d *WorkerDispatch) MineQty(ctx context.Context, itemID string, qty int, to
 		if err := d.autopilotAndUndock(ctx, sys, poi); err != nil {
 			return fmt.Errorf("mine_qty: travel to %s: %w", poi, err)
 		}
-		if err := d.mineLoop(ctx, itemID, qty, poi); err != nil {
+		if err := d.mineLoop(ctx, itemID, qty, poi, false); err != nil {
 			return err
 		}
 	}
@@ -141,7 +141,7 @@ func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, 
 		if err = d.autopilotAndUndock(ctx, systemID, poiID); err != nil {
 			return fmt.Errorf("mine_qty_at: travel to %s: %w", poiID, err)
 		}
-		if err = d.mineLoop(ctx, itemID, qty, poiID); err != nil {
+		if err = d.mineLoop(ctx, itemID, qty, poiID, recipient == RecipientFaction); err != nil {
 			return err
 		}
 	}
@@ -165,7 +165,9 @@ var handOffAlwaysKept = map[string]bool{"fuel_cell": true, "energy_crystal": tru
 // byproduct mined on this trip (spec D1). The target goes whether or not it
 // grew, so a load left aboard by a failed hand-off goes on the next pass. A
 // line that did not grow stays aboard. Items in keep or in handOffAlwaysKept
-// are never delivered, even as the target. Lines go largest first. It returns
+// are never delivered, even as the target. A RecipientFaction hand-off feeds a
+// station's faction storage and takes every line aboard, grown or not. Lines
+// go largest first. It returns
 // the number of items delivered. The first failed delivery aborts the rest,
 // since a bad recipient or station fails every line.
 func (d *WorkerDispatch) handOffHold(ctx context.Context, to, recipient, target string, before map[string]int, keep map[string]bool) (delivered int, err error) {
@@ -182,7 +184,7 @@ func (d *WorkerDispatch) handOffHold(ctx context.Context, to, recipient, target 
 		if handOffAlwaysKept[item] || keep[item] {
 			continue
 		}
-		if item == target || qty > before[item] {
+		if item == target || qty > before[item] || recipient == RecipientFaction {
 			lines = append(lines, line{item, qty})
 		}
 	}
@@ -196,6 +198,15 @@ func (d *WorkerDispatch) handOffHold(ctx context.Context, to, recipient, target 
 		delivered++
 	}
 	return delivered, nil
+}
+
+// cargoTotal is the number of units aboard across every cargo line.
+func cargoTotal(state *game.State) int {
+	total := 0
+	for _, q := range cargoQuantities(state) {
+		total += q
+	}
+	return total
 }
 
 // cargoQuantities sums the hold's quantity per item id, in whole units.
@@ -217,7 +228,7 @@ func cargoQuantities(state *game.State) map[string]int {
 // cargo holds qty of itemID, the hold has no free space left, or
 // MineQtyMaxDryPasses consecutive passes grow cargo by zero. poiLabel is used
 // only for log/error messages.
-func (d *WorkerDispatch) mineLoop(ctx context.Context, itemID string, qty int, poiLabel string) error {
+func (d *WorkerDispatch) mineLoop(ctx context.Context, itemID string, qty int, poiLabel string, anyYield bool) error {
 	dryPasses := 0
 	for cargoCount(d.Client.GetState(), itemID) < qty {
 		if cargoFreeSpace(d.Client.GetState()) <= 0 {
@@ -225,7 +236,16 @@ func (d *WorkerDispatch) mineLoop(ctx context.Context, itemID string, qty int, p
 				cargoCount(d.Client.GetState(), itemID), qty, itemID)
 			return nil
 		}
-		before := cargoCount(d.Client.GetState(), itemID)
+		// Yield is random per cycle, weighted by the POI's richness ratio. A
+		// hunt for one item (anyYield false) counts a pass that grew only
+		// other items as dry, so a POI that stopped yielding the target is
+		// abandoned. A station-feeding run (anyYield) wants every ore, so any
+		// gain is progress and only a pass that mines nothing at all is dry.
+		progress := func() int { return cargoCount(d.Client.GetState(), itemID) }
+		if anyYield {
+			progress = func() int { return cargoTotal(d.Client.GetState()) }
+		}
+		before := progress()
 		if err := d.Client.Mine(ctx); err != nil {
 			return fmt.Errorf("mine_qty: mine at %s: %w", poiLabel, err)
 		}
@@ -236,15 +256,14 @@ func (d *WorkerDispatch) mineLoop(ctx context.Context, itemID string, qty int, p
 		if err := sleep(ctx, game.SleepTick); err != nil {
 			return err
 		}
-		after := cargoCount(d.Client.GetState(), itemID)
-		if after > before {
+		if progress() > before {
 			dryPasses = 0
 			continue
 		}
 		dryPasses++
 		if dryPasses >= MineQtyMaxDryPasses {
 			fmt.Fprintf(d.Out, "mine_qty: %d consecutive dry passes mining %s at %s — stopping with %d/%d aboard\n", //nolint:errcheck
-				dryPasses, itemID, poiLabel, after, qty)
+				dryPasses, itemID, poiLabel, cargoCount(d.Client.GetState(), itemID), qty)
 			return nil
 		}
 	}

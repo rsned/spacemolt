@@ -110,7 +110,9 @@ func isShortSupplyErr(err error) bool {
 
 // Deliver moves ITEM xQTY from the worker's own storage at FROM to RECIPIENT
 // at TO. recipient "self" (or the worker's own agent id) means deposit into
-// own storage at TO instead of gifting. A gift lands at the SENDER's station,
+// own storage at TO instead of gifting; recipient "faction" (RecipientFaction)
+// deposits into the faction's storage at TO, which is how goods reach a player
+// station that has faction storage but no personal storage. A gift lands at the SENDER's station,
 // so goods bound for TO must be carried there (send_gift source=storage gifts
 // in place, which is what HandoffPass uses): the verb withdraws into cargo at FROM, then travels to TO and
 // gifts/deposits from cargo, repeating in cargo-capacity-sized batches until
@@ -260,11 +262,11 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 // SendGift requires, up front — before any travel, withdraw, or buy — so a
 // bad recipient (e.g. a missing/broken credentials.json) fails fast instead
 // of after goods have already been moved or credits already spent. recipient
-// "self" (or d's own agent id) needs no resolution and returns "". The
-// returned username is reused for every chunk of the caller's delivery loop
+// "self" (or d's own agent id) and "faction" need no resolution and return
+// "". The returned username is reused for every chunk of the caller's delivery loop
 // instead of re-resolving credentials.json on each iteration.
 func resolveRecipientUsername(d *WorkerDispatch, recipient string) (string, error) {
-	if recipient == "self" || recipient == d.AgentID {
+	if recipient == "self" || recipient == d.AgentID || recipient == RecipientFaction {
 		return "", nil
 	}
 	username, err := UsernameFor(d.agentsDir(), recipient)
@@ -274,8 +276,12 @@ func resolveRecipientUsername(d *WorkerDispatch, recipient string) (string, erro
 	return username, nil
 }
 
+// RecipientFaction is the recipient that deposits into the faction's storage
+// at the delivery station instead of gifting to an agent.
+const RecipientFaction = "faction"
+
 // giftOrDeposit hands qty of itemID to recipient from the ship's current
-// cargo. recipient "self" (or d's own agent id) deposits into the dispatch's
+// cargo. recipient RecipientFaction deposits into faction storage; "self" (or d's own agent id) deposits into the dispatch's
 // own storage at the current (already-docked) location; any other recipient
 // is sent a gift instead, addressed to username (resolved once up front by
 // the caller via resolveRecipientUsername — ignored when recipient is
@@ -283,11 +289,16 @@ func resolveRecipientUsername(d *WorkerDispatch, recipient string) (string, erro
 // handoff location before calling this. Shared by Deliver and BuyDirected,
 // the two verbs that hand cargo off to a recipient.
 func giftOrDeposit(ctx context.Context, d *WorkerDispatch, itemID string, qty int, recipient, username string) error {
-	if recipient == "self" || recipient == d.AgentID {
+	switch recipient {
+	case RecipientFaction:
+		if err := d.Client.FactionDepositItems(ctx, itemID, qty); err != nil {
+			return fmt.Errorf("faction deposit %s: %w", itemID, err)
+		}
+	case "self", d.AgentID:
 		if err := d.Client.DepositItems(ctx, itemID, float64(qty)); err != nil {
 			return fmt.Errorf("deposit %s: %w", itemID, err)
 		}
-	} else {
+	default:
 		if err := d.Client.SendGift(ctx, map[string]any{
 			"recipient": username,
 			"item_id":   itemID,

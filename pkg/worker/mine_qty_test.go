@@ -898,3 +898,62 @@ func TestHandOffHoldGiftsTargetAndGrownLinesWhole(t *testing.T) {
 		t.Fatalf("first gift = %q, want largest line nitrogen_ice first", first)
 	}
 }
+
+// TestHandOffHoldFactionDepositsWholeHold: a station-feeding pipeline
+// (recipient "faction") deposits every line aboard, grown or not — belt
+// mining yields iron, copper and zinc at random, and all of it is wanted.
+// Live 2026-10-26: miningbot_0019 restarted with copper aboard, deposited only
+// the iron target, and carried the copper forever. Kept items still stay.
+func TestHandOffHoldFactionDepositsWholeHold(t *testing.T) {
+	kb := newMineAtTestKB(t, "", false)
+	client := newMineAtClient(130)
+	client.state.Ship.Cargo = []game.CargoItem{
+		{ItemID: "fuel_cell", Quantity: 20},
+		{ItemID: "energy_crystal", Quantity: 30},
+		{ItemID: "iron_ore", Quantity: 46},
+		{ItemID: "copper_ore", Quantity: 28},
+		{ItemID: "zinc_ore", Quantity: 5},
+	}
+	d := noWaitMineDispatch(client, kb, t.TempDir())
+	d.Out = io.Discard
+
+	// copper_ore and zinc_ore did not grow this trip; with a faction recipient
+	// they go anyway.
+	before := map[string]int{"iron_ore": 0, "copper_ore": 28, "zinc_ore": 5, "fuel_cell": 20, "energy_crystal": 30}
+	n, err := d.handOffHold(context.Background(), "to_base", RecipientFaction, "iron_ore", before, nil)
+	if err != nil || n != 3 {
+		t.Fatalf("handOffHold = %d, %v; want 3, nil", n, err)
+	}
+	got := map[string]float64{}
+	for _, c := range client.factionDepositCalls {
+		got[c.itemID] += c.quantity
+	}
+	if len(got) != 3 || got["iron_ore"] != 46 || got["copper_ore"] != 28 || got["zinc_ore"] != 5 {
+		t.Fatalf("faction deposits = %+v, want iron_ore 46, copper_ore 28, zinc_ore 5 and nothing kept", client.factionDepositCalls)
+	}
+	if len(client.giftCalls) != 0 {
+		t.Fatalf("gift calls = %+v, want none", client.giftCalls)
+	}
+}
+
+// TestMineLoopOtherOreIsNotDry: mining yield is random per cycle, weighted by
+// the POI's richness ratio, so an iron-targeted bot on a mixed belt often
+// lands copper. For a station-feeding run (anyYield) any cargo gain is
+// progress; only a pass that mines nothing at all is dry. (The hunt-for-one-
+// item rule is pinned by TestMineQtyDryCounterIgnoresOtherItemYields.) Live 2026-10-26: miningbot_0019 stopped after "5 consecutive dry
+// passes" with 28/98 aboard while the belt kept yielding copper.
+func TestMineLoopOtherOreIsNotDry(t *testing.T) {
+	client := newMineAtClient(130)
+	client.mineItemID = "iron_ore"
+	client.byproductID = "copper_ore"
+	client.byproductYields = []float64{10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
+	d := noWaitMineDispatch(client, newMineAtTestKB(t, "", false), t.TempDir())
+	d.Out = io.Discard
+
+	if err := d.mineLoop(context.Background(), "iron_ore", 100, "cloverfield_belt", true); err != nil {
+		t.Fatalf("mineLoop: %v", err)
+	}
+	if got := cargoCount(client.state, "copper_ore"); got != 100 {
+		t.Fatalf("copper_ore aboard = %v after %d passes, want the hold filled to 100", got, client.mineCalls)
+	}
+}

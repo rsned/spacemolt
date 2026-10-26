@@ -34,6 +34,8 @@ type deliverFakeClient struct {
 
 	depositCalls []depositCall
 	giftCalls    []map[string]any
+	// factionDepositCalls records FactionDepositItems (recipient "faction").
+	factionDepositCalls []depositCall
 
 	// giftErrOnAttempt, when > 0, makes the Nth SendGift call (1-indexed,
 	// counting every attempt including earlier failures) return giftErr
@@ -122,6 +124,13 @@ func (f *deliverFakeClient) DepositItems(ctx context.Context, itemID string, qua
 	f.calls = append(f.calls, fmt.Sprintf("deposit:%s:%.0f", itemID, quantity))
 	f.depositCalls = append(f.depositCalls, depositCall{itemID: itemID, quantity: quantity})
 	f.stageDrain(itemID, quantity)
+	return nil
+}
+
+func (f *deliverFakeClient) FactionDepositItems(ctx context.Context, itemID string, quantity int) error {
+	f.calls = append(f.calls, fmt.Sprintf("faction_deposit:%s:%d", itemID, quantity))
+	f.factionDepositCalls = append(f.factionDepositCalls, depositCall{itemID: itemID, quantity: float64(quantity)})
+	f.stageDrain(itemID, float64(quantity))
 	return nil
 }
 
@@ -275,6 +284,30 @@ func TestDeliverFullyGiftsAtDestination(t *testing.T) {
 	}
 	if len(client.depositCalls) != 0 {
 		t.Fatalf("DepositItems must not be called for a non-self recipient, got %+v", client.depositCalls)
+	}
+}
+
+// TestDeliverFactionDepositsToFactionStorage: recipient "faction" deposits
+// into the faction's storage at TO (a player station with no personal
+// storage yet) — no credentials lookup, no SendGift, no personal deposit.
+func TestDeliverFactionDepositsToFactionStorage(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	client := &deliverFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: 100}}},
+		storageStock: map[string]float64{"steel_plate": 10},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "hauler-0"
+	d.AgentsDir = t.TempDir() // no credentials.json present; must never be read
+
+	if err := d.Deliver(context.Background(), "steel_plate", 4, "from_base", "to_base", "faction"); err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	if len(client.factionDepositCalls) != 1 || client.factionDepositCalls[0].itemID != "steel_plate" || client.factionDepositCalls[0].quantity != 4 {
+		t.Fatalf("FactionDepositItems calls = %+v, want one call of steel_plate x4", client.factionDepositCalls)
+	}
+	if len(client.giftCalls) != 0 || len(client.depositCalls) != 0 {
+		t.Fatalf("faction recipient must not gift or personal-deposit: gifts %+v deposits %+v", client.giftCalls, client.depositCalls)
 	}
 }
 
