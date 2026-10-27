@@ -8112,6 +8112,15 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 	case "deposit_all":
 		return simpleCommand(client, client.DepositAllItems, ctx, 5*time.Second, cmd, format)
 
+	case "faction_deposit_all":
+		fd, ok := client.(interface {
+			FactionDepositAllItems(context.Context) error
+		})
+		if !ok {
+			return fmt.Errorf("faction_deposit_all is not supported on this transport")
+		}
+		return simpleCommand(client, fd.FactionDepositAllItems, ctx, 5*time.Second, cmd, format)
+
 	case "withdraw", "withdraw_items":
 		if len(parts) < 3 {
 			return fmt.Errorf("usage: withdraw <item-id> <quantity> [--source=<scope>] [--target=<scope>]")
@@ -10690,6 +10699,7 @@ func printHelp() {
 	fmt.Println("  cargo                     - View ship cargo")
 	fmt.Println("  deposit <item> <qty> [--source=<s>] [--target=<s>]   - Deposit items (source/target: cargo|storage|faction)")
 	fmt.Println("  deposit_all               - Deposit all items")
+	fmt.Println("  faction_deposit_all       - Deposit all cargo items to faction storage")
 	fmt.Println("  withdraw <item> <qty> [--source=<s>] [--target=<s>]  - Withdraw items (source/target: cargo|storage|faction)")
 	fmt.Println("  storage [filter] [--group] [--station_id <id>]  - View storage (--group: by category; filter: id/name substring)")
 	fmt.Println("  storage_at <id>           - View storage at a remote station")

@@ -2062,6 +2062,20 @@ func (c *Client) DepositItems(ctx context.Context, itemID string, quantity float
 //
 //	err := client.DepositAllItems(ctx)
 func (c *Client) DepositAllItems(ctx context.Context) error {
+	return c.depositAllWith(ctx, "deposit_all", "storage", c.DepositItems)
+}
+
+// FactionDepositAllItems deposits every cargo item into faction storage at the
+// docked station, one faction_deposit_items per cargo line.
+func (c *Client) FactionDepositAllItems(ctx context.Context) error {
+	return c.depositAllWith(ctx, "faction_deposit_all", "faction storage", func(ctx context.Context, itemID string, qty float64) error {
+		return c.FactionDepositItems(ctx, itemID, int(qty))
+	})
+}
+
+// depositAllWith deposits every cargo line through deposit, reporting under
+// command and naming dest ("storage", "faction storage") in its progress lines.
+func (c *Client) depositAllWith(ctx context.Context, command, dest string, deposit func(ctx context.Context, itemID string, qty float64) error) error {
 	state := c.GetState()
 	if !state.Doc {
 		return fmt.Errorf("must be docked at station to deposit items")
@@ -2091,13 +2105,13 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 	if len(state.Ship.Cargo) == 0 {
 		fmt.Printf("📦 Cargo is empty, nothing to deposit\n")
 		return &GoalReachedError{
-			Command: "deposit_all",
+			Command: command,
 			Code:    "empty_cargo",
 			Message: "Cargo is already empty",
 		}
 	}
 
-	fmt.Printf("📥 Depositing %d cargo items to storage...\n", len(state.Ship.Cargo))
+	fmt.Printf("📥 Depositing %d cargo items to %s...\n", len(state.Ship.Cargo), dest)
 
 	// Deposit each item in cargo
 	depositErrors := 0
@@ -2143,12 +2157,12 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 		}
 
 		// Deposit the current quantity (not the snapshot quantity)
-		if err := c.DepositItems(ctx, item.ItemID, currentQty); err != nil {
+		if err := deposit(ctx, item.ItemID, currentQty); err != nil {
 			var se *ServerError
 			if errors.As(err, &se) && se.Code == "empty_cargo" {
 				fmt.Printf("📦 Cargo now empty after %d deposit(s)\n", successfulDeposits)
 				return &GoalReachedError{
-					Command: "deposit_all",
+					Command: command,
 					Code:    "empty_cargo",
 					Message: "Cargo is empty",
 				}
@@ -2166,7 +2180,7 @@ func (c *Client) DepositAllItems(ctx context.Context) error {
 			}
 			// Continue depositing other items even if one fails
 		} else {
-			fmt.Printf("   [%d/%d] ✓ Deposited %.0f x %s to storage\n", i+1, len(state.Ship.Cargo), currentQty, item.ItemID)
+			fmt.Printf("   [%d/%d] ✓ Deposited %.0f x %s to %s\n", i+1, len(state.Ship.Cargo), currentQty, item.ItemID, dest)
 			c.debugLogger.Printf("Deposited %s x%.0f", item.ItemID, currentQty)
 			successfulDeposits++
 			// Brief delay between deposits
