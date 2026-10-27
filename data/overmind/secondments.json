@@ -256,8 +256,8 @@
       "away_fleet": "unlock",
       "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
       "nominated_at": "2026-10-13T21:32:59Z",
-      "phase": "seconded",
-      "updated_at": "2026-10-13T21:33:49Z"
+      "phase": "home",
+      "updated_at": "2026-10-27T08:49:32Z"
     },
     {
       "agent_id": "craftsman-3",
@@ -265,8 +265,8 @@
       "away_fleet": "unlock",
       "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
       "nominated_at": "2026-10-13T21:32:59Z",
-      "phase": "seconded",
-      "updated_at": "2026-10-13T21:34:32Z"
+      "phase": "home",
+      "updated_at": "2026-10-27T08:53:42Z"
     },
     {
       "agent_id": "craftsman-7",
@@ -274,8 +274,8 @@
       "away_fleet": "unlock",
       "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
       "nominated_at": "2026-10-13T21:32:59Z",
-      "phase": "seconded",
-      "updated_at": "2026-10-13T21:34:32Z"
+      "phase": "home",
+      "updated_at": "2026-10-27T08:57:47Z"
     },
     {
       "agent_id": "craftsman-8",
@@ -293,8 +293,8 @@
       "away_fleet": "unlock",
       "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
       "nominated_at": "2026-10-13T21:32:59Z",
-      "phase": "seconded",
-      "updated_at": "2026-10-13T21:34:32Z"
+      "phase": "home",
+      "updated_at": "2026-10-27T09:01:51Z"
     },
     {
       "agent_id": "craftsman-5",
@@ -302,8 +302,8 @@
       "away_fleet": "unlock",
       "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
       "nominated_at": "2026-10-13T21:32:59Z",
-      "phase": "seconded",
-      "updated_at": "2026-10-13T21:34:33Z"
+      "phase": "home",
+      "updated_at": "2026-10-27T09:06:01Z"
     },
     {
       "agent_id": "craftsman-6",
@@ -311,8 +311,242 @@
       "away_fleet": "unlock",
       "reason": "pirate unlock: -30 is hostile-by-default and CRFT needs Voss-capable crafters",
       "nominated_at": "2026-10-13T21:32:59Z",
+      "phase": "home",
+      "updated_at": "2026-10-27T09:06:37Z"
+    },
+    {
+      "agent_id": "miningbot_0004",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T07:28:03Z"
+    },
+    {
+      "agent_id": "miningbot_0005",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T07:32:13Z"
+    },
+    {
+      "agent_id": "miningbot_0006",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T07:41:23Z"
+    },
+    {
+      "agent_id": "miningbot_0007",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T07:45:27Z"
+    },
+    {
+      "agent_id": "miningbot_0008",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T07:49:38Z"
+    },
+    {
+      "agent_id": "miningbot_0009",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T07:08:52Z"
+    },
+    {
+      "agent_id": "miningbot_0010",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T08:49:26Z"
+    },
+    {
+      "agent_id": "miningbot_0011",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T08:18:48Z"
+    },
+    {
+      "agent_id": "miningbot_0012",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T08:22:59Z"
+    },
+    {
+      "agent_id": "miningbot_0013",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T08:34:46Z"
+    },
+    {
+      "agent_id": "miningbot_0014",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T12:48:51Z"
+    },
+    {
+      "agent_id": "miningbot_0015",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T12:39:23Z"
+    },
+    {
+      "agent_id": "miningbot_0016",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T14:07:16Z"
+    },
+    {
+      "agent_id": "miningbot_0017",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T12:52:58Z"
+    },
+    {
+      "agent_id": "miningbot_0018",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T13:32:36Z"
+    },
+    {
+      "agent_id": "miningbot_0019",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (Lawless groups first)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T13:36:46Z"
+    },
+    {
+      "agent_id": "miningbot_0000",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (ice + hot cells, queued behind)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T13:40:41Z"
+    },
+    {
+      "agent_id": "miningbot_0001",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (ice + hot cells, queued behind)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T13:44:52Z"
+    },
+    {
+      "agent_id": "miningbot_0020",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (ice + hot cells, queued behind)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T13:48:56Z"
+    },
+    {
+      "agent_id": "miningbot_0021",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (ice + hot cells, queued behind)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T14:00:43Z"
+    },
+    {
+      "agent_id": "miningbot_0022",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (ice + hot cells, queued behind)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T17:41:23Z"
+    },
+    {
+      "agent_id": "miningbot_0023",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (ice + hot cells, queued behind)",
+      "nominated_at": "2026-10-25T01:28:53Z",
       "phase": "seconded",
-      "updated_at": "2026-10-13T21:34:33Z"
+      "updated_at": "2026-10-25T12:53:11Z"
+    },
+    {
+      "agent_id": "miningbot_0024",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (ice + hot cells, queued behind)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T18:20:31Z"
+    },
+    {
+      "agent_id": "miningbot_0025",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (ice + hot cells, queued behind)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T19:52:58Z"
+    },
+    {
+      "agent_id": "miningbot_0002",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (ice + hot cells, queued behind)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T19:38:47Z"
+    },
+    {
+      "agent_id": "miningbot_0003",
+      "home_fleet": "crft-mining",
+      "away_fleet": "unlock",
+      "reason": "pirate unlock for pipeline mining (ice + hot cells, queued behind)",
+      "nominated_at": "2026-10-25T01:28:53Z",
+      "phase": "home",
+      "updated_at": "2026-10-25T19:19:37Z"
     }
   ]
 }

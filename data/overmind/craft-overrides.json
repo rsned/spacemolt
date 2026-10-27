@@ -1,13 +1,7 @@
 {
   "removed": [
-    "craftsman-9",
-    "craftsman-2",
-    "craftsman-3",
-    "craftsman-4",
-    "craftsman-5",
-    "craftsman-6",
-    "craftsman-7"
+    "craftsman-9"
   ],
-  "updated_at": "2026-10-23T23:48:54Z",
-  "by": "operator: return craftsman-8/10 from unlock, pinned voss_redoubt 2026-10-23"
+  "updated_at": "2026-10-24T23:53:02Z",
+  "by": "operator: shopkeep reprice done 2026-10-24"
 }
