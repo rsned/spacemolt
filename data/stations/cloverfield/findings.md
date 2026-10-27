@@ -175,6 +175,17 @@ modified orders follow the current policy.
   (the command itself is not yet tried). The dock is built but cannot work until a Fuel Tank
   Expansion exists (see Fuel).
 
+- 2026-10-27 (tick 2245869) · **measured** · **First dismantle.** The user ran
+  `facility action=faction_dismantle` on CRFT's **Iron Refinery** (`f9ef7a1940efe4484fefb2e393209a53`)
+  at `grand_exchange_station`. Reply: 28 labeled packages, 231 ticks (complete_tick 2246100).
+  `materials_to_package` = 250 control_node + 2,510 copper_piping, **100% of the catalog
+  build_materials**. Credits (catalog build_cost 89,000) are not mentioned. The facility is
+  offline immediately and vanishes when done. In-progress repair is cancelled without refund.
+  Packages arrive in faction storage. *"Move the packages normally, unpack them at the
+  destination, then rebuild from the recovered materials."* Items stay withdrawable after
+  the storage facility itself is dismantled. This is the start of moving the rented NPC-station
+  facilities (~500k cr/day rent) to Conjunction Junction.
+
 - 2026-10-27 · **measured** · **Atmospheric Recycler live.** `get_base` gains a `life_support`
   block: `supply 12, demand 0, plants 1`, `maintenance` = 1 catalytic_scrubber_cartridge,
   2 oxygen_gas, 1 purified_water, 1 sunspindle, 3 water_ice per cycle (matches the catalog),
