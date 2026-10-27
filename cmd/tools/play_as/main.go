@@ -4894,10 +4894,27 @@ func craftFacilityHeader(facilityID, venue string) string {
 	return fmt.Sprintf("%s [%s]", venue, short)
 }
 
+// craftGroupHeader is craftFacilityHeader plus the station name for facilities
+// whose id does not embed it (the queue spans every station the player crafts
+// at), and a warning when the job runs on another player's facility — the
+// default "fast" preset can route there and prepay their rental fee.
+func craftGroupHeader(facilityID, venue, baseName string, external bool) string {
+	h := craftFacilityHeader(facilityID, venue)
+	if baseName != "" && !strings.Contains(h, " @ ") {
+		h += " @ " + baseName
+	}
+	if external {
+		h += " (EXTERNAL: another player's facility)"
+	}
+	return h
+}
+
 func formatCraftQueue(raw []byte) string {
 	type craftJob struct {
 		JobID         string  `json:"job_id"`
 		FacilityID    string  `json:"facility_id"`
+		BaseName      string  `json:"base_name"`
+		External      bool    `json:"external"`
 		Venue         string  `json:"venue"`
 		Recipe        string  `json:"recipe"`
 		RunsDone      int     `json:"runs_done"`
@@ -4954,7 +4971,7 @@ func formatCraftQueue(raw []byte) string {
 			if len(jobs) == 1 {
 				facWord = "job"
 			}
-			fmt.Fprintf(&b, "  %s — %d %s\n", craftFacilityHeader(fid, jobs[0].Venue), len(jobs), facWord)
+			fmt.Fprintf(&b, "  %s — %d %s\n", craftGroupHeader(fid, jobs[0].Venue, jobs[0].BaseName, jobs[0].External), len(jobs), facWord)
 		}
 		for _, j := range jobs {
 			produces := ""

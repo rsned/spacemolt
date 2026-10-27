@@ -88,5 +88,11 @@
     "frequency": "hourly",
     "command": "facilities",
     "created_at": "2026-10-27T08:37:05.291200896Z"
+  },
+  {
+    "id": 18,
+    "frequency": "hourly",
+    "command": "craft compress_hydrogen_gas 750 cheap",
+    "created_at": "2026-10-27T18:19:38Z"
   }
 ]

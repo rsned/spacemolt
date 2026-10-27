@@ -244,6 +244,24 @@ Keep 3,000 as the working figure; tighten it with closer-spaced storage reads.
   the dock was built). Refuel at 00:42Z → `station_fuel_empty: This station's fuel reserves are
   depleted. Buy fuel cells from the market and use them directly.` — the tank must be filled
   (tanker storage deposit `item_id=fuel`).
+- 2026-10-27 · **measured** · **h2_fuel_combustor built; it fills the tank.** `craft
+  manufacture_fuel_basic 1000` → job `d597d00ab428acc25b15122a9b485a69`, 10 runs, ~1 s/run,
+  escrowed 100 liquid_hydrogen + labor 80 cr. Output *"Fuel Reserve x 100"* per run. The job
+  ran on faction storage and treasury (*"your own can't"*). **The output goes into the
+  station's fuel tank, not faction storage** (user-confirmed), even though the craft reply
+  says *"outputs go to faction storage"*. This is how the tank gets filled.
+  Each completed run adds its 100 fuel to the tank as it finishes (user-confirmed). craftsman-1's
+  `get_base` reads: station fuel 0 (07:39) → 200 (11:11) → 452 (11:15) → 752 (11:16 local). 1,649 liquid_hydrogen in storage ≈
+  16,500 fuel. Treasury was 61,620 cr before (craft first failed `insufficient_credits` for
+  labor), then funded with 400k from miningbots 0000/0001/0016/0018 (100k each), with more
+  bots depositing as they dock.
+- 2026-10-27 · **measured** · **Liquid hydrogen from hydrogen gas at the Workshop.** `craft
+  compress_hydrogen_gas 1250` → job `b8c9f0934c9c421edd3bda1a8a9e1181` at Station Workshop,
+  417 runs, **8 hydrogen_gas → 3 liquid_hydrogen** per run (3,336 gas escrowed), ~202 ticks.
+  It is hand-crafting: it only advances while the crafter stays docked, pauses on undock and
+  resumes on return. A production facility runs unattended instead. The job used faction
+  storage and treasury. Fuel chain: 80 hydrogen_gas → 30 LH2 → 300 fuel in the tank
+  (≈ 1,333 gas per full 5,000 tank).
 - **Fuel production checks** (h2_fuel_combustor): at 21:37Z (dock unpaid) → `no_fuel_bunker`;
   at 00:43Z, tick 2242754 (dock paid) → `no_life_support: This station has no life support yet.
   Build a life support facility (faction_build) before adding facilities that draw life

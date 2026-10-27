@@ -201,6 +201,28 @@ func TestFormatCraftQueue_GroupsByFacility(t *testing.T) {
 	}
 }
 
+// TestFormatCraftQueue_NamesStationAndExternal verifies that every facility
+// group names its station when the server sends base_name (not only workshops,
+// whose id embeds the station), and that a job on another player's facility
+// (external:true, e.g. routed there by the default "fast" preset) is flagged.
+// Live 2026-10-27: a queue mixing Grand Exchange, Conjunction Junction and a
+// public Plasma Fuel Plant at Confederacy Central Command named no station for
+// the last two.
+func TestFormatCraftQueue_NamesStationAndExternal(t *testing.T) {
+	raw := []byte(`{"command":"craft","result":{"action":"queue","jobs":[` +
+		`{"base_id":"c976fa7df53c87f9616165d7d411b41a","base_name":"Conjunction Junction","deliver_to":"faction","eta_ticks":36,"facility_id":"6e4a3018ae5f31627d2bfda941301a18","job_id":"j1","position":0,"produces":[{"item_id":"fuel_reserve","name":"Fuel Reserve","quantity":100}],"progress":0,"recipe":"Manufacture Fuel Basic","runs_done":40,"runs_total":100,"status":"active","venue":"H2 Fuel Combustor"},` +
+		`{"base_id":"confederacy_central_command","base_name":"Confederacy Central Command","deliver_to":"storage","eta_ticks":1375,"external":true,"facility_id":"a14f5377793c6a2a0ec96f0c1976b475","job_id":"j2","position":1,"produces":[{"item_id":"fuel_reserve","name":"Fuel Reserve","quantity":500}],"progress":0,"recipe":"Manufacture Fuel (Plasma)","runs_done":0,"runs_total":1,"status":"queued","venue":"Plasma Fuel Plant"}]}}`)
+	out := formatCraft(raw)
+	for _, want := range []string{
+		"H2 Fuel Combustor [6e4a3018…] @ Conjunction Junction — 1 job",
+		"Plasma Fuel Plant [a14f5377…] @ Confederacy Central Command (EXTERNAL: another player's facility) — 1 job",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("formatCraft(station names) missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestFormatCraftBulk_KeySubstrings(t *testing.T) {
 	out := formatCraft([]byte(craftBulkSample))
 	for _, want := range []string{
