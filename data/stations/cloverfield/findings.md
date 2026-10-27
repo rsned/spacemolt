@@ -175,6 +175,39 @@ modified orders follow the current policy.
   (the command itself is not yet tried). The dock is built but cannot work until a Fuel Tank
   Expansion exists (see Fuel).
 
+- 2026-10-27 · **measured** · **Atmospheric Recycler live.** `get_base` gains a `life_support`
+  block: `supply 12, demand 0, plants 1`, `maintenance` = 1 catalytic_scrubber_cartridge,
+  2 oxygen_gas, 1 purified_water, 1 sunspindle, 3 water_ice per cycle (matches the catalog),
+  and **`maintenance_cycle_ticks: 100`**.
+
+- 2026-10-27 · **measured** · **Recycler starved → recovered.** `get_base` 08:20Z (tick 2245484) and
+  08:47Z (2245647): `operational`, 4/5, `life_support.starved` + remediation *"A life support plant is
+  short of upkeep. Deposit these into this station's faction storage — the plants need this much on
+  hand, and draw it down slowly."* Faction storage then had sunspindle 100, cartridges 45, purified
+  water 100, water ice 19k+, oxygen_gas **0** (4 arrived by tick 2245642). At 08:58Z (2245702):
+  **thriving 5/5**, no `starved`, and oxygen 4 → **3** with nothing else consumed. So: (a) a restocked
+  plant only recovers at its next maintenance check (here within ≤60 ticks of the deposit read, ≥5 after
+  the starved read); (b) that check took **1** oxygen alone — looks like paying the shortfall of the
+  unaffordable cycle (user's catch-up reading), not a full cycle; (c) the `starved` list names **every**
+  upkeep input, not just the missing one — read storage to find the gap.
+
+## Maintenance cycle: ~3,000 ticks measured, despite `maintenance_cycle_ticks: 100`
+
+Faction storage at Conjunction Junction (events.jsonl `view_faction_storage`), one unit = one
+cycle of that facility's upkeep. Windows are (last old reading, first new reading]:
+
+| facility (item) | drop 1 | drop 2 | drop 3 | gap |
+|---|---|---|---|---|
+| locker_bay (flex_polymer 100→97) | (2237826, 2240207] | (2241748, 2242301] | (2243446, 2245235] | 1,541–4,475; 1,145–3,487 |
+| faction_workshop (focused_crystal 100→98) | (2241574, 2241635] | (2243446, 2245235] | | 1,811–3,661 |
+| refueling_dock (liquid_hydrogen 400→398) | (2241635, 2241748] | (2243446, 2245235] | | 1,698–3,600 |
+| refueling_dock (fuel_cell 1000→998) | (2242301, 2243446] | | | one cycle = 2 |
+
+Every gap fits ~3,000 ticks; a 100-tick cycle would have consumed ~30× more. Each facility
+runs its own phase (from its build). So the life_support block's `maintenance_cycle_ticks: 100`
+is **not** the consumption cycle — most likely the 100-tick rent-billing clock players report.
+Keep 3,000 as the working figure; tighten it with closer-spaced storage reads.
+
 ## Fuel (measured + catalog, 2026-10-26)
 
 - **Faction Fuel Bunker cannot be built at your own station** (server refusal above). Its

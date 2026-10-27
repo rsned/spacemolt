@@ -12,8 +12,8 @@
 # (0026-0030, no pipeline, parked). Chlorine, titanium and spares sit in
 # crft-mining-overrides.json `removed` until they graduate from the unlock queue.
 workers:
-  - { agent_id: miningbot_0000, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,frontier,icecap_drift,frontier_station,trader-9" }
-  - { agent_id: miningbot_0001, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,frontier,icecap_drift,frontier_station,trader-9" }
+  - { agent_id: miningbot_0000, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-10-27 pinned home at Conjunction Junction (CRFT, pirate unlock): moves gifts into faction storage. Was pipeline "water_ice,frontier,icecap_drift,frontier_station,trader-9"
+  - { agent_id: miningbot_0001, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-10-27 pinned home at Conjunction Junction (CRFT, pirate unlock): moves gifts into faction storage. Was pipeline "water_ice,frontier,icecap_drift,frontier_station,trader-9"
   - { agent_id: miningbot_0002, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,altais,altais_outer_ice,frontier_station,trader-9" }
   - { agent_id: miningbot_0003, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,deep_range,deep_range_cryobelt,deep_range_outpost,trader-9" }
   - { agent_id: miningbot_0004, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,cloverfield,cloverfield_frozen_drift,c976fa7df53c87f9616165d7d411b41a,faction" }   # 2026-10-26 ice_harvester_iii fitted; Cloverfield Frozen Drift -> Conjunction Junction faction storage (whole hold)
@@ -45,4 +45,4 @@ workers:
   - { agent_id: miningbot_0030, role: pipeline_miner, station: frontier_station }
   - { agent_id: trader-9, role: resident, station: treasure_cache_trading_post }
   - { agent_id: trader-10, role: resident, station: voss_redoubt }
-  - { agent_id: trader-2, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d }   # 2026-10-26 Hex Wellspring (Zosma) -> Conjunction Junction faction storage: marketbot_014 wiring/plate, 10k each (schedule deliver ... faction)
+  - { agent_id: trader-2, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d }   # 2026-10-26 Hex Wellspring (Zosma) -> Conjunction Junction: trader-2 is YSMT, so it GIFTS to miningbot_0000 (CRFT resident there), which deposits to faction storage

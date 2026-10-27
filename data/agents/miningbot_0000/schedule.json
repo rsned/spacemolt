@@ -36,15 +36,57 @@
     "created_at": "2026-10-24T20:48:01.911220371Z"
   },
   {
-    "id": 7,
+    "id": 9,
     "frequency": "hourly",
-    "command": "update_market",
-    "created_at": "2026-10-25T08:25:17.047406092Z"
+    "command": "deliver steel_plate 10000 c976fa7df53c87f9616165d7d411b41a c976fa7df53c87f9616165d7d411b41a faction",
+    "created_at": "2026-10-27T08:37:00Z"
   },
   {
-    "id": 8,
-    "frequency": "daily",
+    "id": 10,
+    "frequency": "hourly",
+    "command": "deliver copper_wiring 10000 c976fa7df53c87f9616165d7d411b41a c976fa7df53c87f9616165d7d411b41a faction",
+    "created_at": "2026-10-27T08:37:00Z"
+  },
+  {
+    "id": 11,
+    "frequency": "hourly",
+    "command": "deliver copper_piping 10000 c976fa7df53c87f9616165d7d411b41a c976fa7df53c87f9616165d7d411b41a faction",
+    "created_at": "2026-10-27T08:37:00Z"
+  },
+  {
+    "id": 12,
+    "frequency": "hourly",
+    "command": "deliver control_node 10000 c976fa7df53c87f9616165d7d411b41a c976fa7df53c87f9616165d7d411b41a faction",
+    "created_at": "2026-10-27T08:37:00Z"
+  },
+  {
+    "id": 13,
+    "frequency": "hourly",
     "command": "kb_update",
-    "created_at": "2026-10-25T08:25:17.047812773Z"
+    "created_at": "2026-10-27T08:37:05.289563505Z"
+  },
+  {
+    "id": 14,
+    "frequency": "hourly",
+    "command": "view_market",
+    "created_at": "2026-10-27T08:37:05.290395305Z"
+  },
+  {
+    "id": 15,
+    "frequency": "ten_minutely",
+    "command": "update_market",
+    "created_at": "2026-10-27T08:37:05.290715471Z"
+  },
+  {
+    "id": 16,
+    "frequency": "ten_minutely",
+    "command": "get_nearby",
+    "created_at": "2026-10-27T08:37:05.290944463Z"
+  },
+  {
+    "id": 17,
+    "frequency": "hourly",
+    "command": "facilities",
+    "created_at": "2026-10-27T08:37:05.291200896Z"
   }
 ]
