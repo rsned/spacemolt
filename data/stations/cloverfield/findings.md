@@ -165,6 +165,15 @@ modified orders follow the current policy.
   sense on your own station — its fuel would just sit unused. Build a Fuel Tank Expansion
   (faction_build facility_type=fuel_tank_expansion) to grow the station's own shared tank
   instead`. See "Fuel" below.
+- 2026-10-26T21:39Z · **measured** · `facility faction_list` shows **4 active** facilities:
+  Stellar Collector Grid, Locker Bay, **Faction Workshop** (`bf83e1d9789f70078f65f75c16f7bee9`)
+  and **Refueling Dock** (`90901d6f05756e5e0a588dbadc22c8e3`), all level 1, rent 0. Catalog
+  cost of each: 500,000 cr + 800 steel_plate + 400 circuit_board (workshop) / 2,000 fuel_cell
+  (dock). Faction storage: treasury 1,804,097 cr, 24 item types. `faction_rent`:
+  total 0/cycle, **`grace_cycles: 260`**. The rent note says rent pauses while a facility is
+  *"damaged, under construction, or dismantling"* — so **dismantling exists** as a state
+  (the command itself is not yet tried). The dock is built but cannot work until a Fuel Tank
+  Expansion exists (see Fuel).
 
 ## Fuel (measured + catalog, 2026-10-26)
 
@@ -180,7 +189,26 @@ modified orders follow the current policy.
   500,000 cr + 800 steel_plate + 2,000 fuel_cell; build 80; own 5,000-fuel tank; upkeep
   2 fuel_cell + 1 liquid_hydrogen/cycle. *Faction members draw from the shared tank for free;
   everyone else pays station price* — this is the facility that **sells** fuel, the crossroads
-  refuel business. *Guess, unverified:* tank expansions grow the reserve this dock dispenses.
+  refuel business. First report (user, 2026-10-26): the dock "doesn't work without a tank
+  expansion". **Revised** (LT1428's hint, confirmed by `get_base` ~22:15Z): the dock is
+  **unmaintained** — faction storage held 0 fuel_cell (liquid_hydrogen 400), `condition:
+  operational` "some facilities show signs of deferred maintenance", `satisfied_count 3 /
+  total_service_infra 4`, `services: ["crafting","storage"]` (no `refuel`), `fuel_price 20`.
+  **Resolved 2026-10-27:** 1,000 fuel_cell faction-deposited at tick 2242294 (23:26Z); by
+  tick 2242363 (00:42Z) `get_base` read `thriving`, 100%, 4/4, `services: crafting, refuel,
+  storage`. **No expansion needed**: the dock brings its own tank (`max_fuel` 200 → 5,000 since
+  the dock was built). Refuel at 00:42Z → `station_fuel_empty: This station's fuel reserves are
+  depleted. Buy fuel cells from the market and use them directly.` — the tank must be filled
+  (tanker storage deposit `item_id=fuel`).
+- **Fuel production checks** (h2_fuel_combustor): at 21:37Z (dock unpaid) → `no_fuel_bunker`;
+  at 00:43Z, tick 2242754 (dock paid) → `no_life_support: This station has no life support yet.
+  Build a life support facility (faction_build) before adding facilities that draw life
+  support.` So a working dock seems to count as tank capacity (inference), and fuel production
+  draws life support → atmospheric_recycler before any production line.
+- **Fuel production needs tank capacity first** (measured, tick 2241639): `faction_build
+  h2_fuel_combustor` → `no_fuel_bunker: This station needs fuel tank capacity before building
+  fuel production facilities. Use 'faction_build' with facility_type='fuel_tank_expansion'
+  first.` (Before the dock was paid; see the resolution above.)
 - Our miners at the station currently get `no_fuel_source … insufficient credits for station
   refueling` (misleading: there is simply no refuel service yet).
 
