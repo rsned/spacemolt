@@ -203,8 +203,13 @@ modified orders follow the current policy.
 - **Fuel production checks** (h2_fuel_combustor): at 21:37Z (dock unpaid) → `no_fuel_bunker`;
   at 00:43Z, tick 2242754 (dock paid) → `no_life_support: This station has no life support yet.
   Build a life support facility (faction_build) before adding facilities that draw life
-  support.` So a working dock seems to count as tank capacity (inference), and fuel production
-  draws life support → atmospheric_recycler before any production line.
+  support.` Fuel production draws life support → atmospheric_recycler before any production
+  line. **Correction (SpaceMolt Bug Bot, 2026-10-27):** the `no_fuel_bunker` refusal was NOT
+  about the unpaid dock — it is a server timing bug: for up to ~17 min after a refueling dock
+  finishes, the station doesn't count the dock's 5,000 tank, so fuel producers *and fuel
+  deposits* are told to build an expansion. Being fixed; retry after the window. The dock's
+  tank is enough — no expansion needed. Also: `fuel_depot` is the empire-station version;
+  `refueling_dock` is the player-station one.
 - **Fuel production needs tank capacity first** (measured, tick 2241639): `faction_build
   h2_fuel_combustor` → `no_fuel_bunker: This station needs fuel tank capacity before building
   fuel production facilities. Use 'faction_build' with facility_type='fuel_tank_expansion'
