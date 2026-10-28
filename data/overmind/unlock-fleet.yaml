@@ -386,6 +386,13 @@ workers:
   # Release it back to assist once it holds the unlock (it is listed in BOTH
   # yamls; removing the line here would make the release a no-op).
   - { agent_id: assist-haven, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 3 jumps, fuel 4000, 85k cr
+  # 2026-10-28: the other four rescue tankers. assist-nexus lost its Capacity tanker to the
+  # raider "Maul" in Lawless Quartzfield on 2026-10-22 (pirate baseline -30 = attacked on
+  # sight). Seconded from assist via fleet-secondment --home assist; listed in BOTH yamls.
+  - { agent_id: assist-sol, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: assist-krynn, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: assist-frontier, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: assist-nexus, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   # Rotation #1 (2026-10-08). marketbot_008 is a station-pinned resident, so it can
   # only reach the giver by being seconded; marketbot_ramens_rest holds The Zero
   # Point Nexus meanwhile. This line is PERMANENT -- membership is switched by the
