@@ -198,3 +198,7 @@ workers:
   # capital. Pinned by POI id (base id is c976fa7df53c87f9616165d7d411b41a).
   # No market facility yet, so update_market captures nothing until one exists.
   - { agent_id: marketbot_home, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # Conjunction Junction (cloverfield) - CRFT home
+
+  # Hive Sulafat, the player station in sulafat (joined 2026-10-29). Pinned by
+  # POI id, like marketbot_home above.
+  - { agent_id: marketbot_sulafat, role: resident, station: 07bf78755682cf3e8ef049f3fa560049 }  # Hive Sulafat (sulafat) - player station
