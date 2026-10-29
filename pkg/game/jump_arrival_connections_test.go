@@ -89,3 +89,40 @@ func TestJumpArrival_SameSystemKeepsConnections(t *testing.T) {
 			c.state.System.Connections)
 	}
 }
+
+// The stronghold flag is the departed system's too, and it is the one field the
+// knowledge base cannot recover from: is_stronghold is upserted with MAX, so a
+// single capture of a chimera state marks the new system a stronghold for
+// good. Observed 2026-10-29: Glenhaven, the only lane out of Alhena, kept being
+// re-flagged after a manual reset, and the autopilot stronghold gate then
+// refused every route through it.
+func TestJumpArrival_ClearsStaleStrongholdFlag(t *testing.T) {
+	c := newTestClient()
+	c.latestRawJSON = map[string][]byte{}
+	c.state.System = SystemData{ID: "alhena", Name: "Alhena", IsStronghold: true}
+
+	c.handleResponse(protocol.Response{
+		Type:    protocol.TypeOK,
+		Payload: map[string]any{"action": "jumped", "system_id": "glenhaven", "system": "Glenhaven"},
+	})
+
+	if c.state.System.IsStronghold {
+		t.Error("arrived at glenhaven still flagged a stronghold from alhena")
+	}
+}
+
+// A duplicate arrival frame for a stronghold must not clear its flag.
+func TestJumpArrival_SameSystemKeepsStrongholdFlag(t *testing.T) {
+	c := newTestClient()
+	c.latestRawJSON = map[string][]byte{}
+	c.state.System = SystemData{ID: "alhena", Name: "Alhena", IsStronghold: true}
+
+	c.handleResponse(protocol.Response{
+		Type:    protocol.TypeOK,
+		Payload: map[string]any{"action": "jumped", "system_id": "alhena", "system": "Alhena"},
+	})
+
+	if !c.state.System.IsStronghold {
+		t.Error("a same-system arrival cleared alhena's stronghold flag")
+	}
+}

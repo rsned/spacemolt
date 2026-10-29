@@ -2539,11 +2539,17 @@ func (c *Client) updateTickFromPayload(payload map[string]any) {
 // list makes a capture write nothing, which is strictly better than writing
 // another system's lanes.
 //
+// The stronghold flag is cleared for the same reason and matters more: the KB
+// upserts is_stronghold with MAX, so one capture of a stronghold's neighbour
+// carrying the old flag marks it a stronghold permanently (Glenhaven, the only
+// lane out of Alhena, 2026-10-29). get_system restores the true value.
+//
 // A repeated arrival frame for the system we are already in changes nothing.
 func (c *Client) enterSystem(id, name string) {
 	if id != "" && id != c.state.System.ID {
 		c.state.System.Connections = nil
 		c.state.System.POIs = nil
+		c.state.System.IsStronghold = false
 		c.state.System.ID = id
 	}
 	if name != "" {
