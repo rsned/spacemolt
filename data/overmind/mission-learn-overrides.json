@@ -16,8 +16,10 @@
     "random-6",
     "random-8",
     "random-9",
-    "random-npc"
+    "random-npc",
+    "explorer-8",
+    "explorer-3"
   ],
-  "updated_at": "2026-08-25T03:40:00Z",
-  "by": "crystal squad: 16 mining hulls released to the mining fleet for the drone-refit energy_crystal run"
+  "updated_at": "2026-10-29T19:50:08Z",
+  "by": "explorer-3 -> crft-mining: dedicated platinum hauler Ironhearth -> Conjunction Junction"
 }

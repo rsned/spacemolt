@@ -1,63 +1,80 @@
 [
   {
-    "id": 1,
-    "frequency": "hourly",
-    "command": "update_market",
-    "created_at": "2026-06-24T06:29:13.244989228Z",
-    "last_run": "2026-08-19T06:00:05.511730751Z"
-  },
-  {
     "id": 2,
     "frequency": "hourly",
     "command": "capture_fuel",
-    "created_at": "2026-08-11T02:53:20.074318423Z",
-    "last_run": "2026-08-19T06:00:05.511730751Z"
+    "created_at": "2026-08-11T02:53:20.074318423Z"
   },
   {
     "id": 3,
     "frequency": "hourly",
     "command": "capture_profile",
-    "created_at": "2026-08-11T02:53:20.074846649Z",
-    "last_run": "2026-08-19T06:00:05.511730751Z"
-  },
-  {
-    "id": 4,
-    "frequency": "daily",
-    "command": "kb_update",
-    "created_at": "2026-08-11T02:53:20.074987418Z",
-    "last_run": "2026-08-19T00:00:05.511890276Z"
+    "created_at": "2026-08-11T02:53:20.074846649Z"
   },
   {
     "id": 5,
     "frequency": "daily",
     "command": "capture_storage",
-    "created_at": "2026-08-11T02:53:20.07510461Z",
-    "last_run": "2026-08-19T00:00:05.511890276Z"
+    "created_at": "2026-08-11T02:53:20.07510461Z"
   },
   {
     "id": 6,
     "frequency": "daily",
     "command": "capture_faction",
-    "created_at": "2026-08-11T02:53:20.075219956Z",
-    "last_run": "2026-08-19T00:00:05.511890276Z"
+    "created_at": "2026-08-11T02:53:20.075219956Z"
   },
   {
     "id": 7,
-    "frequency": "hourly",
+    "frequency": "twice_daily",
     "command": "capture_action_log",
-    "created_at": "2026-08-18T07:32:04.956121Z",
-    "last_run": "2026-08-19T06:00:05.511730751Z"
+    "created_at": "2026-08-18T07:32:04.956121Z"
   },
   {
     "id": 8,
     "frequency": "daily",
-    "command": "capture_citizenship",
-    "created_at": "2026-08-19T06:42:04.000000000Z"
+    "command": "capture_tax",
+    "created_at": "2026-09-15T00:39:53.139171868Z"
   },
   {
     "id": 9,
     "frequency": "daily",
-    "command": "capture_tax",
-    "created_at": "2026-08-19T06:42:30.000000000Z"
+    "command": "capture_citizenship",
+    "created_at": "2026-09-15T00:39:53.139365473Z"
+  },
+  {
+    "id": 10,
+    "frequency": "hourly",
+    "command": "deliver platinum_ore 925 ironhearth_station c976fa7df53c87f9616165d7d411b41a miningbot_0000",
+    "created_at": "2026-10-29T19:50:08Z"
+  },
+  {
+    "id": 11,
+    "frequency": "hourly",
+    "command": "kb_update",
+    "created_at": "2026-10-29T19:51:15.483371333Z"
+  },
+  {
+    "id": 12,
+    "frequency": "hourly",
+    "command": "view_market",
+    "created_at": "2026-10-29T19:51:15.483915576Z"
+  },
+  {
+    "id": 13,
+    "frequency": "ten_minutely",
+    "command": "update_market",
+    "created_at": "2026-10-29T19:51:15.484186135Z"
+  },
+  {
+    "id": 14,
+    "frequency": "ten_minutely",
+    "command": "get_nearby",
+    "created_at": "2026-10-29T19:51:15.484366836Z"
+  },
+  {
+    "id": 15,
+    "frequency": "hourly",
+    "command": "facilities",
+    "created_at": "2026-10-29T19:51:15.484556684Z"
   }
 ]

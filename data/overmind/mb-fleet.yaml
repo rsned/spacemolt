@@ -176,7 +176,7 @@ workers:
   - { agent_id: marketbot_016, role: resident, station: 56da4dcca499808b0e76ab482fdfa71c }  # Echo Protocol Hub (lilii_borea) OPEN - gas
   - { agent_id: marketbot_017, role: resident, station: ef377cbdf4962c2b8c8a8b4e4665742e }  # Plasma Echo Station (gsc_0010) OPEN - gas
   - { agent_id: marketbot_014, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d }  # SCOUT: Hex Wellspring (zosma) UNFLOWN - zosma_belt
-  - { agent_id: marketbot_015, role: resident, station: ironhearth_station }                # SCOUT: Ironhearth Station UNFLOWN, struggling - ironhearth_fields
+  - { agent_id: marketbot_015, role: resident, station: ironhearth_station, consign: ["platinum_ore:explorer-3:925"] }  # SCOUT: Ironhearth Station UNFLOWN, struggling - ironhearth_fields. 2026-10-29: gifts its platinum to explorer-3 for the control-node line at Conjunction Junction
   - { agent_id: marketbot_018, role: resident, station: 6a286d5d8c48468a8d50e57da6cb3690 }  # SCOUT: Carnegie Hall (winterhold) UNFLOWN, 4 services - gas
   # WAVE 2, released as each scout docks:
   # zosma CONFIRMED OPEN 2026-09-08 10:15 -- marketbot_014 docked at Hex

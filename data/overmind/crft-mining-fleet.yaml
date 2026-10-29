@@ -46,3 +46,4 @@ workers:
   - { agent_id: trader-9, role: resident, station: treasure_cache_trading_post }
   - { agent_id: trader-10, role: resident, station: voss_redoubt }
   - { agent_id: trader-2, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d }   # 2026-10-26 Hex Wellspring (Zosma) -> Conjunction Junction: trader-2 is YSMT, so it GIFTS to miningbot_0000 (CRFT resident there), which deposits to faction storage
+  - { agent_id: explorer-3, role: resident, station: ironhearth_station }   # 2026-10-29 dedicated platinum hauler Ironhearth -> Conjunction Junction (29 jumps, Compendium 925 hold / 350 tank). Own faction, so it GIFTS to miningbot_0000, which deposits to faction storage for the platinum control-node crafts
