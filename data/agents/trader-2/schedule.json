@@ -88,5 +88,17 @@
     "frequency": "hourly",
     "command": "deliver copper_piping 1900 cargo_lanes_freight_depot c976fa7df53c87f9616165d7d411b41a miningbot_0000",
     "created_at": "2026-10-27T08:35:53Z"
+  },
+  {
+    "id": 18,
+    "frequency": "hourly",
+    "command": "deliver carbon_ore 1900 gold_run_extraction_hub c976fa7df53c87f9616165d7d411b41a miningbot_0000",
+    "created_at": "2026-10-29T20:20:14Z"
+  },
+  {
+    "id": 19,
+    "frequency": "twice_daily",
+    "command": "deliver silicon_ore 1900 grand_exchange_station c976fa7df53c87f9616165d7d411b41a miningbot_0000",
+    "created_at": "2026-10-29T20:20:14Z"
   }
 ]
