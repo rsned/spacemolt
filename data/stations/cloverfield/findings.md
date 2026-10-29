@@ -262,6 +262,14 @@ Keep 3,000 as the working figure; tighten it with closer-spaced storage reads.
   resumes on return. A production facility runs unattended instead. The job used faction
   storage and treasury. Fuel chain: 80 hydrogen_gas → 30 LH2 → 300 fuel in the tank
   (≈ 1,333 gas per full 5,000 tank).
+- 2026-10-28 · **measured** · **Voss Redoubt contraband lines can't move here.** The catalog marks
+  backstreet_chem_lab, backwater_still, bootleg_cell_shop, crystal_infusion_still and
+  unmarked_munitions_line `pirate_base_only: true`. The user is dismantling all but the Backwater
+  Still (moonshine stays). **Rent baseline before dismantling** (`facility faction_list` at
+  voss_redoubt_station): each line 3,829/cycle (329,294/day), Faction Lockbox 1,912/cycle
+  (164,432/day), 21,057/cycle (~1.81M/day) across 6 facilities. Compare Haven: production
+  676/cycle, lockbox 337/cycle. Re-check the lockbox rate after the dismantles: a drop would
+  mean rent scales with station demand.
 - **Fuel production checks** (h2_fuel_combustor): at 21:37Z (dock unpaid) → `no_fuel_bunker`;
   at 00:43Z, tick 2242754 (dock paid) → `no_life_support: This station has no life support yet.
   Build a life support facility (faction_build) before adding facilities that draw life
