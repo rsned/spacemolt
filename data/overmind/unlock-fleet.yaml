@@ -473,3 +473,6 @@ workers:
   - { agent_id: marketbot_031, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: marketbot_032, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: marketbot_033, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  # 2026-10-30 explorer-8 (Survey Vessel, high-tier survey/detection): unlock first so it can reach
+  # every system, then back to mission-learn as role explorer for a full galaxy survey.
+  - { agent_id: explorer-8, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }

@@ -114,6 +114,7 @@ type ExploreDeps struct {
 	KB         knowledge.Base
 	Out        io.Writer // progress; nil -> io.Discard
 	StaleTicks int64     // 0 -> DefaultExploreStaleTicks
+	AgentID    string    // stamped as DetectedBy on the POIs a survey reveals
 }
 
 // Explore performs one exploration step: resolve the current system, choose the
@@ -156,10 +157,20 @@ func Explore(ctx context.Context, deps ExploreDeps) error {
 		return nil
 	}
 	fmt.Fprintf(out, "explore: heading to %s\n", target) //nolint:errcheck
-	return Autopilot(ctx, AutopilotDeps{
+	if err := Autopilot(ctx, AutopilotDeps{
 		Client:     deps.Client,
 		Out:        out,
 		KB:         deps.KB,
 		OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
-	}, target, "")
+	}, target, ""); err != nil {
+		return err
+	}
+	// Survey on arrival, so hidden POIs are found and known ones refreshed.
+	// A survey problem never fails the step: the flight already captured the
+	// system, and the next pass moves on regardless.
+	if _, err := SurveyHere(ctx, deps.Client, deps.KB, deps.AgentID, out); err != nil {
+		fmt.Fprintf(out, "explore: survey skipped in %s: %v\n", target, err) //nolint:errcheck
+	}
+
+	return nil
 }

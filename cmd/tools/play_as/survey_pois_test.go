@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/worker"
 )
 
 func surveyReply() serverapi.SurveySystemResponse {
@@ -30,7 +31,7 @@ func surveyReply() serverapi.SurveySystemResponse {
 // the POI row read 1,736,298, and the survey reply carrying the current numbers
 // was discarded.
 func TestSurveyPOIs_CapturesAlreadyRevealedToo(t *testing.T) {
-	got := surveyPOIsToKB(surveyReply(), "craftsman-1", 1736323)
+	got := worker.SurveyPOIsToKB(surveyReply(), "craftsman-1", 1736323)
 	if len(got) != 2 {
 		t.Fatalf("captured %d POIs, want 2 (newly + already revealed)", len(got))
 	}
@@ -55,7 +56,7 @@ func TestSurveyPOIs_CapturesAlreadyRevealedToo(t *testing.T) {
 // SurveyedPOI carries no hidden field, but appearing in either revealed list
 // means the POI needed a survey to see, which is exactly what hidden means.
 func TestSurveyPOIs_MarkRevealedPOIsAsHidden(t *testing.T) {
-	for _, p := range surveyPOIsToKB(surveyReply(), "craftsman-1", 1736323) {
+	for _, p := range worker.SurveyPOIsToKB(surveyReply(), "craftsman-1", 1736323) {
 		if !p.Hidden {
 			t.Errorf("%s: Hidden = false; a POI a survey had to reveal IS hidden", p.ID)
 		}
@@ -63,7 +64,7 @@ func TestSurveyPOIs_MarkRevealedPOIsAsHidden(t *testing.T) {
 }
 
 func TestSurveyPOIs_CarriesResourceCapacity(t *testing.T) {
-	for _, p := range surveyPOIsToKB(surveyReply(), "craftsman-1", 1736323) {
+	for _, p := range worker.SurveyPOIsToKB(surveyReply(), "craftsman-1", 1736323) {
 		if len(p.Resources) != 1 {
 			t.Fatalf("%s: %d resources", p.ID, len(p.Resources))
 		}
@@ -74,7 +75,7 @@ func TestSurveyPOIs_CarriesResourceCapacity(t *testing.T) {
 }
 
 func TestSurveyPOIs_EmptyReplyYieldsNothing(t *testing.T) {
-	if got := surveyPOIsToKB(serverapi.SurveySystemResponse{}, "a", 1); len(got) != 0 {
+	if got := worker.SurveyPOIsToKB(serverapi.SurveySystemResponse{}, "a", 1); len(got) != 0 {
 		t.Errorf("got %d POIs from an empty reply", len(got))
 	}
 }

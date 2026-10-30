@@ -267,6 +267,13 @@ func (f *fakeClient) Jump(ctx context.Context, sys string) (*game.JumpResult, er
 	f.calls = append(f.calls, "jump:"+sys)
 	return &game.JumpResult{Canceled: f.jumpCanceled}, nil
 }
+// SurveySystem models the common ship with no survey scanner: the explore step
+// surveys on arrival and must carry on past this refusal.
+func (f *fakeClient) SurveySystem(context.Context) error {
+	f.calls = append(f.calls, "survey_system")
+	return errors.New("survey_system requires a survey scanner")
+}
+
 func (f *fakeClient) GetRawJSON(key string) []byte {
 	if key == "active_missions" && f.activeMissionsSeq != nil {
 		idx := f.activeMissionsCall
