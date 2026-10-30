@@ -1,9 +1,8 @@
 {
   "removed": [
     "craftsman-1",
-    "hauler-0",
     "trader-2"
   ],
-  "updated_at": "2026-10-29T23:12:23Z",
-  "by": "operator: trader-4 (silicon GE->Sol) and salvager-4 (titanium ore) supply craftsman-3 at Sol for ceramite/titanium alloy (fuel tank expansion) 2026-10-29"
+  "updated_at": "2026-10-30T09:08:51Z",
+  "by": "hauler-0 back to haul after funding YSMT treasury 10M (lockbox at Conjunction Junction)"
 }
