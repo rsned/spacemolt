@@ -124,5 +124,59 @@
     "frequency": "hourly",
     "command": "craft build_fuel_tank 200",
     "created_at": "2026-10-30T00:10:42Z"
+  },
+  {
+    "id": 24,
+    "frequency": "half_hourly",
+    "command": "faction_deposit platinum_ore",
+    "created_at": "2026-10-30T17:48:22Z"
+  },
+  {
+    "id": 25,
+    "frequency": "half_hourly",
+    "command": "faction_deposit carbon_ore",
+    "created_at": "2026-10-30T17:48:22Z"
+  },
+  {
+    "id": 26,
+    "frequency": "half_hourly",
+    "command": "faction_deposit silicon_ore",
+    "created_at": "2026-10-30T17:48:22Z"
+  },
+  {
+    "id": 27,
+    "frequency": "half_hourly",
+    "command": "faction_deposit circuit_board",
+    "created_at": "2026-10-30T17:48:22Z"
+  },
+  {
+    "id": 28,
+    "frequency": "half_hourly",
+    "command": "faction_deposit titanium_alloy",
+    "created_at": "2026-10-30T17:48:22Z"
+  },
+  {
+    "id": 29,
+    "frequency": "half_hourly",
+    "command": "faction_deposit ceramite_plating",
+    "created_at": "2026-10-30T17:48:22Z"
+  },
+  {
+    "id": 30,
+    "frequency": "half_hourly",
+    "command": "faction_deposit copper_wiring",
+    "created_at": "2026-10-30T17:48:22Z"
+  },
+  {
+    "id": 31,
+    "frequency": "half_hourly",
+    "command": "faction_deposit steel_plate",
+    "created_at": "2026-10-30T17:48:22Z"
+  },
+  {
+    "id": 32,
+    "frequency": "half_hourly",
+    "command": "faction_deposit copper_piping",
+    "created_at": "2026-10-30T17:48:22Z"
   }
 ]

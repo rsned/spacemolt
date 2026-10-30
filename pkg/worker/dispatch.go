@@ -212,7 +212,7 @@ var supported = map[string]bool{
 	"hunt": true,
 	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "buy_directed": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "launch_drones": true,
-	"refuel": true, "repair": true, "deposit_all": true, "sell_all": true,
+	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
 	"capture_storage": true, "capture_faction": true, "capture_cargo": true,
@@ -320,6 +320,11 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return d.Client.Repair(ctx)
 	case "deposit_all":
 		return d.Client.DepositAllItems(ctx)
+	case "faction_deposit":
+		if len(args) < 1 {
+			return fmt.Errorf("faction_deposit: want ITEM, got %v", args)
+		}
+		return FactionDeposit(ctx, d.Client, args[0])
 	case "sell_all":
 		return d.Client.SellAllBulk(ctx, nil)
 	case "travel":
