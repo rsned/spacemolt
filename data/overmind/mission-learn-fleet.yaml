@@ -139,8 +139,9 @@ workers:
   - { agent_id: random-4, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: random-5, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: random-6, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
-  # random-7 shares random-6's game account ("Agent McAgentFace") — running both caused a
-  # session_replaced reconnect thrash, so it is intentionally omitted from the pool.
+  # random-7 used to share random-6's game account ("Agent McAgentFace"), which caused a
+  # session_replaced thrash. Since 2026-10-30 it logs in as its own account, superroot.
+  - { agent_id: random-7, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: random-8, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: random-9, role: missionrunner, station: "", mission_categories: [delivery, exploration] }
   - { agent_id: random-npc, role: missionrunner, station: "", mission_categories: [delivery, exploration] }

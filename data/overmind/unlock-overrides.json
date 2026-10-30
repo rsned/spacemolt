@@ -74,8 +74,13 @@
     "trader-6",
     "trader-7",
     "trader-8",
-    "trader-9"
+    "trader-9",
+    "assist-nexus",
+    "assist-krynn",
+    "assist-frontier",
+    "assist-sol",
+    "marketbot_008"
   ],
-  "updated_at": "2026-10-25T01:22:45Z",
-  "by": "assist-sol (Theoria) and assist-krynn (Siphon) back on the unlock run; tankers stored"
+  "updated_at": "2026-10-30T03:29:35Z",
+  "by": "marketbot_008 graduated the unlock (9/9); it was in no removed set, so the b64fceca roll launched it in unlock AND mb (session_replaced loop). Back to mb only."
 }
