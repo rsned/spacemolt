@@ -565,13 +565,14 @@ func main() {
 					deps.Consign = func(c context.Context) {
 						n, cerr := worker.Consign(c, client, consignRules,
 							func(id string) (string, error) { return worker.UsernameFor("", id) })
-						switch {
-						case cerr != nil:
-							// Only an unresolvable recipient reaches here, and
-							// it is a config error worth saying once per pass
-							// rather than accumulating goods in silence.
+						// cerr carries refused gifts (with the server's reason)
+						// and unresolvable recipients; either way goods would
+						// otherwise accumulate in silence. Log both lines when a
+						// pass sent some gifts and had others refused.
+						if cerr != nil {
 							logger.Printf("consign: %v", cerr)
-						case n > 0:
+						}
+						if n > 0 {
 							logger.Printf("consign: sent %d gift(s)", n)
 						}
 					}

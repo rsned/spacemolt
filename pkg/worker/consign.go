@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -45,11 +46,14 @@ type ConsignRule struct {
 // Reads personal storage at the docked station only, never cargo: a ship's
 // hold is its own work. Returns the number of gifts sent.
 //
-// Failure policy matches the capture family: a send failure degrades quietly,
-// because consignment is strictly less important than any paying activity and
-// must never become a new way for a pass to fail. The ONE exception is an
-// unresolvable recipient, which is a config error -- a typo'd agent id would
-// otherwise accumulate goods forever in silence.
+// Failure policy: consignment is strictly less important than any paying
+// activity and must never become a new way for a pass to fail, so a refused
+// gift does not stop the other rules. It IS reported, though: the failures come
+// back joined in err, which the caller only logs. Dropping them silently hid a
+// day of refusals on 2026-10-30 -- marketbot_015 had never earned the 1,000
+// credits an account needs before it can gift, and the log showed nothing but
+// "send_gift pending". An unresolvable recipient still returns at once, since
+// it is a config error.
 //
 // The post-gift state is never re-read to confirm. Worker heartbeat credits
 // read a stale 0 after a transfer, which makes a landed gift look failed; the
@@ -75,6 +79,7 @@ func Consign(ctx context.Context, client game.GameClient, rules []ConsignRule,
 		return 0, nil
 	}
 
+	var failed []error
 	for _, r := range rules {
 		if r.Item == "" || r.To == "" {
 			continue
@@ -93,12 +98,13 @@ func Consign(ctx context.Context, client game.GameClient, rules []ConsignRule,
 			"quantity":  sendable,
 			"source":    "storage",
 		}); gerr != nil {
+			failed = append(failed, fmt.Errorf("consign %s x%d to %s: %w", r.Item, sendable, r.To, gerr))
 			continue
 		}
 		sent++
 	}
 
-	return sent, nil
+	return sent, errors.Join(failed...)
 }
 
 // consignHeld reads item quantities out of a view_storage frame. A frame that

@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -14,6 +15,9 @@ type consignFake struct {
 	gifts []map[string]any
 	raw   map[string][]byte
 	err   error
+	// errFor fails gifts of one item only, so a test can see that one failed
+	// rule does not stop the rest.
+	errFor map[string]error
 }
 
 func (f *consignFake) GetState() *game.State { return f.state }
@@ -25,6 +29,9 @@ func (f *consignFake) GetRawJSON(key string) []byte { return f.raw[key] }
 func (f *consignFake) SendGift(_ context.Context, payload map[string]any) error {
 	if f.err != nil {
 		return f.err
+	}
+	if e := f.errFor[payload["item_id"].(string)]; e != nil {
+		return e
 	}
 	f.gifts = append(f.gifts, payload)
 
@@ -182,19 +189,27 @@ func TestConsign_NeverTouchesUnlistedItems(t *testing.T) {
 // important than any paying activity, matching the capture family's policy.
 // And the post-gift state read is never trusted: heartbeat credits read a
 // stale 0 and make a landed gift look failed.
-func TestConsign_SendFailureDegradesQuietly(t *testing.T) {
+func TestConsign_SendFailureIsReportedAndOthersContinue(t *testing.T) {
+	// A refused gift used to be dropped without a word. marketbot_015 sent a
+	// platinum gift every pass for a day and every one failed with
+	// gift_not_unlocked (an account must earn 1,000 credits before it can
+	// gift), while the worker log showed only "send_gift pending" (2026-10-30).
+	// A failure is now reported, and the remaining rules are still sent.
 	f := &consignFake{
-		state: consignDockedAt("voss_redoubt_station"),
-		raw:   map[string][]byte{"storage": storageFrame("voss_redoubt_station", map[string]int{"adamantite_ore": 100})},
-		err:   errors.New("storage service offline"),
+		state: consignDockedAt("ironhearth_station"),
+		raw: map[string][]byte{"storage": storageFrame("ironhearth_station",
+			map[string]int{"platinum_ore": 925, "carbon_ore": 925})},
+		errFor: map[string]error{"platinum_ore": errors.New("gift_not_unlocked: You must earn at least 1000 credits before sending gifts.")},
 	}
-	n, err := Consign(context.Background(), f, []ConsignRule{{Item: "adamantite_ore", To: "x", Min: 1}},
-		func(string) (string, error) { return "X", nil })
-	if err != nil {
-		t.Errorf("want a quiet degrade, got %v", err)
+	n, err := Consign(context.Background(), f, []ConsignRule{
+		{Item: "platinum_ore", To: "explorer-3", Min: 1},
+		{Item: "carbon_ore", To: "explorer-3", Min: 1},
+	}, func(string) (string, error) { return "Atlas", nil })
+	if err == nil || !strings.Contains(err.Error(), "platinum_ore") || !strings.Contains(err.Error(), "gift_not_unlocked") {
+		t.Errorf("err = %v, want it to name platinum_ore and gift_not_unlocked", err)
 	}
-	if n != 0 {
-		t.Errorf("n = %d, want 0 on failure", n)
+	if n != 1 || len(f.gifts) != 1 || f.gifts[0]["item_id"] != "carbon_ore" {
+		t.Errorf("n=%d gifts=%+v, want the carbon_ore gift still sent", n, f.gifts)
 	}
 }
 
