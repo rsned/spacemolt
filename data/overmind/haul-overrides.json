@@ -1,8 +1,9 @@
 {
   "removed": [
     "craftsman-1",
+    "hauler-0",
     "trader-2"
   ],
-  "updated_at": "2026-10-26T08:52:15Z",
-  "by": "operator: trader-2 seconded to crft-mining for Hex Wellspring -> Conjunction Junction transfer 2026-10-26"
+  "updated_at": "2026-10-29T23:12:23Z",
+  "by": "operator: trader-4 (silicon GE->Sol) and salvager-4 (titanium ore) supply craftsman-3 at Sol for ceramite/titanium alloy (fuel tank expansion) 2026-10-29"
 }

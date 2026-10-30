@@ -112,5 +112,17 @@
     "frequency": "hourly",
     "command": "craft carbon_arc_circuit_etching 300",
     "created_at": "2026-10-29T20:20:14Z"
+  },
+  {
+    "id": 22,
+    "frequency": "hourly",
+    "command": "craft manufacture_fuel_basic 2000",
+    "created_at": "2026-10-29T21:30:40Z"
+  },
+  {
+    "id": 23,
+    "frequency": "hourly",
+    "command": "craft build_fuel_tank 200",
+    "created_at": "2026-10-30T00:10:42Z"
   }
 ]
