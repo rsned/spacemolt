@@ -264,6 +264,10 @@ type Scheduler struct {
 	// REPL and tests want; LoadScheduler derives it from the agent directory.
 	phaseSeed string
 	tasks     []ScheduledTask
+	// fileMod is the task file's mtime as of the last load or save. A running
+	// worker re-reads the file when it moves, so a hand edit takes effect
+	// without a relaunch; zero means no file has been seen.
+	fileMod time.Time
 }
 
 // LoadScheduler reads the scheduler state at path. A missing file yields an
@@ -293,8 +297,59 @@ func LoadScheduler(path string) (*Scheduler, error) {
 			}
 		}
 	}
+	s.fileMod = fileModTime(path)
 
 	return s, nil
+}
+
+// fileModTime is path's mtime, or zero when it cannot be read.
+func fileModTime(path string) time.Time {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return time.Time{}
+	}
+
+	return fi.ModTime()
+}
+
+// reloadIfChangedLocked re-reads the task file when its mtime has moved since
+// the last load or save, so tasks an operator adds by hand reach a running
+// worker. Without it the file was read once at startup: on 2026-10-29/30 five
+// crafts and four delivers sat unrun for two days on workers that had not
+// restarted. Run times are kept by task id from memory, then the state file;
+// a task new to the file has none and is due at once. A file that cannot be
+// read or parsed leaves the current schedule untouched -- a half-saved edit
+// must never wipe it. Caller holds s.mu.
+func (s *Scheduler) reloadIfChangedLocked() {
+	if s.path == "" {
+		return
+	}
+	mod := fileModTime(s.path)
+	if mod.IsZero() || mod.Equal(s.fileMod) {
+		return
+	}
+	raw, err := os.ReadFile(s.path) // #nosec G304 -- derived from the agent id we were launched with
+	if err != nil {
+		return
+	}
+	var tasks []ScheduledTask
+	if err := json.Unmarshal(raw, &tasks); err != nil {
+		return
+	}
+	known := make(map[int]time.Time, len(s.tasks))
+	for _, t := range s.tasks {
+		known[t.ID] = t.LastRun
+	}
+	state := loadState(s.path)
+	for i := range tasks {
+		if ts, ok := known[tasks[i].ID]; ok {
+			tasks[i].LastRun = ts
+		} else if ts, ok := state[tasks[i].ID]; ok {
+			tasks[i].LastRun = ts
+		}
+	}
+	s.tasks = tasks
+	s.fileMod = mod
 }
 
 // Add validates and appends a new task. With run-immediately semantics the
@@ -312,6 +367,7 @@ func (s *Scheduler) Add(freq, command string, now time.Time) (ScheduledTask, err
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
 	for _, t := range s.tasks {
 		if t.Frequency == freq && t.Command == command {
 			return ScheduledTask{}, fmt.Errorf("duplicate of scheduled task #%d (%s): %s", t.ID, freq, command)
@@ -352,6 +408,7 @@ func (s *Scheduler) Add(freq, command string, now time.Time) (ScheduledTask, err
 func (s *Scheduler) RetireCovered() []ScheduledTask {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
 
 	covered := func(t ScheduledTask) bool {
 		for _, o := range s.tasks {
@@ -388,6 +445,7 @@ func (s *Scheduler) RetireCovered() []ScheduledTask {
 func (s *Scheduler) Remove(id int) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
 	for i, t := range s.tasks {
 		if t.ID == id {
 			s.tasks = append(s.tasks[:i], s.tasks[i+1:]...)
@@ -402,6 +460,7 @@ func (s *Scheduler) Remove(id int) bool {
 func (s *Scheduler) List() []ScheduledTask {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
 	out := make([]ScheduledTask, len(s.tasks))
 	copy(out, s.tasks)
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
@@ -413,6 +472,7 @@ func (s *Scheduler) List() []ScheduledTask {
 func (s *Scheduler) Due(now time.Time) []ScheduledTask {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
 	return s.dueLocked(now)
 }
 
@@ -433,6 +493,7 @@ func (s *Scheduler) dueLocked(now time.Time) []ScheduledTask {
 func (s *Scheduler) checkDue(now time.Time) []ScheduledTask {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.reloadIfChangedLocked()
 	due := s.dueLocked(now)
 	if len(due) == 0 {
 		return nil
@@ -588,6 +649,7 @@ func (s *Scheduler) saveLocked() error {
 	if err := writeAtomic(s.path, data); err != nil {
 		return err
 	}
+	s.fileMod = fileModTime(s.path)
 
 	return s.saveStateLocked()
 }
