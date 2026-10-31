@@ -1478,6 +1478,16 @@ func (m *MCPGameClient) CommissionShip(ctx context.Context, shipClass string, pr
 	return err
 }
 
+func (m *MCPGameClient) CommissionShipPayload(ctx context.Context, payload map[string]any) error {
+	_, err := m.callTool(ctx, "commission_ship", payload)
+	return err
+}
+
+func (m *MCPGameClient) BuyShipLicense(ctx context.Context, shipClass string) error {
+	_, err := m.callTool(ctx, "buy_ship_license", map[string]any{"ship_class": shipClass})
+	return err
+}
+
 func (m *MCPGameClient) TowWreck(ctx context.Context, wreckID string) error {
 	_, err := m.callTool(ctx, "tow_wreck", map[string]any{"wreck_id": wreckID})
 	return err

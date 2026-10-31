@@ -246,6 +246,40 @@ func (c *Client) CommissionShip(ctx context.Context, shipClass string, provideMa
 	return err
 }
 
+// CommissionShipPayload sends commission_ship with the caller's payload, so
+// every option reaches the server: fund_from_faction (build from faction storage
+// and treasury at the faction's own station), provide_materials,
+// source_missing_materials and bare_hull. ship_class is required.
+func (c *Client) CommissionShipPayload(ctx context.Context, payload map[string]any) error {
+	msg := protocol.Message{
+		Type:      "commission_ship",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return err
+}
+
+// BuyShipLicense buys a per-design shipbuilding license for the faction, paid
+// from the faction treasury (T1=1M, T2=5M, T3=10M, T4=20M, T5=50M; needs the
+// ManageTreasury permission). The license lets the faction build that hull at
+// its own stations for a 10% royalty per build.
+func (c *Client) BuyShipLicense(ctx context.Context, shipClass string) error {
+	msg := protocol.Message{
+		Type:      "buy_ship_license",
+		Payload:   map[string]any{"ship_class": shipClass},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return err
+}
+
 // CommissionStatus checks the status of ship commissions.
 func (c *Client) CommissionStatus(ctx context.Context, baseID string) error {
 	// Submit + WithAckOnly so the caller blocks until this command's own

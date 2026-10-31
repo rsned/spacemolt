@@ -7525,32 +7525,21 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 		}, ctx, 3*time.Second, cmd, format)
 
 	case "commission_ship":
-		if len(parts) < 2 {
-			return fmt.Errorf("usage: commission_ship <ship-class> [--provide_materials true|false]")
+		payload, err := commissionShipPayload(parts)
+		if err != nil {
+			return err
 		}
-		payload := map[string]any{}
-		// Parse positional and flags
-		for i := 1; i < len(parts); i++ {
-			arg := parts[i]
-			if key, ok := strings.CutPrefix(arg, "--"); ok {
-				if k, v, ok2 := strings.Cut(key, "="); ok2 {
-					payload[k] = v
-				} else if i+1 < len(parts) {
-					i++
-					payload[key] = parts[i]
-				}
-			} else if payload["ship_class"] == nil {
-				payload["ship_class"] = arg
-			}
-		}
-		// Convert provide_materials to bool
-		if v, ok := payload["provide_materials"]; ok {
-			payload["provide_materials"] = flagBool(v)
-		}
-		shipClass, _ := payload["ship_class"].(string)
-		provideMaterials, _ := payload["provide_materials"].(bool)
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.CommissionShip(ctx, shipClass, provideMaterials)
+			return client.CommissionShipPayload(ctx, payload)
+		}, ctx, 5*time.Second, cmd, format)
+
+	case "buy_ship_license":
+		if len(parts) < 2 {
+			return fmt.Errorf("usage: buy_ship_license <ship-class>  (faction treasury pays: T1=1M T2=5M T3=10M T4=20M T5=50M)")
+		}
+		shipClass := strings.ToLower(parts[1])
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.BuyShipLicense(ctx, shipClass)
 		}, ctx, 5*time.Second, cmd, format)
 
 	case "supply_commission":
@@ -10136,6 +10125,43 @@ func flagString(v any) (string, bool) {
 // flagBool interprets a parseFlagArgs value as a boolean. Accepts the string
 // forms "true"/"1" (case-insensitive on the word) and the int forms 0/non-0
 // — parseFlagArgs hands us int 1 when the user wrote `--clear 1`.
+// commissionShipBoolFlags are commission_ship's boolean options. Each is sent
+// only when given, so the server default applies otherwise.
+var commissionShipBoolFlags = []string{"provide_materials", "fund_from_faction", "source_missing_materials", "bare_hull"}
+
+// commissionShipPayload builds a commission_ship payload from a command line:
+// commission_ship <ship-class> [--fund_from_faction true] [--provide_materials
+// true] [--source_missing_materials true] [--bare_hull true]. It used to parse
+// every flag but send only ship_class and provide_materials, so a faction-funded
+// build (fund_from_faction, required at the faction's own station) could not be
+// requested.
+func commissionShipPayload(parts []string) (map[string]any, error) {
+	payload := map[string]any{}
+	for i := 1; i < len(parts); i++ {
+		arg := parts[i]
+		if key, ok := strings.CutPrefix(arg, "--"); ok {
+			if k, v, ok2 := strings.Cut(key, "="); ok2 {
+				payload[k] = v
+			} else if i+1 < len(parts) {
+				i++
+				payload[key] = parts[i]
+			}
+		} else if payload["ship_class"] == nil {
+			payload["ship_class"] = strings.ToLower(arg)
+		}
+	}
+	if _, ok := payload["ship_class"].(string); !ok {
+		return nil, fmt.Errorf("usage: commission_ship <ship-class> [--fund_from_faction true] [--provide_materials true] [--source_missing_materials true] [--bare_hull true]")
+	}
+	for _, k := range commissionShipBoolFlags {
+		if v, ok := payload[k]; ok {
+			payload[k] = flagBool(v)
+		}
+	}
+
+	return payload, nil
+}
+
 func flagBool(v any) bool {
 	switch tv := v.(type) {
 	case bool:
