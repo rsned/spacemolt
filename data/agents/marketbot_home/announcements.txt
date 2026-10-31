@@ -1,0 +1,19 @@
+# Town crier for Conjunction Junction (Cloverfield). One line is posted every
+# ten minutes, in rotation, by the `announce` scheduled task.
+#
+# items: the goods to advertise (item ids). {items} lists only those currently
+#        for sale on this station's market; if none are, nothing is posted.
+# channel: system reaches everyone in or passing through the system.
+#
+# Placeholders: {items}  {station}  {price:<item_id>}
+# A line with {price:x} is skipped while x is not for sale.
+#
+# items: pirate_moonshine, void_dust, nerve_burn, red_mist, starshine, ghost_rounds
+# channel: system
+Fresh {items} at {station}, best prices in the Galaxy!
+Passing through Cloverfield? {station} has {items} on the shelves right now.
+No customs, no questions: {items} at {station}.
+Void dust only {price:void_dust} a unit at {station}!
+Moonshine on tap at {station}: {price:pirate_moonshine} a jug.
+Nerve burn in stock at {station}, {price:nerve_burn} each. Dock and stock up.
+Stocking up before the long jump? {station} carries {items}.
