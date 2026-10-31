@@ -1,0 +1,19 @@
+// mine radium tiaki - marketbot_012 @ Stellar Leap Station
+// 2026-10-31: retargeted from Dense Nickel Field (nickel storage full at
+// 100,000) to Radium-Bearing Veins. Rendered from mine_asteroid.ds; station is the POI id for
+// Stellar Leap Station; belt is Radium-Bearing Veins.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("1e2d6bd532e06724b80851cff3d68e2e")
+    DEPOSIT
+  ELSE
+    MOVE "1e2d6bd532e06724b80851cff3d68e2e"
+  END
+ELSE
+  IF at("radium_bearing_veins")
+    MINE
+  ELSE
+    MOVE "radium_bearing_veins"
+  END
+END
