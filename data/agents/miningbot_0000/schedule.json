@@ -98,13 +98,13 @@
   {
     "id": 19,
     "frequency": "hourly",
-    "command": "craft draw_platinum_wire 40",
+    "command": "craft draw_platinum_wire 100",
     "created_at": "2026-10-29T19:50:01Z"
   },
   {
     "id": 20,
     "frequency": "hourly",
-    "command": "craft assemble_platinum_control_node 20",
+    "command": "craft assemble_platinum_control_node 50 prefer_own",
     "created_at": "2026-10-29T19:50:01Z"
   },
   {
