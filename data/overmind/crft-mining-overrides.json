@@ -1,14 +1,14 @@
 {
   "removed": [
+    "miningbot_0002",
+    "miningbot_0003",
+    "miningbot_0023",
     "miningbot_0026",
     "miningbot_0027",
     "miningbot_0028",
     "miningbot_0029",
-    "miningbot_0030",
-    "miningbot_0023",
-    "miningbot_0002",
-    "miningbot_0003"
+    "miningbot_0030"
   ],
-  "updated_at": "2026-10-27T09:14:38Z",
-  "by": "0006 (iron) / 0007 (copper) mining shy_spark_nebula"
+  "updated_at": "2026-11-01T17:49:42Z",
+  "by": "trader-10 back after the Sirius culture run"
 }

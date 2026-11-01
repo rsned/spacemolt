@@ -110,7 +110,7 @@
   {
     "id": 22,
     "frequency": "hourly",
-    "command": "craft manufacture_fuel_basic 2000",
+    "command": "craft manufacture_fuel_basic 500",
     "created_at": "2026-10-29T21:30:40Z"
   },
   {
@@ -166,5 +166,35 @@
     "frequency": "half_hourly",
     "command": "faction_deposit copper_piping",
     "created_at": "2026-10-30T17:48:22Z"
+  },
+  {
+    "id": 33,
+    "frequency": "hourly",
+    "command": "craft carbon_arc_circuit_etching 1000 prefer_own",
+    "created_at": "2026-11-01T16:09:40Z"
+  },
+  {
+    "id": 34,
+    "frequency": "half_hourly",
+    "command": "faction_deposit oxygen_gas",
+    "created_at": "2026-11-01T16:27:17Z"
+  },
+  {
+    "id": 35,
+    "frequency": "half_hourly",
+    "command": "faction_deposit catalytic_scrubber_cartridge",
+    "created_at": "2026-11-01T16:27:17Z"
+  },
+  {
+    "id": 36,
+    "frequency": "half_hourly",
+    "command": "faction_deposit sunspindle",
+    "created_at": "2026-11-01T16:27:17Z"
+  },
+  {
+    "id": 37,
+    "frequency": "half_hourly",
+    "command": "faction_deposit purified_water",
+    "created_at": "2026-11-01T16:27:17Z"
   }
 ]

@@ -422,3 +422,38 @@ confirmed **measured** from storage differences once each facility is running.
   lockbox → stronghold as 500 / 2,000 / 10,000 / 50,000 *items*; factions lists
   100k / 200k / 300k / 500k *per item type*. (Our station is said to include
   top-tier storage free.)
+
+## 2026-11-01: life support upkeep, and the next infrastructure steps
+
+**Atmospheric Recycler (L1, 12 life support) upkeep per cycle** (86.4 cycles/day):
+
+| Item | Per cycle | Per day |
+|---|---|---|
+| sunspindle | 1 | 86 |
+| water_ice | 3 | 259 |
+| purified_water | 1 | 86 |
+| oxygen_gas | 2 | 173 |
+| catalytic_scrubber_cartridge | 1 | 86 |
+
+On 11-01 Conjunction Junction held only 33 oxygen (~4.5 h) and 31 scrubbers (~8.5 h), the
+fleet's entire scrubber stock. Stop-gaps:
+- oxygen: electrolyze_water at the workshop; craftsman-1 delivered 1,000 from Gold Run
+- scrubbers: trader-2 bought 431 at Void Gate (186 each)
+- purified water and sunspindle: hand-crafted from water ice and nitrogen ice
+
+**Longer term:** make each input at the station:
+- purified_water: process_water_ice, 5 ice → 3
+- oxygen_gas: electrolyze_water
+- sunspindle: grow_sunspindle, 300 purified water + 30 liquid nitrogen → 200
+- scrubbers: craft_catalytic_scrubber_cartridge, 1 platinum_catalyst + 4 aluminum_sheet +
+  2 flex_polymer → 5; a scrubber_cartridge_assembly_line if hand time runs short
+
+**Next infrastructure (operator, 2026-11-01):**
+1. **Life support L2:** Atmospheric Recycler → Climate Control Array, 1,300,000 +
+   1,800 steel + 300 water_recycler. Supply 12 → 20. Upkeep rises to 2 sunspindle,
+   5 water ice, 1 purified water, 3 oxygen and 1 scrubber per cycle. Life support is the
+   bottleneck: production facilities draw 1 each and ~6 are built.
+2. **Power: Bunker-Fed Reactor** (+12, 500,000). Its upkeep is 55 fuel/cycle (~4,750/day)
+   from the station tank, which the combustor refills. The Stellar Collector Grid (20) has
+   no upgrade, so this adds alongside it (20 → 32). Chosen by the operator because its
+   upkeep is fuel we make.
