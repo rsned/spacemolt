@@ -281,7 +281,7 @@ func (d *deriver) productionLine(p *production) Line {
 	for _, n := range nodes {
 		for _, a := range append(slices.Clone(n.Agents), holderAgents(n)...) {
 			if _, ok := d.pinned(a); ok {
-				l.TaskKeys[a] = appendUnique(l.TaskKeys[a], "idle:ensure_home")
+				l.TaskKeys[a] = appendUnique(l.TaskKeys[a], keyEnsureHome)
 			}
 		}
 	}

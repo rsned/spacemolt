@@ -18,6 +18,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/handoff"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
+	"github.com/rsned/spacemolt/pkg/outcomes"
 )
 
 // WorkerDispatch is the lean, headless command dispatch used by cmd/worker. It
@@ -28,8 +29,12 @@ import (
 // work).
 type WorkerDispatch struct {
 	Client game.GameClient
-	KB     knowledge.Base
-	Market *market.Collector
+	// Outcomes, when set, receives the outcome of work whose command stays
+	// best-effort nil -- ensure_home's trip to the pinned station -- so the line
+	// dashboard can still name the refusal (behaviour:ensure_home).
+	Outcomes *outcomes.Log
+	KB       knowledge.Base
+	Market   *market.Collector
 	// Assets is the agent asset + capability ledger (data/assets.db). Nil
 	// disables capture entirely: asset capture is strictly less important than
 	// any paying activity and must never be a new way for a pass to fail.
@@ -707,8 +712,19 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 // docked there. The home *system* is resolved live via FindRoute — the last
 // hop's system, or the current system when the route is empty — mirroring the
 // mobile-home resolution in assist. Best-effort: every failure logs and returns
-// nil so the standing loop simply retries on the next idle pass.
+// nil so the standing loop simply retries on the next idle pass. The refusal
+// that kept it from home (or nil once it is home) is recorded as
+// behaviour:ensure_home for the line dashboard.
 func (d *WorkerDispatch) ensureHome(ctx context.Context) error {
+	err := d.ensureHomeOnce(ctx)
+	if ctx.Err() == nil {
+		d.Outcomes.Record("behaviour:ensure_home", "ensure_home", err, time.Now())
+	}
+	return nil
+}
+
+// ensureHomeOnce makes one attempt and returns what stopped it, logged.
+func (d *WorkerDispatch) ensureHomeOnce(ctx context.Context) error {
 	home := d.Station
 	if home == "" {
 		return nil
@@ -720,7 +736,7 @@ func (d *WorkerDispatch) ensureHome(ctx context.Context) error {
 	route, err := d.Client.FindRoute(ctx, home)
 	if err != nil {
 		fmt.Fprintf(d.Out, "ensure_home: find_route %s: %v\n", home, err) //nolint:errcheck
-		return nil
+		return fmt.Errorf("ensure_home: find_route %s: %w", home, err)
 	}
 	system := ""
 	if len(route) > 0 {
@@ -730,7 +746,7 @@ func (d *WorkerDispatch) ensureHome(ctx context.Context) error {
 	}
 	if system == "" {
 		fmt.Fprintf(d.Out, "ensure_home: cannot resolve home system for %s\n", home) //nolint:errcheck
-		return nil
+		return fmt.Errorf("ensure_home: cannot resolve home system for %s", home)
 	}
 	// Travel only when we are not already sitting at the home POI. Re-traveling
 	// to a POI we already occupy auto-undocks us every pass (the assist thrash),
@@ -738,11 +754,12 @@ func (d *WorkerDispatch) ensureHome(ctx context.Context) error {
 	if st == nil || st.CurrentPOI != home {
 		if nerr := d.ensureHomeNav(ctx, system, home); nerr != nil {
 			fmt.Fprintf(d.Out, "ensure_home: navigate to %s/%s: %v\n", system, home, nerr) //nolint:errcheck
-			return nil
+			return fmt.Errorf("ensure_home: navigate to %s/%s: %w", system, home, nerr)
 		}
 	}
 	if derr := d.Client.Dock(ctx); derr != nil && !strings.Contains(derr.Error(), "Already docked") {
 		fmt.Fprintf(d.Out, "ensure_home: dock %s: %v\n", home, derr) //nolint:errcheck
+		return fmt.Errorf("ensure_home: dock %s: %w", home, derr)
 	}
 	return nil
 }

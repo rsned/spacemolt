@@ -247,7 +247,9 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		run := func(t ScheduledTask) {
 			fmt.Fprintf(deps.Out, "⏰ [scheduled %s] %s\n", t.Frequency, t.Command) //nolint:errcheck
 			err := deps.runLine(ctx, t.Command)
-			deps.Outcomes.Record(fmt.Sprintf("task:%d", t.ID), t.Command, err, deps.NowFn())
+			if ctx.Err() == nil { // a shutdown mid-command is not a failure of the work
+				deps.Outcomes.Record(fmt.Sprintf("task:%d", t.ID), t.Command, err, deps.NowFn())
+			}
 		}
 		deps.Scheduler.StartLoop(ctx, deps.ScheduleInterval, deps.ExecMu, run, deps.NowFn)
 	}
@@ -329,7 +331,9 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 				default:
 				}
 				err := deps.runLine(ctx, line)
-				deps.Outcomes.Record("idle:"+line, line, err, deps.NowFn())
+				if ctx.Err() == nil {
+					deps.Outcomes.Record("idle:"+line, line, err, deps.NowFn())
+				}
 				ran = true
 			}
 		}

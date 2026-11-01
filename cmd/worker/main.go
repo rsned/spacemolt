@@ -502,6 +502,7 @@ func main() {
 			// Every task, idle line and behaviour outcome lands in the agent's
 			// task-outcomes.json for the line dashboard's "why".
 			outLog := outcomes.New(filepath.Join("data", "agents", *agentID))
+			dispatch.Outcomes = outLog // ensure_home records its own refusals
 			go func() {
 				deps := worker.StandingDeps{
 					Outcomes:   outLog,

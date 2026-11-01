@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/outcomes"
@@ -147,9 +148,16 @@ func sharedEmpty(up NodeReport, n Node) string {
 	return ""
 }
 
+// keyEnsureHome is the worker's record of its trip to the pinned station.
+const keyEnsureHome = "behaviour:ensure_home"
+
 // applyConformance flags agents not doing their assignment: every outcome of
-// their line work within CraftWindow failed, or they are docked away from
-// their pinned station. Stale nodes keep only their staleness.
+// their line work (task:* and behaviour:* keys) within CraftWindow failed,
+// their latest trip home was refused, or they are docked away from their
+// pinned station. Idle-script lines are housekeeping that succeed every pass
+// whatever the line's state, so they never count; ensure_home is judged on
+// its own, since a successful trip home says nothing about the crafts. Stale
+// nodes keep only their staleness.
 func (ev *evaluator) applyConformance(nodes []NodeReport) {
 	same := ev.in.SameStation
 	if same == nil {
@@ -159,11 +167,22 @@ func (ev *evaluator) applyConformance(nodes []NodeReport) {
 	for _, a := range AgentsOf(ev.line) {
 		recent, failed := 0, 0
 		for _, k := range ev.lineKeys(a) {
-			if o, ok := ev.in.Outcomes[a][k]; ok && ev.within(o.At, ev.in.Cfg.CraftWindow) {
-				recent++
+			o, ok := ev.in.Outcomes[a][k]
+			if !ok || !ev.within(o.At, ev.in.Cfg.CraftWindow) {
+				continue
+			}
+			if k == keyEnsureHome {
 				if o.Status == outcomes.StatusFailed {
-					failed++
+					off[a] = true
 				}
+				continue
+			}
+			if !strings.HasPrefix(k, "task:") && !strings.HasPrefix(k, "behaviour:") {
+				continue
+			}
+			recent++
+			if o.Status == outcomes.StatusFailed {
+				failed++
 			}
 		}
 		if recent > 0 && failed == recent {
@@ -182,4 +201,29 @@ func (ev *evaluator) applyConformance(nodes []NodeReport) {
 			addAlert(&nodes[i], AlertNotConforming)
 		}
 	}
+}
+
+// CurrentOutcomes drops task outcomes that no longer describe the agent's
+// schedule. Schedule ids are reused (max+1) once the top task is retired, so
+// a "task:N" outcome counts only while task N still runs the command it was
+// recorded for. Idle-line and behaviour keys pass through.
+func CurrentOutcomes(o map[string]outcomes.Outcome, tasks []Task) map[string]outcomes.Outcome {
+	current := make(map[string]string, len(tasks))
+	for _, t := range tasks {
+		current[fmt.Sprintf("task:%d", t.ID)] = t.Command
+	}
+	out := make(map[string]outcomes.Outcome, len(o))
+	for k, v := range o {
+		if cmd, isTask := current[k]; isTask {
+			if cmd == v.Command {
+				out[k] = v
+			}
+			continue
+		}
+		if strings.HasPrefix(k, "task:") {
+			continue // a task id the schedule no longer has
+		}
+		out[k] = v
+	}
+	return out
 }

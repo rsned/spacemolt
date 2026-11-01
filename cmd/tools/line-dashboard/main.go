@@ -230,7 +230,7 @@ func (s *server) build(ctx context.Context) ([]linedash.LineReport, []string) {
 				local = append(local, msg)
 			}
 		}
-		s.loadLineInputs(ctx, line, &in, lwarn)
+		s.loadLineInputs(ctx, line, &in, sched, lwarn)
 		r := linedash.Evaluate(line, in)
 		r.StaleSources = append(r.StaleSources, global...)
 		r.StaleSources = append(r.StaleSources, local...)
@@ -282,7 +282,7 @@ func attributeListings(ls []linedash.Listing, roster map[string]linedash.RosterE
 	return out
 }
 
-func (s *server) loadLineInputs(ctx context.Context, line linedash.Line, in *linedash.Inputs, warn func(string, error)) {
+func (s *server) loadLineInputs(ctx context.Context, line linedash.Line, in *linedash.Inputs, sched map[string][]linedash.Task, warn func(string, error)) {
 	agents := linedash.AgentsOf(line)
 	if s.tanks != nil {
 		for _, n := range line.Nodes {
@@ -315,7 +315,7 @@ func (s *server) loadLineInputs(ctx context.Context, line linedash.Line, in *lin
 		if o, err := outcomes.Load(dir); err != nil {
 			warn("task outcomes", err)
 		} else if len(o) > 0 {
-			in.Outcomes[a] = o
+			in.Outcomes[a] = linedash.CurrentOutcomes(o, sched[a]) // a reused task id must not inherit the old task's failure
 		}
 		if q, err := linedash.LoadCraftQueue(dir); err != nil {
 			warn("craft queue", err)

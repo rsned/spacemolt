@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/outcomes"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 )
@@ -836,5 +837,39 @@ func TestCaptureStorageWithoutStoreIsANoOp(t *testing.T) {
 		if err := d.Run(context.Background(), []string{cmd}); err != nil {
 			t.Errorf("%s without a store must be a no-op, got %v", cmd, err)
 		}
+	}
+}
+
+// ensure_home stays best-effort (nil) but records why it could not get home,
+// so the line dashboard can name a route the agent cannot fly.
+func TestEnsureHomeRecordsRouteRefusal(t *testing.T) {
+	dir := t.TempDir()
+	c := &fakeClient{
+		state: &game.State{CurrentPOI: "ironhearth_station", Doc: true},
+		route: []game.RouteStep{{SystemID: "cloverfield"}},
+	}
+	d := NewWorkerDispatch(c, nil, nil, io.Discard)
+	d.Station = "862e07fa76571d0a76cab3cbaf4046e7"
+	d.Outcomes = outcomes.New(dir)
+	d.ensureHomeNav = func(context.Context, string, string) error {
+		return errors.New("insufficient fuel for route: route to cloverfield needs ~638 fuel, 550 available")
+	}
+	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
+		t.Fatalf("ensure_home must stay best-effort nil, got %v", err)
+	}
+	got, err := outcomes.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o := got["behaviour:ensure_home"]; o.Status != outcomes.StatusFailed || !strings.Contains(o.Reason, "needs ~638 fuel") {
+		t.Errorf("behaviour:ensure_home = %+v", o)
+	}
+
+	d.ensureHomeNav = func(context.Context, string, string) error { return nil }
+	if err := d.Run(context.Background(), []string{"ensure_home"}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := outcomes.Load(dir); got["behaviour:ensure_home"].Status != outcomes.StatusOK {
+		t.Errorf("a successful trip home did not clear the refusal: %+v", got["behaviour:ensure_home"])
 	}
 }

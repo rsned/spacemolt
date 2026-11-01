@@ -123,3 +123,32 @@ func TestStandingNilOutcomesIsNoop(t *testing.T) {
 		t.Errorf("outcome file written with nil Outcomes (stat err %v)", err)
 	}
 }
+
+// shutdownRunner blocks every command until ctx is cancelled.
+type shutdownRunner struct{}
+
+func (shutdownRunner) Run(ctx context.Context, _ []string) error {
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+// A worker stopped mid-command (a rollout, a restart) did not fail the work:
+// no "context canceled" outcome is recorded.
+func TestStandingSkipsRecordOnShutdown(t *testing.T) {
+	dir := t.TempDir()
+	sched, _ := LoadScheduler(filepath.Join(dir, "sched.json"))
+	var mu sync.Mutex
+	deps := StandingDeps{
+		Runner: shutdownRunner{}, Scheduler: sched, Client: stateClient{st: &game.State{}},
+		ExecMu: &mu, Paused: func() bool { return false }, Out: io.Discard,
+		NowFn: time.Now, IdleInterval: time.Millisecond, AgentID: "test", Outcomes: outcomes.New(dir),
+	}
+	runStandingBriefly(t, Role{Idle: idleScript(t, "ensure_home\n")}, deps)
+
+	got, _ := outcomes.Load(dir)
+	for k, o := range got {
+		if o.Status == outcomes.StatusFailed {
+			t.Errorf("%s recorded as failed on shutdown: %+v", k, o)
+		}
+	}
+}

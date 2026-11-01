@@ -16,8 +16,8 @@ func whyLine(t *testing.T) Line {
 	l := fixtureLine(t)
 	l.TaskKeys = map[string][]string{
 		"trader-10":    {"task:10", "task:11"},
-		"craftsman-8":  {"task:6", "idle:ensure_home"},
-		"craftsman-10": {"task:5", "idle:ensure_home"},
+		"craftsman-8":  {"task:6", "behaviour:ensure_home"},
+		"craftsman-10": {"task:5", "behaviour:ensure_home"},
 	}
 	return l
 }
@@ -102,9 +102,12 @@ func TestWhySharedTankEmpty(t *testing.T) {
 func TestNotConformingAllFailed(t *testing.T) {
 	l := whyLine(t)
 	in := baseInputs(l)
+	// What the worker really writes: every craft refused, while the always-ok
+	// idle line and a successful trip home keep succeeding every pass.
 	setOutcomes(&in, "craftsman-8",
 		outcome("task:6", outcomes.StatusFailed, "cannot_craft: Not enough materials", 0.2),
-		outcome("idle:ensure_home", outcomes.StatusFailed, "ensure_home: insufficient fuel", 0.1))
+		outcome("idle:ensure_home", outcomes.StatusOK, "", 0.05),
+		outcome("behaviour:ensure_home", outcomes.StatusOK, "", 0.05))
 	setOutcomes(&in, "craftsman-10", outcome("task:5", outcomes.StatusOK, "", 0.2))
 	n := nodeOf(t, Evaluate(l, in), "still")
 	if !hasAlert(n, AlertNotConforming) {
@@ -179,5 +182,44 @@ func TestLoadCraftQueue(t *testing.T) {
 	q, err := LoadCraftQueue(dir)
 	if err != nil || len(q.Jobs) != 1 || q.Jobs[0].ETATicks != 72 || q.Jobs[0].BaseID != "b" || q.CapturedAt.IsZero() {
 		t.Errorf("LoadCraftQueue = %+v, %v", q, err)
+	}
+}
+
+// An agent that cannot fly home is non-conforming, and the route refusal is
+// the why.
+func TestNotConformingRouteRefusal(t *testing.T) {
+	l := whyLine(t)
+	in := baseInputs(l)
+	setOutcomes(&in, "craftsman-10", outcome("task:5", outcomes.StatusOK, "", 0.3),
+		outcome("behaviour:ensure_home", outcomes.StatusFailed, "insufficient fuel for route: route to alhena needs ~638 fuel, 550 available", 0.1))
+	n := nodeOf(t, Evaluate(l, in), "still")
+	if !hasAlert(n, AlertNotConforming) {
+		t.Errorf("still alerts %v, want %q", n.Alerts, AlertNotConforming)
+	}
+	if !strings.Contains(n.Why, "needs ~638 fuel") {
+		t.Errorf("still Why = %q, want the route refusal", n.Why)
+	}
+}
+
+// Schedule ids are reused (max+1) once the top task is retired: an outcome
+// recorded for the old task under the same id must not explain the new one.
+func TestCurrentOutcomesDropsReusedTaskID(t *testing.T) {
+	got := CurrentOutcomes(map[string]outcomes.Outcome{
+		"task:7":                {Key: "task:7", Command: "craft refine_steel 500", Status: outcomes.StatusFailed},
+		"task:8":                {Key: "task:8", Command: "craft grow_sunspindle 1", Status: outcomes.StatusFailed},
+		"task:9":                {Key: "task:9", Command: "capture_storage", Status: outcomes.StatusOK},
+		"behaviour:ensure_home": {Key: "behaviour:ensure_home", Status: outcomes.StatusOK},
+	}, []Task{{ID: 7, Command: "capture_craft_queue"}, {ID: 8, Command: "craft grow_sunspindle 1"}})
+	if _, ok := got["task:7"]; ok {
+		t.Error("task:7 kept although id 7 now runs a different command")
+	}
+	if _, ok := got["task:9"]; ok {
+		t.Error("task:9 kept although no task 9 exists")
+	}
+	if _, ok := got["task:8"]; !ok {
+		t.Error("task:8 dropped although its command still matches")
+	}
+	if _, ok := got["behaviour:ensure_home"]; !ok {
+		t.Error("non-task keys must pass through")
 	}
 }
