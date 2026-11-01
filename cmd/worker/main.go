@@ -30,6 +30,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/handoff"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
+	"github.com/rsned/spacemolt/pkg/outcomes"
 	"github.com/rsned/spacemolt/pkg/overmind/checkpoint"
 	"github.com/rsned/spacemolt/pkg/overmind/control"
 	"github.com/rsned/spacemolt/pkg/rescue"
@@ -498,8 +499,12 @@ func main() {
 			// One payer for the whole standing session: it announces an unpayable
 			// debt once rather than on every idle pass.
 			debtPayer := worker.NewDebtPayer(client, logOut, filepath.Join("data", "agents"), *agentID)
+			// Every task, idle line and behaviour outcome lands in the agent's
+			// task-outcomes.json for the line dashboard's "why".
+			outLog := outcomes.New(filepath.Join("data", "agents", *agentID))
 			go func() {
 				deps := worker.StandingDeps{
+					Outcomes:   outLog,
 					Runner:     dispatch,
 					Scheduler:  sched,
 					Client:     client,
@@ -569,6 +574,7 @@ func main() {
 						// and unresolvable recipients; either way goods would
 						// otherwise accumulate in silence. Log both lines when a
 						// pass sent some gifts and had others refused.
+						outLog.Record("behaviour:consign", "consign", cerr, time.Now())
 						if cerr != nil {
 							logger.Printf("consign: %v", cerr)
 						}
@@ -591,14 +597,18 @@ func main() {
 							logger.Printf("consign offer: read handoff queue: %v", oerr)
 							return
 						}
-						if rerr := worker.ReportConsignStock(c, client, mc, *agentID, consignOffers, owed); rerr != nil {
+						rerr := worker.ReportConsignStock(c, client, mc, *agentID, consignOffers, owed)
+						outLog.Record("behaviour:consign_offer", "consign_offer", rerr, time.Now())
+						if rerr != nil {
 							logger.Printf("consign offer: %v", rerr)
 						}
 					}
 				}
 				if len(factionPullItems) > 0 {
 					deps.FactionPull = func(c context.Context) {
-						if _, perr := worker.FactionPull(c, client, factionPullItems, logOut); perr != nil {
+						_, perr := worker.FactionPull(c, client, factionPullItems, logOut)
+						outLog.Record("behaviour:faction_pull", "faction_pull", perr, time.Now())
+						if perr != nil {
 							logger.Printf("faction_pull: %v", perr)
 						}
 					}
@@ -613,7 +623,9 @@ func main() {
 						logger.Printf("shopkeep disabled: %v", lerr)
 					} else {
 						deps.Shopkeep = func(c context.Context) {
-							if _, _, serr := worker.Shopkeep(c, client, shopRules, shopState, worker.ShopOptions{}, logOut); serr != nil {
+							_, _, serr := worker.Shopkeep(c, client, shopRules, shopState, worker.ShopOptions{}, logOut)
+							outLog.Record("behaviour:shopkeep", "shopkeep", serr, time.Now())
+							if serr != nil {
 								logger.Printf("shopkeep: %v", serr)
 							}
 							if serr := shopState.Save(shopPath); serr != nil {

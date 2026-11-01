@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/outcomes"
 )
 
 // AssignedTask is a one-shot task handed to the worker by the overmind. It is a
@@ -122,6 +123,12 @@ type StandingDeps struct {
 	// faction storage into personal storage so those steps see it the same
 	// pass. nil when the worker has no --faction-pull list.
 	FactionPull func(context.Context)
+
+	// Outcomes, when set, records the latest outcome of every scheduled task
+	// ("task:<id>") and idle-script line ("idle:<line>") in the agent's
+	// task-outcomes.json, which the line dashboard reads to name the rule that
+	// broke a line. nil records nothing (play_as, tests).
+	Outcomes *outcomes.Log
 }
 
 // RunStanding drives a worker's default standing behavior until ctx is
@@ -239,7 +246,8 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 		// run executes one scheduled command line under ExecMu.
 		run := func(t ScheduledTask) {
 			fmt.Fprintf(deps.Out, "⏰ [scheduled %s] %s\n", t.Frequency, t.Command) //nolint:errcheck
-			_ = deps.runLine(ctx, t.Command)
+			err := deps.runLine(ctx, t.Command)
+			deps.Outcomes.Record(fmt.Sprintf("task:%d", t.ID), t.Command, err, deps.NowFn())
 		}
 		deps.Scheduler.StartLoop(ctx, deps.ScheduleInterval, deps.ExecMu, run, deps.NowFn)
 	}
@@ -320,7 +328,8 @@ func RunStanding(ctx context.Context, role Role, deps StandingDeps) error {
 					return nil
 				default:
 				}
-				_ = deps.runLine(ctx, line)
+				err := deps.runLine(ctx, line)
+				deps.Outcomes.Record("idle:"+line, line, err, deps.NowFn())
 				ran = true
 			}
 		}
