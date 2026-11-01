@@ -73,6 +73,22 @@ svg .elabel.k { fill: var(--text); }
 .alerts { color: var(--muted); font-size: 24px; margin: 0 0 8px; }
 .foot { color: var(--muted); font-size: 22px; margin-top: 16px; }
 @media (max-width: 640px) { .stats { grid-template-columns: 1fr; } }
+.tabs { display: flex; gap: 12px; margin: 4px 0 16px; }
+.tab { padding: 4px 16px; border-radius: 8px; border: 1px solid var(--panel-edge); color: var(--muted); text-decoration: none; }
+.tab.on { color: var(--text); background: var(--panel); }
+.tab.off { opacity: 0.5; cursor: not-allowed; }
+.warnings { color: var(--starved); font-size: 24px; margin: 0 0 12px; }
+table.board tr.stn td { font-size: 32px; font-weight: 600; padding-top: 22px; background: var(--bg); }
+table.board tr.stn small { font-size: 22px; font-weight: 400; color: var(--muted); }
+table.board tr.cat td { font-size: 20px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding-top: 14px; border-bottom: none; }
+.tag { display: inline-block; font-size: 22px; padding: 1px 12px; border-radius: 14px; border: 1px solid; margin: 0 6px 4px 0; white-space: nowrap; }
+.tag-facility { color: #58a6ff; border-color: #58a6ff; }
+.tag-hand { color: #d2a8ff; border-color: #d2a8ff; }
+.tag-sales { color: #3fb950; border-color: #3fb950; }
+.tag-forsale { color: #3fb950; border-color: #3fb950; }
+.tag-upkeep { color: #f0883e; border-color: #f0883e; }
+.tag-feeds { color: var(--muted); border-color: var(--muted); }
+.why { color: var(--choked); }
 </style>
 </head>
 <body data-refresh="{{.Refresh}}" data-paused="false">
@@ -115,23 +131,31 @@ svg .elabel.k { fill: var(--text); }
 
 {{define "board"}}{{template "head" .}}
 <main>
-  <h1>Production lines</h1>
+  <nav class="tabs"><a class="tab on" href="/">Lines</a><span class="tab off" title="the Fleet view is a later project">Fleet</span></nav>
+  {{if .Warnings}}<ul class="warnings">{{range .Warnings}}<li>{{.}}</li>{{end}}</ul>{{end}}
   <table class="board">
-    <thead><tr><th>Line</th><th>State</th><th>Produced</th><th>Sold</th><th>Alerts</th></tr></thead>
+    <thead><tr><th>Line</th><th>Kind</th><th>Depended on by</th><th>Why</th><th>Agents</th><th>/day</th></tr></thead>
+    {{range .Stations}}
     <tbody>
-    {{range .Rows}}
+      <tr class="stn"><td colspan="6">{{.Name}}{{if .System}} <small>{{.System}}</small>{{end}}{{if .Condition}} <small>· {{.Condition}}</small>{{end}}</td></tr>
+      {{range .Groups}}
+      <tr class="cat"><td colspan="6">{{.Category}}</td></tr>
+      {{range .Rows}}
       <tr>
-        <td><a href="/line/{{.ID}}">{{.Name}}</a>{{if .Stale}} <span class="badge" title="{{range $i, $s := .Stale}}{{if $i}}, {{end}}{{$s}}{{end}}">data stale</span>{{end}}
+        <td><span class="dot {{.State}}" title="{{.StateWord}}"></span> <a href="/line/{{.ID}}">{{.Name}}</a>{{if .Stale}} <span class="badge" title="{{range $i, $s := .Stale}}{{if $i}}, {{end}}{{$s}}{{end}}">data stale</span>{{end}}
           {{if .Stale}}<div class="stalelist">{{range $i, $s := .Stale}}{{if $i}}, {{end}}{{$s}}{{end}}</div>{{end}}</td>
-        <td><span class="dot {{.State}}"></span> {{.StateWord}}</td>
-        <td class="num">{{.Produced}} /day produced</td>
-        <td class="num">{{.Sold}} /day sold</td>
-        <td>{{.Alerts}}</td>
+        <td>{{if .KindTag}}<span class="tag tag-{{.KindClass}}">{{.KindTag}}</span>{{end}}{{if .PurposeTag}}<span class="tag tag-{{.PurposeClass}}">{{.PurposeTag}}</span>{{end}}</td>
+        <td>{{.Deps}}</td>
+        <td><span class="why">{{.Why}}</span>{{if .Alerts}}<div class="alerts">{{.Alerts}}</div>{{end}}</td>
+        <td class="num">{{.Agents}}</td>
+        <td class="num">{{.Rate}}</td>
       </tr>
-    {{else}}
-      <tr><td colspan="5">no lines configured</td></tr>
-    {{end}}
+      {{end}}
+      {{end}}
     </tbody>
+    {{else}}
+    <tbody><tr><td colspan="6">no lines derived</td></tr></tbody>
+    {{end}}
   </table>
   <p class="foot">JSON: <a href="/api/lines.json">/api/lines.json</a></p>
 </main>

@@ -90,7 +90,7 @@ func TestRenderLineViewBoxFitsAllNodes(t *testing.T) {
 
 func TestRenderBoardWithMissingSources(t *testing.T) {
 	r := LineReport{ID: "moonshine", Name: "Pirate Moonshine", State: StateUnknown, StaleSources: []string{"assets.db"}}
-	b, err := RenderBoard([]LineReport{r}, 60)
+	b, err := RenderBoard([]LineReport{r}, nil, 60)
 	if err != nil {
 		t.Fatalf("RenderBoard: %v", err)
 	}
@@ -107,14 +107,13 @@ func TestRenderBoardRowLinksToLine(t *testing.T) {
 		ProducedPerDay: 1234, SoldPerDay: 56,
 		Alerts: []Alert{AlertNoBotsLive, AlertHaulerStarved},
 	}
-	b, err := RenderBoard([]LineReport{r}, 0)
+	b, err := RenderBoard([]LineReport{r}, nil, 0)
 	if err != nil {
 		t.Fatalf("RenderBoard: %v", err)
 	}
 	page := string(b)
 	mustContain(t, page, `<a href="/line/moonshine">Pirate Moonshine</a>`)
 	mustContain(t, page, "1234 /day produced")
-	mustContain(t, page, "56 /day sold")
 	mustContain(t, page, "no bots on node · hauler starved")
 	mustContain(t, page, `class="dot starved"`)
 	if strings.Contains(page, "data stale") {
@@ -145,7 +144,7 @@ func TestAgo(t *testing.T) {
 // pages carry a Refresh link to ?refresh=1, and the auto-reload drops the
 // query so a forced rebuild is not repeated on every tick.
 func TestRenderHasManualRefreshLink(t *testing.T) {
-	board, err := RenderBoard(nil, 60)
+	board, err := RenderBoard(nil, nil, 60)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,4 +153,77 @@ func TestRenderHasManualRefreshLink(t *testing.T) {
 			t.Errorf("board page missing %q", want)
 		}
 	}
+}
+
+func boardReports() []LineReport {
+	return []LineReport{
+		{ID: "v:moon", Name: "Pirate Moonshine", State: StateStarved, StationName: "Voss Redoubt Station", SystemName: "Alhena",
+			StationCondition: "operational", StationPct: 81, Category: "Contraband", Kind: KindFacility, Purpose: PurposeForSale,
+			Agents: 10, Why: "trader-10: buy_directed: price 70 exceeds ceiling 50 (replan)", ProducedPerDay: 2200},
+		{ID: "c:steel", Name: "Steel Plate", State: StateOptimal, StationName: "Conjunction Junction", SystemName: "Cloverfield",
+			StationCondition: "thriving", StationPct: 100, Category: "Refined", Kind: KindFacility, Purpose: PurposeFeeds,
+			DependedOn: Deps{Production: 2, Upkeep: 1}, Agents: 2, ProducedPerDay: 208000},
+		{ID: "c:sun", Name: "Sunspindle", State: StateStarved, StationName: "Conjunction Junction", SystemName: "Cloverfield",
+			StationCondition: "thriving", StationPct: 100, Category: CategoryUpkeep, Kind: KindHand, Purpose: PurposeUpkeep, Agents: 1,
+			Why: "liquid_nitrogen 0 (shared with 2 lines)"},
+		{ID: "c:sell:void_dust", Name: "Void Dust", State: StateOptimal, StationName: "Conjunction Junction", SystemName: "Cloverfield",
+			Category: CategorySales, Kind: KindSales, Purpose: PurposeForSale, Agents: 1, SoldPerDay: 12},
+		{ID: "c:board", Name: "Circuit Board", State: StateOptimal, StationName: "Conjunction Junction", SystemName: "Cloverfield",
+			Category: "Component", Kind: KindFacility, Purpose: PurposeFeeds, Agents: 1},
+	}
+}
+
+func renderBoard(t *testing.T, warnings []string) string {
+	t.Helper()
+	b, err := RenderBoard(boardReports(), warnings, 60)
+	if err != nil {
+		t.Fatalf("RenderBoard: %v", err)
+	}
+	return string(b)
+}
+
+func before(t *testing.T, page, a, b string) {
+	t.Helper()
+	i, j := strings.Index(page, a), strings.Index(page, b)
+	if i < 0 || j < 0 || i > j {
+		t.Errorf("want %q before %q (at %d, %d)", a, b, i, j)
+	}
+}
+
+func TestBoardGroupsByStationThenCategory(t *testing.T) {
+	page := renderBoard(t, nil)
+	before(t, page, "Conjunction Junction", "Voss Redoubt Station")
+	mustContain(t, page, "Cloverfield")
+	mustContain(t, page, "thriving 100%")
+	before(t, page, ">Station upkeep<", ">Refined<")
+	before(t, page, ">Refined<", ">Component<")
+	before(t, page, ">Component<", ">Market/Sales<")
+}
+
+func TestBoardRowShowsKindTagsDepsAgentsWhy(t *testing.T) {
+	page := renderBoard(t, nil)
+	mustContain(t, page, `<a href="/line/c:steel">Steel Plate</a>`)
+	mustContain(t, page, "feeds lines")
+	mustContain(t, page, "2 production · 1 upkeep")
+	mustContain(t, page, `<td class="num">10</td>`)
+	mustContain(t, page, "price 70 exceeds ceiling 50")
+	mustContain(t, page, "12 /day sold")
+	mustContain(t, page, "for sale")
+}
+
+func TestBoardHandAndFacilityTagsDiffer(t *testing.T) {
+	page := renderBoard(t, nil)
+	mustContain(t, page, `class="tag tag-hand"`)
+	mustContain(t, page, `class="tag tag-facility"`)
+	mustContain(t, page, `class="tag tag-sales"`)
+}
+
+func TestBoardShowsWarnings(t *testing.T) {
+	mustContain(t, renderBoard(t, []string{"override names unknown line x"}), "override names unknown line x")
+}
+
+func TestBoardHasLinesFleetSwitch(t *testing.T) {
+	page := renderBoard(t, nil)
+	mustContain(t, page, `class="tab on"`)
+	mustContain(t, page, ">Fleet<")
 }

@@ -97,6 +97,8 @@ type LineReport struct {
 
 	// Copied from the derived Line.
 	StationID, StationName, SystemName string
+	StationCondition                   string
+	StationPct                         int
 	Category, Kind, Purpose            string
 	DependedOn                         Deps
 	Agents                             int    // len(AgentsOf(line))
@@ -182,6 +184,7 @@ func Evaluate(line Line, in Inputs) LineReport {
 	r := LineReport{
 		ID: line.ID, Name: line.Name, CapacityPerDay: line.CapacityPerDay, GeneratedAt: in.Now,
 		StationID: line.StationID, StationName: line.StationName, SystemName: line.SystemName,
+		StationCondition: line.StationCondition, StationPct: line.StationPct,
 		Category: line.Category, Kind: line.Kind, Purpose: line.Purpose, DependedOn: line.DependedOn,
 		Agents: len(AgentsOf(line)),
 	}

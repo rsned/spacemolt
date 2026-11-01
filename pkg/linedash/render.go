@@ -5,6 +5,8 @@ import (
 	_ "embed" // page.gohtml
 	"fmt"
 	"html/template"
+	"slices"
+	"sort"
 	"strings"
 	"time"
 )
@@ -77,36 +79,147 @@ func fmtStamp(t time.Time) string {
 // boardRow is one line on the top board.
 type boardRow struct {
 	ID, Name, State, StateWord string
-	Produced, Sold             int
-	Alerts                     string
+	KindClass, KindTag         string
+	PurposeClass, PurposeTag   string
+	Deps, Why, Alerts          string
+	Agents                     int
+	Rate                       string
 	Stale                      []string
+}
+
+// boardGroup is one category sub-row and its lines.
+type boardGroup struct {
+	Category string
+	Rows     []boardRow
+}
+
+// boardStation is one station section.
+type boardStation struct {
+	Name, System, Condition string
+	Groups                  []boardGroup
 }
 
 type boardData struct {
 	Refresh   int
 	Generated string
-	Rows      []boardRow
+	Warnings  []string
+	Stations  []boardStation
 }
 
-// RenderBoard renders the top board ("/"): one row per line.
-func RenderBoard(reports []LineReport, refreshSec int) ([]byte, error) {
-	d := boardData{Refresh: refreshSec, Generated: "never"}
+// unassignedStation heads lines that carry no station (an unreadable config).
+const unassignedStation = "Unassigned"
+
+// fixedCategoryOrder puts station upkeep first and sales last; every other
+// category sorts alphabetically between them.
+var fixedCategoryOrder = []string{CategoryUpkeep, "Refined", "Component", "Contraband"}
+
+func categoryRank(c string) (int, string) {
+	if c == CategorySales {
+		return len(fixedCategoryOrder) + 1, c
+	}
+	if i := slices.Index(fixedCategoryOrder, c); i >= 0 {
+		return i, ""
+	}
+	return len(fixedCategoryOrder), c
+}
+
+var kindTags = map[string]string{KindHand: "hand", KindFacility: "facility", KindSales: "sales"}
+var purposeTags = map[string]string{PurposeUpkeep: "upkeep", PurposeForSale: "for sale", PurposeFeeds: "feeds lines"}
+var purposeClasses = map[string]string{PurposeUpkeep: "upkeep", PurposeForSale: "forsale", PurposeFeeds: "feeds"}
+
+// depsText renders "2 production · 1 upkeep", omitting zero parts.
+func depsText(d Deps) string {
+	var parts []string
+	for _, p := range []struct {
+		n    int
+		what string
+	}{{d.Production, "production"}, {d.Upkeep, "upkeep"}, {d.Sales, "sales"}} {
+		if p.n > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", p.n, p.what))
+		}
+	}
+	if len(parts) == 0 {
+		return "—"
+	}
+	return strings.Join(parts, " · ")
+}
+
+func boardRowOf(r LineReport) boardRow {
+	alerts := ""
+	if len(r.Alerts) > 0 {
+		parts := make([]string, len(r.Alerts))
+		for i, a := range r.Alerts {
+			parts[i] = string(a)
+		}
+		alerts = strings.Join(parts, " · ")
+	}
+	why := r.Why
+	if why == "" && alerts == "" {
+		why = "—"
+	}
+	rate := fmt.Sprintf("%d /day produced", r.ProducedPerDay)
+	if r.Kind == KindSales {
+		rate = fmt.Sprintf("%d /day sold", r.SoldPerDay)
+	}
+	return boardRow{
+		ID: r.ID, Name: r.Name, State: stateClass(r.State), StateWord: stateWord(r.State),
+		KindClass: r.Kind, KindTag: kindTags[r.Kind], PurposeClass: purposeClasses[r.Purpose], PurposeTag: purposeTags[r.Purpose],
+		Deps: depsText(r.DependedOn), Why: why, Alerts: alerts, Agents: r.Agents, Rate: rate, Stale: r.StaleSources,
+	}
+}
+
+// RenderBoard renders the top board ("/"): lines grouped by station, then by
+// category, worst state first within a category. warnings are shown under
+// the header (override and capture-cadence problems).
+func RenderBoard(reports []LineReport, warnings []string, refreshSec int) ([]byte, error) {
+	d := boardData{Refresh: refreshSec, Generated: "never", Warnings: warnings}
 	if len(reports) > 0 {
 		d.Generated = fmtStamp(reports[0].GeneratedAt)
 	}
-	for _, r := range reports {
-		alerts := "—"
-		if len(r.Alerts) > 0 {
-			parts := make([]string, len(r.Alerts))
-			for i, a := range r.Alerts {
-				parts[i] = string(a)
-			}
-			alerts = strings.Join(parts, " · ")
+	sorted := slices.Clone(reports)
+	stationOf := func(r LineReport) string {
+		if r.StationName == "" {
+			return unassignedStation
 		}
-		d.Rows = append(d.Rows, boardRow{
-			ID: r.ID, Name: r.Name, State: stateClass(r.State), StateWord: stateWord(r.State),
-			Produced: r.ProducedPerDay, Sold: r.SoldPerDay, Alerts: alerts, Stale: r.StaleSources,
-		})
+		return r.StationName
+	}
+	sort.SliceStable(sorted, func(i, j int) bool {
+		a, b := sorted[i], sorted[j]
+		if sa, sb := stationOf(a), stationOf(b); sa != sb {
+			return sa < sb
+		}
+		ra, na := categoryRank(a.Category)
+		rb, nb := categoryRank(b.Category)
+		if ra != rb {
+			return ra < rb
+		}
+		if na != nb {
+			return na < nb
+		}
+		if sa, sb := stateRank[a.State], stateRank[b.State]; sa != sb {
+			return sa > sb // worst first
+		}
+		return a.Name < b.Name
+	})
+	for _, r := range sorted {
+		name := stationOf(r)
+		if len(d.Stations) == 0 || d.Stations[len(d.Stations)-1].Name != name {
+			cond := ""
+			if r.StationCondition != "" {
+				cond = fmt.Sprintf("%s %d%%", r.StationCondition, r.StationPct)
+			}
+			d.Stations = append(d.Stations, boardStation{Name: name, System: r.SystemName, Condition: cond})
+		}
+		st := &d.Stations[len(d.Stations)-1]
+		cat := r.Category
+		if cat == "" {
+			cat = categoryOther
+		}
+		if len(st.Groups) == 0 || st.Groups[len(st.Groups)-1].Category != cat {
+			st.Groups = append(st.Groups, boardGroup{Category: cat})
+		}
+		g := &st.Groups[len(st.Groups)-1]
+		g.Rows = append(g.Rows, boardRowOf(r))
 	}
 
 	return execute("board", d)

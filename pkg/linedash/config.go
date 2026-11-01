@@ -100,6 +100,8 @@ type Line struct {
 
 	// Derived lines only (never in yaml).
 	StationID, StationName, SystemName string              `yaml:"-"`
+	StationCondition                   string              `yaml:"-"`
+	StationPct                         int                 `yaml:"-"`
 	Category                           string              `yaml:"-"` // board sub-row
 	Kind                               string              `yaml:"-"` // hand | facility | sales
 	Purpose                            string              `yaml:"-"` // upkeep | for_sale | feeds

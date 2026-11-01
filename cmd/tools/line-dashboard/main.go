@@ -316,7 +316,7 @@ func (s *server) find(ctx context.Context, id string, force bool) (linedash.Line
 }
 
 func (s *server) handleBoard(w http.ResponseWriter, r *http.Request) {
-	page, err := linedash.RenderBoard(s.current(r.Context(), forced(r)), s.opt.refresh)
+	page, err := linedash.RenderBoard(s.current(r.Context(), forced(r)), nil, s.opt.refresh)
 	s.writeHTML(w, page, err)
 }
 

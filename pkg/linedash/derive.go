@@ -196,6 +196,7 @@ func (d *deriver) productionLine(p *production) Line {
 	l := Line{
 		ID: base + ":" + p.recipe.ID, Name: d.itemName(p.out), OutputItem: p.out,
 		StationID: base, StationName: p.st.Name, SystemName: p.st.SystemName,
+		StationCondition: p.st.Condition, StationPct: p.st.SatisfactionPct,
 		TaskKeys: map[string][]string{},
 	}
 	for a, ks := range p.keys {
@@ -368,6 +369,7 @@ func (d *deriver) salesLines() []Line {
 		l := Line{
 			ID: base + ":sell:" + s.item, Name: d.itemName(s.item), OutputItem: s.item, CapacityPerDay: 1,
 			StationID: base, StationName: s.st.Name, SystemName: s.st.SystemName,
+			StationCondition: s.st.Condition, StationPct: s.st.SatisfactionPct,
 			Kind: KindSales, Purpose: PurposeForSale, Category: CategorySales, TaskKeys: map[string][]string{},
 		}
 		slices.Sort(s.agents)
