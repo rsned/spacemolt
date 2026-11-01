@@ -71,6 +71,12 @@ type Node struct {
 	UnitsPerRun  int            `yaml:"units_per_run,omitempty"` // produce: output units per run
 	InputsPerRun map[string]int `yaml:"inputs_per_run,omitempty"`
 	BatchRuns    int            `yaml:"batch_runs,omitempty"` // produce: runs per craft command
+
+	// Derived lines only (never in yaml).
+	MaxPrice   float64        `yaml:"-"` // purchase: the buy task's price ceiling, a rule the why can name
+	ItemShares map[string]int `yaml:"-"` // store: item -> number of lines at this station consuming it
+	SharedBy   int            `yaml:"-"` // store: max of ItemShares; 2+ draws the tank as shared
+	Note       string         `yaml:"-"` // a fixed line shown on the node, e.g. "supply not on record"
 }
 
 // Edge is a link between two nodes of the same line.
@@ -91,6 +97,20 @@ type Line struct {
 	CapacityPerDay int    `yaml:"capacity_per_day"` // 100% facility figure, for "Avg Factory Eff"
 	Nodes          []Node `yaml:"nodes"`
 	Edges          []Edge `yaml:"edges"`
+
+	// Derived lines only (never in yaml).
+	StationID, StationName, SystemName string              `yaml:"-"`
+	Category                           string              `yaml:"-"` // board sub-row
+	Kind                               string              `yaml:"-"` // hand | facility | sales
+	Purpose                            string              `yaml:"-"` // upkeep | for_sale | feeds
+	DependedOn                         Deps                `yaml:"-"`
+	TaskKeys                           map[string][]string `yaml:"-"` // agent -> outcome keys of the work that makes this line
+}
+
+// Deps counts the other lines at the same station that draw on a line's
+// output, by what they are for.
+type Deps struct {
+	Production, Upkeep, Sales int
 }
 
 // Config is the whole lines file.

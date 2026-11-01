@@ -48,9 +48,9 @@ func seedKB(t *testing.T) string {
 			('pulse_laser_i', 'Pulse Laser I', '')`,
 		`INSERT INTO item_modules(item_id, type, type_id) VALUES ('pulse_laser_i', 'weapon', 'pulse_laser')`,
 		`INSERT INTO faction_facilities(faction_id, base_id, facility_id, facility_type, category, level, status, recipe_id, captured_utc) VALUES
-			('` + crftID + `', '` + cjBase + `', 'f1', 'iron_refinery', 'production', 1, 'active', 'refine_steel', '2026-11-01T22:05:18Z'),
-			('` + crftID + `', '` + cjBase + `', 'f2', 'atmospheric_recycler', 'infrastructure', 1, 'active', '', '2026-11-01T22:05:18Z'),
-			('otherfaction', '` + cjBase + `', 'f9', 'iron_refinery', 'production', 1, 'active', 'refine_steel', '2026-11-01T22:05:18Z')`,
+			('` + crftID + `', '` + cjBase + `', 'f1', 'Iron Refinery', 'production', 1, 'active', 'refine_steel', '2026-11-01T22:05:18Z'),
+			('` + crftID + `', '` + cjBase + `', 'f2', 'Atmospheric Recycler', 'infrastructure', 1, 'active', '', '2026-11-01T22:05:18Z'),
+			('otherfaction', '` + cjBase + `', 'f9', 'Iron Refinery', 'production', 1, 'active', 'refine_steel', '2026-11-01T22:05:18Z')`,
 	}
 	for _, s := range stmts {
 		if _, err := kb.DB().Exec(s); err != nil {
@@ -67,7 +67,7 @@ func seedKB(t *testing.T) string {
 func writeFacilityCatalog(t *testing.T) string {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "catalog_facilities.json")
-	body := `{"items":[{"id":"atmospheric_recycler","maintenance_inputs":[{"item_id":"sunspindle","quantity":1},{"item_id":"water_ice","quantity":3},{"item_id":"purified_water","quantity":1},{"item_id":"oxygen_gas","quantity":2},{"item_id":"catalytic_scrubber_cartridge","quantity":1}]},{"id":"iron_refinery"}]}`
+	body := `{"items":[{"id":"atmospheric_recycler","name":"Atmospheric Recycler","maintenance_inputs":[{"item_id":"sunspindle","quantity":1},{"item_id":"water_ice","quantity":3},{"item_id":"purified_water","quantity":1},{"item_id":"oxygen_gas","quantity":2},{"item_id":"catalytic_scrubber_cartridge","quantity":1}]},{"id":"iron_refinery","name":"Iron Refinery"}]}`
 	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestLoadRefDataFacilitiesForOurFactionOnly(t *testing.T) {
 	}
 	var refinery Facility
 	for _, f := range fs {
-		if f.Type == "iron_refinery" {
+		if f.Type == "Iron Refinery" {
 			refinery = f
 		}
 	}
@@ -144,6 +144,14 @@ func TestLoadRefDataUpkeep(t *testing.T) {
 		if u[k] != v {
 			t.Errorf("upkeep[%s] = %d, want %d", k, u[k], v)
 		}
+	}
+}
+
+// faction_facilities.facility_type holds the display name live, so upkeep is
+// reachable by the catalog name as well as the catalog id.
+func TestLoadRefDataUpkeepByDisplayName(t *testing.T) {
+	if u := loadSeededRef(t).Upkeep["Atmospheric Recycler"]; u["oxygen_gas"] != 2 {
+		t.Errorf("upkeep by display name = %v", u)
 	}
 }
 

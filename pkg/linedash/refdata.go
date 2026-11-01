@@ -40,7 +40,7 @@ type RefData struct {
 	ItemCategory map[string]string // "module" for ship modules, which carry no items.category
 	ItemName     map[string]string
 	Facilities   map[string][]Facility     // base id -> our faction's facilities there
-	Upkeep       map[string]map[string]int // facility type -> item -> units per cycle
+	Upkeep       map[string]map[string]int // facility catalog id AND display name -> item -> units per cycle
 }
 
 // Station resolves a base id or POI id.
@@ -206,6 +206,7 @@ func (r RefData) loadUpkeep(path string) error {
 	var cat struct {
 		Items []struct {
 			ID          string `json:"id"`
+			Name        string `json:"name"`
 			Maintenance []struct {
 				ItemID   string `json:"item_id"`
 				Quantity int    `json:"quantity"`
@@ -224,6 +225,9 @@ func (r RefData) loadUpkeep(path string) error {
 			m[in.ItemID] += in.Quantity
 		}
 		r.Upkeep[d.ID] = m
+		if d.Name != "" {
+			r.Upkeep[d.Name] = m // faction_facilities.facility_type carries the display name
+		}
 	}
 
 	return nil
