@@ -50,6 +50,9 @@ svg .optimal .sbar, svg .optimal .sdot { fill: var(--optimal); }
 svg .starved .sbar, svg .starved .sdot { fill: var(--starved); }
 svg .choked .sbar, svg .choked .sdot { fill: var(--choked); }
 svg .node.unknown .box { stroke-dasharray: 4 3; }
+/* A tank other lines also draw on: dashed outline AND 45° two-tone stripes, so its count reads as a shared pool. */
+svg .node.shared .box { fill: url(#shared-stripes); stroke: #58a6ff; stroke-width: 2; stroke-dasharray: 7 5; }
+svg .stripe-a { fill: rgba(88,166,255,0.10); } svg .stripe-b { fill: rgba(88,166,255,0.28); }
 svg text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
 svg .nname { fill: var(--text); font-size: 13px; font-weight: 600; }
 svg .tank { fill: var(--text); font-size: 11px; }
@@ -167,13 +170,14 @@ table.board tr.cat td { font-size: 20px; text-transform: uppercase; letter-spaci
   {{if .Stale}}<div class="stalelist">stale: {{range $i, $s := .Stale}}{{if $i}}, {{end}}{{$s}}{{end}}</div>{{end}}
   <div class="canvas">
   <svg xmlns="http://www.w3.org/2000/svg" style="--w: {{.Width}}" viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="line diagram">
+    <defs><pattern id="shared-stripes" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" class="stripe-a"/><rect width="6" height="12" class="stripe-b"/></pattern></defs>
     {{- range .Edges}}
     <path class="edge {{.State}}" d="{{.D}}"><title>{{.From}} → {{.To}}: {{.FullLabel}}</title></path>
     {{- end}}
     {{- $rx := .RX}}{{$bh := .BarH}}{{$dr := .DotR}}
     {{- range .Nodes}}
-    <g class="node {{.State}}">
-      <rect class="box" x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" rx="{{$rx}}"/>
+    <g class="node {{if .Shared}}shared {{end}}{{.State}}">
+      <rect class="box" x="{{.X}}" y="{{.Y}}" width="{{.W}}" height="{{.H}}" rx="{{$rx}}"{{if .Shared}} fill="url(#shared-stripes)"{{end}}/>
       <rect class="sbar" x="{{.X}}" y="{{.BarY}}" width="{{.W}}" height="{{$bh}}" rx="3"/>
       <circle class="sdot" cx="{{.DotX}}" cy="{{.DotY}}" r="{{$dr}}"/>
       <text class="nname" x="{{.NameX}}" y="{{.NameY}}">{{.Name}}</text>

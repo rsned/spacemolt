@@ -54,6 +54,9 @@ func nodeBody(n NodeReport) []bodyLine {
 	for _, it := range append(items, rest...) {
 		out = append(out, bodyLine{Text: fmt.Sprintf("%s %.0f", it, n.Units[it]), Class: lineTank})
 	}
+	if n.SharedBy >= 2 {
+		out = append(out, bodyLine{Text: fmt.Sprintf("shared ×%d", n.SharedBy), Class: lineDetail})
+	}
 	for _, a := range n.Agents {
 		cls := lineAgent
 		if !a.Live || a.Removed || a.AwayFleet != "" {

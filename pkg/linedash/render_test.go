@@ -227,3 +227,34 @@ func TestBoardHasLinesFleetSwitch(t *testing.T) {
 	mustContain(t, page, `class="tab on"`)
 	mustContain(t, page, ">Fleet<")
 }
+
+func sharedReport(t *testing.T, sharedBy int) string {
+	t.Helper()
+	r := moonshineReport(t)
+	for i := range r.Nodes {
+		if r.Nodes[i].ID == "voss_inputs" {
+			r.Nodes[i].SharedBy = sharedBy
+		}
+	}
+	b, err := RenderLine(r, 60)
+	if err != nil {
+		t.Fatalf("RenderLine: %v", err)
+	}
+	return string(b)
+}
+
+func TestLineSharedTankDashedAndStriped(t *testing.T) {
+	page := sharedReport(t, 4)
+	mustContain(t, page, `class="node shared`)
+	mustContain(t, page, `id="shared-stripes"`)
+	mustContain(t, page, `fill="url(#shared-stripes)"`)
+	mustContain(t, page, "stroke-dasharray: 7 5")
+	mustContain(t, page, "shared ×4")
+}
+
+func TestLineDedicatedTankPlain(t *testing.T) {
+	page := sharedReport(t, 1)
+	if strings.Contains(page, "shared ×") || strings.Contains(page, `class="node shared`) {
+		t.Error("a dedicated tank is marked shared")
+	}
+}

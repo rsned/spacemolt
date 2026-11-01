@@ -233,6 +233,7 @@ type textView struct {
 
 type nodeView struct {
 	State, Name      string
+	Shared           bool // 2+ lines draw on this tank: dashed outline + stripes
 	X, Y, W, H, BarY int
 	DotX, DotY       int
 	NameX, NameY     int
@@ -290,7 +291,7 @@ func lineView(r LineReport, refreshSec int) lineData {
 		d.Width = max(d.Width, n.X+nodeWidth+layoutMargin)
 		d.Height = max(d.Height, n.Y+h+layoutMargin)
 		nv := nodeView{
-			State: stateClass(n.State), Name: n.Name,
+			State: stateClass(n.State), Name: n.Name, Shared: n.SharedBy >= 2,
 			X: n.X, Y: n.Y, W: nodeWidth, H: h, BarY: n.Y + h - barHeight,
 			DotX: n.X + textInset + dotRadius, DotY: n.Y + nodeHeaderH/2 + 2,
 			NameX: n.X + textInset + 2*dotRadius + 8, NameY: n.Y + nodeHeaderH/2 + 7,
