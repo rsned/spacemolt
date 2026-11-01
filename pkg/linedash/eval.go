@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/outcomes"
 )
 
 // Alert is a human-readable problem raised on a node and rolled up to the line.
@@ -23,6 +25,10 @@ const (
 	AlertNoBotsLive     Alert = "no bots on node"  // all attached miners away/removed
 	AlertOutputNotDrawn Alert = "output not drawn" // produce output tank growing, no faction_pull/withdraw
 	AlertDataStale      Alert = "data stale"
+	// AlertNotConforming: an agent on the node is not doing its assignment --
+	// every recent outcome of its line work failed, or it sits docked away
+	// from its pinned station.
+	AlertNotConforming Alert = "agent not doing its assignment"
 )
 
 // lastKnown prefixes the rule verdict of a stale node or edge in Detail.
@@ -54,7 +60,10 @@ type NodeReport struct {
 	LastEventAt                time.Time
 	Stale                      bool     // a source the node rule read is zero or older than StaleData
 	Detail                     []string // human lines shown under the node
-	X, Y                       int      // filled by layout
+	Why                        string   // the broken rule behind a starved/choked state, with its numbers
+	SharedBy                   int      // 2+ = a tank other lines draw on too
+	ItemShares                 map[string]int
+	X, Y                       int // filled by layout
 
 	srcs []source
 }
@@ -85,6 +94,13 @@ type LineReport struct {
 	Edges                                      []EdgeReport
 	StaleSources                               []string // stale node ids in node order, then stale edges as "<from>-><to>"
 	GeneratedAt                                time.Time
+
+	// Copied from the derived Line.
+	StationID, StationName, SystemName string
+	Category, Kind, Purpose            string
+	DependedOn                         Deps
+	Agents                             int    // len(AgentsOf(line))
+	Why                                string // the worst node's Why
 }
 
 // Inputs is everything the evaluator reads; it does no I/O itself.
@@ -98,6 +114,12 @@ type Inputs struct {
 	Cursors map[string]time.Time
 	Demand  map[string]Demand  // node id -> demand (sell nodes)
 	Asks    map[string]*OurAsk // node id -> ask (sell nodes)
+
+	Outcomes map[string]map[string]outcomes.Outcome // agent -> key -> latest outcome
+	Queues   map[string]CraftQueue                  // agent -> craft queue capture
+	// SameStation reports whether two station ids (POI or base) name the same
+	// station. nil compares the strings.
+	SameStation func(a, b string) bool
 }
 
 // source is one input a verdict read and when it was captured. A zero time
@@ -157,7 +179,12 @@ func Evaluate(line Line, in Inputs) LineReport {
 	for _, n := range line.Nodes {
 		ev.nodes[n.ID] = n
 	}
-	r := LineReport{ID: line.ID, Name: line.Name, CapacityPerDay: line.CapacityPerDay, GeneratedAt: in.Now}
+	r := LineReport{
+		ID: line.ID, Name: line.Name, CapacityPerDay: line.CapacityPerDay, GeneratedAt: in.Now,
+		StationID: line.StationID, StationName: line.StationName, SystemName: line.SystemName,
+		Category: line.Category, Kind: line.Kind, Purpose: line.Purpose, DependedOn: line.DependedOn,
+		Agents: len(AgentsOf(line)),
+	}
 	index := make(map[string]int, len(line.Nodes))
 	for i, n := range line.Nodes {
 		r.Nodes = append(r.Nodes, ev.evalNode(n))
@@ -179,6 +206,7 @@ func Evaluate(line Line, in Inputs) LineReport {
 		}
 	}
 	r.StaleSources = append(r.StaleSources, staleEdges...)
+	ev.applyConformance(r.Nodes)
 	// Craft edges take the produce node's final (post-stale) state.
 	for i, e := range line.Edges {
 		if e.Kind == EdgeCraft {
@@ -186,6 +214,7 @@ func Evaluate(line Line, in Inputs) LineReport {
 		}
 	}
 	r.State, r.Alerts = rollUp(r.Nodes, r.Edges)
+	r.Why = ev.applyWhy(r.Nodes, index, r.State)
 	r.ProducedPerDay = ev.producedPerDay()
 	r.SoldPerDay = ev.soldPerDay()
 	if line.CapacityPerDay > 0 {
@@ -201,6 +230,10 @@ func (ev *evaluator) evalNode(n Node) NodeReport {
 		ID: n.ID, Type: n.Type, Name: n.Name,
 		Units:          map[string]float64{},
 		AssignedAgents: len(n.Agents),
+		SharedBy:       n.SharedBy, ItemShares: n.ItemShares,
+	}
+	if n.Note != "" {
+		nr.Detail = append(nr.Detail, n.Note)
 	}
 	nr.Tanks = ev.useTanks(&nr.srcs, n.ID)
 	for _, it := range n.Items {
@@ -225,6 +258,7 @@ func (ev *evaluator) evalNode(n Node) NodeReport {
 		ev.evalStore(n, &nr)
 	case NodeProduce:
 		ev.evalProduce(n, &nr)
+		ev.addQueue(n, &nr)
 	case NodeSell:
 		ev.evalSell(n, &nr)
 	default:
