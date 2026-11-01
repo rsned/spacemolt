@@ -1,9 +1,13 @@
-// Command line-dashboard serves a read-only SCADA-style dashboard of the
-// contraband production lines declared in data/overmind/lines.yaml: a top
-// board with one row per line, a per-line node/edge diagram, and a JSON API.
+// Command line-dashboard serves a read-only SCADA-style dashboard of every
+// CRFT production, upkeep and sales line, derived on each rebuild from the
+// agents' schedules, the fleet yamls, the knowledge DB and our asks: a board
+// grouped by station and category, a per-line node/edge diagram, and a JSON
+// API. data/overmind/line-overrides.yaml holds thresholds and per-line
+// renames; it never adds structure.
 //
-// It opens assets.db and market.db read-only, reads the fleet yamls and
-// status files, and never writes anything. Each request reuses a cached
+// It opens the knowledge DB, assets.db and market.db read-only, reads the
+// fleet yamls, status files and per-agent outcome/queue files, and never
+// writes anything. Each request reuses a cached
 // evaluation no older than half the refresh interval.
 //
 //	line-dashboard --addr :8093 --refresh 60
@@ -16,6 +20,7 @@ import (
 	"flag"
 	"log"
 	"net/http"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -23,11 +28,13 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/linedash"
+	"github.com/rsned/spacemolt/pkg/outcomes"
 )
 
 type options struct {
-	lines, overmindDir, agentsDir, assetsDB, marketDB string
-	refresh                                           int
+	overrides, overmindDir, agentsDir, assetsDB, marketDB string
+	kbDB, facilityCatalog, faction, deferFleets           string
+	refresh                                               int
 }
 
 // server holds the long-lived DB handles and the cached evaluation.
@@ -35,21 +42,26 @@ type server struct {
 	opt    options
 	logger *log.Logger
 
-	buildMu sync.Mutex // serialises builds and guards the handles below
-	tanks   *linedash.Tanks
-	events  *linedash.Events
-	market  *linedash.Market
-	lastCfg *linedash.Config // last lines.yaml that loaded
+	buildMu   sync.Mutex // serialises builds and guards the handles below
+	tanks     *linedash.Tanks
+	events    *linedash.Events
+	market    *linedash.Market
+	lastLines []linedash.Line // last good derivation, kept when reference data fails to load
 
-	mu      sync.RWMutex
-	reports []linedash.LineReport
-	builtAt time.Time
+	mu       sync.RWMutex
+	reports  []linedash.LineReport
+	warnings []string // board-level: overrides, capture cadence, derivation problems
+	builtAt  time.Time
 }
 
 func main() {
 	var opt options
 	addr := flag.String("addr", ":8093", "listen address for the dashboard")
-	flag.StringVar(&opt.lines, "lines", "data/overmind/lines.yaml", "production line definitions")
+	flag.StringVar(&opt.overrides, "overrides", "data/overmind/line-overrides.yaml", "thresholds and per-line name/category/hidden overrides")
+	flag.StringVar(&opt.kbDB, "kb-db", "data/spacemolt-knowledge.db", "knowledge DB (stations, recipes, items, our facilities), opened read-only")
+	flag.StringVar(&opt.facilityCatalog, "facility-catalog", "data/game-api/latest/catalog_facilities.json", "facility catalog (upkeep inputs)")
+	flag.StringVar(&opt.faction, "faction", "CRFT", "our faction tag")
+	flag.StringVar(&opt.deferFleets, "defer-fleets", "mb", "comma-separated fleets whose lines are deferred (drone marketbots)")
 	flag.StringVar(&opt.overmindDir, "overmind-dir", "data/overmind", "directory of fleet yamls and *-status.json files")
 	flag.StringVar(&opt.agentsDir, "agents-dir", "data/agents", "per-agent data directory (shopkeep.json)")
 	flag.StringVar(&opt.assetsDB, "assets-db", "data/assets.db", "assets database (storage snapshots, action log), opened read-only")
@@ -109,21 +121,22 @@ func (s *server) current(ctx context.Context, force bool) []linedash.LineReport 
 	// for every viewer, so a client disconnect must not fail its queries.
 	bctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), game.SleepLong)
 	defer cancel()
-	reports = s.build(bctx)
+	reports, warnings := s.build(bctx)
 	s.mu.Lock()
-	s.reports, s.builtAt = reports, time.Now()
+	s.reports, s.warnings, s.builtAt = reports, warnings, time.Now()
 	s.mu.Unlock()
 
 	return reports
 }
 
-// build reloads lines.yaml and every source and evaluates and lays out every
-// line. Callers hold buildMu. Every failure is logged and surfaced as a
-// "<source>: <err>" StaleSources entry; build always returns something to
-// render.
-func (s *server) build(ctx context.Context) []linedash.LineReport {
+// build derives every line and evaluates it. Callers hold buildMu; build
+// always returns something to render. Source problems that affect
+// every line are appended to each report's StaleSources (so a line never looks
+// healthy on a missing source); overrides, cadence and derivation problems are
+// returned as board warnings.
+func (s *server) build(ctx context.Context) ([]linedash.LineReport, []string) {
 	now := time.Now().UTC()
-	var global []string
+	var global, warnings []string
 	warn := func(source string, err error) {
 		msg := source + ": " + oneLine(err)
 		s.logger.Printf("%s", msg)
@@ -131,23 +144,17 @@ func (s *server) build(ctx context.Context) []linedash.LineReport {
 			global = append(global, msg)
 		}
 	}
-
-	cfg, err := linedash.LoadLines(s.opt.lines)
-	switch {
-	case err == nil:
-		s.lastCfg = &cfg
-	case s.lastCfg != nil:
-		warn("lines.yaml (using last good copy)", err)
-		cfg = *s.lastCfg
-	default:
-		warn("lines.yaml", err)
-
+	placeholder := func(name string) []linedash.LineReport {
 		return []linedash.LineReport{{
-			ID: "lines", Name: "lines.yaml unreadable", State: linedash.StateUnknown,
+			ID: "lines", Name: name, State: linedash.StateUnknown,
 			StaleSources: global, GeneratedAt: now,
 		}}
 	}
 
+	ov, err := linedash.LoadOverrides(s.opt.overrides)
+	if err != nil {
+		warn("line overrides (using defaults)", err)
+	}
 	s.openHandles(ctx, warn)
 	roster, err := linedash.LoadRoster(s.opt.overmindDir)
 	if err != nil {
@@ -163,14 +170,57 @@ func (s *server) build(ctx context.Context) []linedash.LineReport {
 	if len(live) == 0 {
 		warn("overmind-dir", errors.New("no status files found"))
 	}
+	sched, err := linedash.LoadSchedules(s.opt.agentsDir)
+	if err != nil {
+		warnings = append(warnings, "schedules: "+oneLine(err))
+	}
 
-	reports := make([]linedash.LineReport, 0, len(cfg.Lines))
-	for _, line := range cfg.Lines {
+	var ref linedash.RefData
+	lines := s.lastLines
+	factionID, ferr := linedash.LookupFactionID(ctx, s.opt.assetsDB, s.opt.faction)
+	if ferr != nil {
+		warn("faction id", ferr)
+	} else if ref, err = linedash.LoadRefData(ctx, s.opt.kbDB, s.opt.facilityCatalog, factionID); err != nil {
+		warn("reference data (showing last good lines)", err)
+	} else {
+		var listings []linedash.Listing
+		if s.market != nil {
+			if listings, err = s.market.OurListings(ctx, now.Add(-time.Hour)); err != nil {
+				warn("market.db listings", err)
+			}
+		}
+		deferred := strings.Split(s.opt.deferFleets, ",")
+		lines = linedash.Derive(linedash.DeriveInputs{
+			Roster: roster, Schedules: sched, Ref: ref, Listings: attributeListings(listings, roster, ref, deferred),
+			FactionTag: s.opt.faction, DeferFleets: deferred,
+		})
+		s.lastLines = lines
+	}
+	if lines == nil {
+		return placeholder("no lines derived"), warnings
+	}
+	lines, ow := linedash.ApplyOverrides(lines, ov)
+	warnings = append(warnings, ow...)
+	warnings = append(warnings, linedash.CadenceWarnings(lines, sched)...)
+
+	same := func(a, b string) bool {
+		sa, okA := ref.Station(a)
+		sb, okB := ref.Station(b)
+		if okA && okB {
+			return sa.BaseID == sb.BaseID
+		}
+		return a == b
+	}
+	reports := make([]linedash.LineReport, 0, len(lines))
+	for _, line := range lines {
 		in := linedash.Inputs{
-			Now: now, Cfg: cfg.Thresholds, Roster: roster, Live: live,
-			Tanks:  map[string][]linedash.TankLevel{},
-			Demand: map[string]linedash.Demand{},
-			Asks:   map[string]*linedash.OurAsk{},
+			Now: now, Cfg: ov.Thresholds, Roster: roster, Live: live,
+			Tanks:       map[string][]linedash.TankLevel{},
+			Demand:      map[string]linedash.Demand{},
+			Asks:        map[string]*linedash.OurAsk{},
+			Outcomes:    map[string]map[string]outcomes.Outcome{},
+			Queues:      map[string]linedash.CraftQueue{},
+			SameStation: same,
 		}
 		var local []string
 		lwarn := func(source string, err error) {
@@ -187,12 +237,51 @@ func (s *server) build(ctx context.Context) []linedash.LineReport {
 		linedash.Layout(&r)
 		reports = append(reports, r)
 	}
+	if len(reports) == 0 {
+		return placeholder("no lines derived"), warnings
+	}
 
-	return reports
+	return reports, warnings
 }
 
-// loadLineInputs fills the DB-backed inputs of one line. A nil handle (open
-// failed) leaves its inputs empty; the open error is already reported.
+// attributeListings gives each of our asks the first non-deferred agent
+// pinned to its station, so the sell node reads that agent's shop state. A
+// station whose only pinned agents are in a deferred fleet (the marketbots'
+// shops) is dropped with its asks; one with no pinned agent of ours is a
+// faction sell order and keeps an empty agent.
+func attributeListings(ls []linedash.Listing, roster map[string]linedash.RosterEntry, ref linedash.RefData, deferFleets []string) []linedash.Listing {
+	agents := make([]string, 0, len(roster))
+	for a := range roster {
+		agents = append(agents, a)
+	}
+	slices.Sort(agents)
+	out := make([]linedash.Listing, 0, len(ls))
+	for _, l := range ls {
+		st, ok := ref.Station(l.StationID)
+		if !ok {
+			continue
+		}
+		deferredOnly := false
+		for _, a := range agents {
+			e := roster[a]
+			pin, pinned := ref.Station(e.Station)
+			if e.Removed || e.Station == "" || !pinned || pin.BaseID != st.BaseID {
+				continue
+			}
+			if slices.Contains(deferFleets, e.Fleet) {
+				deferredOnly = l.Agent == ""
+				continue
+			}
+			l.Agent, deferredOnly = a, false
+			break
+		}
+		if !deferredOnly {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
 func (s *server) loadLineInputs(ctx context.Context, line linedash.Line, in *linedash.Inputs, warn func(string, error)) {
 	agents := linedash.AgentsOf(line)
 	if s.tanks != nil {
@@ -221,6 +310,19 @@ func (s *server) loadLineInputs(ctx context.Context, line linedash.Line, in *lin
 		}
 		in.Cursors = cursors
 	}
+	for _, a := range agents {
+		dir := filepath.Join(s.opt.agentsDir, a)
+		if o, err := outcomes.Load(dir); err != nil {
+			warn("task outcomes", err)
+		} else if len(o) > 0 {
+			in.Outcomes[a] = o
+		}
+		if q, err := linedash.LoadCraftQueue(dir); err != nil {
+			warn("craft queue", err)
+		} else if !q.CapturedAt.IsZero() {
+			in.Queues[a] = q
+		}
+	}
 	if s.market != nil {
 		for _, n := range line.Nodes {
 			if n.Type != linedash.NodeSell {
@@ -233,7 +335,11 @@ func (s *server) loadLineInputs(ctx context.Context, line linedash.Line, in *lin
 			} else {
 				in.Demand[n.ID] = d
 			}
-			for _, a := range n.Agents {
+			askers := n.Agents
+			if len(askers) == 0 {
+				askers = []string{""} // a faction sell order: the exchange row alone
+			}
+			for _, a := range askers {
 				ask, ok, err := s.market.OurAsk(ctx, a, n.Station, item)
 				if err != nil {
 					warn("market.db", err)
@@ -316,7 +422,11 @@ func (s *server) find(ctx context.Context, id string, force bool) (linedash.Line
 }
 
 func (s *server) handleBoard(w http.ResponseWriter, r *http.Request) {
-	page, err := linedash.RenderBoard(s.current(r.Context(), forced(r)), nil, s.opt.refresh)
+	reports := s.current(r.Context(), forced(r))
+	s.mu.RLock()
+	warnings := s.warnings
+	s.mu.RUnlock()
+	page, err := linedash.RenderBoard(reports, warnings, s.opt.refresh)
 	s.writeHTML(w, page, err)
 }
 

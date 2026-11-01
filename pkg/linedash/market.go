@@ -146,3 +146,32 @@ func (m *Market) shopItem(agent, item string) (shopItemState, bool) {
 
 	return st, ok
 }
+
+// OurListings returns every (station, item) where the latest captured sell
+// book, captured since since, holds an ask of ours. The agent is left empty;
+// the caller attributes it from the roster. The since bound, applied to the
+// hourly bucket index, keeps the query on recent rows: market.db holds
+// millions of order rows per hour (1.5s for two buckets live, 6s unbounded).
+func (m *Market) OurListings(ctx context.Context, since time.Time) ([]Listing, error) {
+	const q = `
+SELECT DISTINCT o.station_id, o.item_id FROM market_orders o INDEXED BY idx_orders_bucket
+WHERE o.bucket_utc >= ? AND o.side = 'sell' AND o.my_quantity > 0
+  AND o.captured_at = (SELECT MAX(captured_at) FROM market_orders
+                       WHERE station_id = o.station_id AND item_id = o.item_id AND side = 'sell')
+ORDER BY o.station_id, o.item_id`
+	rows, err := m.db.QueryContext(ctx, q, since.UTC().Truncate(time.Hour).Format(time.RFC3339))
+	if err != nil {
+		return nil, fmt.Errorf("our listings: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []Listing
+	for rows.Next() {
+		var l Listing
+		if err := rows.Scan(&l.StationID, &l.Item); err != nil {
+			return nil, fmt.Errorf("our listings: %w", err)
+		}
+		out = append(out, l)
+	}
+
+	return out, rows.Err()
+}

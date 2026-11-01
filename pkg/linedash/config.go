@@ -1,5 +1,6 @@
-// Package linedash builds a read-only production-line dashboard from the
-// declarative line definitions in data/overmind/lines.yaml.
+// Package linedash builds a read-only production-line dashboard. Lines are
+// derived (derive.go) from the fleet's own configuration; the yaml form of
+// Line read by LoadLines remains for test fixtures.
 package linedash
 
 import (

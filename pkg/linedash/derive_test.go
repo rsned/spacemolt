@@ -273,3 +273,23 @@ func TestDeriveCapacityUsesFacilitySpeed(t *testing.T) {
 		t.Errorf("sunspindle capacity = %d, want 4800", c)
 	}
 }
+
+// A faction sell order has no pinned agent: one "market" sell node held in
+// faction storage, never an agent named "".
+func TestDeriveListingWithoutAgentIsFactionOrder(t *testing.T) {
+	in := deriveInputs()
+	in.Listings = append(in.Listings, Listing{StationID: cjBase, Item: "steel_plate"})
+	l := lineByID(t, Derive(in), cjBase+":refine_steel")
+	var sell *Node
+	for i := range l.Nodes {
+		if l.Nodes[i].Type == NodeSell {
+			sell = &l.Nodes[i]
+		}
+	}
+	if sell == nil || sell.ID != "sell:market" || len(sell.Agents) != 0 || len(sell.Holders) != 1 || sell.Holders[0].Faction != "CRFT" {
+		t.Errorf("sell node = %+v", sell)
+	}
+	if err := l.validate(); err != nil {
+		t.Error(err)
+	}
+}

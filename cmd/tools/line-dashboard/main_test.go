@@ -6,27 +6,31 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/assets"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/linedash"
 	"github.com/rsned/spacemolt/pkg/market"
 )
 
-var fixtureLines = filepath.Join("..", "..", "..", "pkg", "linedash", "testdata", "lines_moonshine.yaml")
-
 func testServer(dir string) *server {
 	return &server{
 		opt: options{
-			lines:       fixtureLines,
-			overmindDir: filepath.Join(dir, "overmind"),
-			agentsDir:   filepath.Join(dir, "agents"),
-			assetsDB:    filepath.Join(dir, "assets.db"),
-			marketDB:    filepath.Join(dir, "market.db"),
-			refresh:     60,
+			overrides:       filepath.Join(dir, "overmind", "line-overrides.yaml"),
+			kbDB:            filepath.Join(dir, "kb.db"),
+			facilityCatalog: filepath.Join(dir, "catalog_facilities.json"),
+			faction:         "CRFT",
+			deferFleets:     "mb",
+			overmindDir:     filepath.Join(dir, "overmind"),
+			agentsDir:       filepath.Join(dir, "agents"),
+			assetsDB:        filepath.Join(dir, "assets.db"),
+			marketDB:        filepath.Join(dir, "market.db"),
+			refresh:         60,
 		},
 		logger: log.New(io.Discard, "", 0),
 	}
@@ -38,7 +42,7 @@ func TestBuildWarnsOnEmptyOvermindDir(t *testing.T) {
 	s := testServer(t.TempDir())
 	defer s.closeHandles()
 
-	reports := s.build(context.Background())
+	reports, _ := s.build(context.Background())
 	if len(reports) != 1 {
 		t.Fatalf("got %d reports, want 1", len(reports))
 	}
@@ -133,5 +137,126 @@ func TestForcedQuery(t *testing.T) {
 		if got := forced(r); got != tc.want {
 			t.Errorf("forced(%q) = %v, want %v", tc.url, got, tc.want)
 		}
+	}
+}
+
+const (
+	cjBase = "c976fa7df53c87f9616165d7d411b41a"
+	cjPOI  = "862e07fa76571d0a76cab3cbaf4046e7"
+)
+
+func mustWrite(t *testing.T, path, body string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustExec(t *testing.T, exec func(string, ...any) error, stmts ...string) {
+	t.Helper()
+	for _, q := range stmts {
+		if err := exec(q); err != nil {
+			t.Fatalf("seed %q: %v", q, err)
+		}
+	}
+}
+
+// seedDerivation lays out a fleet yaml, a schedule, a knowledge DB, a facility
+// catalog, assets.db (faction profile) and an empty market.db: one pinned
+// crafter growing sunspindle by hand at Conjunction Junction.
+func seedDerivation(t *testing.T, s *server, dir string) {
+	t.Helper()
+	mustWrite(t, filepath.Join(dir, "overmind", "craft-fleet.yaml"),
+		"workers:\n  - { agent_id: craftsman-3, role: craftsman, station: "+cjPOI+" }\n")
+	mustWrite(t, filepath.Join(dir, "agents", "craftsman-3", "schedule.json"),
+		`[{"id":2,"frequency":"daily","command":"craft grow_sunspindle 1"},{"id":3,"frequency":"hourly","command":"capture_storage"}]`)
+	mustWrite(t, s.opt.facilityCatalog, `{"items":[]}`)
+
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: s.opt.kbDB})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, func(q string, a ...any) error { _, xerr := kb.DB().Exec(q, a...); return xerr },
+		`INSERT INTO systems(id, name, position_x, position_y) VALUES ('cloverfield', 'Cloverfield', 0, 0)`,
+		`INSERT INTO pois(id, system_id, name, type, position_x, position_y, base_id) VALUES ('`+cjPOI+`', 'cloverfield', 'Conjunction Junction', 'station', 0, 0, '`+cjBase+`')`,
+		`INSERT INTO bases(id, poi_id, name, condition, satisfaction_pct) VALUES ('`+cjBase+`', '`+cjPOI+`', 'Conjunction Junction', 'thriving', 100)`,
+		`INSERT INTO recipes(id, name, category, crafting_time) VALUES ('grow_sunspindle', 'Grow Sunspindle', 'Hydroponics', 360)`,
+		`INSERT INTO recipe_inputs(recipe_id, item_id, quantity) VALUES ('grow_sunspindle', 'purified_water', 300)`,
+		`INSERT INTO recipe_outputs(recipe_id, item_id, quantity) VALUES ('grow_sunspindle', 'sunspindle', 200)`,
+	)
+	if err = kb.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	a, err := assets.Open(assets.Config{DBPath: s.opt.assetsDB})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, func(q string, args ...any) error { _, xerr := a.DB().Exec(q, args...); return xerr },
+		`INSERT INTO faction_profile(faction_id, tag) VALUES ('f-crft', 'CRFT')`)
+	if err = a.Close(); err != nil {
+		t.Fatal(err)
+	}
+	m, err := market.Open(market.Config{DBPath: s.opt.marketDB, WAL: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestServerBuildsFromDerivation(t *testing.T) {
+	dir := t.TempDir()
+	s := testServer(dir)
+	defer s.closeHandles()
+	seedDerivation(t, s, dir)
+
+	reports := s.current(context.Background(), true)
+	var ids []string
+	for _, r := range reports {
+		ids = append(ids, r.ID)
+	}
+	if !slices.Contains(ids, cjBase+":grow_sunspindle") {
+		t.Fatalf("derived line ids %v lack %s:grow_sunspindle", ids, cjBase)
+	}
+	s.mu.RLock()
+	warnings := s.warnings
+	s.mu.RUnlock()
+	if !slices.Contains(warnings, "craftsman-3: needs hourly capture_action_log") {
+		t.Errorf("warnings %v lack the cadence warning", warnings)
+	}
+
+	rec := httptest.NewRecorder()
+	s.handleBoard(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	for _, want := range []string{"Conjunction Junction", "sunspindle", "needs hourly capture_action_log"} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("board lacks %q", want)
+		}
+	}
+}
+
+// Marketbot asks belong to the deferred drone lines: a listing at a station
+// whose only pinned agents are in a deferred fleet is dropped; a station with
+// none of our pinned agents is a faction order and is kept.
+func TestAttributeListingsDropsDeferredFleetStations(t *testing.T) {
+	ref := linedash.RefData{Stations: map[string]linedash.Station{
+		"cj": {BaseID: "cj"}, "rest": {BaseID: "rest"}, "voss": {BaseID: "voss"},
+	}}
+	roster := map[string]linedash.RosterEntry{
+		"marketbot_traders_rest": {AgentID: "marketbot_traders_rest", Fleet: "mb", Station: "rest", Shopkeep: []string{"x:1"}},
+		"marketbot_alhena":       {AgentID: "marketbot_alhena", Fleet: "mb", Station: "voss"},
+		"craftsman-10":           {AgentID: "craftsman-10", Fleet: "craft", Station: "voss"},
+	}
+	got := attributeListings([]linedash.Listing{
+		{StationID: "rest", Item: "quantum_fragments"},
+		{StationID: "cj", Item: "void_dust"},
+		{StationID: "voss", Item: "pirate_moonshine"},
+	}, roster, ref, []string{"mb"})
+	if len(got) != 2 || got[0].StationID != "cj" || got[0].Agent != "" || got[1].StationID != "voss" || got[1].Agent != "craftsman-10" {
+		t.Errorf("attributeListings = %+v", got)
 	}
 }

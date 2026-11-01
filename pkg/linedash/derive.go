@@ -502,13 +502,18 @@ func primaryOutput(rc Recipe) string {
 	return best
 }
 
+// appendSell adds a sell node for agent's ask; an ask no pinned agent owns
+// (a faction sell order) is the "market" node, held in faction storage.
 func appendSell(nodes []Node, agent, base, item, factionTag string) []Node {
-	id := "sell:" + agent
-	if slices.ContainsFunc(nodes, func(n Node) bool { return n.ID == id }) {
+	n := Node{ID: "sell:" + agent, Type: NodeSell, Name: "Sell (" + agent + ")", Items: []string{item},
+		Agents: []string{agent}, Station: base, Holders: []Holder{{Agent: agent, Station: base}, {Faction: factionTag, Station: base}}}
+	if agent == "" {
+		n.ID, n.Name, n.Agents, n.Holders = "sell:market", "Sell (faction order)", nil, []Holder{{Faction: factionTag, Station: base}}
+	}
+	if slices.ContainsFunc(nodes, func(x Node) bool { return x.ID == n.ID }) {
 		return nodes
 	}
-	return append(nodes, Node{ID: id, Type: NodeSell, Name: "Sell (" + agent + ")", Items: []string{item},
-		Agents: []string{agent}, Station: base, Holders: []Holder{{Agent: agent, Station: base}, {Faction: factionTag, Station: base}}})
+	return append(nodes, n)
 }
 
 func forbidden(item string) bool { return slices.Contains(forbiddenItems, item) }

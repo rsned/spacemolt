@@ -101,7 +101,7 @@ setsid nohup ./bin/overmind-status --addr ":8087" --refresh 300 \
 
 go build -o bin/line-dashboard ./cmd/tools/line-dashboard
 setsid nohup ./bin/line-dashboard --addr ":8093" \
-  >> data/overmind/line-dashboard.log 2>&1 < /dev/null &              # :8093 contraband lines
+  >> data/overmind/line-dashboard.log 2>&1 < /dev/null &              # :8093 production lines
 ```
 
 - `overmind-dashboard` needs a built `frontend/dist`; it logs `505 systems loaded, serving on :8091`.
@@ -112,9 +112,13 @@ setsid nohup ./bin/line-dashboard --addr ":8093" \
 - **Do not use `scripts/start-overmind-status.sh` right after a build.** Its singleton guard is
   `pgrep -f bin/overmind-status`, which also matches a concurrent `go build -o bin/overmind-status`,
   so it refuses to start and blames a process that is really the compiler.
-- `line-dashboard` logs `[line-dashboard] serving N lines on :8093`. It reads `data/overmind/lines.yaml`
-  on every rebuild and opens `assets.db` and `market.db` read-only; a source it cannot read shows
-  as a `data stale` badge instead of an error page.
+- `line-dashboard` logs `[line-dashboard] serving N lines on :8093`. It DERIVES every line on each
+  rebuild from the agents' `schedule.json`, the fleet yamls, `data/spacemolt-knowledge.db` (stations,
+  recipes, our facilities) and our asks in `market.db`; the only hand-kept file is
+  `data/overmind/line-overrides.yaml` (thresholds + rename/recategorise/hide). The "why" comes from each
+  agent's `task-outcomes.json` and queue backlog from `craft-queue.json`, both written by the worker.
+  Every DB is opened read-only; a source it cannot read shows as a `data stale` badge, and capture
+  cadence or override problems as warnings at the top of the board.
 
 **Checkpoint:** all three return HTTP 200.
 

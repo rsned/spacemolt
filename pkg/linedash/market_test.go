@@ -213,3 +213,19 @@ func TestOurAskCorruptJSONStillUsesExchangeRow(t *testing.T) {
 		t.Fatalf("a=%+v ok=%v err=%v", a, ok, err)
 	}
 }
+
+func TestOurListingsLatestCaptureOnly(t *testing.T) {
+	m := openTestMarket(t, []orderRow{
+		{station: "st1", item: "moonshine", side: "sell", price: 200, qty: 500, mine: 500, captured: "2026-11-01T10:00:00Z"},
+		{station: "st1", item: "moonshine", side: "sell", price: 190, qty: 80, mine: 0, captured: "2026-11-01T11:00:00Z"},
+		{station: "st2", item: "moonshine", side: "sell", price: 210, qty: 40, mine: 40, captured: "2026-11-01T11:00:00Z"},
+		{station: "st2", item: "moonshine", side: "buy", price: 150, qty: 10, mine: 10, captured: "2026-11-01T11:00:00Z"},
+	}, t.TempDir())
+	got, err := m.OurListings(context.Background(), time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].StationID != "st2" || got[0].Item != "moonshine" {
+		t.Errorf("OurListings = %+v, want only st2 (st1's newest capture has no ask of ours)", got)
+	}
+}

@@ -3,7 +3,6 @@ package linedash
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -40,20 +39,6 @@ func TestLoadLinesMoonshineFixture(t *testing.T) {
 		if e.Label != wantLabels[i] {
 			t.Errorf("edge %d label = %q, want %q", i, e.Label, wantLabels[i])
 		}
-	}
-}
-
-func TestLoadLinesRealFileMatchesFixture(t *testing.T) {
-	realCfg, err := LoadLines(filepath.Join("..", "..", "data", "overmind", "lines.yaml"))
-	if err != nil {
-		t.Fatalf("real: %v", err)
-	}
-	fix, err := LoadLines(fixturePath)
-	if err != nil {
-		t.Fatalf("fixture: %v", err)
-	}
-	if !reflect.DeepEqual(realCfg, fix) {
-		t.Error("data/overmind/lines.yaml differs from testdata/lines_moonshine.yaml")
 	}
 }
 

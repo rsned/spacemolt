@@ -232,3 +232,18 @@ func (r RefData) loadUpkeep(path string) error {
 
 	return nil
 }
+
+// LookupFactionID resolves a faction tag (CRFT) to its id from assets.db's
+// faction_profile, which capture_faction keeps current.
+func LookupFactionID(ctx context.Context, assetsPath, tag string) (string, error) {
+	db, err := openReadOnly(assetsPath)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = db.Close() }()
+	var id string
+	if err := db.QueryRowContext(ctx, `SELECT faction_id FROM faction_profile WHERE tag = ?`, tag).Scan(&id); err != nil {
+		return "", fmt.Errorf("faction %s: %w", tag, err)
+	}
+	return id, nil
+}

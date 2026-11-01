@@ -1,0 +1,10 @@
+# Line dashboard overrides (cmd/tools/line-dashboard --overrides).
+#
+# Lines are DERIVED on every rebuild from schedules, fleet yamls, the knowledge
+# DB and our asks -- nothing here adds or removes structure. A line override
+# only renames, recategorises or hides a derived line, keyed by its id as shown
+# in /api/lines.json ("<base_id>:<recipe>" or "<base_id>:sell:<item>"). An
+# override naming a line that no longer exists shows as a board warning.
+thresholds: { haul_window: 4h, mine_window: 4h, craft_window: 1h, sell_window: 6h, sell_stale: 6h, stale_data: 2h, rate_window: 24h, sell_lot: 50, choke_units: 1000, broke_credits: 500, fuel_floor_pct: 10 }
+lines: {}
+#  "c976fa7df53c87f9616165d7d411b41a:manufacture_fuel_basic": { name: "Fuel (station tank)", category: "Station upkeep" }
