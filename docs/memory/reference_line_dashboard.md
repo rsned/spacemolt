@@ -7,7 +7,18 @@ metadata:
   originSessionId: 0188c4c3-7b1f-459b-bf39-6c78fe769ae2
   modified: 2026-10-25T17:18:09.825Z
 ---
+**v2 (merged 2026-11-01, main 213a6e72) — lines are DERIVED, not declared.** Each rebuild builds every line from: agents' `schedule.json` (`craft` → production step at the agent's pinned station; `deliver`/`buy_directed` → hauls/purchases with the price cap as a rule; `faction_deposit` → inputs), fleet yamls (`station` pin, `consign`, `faction_pull`, `shopkeep`), `data/spacemolt-knowledge.db` (stations by POI AND base id, recipes, item categories — ship modules = "Module", our `faction_facilities` → facility vs hand), `catalog_facilities.json` maintenance_inputs (upkeep), and our asks in market.db (Market/Sales lines). `--defer-fleets mb` keeps marketbot/drone lines out. The only hand-kept file is `data/overmind/line-overrides.yaml` (thresholds + rename/recategorise/hide by line id `<base>:<recipe>` / `<base>:sell:<item>`); `lines.yaml` is gone. Spec/plan: docs/superpowers/specs|plans/2026-11-01-line-dashboard-v2*.md.
 
+**The "why":** workers (binary of 11-01+) write `data/agents/<id>/task-outcomes.json` (pkg/outcomes; keys `task:<id>`, `idle:<line>`, `behaviour:consign|consign_offer|faction_pull|shopkeep|ensure_home`) and `capture_craft_queue` writes `craft-queue.json`. A starved/choked node's why = empty shared input tank, else newest refusal of its agents, else "cause unknown: <symptom>". `AlertNotConforming` = all recent task/behaviour outcomes failed, ensure_home refused, or docked away from pin. Board warnings list agents lacking hourly `capture_action_log`/`capture_storage`.
+
+**Board:** grouped by station → category (Station upkeep, Refined, Component, Contraband, …, Market/Sales); tags hand/facility/sales + upkeep/for sale/feeds lines; "depended on by"; agents; /day. Shared tanks: dashed + striped + "shared ×N". Fonts doubled (28px base, diagram ≥2px/unit).
+
+**Run:** `setsid nohup ./bin/line-dashboard --addr ":8093" >> data/overmind/line-dashboard.log 2>&1 < /dev/null &` (defaults point at the live files). Don't `pkill -f line-dashboard` from a shell whose command line contains that text — it kills the shell (exit 144); kill by the port's PID from `ss -ltnp`.
+
+**Staleness rule (unchanged):** the oldest source a verdict read decides grey; fix capture cadence, not the rule. Faction storage is a single-captor capture (lowest player_id CRFT member, miningbot_0000).
+
+---
+v1 notes (plan 3, 10-25) below are historical: 
 **What:** `cmd/tools/line-dashboard` + `pkg/linedash` (merged 10-25, main 06cd562b). Read-only: reads fleet yamls/overrides/secondments, `*-status.json`, assets.db (storage snapshots, action-log events, cursors), market.db (orders, `source<>'worker'` for demand), `data/agents/<id>/shopkeep.json`. Never calls the game, never writes.
 
 **Run (COLD_START.md has the block):** `go build -o bin/line-dashboard ./cmd/tools/line-dashboard && setsid nohup ./bin/line-dashboard --addr ":8093" >> data/overmind/line-dashboard.log 2>&1 < /dev/null &`. Flags: `--lines data/overmind/lines.yaml --overmind-dir data/overmind --agents-dir data/agents --assets-db data/assets.db --market-db data/market.db --refresh 60`.

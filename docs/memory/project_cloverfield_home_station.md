@@ -41,3 +41,11 @@ feed a KB station guide (~/spacemolt/kb) and later a SCADA/HMI station console.
   it to kbnav.Items needs a full ~14k-page regen (TestGeneratedPagesMatchNav).
 - Station went CRITICAL after the Locker Bay finished with no flex_polymer stocked; fix =
   faction_deposit_items flex_polymer (CRFT has ~1,940 at GE, craftsman-1 1,164 personal).
+
+**Next phase (user, 2026-10-27):** once the maintenance cycle size and upkeep needs are validated, dismantle CRFT's rented facilities at Haven and haul them to rebuild at Conjunction Junction. **Why:** Haven rent costs ~500k cr/day. **How to apply:** dismantling is untested (only seen as a facility state in the rent note); run the first dismantle as an experiment on the cheapest spare Haven facility and record what it returns, where it lands and its size before planning hauls.
+
+**2026-10-29 state (Conjunction Junction):**
+- Station fuel tank holds only **5,000**. Combustor jobs consume all LH2 up front, so a 20,000-fuel job overfills and probably wastes the excess; miningbot_0000 runs `craft manufacture_fuel_basic 2000` hourly. Nobody ran the combustor automatically before 10-29 and the tank went empty (`station_fuel_empty`).
+- Next build in progress: `fuel_tank_expansion` (+50k tank) = 500k + 8,000 steel + 1,500 ceramite_plating + 800 fuel_tank. Ceramite/alloy made at Sol's public kiln/foundry by craftsman-3, carried by trader-2's daily deliver; tanks crafted at CJ (build_fuel_tank, hourly on miningbot_0000 — remove once 800 reached).
+- Build policy: `allow_outsiders=true` (set by operator 10-29). YSMT (hauler-0/smt_boss) built a faction_lockbox here, rent 10/cycle to CRFT.
+- Control-node line: explorer-3 hauls Ironhearth platinum (marketbot_015 consign) to CJ; miningbot_0000 crafts platinum wire, circuit boards (carbon_arc) and platinum control nodes hourly; trader-2 hauls carbon (Gold Run) and silicon (Grand Exchange).

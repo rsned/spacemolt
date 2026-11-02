@@ -26,3 +26,5 @@ restarts with the new flags; no manual kill needed.
 
 Related: [[project_consignment_haul_relay]] · [[reference_handoff_gifts_from_storage]] ·
 docs/superpowers/specs/2026-10-24-contraband-production-pipeline-design.md
+
+**Bulk gifts skip cargo (operator reminder 2026-10-30):** `send_gift <user> <item> <qty> --source=storage` moves any quantity in one pass (50,000 carbon went at once). Do NOT batch through a small hold. For faction stock, `faction_withdraw_items <item> <qty>` defaults to cargo but accepts `--target=<scope>`; try `--target=storage` first, then gift `--source=storage` (scope value unverified as of 10-30).

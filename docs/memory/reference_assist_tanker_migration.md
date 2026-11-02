@@ -142,3 +142,26 @@ sidecar, SIGHUP again. Took ~15s each way on assist.
 
 See [[reference_play_as_statusline_last_field_is_the_tick]] ·
 [[reference_api_v0564_v0565_bounty_station_ids]]
+
+---
+
+## Third round, 2026-10-29 — back into tankers after the pirate unlock
+
+krynn/sol/frontier had parked their tankers to run the unlock in spare hulls
+(Siphon/Theoria/Cobble); all three flew back and `switch_ship`'d into
+Morningstar / Capacity / Capacity (stored-hull ids from `list_ships`).
+assist-nexus (tanker lost 10-22) bought a **used player-listed Capacity at
+Sol Central for 79,000 + 2,370 tax (3% sales tax)** — the 99k station listing
+had sold. Operator: "a ship is a ship. used and new are the same" — take the
+cheapest listing of the right class, no need to ask about used vs new.
+`buy_listed_ship` auto-activated again (login line `Ship: Capacity`).
+
+**Process lessons:**
+- **SIGSTOP is only for short play_as windows.** On a multi-jump trip the
+  overmind replaced the paused frontier worker within ~1 min and the new
+  worker stole the session (`session_replaced`). For trips, use the
+  `<fleet>-overrides.json` removed-set + SIGHUP.
+- **The >half guard counts workers still draining.** Removing 3 of 5 at once
+  is refused; remove 2, wait for "removed from fleet", then add the third.
+- Check live position first: a snapshot said krynn was docked at home, but it
+  was 29 jumps away at Sheratan with too little fuel for autopilot.
