@@ -55,3 +55,4 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [Gift unlock + officer storage split](reference_gift_unlock_and_officer_storage_split.md) — send_gift needs 1,000 earned credits; gifts land in officer's own storage → faction_deposit sweeps
 - [Facility speed + rent rules](reference_facility_speed_rules.md) — recipe time = hand baseline; L1 5x, +3x/upgrade; admin +15%/tier (2 tiers); recruit +5%/lvl; rent 3%/day (x2 pirate); hand-craft queues are per agent, so spread them
 - [Haul leftovers → Cloverfield (11-01)](reference_haul_leftovers_to_cloverfield.md) — haulers carry failed-arbitrage cargo, gift to miningbot_0000 at CJ within 3 jumps; faction_deposit_all sweeps it
+- [pgrep self-match + sole-member fleets](reference_pgrep_self_match_and_sole_member.md) — use `[b]in/...` patterns; a fleet's only member can't be override-removed, SIGSTOP it for play_as

@@ -38,7 +38,7 @@
   {
     "id": 11,
     "frequency": "hourly",
-    "command": "deliver pirate_moonshine 1900 voss_redoubt treasure_cache_trading_post marketbot_treasure_cache",
+    "command": "deliver pirate_moonshine 1900 voss_redoubt 862e07fa76571d0a76cab3cbaf4046e7 miningbot_0000",
     "created_at": "2026-10-25T01:22:45Z"
   },
   {

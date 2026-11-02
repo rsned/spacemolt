@@ -10,6 +10,6 @@ workers:
   - { agent_id: craftsman-5, role: craftsman, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-01 hand-craft crew at Conjunction Junction (was the_core)                   # nexus_prime
   - { agent_id: craftsman-6, role: craftsman, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-01 hand-craft crew at Conjunction Junction (was the_core)                   # nexus_prime
   - { agent_id: craftsman-7, role: craftsman, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-01 hand-craft crew at Conjunction Junction (was war_citadel)                # krynn
-  - { agent_id: craftsman-8, role: craftsman, station: voss_redoubt, faction_pull: [pirate_moonshine], consign: ["pirate_moonshine:marketbot_alhena:50"] }                # alhena / Voss Redoubt — contraband crafting (moved 2026-10-23)
+  - { agent_id: craftsman-8, role: craftsman, station: voss_redoubt }  # 2026-11-01: moonshine craft + marketbot_alhena consign removed; held at Voss for the next contraband line (the still serializes, so a second distiller adds nothing)
   - { agent_id: craftsman-9, role: craftsman, station: mobile_capital }             # deep_range — outerrim
   - { agent_id: craftsman-10, role: craftsman, station: voss_redoubt, faction_pull: [pirate_moonshine], consign: ["pirate_moonshine:trader-9:100"] }            # alhena / Voss Redoubt — contraband crafting (moved 2026-10-23)
