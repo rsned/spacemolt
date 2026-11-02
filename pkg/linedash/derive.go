@@ -11,6 +11,12 @@ import (
 // ticksPerDay is one game day (operator-confirmed, 2026-10-31).
 const ticksPerDay = 8640.0
 
+// craftShrinkFloor mirrors pkg/worker craftMinQuantity: a craft refused for
+// lack of materials is retried at half the quantity down to 10 output units,
+// so "one batch" -- the starved threshold -- is the smallest job the worker
+// will actually run, not the scheduled order.
+const craftShrinkFloor = 10
+
 // Category, kind and purpose labels the board groups and tags by.
 const (
 	CategoryUpkeep = "Station upkeep"
@@ -150,6 +156,13 @@ func (d *deriver) scan() {
 				if !ok || forbidden(spec.Item) {
 					continue
 				}
+				if from, ok := d.in.Ref.Station(spec.From); ok && from.BaseID == to.BaseID {
+					// Same station both ends: a move into faction storage, not a haul.
+					k := to.BaseID + "|" + spec.Item
+					d.deposits[k] = appendUnique(d.deposits[k], agent)
+					d.depositKeys[agent] = appendUnique(d.depositKeys[agent], key)
+					continue
+				}
 				d.deliveries = append(d.deliveries, delivery{agent: agent, item: spec.Item, from: spec.From, toBase: to.BaseID, keys: []string{key}})
 			}
 		}
@@ -215,6 +228,7 @@ func (d *deriver) productionLine(p *production) Line {
 		for _, a := range d.deposits[base+"|"+item] {
 			inNode.Agents = appendUnique(inNode.Agents, a)
 			l.TaskKeys[a] = appendUnique(l.TaskKeys[a], d.depositKeys[a]...)
+			inNode.Keys = appendUnique(inNode.Keys, d.depositKeys[a]...)
 		}
 	}
 
@@ -226,8 +240,11 @@ func (d *deriver) productionLine(p *production) Line {
 	}
 	prod := Node{
 		ID: "produce", Type: NodeProduce, Name: prodName, Items: []string{p.out}, Agents: p.crafters,
-		Station: base, Recipe: p.recipe.ID, UnitsPerRun: max(units, 1), InputsPerRun: p.recipe.Inputs,
-		BatchRuns: max(1, int(math.Ceil(float64(p.maxQty)/float64(max(units, 1))))),
+		Station: base, Recipe: p.recipe.ID, RecipeName: p.recipe.Name, UnitsPerRun: max(units, 1), InputsPerRun: p.recipe.Inputs,
+		BatchRuns: max(1, int(math.Ceil(float64(min(p.maxQty, craftShrinkFloor))/float64(max(units, 1))))),
+	}
+	for _, a := range p.crafters {
+		prod.Keys = appendUnique(prod.Keys, p.keys[a]...)
 	}
 	outNode := Node{ID: "output", Type: NodeStore, Name: "Output", Items: []string{p.out}, Holders: tankHolders()}
 
@@ -318,11 +335,13 @@ func (d *deriver) addSources(l *Line, nodes []Node, edges []Edge, base string, i
 				Holders: []Holder{{Agent: dl.agent, Station: fromID}}}
 		} else {
 			n = Node{ID: "src:" + dl.item + ":" + dl.agent, Type: NodeStore, Name: d.itemName(dl.item) + " from " + fromName,
-				Items: []string{dl.item}, Agents: []string{dl.agent}}
+				Items: []string{dl.item}, Agents: []string{dl.agent},
+				Holders: []Holder{{Agent: dl.agent, Station: fromID}}} // what is there to haul
 		}
 		if slices.ContainsFunc(nodes, func(x Node) bool { return x.ID == n.ID }) {
 			continue
 		}
+		n.Keys = slices.Clone(dl.keys)
 		nodes = append(nodes, n)
 		edges = append(edges, Edge{From: n.ID, To: target, Kind: EdgeHaul, Item: dl.item, Agents: []string{dl.agent}, Label: "haul"})
 		l.TaskKeys[dl.agent] = appendUnique(l.TaskKeys[dl.agent], dl.keys...)

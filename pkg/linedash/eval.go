@@ -31,6 +31,9 @@ const (
 	AlertNotConforming Alert = "agent not doing its assignment"
 )
 
+// noCraftDetail opens a produce node's "no craft in <window>" detail.
+const noCraftDetail = "inputs present, no craft in "
+
 // lastKnown prefixes the rule verdict of a stale node or edge in Detail.
 const lastKnown = "last known: "
 
@@ -371,9 +374,11 @@ func (ev *evaluator) evalStore(n Node, nr *NodeReport) {
 		}
 	}
 	switch {
+	case empty && ev.isOutput(n.ID) && !ev.hasDownstream(n.ID):
+		nr.State = StateOptimal // nothing draws on it: an empty output is being used, not starved
 	case empty:
 		nr.State = StateStarved
-	case ev.anyChoked(nr) && !ev.seen(outflow, ref, ev.in.Cfg.HaulWindow):
+	case ev.hasDownstream(n.ID) && ev.anyChoked(nr) && !ev.seen(outflow, ref, ev.in.Cfg.HaulWindow):
 		nr.State = StateChoked
 	default:
 		nr.State = StateOptimal
@@ -404,13 +409,13 @@ func (ev *evaluator) evalProduce(n Node, nr *NodeReport) {
 		nr.State = StateOptimal
 	default:
 		nr.State = StateChoked
-		nr.Detail = append(nr.Detail, "inputs present, no craft in "+fmtDur(ev.in.Cfg.CraftWindow))
+		nr.Detail = append(nr.Detail, noCraftDetail+fmtDur(ev.in.Cfg.CraftWindow))
 	}
 	out := ev.line.OutputItem
 	lastDraw := ev.newest(func(e Event) bool {
 		return e.Type == EventWithdraw && e.Item == out && slices.Contains(n.Agents, e.AgentID)
 	})
-	if SumUnits(downstream, out) >= float64(ev.in.Cfg.ChokeUnits) &&
+	if ev.hasDownstream(ev.to(n.ID)) && SumUnits(downstream, out) >= float64(ev.in.Cfg.ChokeUnits) &&
 		!ev.seen(lastDraw, ref, ev.in.Cfg.HaulWindow) {
 		setState(nr, StateChoked, AlertOutputNotDrawn)
 	}
@@ -903,4 +908,32 @@ func fmtDur(d time.Duration) string {
 	}
 
 	return s
+}
+
+// hasDownstream reports whether anything is meant to draw on outputID: a
+// consign or haul edge out of it, or a sell node on the line. A line with
+// neither is a stockpile (control nodes for station builds) and a full output
+// tank is its goal, not a choke.
+func (ev *evaluator) hasDownstream(outputID string) bool {
+	for _, e := range ev.line.Edges {
+		if e.From == outputID && e.Kind != EdgeCraft {
+			return true
+		}
+	}
+	for _, n := range ev.line.Nodes {
+		if n.Type == NodeSell {
+			return true
+		}
+	}
+	return false
+}
+
+// isOutput reports whether nodeID is a produce node's output tank.
+func (ev *evaluator) isOutput(nodeID string) bool {
+	for _, e := range ev.line.Edges {
+		if e.To == nodeID && e.Kind == EdgeCraft && ev.nodes[e.From].Type == NodeProduce {
+			return true
+		}
+	}
+	return false
 }

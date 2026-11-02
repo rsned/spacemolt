@@ -208,3 +208,93 @@ WHERE a.agent_id IN (`+placeholders(len(agents))+`)`, args...)
 
 	return out, rows.Err()
 }
+
+// orderPost is one sell order we created, and where a seller fill showed it
+// to be (empty until it fills).
+type orderPost struct {
+	agent, item, base string
+	at                time.Time
+}
+
+// Posters answers "who posted our ask for item at station", which the market
+// capture cannot: it marks an ask as ours but not whose.
+type Posters struct{ orders []orderPost }
+
+// OrderPosters reads our trading.sell_order_created events since since, and
+// places each order at a station from the seller fills that reference it.
+func (e *Events) OrderPosters(ctx context.Context, since time.Time) (Posters, error) {
+	cutoff := since.UTC().Format(time.RFC3339)
+	bases := map[string]string{}
+	rows, err := e.db.QueryContext(ctx, `
+SELECT json_extract(data_json, '$.order_id'), json_extract(data_json, '$.base_id')
+FROM action_log_events
+WHERE event_type = 'trading.exchange_fill' AND created_at >= ?
+  AND json_extract(data_json, '$.role') = 'seller'
+  AND json_extract(data_json, '$.order_id') IS NOT NULL AND json_extract(data_json, '$.base_id') IS NOT NULL`, cutoff)
+	if err != nil {
+		return Posters{}, fmt.Errorf("order fills: %w", err)
+	}
+	for rows.Next() {
+		var order, base string
+		if serr := rows.Scan(&order, &base); serr != nil {
+			_ = rows.Close()
+			return Posters{}, fmt.Errorf("order fills: %w", serr)
+		}
+		bases[order] = base
+	}
+	if cerr := rows.Close(); cerr != nil {
+		return Posters{}, cerr
+	}
+
+	rows, err = e.db.QueryContext(ctx, `
+SELECT a.agent_id, json_extract(e.data_json, '$.item_id'), json_extract(e.data_json, '$.order_id'), e.created_at
+FROM action_log_events e JOIN agents a ON a.player_id = e.player_id
+WHERE e.event_type = 'trading.sell_order_created' AND e.created_at >= ?
+  AND json_extract(e.data_json, '$.item_id') IS NOT NULL`, cutoff)
+	if err != nil {
+		return Posters{}, fmt.Errorf("order posters: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck
+	var p Posters
+	for rows.Next() {
+		var agent, item, at string
+		var order sql.NullString
+		if err := rows.Scan(&agent, &item, &order, &at); err != nil {
+			return Posters{}, fmt.Errorf("order posters: %w", err)
+		}
+		t, perr := time.Parse(time.RFC3339Nano, at)
+		if perr != nil {
+			continue
+		}
+		p.orders = append(p.orders, orderPost{agent: agent, item: item, base: bases[order.String], at: t})
+	}
+
+	return p, rows.Err()
+}
+
+// PosterOf names the agent behind our ask for item at station: the newest
+// order of item a seller fill places there, else the newest order of item not
+// yet placed anywhere. An order known to sit at another station is never used.
+// same compares station ids (POI or base); "" means unknown.
+func (p Posters) PosterOf(station, item string, same func(a, b string) bool) string {
+	var placed, unplaced orderPost
+	for _, o := range p.orders {
+		if o.item != item {
+			continue
+		}
+		switch {
+		case o.base != "" && same(o.base, station):
+			if o.at.After(placed.at) {
+				placed = o
+			}
+		case o.base == "":
+			if o.at.After(unplaced.at) {
+				unplaced = o
+			}
+		}
+	}
+	if placed.agent != "" {
+		return placed.agent
+	}
+	return unplaced.agent
+}

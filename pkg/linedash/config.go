@@ -74,6 +74,8 @@ type Node struct {
 	BatchRuns    int            `yaml:"batch_runs,omitempty"` // produce: runs per craft command
 
 	// Derived lines only (never in yaml).
+	RecipeName string         `yaml:"-"` // produce: display name; the craft queue listing reports jobs by it
+	Keys       []string       `yaml:"-"` // outcome keys of this node's own work; its why reads only these
 	MaxPrice   float64        `yaml:"-"` // purchase: the buy task's price ceiling, a rule the why can name
 	ItemShares map[string]int `yaml:"-"` // store: item -> number of lines at this station consuming it
 	SharedBy   int            `yaml:"-"` // store: max of ItemShares; 2+ draws the tank as shared

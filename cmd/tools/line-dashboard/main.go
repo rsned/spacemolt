@@ -61,7 +61,7 @@ func main() {
 	flag.StringVar(&opt.kbDB, "kb-db", "data/spacemolt-knowledge.db", "knowledge DB (stations, recipes, items, our facilities), opened read-only")
 	flag.StringVar(&opt.facilityCatalog, "facility-catalog", "data/game-api/latest/catalog_facilities.json", "facility catalog (upkeep inputs)")
 	flag.StringVar(&opt.faction, "faction", "CRFT", "our faction tag")
-	flag.StringVar(&opt.deferFleets, "defer-fleets", "mb", "comma-separated fleets whose lines are deferred (drone marketbots)")
+	flag.StringVar(&opt.deferFleets, "defer-fleets", "mb,haul", "comma-separated fleets kept off the board: mb (drone marketbots), haul (leftover-cargo asks)")
 	flag.StringVar(&opt.overmindDir, "overmind-dir", "data/overmind", "directory of fleet yamls and *-status.json files")
 	flag.StringVar(&opt.agentsDir, "agents-dir", "data/agents", "per-agent data directory (shopkeep.json)")
 	flag.StringVar(&opt.assetsDB, "assets-db", "data/assets.db", "assets database (storage snapshots, action log), opened read-only")
@@ -189,9 +189,22 @@ func (s *server) build(ctx context.Context) ([]linedash.LineReport, []string) {
 				warn("market.db listings", err)
 			}
 		}
+		var poster func(station, item string) string
+		if s.events != nil {
+			if posters, perr := s.events.OrderPosters(ctx, now.Add(-orderPosterWindow)); perr != nil {
+				warn("assets.db order posters", perr)
+			} else {
+				same := func(a, b string) bool {
+					sa, okA := ref.Station(a)
+					sb, okB := ref.Station(b)
+					return okA && okB && sa.BaseID == sb.BaseID
+				}
+				poster = func(station, item string) string { return posters.PosterOf(station, item, same) }
+			}
+		}
 		deferred := strings.Split(s.opt.deferFleets, ",")
 		lines = linedash.Derive(linedash.DeriveInputs{
-			Roster: roster, Schedules: sched, Ref: ref, Listings: attributeListings(listings, roster, ref, deferred),
+			Roster: roster, Schedules: sched, Ref: ref, Listings: attributeListingsBy(listings, roster, ref, deferred, poster),
 			FactionTag: s.opt.faction, DeferFleets: deferred,
 		})
 		s.lastLines = lines
@@ -244,12 +257,48 @@ func (s *server) build(ctx context.Context) ([]linedash.LineReport, []string) {
 	return reports, warnings
 }
 
+// orderPosterWindow is how far back the action log is read to find who posted
+// each of our asks; long-lived leftover asks run for weeks.
+const orderPosterWindow = 30 * 24 * time.Hour
+
 // attributeListings gives each of our asks the first non-deferred agent
 // pinned to its station, so the sell node reads that agent's shop state. A
 // station whose only pinned agents are in a deferred fleet (the marketbots'
 // shops) is dropped with its asks; one with no pinned agent of ours is a
 // faction sell order and keeps an empty agent.
 func attributeListings(ls []linedash.Listing, roster map[string]linedash.RosterEntry, ref linedash.RefData, deferFleets []string) []linedash.Listing {
+	return attributeListingsBy(ls, roster, ref, deferFleets, nil)
+}
+
+// attributeListingsBy credits each ask to the agent that posted it (poster,
+// from the action log) when that is known: a poster in a deferred fleet --
+// hauler leftovers, marketbot shops -- takes the ask off the board. Asks with
+// no known poster fall back to the station rule of attributeListings.
+func attributeListingsBy(ls []linedash.Listing, roster map[string]linedash.RosterEntry, ref linedash.RefData,
+	deferFleets []string, poster func(station, item string) string) []linedash.Listing {
+	var unposted []linedash.Listing
+	out := make([]linedash.Listing, 0, len(ls))
+	for _, l := range ls {
+		p := ""
+		if poster != nil {
+			p = poster(l.StationID, l.Item)
+		}
+		if p == "" {
+			unposted = append(unposted, l)
+			continue
+		}
+		if slices.Contains(deferFleets, roster[p].Fleet) {
+			continue
+		}
+		l.Agent = p
+		out = append(out, l)
+	}
+	return append(out, attributeByStation(unposted, roster, ref, deferFleets)...)
+}
+
+// attributeByStation gives each ask the first non-deferred agent pinned to its
+// station (see attributeListings).
+func attributeByStation(ls []linedash.Listing, roster map[string]linedash.RosterEntry, ref linedash.RefData, deferFleets []string) []linedash.Listing {
 	agents := make([]string, 0, len(roster))
 	for a := range roster {
 		agents = append(agents, a)

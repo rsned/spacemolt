@@ -3,6 +3,7 @@ package linedash
 import (
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -292,4 +293,61 @@ func TestDeriveListingWithoutAgentIsFactionOrder(t *testing.T) {
 	if err := l.validate(); err != nil {
 		t.Error(err)
 	}
+}
+
+func TestDeriveRecordsRecipeName(t *testing.T) {
+	if p := nodeByType(t, lineByID(t, derived(t), cjBase+":grow_sunspindle"), NodeProduce); p.RecipeName != "Grow Sunspindle" {
+		t.Errorf("RecipeName = %q", p.RecipeName)
+	}
+}
+
+// The craft verb halves a refused job down to 10 output units, so "one batch"
+// is the smallest job it will run, not the scheduled order: 1000 circuit
+// boards at 3 per run starve below ceil(10/3) = 4 runs, not 334.
+func TestDeriveBatchIsTheShrinkFloor(t *testing.T) {
+	l := lineByID(t, derived(t), cjBase+":carbon_arc_circuit_etching")
+	if p := nodeByType(t, l, NodeProduce); p.BatchRuns != 4 {
+		t.Errorf("BatchRuns = %d, want 4 (10-unit floor / 3 per run)", p.BatchRuns)
+	}
+	// A scheduled order already below the floor keeps its own size: 1 run.
+	if p := nodeByType(t, lineByID(t, derived(t), cjBase+":grow_sunspindle"), NodeProduce); p.BatchRuns != 1 {
+		t.Errorf("sunspindle BatchRuns = %d, want 1", p.BatchRuns)
+	}
+}
+
+// A deliver whose source and destination are the same station is a deposit
+// into faction storage, not a haul: no extra source leg.
+func TestDeriveSameStationDeliverIsADeposit(t *testing.T) {
+	in := deriveInputs()
+	in.Schedules["miningbot_0000"] = append(in.Schedules["miningbot_0000"],
+		Task{ID: 50, Frequency: "hourly", Command: "deliver steel_plate 10000 " + cjBase + " " + cjBase + " faction"})
+	l := lineByID(t, Derive(in), cjBase+":carbon_arc_circuit_etching")
+	for _, n := range l.Nodes {
+		if strings.HasPrefix(n.ID, "src:") || strings.HasPrefix(n.ID, "buy:") {
+			t.Errorf("same-station deliver drawn as a source leg: %s", n.ID)
+		}
+	}
+	in2 := inputsNode(t, l)
+	if !slices.Contains(in2.Agents, "miningbot_0000") || !slices.Contains(in2.Keys, "task:50") {
+		t.Errorf("inputs agents %v keys %v, want miningbot_0000 with task:50", in2.Agents, in2.Keys)
+	}
+}
+
+// A delivery's source leg holds the hauler's storage at the source station,
+// so its tank shows what is actually there to haul.
+func TestDeriveSourceLegHoldsHaulerStorage(t *testing.T) {
+	in := deriveInputs()
+	in.Schedules["trader-10"] = append(in.Schedules["trader-10"],
+		Task{ID: 12, Frequency: "hourly", Command: "deliver water_ice 500 " + cjPOI + " " + vossPOI + " craftsman-10"})
+	in.Ref.Recipes["distill_moonshine"].Inputs["water_ice"] = 10
+	l := lineByID(t, Derive(in), vossBase+":distill_moonshine")
+	for _, n := range l.Nodes {
+		if n.ID == "src:water_ice:trader-10" {
+			if len(n.Holders) != 1 || n.Holders[0].Agent != "trader-10" || n.Holders[0].Station != cjBase {
+				t.Errorf("source holders = %+v, want trader-10 at %s", n.Holders, cjBase)
+			}
+			return
+		}
+	}
+	t.Error("no water_ice source leg")
 }

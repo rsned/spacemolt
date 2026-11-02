@@ -60,14 +60,23 @@ func (ev *evaluator) addQueue(n Node, nr *NodeReport) {
 		seen = true
 		nr.srcs = append(nr.srcs, source{name: a + " craft queue", at: q.CapturedAt})
 		for _, j := range q.Jobs {
-			if j.Recipe == n.Recipe {
+			if j.Recipe == n.Recipe || (n.RecipeName != "" && j.Recipe == n.RecipeName) { // live listings carry the display name
 				runs += j.RunsRemaining
 				eta = max(eta, j.ETATicks)
 			}
 		}
 	}
-	if seen {
-		nr.Detail = append(nr.Detail, fmt.Sprintf("queue: %d runs, ETA %d ticks", runs, eta))
+	if !seen {
+		return
+	}
+	nr.Detail = append(nr.Detail, fmt.Sprintf("queue: %d runs, ETA %d ticks", runs, eta))
+	// A job logs crafting.completed only when the whole job ends, so a busy
+	// facility can go a CraftWindow without one: runs still queued mean the
+	// line is working. Only the no-craft verdict is lifted; a choke with an
+	// alert (output not drawn) stands.
+	if runs > 0 && nr.State == StateChoked && len(nr.Alerts) == 0 {
+		nr.State = StateOptimal
+		nr.Detail = slices.DeleteFunc(nr.Detail, func(d string) bool { return strings.HasPrefix(d, noCraftDetail) })
 	}
 }
 
@@ -77,12 +86,18 @@ func (ev *evaluator) lineKeys(agent string) []string { return ev.line.TaskKeys[a
 // latestFailure is the newest failed outcome among the agents' line keys.
 // Each key holds only its latest outcome, so a success after a failure has
 // already replaced it; keys no longer on the line are never read.
-func (ev *evaluator) latestFailure(agents []string) (string, outcomes.Outcome, bool) {
+// When the node names its own keys (Derive sets them), only those are read,
+// so a crafter's delivery refusal never explains its craft node.
+func (ev *evaluator) latestFailure(agents, nodeKeys []string) (string, outcomes.Outcome, bool) {
 	var who string
 	var best outcomes.Outcome
 	found := false
 	for _, a := range agents {
-		for _, k := range ev.lineKeys(a) {
+		keys := ev.lineKeys(a)
+		if len(nodeKeys) > 0 {
+			keys = nodeKeys
+		}
+		for _, k := range keys {
 			o, ok := ev.in.Outcomes[a][k]
 			if !ok || o.Status != outcomes.StatusFailed {
 				continue
@@ -116,7 +131,7 @@ func (ev *evaluator) applyWhy(nodes []NodeReport, index map[string]int, lineStat
 				}
 			}
 		}
-		if who, o, ok := ev.latestFailure(n.Agents); ok {
+		if who, o, ok := ev.latestFailure(n.Agents, n.Keys); ok {
 			nr.Why = who + ": " + o.Reason
 			continue
 		}
@@ -127,14 +142,22 @@ func (ev *evaluator) applyWhy(nodes []NodeReport, index map[string]int, lineStat
 		case len(nr.Detail) > 0:
 			symptom = nr.Detail[0]
 		}
-		nr.Why = "cause unknown: " + symptom
+		nr.Why = causeUnknown + symptom
 	}
+	// Prefer a node that knows its cause; "cause unknown" only when none does.
+	fallback := ""
 	for _, nr := range nodes {
-		if nr.State == lineState && nr.Why != "" {
+		if nr.State != lineState || nr.Why == "" {
+			continue
+		}
+		if !strings.HasPrefix(nr.Why, causeUnknown) {
 			return nr.Why
 		}
+		if fallback == "" {
+			fallback = nr.Why
+		}
 	}
-	return ""
+	return fallback
 }
 
 // sharedEmpty names an input item that is empty in a tank other lines also
@@ -147,6 +170,9 @@ func sharedEmpty(up NodeReport, n Node) string {
 	}
 	return ""
 }
+
+// causeUnknown opens a why that has no recorded refusal behind it.
+const causeUnknown = "cause unknown: "
 
 // keyEnsureHome is the worker's record of its trip to the pinned station.
 const keyEnsureHome = "behaviour:ensure_home"
@@ -162,6 +188,16 @@ func (ev *evaluator) applyConformance(nodes []NodeReport) {
 	same := ev.in.SameStation
 	if same == nil {
 		same = func(a, b string) bool { return a == b }
+	}
+	// Only agents whose line work happens at their own station -- crafters and
+	// sellers -- are expected to sit at their pin; a hauler's job is to be away.
+	atStation := map[string]bool{}
+	for _, n := range ev.line.Nodes {
+		if n.Type == NodeProduce || n.Type == NodeSell {
+			for _, a := range n.Agents {
+				atStation[a] = true
+			}
+		}
 	}
 	off := map[string]bool{}
 	for _, a := range AgentsOf(ev.line) {
@@ -189,7 +225,7 @@ func (ev *evaluator) applyConformance(nodes []NodeReport) {
 			off[a] = true
 		}
 		home := ev.in.Roster[a].Station
-		if l, ok := ev.in.Live[a]; ok && home != "" && l.Docked && ev.within(l.LastSeen, ev.in.Cfg.StaleData) && !same(l.POI, home) {
+		if l, ok := ev.in.Live[a]; ok && atStation[a] && home != "" && l.Docked && ev.within(l.LastSeen, ev.in.Cfg.StaleData) && !same(l.POI, home) {
 			off[a] = true
 		}
 	}

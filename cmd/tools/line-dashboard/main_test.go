@@ -260,3 +260,24 @@ func TestAttributeListingsDropsDeferredFleetStations(t *testing.T) {
 		t.Errorf("attributeListings = %+v", got)
 	}
 }
+
+// An ask is credited to the agent that posted it; a poster in a deferred
+// fleet (hauler leftovers) takes the ask off the board.
+func TestAttributeListingsCreditsPoster(t *testing.T) {
+	ref := linedash.RefData{Stations: map[string]linedash.Station{"gx": {BaseID: "gx"}, "tc": {BaseID: "tc"}}}
+	roster := map[string]linedash.RosterEntry{
+		"assist-haven": {AgentID: "assist-haven", Fleet: "assist", Station: "gx"},
+		"salvager-7":   {AgentID: "salvager-7", Fleet: "haul"},
+		"trader-9":     {AgentID: "trader-9", Fleet: "crft-mining"},
+	}
+	poster := func(station, item string) string {
+		return map[string]string{"gx|coolant_fluid": "salvager-7", "tc|pirate_moonshine": "trader-9"}[station+"|"+item]
+	}
+	got := attributeListingsBy([]linedash.Listing{
+		{StationID: "gx", Item: "coolant_fluid"},
+		{StationID: "tc", Item: "pirate_moonshine"},
+	}, roster, ref, []string{"mb", "haul"}, poster)
+	if len(got) != 1 || got[0].StationID != "tc" || got[0].Agent != "trader-9" {
+		t.Errorf("attributeListingsBy = %+v, want only tc credited to trader-9", got)
+	}
+}

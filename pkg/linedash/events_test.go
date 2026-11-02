@@ -200,3 +200,34 @@ func TestOpenEventsMissingFileErrors(t *testing.T) {
 		t.Fatal("want error for missing db")
 	}
 }
+
+// The market capture says an ask is ours but not whose; the action log says
+// who created each order, and a seller fill on that order says where it is.
+func TestPosterOfFindsOrderCreatorAtStation(t *testing.T) {
+	ev := seedEvents(t, []seedEvent{
+		{"p9", 1, "trading.sell_order_created", "2026-10-31T23:09:04Z", `{"item_id":"coolant_fluid","order_id":"o-gx","price":"29","quantity":"1059"}`},
+		{"p9", 2, "trading.exchange_fill", "2026-11-01T02:00:00Z", `{"base_id":"grand_exchange_station","item_id":"coolant_fluid","order_id":"o-gx","price":"29","quantity":"1","role":"seller","source":"sweep"}`},
+		{"p10", 3, "trading.sell_order_created", "2026-11-01T01:17:31Z", `{"item_id":"coolant_fluid","order_id":"o-cc","price":"29","quantity":"475"}`},
+		{"p10", 4, "trading.exchange_fill", "2026-11-01T03:00:00Z", `{"base_id":"crimson_war_citadel","item_id":"coolant_fluid","order_id":"o-cc","price":"29","quantity":"2","role":"seller"}`},
+		{"pm", 5, "trading.sell_order_created", "2026-11-01T04:00:00Z", `{"item_id":"shield_matrix","order_id":"o-unfilled","price":"227","quantity":"29"}`},
+	})
+	posters, err := ev.OrderPosters(context.Background(), time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	same := func(a, b string) bool { return a == b }
+	if got := posters.PosterOf("grand_exchange_station", "coolant_fluid", same); got != "trader-9" {
+		t.Errorf("Grand Exchange coolant poster = %q, want trader-9", got)
+	}
+	if got := posters.PosterOf("crimson_war_citadel", "coolant_fluid", same); got != "craftsman-10" {
+		t.Errorf("Crimson coolant poster = %q, want craftsman-10", got)
+	}
+	// An order never filled has no known station: fall back to the newest
+	// creator of that item.
+	if got := posters.PosterOf("frontier_station", "shield_matrix", same); got != "miningbot_0000" {
+		t.Errorf("Frontier shield poster = %q, want miningbot_0000 (newest creator)", got)
+	}
+	if got := posters.PosterOf("frontier_station", "void_dust", same); got != "" {
+		t.Errorf("no order for void_dust, got poster %q", got)
+	}
+}
