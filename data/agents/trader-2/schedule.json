@@ -6,22 +6,10 @@
     "created_at": "2026-08-09T23:41:52.191693932Z"
   },
   {
-    "id": 2,
-    "frequency": "daily",
-    "command": "capture_storage",
-    "created_at": "2026-08-09T23:41:52.191902815Z"
-  },
-  {
     "id": 3,
     "frequency": "daily",
     "command": "capture_faction",
     "created_at": "2026-08-09T23:41:52.192020376Z"
-  },
-  {
-    "id": 4,
-    "frequency": "twice_daily",
-    "command": "capture_action_log",
-    "created_at": "2026-08-18T07:32:04.956121Z"
   },
   {
     "id": 6,
@@ -118,5 +106,17 @@
     "frequency": "hourly",
     "command": "deliver oxygen_gas 1900 gold_run_extraction_hub c976fa7df53c87f9616165d7d411b41a miningbot_0000",
     "created_at": "2026-11-01T16:27:17Z"
+  },
+  {
+    "id": 23,
+    "frequency": "hourly",
+    "command": "capture_action_log",
+    "created_at": "2026-11-01T22:49:24Z"
+  },
+  {
+    "id": 24,
+    "frequency": "hourly",
+    "command": "capture_storage",
+    "created_at": "2026-11-01T22:49:24Z"
   }
 ]

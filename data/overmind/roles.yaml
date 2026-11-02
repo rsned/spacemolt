@@ -135,7 +135,13 @@ roles:
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_profile" }
       - { every: daily, command: "kb_update" }
-      - { every: daily, command: "capture_storage" }
+      # 2026-11-01: hourly, not daily -- the line dashboard greys a line whose
+      # storage/action-log sources are older than 2h, and craftsmen now run the
+      # Conjunction Junction hand-craft lines. capture_craft_queue feeds the
+      # dashboard's queue backlog (needs the worker binary of 2026-11-01+).
+      - { every: hourly, command: "capture_storage" }
+      - { every: hourly, command: "capture_action_log" }
+      - { every: hourly, command: "capture_craft_queue" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
       - { every: daily, command: "capture_citizenship" }
@@ -159,9 +165,12 @@ roles:
       # QUANTITY IS OUTPUT ITEMS: refine_steel 500 consumes 1,250 iron_ore.
       # draw_copper_piping also eats 2 steel_plate per 4 output, so it is
       # ordered last, after the steel line has produced some.
-      - { every: hourly, command: "craft refine_steel 500 cheap" }
-      - { every: hourly, command: "craft process_copper_wiring 600 cheap" }
-      - { every: hourly, command: "craft draw_copper_piping 200 cheap" }
+      #
+      # RETIRED 2026-11-01 (operator): steel, wiring and piping now run on the
+      # Conjunction Junction facilities, and these hand crafts had failed
+      # cannot_craft at every craftsman's station for days. Removed here AND
+      # from each craftsman's schedule.json -- seeding is additive only, so a
+      # relaunch re-adds whatever this list still names.
     idle: resident_market  # 2026-10-23: was idle_market (dock; refuel) — craftsmen never travelled to their pinned `station:`; resident_market adds ensure_home so Voss-pinned crafters actually go to Voss
   # Wildlife-cull fleet (pkg/worker/hunt.go). Like the miner role, the asset
   # captures are the only schedule it carries: a hunt pass reads the mission

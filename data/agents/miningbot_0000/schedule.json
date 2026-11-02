@@ -196,5 +196,23 @@
     "frequency": "half_hourly",
     "command": "faction_deposit purified_water",
     "created_at": "2026-11-01T16:27:17Z"
+  },
+  {
+    "id": 39,
+    "frequency": "daily",
+    "command": "craft grow_sunspindle 1",
+    "created_at": "2026-11-01T18:09:27Z"
+  },
+  {
+    "id": 40,
+    "frequency": "hourly",
+    "command": "capture_action_log",
+    "created_at": "2026-11-01T22:49:24Z"
+  },
+  {
+    "id": 41,
+    "frequency": "hourly",
+    "command": "capture_craft_queue",
+    "created_at": "2026-11-02T00:41:47Z"
   }
 ]
