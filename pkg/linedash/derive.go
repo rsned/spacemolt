@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 )
 
 // ticksPerDay is one game day (operator-confirmed, 2026-10-31).
@@ -33,6 +34,12 @@ const (
 
 	noteNoSupply = "supply not on record"
 )
+
+// frequencyEvery is each schedule frequency's interval.
+var frequencyEvery = map[string]time.Duration{
+	"ten_minutely": 10 * time.Minute, "quarter_hourly": 15 * time.Minute, "half_hourly": 30 * time.Minute,
+	"hourly": time.Hour, "twice_daily": 12 * time.Hour, "daily": 24 * time.Hour,
+}
 
 // Listing is one of our standing asks at a station.
 type Listing struct {
@@ -64,6 +71,7 @@ type production struct {
 	recipe   Recipe
 	out      string
 	maxQty   int
+	every    time.Duration
 	crafters []string
 	keys     map[string][]string
 }
@@ -140,7 +148,7 @@ func (d *deriver) scan() {
 			switch spec.Verb {
 			case "craft":
 				if isPinned {
-					d.addCraft(st, agent, spec, key)
+					d.addCraft(st, agent, spec, key, t.Frequency)
 				}
 			case "faction_deposit":
 				if isPinned && !forbidden(spec.Item) {
@@ -176,7 +184,7 @@ func (d *deriver) scan() {
 	}
 }
 
-func (d *deriver) addCraft(st Station, agent string, spec TaskSpec, key string) {
+func (d *deriver) addCraft(st Station, agent string, spec TaskSpec, key, frequency string) {
 	rc, ok := d.in.Ref.Recipes[spec.Recipe]
 	if !ok || len(rc.Outputs) == 0 {
 		return
@@ -199,6 +207,9 @@ func (d *deriver) addCraft(st Station, agent string, spec TaskSpec, key string) 
 	}
 	p.crafters = appendUnique(p.crafters, agent)
 	p.maxQty = max(p.maxQty, spec.Qty)
+	if every := frequencyEvery[frequency]; every > 0 && (p.every == 0 || every < p.every) {
+		p.every = every // any crafter's craft counts, so the finest cadence sets the window
+	}
 	p.keys[agent] = appendUnique(p.keys[agent], key)
 }
 
@@ -246,6 +257,7 @@ func (d *deriver) productionLine(p *production) Line {
 	for _, a := range p.crafters {
 		prod.Keys = appendUnique(prod.Keys, p.keys[a]...)
 	}
+	prod.CraftEvery = p.every
 	outNode := Node{ID: "output", Type: NodeStore, Name: "Output", Items: []string{p.out}, Holders: tankHolders()}
 
 	var nodes []Node

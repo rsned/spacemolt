@@ -405,11 +405,11 @@ func (ev *evaluator) evalProduce(n Node, nr *NodeReport) {
 	switch {
 	case starved:
 		setState(nr, StateStarved, AlertInputsStarved)
-	case ev.seen(lastCraft, ref, ev.in.Cfg.CraftWindow):
+	case ev.seen(lastCraft, ref, ev.craftWindow(n)):
 		nr.State = StateOptimal
 	default:
 		nr.State = StateChoked
-		nr.Detail = append(nr.Detail, noCraftDetail+fmtDur(ev.in.Cfg.CraftWindow))
+		nr.Detail = append(nr.Detail, noCraftDetail+fmtDur(ev.craftWindow(n)))
 	}
 	out := ev.line.OutputItem
 	lastDraw := ev.newest(func(e Event) bool {
@@ -936,4 +936,15 @@ func (ev *evaluator) isOutput(nodeID string) bool {
 		}
 	}
 	return false
+}
+
+// craftWindow is how long a produce node may go without a completed craft
+// before it reads stalled: CraftWindow, or the node's own craft cadence plus an
+// hour of slack when that is longer -- a daily craft is not stalled after one
+// quiet hour.
+func (ev *evaluator) craftWindow(n Node) time.Duration {
+	if n.CraftEvery > 0 {
+		return max(ev.in.Cfg.CraftWindow, n.CraftEvery+time.Hour)
+	}
+	return ev.in.Cfg.CraftWindow
 }

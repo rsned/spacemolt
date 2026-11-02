@@ -137,6 +137,8 @@ func (ev *evaluator) applyWhy(nodes []NodeReport, index map[string]int, lineStat
 		}
 		symptom := string(nr.State)
 		switch {
+		case n.Type == NodeStore && nr.State == StateStarved && ev.feedingLeg(n.ID) != "":
+			symptom = ev.feedingLeg(n.ID)
 		case len(nr.Alerts) > 0:
 			symptom = string(nr.Alerts[0])
 		case len(nr.Detail) > 0:
@@ -262,4 +264,21 @@ func CurrentOutcomes(o map[string]outcomes.Outcome, tasks []Task) map[string]out
 		out[k] = v
 	}
 	return out
+}
+
+// feedingLeg describes the first haul or consign edge into an empty tank, for
+// a why that has no refusal of its own: "water_ice 0 — no haul from trader-9
+// in 4h".
+func (ev *evaluator) feedingLeg(nodeID string) string {
+	for _, e := range ev.line.Edges {
+		if e.To != nodeID || e.Kind == EdgeCraft || len(e.Agents) == 0 {
+			continue
+		}
+		kind := "haul"
+		if e.Kind == EdgeConsign {
+			kind = "consign"
+		}
+		return fmt.Sprintf("%s 0 — no %s from %s in %s", e.Item, kind, strings.Join(e.Agents, ", "), fmtDur(ev.in.Cfg.HaulWindow))
+	}
+	return ""
 }

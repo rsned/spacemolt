@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/outcomes"
@@ -374,5 +375,45 @@ func TestLineWhyPrefersAKnownCause(t *testing.T) {
 	r := Evaluate(l, in)
 	if !strings.Contains(r.Why, "cannot_craft") {
 		t.Errorf("line Why = %q, want the still's known cause over culture_buy's unknown one", r.Why)
+	}
+}
+
+// A daily craft is not stalled because an hour passed without a craft: the
+// window follows the task's own cadence.
+func TestCraftWindowFollowsTaskCadence(t *testing.T) {
+	l := whyLine(t)
+	for i := range l.Nodes {
+		if l.Nodes[i].ID == "still" {
+			l.Nodes[i].CraftEvery = 24 * time.Hour
+		}
+	}
+	in := baseInputs(l)
+	stillInputsFull(&in)
+	in.Events = []Event{craft("craftsman-10", 1, 6)} // six hours ago
+	if n := nodeOf(t, Evaluate(l, in), "still"); n.State != StateOptimal {
+		t.Errorf("daily still crafted 6h ago = %s %v, want optimal", n.State, n.Detail)
+	}
+	in.Events = []Event{craft("craftsman-10", 1, 30)} // thirty hours ago
+	n := nodeOf(t, Evaluate(l, in), "still")
+	if n.State != StateChoked || !slices.Contains(n.Detail, "inputs present, no craft in 25h") {
+		t.Errorf("daily still crafted 30h ago = %s %v, want choked with the 25h window", n.State, n.Detail)
+	}
+}
+
+// An empty tank with nothing of its own to blame names the leg that should
+// fill it.
+func TestEmptyStoreWhyNamesItsFeedingLeg(t *testing.T) {
+	l := whyLine(t)
+	in := baseInputs(l) // alhena_sell's feed: consign from craftsman-8 out of voss_output
+	l2 := l
+	l2.Nodes = append([]Node(nil), l.Nodes...)
+	for i := range l2.Nodes {
+		if l2.Nodes[i].ID == "voss_inputs" {
+			l2.Nodes[i].Agents = nil
+		}
+	}
+	n := nodeOf(t, Evaluate(l2, in), "voss_inputs")
+	if n.State != StateStarved || !strings.Contains(n.Why, "no haul from trader-9") {
+		t.Errorf("voss_inputs = %s why %q, want it to name the trader-9 haul", n.State, n.Why)
 	}
 }

@@ -218,7 +218,7 @@ var supported = map[string]bool{
 	"hunt": true,
 	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "buy_directed": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "launch_drones": true,
-	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "faction_deposit_all": true, "announce": true, "capture_craft_queue": true, "sell_all": true,
+	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "faction_deposit_all": true, "faction_restock": true, "announce": true, "capture_craft_queue": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
 	"capture_storage": true, "capture_faction": true, "capture_cargo": true,
@@ -332,6 +332,19 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		n, err := CaptureCraftQueue(ctx, d.Client, filepath.Join(DefaultAgentsDir, d.AgentID), time.Now())
 		if err == nil {
 			fmt.Fprintf(d.Out, "capture_craft_queue: %d job(s)\n", n) //nolint:errcheck
+		}
+		return err
+	case "faction_restock":
+		if len(args) < 2 {
+			return fmt.Errorf("faction_restock: want ITEM PRICE, got %v", args)
+		}
+		price, perr := strconv.ParseFloat(args[1], 64)
+		if perr != nil || price <= 0 {
+			return fmt.Errorf("faction_restock: bad price %q", args[1])
+		}
+		n, err := FactionRestock(ctx, d.Client, args[0], price)
+		if n > 0 {
+			fmt.Fprintf(d.Out, "faction_restock: listed %d %s @%.0f\n", n, args[0], price) //nolint:errcheck
 		}
 		return err
 	case "faction_deposit_all":
