@@ -750,7 +750,10 @@ func TestHaulSellLegReroutesOnThinDemandMidRoute(t *testing.T) {
 	}
 }
 
-func TestHaulSellLegPostsCostOrderOnThinDemand(t *testing.T) {
+// A failed arbitrage leg (demand gone at the destination) keeps its cargo for
+// Cloverfield instead of listing it at cost: the odds and ends end up in CRFT
+// faction storage for some future craft (operator, 2026-11-01).
+func TestHaulSellLegKeepsCargoOnThinDemand(t *testing.T) {
 	o := opp(7, "b", "a", 100) // iron_ore, sell station a-stn in current system "a"
 	fc := &fakeClient{state: &game.State{
 		System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100,
@@ -766,15 +769,15 @@ func TestHaulSellLegPostsCostOrderOnThinDemand(t *testing.T) {
 	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell:iron_ore") }) {
 		t.Fatalf("thin demand must NOT market-sell, got %v", fc.calls)
 	}
-	if !slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell_order:iron_ore") }) {
-		t.Fatalf("want a cost-price sell_order, got %v", fc.calls)
+	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell_order:") }) {
+		t.Fatalf("failed arbitrage must keep its cargo, not list it; got %v", fc.calls)
 	}
 	if len(f.completed) != 1 || f.completed[0] != 7 {
-		t.Fatalf("cost-order path must complete the claim, got %v", f.completed)
+		t.Fatalf("the failed leg must still complete the claim, got %v", f.completed)
 	}
 }
 
-func TestHaulSellLegPostsCostOrderOnEmptyButCapturedBook(t *testing.T) {
+func TestHaulSellLegKeepsCargoOnEmptyButCapturedBook(t *testing.T) {
 	// The item has zero buyers, but the destination station IS in recent capture (it shows
 	// other orders) -> genuine dead demand -> cost-order instead of looping a market sell.
 	o := opp(7, "b", "a", 100)
@@ -794,8 +797,8 @@ func TestHaulSellLegPostsCostOrderOnEmptyButCapturedBook(t *testing.T) {
 	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell:iron_ore") }) {
 		t.Fatalf("dead market must NOT loop a market-sell, got %v", fc.calls)
 	}
-	if !slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell_order:iron_ore") }) {
-		t.Fatalf("empty-but-captured book must post a cost order, got %v", fc.calls)
+	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell_order:") }) {
+		t.Fatalf("empty-but-captured book must keep the cargo, got %v", fc.calls)
 	}
 }
 
@@ -1125,29 +1128,14 @@ func TestLiquidateCargo(t *testing.T) {
 		}
 	})
 
-	t.Run("posts a sell order 10% under best ask when no buyer", func(t *testing.T) {
+	t.Run("no local buyer: carries the cargo for Cloverfield", func(t *testing.T) {
 		fc := mkClient(game.CargoItem{ItemID: "iron_ore", Quantity: 10})
 		f := &fakeStore{prices: []market.ItemStationPrice{{StationID: station, HasSell: true, BestAsk: 100}}}
-		if !liquidateCargo(context.Background(), HaulDeps{Client: fc, Market: f, Out: io.Discard}, io.Discard) {
-			t.Fatal("expected liquidation to act")
+		if liquidateCargo(context.Background(), HaulDeps{Client: fc, Market: f, Out: io.Discard}, io.Discard) {
+			t.Fatal("no buyer here: nothing to act on, the cargo rides along")
 		}
-		// 100 * 0.9 = 90.
-		if !slices.Contains(fc.calls, "sell_order:iron_ore@90") {
-			t.Fatalf("want sell_order:iron_ore@90, got %v", fc.calls)
-		}
-	})
-
-	t.Run("posts sell order off the best ask at another station", func(t *testing.T) {
-		fc := mkClient(game.CargoItem{ItemID: "silver_ore", Quantity: 50})
-		fc.state.Doc = true
-		// No price entry for the current station; another station lists an ask.
-		f := &fakeStore{prices: []market.ItemStationPrice{{StationID: "other-stn", HasSell: true, BestAsk: 60}}}
-		if !liquidateCargo(context.Background(), HaulDeps{Client: fc, Market: f, Out: io.Discard}, io.Discard) {
-			t.Fatal("expected liquidation via global best ask")
-		}
-		// 60 * 0.9 = 54.
-		if !slices.Contains(fc.calls, "sell_order:silver_ore@54") {
-			t.Fatalf("want sell_order:silver_ore@54 (10%% under global ask 60), got %v", fc.calls)
+		if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "sell_order:") }) {
+			t.Fatalf("leftovers must not be listed, got %v", fc.calls)
 		}
 	})
 
@@ -1673,4 +1661,76 @@ func TestHaulSellLegCostOrderOnConsignedRouteUsesPlannedSellPrice(t *testing.T) 
 	if !slices.Contains(fc.calls, "sell_order:iron_ore@6308") {
 		t.Fatalf("want cost order at the planned sell price 6308, got %v", fc.calls)
 	}
+}
+
+func TestHaulDumpLeftovers(t *testing.T) {
+	haulDumpUsername = func() (string, error) { return "miningbot_0000", nil }
+	defer func() { haulDumpUsername = defaultHaulDumpUsername }()
+	mk := func(cargo []game.CargoItem, capacity float64, jumps int) *fakeClient {
+		route := make([]game.RouteStep, jumps)
+		for i := range route {
+			route[i] = game.RouteStep{SystemID: haulDumpSystem}
+		}
+		used := 0.0
+		for _, c := range cargo {
+			used += c.Quantity
+		}
+		return &fakeClient{
+			state: &game.State{CurrentPOI: "somewhere", Ship: game.Ship{Cargo: cargo, CargoCapacity: capacity, CargoUsed: used}},
+			route: route,
+		}
+	}
+	gifted := func(fc *fakeClient) []string {
+		var g []string
+		for _, c := range fc.calls {
+			if strings.HasPrefix(c, "gift:") {
+				g = append(g, c)
+			}
+		}
+		return g
+	}
+
+	t.Run("nearby: detours to Conjunction Junction and gifts every leftover", func(t *testing.T) {
+		fc := mk([]game.CargoItem{{ItemID: "coolant_fluid", Quantity: 400}, {ItemID: "fuel_cell", Quantity: 5}, {ItemID: "shield_matrix", Quantity: 29}}, 2000, 3)
+		if !haulDumpLeftovers(context.Background(), HaulDeps{Client: fc, Out: io.Discard}, io.Discard) {
+			t.Fatal("within 3 jumps with leftovers: want the detour")
+		}
+		want := []string{"gift:miningbot_0000:coolant_fluid:400:cargo", "gift:miningbot_0000:shield_matrix:29:cargo"}
+		if got := gifted(fc); !slices.Equal(got, want) {
+			t.Errorf("gifts = %v, want %v (fuel_cell stays)", got, want)
+		}
+		if !slices.Contains(fc.calls, "travel:"+haulDumpPOI) || !slices.Contains(fc.calls, "dock") {
+			t.Errorf("want travel to %s and dock, got %v", haulDumpPOI, fc.calls)
+		}
+	})
+
+	t.Run("far with a small load: carries on", func(t *testing.T) {
+		fc := mk([]game.CargoItem{{ItemID: "coolant_fluid", Quantity: 400}}, 2000, 12)
+		if haulDumpLeftovers(context.Background(), HaulDeps{Client: fc, Out: io.Discard}, io.Discard) {
+			t.Fatal("12 jumps away with 20% of the hold: keep hauling")
+		}
+		if len(gifted(fc)) != 0 || slices.Contains(fc.calls, "travel:"+haulDumpPOI) {
+			t.Errorf("no detour expected, got %v", fc.calls)
+		}
+	})
+
+	t.Run("far but leftovers fill over half the hold: goes anyway", func(t *testing.T) {
+		fc := mk([]game.CargoItem{{ItemID: "coolant_fluid", Quantity: 1100}}, 2000, 25)
+		if !haulDumpLeftovers(context.Background(), HaulDeps{Client: fc, Out: io.Discard}, io.Discard) {
+			t.Fatal("55% of the hold is leftovers: go dump them")
+		}
+		if got := gifted(fc); len(got) != 1 {
+			t.Errorf("gifts = %v", got)
+		}
+	})
+
+	t.Run("only reserved cargo: nothing to do", func(t *testing.T) {
+		fc := mk([]game.CargoItem{{ItemID: "fuel_cell", Quantity: 5}}, 2000, 1)
+		if haulDumpLeftovers(context.Background(), HaulDeps{Client: fc, Out: io.Discard}, io.Discard) {
+			t.Fatal("fuel cells are not leftovers")
+		}
+		if slices.Contains(fc.calls, "find_route:"+haulDumpPOI) {
+			t.Errorf("no route lookup expected for an empty leftover hold: %v", fc.calls)
+		}
+	})
 }

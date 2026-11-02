@@ -95,3 +95,39 @@ func TestFactionDepositIsSupported(t *testing.T) {
 		t.Error(`"faction_deposit" missing from the supported command set`)
 	}
 }
+
+// faction_deposit_all is the Cloverfield dumping ground's second half: leftover
+// cargo the haulers gift to miningbot_0000 lands in its own storage, and this
+// sweep moves every item across to faction storage -- except energy crystals,
+// which are reserved for the drone project and are never moved for it.
+func TestFactionDepositAllSkipsReserved(t *testing.T) {
+	c := &depositFake{docked: "cj", held: map[string]int{"coolant_fluid": 400, "shield_matrix": 29, "energy_crystal": 40}}
+	n, err := FactionDepositAll(context.Background(), c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 || len(c.deposits) != 2 {
+		t.Fatalf("deposited %d (%+v), want coolant_fluid and shield_matrix", n, c.deposits)
+	}
+	for _, d := range c.deposits {
+		if d["item_id"] == "energy_crystal" {
+			t.Error("energy crystals moved")
+		}
+		if d["source"] != "storage" {
+			t.Errorf("source = %v, want storage", d["source"])
+		}
+	}
+}
+
+func TestFactionDepositAllUndockedIsNoop(t *testing.T) {
+	c := &depositFake{held: map[string]int{"coolant_fluid": 400}}
+	if n, err := FactionDepositAll(context.Background(), c); err != nil || n != 0 || len(c.deposits) != 0 {
+		t.Errorf("undocked = %d, %v, %v", n, err, c.deposits)
+	}
+}
+
+func TestFactionDepositAllIsSupported(t *testing.T) {
+	if !supported["faction_deposit_all"] {
+		t.Error(`"faction_deposit_all" missing from the supported command set`)
+	}
+}

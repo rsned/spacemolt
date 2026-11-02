@@ -218,7 +218,7 @@ var supported = map[string]bool{
 	"hunt": true,
 	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "buy_directed": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "launch_drones": true,
-	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "announce": true, "capture_craft_queue": true, "sell_all": true,
+	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "faction_deposit_all": true, "announce": true, "capture_craft_queue": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
 	"capture_storage": true, "capture_faction": true, "capture_cargo": true,
@@ -332,6 +332,12 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		n, err := CaptureCraftQueue(ctx, d.Client, filepath.Join(DefaultAgentsDir, d.AgentID), time.Now())
 		if err == nil {
 			fmt.Fprintf(d.Out, "capture_craft_queue: %d job(s)\n", n) //nolint:errcheck
+		}
+		return err
+	case "faction_deposit_all":
+		n, err := FactionDepositAll(ctx, d.Client)
+		if n > 0 {
+			fmt.Fprintf(d.Out, "faction_deposit_all: moved %d item type(s) to faction storage\n", n) //nolint:errcheck
 		}
 		return err
 	case "faction_deposit":

@@ -916,6 +916,9 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	if liquidateCargo(ctx, deps, out) {
 		return nil
 	}
+	if haulDumpLeftovers(ctx, deps, out) {
+		return nil
+	}
 
 	// Idle with an empty hold: a low wallet now is genuine fumes (not capital tied
 	// up in cargo), so this is the safe point to pull a treasury rescue before the
@@ -1550,6 +1553,9 @@ func haulCompleteVanished(ctx context.Context, deps HaulDeps, out io.Writer, opp
 // fill is captured by the server action log; no haul_result is recorded here (no sale yet).
 // A CreateSellOrder failure leaves the claim in place (best-effort, never strands cargo).
 func haulPostCostOrder(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, held, unitBuy float64, bookClaimID int64) error {
+	if !opp.IsConsigned() {
+		return haulKeepForDump(ctx, deps, out, opp, held, bookClaimID)
+	}
 	payload := map[string]any{
 		"item_id":    opp.ItemID,
 		"quantity":   int(held),
@@ -1750,10 +1756,6 @@ func haulAutopilot(ctx context.Context, deps HaulDeps, out io.Writer, system, po
 	}, system, poi)
 }
 
-// haulSellUndercut is the fraction of the best ask at which a hauler lists leftover
-// cargo when no buyer exists at the station — a 10% undercut to move stale inventory.
-const haulSellUndercut = 0.90
-
 // haulReservedCargo are item ids a hauler never liquidates (operational, not trade goods).
 var haulReservedCargo = map[string]bool{"fuel_cell": true}
 
@@ -1767,25 +1769,12 @@ func stationPrice(prices []market.ItemStationPrice, stationID string) *market.It
 	return nil
 }
 
-// bestAskAnywhere returns the lowest sell-order price (best ask) for an item across all
-// stations that list it, used to price a leftover-cargo sell order even when the item is
-// not traded at the station the hauler happens to be sitting at. ok is false when no
-// station anywhere has a sell order to reference.
-func bestAskAnywhere(prices []market.ItemStationPrice) (best float64, ok bool) {
-	for _, p := range prices {
-		if p.HasSell && (!ok || p.BestAsk < best) {
-			best, ok = p.BestAsk, true
-		}
-	}
-	return best, ok
-}
-
-// liquidateCargo clears leftover (non-haul) cargo from the hold so it stops blocking
-// buys. It docks at the current station, re-prices live, and for each non-reserved cargo
-// item either sells into an existing buy order at the station (a ready market) or, if
-// none, posts a sell order 10% below the station's best ask. Best-effort: not at a
-// dockable station, or an item with no local price reference, is logged and left in the
-// hold. Returns true if it took any sell / sell-order action this pass.
+// liquidateCargo sells leftover (non-haul) cargo into an existing buy order at the
+// current station -- a ready market, real money. An item with no buyer here stays
+// aboard: since 2026-11-01 leftovers are carried to CRFT faction storage at
+// Conjunction Junction (haulDumpLeftovers) instead of being listed at a discount.
+// The buy gate sizes each purchase to free hold space, so carried leftovers only
+// shrink the next buy. Returns true if it sold anything this pass.
 func liquidateCargo(ctx context.Context, deps HaulDeps, out io.Writer) bool {
 	state := deps.Client.GetState()
 	if state == nil {
@@ -1824,8 +1813,7 @@ func liquidateCargo(ctx context.Context, deps HaulDeps, out io.Writer) bool {
 			fmt.Fprintf(out, "haul: liquidate price check %s failed: %v\n", item.ItemID, err) //nolint:errcheck
 			continue
 		}
-		// Prefer selling into a buyer at the current station (a ready market); otherwise
-		// post a sell order here, priced 10% below the best ask anywhere for the item.
+		// Sell into a buyer at the current station (a ready market).
 		if here := stationPrice(prices, station); here != nil && here.HasBuy {
 			if err := deps.Client.Sell(ctx, item.ItemID, item.Quantity); err != nil {
 				fmt.Fprintf(out, "haul: liquidate sell %.0f %s failed: %v\n", item.Quantity, item.ItemID, err) //nolint:errcheck
@@ -1835,22 +1823,9 @@ func liquidateCargo(ctx context.Context, deps HaulDeps, out io.Writer) bool {
 			acted = true
 			continue
 		}
-		ask, ok := bestAskAnywhere(prices)
-		if !ok {
-			fmt.Fprintf(out, "haul: no market price for %.0f %s; leaving in hold\n", item.Quantity, item.ItemID) //nolint:errcheck
-			continue
-		}
-		price := math.Round(ask * haulSellUndercut)
-		if err := deps.Client.CreateSellOrder(ctx, map[string]any{
-			"item_id":    item.ItemID,
-			"quantity":   int(item.Quantity),
-			"price_each": int(price),
-		}); err != nil {
-			fmt.Fprintf(out, "haul: liquidate sell-order %.0f %s failed: %v\n", item.Quantity, item.ItemID, err) //nolint:errcheck
-			continue
-		}
-		fmt.Fprintf(out, "haul: posted sell order %.0f %s @%.0f (10%% under best ask %.0f)\n", item.Quantity, item.ItemID, price, ask) //nolint:errcheck
-		acted = true
+		// No buyer here: carry it. Leftovers go to CRFT faction storage at
+		// Conjunction Junction (haulDumpLeftovers) instead of a long-lived ask.
+		fmt.Fprintf(out, "haul: no buyer for %.0f %s here; carrying it for %s\n", item.Quantity, item.ItemID, haulDumpSystem) //nolint:errcheck
 	}
 	return acted
 }
@@ -1866,4 +1841,101 @@ func cargoQty(state *game.State, itemID string) float64 {
 		}
 	}
 	return 0
+}
+
+// Leftover cargo -- a failed arbitrage leg's goods, or anything else a hauler
+// holds with no buyer at hand -- goes to CRFT faction storage at Conjunction
+// Junction rather than a long-lived ask at cost: the odds and ends eventually
+// come up in some crafting request (operator, 2026-11-01). The hauler carries
+// them until its work brings it near Cloverfield, then detours and gifts them
+// to the resident CRFT member there, whose faction_deposit_all sweep moves
+// them into faction storage.
+const (
+	haulDumpSystem    = "cloverfield"
+	haulDumpPOI       = "862e07fa76571d0a76cab3cbaf4046e7" // Conjunction Junction
+	haulDumpRecipient = "miningbot_0000"
+	// haulDumpRadius is how close (jumps) a hauler must be to detour.
+	haulDumpRadius = 3
+	// haulDumpHoldShare: leftovers filling more than this share of the hold go
+	// regardless of distance, so one bad haul cannot hobble a hauler for days.
+	haulDumpHoldShare = 0.5
+)
+
+// defaultHaulDumpUsername resolves the dump recipient's in-game name.
+var defaultHaulDumpUsername = func() (string, error) { return UsernameFor("", haulDumpRecipient) }
+
+// haulDumpUsername is a seam for tests.
+var haulDumpUsername = defaultHaulDumpUsername
+
+// haulKeepForDump closes a failed arbitrage leg without selling: the claim is
+// completed so it is not re-hauled, and the goods stay aboard as leftovers.
+func haulKeepForDump(ctx context.Context, deps HaulDeps, out io.Writer, opp market.ArbitrageOpportunity, held float64, bookClaimID int64) error {
+	fmt.Fprintf(out, "haul: opp %d keeping %.0f %s for %s faction storage\n", opp.ID, held, opp.ItemID, haulDumpSystem) //nolint:errcheck
+	if _, err := deps.Market.CompleteOpportunity(ctx, opp.ID, deps.AgentID); err != nil {
+		fmt.Fprintf(out, "haul: opp %d complete-after-keep failed: %v\n", opp.ID, err) //nolint:errcheck
+	}
+	if bookClaimID > 0 {
+		if err := deps.Market.CompleteBookClaim(ctx, bookClaimID, deps.AgentID); err != nil {
+			fmt.Fprintf(out, "haul: opp %d complete book claim (keep) failed: %v\n", opp.ID, err) //nolint:errcheck
+		}
+	}
+	return nil
+}
+
+// haulDumpLeftovers detours to Conjunction Junction and gifts every leftover
+// (non-reserved) cargo item to haulDumpRecipient when the hauler is within
+// haulDumpRadius jumps, or when leftovers fill more than haulDumpHoldShare of
+// the hold. Returns true if it made the trip this pass.
+func haulDumpLeftovers(ctx context.Context, deps HaulDeps, out io.Writer) bool {
+	state := deps.Client.GetState()
+	if state == nil {
+		return false
+	}
+	var items []game.CargoItem
+	leftover := 0.0
+	for _, c := range state.Ship.Cargo {
+		if c.Quantity > 0 && !haulReservedCargo[c.ItemID] {
+			items = append(items, c)
+			leftover += c.Quantity
+		}
+	}
+	if len(items) == 0 {
+		return false
+	}
+	route, err := deps.Client.FindRoute(ctx, haulDumpPOI)
+	if err != nil {
+		fmt.Fprintf(out, "haul: leftovers: route to %s: %v; carrying on\n", haulDumpSystem, err) //nolint:errcheck
+		return false
+	}
+	heavy := state.Ship.CargoCapacity > 0 && leftover > haulDumpHoldShare*state.Ship.CargoCapacity
+	if len(route) > haulDumpRadius && !heavy {
+		return false
+	}
+	recipient, err := haulDumpUsername()
+	if err != nil {
+		fmt.Fprintf(out, "haul: leftovers: %v; carrying on\n", err) //nolint:errcheck
+		return false
+	}
+	fmt.Fprintf(out, "haul: taking %d leftover item(s) (%.0f units) to %s, %d jump(s)\n", len(items), leftover, haulDumpSystem, len(route)) //nolint:errcheck
+	if err := haulAutopilot(ctx, deps, out, haulDumpSystem, haulDumpPOI, nil); err != nil {
+		fmt.Fprintf(out, "haul: leftovers: transit to %s failed: %v; will retry\n", haulDumpSystem, err) //nolint:errcheck
+		return true
+	}
+	if err := deps.Client.Dock(ctx); err != nil && !strings.Contains(err.Error(), "Already docked") {
+		fmt.Fprintf(out, "haul: leftovers: dock at %s failed: %v; will retry\n", haulDumpSystem, err) //nolint:errcheck
+		return true
+	}
+	for _, c := range items {
+		if err := deps.Client.SendGift(ctx, map[string]any{
+			"recipient": recipient,
+			"item_id":   c.ItemID,
+			"quantity":  int(c.Quantity),
+			"source":    "cargo",
+		}); err != nil {
+			fmt.Fprintf(out, "haul: leftovers: gift %.0f %s to %s failed: %v\n", c.Quantity, c.ItemID, haulDumpRecipient, err) //nolint:errcheck
+			continue
+		}
+		fmt.Fprintf(out, "haul: leftovers: gave %.0f %s to %s\n", c.Quantity, c.ItemID, haulDumpRecipient) //nolint:errcheck
+	}
+	return true
 }

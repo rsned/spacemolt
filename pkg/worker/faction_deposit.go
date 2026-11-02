@@ -2,7 +2,9 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/rsned/spacemolt/pkg/game"
 )
@@ -17,9 +19,8 @@ import (
 // build_fuel_tank refused every hour; the platinum control-node crafts failed
 // the same way. A scheduled sweep per item keeps the inputs in one place.
 //
-// One item per call, named explicitly: depositing is irreversible for anyone
-// below officer rank, and the same storage holds reserved goods such as energy
-// crystals, so there is deliberately no "deposit everything" form.
+// One item per call, named explicitly. FactionDepositAll is the deliberate
+// exception for the Cloverfield dumping ground, with reserved goods excluded.
 //
 // Undocked or nothing held is a no-op, not an error.
 func FactionDeposit(ctx context.Context, client game.GameClient, itemID string) error {
@@ -43,4 +44,54 @@ func FactionDeposit(ctx context.Context, client game.GameClient, itemID string) 
 	}
 
 	return nil
+}
+
+// factionDepositReserved are items FactionDepositAll never moves: energy
+// crystals are reserved for the drone project (never sold or crafted without
+// the operator), so they stay where they are.
+var factionDepositReserved = map[string]bool{"energy_crystal": true}
+
+// FactionDepositAll moves every item in this agent's personal storage at the
+// station it is docked at into faction storage, except factionDepositReserved.
+//
+// It exists for the Cloverfield dumping ground (operator, 2026-11-01): haulers
+// gift leftover cargo -- failed arbitrage legs, odds and ends -- to the
+// resident CRFT member at Conjunction Junction, where it lands in that
+// member's own storage; this sweep puts it in faction storage, where any CJ
+// craft can draw on it. Returns how many item types it moved. A refused item
+// is reported and the rest still move.
+func FactionDepositAll(ctx context.Context, client game.GameClient) (int, error) {
+	state := client.GetState()
+	if state == nil || state.Player.DockedAtBase == "" {
+		return 0, nil
+	}
+	if err := client.ViewStorage(ctx); err != nil {
+		return 0, fmt.Errorf("faction_deposit_all: view_storage: %w", err)
+	}
+	held, ok := consignHeld(client.GetRawJSON("storage"))
+	if !ok {
+		return 0, nil
+	}
+	items := make([]string, 0, len(held))
+	for id, q := range held {
+		if q > 0 && !factionDepositReserved[id] {
+			items = append(items, id)
+		}
+	}
+	sort.Strings(items)
+	moved := 0
+	var failed []error
+	for _, id := range items {
+		if err := client.FactionDepositItemsPayload(ctx, map[string]any{
+			"item_id": id, "quantity": held[id], "source": "storage",
+		}); err != nil {
+			failed = append(failed, fmt.Errorf("%s x%d: %w", id, held[id], err))
+			continue
+		}
+		moved++
+	}
+	if len(failed) > 0 {
+		return moved, fmt.Errorf("faction_deposit_all: %d refused: %w", len(failed), errors.Join(failed...))
+	}
+	return moved, nil
 }

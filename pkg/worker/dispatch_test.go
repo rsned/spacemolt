@@ -11,9 +11,9 @@ import (
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
-	"github.com/rsned/spacemolt/pkg/outcomes"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
+	"github.com/rsned/spacemolt/pkg/outcomes"
 )
 
 // fakeClient records which command methods were invoked.
@@ -268,6 +268,7 @@ func (f *fakeClient) Jump(ctx context.Context, sys string) (*game.JumpResult, er
 	f.calls = append(f.calls, "jump:"+sys)
 	return &game.JumpResult{Canceled: f.jumpCanceled}, nil
 }
+
 // SurveySystem models the common ship with no survey scanner: the explore step
 // surveys on arrival and must carry on past this refusal.
 func (f *fakeClient) SurveySystem(context.Context) error {
@@ -872,4 +873,10 @@ func TestEnsureHomeRecordsRouteRefusal(t *testing.T) {
 	if got, _ := outcomes.Load(dir); got["behaviour:ensure_home"].Status != outcomes.StatusOK {
 		t.Errorf("a successful trip home did not clear the refusal: %+v", got["behaviour:ensure_home"])
 	}
+}
+
+// SendGift records "gift:<recipient>:<item>:<qty>:<source>".
+func (f *fakeClient) SendGift(_ context.Context, p map[string]any) error {
+	f.calls = append(f.calls, fmt.Sprintf("gift:%v:%v:%v:%v", p["recipient"], p["item_id"], p["quantity"], p["source"]))
+	return nil
 }
