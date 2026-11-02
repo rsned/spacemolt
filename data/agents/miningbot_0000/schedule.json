@@ -214,5 +214,11 @@
     "frequency": "hourly",
     "command": "capture_craft_queue",
     "created_at": "2026-11-02T00:41:47Z"
+  },
+  {
+    "id": 42,
+    "frequency": "half_hourly",
+    "command": "faction_deposit_all",
+    "created_at": "2026-11-02T01:31:56Z"
   }
 ]
