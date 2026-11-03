@@ -258,6 +258,7 @@ func main() {
 				// arrivals) that flows through the client.
 				agent.WirePassengerObserver(c, sqliteKB)
 				agent.WireBoardingObservers(c, sqliteKB)
+				agent.WireShipyardObserver(c, sqliteKB, agentID)
 				logger.Printf("Player-sightings recording + faction backfill + passenger catalog enabled")
 			}
 		}

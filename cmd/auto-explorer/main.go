@@ -1579,6 +1579,7 @@ func main() {
 		// docs/superpowers/specs/2026-05-17-player-sightings-design.md.
 		agent.WirePlayerObserver(wsClient, kb, nil)
 		agent.WireBoardingObservers(wsClient, kb)
+		agent.WireShipyardObserver(wsClient, kb, explorer)
 		client = wsClient
 	default:
 		log.Fatalf("Unknown transport: %s (must be: ws, mcp)", *transport)
