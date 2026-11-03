@@ -2767,6 +2767,53 @@ func (f factionFacilityRow) displayName() string {
 	return f.Name
 }
 
+// allyFacilityRow is an ally_facilities entry: a FacilityEntry owned by an
+// allied faction, which carries the owner's faction_id on top of the fields a
+// faction row has.
+type allyFacilityRow struct {
+	factionFacilityRow
+	FactionID string `json:"faction_id"`
+}
+
+// renderAllyFacilities writes the ally_facilities section of `facility list`:
+// production lines in the shared production table with their owner, and any
+// other ally facility in the faction-style table, so nothing in the section is
+// dropped. It returns how many sections it wrote.
+func renderAllyFacilities(b *strings.Builder, facilities []allyFacilityRow) int {
+	if len(facilities) == 0 {
+		return 0
+	}
+	slices.SortFunc(facilities, func(a, c allyFacilityRow) int {
+		return strings.Compare(a.displayName(), c.displayName())
+	})
+	ownerCache := map[string]string{}
+	var production []productionFacility
+	var services []factionFacilityRow
+	for _, f := range facilities {
+		if f.Production == nil {
+			services = append(services, f.factionFacilityRow)
+			continue
+		}
+		production = append(production, productionFacility{
+			name:       f.displayName(),
+			prod:       f.Production,
+			facilityID: f.FacilityID,
+			owner:      factionOwnerDisplay(f.FactionID, ownerCache),
+		})
+	}
+	sections := 0
+	if len(production) > 0 {
+		sections++
+		renderProductionFacilityTable(b, production, "  ", fmt.Sprintf("Ally Facilities (%d) — jobs are free", len(production)))
+	}
+	if len(services) > 0 {
+		sections++
+		fmt.Fprintf(b, "\n  Ally Services (%d):\n", len(services))
+		renderFactionFacilityTable(b, services, "    ")
+	}
+	return sections
+}
+
 // serviceName returns the faction service, falling back to the station-service
 // kind for service facilities a faction-owned station lists as its own.
 func (f factionFacilityRow) serviceName() string {
@@ -3089,6 +3136,10 @@ func formatFacilityList(raw []byte) string {
 		// PublicFacilities are faction-owned production facilities open for
 		// public rental, introduced in gameserver v0.350.0+.
 		PublicFacilities []publicFacilityRow `json:"public_facilities"`
+		// AllyFacilities are facilities an allied faction has opened to ours
+		// via ally_facility_access: jobs on them are free, and an ally
+		// facility is listed here and never under public_facilities.
+		AllyFacilities []allyFacilityRow `json:"ally_facilities"`
 		// PlayerRent is the aggregate rent bill across all the player's
 		// facilities (gameserver v0.347.0+), surfaced as a station-level total.
 		PlayerRent struct {
@@ -3227,6 +3278,7 @@ func formatFacilityList(raw []byte) string {
 			renderProductionFacilityTable(&b, pf, "  ", fmt.Sprintf("Public Facilities (%d)", len(pf)))
 		}
 	}
+	totalSections += renderAllyFacilities(&b, resp.AllyFacilities)
 	if showStationFacilities && len(resp.StationFacilities) > 0 {
 		slices.SortFunc(resp.StationFacilities, func(a, c stationFacility) int {
 			if a.Category != c.Category {

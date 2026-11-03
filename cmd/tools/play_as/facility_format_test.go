@@ -587,3 +587,24 @@ func TestFormatFacilityList_FactionRowsAtOwnStation(t *testing.T) {
 		t.Errorf("faction table should carry a Maint column:\n%s", out)
 	}
 }
+
+// TestFormatFacilityList_RendersAllyFacilities guards the ally_facilities
+// section: facilities an allied faction opened to ours (free jobs). Production
+// lines render in their own table with the owner; a non-production ally row is
+// still listed rather than dropped. The section was never decoded before.
+func TestFormatFacilityList_RendersAllyFacilities(t *testing.T) {
+	raw := []byte(`{"base_id":"grand_exchange_station","ally_facilities":[` +
+		`{"category":"production","name":"Polymer Extruder","facility_id":"b659c360","faction_id":"e727c0e918d994c72db2978fe5b18edc","level":1,"recipe_id":"extrude_nanoplastic",` +
+		`"production":{"public":true,"output_per_run":3,"recipe":"Extrude Nanoplastic","rental_fee_per_run":0,"ticks_per_run":2.02,"items_per_hour":530,"queued_runs":0,"queued_items":0,"backlog_ticks":0}},` +
+		`{"category":"service","name":"Ally Repair Bay","facility_id":"c0ffee11","faction_id":"e727c0e918d994c72db2978fe5b18edc","level":2,"service":"repair","type":"repair_bay","maintenance_level":0.5,"maintenance_satisfied":false}]}`)
+	out := formatFacilityList(raw)
+	for _, want := range []string{"Ally Facilities (1)", "Polymer Extruder", "Extrude Nanoplastic", "b659c360",
+		"Ally Services (1)", "Ally Repair Bay", "repair", "50% !", "c0ffee11"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "(no facilities)") {
+		t.Errorf("ally facilities alone must count as facilities:\n%s", out)
+	}
+}
