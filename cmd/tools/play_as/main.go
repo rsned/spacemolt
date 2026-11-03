@@ -2730,6 +2730,14 @@ type factionFacilityRow struct {
 	RentPerCycle   int64  `json:"rent_per_cycle"`
 	Status         string `json:"status"`
 	Type           string `json:"type"`
+	// Service is the station-service kind (shipyard, refuel, ...). A faction
+	// that owns the station gets its service facilities in faction_facilities
+	// with this field instead of FactionService.
+	Service string `json:"service,omitempty"`
+	// MaintenanceLevel and MaintenanceSatisfied are present only for
+	// facilities with upkeep; nil means the server does not report it.
+	MaintenanceLevel     *float64 `json:"maintenance_level,omitempty"`
+	MaintenanceSatisfied *bool    `json:"maintenance_satisfied,omitempty"`
 	// Production is set for faction production facilities (refineries, etc.);
 	// nil for plain service facilities. Drives the production/service split.
 	Production *facilityProduction `json:"production,omitempty"`
@@ -2757,6 +2765,45 @@ func (f factionFacilityRow) displayName() string {
 		return f.CustomName
 	}
 	return f.Name
+}
+
+// serviceName returns the faction service, falling back to the station-service
+// kind for service facilities a faction-owned station lists as its own.
+func (f factionFacilityRow) serviceName() string {
+	if f.FactionService != "" {
+		return f.FactionService
+	}
+	return f.Service
+}
+
+// statusText returns the server's status, or "-" when it sends none. The
+// faction rows of `facility list` carry neither status nor active (266 of 266
+// recorded rows at Conjunction Junction, 2026-11-03), so a status derived from
+// the absent active flag would mark every facility inactive.
+func (f factionFacilityRow) statusText() string {
+	if f.Status != "" {
+		return f.Status
+	}
+	return "-"
+}
+
+// maintenanceCell renders a facility's upkeep for the Maint column: the
+// supplied fraction with ok/! when the server reports a level (" 65% !"),
+// ok/! alone when it reports only the flag, and "-" when it reports neither —
+// production, faction-category and personal facilities carry no upkeep, and an
+// absent flag is not a failed one.
+func maintenanceCell(level *float64, satisfied *bool) string {
+	if satisfied == nil && level == nil {
+		return "-"
+	}
+	mark := "!"
+	if satisfied != nil && *satisfied {
+		mark = "ok"
+	}
+	if level == nil {
+		return mark
+	}
+	return fmt.Sprintf("%3.0f%% %s", *level*100, mark)
 }
 
 // renderFactionFacilities splits faction facilities into service and production
@@ -2791,7 +2838,7 @@ func renderFactionFacilities(b *strings.Builder, facilities []factionFacilityRow
 }
 
 // renderFactionFacilityTable writes the standard faction-facility table
-// (Name | Type | Service | Lvl | Status | Capacity | Rent/cycle | Rent/day)
+// (Name | Type | Service | Lvl | Status | Maint | Capacity | Rent/cycle | Rent/day)
 // into b, prefixed with the given indent on every line. Used by both
 // `facility faction_list` and the Faction section of `facility list` so the
 // two views stay visually consistent.
@@ -2800,6 +2847,7 @@ func renderFactionFacilityTable(b *strings.Builder, facilities []factionFacility
 	typeW := len("Type")
 	svcW := len("Service")
 	statusW := len("Status")
+	maintW := len("Maint")
 	capW := len("Capacity")
 	rentW := len("Rent/cycle")
 	dailyW := len("Rent/day")
@@ -2807,28 +2855,31 @@ func renderFactionFacilityTable(b *strings.Builder, facilities []factionFacility
 	for _, f := range facilities {
 		nameW = max(nameW, len(f.displayName()))
 		typeW = max(typeW, len(f.Type))
-		svcW = max(svcW, len(f.FactionService))
-		statusW = max(statusW, len(f.Status))
+		svcW = max(svcW, len(f.serviceName()))
+		statusW = max(statusW, len(f.statusText()))
+		maintW = max(maintW, len(maintenanceCell(f.MaintenanceLevel, f.MaintenanceSatisfied)))
 		capW = max(capW, len(formatCredits(float64(f.Capacity))))
 		rentW = max(rentW, len(formatCredits(float64(f.RentPerCycle))))
 		dailyW = max(dailyW, len(formatCredits(float64(dailyRent(f.RentPerCycle)))))
 		idW = max(idW, len(f.FacilityID))
 	}
 
-	fmt.Fprintf(b, "%s%-*s | %-*s | %-*s | Lvl | %-*s | %*s | %*s | %*s | %-*s\n",
+	fmt.Fprintf(b, "%s%-*s | %-*s | %-*s | Lvl | %-*s | %*s | %*s | %*s | %*s | %-*s\n",
 		indent, nameW, "Name", typeW, "Type", svcW, "Service",
-		statusW, "Status", capW, "Capacity", rentW, "Rent/cycle", dailyW, "Rent/day", idW, "Facility ID")
-	fmt.Fprintf(b, "%s%s-+-%s-+-%s-+-----+-%s-+-%s-+-%s-+-%s-+-%s\n",
+		statusW, "Status", maintW, "Maint", capW, "Capacity", rentW, "Rent/cycle", dailyW, "Rent/day", idW, "Facility ID")
+	fmt.Fprintf(b, "%s%s-+-%s-+-%s-+-----+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
 		indent,
 		strings.Repeat("-", nameW), strings.Repeat("-", typeW),
 		strings.Repeat("-", svcW), strings.Repeat("-", statusW),
+		strings.Repeat("-", maintW),
 		strings.Repeat("-", capW), strings.Repeat("-", rentW),
 		strings.Repeat("-", dailyW), strings.Repeat("-", idW))
 	for _, f := range facilities {
-		fmt.Fprintf(b, "%s%-*s | %-*s | %-*s | %3d | %-*s | %*s | %*s | %*s | %-*s\n",
+		fmt.Fprintf(b, "%s%-*s | %-*s | %-*s | %3d | %-*s | %*s | %*s | %*s | %*s | %-*s\n",
 			indent,
-			nameW, f.displayName(), typeW, f.Type, svcW, f.FactionService,
-			facilityLevelOrDefault(f.Level), statusW, f.Status,
+			nameW, f.displayName(), typeW, f.Type, svcW, f.serviceName(),
+			facilityLevelOrDefault(f.Level), statusW, f.statusText(),
+			maintW, maintenanceCell(f.MaintenanceLevel, f.MaintenanceSatisfied),
 			capW, formatCredits(float64(f.Capacity)),
 			rentW, formatCredits(float64(f.RentPerCycle)),
 			dailyW, formatCredits(float64(dailyRent(f.RentPerCycle))),
@@ -2999,15 +3050,16 @@ var showStationFacilities bool
 
 func formatFacilityList(raw []byte) string {
 	type personalFacility struct {
-		Active               bool   `json:"active"`
-		Category             string `json:"category"`
-		FacilityID           string `json:"facility_id"`
-		MaintenanceSatisfied bool   `json:"maintenance_satisfied"`
-		Name                 string `json:"name"`
-		PersonalService      string `json:"personal_service"`
-		RentPaidUntilTick    int64  `json:"rent_paid_until_tick"`
-		RentPerCycle         int64  `json:"rent_per_cycle"`
-		Type                 string `json:"type"`
+		Active               bool     `json:"active"`
+		Category             string   `json:"category"`
+		FacilityID           string   `json:"facility_id"`
+		MaintenanceLevel     *float64 `json:"maintenance_level"`
+		MaintenanceSatisfied *bool    `json:"maintenance_satisfied"`
+		Name                 string   `json:"name"`
+		PersonalService      string   `json:"personal_service"`
+		RentPaidUntilTick    int64    `json:"rent_paid_until_tick"`
+		RentPerCycle         int64    `json:"rent_per_cycle"`
+		Type                 string   `json:"type"`
 	}
 	// stationFacility describes a facility the station itself owns/operates.
 	// Only rendered when --show_station_facilities is set.
@@ -3017,7 +3069,8 @@ func formatFacilityList(raw []byte) string {
 		Description          string              `json:"description"`
 		FacilityID           string              `json:"facility_id"`
 		Level                int                 `json:"level"`
-		MaintenanceSatisfied bool                `json:"maintenance_satisfied"`
+		MaintenanceLevel     *float64            `json:"maintenance_level"`
+		MaintenanceSatisfied *bool               `json:"maintenance_satisfied"`
 		Name                 string              `json:"name"`
 		Service              string              `json:"service"`
 		RecipeID             string              `json:"recipe_id"`
@@ -3085,7 +3138,9 @@ func formatFacilityList(raw []byte) string {
 		svcW := len("Service")
 		tickW := len("Paid until tick")
 		idW := len("Facility ID")
+		maintW := len("Maint")
 		for _, f := range resp.PlayerFacilities {
+			maintW = max(maintW, len(maintenanceCell(f.MaintenanceLevel, f.MaintenanceSatisfied)))
 			nameW = max(nameW, len(f.Name))
 			typeW = max(typeW, len(f.Type))
 			svcW = max(svcW, len(f.PersonalService))
@@ -3096,24 +3151,21 @@ func formatFacilityList(raw []byte) string {
 		// Show both per-cycle and per-day so the operator can sanity-check
 		// burn rate against credit balance.
 		fmt.Fprintf(&b, "\n  Personal: (1 cycle = 100 ticks ≈ 17 min, 86.4 cycles/day)\n")
-		fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Active | Maint | %10s | %10s | %-*s | %-*s\n",
-			nameW, "Name", typeW, "Type", svcW, "Service", "Rent/cycle", "Rent/day", tickW, "Paid until tick", idW, "Facility ID")
-		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+--------+-------+-%s-+-%s-+-%s-+-%s\n",
+		fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Active | %-*s | %10s | %10s | %-*s | %-*s\n",
+			nameW, "Name", typeW, "Type", svcW, "Service", maintW, "Maint", "Rent/cycle", "Rent/day", tickW, "Paid until tick", idW, "Facility ID")
+		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+--------+-%s-+-%s-+-%s-+-%s-+-%s\n",
 			strings.Repeat("-", nameW), strings.Repeat("-", typeW),
-			strings.Repeat("-", svcW), strings.Repeat("-", 10), strings.Repeat("-", 10),
+			strings.Repeat("-", svcW), strings.Repeat("-", maintW),
+			strings.Repeat("-", 10), strings.Repeat("-", 10),
 			strings.Repeat("-", tickW), strings.Repeat("-", idW))
 		for _, f := range resp.PlayerFacilities {
 			active := "no"
 			if f.Active {
 				active = "yes"
 			}
-			maint := "ok"
-			if !f.MaintenanceSatisfied {
-				maint = "!"
-			}
-			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %-6s | %-5s | %10s | %10s | %-*d | %-*s\n",
+			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %-6s | %-*s | %10s | %10s | %-*d | %-*s\n",
 				nameW, f.Name, typeW, f.Type, svcW, f.PersonalService,
-				active, maint,
+				active, maintW, maintenanceCell(f.MaintenanceLevel, f.MaintenanceSatisfied),
 				formatCredits(float64(f.RentPerCycle)),
 				formatCredits(float64(dailyRent(f.RentPerCycle))),
 				tickW, f.RentPaidUntilTick,
@@ -3199,7 +3251,9 @@ func formatFacilityList(raw []byte) string {
 			totalSections++
 			nameW, typeW, catW, svcW := len("Name"), len("Type"), len("Category"), len("Service")
 			statusW := len("Status")
+			maintW := len("Maint")
 			for _, f := range services {
+				maintW = max(maintW, len(maintenanceCell(f.MaintenanceLevel, f.MaintenanceSatisfied)))
 				nameW = max(nameW, len(f.Name))
 				typeW = max(typeW, len(f.Type))
 				catW = max(catW, len(f.Category))
@@ -3207,19 +3261,16 @@ func formatFacilityList(raw []byte) string {
 				statusW = max(statusW, len(stationFacilityStatus(f.Active, f.IdleReason)))
 			}
 			fmt.Fprintf(&b, "\n  Station Services (%d):\n", len(services))
-			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Lvl | %-*s | Maint | %-*s\n",
-				nameW, "Name", typeW, "Type", catW, "Category", svcW, "Service", statusW, "Status")
-			fmt.Fprintf(&b, "    %s-+-%s-+-%s-+-----+-%s-+-------+-%s\n",
+			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Lvl | %-*s | %-*s | %-*s\n",
+				nameW, "Name", typeW, "Type", catW, "Category", svcW, "Service", maintW, "Maint", statusW, "Status")
+			fmt.Fprintf(&b, "    %s-+-%s-+-%s-+-----+-%s-+-%s-+-%s\n",
 				strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", catW),
-				strings.Repeat("-", svcW), strings.Repeat("-", statusW))
+				strings.Repeat("-", svcW), strings.Repeat("-", maintW), strings.Repeat("-", statusW))
 			for _, f := range services {
-				maint := "ok"
-				if !f.MaintenanceSatisfied {
-					maint = "!"
-				}
-				fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %3d | %-*s | %-5s | %-*s\n",
+				fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %3d | %-*s | %-*s | %-*s\n",
 					nameW, f.Name, typeW, f.Type, catW, f.Category, f.Level,
-					svcW, f.Service, maint, statusW, stationFacilityStatus(f.Active, f.IdleReason))
+					svcW, f.Service, maintW, maintenanceCell(f.MaintenanceLevel, f.MaintenanceSatisfied),
+					statusW, stationFacilityStatus(f.Active, f.IdleReason))
 			}
 		}
 

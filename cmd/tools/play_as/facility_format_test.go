@@ -492,3 +492,98 @@ func TestFactionOwnerDisplay(t *testing.T) {
 		t.Errorf("seeded KB: factionOwnerDisplay(f1) = %q, want \"[CRFT]\"", got)
 	}
 }
+
+// TestFormatFacilityList_MaintenanceLevelAndSatisfied guards that a station
+// service row shows both the upkeep fraction (maintenance_level) and whether it
+// was fully supplied (maintenance_satisfied), and that a row the server sends
+// without either — upkeep is not reported for it — reads "-" rather than a
+// false "!". The first row is a live Fabrication Yard response.
+func TestFormatFacilityList_MaintenanceLevelAndSatisfied(t *testing.T) {
+	raw := []byte(`{"base_id":"c976fa7df53c87f9616165d7d411b41a","station_facilities":[` +
+		`{"category":"service","facility_id":"2b4771b47b700dd0522e66a8dbcca7f5","faction_id":"e727c0e918d994c72db2978fe5b18edc","level":2,"maintenance_level":0.652542372881356,"maintenance_satisfied":false,"name":"Fabrication Yard","service":"shipyard","type":"fabrication_yard"},` +
+		`{"active":true,"category":"service","facility_id":"f00d","level":1,"maintenance_level":1,"maintenance_satisfied":true,"name":"Cloning Bay","service":"cloning","type":"cloning_bay"},` +
+		`{"active":true,"category":"service","facility_id":"beef","level":1,"name":"Market Hall","service":"market","type":"market_hall"}]}`)
+
+	showStationFacilities = true
+	defer func() { showStationFacilities = false }()
+	out := formatFacilityList(raw)
+
+	rows := map[string]string{}
+	for line := range strings.SplitSeq(out, "\n") {
+		for _, name := range []string{"Fabrication Yard", "Cloning Bay", "Market Hall"} {
+			if strings.Contains(line, name) {
+				rows[name] = line
+			}
+		}
+	}
+	for name, want := range map[string]string{
+		"Fabrication Yard": "65% !",
+		"Cloning Bay":      "100% ok",
+		"Market Hall":      "| -",
+	} {
+		if !strings.Contains(rows[name], want) {
+			t.Errorf("%s row should contain %q, got:\n%s\nfull output:\n%s", name, want, rows[name], out)
+		}
+	}
+	if strings.Contains(rows["Market Hall"], "!") {
+		t.Errorf("a row with no upkeep reported must not read as unsatisfied: %s", rows["Market Hall"])
+	}
+}
+
+// TestFormatFacilityList_PersonalMaintenanceAbsent guards that a personal
+// facility, for which the server omits maintenance_satisfied, does not render
+// the unsatisfied marker.
+func TestFormatFacilityList_PersonalMaintenanceAbsent(t *testing.T) {
+	raw := []byte(`{"base_id":"sol_central","player_facilities":[` +
+		`{"active":true,"category":"personal","facility_id":"q1","name":"Crew Quarters","personal_service":"quarters","rent_paid_until_tick":100,"rent_per_cycle":10,"type":"crew_quarters"}]}`)
+	out := formatFacilityList(raw)
+	for line := range strings.SplitSeq(out, "\n") {
+		if strings.Contains(line, "Crew Quarters") && strings.Contains(line, "| !") {
+			t.Errorf("personal facility with no upkeep reported shows '!':\n%s", line)
+		}
+	}
+}
+
+// TestFormatFacilityList_FactionRowsAtOwnStation guards the Faction table at a
+// faction-owned player station, where service facilities arrive in
+// faction_facilities carrying `service` (not `faction_service`), upkeep fields,
+// and neither `status` nor `active`. Each must still show its service and its
+// maintenance; faction-category rows without upkeep read "-", and no row may be
+// called inactive on the strength of an absent flag.
+func TestFormatFacilityList_FactionRowsAtOwnStation(t *testing.T) {
+	raw := []byte(`{"base_id":"c976fa7df53c87f9616165d7d411b41a","faction_facilities":[` +
+		`{"category":"service","facility_id":"2b4771b47b700dd0522e66a8dbcca7f5","faction_id":"e727c0e918d994c72db2978fe5b18edc","level":2,"maintenance_level":0.652542372881356,"maintenance_satisfied":false,"name":"Fabrication Yard","service":"shipyard","type":"fabrication_yard"},` +
+		`{"category":"service","facility_id":"90901d6f05756e5e0a588dbadc22c8e3","level":1,"maintenance_level":1,"maintenance_satisfied":true,"name":"Refueling Dock","service":"refuel","type":"refueling_dock"},` +
+		`{"category":"faction","facility_id":"10ccd1324e395935f9b29818642d885c","faction_service":"faction_admin","level":2,"name":"Faction Office","type":"faction_office"}]}`)
+	out := formatFacilityList(raw)
+
+	row := func(name string) string {
+		for line := range strings.SplitSeq(out, "\n") {
+			if strings.Contains(line, name) {
+				return line
+			}
+		}
+		return ""
+	}
+	checks := []struct{ name, want string }{
+		{"Fabrication Yard", "shipyard"},
+		{"Fabrication Yard", "65% !"},
+		{"Refueling Dock", "refuel"},
+		{"Refueling Dock", "100% ok"},
+		{"Faction Office", "faction_admin"},
+	}
+	for _, c := range checks {
+		if !strings.Contains(row(c.name), c.want) {
+			t.Errorf("%s row should contain %q:\n%s\nfull output:\n%s", c.name, c.want, row(c.name), out)
+		}
+	}
+	if strings.Contains(row("Faction Office"), "!") || strings.Contains(row("Faction Office"), "%") {
+		t.Errorf("faction-category row has no upkeep and must read '-':\n%s", row("Faction Office"))
+	}
+	if strings.Contains(out, "inactive") {
+		t.Errorf("rows carry no active flag; none may render inactive:\n%s", out)
+	}
+	if !strings.Contains(out, "Maint") {
+		t.Errorf("faction table should carry a Maint column:\n%s", out)
+	}
+}
