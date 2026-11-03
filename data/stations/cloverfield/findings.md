@@ -365,7 +365,16 @@ titanium_alloy.
   which is one Locker Bay cycle (1 steel_plate). No flex_polymer was in storage before the user stocked
   100, so no flex reading to compare yet. Stock seen at ~09:25Z: circuit_board 2000, flex_polymer 100,
   focused_crystal 100, iron_ore 46 (first pipeline deposit by miningbot_0019 at 02:20:50 PDT = 09:20:50Z),
-  steel_plate 798. To bracket the cycle length: re-read and note the tick each time steel_plate and
+  steel_plate 798.
+- **Durasteel bracket (measured 2026-11-03).** The Fabrication Yard (L2 shipyard; upkeep 3
+  steel_plate + 1 titanium_alloy + 1 durasteel_plate per cycle) read `maintenance_level` 0.6525,
+  unsatisfied, with **0 durasteel** in CRFT storage. craftsman-1 deposited **170** at tick
+  **2,310,862**. The yard read `1` / satisfied on the next `facility list` (23:46Z). Storage still
+  read **170 at ~2,311,451**, so nothing was consumed in **589 ticks**. A 100-tick cycle would have
+  used 5–6. This rules out the rent cycle and fits the ~3,000-tick estimate. Next step: note the
+  tick when it first reads 169 to pin the length. Satisfaction flipped without a unit being
+  consumed, so the level looks like a stock check against one cycle's need, not a burn record.
+- To bracket the cycle length: re-read and note the tick each time steel_plate and
   flex_polymer drop together.
 - ⚠ The catalog upkeep table below and the KB guide still multiply by 86.4/day. At ~2.9/day the
   real daily upkeep is **~30× lower** (Locker Bay ≈ 3 steel + 3 flex polymer a day; Workshop ≈ 3
