@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -46,14 +47,14 @@ func (c *Client) ShipyardObserver() ShipyardObserver {
 	return c.shipyardObserver
 }
 
-var royaltyRE = regexp.MustCompile(`(\d+) royalty`)
+var royaltyRE = regexp.MustCompile(`([\d,]+) royalty`)
 
 // parseRoyalty returns the number from the first "<n> royalty" match across
 // texts, or nil when none match.
 func parseRoyalty(texts ...string) *int {
 	for _, t := range texts {
 		if m := royaltyRE.FindStringSubmatch(t); m != nil {
-			if n, err := strconv.Atoi(m[1]); err == nil {
+			if n, err := strconv.Atoi(strings.ReplaceAll(m[1], ",", "")); err == nil {
 				return &n
 			}
 		}

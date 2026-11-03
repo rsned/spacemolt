@@ -109,3 +109,9 @@ func TestParseRoyalty(t *testing.T) {
 		t.Errorf("got %v", *r)
 	}
 }
+
+func TestParseRoyaltyThousandsSeparator(t *testing.T) {
+	if r := parseRoyalty("pays 1,000 labor + 12,345 royalty"); r == nil || *r != 12345 {
+		t.Errorf("got %v", r)
+	}
+}
