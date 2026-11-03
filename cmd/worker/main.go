@@ -422,6 +422,7 @@ func main() {
 			// observed thousands of players and recorded none of them.
 			agent.WirePlayerObserver(client, sqliteKB, nil)
 			agent.WireBoardingObservers(client, sqliteKB)
+			agent.WireShipyardObserver(client, sqliteKB, *agentID)
 		}
 
 		// ── Step 7b2: Open market collector (best-effort) ───────────────────

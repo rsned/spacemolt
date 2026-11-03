@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 7
--- Last Regenerated: 2026-10-22
+-- Migrations applied: 8
+-- Last Regenerated: 2026-11-03
 
 -- ============================================================================
 -- TABLES
@@ -841,6 +841,18 @@ CREATE TABLE ship_cargo (
 );
 
 
+CREATE TABLE ship_licenses (
+					faction_id TEXT NOT NULL,
+					ship_class TEXT NOT NULL,
+					empire TEXT NOT NULL DEFAULT '',
+					agent_id TEXT NOT NULL DEFAULT '',
+					cost_paid INTEGER NOT NULL DEFAULT 0,
+					tick INTEGER NOT NULL DEFAULT 0,
+					seen_at TEXT NOT NULL,
+					PRIMARY KEY (faction_id, ship_class)
+				);
+
+
 CREATE TABLE ship_listings (
 					id INTEGER PRIMARY KEY AUTOINCREMENT,
 					system_id TEXT NOT NULL,
@@ -917,6 +929,25 @@ CREATE TABLE "ships" (
     flavor_tags TEXT DEFAULT '[]',
     last_updated_tick INTEGER DEFAULT 0
 , passive_recipes TEXT DEFAULT '[]', based_on TEXT, npc_role TEXT, special TEXT, required_reputation INTEGER NOT NULL DEFAULT 0, piloting_required INTEGER NOT NULL DEFAULT 0, inherent_capabilities TEXT, required_achievement TEXT DEFAULT '', required_faction_achievement TEXT DEFAULT '', required_faction_leader INTEGER NOT NULL DEFAULT 0, prestige_lock TEXT DEFAULT '', default_loadout_version INTEGER NOT NULL DEFAULT 0, crew_capacity INTEGER NOT NULL DEFAULT 0, marine_capacity INTEGER NOT NULL DEFAULT 0, minimum_crew INTEGER NOT NULL DEFAULT 0, capture_policy TEXT DEFAULT '', capture_policy_reason TEXT DEFAULT '', latch_resistance INTEGER NOT NULL DEFAULT 0, boarding_defense_bonus_pct INTEGER NOT NULL DEFAULT 0);
+
+
+CREATE TABLE shipyard_quotes (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					ship_class TEXT NOT NULL,
+					station_id TEXT NOT NULL DEFAULT '',
+					faction_id TEXT NOT NULL DEFAULT '',
+					agent_id TEXT NOT NULL DEFAULT '',
+					mode TEXT NOT NULL DEFAULT 'quote',
+					labor INTEGER NOT NULL DEFAULT 0,
+					material_cost INTEGER NOT NULL DEFAULT 0,
+					provide_materials_total INTEGER NOT NULL DEFAULT 0,
+					yard_margin INTEGER NOT NULL DEFAULT 0,
+					shipyard_tier_here INTEGER NOT NULL DEFAULT 0,
+					royalty INTEGER,
+					tick INTEGER NOT NULL DEFAULT 0,
+					seen_at TEXT NOT NULL,
+					raw TEXT NOT NULL DEFAULT ''
+				);
 
 
 CREATE TABLE skills (
@@ -1229,6 +1260,9 @@ CREATE INDEX idx_ships_class ON ships(class);
 
 CREATE INDEX idx_ships_faction ON ships(faction);
 
+CREATE INDEX idx_shipyard_quotes_ship_class
+					ON shipyard_quotes(ship_class);
+
 CREATE INDEX idx_skills_category ON skills(category);
 
 CREATE INDEX idx_storage_snapshot_items_snapshot ON storage_snapshot_items(snapshot_id);
@@ -1319,4 +1353,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (62, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (63, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (64, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (65, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (66, datetime('now'));
 

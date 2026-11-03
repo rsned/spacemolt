@@ -380,6 +380,57 @@ func migrations() []Migration {
 				return ensureColumn(tx, "bases", "wrecked", "INTEGER NOT NULL DEFAULT 0")
 			},
 		},
+		{
+			version: 66,
+			name:    "shipyard_quotes_and_ship_licenses",
+			sql: `
+				-- Passive record of shipyard replies, for the hull production
+				-- cost page. shipyard_quotes is append-only (one row per
+				-- quote/commission reply); royalty is NULL when the reply
+				-- carried no royalty text. ship_licenses keeps the latest
+				-- purchase per faction and design.
+				CREATE TABLE IF NOT EXISTS shipyard_quotes (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					ship_class TEXT NOT NULL,
+					station_id TEXT NOT NULL DEFAULT '',
+					faction_id TEXT NOT NULL DEFAULT '',
+					agent_id TEXT NOT NULL DEFAULT '',
+					mode TEXT NOT NULL DEFAULT 'quote',
+					labor INTEGER NOT NULL DEFAULT 0,
+					material_cost INTEGER NOT NULL DEFAULT 0,
+					provide_materials_total INTEGER NOT NULL DEFAULT 0,
+					yard_margin INTEGER NOT NULL DEFAULT 0,
+					shipyard_tier_here INTEGER NOT NULL DEFAULT 0,
+					royalty INTEGER,
+					tick INTEGER NOT NULL DEFAULT 0,
+					seen_at TEXT NOT NULL,
+					raw TEXT NOT NULL DEFAULT ''
+				);
+				CREATE INDEX IF NOT EXISTS idx_shipyard_quotes_ship_class
+					ON shipyard_quotes(ship_class);
+				CREATE TABLE IF NOT EXISTS ship_licenses (
+					faction_id TEXT NOT NULL,
+					ship_class TEXT NOT NULL,
+					empire TEXT NOT NULL DEFAULT '',
+					agent_id TEXT NOT NULL DEFAULT '',
+					cost_paid INTEGER NOT NULL DEFAULT 0,
+					tick INTEGER NOT NULL DEFAULT 0,
+					seen_at TEXT NOT NULL,
+					PRIMARY KEY (faction_id, ship_class)
+				);
+			`,
+			fn: func(tx *sql.Tx) error {
+				// The one license CRFT owned when this shipped (bought
+				// 2026-11-02, before anything recorded purchases).
+				_, err := tx.Exec(`
+					INSERT OR IGNORE INTO ship_licenses
+						(faction_id, ship_class, empire, agent_id, cost_paid, tick, seen_at)
+					VALUES ('e727c0e918d994c72db2978fe5b18edc', 'congregation', 'outerrim',
+						'craftsman-1', 1000000, 2301382, '2026-11-02T19:54:20Z')`)
+
+				return err
+			},
+		},
 	}
 }
 

@@ -189,6 +189,10 @@ type Client struct {
 	passengerObserver   PassengerObserver
 	passengerObserverMu sync.RWMutex
 
+	// shipyardObserver, if set, receives shipyard replies (quote/commission/license).
+	shipyardObserver   ShipyardObserver
+	shipyardObserverMu sync.RWMutex
+
 	// prizeObserver / captureObserver (server v0.572.0 boarding): fired for
 	// intact prizes listed in get_nearby and for every ship_captured push.
 	// See pkg/game/observed_prize.go.
@@ -5348,6 +5352,7 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		// storeKey. list_station_passengers (waiting) is the richest source
 		// (carries empire + bio); the others fill gaps via COALESCE merge.
 		c.notifyPassengersFromPayload(resp.Payload)
+		c.notifyShipyardFromPayload(resp.Payload)
 		// Store facility responses. Sync queries (list/types/upgrades/help/
 		// faction_list) come back as type=ok with no command field, so they
 		// fall through here. Async terminals are stored later via the
@@ -5795,6 +5800,7 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 		// Deferred passenger terminals (load_passenger's "loaded", dock's
 		// "passenger_arrivals") arrive as action_results — capture them too.
 		c.notifyPassengersFromPayload(resp.Payload)
+		c.notifyShipyardFromPayload(resp.Payload)
 	case protocol.TypeMiningYield:
 		// Newer servers terminate `mine` by pushing a mining_yield event
 		// (carrying quantity, resource, depletion, xp_gained) instead of
