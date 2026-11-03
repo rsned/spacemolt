@@ -31,9 +31,8 @@ for d in /proc/[0-9]*; do c=$(tr '\0' ' ' < $d/cmdline 2>/dev/null); \
   echo "$(basename $d) ${c:0:100}";; esac; done
 ```
 
-The scan must also come back empty for the **mining, shuttle and fleet-watch** overminds and
-their workers. The launch sequence below does not cover those three, so a full stop that only
-walks the fleets in step 3 leaves them running. Stop them too.
+The scan must come back empty for all eleven overminds (step 3 and 4), their workers, and
+`fleet-watch`, `play_as`, and the dashboards.
 
 Then confirm no worker from a pre-merge build survives. A pre-Clerk binary still logs in with
 the password outside the shared connection gate.
@@ -53,7 +52,7 @@ in-flight work (jumps, freight, transits) to have been interrupted mid-action.
 relaunch silently dies without this.
 
 ```bash
-rm -f data/overmind/{haul,mb,assist,hunt,unlock,craft,mission-learn}.sock
+rm -f data/overmind/{haul,mb,assist,hunt,shuttle,banker,unlock,craft,mission-learn,mining,crft-mining}.sock
 ```
 
 **d. Check the rescue queue.**
