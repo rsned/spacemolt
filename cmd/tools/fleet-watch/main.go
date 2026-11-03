@@ -62,7 +62,7 @@ func main() {
 	// The set is fixed at startup on purpose. Deriving it every pass would make
 	// a fleet vanish from the watch list at the exact moment its overmind died,
 	// which is the event this exists to catch. Retired fleets leave their logs
-	// behind (idle, mission, shuttle), so watching every *-overmind.log instead
+	// behind (idle, mission), so watching every *-overmind.log instead
 	// would alert forever about fleets nobody is running.
 	logger.Printf("watching fleets: %s", strings.Join(watch, ", "))
 

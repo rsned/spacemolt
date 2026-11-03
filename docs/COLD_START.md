@@ -6,8 +6,11 @@ Last proven end-to-end: **2026-08-14**, recovering from a workstation crash (~75
 seven fleets, 144 workers up, 0 restarts, all on one commit. The Checkpoints numbers come from
 that run; the step-5 prune incident numbers are from the 2026-07-30 run that hit it.
 
-The fleet set as of 2026-08-14: **haul / mb / assist / hunt / craft / unlock / mission-learn**.
-Shuttle and idle are retired (johnny_cab now lives in the unlock fleet).
+The fleet set as of 2026-11-02 (eleven overminds): **mb / assist / hunt / shuttle / banker / craft /
+unlock / mission-learn / mining / crft-mining / haul**, plus the `fleet-watch` monitor (step 7).
+Only `idle` and the old `mission` fleet are retired. **Shuttle is NOT retired:** johnny_cab went
+through the pirate-reputation unlock in August to reach more stations, then returned to the
+shuttle fleet to haul passengers.
 
 **Read this in order.** The order is the point: the fleets have a dependency chain
 (marketbots feed `market.db` → the scanner reads it → haulers route on what the scanner
@@ -156,8 +159,13 @@ Its first scan or two may fail with `SQLITE_BUSY` if the marketbots are mid-burs
 ws-token (minted over HTTP, then presented on the websocket) and every dial passes through a
 rolling 60 s budget shared by all processes on the host. The server allows 100 dials/min per IP;
 the gate holds to 60. Password logins, the fallback, have their own tighter budget of 20/min
-(server 30). So **fleets may launch back-to-back** — there is no `--stagger` and no waiting
-between launches. `--stagger` now defaults to 0; do not pass it.
+(server 30). The 60 is deliberate headroom under the server's 100, not a limit to tune up — keep it.
+So **fleets may launch back-to-back** — there is no `--stagger` and no waiting between launches.
+`--stagger` now defaults to 0; do not pass it.
+
+Retries are automatic. At a fresh start each worker gets 3 gated login tries; a server 429 or a
+close 4003 with `retry_after` is recorded on the shared gate, so every process on the host waits it
+out together instead of each hammering the server.
 
 Prerequisites, once per host:
 
@@ -233,7 +241,7 @@ setsid nohup ./bin/overmind --fleet data/overmind/mb-fleet.yaml --socket data/ov
 ### 3b. Assist (5) and hunt (5)
 
 Assist is the fuel-rescue fleet — bring it up early so it is available if anything strands.
-Hunt is the wildlife-cull pool (pirate-6..10). The shuttle fleet is retired — do not relaunch it.
+Hunt is the wildlife-cull pool (pirate-6..10).
 
 ```bash
 setsid nohup ./bin/overmind --socket data/overmind/assist.sock --fleet data/overmind/assist-fleet.yaml \
@@ -244,6 +252,24 @@ setsid nohup ./bin/overmind --socket data/overmind/hunt.sock --fleet data/overmi
   --worker-bin bin/worker --status-file data/overmind/hunt-status.json \
   --history-file data/overmind/hunt-history.jsonl \
   --assets-db-path data/assets.db >> data/overmind/hunt-overmind.log 2>&1 < /dev/null &
+```
+
+### 3b′. Shuttle (1) and banker (1)
+
+Shuttle is the passenger taxi (johnny_cab, `role: shuttle`). Banker is the_banker, the faction
+float. Both are single-member fleets: an override cannot remove a fleet's only member, so to take
+one of them over with `play_as`, let the lease park it (or SIGSTOP the worker).
+
+```bash
+setsid nohup ./bin/overmind --socket data/overmind/shuttle.sock --fleet data/overmind/shuttle-fleet.yaml \
+  --worker-bin bin/worker --status-file data/overmind/shuttle-status.json \
+  --history-file data/overmind/shuttle-history.jsonl \
+  --assets-db-path data/assets.db >> data/overmind/shuttle-overmind.log 2>&1 < /dev/null &
+
+setsid nohup ./bin/overmind --socket data/overmind/banker.sock --fleet data/overmind/banker-fleet.yaml \
+  --worker-bin bin/worker --status-file data/overmind/banker-status.json \
+  --history-file data/overmind/banker-history.jsonl \
+  --assets-db-path data/assets.db >> data/overmind/banker-overmind.log 2>&1 < /dev/null &
 ```
 
 ### 3c. Craft (9)
@@ -290,6 +316,28 @@ setsid nohup ./bin/overmind --socket data/overmind/mission-learn.sock \
 The roster is 41 but the launched count is lower — `mission-learn-overrides.json` holds a
 `removed` list (1 entry as of 2026-08-14). A short fleet is not necessarily a fault; check
 the sidecar before investigating.
+
+### 3f. Mining and crft-mining
+
+`mining` is the general miner pool; `crft-mining` is the CRFT contraband pipeline's miners
+(`role: pipeline_miner`, pinned by `pipeline:` in the yaml, plus miningbot_0000 resident at
+Conjunction Junction). Launched counts are below the yaml rosters when `<fleet>-overrides.json`
+removes entries — check the sidecar before calling a short fleet a fault. The shared handoff
+queue (`--handoff-queue`) and the fleet name (socket basename) come from the defaults.
+
+```bash
+setsid nohup ./bin/overmind --socket data/overmind/mining.sock --fleet data/overmind/mining-fleet.yaml \
+  --worker-bin bin/worker --market-db-path data/market.db \
+  --status-file data/overmind/mining-status.json --history-file data/overmind/mining-history.jsonl \
+  --assets-db-path data/assets.db >> data/overmind/mining-overmind.log 2>&1 < /dev/null &
+
+setsid nohup ./bin/overmind --socket data/overmind/crft-mining.sock \
+  --fleet data/overmind/crft-mining-fleet.yaml \
+  --worker-bin bin/worker --market-db-path data/market.db \
+  --status-file data/overmind/crft-mining-status.json \
+  --history-file data/overmind/crft-mining-history.jsonl \
+  --assets-db-path data/assets.db >> data/overmind/crft-mining-overmind.log 2>&1 < /dev/null &
+```
 
 ---
 
@@ -416,6 +464,12 @@ setsid nohup ./bin/market-prune --db-path data/market.db --retain 4h --interval 
   >> data/overmind/market-prune.log 2>&1 < /dev/null &
 ```
 
+Since 2026-11-03 each pass also prunes the hourly **history** to `--history-retain` (default 14d):
+`market_ohlcv` in market.db, and `market_demand_history` / `market_supply_history` in the
+knowledge DB (`--kb-path`, default `data/spacemolt-knowledge.db`; `""` skips it). All deletes are
+batched (50k rows, lock released between batches). The first pass after this change worked
+through ~20M OHLCV + ~25M KB history rows; later passes only trim a 30-minute slice.
+
 **Never use `--vacuum` to clear a backlog**, and never on a live fleet: VACUUM needs an exclusive
 lock, meaning every overmind and all ~109 workers stopped. For a genuinely huge backlog the fast
 technique is a fresh-DB rebuild-and-swap, not DELETE+VACUUM.
@@ -445,6 +499,22 @@ setsid nohup ./bin/fleet-secondment --watch 5m \
 Defaults cover the rest (`--home haul --away unlock`, sockets, overrides sidecars,
 `--ledger data/overmind/secondments.json`). `fleet-secondment --status` prints the ledger
 read-only if you want to inspect it first.
+
+## 7. `fleet-watch` — truly last
+
+`fleet-watch` alerts when a fleet's log goes silent or disconnects go unmatched by reconnects.
+**It fixes its watch list at startup from the overminds running at that moment**, so start it
+only after every fleet — haul included — is up. Started early, it silently never watches the
+fleets launched after it. Confirm the banner lists all eleven:
+`watching fleets: assist, banker, craft, crft-mining, haul, hunt, mb, mining, mission-learn, shuttle, unlock`.
+
+```bash
+setsid nohup ./bin/fleet-watch --interval 60s --stale 3m --notify \
+  >> data/overmind/fleet-watch-daemon.log 2>&1 < /dev/null &
+```
+
+Health snapshot: `data/overmind/fleet-watch-status.json`; one-shot check:
+`./bin/fleet-watch --once --notify=false`.
 
 ---
 
