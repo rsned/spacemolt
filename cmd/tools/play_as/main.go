@@ -3339,6 +3339,7 @@ func formatFacilityList(raw []byte) string {
 	if totalSections == 0 {
 		fmt.Fprintln(&b, "  (no facilities)")
 	}
+	renderStationBlocks(&b, raw)
 	if resp.Hint != "" {
 		fmt.Fprintf(&b, "\n  💡 %s\n", resp.Hint)
 	}

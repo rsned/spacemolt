@@ -1276,8 +1276,16 @@ type FacilityListResponse struct {
 	// factions' land in PublicFacilities. Ally use is fee-free, so these
 	// entries advertise throughput without a per-run rental fee.
 	AllyFacilities []map[string]any `json:"ally_facilities"`
-	Construction   map[string]any   `json:"construction,omitempty"`
-	Power          map[string]any   `json:"power,omitempty"`
+	// Construction is the station-owned build queue: what is under
+	// construction and what the station manager plans next, with the
+	// materials still missing. The viewer's own and faction builds are not
+	// here; they appear in their sections with under_construction. nil when
+	// the station is building nothing.
+	Construction *StationConstruction `json:"construction,omitempty"`
+	// Power is the station grid. While Efficiency is below 1 every production
+	// facility and recycler at the station is slowed. nil when the station has
+	// no supply, draw or battery.
+	Power *StationPower `json:"power,omitempty"`
 	// FactionRent summarizes rent for the faction's facilities at this station
 	// (est_rent_per_day, facilities, grace_cycles, total_rent_per_cycle, note),
 	// deducted from the faction treasury each cycle. Present only when the
@@ -1303,6 +1311,39 @@ type FacilityListResponse struct {
 	ServicePools *StationServicePools `json:"service_pools,omitempty"`
 }
 
+// StationPower is a station's power grid (openapi StationPowerStatus).
+type StationPower struct {
+	Supply          int     `json:"supply"`
+	CurrentDraw     int     `json:"current_draw"`
+	BatteryStored   int     `json:"battery_stored"`
+	BatteryCapacity int     `json:"battery_capacity"`
+	Efficiency      float64 `json:"efficiency"`
+	// FuelInputs are the items the station's generators burn per cycle.
+	FuelInputs  []LifeSupportMaintenance `json:"fuel_inputs,omitempty"`
+	Remediation string                   `json:"remediation,omitempty"`
+}
+
+// StationConstruction is a station's own build queue (openapi
+// StationConstructionResponse).
+type StationConstruction struct {
+	UnderConstruction []StationConstructionEntry `json:"under_construction,omitempty"`
+	Pending           []StationConstructionEntry `json:"pending,omitempty"`
+}
+
+// StationConstructionEntry is one station build, building or planned. The
+// materials share the repair bill's shape; QuantityMissing is omitted by the
+// server when a material is fully stocked.
+type StationConstructionEntry struct {
+	DefinitionID       string                  `json:"definition_id"`
+	Name               string                  `json:"name,omitempty"`
+	Category           string                  `json:"category,omitempty"`
+	Status             string                  `json:"status,omitempty"`
+	Reason             string                  `json:"reason,omitempty"`
+	TicksUntilComplete int                     `json:"ticks_until_complete,omitempty"`
+	BuildCost          int64                   `json:"build_cost,omitempty"`
+	Materials          []StationRepairMaterial `json:"materials,omitempty"`
+}
+
 // StationServicePools groups the three v0.572.0 station personnel pools.
 type StationServicePools struct {
 	Personnel      StationServicePoolStatus `json:"personnel"`
@@ -1319,6 +1360,10 @@ type StationServicePoolStatus struct {
 	RefillPerCycle          int    `json:"refill_per_cycle"`
 	SupplyItem              string `json:"supply_item,omitempty"`
 	NextCycleSupplyRequired int    `json:"next_cycle_supply_required,omitempty"`
+	// CrewTreatmentPrice and MarineTreatmentPrice are the current credits per
+	// patient; present for the medical pool only.
+	CrewTreatmentPrice   int `json:"crew_treatment_price,omitempty"`
+	MarineTreatmentPrice int `json:"marine_treatment_price,omitempty"`
 }
 
 // StorageLocation is one station holding this player's storage, as reported by
