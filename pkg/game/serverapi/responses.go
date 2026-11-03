@@ -1693,10 +1693,25 @@ type ViewFactionStorageResponse struct {
 	Credits        int              `json:"credits"`
 	Items          []CargoItem      `json:"items"`
 	RecentActivity []map[string]any `json:"recent_activity,omitempty"`
+	// Buckets are the faction's named storage extensions at this base, each
+	// with its own per-item and package caps. Deposit into one with
+	// `storage deposit target=faction bucket=<name>`.
+	Buckets []FactionStorageBucket `json:"buckets,omitempty"`
 
 	FactionFuelCapacity int    `json:"faction_fuel_capacity,omitempty"`
 	FactionFuelReserve  int    `json:"faction_fuel_reserve,omitempty"`
 	Hint                string `json:"hint,omitempty"`
+}
+
+// FactionStorageBucket is one named storage extension in view_faction_storage
+// (seen 2026-11-02 at Conjunction Junction: "Storage Extension",
+// cap_per_item 100000, package_cap 1000, no items).
+type FactionStorageBucket struct {
+	ID         string      `json:"id"`
+	Name       string      `json:"name"`
+	CapPerItem int         `json:"cap_per_item"`
+	PackageCap int         `json:"package_cap"`
+	Items      []CargoItem `json:"items"`
 }
 
 // FactionRoom is one room in a faction's common space (faction_rooms).
