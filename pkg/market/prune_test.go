@@ -121,3 +121,47 @@ func TestPruneOrders_BatchesLargeDeletes(t *testing.T) {
 		t.Errorf("remaining = %d, want the single in-window row", remaining)
 	}
 }
+
+func TestPruneOHLCV(t *testing.T) {
+	c, err := Open(Config{DBPath: filepath.Join(t.TempDir(), "ohlcv.db")})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = c.Close() }()
+	ctx := context.Background()
+
+	// A snapshot seeds the stations/items rows the candles reference.
+	at := time.Date(2026, 6, 26, 18, 0, 0, 0, time.UTC)
+	if err = c.WriteSnapshot(ctx, MarketSnapshot{
+		StationID: "stn1", StationName: "One", SystemID: "sys1", SystemName: "S1",
+		CapturedAt: at,
+		Orders:     []Order{{StationID: "stn1", ItemID: "iron_ore", Side: "sell", PriceEach: 5, Quantity: 1, CapturedAt: at}},
+	}); err != nil {
+		t.Fatalf("WriteSnapshot: %v", err)
+	}
+	if _, err = c.db.ExecContext(ctx, `DELETE FROM market_ohlcv`); err != nil {
+		t.Fatalf("clear ohlcv: %v", err)
+	}
+	for _, b := range []string{"2026-06-10T10:00:00Z", "2026-06-11T10:00:00Z", "2026-06-26T10:00:00Z"} {
+		if _, err = c.db.ExecContext(ctx, `INSERT INTO market_ohlcv
+			(station_id, item_id, side, bucket_utc, open_price, high_price, low_price, close_price, volume, trade_count, vwap)
+			VALUES ('stn1', 'iron_ore', 'sell', ?, 5, 5, 5, 5, 1, 1, 5)`, b); err != nil {
+			t.Fatalf("insert candle %s: %v", b, err)
+		}
+	}
+
+	n, err := c.PruneOHLCV(ctx, time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("PruneOHLCV: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("deleted = %d, want 2", n)
+	}
+	var left string
+	if err = c.db.QueryRowContext(ctx, `SELECT bucket_utc FROM market_ohlcv`).Scan(&left); err != nil {
+		t.Fatalf("remaining candle: %v", err)
+	}
+	if left != "2026-06-26T10:00:00Z" {
+		t.Fatalf("remaining bucket = %s, want the 06-26 candle", left)
+	}
+}

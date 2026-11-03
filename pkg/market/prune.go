@@ -44,7 +44,29 @@ const pruneBatchPause = game.SleepQuick
 // rows worth keeping and needs no VACUUM. That path requires every writer to be
 // down, so it belongs at cold start, before the fleets are launched.
 func (c *Collector) PruneOrders(ctx context.Context, olderThan time.Time) (int64, error) {
+	return c.pruneByBucket(ctx, "market_orders", olderThan)
+}
+
+// PruneOHLCV deletes market_ohlcv candles whose hourly bucket is older than the
+// given cutoff, returning the number of rows removed. Candles are history, not
+// snapshots, so callers give them a much longer window than market_orders; the
+// delete is batched for the same lock-duration reasons documented on
+// PruneOrders.
+func (c *Collector) PruneOHLCV(ctx context.Context, olderThan time.Time) (int64, error) {
+	return c.pruneByBucket(ctx, "market_ohlcv", olderThan)
+}
+
+// pruneByBucket deletes rows of table whose bucket_utc is older than olderThan,
+// in batches of pruneBatchSize with pruneBatchPause between them. table is
+// interpolated into the SQL, so only the package's own constant names may be
+// passed.
+func (c *Collector) pruneByBucket(ctx context.Context, table string, olderThan time.Time) (int64, error) {
 	cutoff := olderThan.UTC().Format(time.RFC3339)
+	query := `
+				DELETE FROM ` + table + `
+				WHERE rowid IN (
+					SELECT rowid FROM ` + table + ` WHERE bucket_utc < ? LIMIT ?
+				)`
 
 	var total int64
 	for {
@@ -53,11 +75,7 @@ func (c *Collector) PruneOrders(ctx context.Context, olderThan time.Time) (int64
 			// rowid is the batching key: an unqualified DELETE ... LIMIT is not
 			// available unless SQLite was built with SQLITE_ENABLE_UPDATE_DELETE_LIMIT,
 			// and the subquery form works on any build.
-			res, err := tx.ExecContext(ctx, `
-				DELETE FROM market_orders
-				WHERE rowid IN (
-					SELECT rowid FROM market_orders WHERE bucket_utc < ? LIMIT ?
-				)`, cutoff, pruneBatchSize)
+			res, err := tx.ExecContext(ctx, query, cutoff, pruneBatchSize)
 			if err != nil {
 				return err
 			}
