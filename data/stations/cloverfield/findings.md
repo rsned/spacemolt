@@ -371,9 +371,17 @@ titanium_alloy.
   unsatisfied, with **0 durasteel** in CRFT storage. craftsman-1 deposited **170** at tick
   **2,310,862**. The yard read `1` / satisfied on the next `facility list` (23:46Z). Storage still
   read **170 at ~2,311,451**, so nothing was consumed in **589 ticks**. A 100-tick cycle would have
-  used 5–6. This rules out the rent cycle and fits the ~3,000-tick estimate. Next step: note the
-  tick when it first reads 169 to pin the length. Satisfaction flipped without a unit being
-  consumed, so the level looks like a stock check against one cycle's need, not a burn record.
+  used 5–6. This rules out the rent cycle and fits the ~3,000-tick estimate. Satisfaction
+  flipped without a unit being consumed, so the level looks like a stock check against one
+  cycle's need, not a burn record.
+- **⭐ Maintenance cycle MEASURED ≈ 3,000 ticks (2026-11-04).** miningbot_0000 ran
+  `quarter_hourly capture_faction` and `scripts/storage-item-watch.sh` logged each change to
+  `durasteel-watch.log`. The yard's durasteel went **170→169** between the 01:19:47Z and
+  01:34:47Z captures, held at 169 for the next 45 minutes (no 100-tick burn), then went
+  **169→168** between 09:34:47Z and 09:49:47Z. The interval is **8h00m–8h30m (2,880–3,060
+  ticks)**, so about 2.9 cycles a day. Every "per cycle" upkeep figure in this file is
+  per ~3,000 ticks, not per 100. At 1 per cycle, 170 durasteel lasts ~58 days and the 108
+  titanium_alloy ~37 days, if the yard is their only consumer.
 - To bracket the cycle length: re-read and note the tick each time steel_plate and
   flex_polymer drop together.
 - ⚠ The catalog upkeep table below and the KB guide still multiply by 86.4/day. At ~2.9/day the
