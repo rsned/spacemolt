@@ -478,11 +478,21 @@ type SpaceBase struct {
 	SatisfactionPct   int    // 0-100 satisfaction percentage
 	SatisfiedCount    int    // Number of satisfied service/infra facilities
 	TotalServiceInfra int    // Total number of service/infra facilities
-	Services          map[string]bool
-	Facilities        []Facility // Facilities with category and level information
-	Market            []BaseMarketItem
-	LastUpdatedTick   int64
+	// Type is the base kind from /api/stations: "station" or "outpost" (""
+	// when not yet refreshed). Written only by stations-refresh; RememberBase
+	// never touches it.
+	Type            string
+	Services        map[string]bool
+	Facilities      []Facility // Facilities with category and level information
+	Market          []BaseMarketItem
+	LastUpdatedTick int64
 }
+
+// IsOutpost reports whether the base is an outpost: faction-members-only,
+// zero services, and an outsider's dock returns "Access denied". The POI is
+// still typed "station" and the base stored public_access=1, so only this
+// field tells an outpost from a station a ship can actually use.
+func (b *SpaceBase) IsOutpost() bool { return b != nil && b.Type == "outpost" }
 
 // BaseMarketItem represents an item for sale at a base market
 type BaseMarketItem struct {

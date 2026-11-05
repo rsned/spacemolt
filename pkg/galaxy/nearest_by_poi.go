@@ -56,6 +56,11 @@ func FindNearestByPOIType(
 
 // queryAccessibleStations returns system IDs that contain at least one
 // publicly accessible station and are not strongholds.
+//
+// Outposts do not count. They are faction-members-only and refuse an
+// outsider's dock, yet their POIs are typed "station" and their bases stored
+// public_access=1 — so without this gate a stranded ship was routed onto one
+// and parked there (johnny_cab at Ironlight Ferrous Range, 2026-11-02..04).
 func queryAccessibleStations(ctx context.Context, kb knowledge.Base) ([]string, error) {
 	systems, err := kb.GetSystems(ctx)
 	if err != nil {
@@ -76,7 +81,7 @@ func queryAccessibleStations(ctx context.Context, kb knowledge.Base) ([]string, 
 				continue
 			}
 			base, err := kb.GetBaseByPOI(ctx, poi.ID)
-			if err == nil && base != nil && base.PublicAccess {
+			if err == nil && base != nil && base.PublicAccess && !base.IsOutpost() {
 				systemSet[sys.ID] = true
 				break
 			}

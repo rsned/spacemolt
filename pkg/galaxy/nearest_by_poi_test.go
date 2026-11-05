@@ -147,3 +147,51 @@ func TestFindNearestByPOIType_OtherType(t *testing.T) {
 		t.Errorf("expected one result at sys-b, got %+v", results)
 	}
 }
+
+// An outpost is faction-members-only: an outsider's dock returns "Access
+// denied". The KB still types its POI "station" and stores public_access=1, so
+// before this gate a stranded shuttle was routed to one and parked there for
+// two days (Ironlight Ferrous Range, Goldcrest, 2026-11-02..04). The nearest
+// station must skip outposts and find the real one a jump further out.
+func TestFindNearestByPOIType_OutpostExcluded(t *testing.T) {
+	ctx := context.Background()
+	kb := knowledge.NewMemoryKB()
+	defer func() { _ = kb.Close() }()
+
+	for _, s := range []knowledge.System{
+		{ID: "goldcrest", Name: "Goldcrest", Connections: []knowledge.SystemConnection{{SystemID: "lhs_1140", Distance: 1}}},
+		{ID: "lhs_1140", Name: "LHS 1140", Connections: []knowledge.SystemConnection{{SystemID: "goldcrest", Distance: 1}}},
+	} {
+		if err := kb.RememberSystem(ctx, s); err != nil {
+			t.Fatalf("remember %s: %v", s.ID, err)
+		}
+	}
+	for _, p := range []knowledge.POI{
+		{ID: "ferrous_range", SystemID: "goldcrest", Type: "station"},
+		{ID: "crossroads", SystemID: "lhs_1140", Type: "station"},
+	} {
+		if err := kb.RememberPOI(ctx, p); err != nil {
+			t.Fatalf("remember poi %s: %v", p.ID, err)
+		}
+	}
+	for _, b := range []knowledge.SpaceBase{
+		{ID: "b-ferrous", POIID: "ferrous_range", PublicAccess: true, Type: "outpost"},
+		{ID: "b-crossroads", POIID: "crossroads", PublicAccess: true, Type: "station"},
+	} {
+		if err := kb.RememberBase(ctx, b); err != nil {
+			t.Fatalf("remember base %s: %v", b.ID, err)
+		}
+	}
+
+	g := &GalaxyGraph{}
+	if err := g.BuildFromDB(ctx, kb); err != nil {
+		t.Fatalf("BuildFromDB: %v", err)
+	}
+	results, err := FindNearestByPOIType(ctx, kb, g, "goldcrest", "station", 1)
+	if err != nil {
+		t.Fatalf("FindNearestByPOIType: %v", err)
+	}
+	if len(results) != 1 || results[0].SystemID != "lhs_1140" {
+		t.Fatalf("nearest station = %+v, want lhs_1140 (goldcrest holds only an outpost)", results)
+	}
+}

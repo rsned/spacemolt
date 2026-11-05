@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -185,6 +186,20 @@ func Shuttle(ctx context.Context, deps ShuttleDeps) error {
 		}
 	}
 
+	// Docked at an OUTPOST is not docked at a station. An outpost is
+	// faction-members-only: its dock answers "Access denied" yet the client
+	// still reads docked, and every station action (passengers, refuel, gifts)
+	// is refused. The branch above only handles undocked strands, so without
+	// this the shuttle looped list_passengers at Ironlight Ferrous Range for two
+	// days (2026-11-02..04). Relocate to the nearest real station instead.
+	if shuttleDockedAtOutpost(ctx, deps.KB, state.CurrentPOI) {
+		fmt.Fprintf(out, "shuttle: at outpost %q (members-only, no services); relocating to a station\n", state.CurrentPOI) //nolint:errcheck
+		if !shuttleRecoverIfStranded(ctx, deps, out, current, state.CurrentPOI) {
+			fmt.Fprintln(out, "shuttle: no reachable station to relocate to; idling") //nolint:errcheck
+		}
+		return nil
+	}
+
 	// Docked with no committed run: a low wallet now is genuine fumes, so this is
 	// the safe point to pull a treasury rescue before earning the next fares.
 	deps.Treasury.maybe(ctx, deps.Client, out, shuttleNow(deps))
@@ -206,6 +221,16 @@ func Shuttle(ctx context.Context, deps ShuttleDeps) error {
 
 	resp, err := deps.Client.ListStationPassengers(ctx, "")
 	if err != nil {
+		if shuttleNotAtStation(err) {
+			// The client reads docked but the server disagrees: we are at a
+			// base that is not a station (an outpost the KB has not typed
+			// yet). Idling here repeats forever; relocate.
+			fmt.Fprintf(out, "shuttle: server says not docked at a station (%v); relocating\n", err) //nolint:errcheck
+			if !shuttleRecoverIfStranded(ctx, deps, out, current, state.CurrentPOI) {
+				fmt.Fprintln(out, "shuttle: no reachable station to relocate to; idling") //nolint:errcheck
+			}
+			return nil
+		}
 		fmt.Fprintf(out, "shuttle: list passengers failed: %v; idling\n", err) //nolint:errcheck
 		return nil
 	}
@@ -468,7 +493,7 @@ func repositionShuttle(ctx context.Context, deps ShuttleDeps, out io.Writer, cur
 		fmt.Fprintf(out, "shuttle: reposition aborted (pois for %s: %v)\n", name, err) //nolint:errcheck
 		return
 	}
-	station := freshestStation(pois)
+	station := freshestStation(withoutOutposts(ctx, deps.KB, pois))
 	if station == "" {
 		fmt.Fprintf(out, "shuttle: no known station in %s; staying put\n", name) //nolint:errcheck
 		return
@@ -524,6 +549,42 @@ func freshestStation(pois []knowledge.POI) string {
 	return best
 }
 
+// withoutOutposts drops POIs whose base is an outpost. Outposts are typed
+// "station" like real stations, so a freshest-station pick over the raw list
+// can choose one (Ironlight Argon Shoal beside Ironlight Crossroads in LHS 1140,
+// 2026-10-21) and park the shuttle where it can never dock. A POI whose base is
+// unknown is kept: absence of data is not evidence of an outpost.
+func withoutOutposts(ctx context.Context, kb knowledge.Base, pois []knowledge.POI) []knowledge.POI {
+	out := make([]knowledge.POI, 0, len(pois))
+	for _, p := range pois {
+		if p.Type == "station" && shuttleDockedAtOutpost(ctx, kb, p.ID) {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// shuttleDockedAtOutpost reports whether poiID is the site of a known outpost.
+func shuttleDockedAtOutpost(ctx context.Context, kb knowledge.Base, poiID string) bool {
+	if kb == nil || poiID == "" {
+		return false
+	}
+	base, err := kb.GetBaseByPOI(ctx, poiID)
+	return err == nil && base.IsOutpost()
+}
+
+// shuttleNotAtStation reports whether err is the server saying the ship is not
+// docked at a station — what it answers while the client still reads docked at
+// an outpost.
+func shuttleNotAtStation(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "must be docked at a station") || strings.Contains(msg, "not_docked")
+}
+
 // shuttleAlreadyAtStation reports whether the shuttle is already sitting at the
 // target station POI, so its undocked state is merely a pending dock (it just
 // arrived) rather than a strand. In that case recovery must NOT re-issue travel —
@@ -576,7 +637,7 @@ func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writ
 	// POI-type lookups, so query the KB directly (as repositionShuttle does).
 	station := ""
 	if pois, perr := deps.KB.GetPOIs(ctx, dest.SystemID); perr == nil {
-		station = freshestStation(pois)
+		station = freshestStation(withoutOutposts(ctx, deps.KB, pois))
 	}
 
 	// Already at the target station POI: the dock is just pending, not a strand.

@@ -394,3 +394,74 @@ func TestFreshestStation(t *testing.T) {
 		})
 	}
 }
+
+// outpostKB holds LHS 1140's mixed pair — the real station Ironlight Crossroads
+// and the members-only outpost Ironlight Argon Shoal — plus Goldcrest's ranch.
+// Every POI is typed "station"; only the bases tell them apart.
+func outpostKB(t *testing.T) (knowledge.Base, []knowledge.POI) {
+	t.Helper()
+	ctx := context.Background()
+	kb := knowledge.NewMemoryKB()
+	t.Cleanup(func() { _ = kb.Close() })
+	pois := []knowledge.POI{
+		{ID: "argon_shoal", SystemID: "lhs_1140", Type: "station", LastUpdatedTick: 2_300_000},
+		{ID: "crossroads", SystemID: "lhs_1140", Type: "station", LastUpdatedTick: 2_200_000},
+		{ID: "ferrous_range", SystemID: "goldcrest", Type: "station", LastUpdatedTick: 2_300_000},
+	}
+	for _, p := range pois {
+		if err := kb.RememberPOI(ctx, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, b := range []knowledge.SpaceBase{
+		{ID: "b-argon", POIID: "argon_shoal", PublicAccess: true, Type: "outpost"},
+		{ID: "b-crossroads", POIID: "crossroads", PublicAccess: true, Type: "station"},
+		{ID: "b-ferrous", POIID: "ferrous_range", PublicAccess: true, Type: "outpost"},
+	} {
+		if err := kb.RememberBase(ctx, b); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return kb, pois
+}
+
+// The fresher outpost must not win the station pick: the shuttle would fly to
+// Argon Shoal, be refused the dock, and sit there (2026-10-21).
+func TestWithoutOutposts_PicksTheRealStation(t *testing.T) {
+	kb, pois := outpostKB(t)
+	lhs := pois[:2]
+	if got := freshestStation(withoutOutposts(context.Background(), kb, lhs)); got != "crossroads" {
+		t.Fatalf("station pick = %q, want crossroads (argon_shoal is an outpost)", got)
+	}
+	if got := freshestStation(withoutOutposts(context.Background(), kb, pois[2:])); got != "" {
+		t.Fatalf("goldcrest pick = %q, want none (its only base is an outpost)", got)
+	}
+}
+
+func TestShuttleDockedAtOutpost(t *testing.T) {
+	kb, _ := outpostKB(t)
+	ctx := context.Background()
+	for poi, want := range map[string]bool{"ferrous_range": true, "crossroads": false, "unknown_poi": false, "": false} {
+		if got := shuttleDockedAtOutpost(ctx, kb, poi); got != want {
+			t.Errorf("shuttleDockedAtOutpost(%q) = %v, want %v", poi, got, want)
+		}
+	}
+}
+
+// The server's answer when the ship is docked somewhere that is not a station
+// (an outpost) — the reply johnny_cab looped on for two days.
+func TestShuttleNotAtStation(t *testing.T) {
+	for msg, want := range map[string]bool{
+		"You must be docked at a station to see waiting passengers.": true,
+		"not_docked: You must be docked at a station":                true,
+		"timeout waiting for list_station_passengers":                false,
+		"not connected": false,
+	} {
+		if got := shuttleNotAtStation(errors.New(msg)); got != want {
+			t.Errorf("shuttleNotAtStation(%q) = %v, want %v", msg, got, want)
+		}
+	}
+	if shuttleNotAtStation(nil) {
+		t.Error("nil error must not read as not-at-station")
+	}
+}

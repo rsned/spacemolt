@@ -680,7 +680,7 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 		SELECT id, poi_id, name, COALESCE(description, ''), COALESCE(story, ''), COALESCE(empire, ''), defense_level, has_drones, public_access,
 			COALESCE(pirate_rep_required, 0), COALESCE(condition, ''), COALESCE(condition_text, ''),
 			COALESCE(satisfaction_pct, 0), COALESCE(satisfied_count, 0), COALESCE(total_service_infra, 0),
-			last_updated_tick
+			COALESCE(type, ''), last_updated_tick
 		FROM bases
 		WHERE id = ?
 	`, baseID).Scan(
@@ -699,6 +699,7 @@ func (kb *SQLiteKB) GetBase(ctx context.Context, baseID string) (*SpaceBase, err
 		&base.SatisfactionPct,
 		&base.SatisfiedCount,
 		&base.TotalServiceInfra,
+		&base.Type,
 		&base.LastUpdatedTick,
 	)
 	if err != nil {
@@ -799,7 +800,7 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 		SELECT id, poi_id, name, COALESCE(description, ''), COALESCE(story, ''), COALESCE(empire, ''), defense_level, has_drones, public_access,
 			COALESCE(pirate_rep_required, 0), COALESCE(condition, ''), COALESCE(condition_text, ''),
 			COALESCE(satisfaction_pct, 0), COALESCE(satisfied_count, 0), COALESCE(total_service_infra, 0),
-			last_updated_tick
+			COALESCE(type, ''), last_updated_tick
 		FROM bases
 		WHERE poi_id = ?
 	`, poiID).Scan(
@@ -818,6 +819,7 @@ func (kb *SQLiteKB) GetBaseByPOI(ctx context.Context, poiID string) (*SpaceBase,
 		&base.SatisfactionPct,
 		&base.SatisfiedCount,
 		&base.TotalServiceInfra,
+		&base.Type,
 		&base.LastUpdatedTick,
 	)
 	if err != nil {
