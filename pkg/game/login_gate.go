@@ -3,6 +3,7 @@ package game
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -40,7 +41,17 @@ type authAttempt struct {
 	// Client passes its own so the initial dial and every reconnect share it;
 	// nil means once per dialWithGate call.
 	fallbackOnce *sync.Once
+
+	// noPassword marks a Clerk-only agent: an account registered on the
+	// website whose password we never held. It can only log in with a minted
+	// ws-token, so a failed mint fails the try (the gate retries Clerk) rather
+	// than falling back to a password login with an empty password.
+	noPassword bool
 }
+
+// errClerkOnlyNoKey is returned for a Clerk-only agent on a host with no Clerk
+// key: it has no other way to authenticate.
+var errClerkOnlyNoKey = errors.New("clerk-only agent (no password in credentials.json) needs a Clerk API key to log in")
 
 // try performs one gated authentication: Acquire → mint → connect → login.
 //
@@ -48,8 +59,12 @@ type authAttempt struct {
 // gate grants the slot; minting first could hand login a token that expired in
 // the queue. A rate-limited mint is a fleet-wide block and does not fall back
 // (the password budget is scarcer than the dial budget). Any other mint error
-// falls back to the password login and is charged to the password budget.
+// falls back to the password login and is charged to the password budget —
+// except for a Clerk-only agent (noPassword), which has none to fall back to.
 func (a *authAttempt) try(ctx context.Context, g *ReconnectGate) error {
+	if a.noPassword && a.mint == nil {
+		return errClerkOnlyNoKey
+	}
 	kind := DialPassword
 	if a.mint != nil {
 		kind = DialToken
@@ -85,6 +100,8 @@ func (a *authAttempt) try(ctx context.Context, g *ReconnectGate) error {
 			}
 			_ = g.RecordBlock(d, source)
 			return err
+		case a.noPassword:
+			return fmt.Errorf("clerk mint failed for a clerk-only agent (no password to fall back to): %w", err)
 		default:
 			a.logFallback(err)
 			if err := g.Acquire(ctx, DialPassword); err != nil {

@@ -1035,7 +1035,8 @@ func (c *Client) Reconnect(ctx context.Context) error {
 	c.mu.RUnlock()
 
 	a := authAttempt{
-		mint: minter,
+		mint:       minter,
+		noPassword: c.password == "",
 		connect: func(ctx context.Context) error {
 			if err := c.Connect(ctx); err != nil {
 				c.debugLogger.Printf("Reconnect failed: %v", err)

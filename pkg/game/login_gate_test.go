@@ -499,3 +499,52 @@ func TestRecordRateLimitBlock_IgnoresDNSError(t *testing.T) {
 		}
 	}
 }
+
+// A Clerk-only agent has no password, so a failed mint must not fall back to
+// a password login — that would send an empty password, fail, and spend the
+// scarce per-IP password budget. The try fails instead and the gate retries
+// Clerk on the next attempt.
+func TestDialWithGate_NoPasswordNeverFallsBack(t *testing.T) {
+	clk := &fakeClock{t: time.Unix(2_000_000, 0)}
+	path := filepath.Join(t.TempDir(), "g")
+	g := newTestGate(t, path, testGateCfg, clk)
+
+	logins := 0
+	a := authAttempt{
+		mint: func(context.Context) (string, error) {
+			return "", &clerk.HTTPError{Status: 401, Method: "POST", URL: "/api/player/p/ws-token"}
+		},
+		connect:    func(context.Context) error { return nil },
+		login:      func(context.Context, string) error { logins++; return nil },
+		noPassword: true,
+		logger:     log.New(new(bytes.Buffer), "", 0),
+	}
+	err := dialWithGate(context.Background(), g, dialAttempts, a)
+	if err == nil {
+		t.Fatal("want an error when a Clerk-only agent cannot mint")
+	}
+	if logins != 0 {
+		t.Errorf("login called %d times, want 0 (no password to fall back to)", logins)
+	}
+	if st := readGateFile(t, path); len(st.PasswordLogins) != 0 {
+		t.Errorf("password_logins = %v, want none", st.PasswordLogins)
+	}
+}
+
+// Without a Clerk key there is no minter, and a Clerk-only agent then has no
+// way to log in at all: fail without dialing.
+func TestDialWithGate_NoPasswordNoMinterFails(t *testing.T) {
+	g := newTestGate(t, filepath.Join(t.TempDir(), "g"), testGateCfg, &fakeClock{t: time.Unix(2_000_000, 0)})
+	connects := 0
+	a := authAttempt{
+		connect:    func(context.Context) error { connects++; return nil },
+		login:      func(context.Context, string) error { return nil },
+		noPassword: true,
+	}
+	if err := dialWithGate(context.Background(), g, 1, a); err == nil {
+		t.Fatal("want an error: no Clerk key and no password")
+	}
+	if connects != 0 {
+		t.Errorf("connected %d times, want 0", connects)
+	}
+}

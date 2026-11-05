@@ -141,8 +141,10 @@ func LoadCredentials(agentDir string) (*Credentials, error) {
 	if creds.Username == "" {
 		return nil, fmt.Errorf("username is required in credentials.json")
 	}
-	if creds.Password == "" {
-		return nil, fmt.Errorf("password is required in credentials.json")
+	// A password may be absent only for a Clerk-only agent, which logs in by
+	// player_id with a minted ws-token and has no password to fall back to.
+	if creds.Password == "" && creds.PlayerID == "" {
+		return nil, fmt.Errorf("credentials.json needs a password, or a player_id for a Clerk-only agent")
 	}
 	if creds.Empire == "" {
 		return nil, fmt.Errorf("empire is required in credentials.json")
@@ -226,7 +228,8 @@ func InitializeAgent(agentID string, logger *log.Logger, ctx context.Context, de
 	reconnectingHandler.reconnecting.Store(true)
 	tries := 0
 	dialErr := dialWithGate(ctx, gate, dialAttempts, authAttempt{
-		mint: minter,
+		mint:       minter,
+		noPassword: creds.Password == "",
 		connect: func(ctx context.Context) error {
 			if tries++; tries > 1 {
 				client.resetForDial()
