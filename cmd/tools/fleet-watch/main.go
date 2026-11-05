@@ -270,7 +270,7 @@ func liveFleets() []string {
 			continue
 		}
 		exe, err := os.Readlink(filepath.Join("/proc", e.Name(), "exe"))
-		if err != nil || filepath.Base(exe) != "overmind" {
+		if err != nil || exeName(exe) != "overmind" {
 			continue
 		}
 		raw, err := os.ReadFile(filepath.Join("/proc", e.Name(), "cmdline"))
@@ -352,11 +352,20 @@ func processCensus() map[string]int {
 		if err != nil {
 			continue
 		}
-		base := filepath.Base(exe)
-		if interesting[base] {
+		if base := exeName(exe); interesting[base] {
 			counts[base]++
 		}
 	}
 
 	return counts
+}
+
+// exeName is the executable's base name from a /proc/<pid>/exe link. Once a
+// binary is rebuilt on disk, the link of every process still running the old
+// one reads "<path> (deleted)"; those are still live fleet processes, so the
+// suffix is stripped. Without this, one rebuild of bin/worker made the census
+// count only workers started since, and fleet-watch alerted "19 running,
+// expected at least 200" (2026-11-04).
+func exeName(link string) string {
+	return filepath.Base(strings.TrimSuffix(link, " (deleted)"))
 }
