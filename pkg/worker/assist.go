@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -346,6 +347,26 @@ func runRescue(ctx context.Context, deps AssistDeps, rec rescue.Record) error {
 		return assistEnsureHome(ctx, deps)
 	}
 	if err := deps.Client.RefuelShip(ctx, rec.TargetUsername, qty); err != nil {
+		if rescueTargetGone(err) {
+			// The strandee is not at the record's POI — almost always GSA
+			// towed it to a station after the record was filed. Every
+			// assister would fly here and fail the same way, and a failed
+			// record keeps the worker quarantined with no process to fix
+			// itself (trader-4 docked at Carnegie Hall, pirate-15 at
+			// Ironhearth Station, 2026-11-04). Release it: the relaunched
+			// worker refuels where it really is, or stalls again and files
+			// a fresh record carrying its true POI.
+			if _, terr := deps.Queue.Transition(rec.AgentID, rescue.StatusClaimed, rescue.StatusDone,
+				func(r *rescue.Record) {
+					r.Error = "released: target not at the strand POI (" + err.Error() + "); likely towed — relaunching for self-recovery"
+					r.ClaimedBy = ""
+				}); terr != nil {
+				fmt.Fprintf(deps.Out, "assist: release %s: %v\n", rec.AgentID, terr) //nolint:errcheck
+			}
+			fmt.Fprintf(deps.Out, "assist: rescue %s: target not at %s/%s (%v); released for self-recovery\n", //nolint:errcheck
+				rec.AgentID, rec.SystemID, rec.POI, err)
+			return assistEnsureHome(ctx, deps)
+		}
 		return fail("refuel", err)
 	}
 	if ok, err := deps.Queue.Transition(rec.AgentID, rescue.StatusClaimed, rescue.StatusDone,
@@ -354,6 +375,19 @@ func runRescue(ctx context.Context, deps AssistDeps, rec rescue.Record) error {
 	}
 	fmt.Fprintf(deps.Out, "assist: rescued %s (+%d fuel to %s)\n", rec.AgentID, qty, rec.TargetUsername) //nolint:errcheck
 	return assistEnsureHome(ctx, deps)
+}
+
+// rescueTargetGone reports whether a ship-to-ship refuel failed because the
+// target is not visible at the rescuer's POI. The server answers
+// player_not_found for a pilot at another POI, in transit or cloaked exactly as
+// for an unknown name; the username comes from the agent's own credentials, so
+// for a rescue it means the strandee has moved.
+func rescueTargetGone(err error) bool {
+	var se *game.ServerError
+	if errors.As(err, &se) && se.Code == "player_not_found" {
+		return true
+	}
+	return err != nil && strings.Contains(err.Error(), "player_not_found")
 }
 
 // rescuerHome returns this assist agent's home system id: the static capital,

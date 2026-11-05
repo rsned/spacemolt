@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -615,5 +616,40 @@ func TestEveryAssistAgentHasExactlyOneHome(t *testing.T) {
 		if fixed == mobile { // both or neither
 			t.Errorf("%s: fixed=%v mobile=%v, want exactly one", id, fixed, mobile)
 		}
+	}
+}
+
+// player_not_found at the refuel means the strandee is not at the record's POI
+// — almost always because GSA towed it to a station after the record was
+// filed. Every later assister flies to the same stale POI and fails the same
+// way, and a failed record keeps the worker quarantined forever (trader-4 at
+// Carnegie Hall and pirate-15 at Ironhearth Station, 2026-11-04, both docked
+// with millions of credits). Release it instead: the relaunched worker refuels
+// where it really is, or stalls again and files a record with the true POI.
+func TestAssistReleasesStrandeeThatLeftThePOI(t *testing.T) {
+	q := &fakeRescueQueue{recs: []rescue.Record{{
+		AgentID: "trader-4", TargetUsername: "Sterling 'Silver' Solomo", SystemID: "winterhold",
+		POI: "winterhold_star", RescueFuel: 15, Attempts: 1,
+		Status: rescue.StatusClaimed, ClaimedBy: "assist-a",
+	}}}
+	client := &fakeClient{state: &game.State{}}
+	client.refuelShipErr = &game.ServerError{Code: "player_not_found", Message: "Player 'Sterling 'Silver' Solomo' not found."}
+	deps := AssistDeps{
+		Client: client, Queue: q, Out: io.Discard,
+		AgentID: "assist-a", HomeStation: "h1_station",
+		Navigate: func(context.Context, string, string) error { return nil },
+	}
+	if err := Assist(context.Background(), deps); err != nil {
+		t.Fatal(err)
+	}
+	rec := q.recs[0]
+	if rec.Status != rescue.StatusDone {
+		t.Fatalf("status = %s, want done (released for self-recovery)", rec.Status)
+	}
+	if !strings.Contains(rec.Error, "not at the strand POI") {
+		t.Errorf("record should say why it was released, got Error=%q", rec.Error)
+	}
+	if len(rec.FailedBy) != 0 {
+		t.Errorf("a released record is not an assister failure; FailedBy=%v", rec.FailedBy)
 	}
 }
