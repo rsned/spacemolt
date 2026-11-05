@@ -8196,13 +8196,13 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 
 	case "deposit", "deposit_items":
 		if len(parts) < 3 {
-			return fmt.Errorf("usage: deposit <item-id> <quantity> [--source=<scope>] [--target=<scope>]")
+			return fmt.Errorf("usage: deposit <item-id> <quantity> %s", itemTransferFlagsUsage)
 		}
 		qty, err := parseQuantity(parts[2])
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		flags, err := parseFlagArgs(parts[3:], "source", "target")
+		flags, err := parseItemTransferFlags(parts[3:])
 		if err != nil {
 			return err
 		}
@@ -8234,13 +8234,13 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 
 	case "withdraw", "withdraw_items":
 		if len(parts) < 3 {
-			return fmt.Errorf("usage: withdraw <item-id> <quantity> [--source=<scope>] [--target=<scope>]")
+			return fmt.Errorf("usage: withdraw <item-id> <quantity> %s", itemTransferFlagsUsage)
 		}
 		qty, err := parseQuantity(parts[2])
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		flags, err := parseFlagArgs(parts[3:], "source", "target")
+		flags, err := parseItemTransferFlags(parts[3:])
 		if err != nil {
 			return err
 		}
@@ -8851,13 +8851,13 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 
 	case "faction_deposit_items":
 		if len(parts) < 3 {
-			return fmt.Errorf("usage: faction_deposit_items <item-id> <quantity> [--source=<scope>] [--target=<scope>]")
+			return fmt.Errorf("usage: faction_deposit_items <item-id> <quantity> %s", itemTransferFlagsUsage)
 		}
 		qty, err := parseQuantity(parts[2])
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		flags, err := parseFlagArgs(parts[3:], "source", "target")
+		flags, err := parseItemTransferFlags(parts[3:])
 		if err != nil {
 			return err
 		}
@@ -8877,13 +8877,13 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 
 	case "faction_withdraw_items":
 		if len(parts) < 3 {
-			return fmt.Errorf("usage: faction_withdraw_items <item-id> <quantity> [--source=<scope>] [--target=<scope>]")
+			return fmt.Errorf("usage: faction_withdraw_items <item-id> <quantity> %s", itemTransferFlagsUsage)
 		}
 		qty, err := parseQuantity(parts[2])
 		if err != nil {
 			return fmt.Errorf("invalid quantity: %w", err)
 		}
-		flags, err := parseFlagArgs(parts[3:], "source", "target")
+		flags, err := parseItemTransferFlags(parts[3:])
 		if err != nil {
 			return err
 		}
