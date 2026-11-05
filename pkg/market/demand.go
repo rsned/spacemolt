@@ -26,9 +26,10 @@ type CurrentBuyOrder struct {
 // most recent capture, across all stations. This is the demand report's data
 // source: unlike the knowledge-DB buy-order ledger (written only on a worker's
 // full docked view_market), market.db is fed continuously by the capture fleet,
-// so "current" here is typically minutes old. Relies on the partial index
-// idx_orders_buy_station_item_cap (side='buy') — without it this query walks the
-// full table.
+// so "current" here is typically minutes old. Unfiltered, the latest-per-
+// (station, item) CTE walks the table: 3-5 s on the 4h-retained table, which
+// is cheaper than the partial buy-side index it used to rely on (dropped
+// 2026-11-05: an extra write on every buy order and every prune delete).
 //
 // Liveness gate: a naive MAX(captured_at) per (station, item) resurrects the
 // last time an order was EVER seen, so an order that has since vanished from the

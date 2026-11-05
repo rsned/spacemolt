@@ -14,6 +14,15 @@ func runMigrations(db *sql.DB) error {
 	if _, err := db.Exec(schemaSQL); err != nil {
 		return fmt.Errorf("failed to run schema: %w", err)
 	}
+	// idx_orders_buy_station_item_cap (partial, side='buy') cost an index write
+	// on every buy order — most of the table — and slowed every prune, to serve
+	// one operator command: the unfiltered `play_as demand` report, which runs
+	// in 3-5 s without it on the 4h-retained table (1.3 s with it; it was built
+	// for a 40M-row table). It also corrupted on 2026-11-04 and stalled every
+	// prune until a REINDEX. Dropped 2026-11-05; IF EXISTS keeps this a no-op.
+	if _, err := db.Exec(`DROP INDEX IF EXISTS idx_orders_buy_station_item_cap`); err != nil {
+		return fmt.Errorf("drop idx_orders_buy_station_item_cap: %w", err)
+	}
 	// schema.sql uses CREATE TABLE IF NOT EXISTS, so columns added to an
 	// existing table do not apply to databases created before the column
 	// existed. Add those idempotently here.
