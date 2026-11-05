@@ -1019,10 +1019,10 @@ func haulRecoverIfStranded(ctx context.Context, deps HaulDeps, out io.Writer, ga
 	if name == "" {
 		name = dest.SystemID
 	}
-	var station string
-	if len(dest.POIs) > 0 {
-		station = dest.POIs[0].ID
-	}
+	// FindNearestByPOIType never fills NearestResult.POIs for a POI-type
+	// lookup, so dest.POIs[0] was always empty and the relocation stopped in
+	// open space. Resolve the dockable station the way hunt recovery does.
+	station, _ := missionStationPOI(ctx, deps.KB, dest.SystemID)
 	fmt.Fprintf(out, "haul: stranded in station-less %s; relocating to nearest safe station %s (%s, %d jump(s))\n", current, name, dest.SystemID, dest.Hops) //nolint:errcheck
 	if aerr := haulAutopilot(ctx, deps, out, dest.SystemID, station, nil); aerr != nil {
 		fmt.Fprintf(out, "haul: relocation transit failed: %v; will retry next pass\n", aerr) //nolint:errcheck

@@ -465,3 +465,20 @@ func TestShuttleNotAtStation(t *testing.T) {
 		t.Error("nil error must not read as not-at-station")
 	}
 }
+
+// missionStationPOI is the station pick for mission, hunt and haul recovery.
+// It must skip outposts: engineer-5 was sent to Ironlight Rime Range (Bluerift)
+// every pass, refused with "Access denied", and stall-restarted 17 times.
+func TestMissionStationPOI_SkipsOutposts(t *testing.T) {
+	kb, _ := outpostKB(t)
+	ctx := context.Background()
+	for sys, want := range map[string]string{"lhs_1140": "crossroads", "goldcrest": ""} {
+		got, err := missionStationPOI(ctx, kb, sys)
+		if err != nil {
+			t.Fatalf("missionStationPOI(%s): %v", sys, err)
+		}
+		if got != want {
+			t.Errorf("missionStationPOI(%s) = %q, want %q", sys, got, want)
+		}
+	}
+}

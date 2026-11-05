@@ -1363,7 +1363,9 @@ func missionStationPOI(ctx context.Context, kb knowledge.Base, systemID string) 
 			continue
 		}
 		base, berr := kb.GetBaseByPOI(ctx, p.ID)
-		if berr == nil && base != nil && base.PublicAccess {
+		// An outpost is typed "station" and stored public, but it is
+		// members-only and refuses an outsider's dock ("Access denied").
+		if berr == nil && base != nil && base.PublicAccess && !base.IsOutpost() {
 			return p.ID, nil
 		}
 	}
