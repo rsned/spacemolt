@@ -7,3 +7,10 @@ workers:
   # the shuttle role skips any passenger whose destination it cannot dock at, so
   # nine stronghold destinations were being refused. They are payable fares now.
   - { agent_id: johnny_cab, role: shuttle, station: "" }
+  # Added 2026-11-04: the three June-registered Johnny Cab accounts (website
+  # registrations, no password held — Clerk-only credentials, player_id only).
+  # Each ran market_participation_buying for the 1,000-earned gift unlock.
+  # Starter Cobbles at the Outer Rim mobile capital; passenger cabins to be gifted.
+  - { agent_id: johhnycab, role: shuttle, station: "" }
+  - { agent_id: johnny_ca, role: shuttle, station: "" }
+  - { agent_id: johnnycab, role: shuttle, station: "" }
