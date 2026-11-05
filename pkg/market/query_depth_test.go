@@ -131,3 +131,37 @@ func TestGetReferencePrice(t *testing.T) {
 		t.Fatalf("expected ok=false for unknown item")
 	}
 }
+
+// The latest capture is taken across BOTH sides. When a station's newest
+// snapshot has no sell orders for the item, its ask ladder is empty: the older
+// sell orders vanished from the book and must not be resurrected. A rewrite
+// that takes MAX(captured_at) per side would return them. Mirrored for bids.
+func TestLadders_VanishedSideIsEmpty(t *testing.T) {
+	c := newTestCollector(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	older := now.Add(-time.Hour)
+	b := func(t time.Time) string { return t.Truncate(time.Hour).Format(time.RFC3339) }
+
+	seedOrders(t, c, []Order{
+		// s1: sells only in the older capture; the latest has buys only.
+		{StationID: "s1", ItemID: "iron_ore", Side: "sell", PriceEach: 7, Quantity: 10, CapturedAt: older, BucketUTC: b(older)},
+		{StationID: "s1", ItemID: "iron_ore", Side: "buy", PriceEach: 5, Quantity: 50, CapturedAt: now, BucketUTC: b(now)},
+		// s2: buys only in the older capture; the latest has sells only.
+		{StationID: "s2", ItemID: "iron_ore", Side: "buy", PriceEach: 6, Quantity: 40, CapturedAt: older, BucketUTC: b(older)},
+		{StationID: "s2", ItemID: "iron_ore", Side: "sell", PriceEach: 9, Quantity: 20, CapturedAt: now, BucketUTC: b(now)},
+	})
+
+	if ask, err := c.GetAskLadder(ctx, "iron_ore", "s1"); err != nil || len(ask) != 0 {
+		t.Errorf("s1 ask ladder = %+v, %v; want empty (sells vanished from the latest capture)", ask, err)
+	}
+	if bid, err := c.GetBidLadder(ctx, "iron_ore", "s1"); err != nil || len(bid) != 1 || bid[0].PriceEach != 5 {
+		t.Errorf("s1 bid ladder = %+v, %v; want the latest buy at 5", bid, err)
+	}
+	if bid, err := c.GetBidLadder(ctx, "iron_ore", "s2"); err != nil || len(bid) != 0 {
+		t.Errorf("s2 bid ladder = %+v, %v; want empty (buys vanished from the latest capture)", bid, err)
+	}
+	if ask, err := c.GetAskLadder(ctx, "iron_ore", "s2"); err != nil || len(ask) != 1 || ask[0].PriceEach != 9 {
+		t.Errorf("s2 ask ladder = %+v, %v; want the latest sell at 9", ask, err)
+	}
+}

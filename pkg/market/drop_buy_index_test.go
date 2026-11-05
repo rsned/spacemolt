@@ -34,7 +34,10 @@ func TestMigrations_DropBuySideIndex(t *testing.T) {
 		t.Fatal("migrations kept the buy-side index on an existing database")
 	}
 	// The indexes the hot paths need are untouched.
-	for _, keep := range []string{"idx_orders_item_side_station_time", "idx_orders_station_item", "idx_orders_bucket", "idx_orders_item_time"} {
+	if indexExists(t, c, "idx_orders_item_time") {
+		t.Error("migrations kept idx_orders_item_time")
+	}
+	for _, keep := range []string{"idx_orders_item_side_station_time", "idx_orders_station_item", "idx_orders_bucket"} {
 		if !indexExists(t, c, keep) {
 			t.Errorf("index %s missing", keep)
 		}

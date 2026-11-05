@@ -665,6 +665,22 @@ func (c *Collector) GetItemPriceHistory(ctx context.Context, itemID string, limi
 	return out, rows.Err()
 }
 
+// latestCaptureForItemAtStation selects (as mx) the newest capture of one item
+// at one station, across BOTH sides — the ladders read one side at that
+// capture, so a side that vanished from the newest snapshot reads empty
+// rather than resurrecting older orders. It is the larger of two exact
+// lookups on idx_orders_item_side_station_time, each landing on the end of its
+// (item, side, station) range: ~0.05 ms, without needing
+// idx_orders_item_time (dropped 2026-11-05). Binds item_id, station_id twice.
+const latestCaptureForItemAtStation = `
+			SELECT MAX(mx) AS mx FROM (
+				SELECT MAX(captured_at) AS mx FROM market_orders
+				WHERE item_id = ? AND side = 'buy' AND station_id = ?
+				UNION ALL
+				SELECT MAX(captured_at) AS mx FROM market_orders
+				WHERE item_id = ? AND side = 'sell' AND station_id = ?
+			)`
+
 // GetAskLadder returns the sell-side price levels (ascending by price) for an
 // item at a station's latest capture. Empty when the item has no sell orders
 // there. Callers pass the result straight to CostToAcquire.
@@ -672,14 +688,10 @@ func (c *Collector) GetAskLadder(ctx context.Context, itemID, stationID string) 
 	rows, err := c.db.QueryContext(ctx, `
 		SELECT o.price_each, o.quantity
 		FROM market_orders o
-		JOIN (
-			SELECT MAX(captured_at) AS mx
-			FROM market_orders
-			WHERE item_id = ? AND station_id = ?
-		) latest ON o.captured_at = latest.mx
+		JOIN (`+latestCaptureForItemAtStation+`) latest ON o.captured_at = latest.mx
 		WHERE o.item_id = ? AND o.station_id = ? AND o.side = 'sell'
 		  AND o.price_each > 0 AND o.quantity > 0 AND o.price_each < `+notForSaleSQL+`
-		ORDER BY o.price_each ASC`, itemID, stationID, itemID, stationID)
+		ORDER BY o.price_each ASC`, itemID, stationID, itemID, stationID, itemID, stationID)
 	if err != nil {
 		return nil, fmt.Errorf("query ask ladder: %w", err)
 	}
@@ -706,14 +718,10 @@ func (c *Collector) GetBidLadder(ctx context.Context, itemID, stationID string) 
 	rows, err := c.db.QueryContext(ctx, `
 		SELECT o.price_each, o.quantity
 		FROM market_orders o
-		JOIN (
-			SELECT MAX(captured_at) AS mx
-			FROM market_orders
-			WHERE item_id = ? AND station_id = ?
-		) latest ON o.captured_at = latest.mx
+		JOIN (`+latestCaptureForItemAtStation+`) latest ON o.captured_at = latest.mx
 		WHERE o.item_id = ? AND o.station_id = ? AND o.side = 'buy'
 		  AND o.price_each > 0 AND o.quantity > 0
-		ORDER BY o.price_each DESC`, itemID, stationID, itemID, stationID)
+		ORDER BY o.price_each DESC`, itemID, stationID, itemID, stationID, itemID, stationID)
 	if err != nil {
 		return nil, fmt.Errorf("query bid ladder: %w", err)
 	}

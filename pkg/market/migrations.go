@@ -23,6 +23,15 @@ func runMigrations(db *sql.DB) error {
 	if _, err := db.Exec(`DROP INDEX IF EXISTS idx_orders_buy_station_item_cap`); err != nil {
 		return fmt.Errorf("drop idx_orders_buy_station_item_cap: %w", err)
 	}
+	// idx_orders_item_time (item_id, captured_at) served only "latest capture
+	// of an item" lookups. The ask/bid ladders now take that as two exact
+	// seeks on idx_orders_item_side_station_time (0.06 ms worst vs 0.15 ms),
+	// and GetItemStationPrices runs ~2x faster without it (110-141 ms vs
+	// 158-277 ms); dropping it saves one index write per order row and per
+	// prune delete. Dropped 2026-11-05.
+	if _, err := db.Exec(`DROP INDEX IF EXISTS idx_orders_item_time`); err != nil {
+		return fmt.Errorf("drop idx_orders_item_time: %w", err)
+	}
 	// schema.sql uses CREATE TABLE IF NOT EXISTS, so columns added to an
 	// existing table do not apply to databases created before the column
 	// existed. Add those idempotently here.
