@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -27,6 +28,9 @@ type AdmitResult struct {
 	ClaimID     int64  // haul_book_claims.claim_id (valid when OK)
 	OppID       int    // admitted opportunity row (valid when OK)
 	ToStationID string // its destination (valid when OK)
+	// Units is what a consigned claim reserved. 0 from AdmitBookClaim, which
+	// does not reserve at claim time.
+	Units float64
 }
 
 // AdmitBookClaim atomically admits agentID onto a book if it is under capacity,
@@ -58,44 +62,13 @@ func (c *Collector) AdmitBookClaim(ctx context.Context, book BookKey, candidates
 			return nil // res.OK stays false
 		}
 
-		// 2. Destinations already taken by active claimants (for fan-out).
-		taken := map[string]bool{}
-		rows, err := tx.QueryContext(ctx,
-			`SELECT to_station_id FROM haul_book_claims
-			 WHERE item_id=? AND from_station_id=? AND phase IN ('claimed','bought')
-			   AND `+notExpiredSQL, book.ItemID, book.FromStationID)
+		// 2. Prefer unassigned destinations, then taken ones.
+		ordered, err := fanOutOrder(ctx, tx, book, candidates)
 		if err != nil {
-			return fmt.Errorf("read taken dests: %w", err)
-		}
-		for rows.Next() {
-			var d string
-			if err := rows.Scan(&d); err != nil {
-				_ = rows.Close()
-				return fmt.Errorf("scan taken dest: %w", err)
-			}
-			taken[d] = true
-		}
-		if err := rows.Err(); err != nil {
-			_ = rows.Close()
-			return fmt.Errorf("iterate taken dests: %w", err)
-		}
-		_ = rows.Close()
-
-		// 3. Prefer unassigned destinations (preserving rank), then fall back to taken
-		//    ones so a fat book with fewer distinct dests than K is not stranded.
-		ordered := make([]BookCandidate, 0, len(candidates))
-		for _, cand := range candidates {
-			if !taken[cand.ToStationID] {
-				ordered = append(ordered, cand)
-			}
-		}
-		for _, cand := range candidates {
-			if taken[cand.ToStationID] {
-				ordered = append(ordered, cand)
-			}
+			return err
 		}
 
-		// 4. Claim the first candidate whose opp row is still available (the per-row
+		// 3. Claim the first candidate whose opp row is still available (the per-row
 		//    destination lock), then record the roster row.
 		for _, cand := range ordered {
 			r, err := tx.ExecContext(ctx,
@@ -109,23 +82,163 @@ func (c *Collector) AdmitBookClaim(ctx context.Context, book BookKey, candidates
 			if n == 0 {
 				continue // claimed by another hauler between scan and now; try next
 			}
-			ins, err := tx.ExecContext(ctx,
-				`INSERT INTO haul_book_claims
-				   (item_id, from_station_id, opp_id, to_station_id, agent_id, phase,
-				    bought_units, claimed_at, updated_at, expires_at)
-				 VALUES (?,?,?,?,?, 'claimed', 0, ?,?,?)`,
-				book.ItemID, book.FromStationID, cand.OppID, cand.ToStationID, agentID,
-				nowStr, nowStr, expiresStr)
+			id, err := insertBookClaim(ctx, tx, book, cand, agentID, nowStr, expiresStr)
 			if err != nil {
-				return fmt.Errorf("insert book claim: %w", err)
+				return err
 			}
-			id, _ := ins.LastInsertId()
 			res = AdmitResult{OK: true, ClaimID: id, OppID: cand.OppID, ToStationID: cand.ToStationID}
 			return nil
 		}
 		return nil // nothing claimable
 	})
 	return res, err
+}
+
+// ConsignMinClaimValue is the smallest consigned claim admitted, in sale value.
+// Matches the scanner's default profit floor: without it the tail of a book
+// sends a hauler across the map for a handful of units.
+const ConsignMinClaimValue = 5000
+
+// AdmitConsignClaim admits agentID onto a consigned book by units, not by
+// head count. Each route was sized to the whole stock when scanned, so two
+// claims could promise the same goods: on 2026-11-05 a hold of 1,900 and a hold
+// of 100 each passed the head-count cap and claimed 2,144 of about 1,700.
+//
+// wantUnits is what the hauler can load. The reservation is the smallest of
+// that, the route's quantity and the holder's unspoken-for stock, and it
+// replaces the row's quantity, so the gift request, the sale and the scanner's
+// netting all read the true figure. Stock nets out the same way the scanner
+// nets it: only claims made after the holder's last report, since that report
+// already excludes earlier ones. Returns OK=false when nothing is left, or
+// when what is left is worth less than ConsignMinClaimValue.
+func (c *Collector) AdmitConsignClaim(ctx context.Context, book BookKey, candidates []BookCandidate, agentID string, wantUnits float64, expiresIn time.Duration) (AdmitResult, error) {
+	var res AdmitResult
+	if wantUnits < 1 || len(candidates) == 0 {
+		return res, nil
+	}
+	now := time.Now().UTC()
+	nowStr := now.Format(time.RFC3339)
+	expiresStr := now.Add(expiresIn).Format(time.RFC3339)
+	freshSince := now.Add(-ConsignStockMaxAge).Format(time.RFC3339)
+
+	err := c.writeRetry(ctx, func(tx *sql.Tx) error {
+		ordered, err := fanOutOrder(ctx, tx, book, candidates)
+		if err != nil {
+			return err
+		}
+		for _, cand := range ordered {
+			var qty, sell float64
+			var notes string
+			err := tx.QueryRowContext(ctx,
+				`SELECT quantity, sell_price, notes FROM arbitrage_opportunities
+				 WHERE id=? AND action_type=? AND status='available' AND `+notExpiredSQL,
+				cand.OppID, ActionWithdrawThenSell).Scan(&qty, &sell, &notes)
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("read consigned route: %w", err)
+			}
+			holder, _, ok := ConsignSource(ArbitrageOpportunity{ActionType: ActionWithdrawThenSell, Notes: notes})
+			if !ok {
+				continue
+			}
+			var stock float64
+			err = tx.QueryRowContext(ctx, `
+				SELECT cs.units - COALESCE((
+				  SELECT SUM(ao.quantity) FROM arbitrage_opportunities ao
+				  WHERE ao.action_type = ? AND ao.status = 'claimed'
+				    AND ao.from_station_id = cs.station_id AND ao.item_id = cs.item_id
+				    AND ao.notes = ? || 'holder=' || cs.holder || ' base=' || cs.base_id
+				    AND julianday(ao.claimed_at) > julianday(cs.updated_at)), 0)
+				FROM consign_stock cs
+				WHERE cs.holder = ? AND cs.station_id = ? AND cs.item_id = ?
+				  AND julianday(cs.updated_at) >= julianday(?)`,
+				ActionWithdrawThenSell, consignNotesPrefix, holder, book.FromStationID, book.ItemID, freshSince).Scan(&stock)
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("read consign stock: %w", err)
+			}
+			take := math.Floor(min(wantUnits, qty, stock))
+			if take < 1 || take*sell < ConsignMinClaimValue {
+				continue
+			}
+			r, err := tx.ExecContext(ctx,
+				`UPDATE arbitrage_opportunities
+				 SET status='claimed', claimed_by=?, claimed_at=?, quantity=?, cargo_required=?, gross_profit=?
+				 WHERE id=? AND status='available'`,
+				agentID, nowStr, take, take, take*sell, cand.OppID)
+			if err != nil {
+				return fmt.Errorf("claim consigned route: %w", err)
+			}
+			if n, _ := r.RowsAffected(); n == 0 {
+				continue
+			}
+			id, err := insertBookClaim(ctx, tx, book, cand, agentID, nowStr, expiresStr)
+			if err != nil {
+				return err
+			}
+			res = AdmitResult{OK: true, ClaimID: id, OppID: cand.OppID, ToStationID: cand.ToStationID, Units: take}
+			return nil
+		}
+		return nil
+	})
+	return res, err
+}
+
+// fanOutOrder ranks candidates so destinations no active claimant holds come
+// first, keeping rank within each group. Taken ones stay in, so a fat book with
+// few distinct destinations is not stranded.
+func fanOutOrder(ctx context.Context, tx *sql.Tx, book BookKey, candidates []BookCandidate) ([]BookCandidate, error) {
+	taken := map[string]bool{}
+	rows, err := tx.QueryContext(ctx,
+		`SELECT to_station_id FROM haul_book_claims
+		 WHERE item_id=? AND from_station_id=? AND phase IN ('claimed','bought')
+		   AND `+notExpiredSQL, book.ItemID, book.FromStationID)
+	if err != nil {
+		return nil, fmt.Errorf("read taken dests: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var d string
+		if err := rows.Scan(&d); err != nil {
+			return nil, fmt.Errorf("scan taken dest: %w", err)
+		}
+		taken[d] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate taken dests: %w", err)
+	}
+	ordered := make([]BookCandidate, 0, len(candidates))
+	for _, cand := range candidates {
+		if !taken[cand.ToStationID] {
+			ordered = append(ordered, cand)
+		}
+	}
+	for _, cand := range candidates {
+		if taken[cand.ToStationID] {
+			ordered = append(ordered, cand)
+		}
+	}
+	return ordered, nil
+}
+
+// insertBookClaim records agentID on the book's roster.
+func insertBookClaim(ctx context.Context, tx *sql.Tx, book BookKey, cand BookCandidate, agentID, nowStr, expiresStr string) (int64, error) {
+	ins, err := tx.ExecContext(ctx,
+		`INSERT INTO haul_book_claims
+		   (item_id, from_station_id, opp_id, to_station_id, agent_id, phase,
+		    bought_units, claimed_at, updated_at, expires_at)
+		 VALUES (?,?,?,?,?, 'claimed', 0, ?,?,?)`,
+		book.ItemID, book.FromStationID, cand.OppID, cand.ToStationID, agentID,
+		nowStr, nowStr, expiresStr)
+	if err != nil {
+		return 0, fmt.Errorf("insert book claim: %w", err)
+	}
+	id, _ := ins.LastInsertId()
+	return id, nil
 }
 
 // SettleBookClaim records the actual bought quantity on a claim (settle-only: this is

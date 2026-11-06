@@ -533,6 +533,16 @@ type fakeStore struct {
 	// admitOK/admitResult default behavior below. nil preserves old callers unchanged.
 	admitByBook map[market.BookKey]market.AdmitResult
 	admitCalls  []admitCall // every AdmitBookClaim invocation, in call order
+	// consignAdmits records AdmitConsignClaim calls; consignUnits is the
+	// reservation it grants.
+	consignAdmits []consignAdmit
+	consignUnits  float64
+}
+
+type consignAdmit struct {
+	book  market.BookKey
+	want  float64
+	cands []market.BookCandidate
 }
 
 // admitCall records one AdmitBookClaim invocation for assertions.
@@ -590,6 +600,14 @@ func (f *fakeStore) RecordHaulResult(_ context.Context, r market.HaulResult) err
 	f.recorded = append(f.recorded, r)
 	return nil
 }
+func (f *fakeStore) AdmitConsignClaim(_ context.Context, book market.BookKey, cands []market.BookCandidate, _ string, want float64, _ time.Duration) (market.AdmitResult, error) {
+	f.consignAdmits = append(f.consignAdmits, consignAdmit{book: book, want: want, cands: cands})
+	if !f.admitOK || len(cands) == 0 {
+		return market.AdmitResult{}, nil
+	}
+	return market.AdmitResult{OK: true, ClaimID: 1, OppID: cands[0].OppID, ToStationID: cands[0].ToStationID, Units: f.consignUnits}, nil
+}
+
 func (f *fakeStore) AdmitBookClaim(_ context.Context, book market.BookKey, cands []market.BookCandidate, _ string, capN int, _ time.Duration) (market.AdmitResult, error) {
 	f.admitCalls = append(f.admitCalls, admitCall{book: book, capN: capN, cands: cands})
 
@@ -936,7 +954,7 @@ func TestClaimBestBookCapComputation(t *testing.T) {
 		bk: {OK: true, ClaimID: 1, OppID: 1, ToStationID: "x-stn"},
 	}}
 
-	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300)
+	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300, nil)
 	if err != nil || !ok || got.ID != 1 || claimID != 1 {
 		t.Fatalf("want admitted id=1 claimID=1, got id=%d claimID=%d ok=%v err=%v", got.ID, claimID, ok, err)
 	}
@@ -965,7 +983,7 @@ func TestClaimBestBookAdvancesPastFullBook(t *testing.T) {
 		bookB: {OK: true, ClaimID: 42, OppID: 3, ToStationID: "z-stn"},
 	}}
 
-	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300)
+	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300, nil)
 	if err != nil || !ok || got.ID != 3 || claimID != 42 {
 		t.Fatalf("want admitted id=3 claimID=42, got id=%d claimID=%d ok=%v err=%v", got.ID, claimID, ok, err)
 	}
@@ -993,7 +1011,7 @@ func TestClaimBestBookReturnsAssignedDestination(t *testing.T) {
 		bk: {OK: true, ClaimID: 77, OppID: 11, ToStationID: "second-stn"},
 	}}
 
-	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300)
+	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300, nil)
 	if err != nil || !ok || claimID != 77 {
 		t.Fatalf("want ok claimID=77, got ok=%v claimID=%d err=%v", ok, claimID, err)
 	}
@@ -1014,7 +1032,7 @@ func TestClaimBestBookAllFull(t *testing.T) {
 		{ItemID: "iron_ore", FromStationID: "b-stn"}: {OK: false},
 	}}
 
-	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300)
+	got, claimID, ok, err := claimBestBook(context.Background(), f, ranked, "hauler-1", 300, nil)
 	if err != nil || ok {
 		t.Fatalf("want ok=false when all books full, got ok=%v err=%v", ok, err)
 	}
@@ -1733,4 +1751,28 @@ func TestHaulDumpLeftovers(t *testing.T) {
 			t.Errorf("no route lookup expected for an empty leftover hold: %v", fc.calls)
 		}
 	})
+}
+
+// A consigned book is admitted on units, one hold's worth at the item's size,
+// and the route comes back sized to what was reserved. Consigned and market
+// rows from one station are separate books.
+func TestClaimBestBookConsignedReservesUnits(t *testing.T) {
+	ranked := []market.ArbitrageOpportunity{
+		{ID: 1, ItemID: "x", FromStationID: "cj", ToStationID: "a", ActionType: market.ActionWithdrawThenSell, Quantity: 1000, SourceUnits: 1000},
+		{ID: 2, ItemID: "x", FromStationID: "cj", ToStationID: "b", ActionType: "buy_then_sell", Quantity: 50, SourceUnits: 50},
+	}
+	f := &fakeStore{admitOK: true, consignUnits: 150}
+	got, _, ok, err := claimBestBook(context.Background(), f, ranked, "h", 300, func(string) float64 { return 2 })
+	if err != nil || !ok {
+		t.Fatalf("claim: %v %v", ok, err)
+	}
+	if len(f.consignAdmits) != 1 || f.consignAdmits[0].want != 150 || len(f.consignAdmits[0].cands) != 1 {
+		t.Fatalf("consign admits %+v, want one call for 150 on the consigned row alone", f.consignAdmits)
+	}
+	if len(f.admitCalls) != 0 {
+		t.Fatalf("book cap consulted: %+v", f.admitCalls)
+	}
+	if got.ID != 1 || got.Quantity != 150 {
+		t.Fatalf("got %+v, want route 1 sized to 150", got)
+	}
 }

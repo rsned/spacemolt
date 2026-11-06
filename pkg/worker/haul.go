@@ -537,6 +537,7 @@ type OpportunityStore interface {
 	ReleaseOpportunity(ctx context.Context, id int, agentID string) (bool, error)
 	CompleteOpportunity(ctx context.Context, id int, agentID string) (bool, error)
 	ScanArbitrage(ctx context.Context, opts market.ScanOptions) (market.ScanResult, error)
+	AdmitConsignClaim(ctx context.Context, book market.BookKey, candidates []market.BookCandidate, agentID string, wantUnits float64, expiresIn time.Duration) (market.AdmitResult, error)
 	AdmitBookClaim(ctx context.Context, book market.BookKey, candidates []market.BookCandidate, agentID string, capN int, expiresIn time.Duration) (market.AdmitResult, error)
 	SettleBookClaim(ctx context.Context, claimID int64, agentID string, boughtUnits float64) error
 	CompleteBookClaim(ctx context.Context, claimID int64, agentID string) error
@@ -610,16 +611,23 @@ func bookCap(sourceUnits, cargoCap float64) int {
 }
 
 // bookKey groups ranked opportunities by their book (item + source station).
-type bookKey struct{ item, from string }
+type bookKey struct {
+	item, from string
+	consigned  bool
+}
 
 // claimBestBook walks ranked opportunities book-by-book (best-first) and admits the
 // hauler onto the first book with a free cap slot, letting AdmitBookClaim assign a
 // fanned-out destination. Books already attempted this pass are skipped. ok=false means
 // every reachable book was at capacity or fully claimed.
-func claimBestBook(ctx context.Context, store OpportunityStore, ranked []market.ArbitrageOpportunity, agentID string, cargoCap float64) (market.ArbitrageOpportunity, int64, bool, error) {
+//
+// A consigned book is admitted on units instead: its stock is finite and shared by
+// every route, so the claim reserves one hold's worth and the returned route is sized
+// to the reservation. sizeOf gives an item's cargo size; nil means 1.
+func claimBestBook(ctx context.Context, store OpportunityStore, ranked []market.ArbitrageOpportunity, agentID string, cargoCap float64, sizeOf func(string) float64) (market.ArbitrageOpportunity, int64, bool, error) {
 	attempted := map[bookKey]bool{}
 	for _, top := range ranked {
-		bk := bookKey{top.ItemID, top.FromStationID}
+		bk := bookKey{top.ItemID, top.FromStationID, top.IsConsigned()}
 		if attempted[bk] {
 			continue
 		}
@@ -628,13 +636,23 @@ func claimBestBook(ctx context.Context, store OpportunityStore, ranked []market.
 		var cands []market.BookCandidate
 		var srcUnits float64
 		for _, o := range ranked {
-			if o.ItemID == bk.item && o.FromStationID == bk.from {
+			if o.ItemID == bk.item && o.FromStationID == bk.from && o.IsConsigned() == bk.consigned {
 				cands = append(cands, market.BookCandidate{OppID: o.ID, ToStationID: o.ToStationID})
 				srcUnits = o.SourceUnits // identical across a book's rows
 			}
 		}
-		capN := bookCap(srcUnits, cargoCap)
-		res, err := store.AdmitBookClaim(ctx, market.BookKey{ItemID: bk.item, FromStationID: bk.from}, cands, agentID, capN, haulBookClaimTTL)
+		book := market.BookKey{ItemID: bk.item, FromStationID: bk.from}
+		var res market.AdmitResult
+		var err error
+		if bk.consigned {
+			size := 1.0
+			if sizeOf != nil {
+				size = max(sizeOf(bk.item), 1)
+			}
+			res, err = store.AdmitConsignClaim(ctx, book, cands, agentID, math.Floor(cargoCap/size), haulBookClaimTTL)
+		} else {
+			res, err = store.AdmitBookClaim(ctx, book, cands, agentID, bookCap(srcUnits, cargoCap), haulBookClaimTTL)
+		}
 		if err != nil {
 			return market.ArbitrageOpportunity{}, 0, false, fmt.Errorf("haul: admit book %s/%s: %w", bk.item, bk.from, err)
 		}
@@ -643,6 +661,9 @@ func claimBestBook(ctx context.Context, store OpportunityStore, ranked []market.
 		}
 		for _, o := range ranked {
 			if o.ID == res.OppID {
+				if bk.consigned {
+					o.Quantity = res.Units
+				}
 				return o, res.ClaimID, true, nil
 			}
 		}
@@ -982,7 +1003,8 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	if st := deps.Client.GetState(); st != nil {
 		cargoCap = st.Ship.CargoCapacity
 	}
-	opp, bookClaimID, ok, err := claimBestBook(ctx, deps.Market, ranked, deps.AgentID, cargoCap)
+	opp, bookClaimID, ok, err := claimBestBook(ctx, deps.Market, ranked, deps.AgentID, cargoCap,
+		func(item string) float64 { return itemUnitSize(ctx, deps.KB, item) })
 	if err != nil {
 		return err
 	}
