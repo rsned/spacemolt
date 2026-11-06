@@ -467,6 +467,7 @@ func main() {
 			dispatch.ConsignOffered = worker.ConsignOfferItems(consignOffers)
 			dispatch.AgentID = *agentID
 			dispatch.Station = *station
+			dispatch.Role = *role
 			dispatch.Assets = assetStore
 			dispatch.SetActivitySink(&activity)
 			dispatch.Rescue = rescue.NewQueue(*rescueQueuePath)

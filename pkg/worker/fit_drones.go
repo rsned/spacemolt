@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -177,6 +178,47 @@ func (d *WorkerDispatch) freeModuleSlot(ctx context.Context, bayItem string) (in
 	return victim, nil
 }
 
+// roleHarvesters is the module a role cannot mine without.
+var roleHarvesters = map[string]string{
+	"resident_gas": "gas_harvester",
+	"resident_ice": "ice_harvester",
+}
+
+// refuseRoleHarvester rejects a strip list holding the harvester role mines with.
+func refuseRoleHarvester(role string, types []string) error {
+	need, ok := roleHarvesters[role]
+	if !ok {
+		return nil
+	}
+	for _, t := range types {
+		if strings.HasPrefix(t, need) {
+			return fmt.Errorf("fit_drones: refusing to strip %s from a %s", t, role)
+		}
+	}
+	return nil
+}
+
+// stripNamedModules uninstalls every fitted module whose type is in types.
+func (d *WorkerDispatch) stripNamedModules(ctx context.Context, types []string) error {
+	if err := d.Client.GetShip(ctx); err != nil {
+		return fmt.Errorf("fit_drones: strip: get_ship: %w", err)
+	}
+	mods, err := shipModules(d.Client.GetRawJSON("ship"))
+	if err != nil {
+		return fmt.Errorf("fit_drones: strip: %w", err)
+	}
+	for _, m := range mods {
+		if !slices.Contains(types, m.TypeID) {
+			continue
+		}
+		if err = d.Client.UninstallMod(ctx, m.ID); err != nil {
+			return fmt.Errorf("fit_drones: uninstall %s (%s): %w", m.TypeID, m.ID, err)
+		}
+		fmt.Fprintf(d.Out, "fit_drones: uninstalled %s (%s)\n", m.TypeID, m.ID) //nolint:errcheck
+	}
+	return nil
+}
+
 // FitDronesOpts are the switches on a fit-out. They are a struct rather than
 // trailing parameters because Deploy, Strip and Resume are three adjacent bools
 // and a transposed pair would silently do the wrong thing on a live account.
@@ -192,6 +234,10 @@ type FitDronesOpts struct {
 	// bay that storage does not have. With Resume the verb is idempotent: run it
 	// again and it completes the fit rather than restarting it.
 	Resume bool
+	// StripTypes names the module type ids that may come off before the bay
+	// goes in, taken from a fit_check. Only these are touched, and a fitted bay
+	// means nothing is stripped, so a resumed fit cannot strip twice.
+	StripTypes []string
 }
 
 // installedBays counts fitted modules of bayItem's type. Requires a fresh
@@ -251,6 +297,9 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 	// then works on the SHORTFALL, so a clean hull runs exactly as before
 	// (nothing fitted, shortfall == the full ask) and a half-fitted one is
 	// completed instead of restarted.
+	if err = refuseRoleHarvester(d.Role, opts.StripTypes); err != nil {
+		return err
+	}
 	baysNeeded, dronesNeeded := bays, drones
 	alreadyLoaded := 0
 	if opts.Resume {
@@ -280,6 +329,11 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 	if baysNeeded > 0 {
 		if err = d.Client.WithdrawItems(ctx, bayItem, float64(baysNeeded)); err != nil {
 			return fmt.Errorf("fit_drones: withdraw %d %s: %w", baysNeeded, bayItem, err)
+		}
+	}
+	if baysNeeded > 0 && len(opts.StripTypes) > 0 {
+		if err = d.stripNamedModules(ctx, opts.StripTypes); err != nil {
+			return err
 		}
 	}
 	stripped := false

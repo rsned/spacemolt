@@ -42,6 +42,7 @@ type WorkerDispatch struct {
 	Out     io.Writer
 	AgentID string      // claim owner for opportunity-claiming roles (e.g. hauler)
 	Station string      // home base id: pins the assist and missionrunner roles
+	Role    string      // --role; fit_drones keeps the harvester a role depends on
 	Rescue  RescueQueue // shared stranded-worker rescue queue, used by the assist role
 	// AgentsDir is where agent credential files live (<AgentsDir>/<agent-id>/
 	// credentials.json), used by Deliver to resolve a gift recipient's agent
@@ -515,7 +516,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return d.PipelineMine(ctx)
 	case "fit_drones":
 		if len(args) < 1 {
-			return fmt.Errorf("fit_drones: want SCRIPT [BAYS] [DRONES] [BAY_ITEM] [DRONE_ITEM] [DEPLOY] [STRIP] [RESUME], got %v", args)
+			return fmt.Errorf("fit_drones: want SCRIPT [BAYS] [DRONES] [BAY_ITEM] [DRONE_ITEM] [DEPLOY] [STRIP] [RESUME] [STRIP_TYPES], got %v", args)
 		}
 		bays, drones := 1, 5
 		if len(args) >= 2 {
@@ -568,8 +569,13 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			}
 			resume = b
 		}
+		// Comma separated module type ids, "-" or absent for none.
+		var stripTypes []string
+		if len(args) >= 9 && args[8] != "-" {
+			stripTypes = strings.Split(args[8], ",")
+		}
 		return d.FitDrones(ctx, args[0], bays, drones, bayItem, droneItem,
-			FitDronesOpts{Deploy: deploy, Strip: strip, Resume: resume})
+			FitDronesOpts{Deploy: deploy, Strip: strip, Resume: resume, StripTypes: stripTypes})
 
 	case "fit_check":
 		bayItem := ""
