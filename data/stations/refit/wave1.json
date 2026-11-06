@@ -1,0 +1,451 @@
+[
+ {
+  "station_id": "market_prime_exchange",
+  "system": "market_prime",
+  "recipient": "marketbot_market_prime",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "cargo_lanes_freight_depot",
+  "system": "cargo_lanes",
+  "recipient": "marketbot_cargo_lanes",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "gold_run_extraction_hub",
+  "system": "gold_run",
+  "recipient": "marketbot_gold_run",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "the_levy_customs_station",
+  "system": "the_levy",
+  "recipient": "marketbot_the_levy",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "factory_belt_manufacturing_hub",
+  "system": "factory_belt",
+  "recipient": "marketbot_factory_belt",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "treasure_cache_trading_post",
+  "system": "treasure_cache",
+  "recipient": "marketbot_treasure_cache",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "c976fa7df53c87f9616165d7d411b41a",
+  "system": "cloverfield",
+  "recipient": "marketbot_home",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "9b1e70b700b5de06e6f9e5ecf9e43df1",
+  "system": "sulafat",
+  "recipient": "marketbot_sulafat",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "frontier_station",
+  "system": "starfall",
+  "recipient": "marketbot_frontier",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "starfall_salvage_station",
+  "system": "starfall",
+  "recipient": "marketbot_starfall",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "void_gate_outpost",
+  "system": "void_gate",
+  "recipient": "marketbot_void_gate",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "first_step_memorial_station",
+  "system": "first_step",
+  "recipient": "marketbot_first_step",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "unknown_edge_waystation",
+  "system": "unknown_edge",
+  "recipient": "marketbot_the_telescope",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "unknown_edge_waystation",
+  "system": "unknown_edge",
+  "recipient": "marketbot_unknown_edge",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "dross_citadel_station",
+  "system": "algol",
+  "recipient": "marketbot_algol",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "nova_terra_central",
+  "system": "nova_terra",
+  "recipient": "marketbot_nova_terra",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "procyon_colonial_station",
+  "system": "procyon",
+  "recipient": "marketbot_procyon",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "b495c6003fc83e18f6d8cecbe6929133",
+  "system": "dheneb",
+  "recipient": "marketbot_001",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "sirius_observatory_station",
+  "system": "sirius",
+  "recipient": "marketbot_sirius",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "confederacy_central_command",
+  "system": "sol",
+  "recipient": "marketbot_sol",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "alpha_centauri_colonial_station",
+  "system": "alpha_centauri",
+  "recipient": "marketbot_alpha_centauri",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "the_experiment_research_station",
+  "system": "the_experiment",
+  "recipient": "marketbot_the_experiment",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "node_gamma_relay_station",
+  "system": "node_gamma",
+  "recipient": "marketbot_node_gamma",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "node_alpha_processing_station",
+  "system": "node_alpha",
+  "recipient": "marketbot_node_alpha",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "central_nexus",
+  "system": "nexus_prime",
+  "recipient": "marketbot_nexus_prime",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "node_beta_industrial_station",
+  "system": "node_beta",
+  "recipient": "marketbot_node_beta",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "korr_fortress_station",
+  "system": "gliese_581",
+  "recipient": "marketbot_gliese_581",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "59b102279f508c17831e557d3df6ad88",
+  "system": "bd20_2457",
+  "recipient": "marketbot_007",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "5466a7c6888fda9d6c39db2aedc30238",
+  "system": "gsc_0019",
+  "recipient": "marketbot_000",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "cca9e51e6eaf8dada77f698ccc4a09c7",
+  "system": "arneb",
+  "recipient": "marketbot_002",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "2779fe259d6835829df185104259b3e4",
+  "system": "kornephoros",
+  "recipient": "marketbot_008",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "2779fe259d6835829df185104259b3e4",
+  "system": "kornephoros",
+  "recipient": "marketbot_ramens_rest",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "002844965843233bd15f5e8b23802650",
+  "system": "thuban",
+  "recipient": "marketbot_009",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "b866042eb326d851de78e888deac8515",
+  "system": "crosshaven",
+  "recipient": "marketbot_003",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "7d1f97987d5eb46bf603b8027e1eec8c",
+  "system": "alpheratz",
+  "recipient": "marketbot_004",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "0bf47c4aa0cb5fcea2d2ff20dac1729e",
+  "system": "saiph",
+  "recipient": "marketbot_005",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "95734cdcee4d6ff00f2b393bb4dfab53",
+  "system": "40_eridani",
+  "recipient": "marketbot_006",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "the_crucible_garrison",
+  "system": "the_crucible",
+  "recipient": "marketbot_the_crucible",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "iron_reach_mining_colony",
+  "system": "iron_reach",
+  "recipient": "marketbot_iron_reach",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "the_anvil_arsenal",
+  "system": "the_anvil",
+  "recipient": "marketbot_the_anvil",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_krynn",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "blood_forge_smelting_works",
+  "system": "blood_forge",
+  "recipient": "marketbot_blood_forge",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "ironhearth_station",
+  "system": "ironhearth",
+  "recipient": "marketbot_020",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  }
+ },
+ {
+  "station_id": "nyx_nexus_station",
+  "system": "gsc_0008",
+  "recipient": "marketbot_gsc_0008",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "mera_sanctum_station",
+  "system": "zaniah",
+  "recipient": "marketbot_zaniah",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "sable_port_station",
+  "system": "barnard_44",
+  "recipient": "marketbot_barnard_44",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "crix_stronghold_station",
+  "system": "bellatrix",
+  "recipient": "marketbot_bellatrix",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "thane_keep_station",
+  "system": "sheratan",
+  "recipient": "marketbot_sheratan",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "kael_arsenal_station",
+  "system": "xamidimura",
+  "recipient": "marketbot_xamidimura",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ }
+]
