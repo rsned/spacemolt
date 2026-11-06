@@ -1028,7 +1028,7 @@ func haulRecoverIfStranded(ctx context.Context, deps HaulDeps, out io.Writer, ga
 		fmt.Fprintf(out, "haul: relocation transit failed: %v; will retry next pass\n", aerr) //nolint:errcheck
 		return true, nil
 	}
-	if derr := deps.Client.Dock(ctx); derr != nil {
+	if derr := dockIdempotent(ctx, deps.Client); derr != nil {
 		fmt.Fprintf(out, "haul: relocation dock at %s failed: %v\n", station, derr) //nolint:errcheck
 	}
 	return true, nil
@@ -1252,7 +1252,7 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	// live recapture (view_market) can run — unlike buy/sell, view_market does not
 	// auto-dock, so without this the recapture fails and the gate falls back to stale
 	// prices. A station whose POI has no dockable base releases the claim.
-	if err := deps.Client.Dock(ctx); err != nil {
+	if err := dockIdempotent(ctx, deps.Client); err != nil {
 		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, fmt.Sprintf("cannot dock at buy station %s: %v", opp.FromStationName, err))
 	}
 	state := deps.Client.GetState()

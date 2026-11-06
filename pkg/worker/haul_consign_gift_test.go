@@ -206,6 +206,52 @@ func TestRunClaimedHaulConsignedWithdrawsWhatWasGifted(t *testing.T) {
 	}
 }
 
+// A hauler that claims a route while docked at the buy station gets "Already
+// docked" back from Dock. That is the state the buy leg wants: on 2026-11-05
+// salvager-6 released a route at Conjunction Junction this way, leaving its
+// 468-unit gift behind, and salvager-1 looped claim/release at Sol.
+func TestRunClaimedHaulAlreadyDockedAtBuyStationContinues(t *testing.T) {
+	deps, fc, _, q, opp := consignRunDeps(t)
+	fc.dockErr = errors.New("Already docked at this station")
+	if _, err := q.Enqueue(handoff.Record{ID: consignHandoffID(7, "t"), Holder: "marketbot_alhena",
+		Station: "voss_redoubt_station", ItemID: "adamantite_ore", Qty: 250, Recipient: "t"}); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+	if _, err := q.Transition(consignHandoffID(7, "t"), handoff.StatusPending, handoff.StatusDone,
+		func(r *handoff.Record) { r.MovedQty = 300 }); err != nil {
+		t.Fatalf("Transition: %v", err)
+	}
+	_, n2id := graphFor([]string{"a"}, [2]string{"a", "a"})
+
+	_ = runClaimedHaul(context.Background(), deps, io.Discard, opp, n2id, nil, haulFuel{}, 3)
+
+	if got := withdrawCalls(fc); len(got) != 1 {
+		t.Fatalf("withdraws = %v, want the buy leg to carry on past Already docked", got)
+	}
+}
+
+// Only "Already docked" is forgiven: a station that cannot be docked at still
+// releases the claim before any goods move.
+func TestRunClaimedHaulUndockableBuyStationReleases(t *testing.T) {
+	deps, fc, _, q, opp := consignRunDeps(t)
+	fc.dockErr = errors.New("No base at this location")
+	if _, err := q.Enqueue(handoff.Record{ID: consignHandoffID(7, "t"), Holder: "marketbot_alhena",
+		Station: "voss_redoubt_station", ItemID: "adamantite_ore", Qty: 250, Recipient: "t"}); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+	if _, err := q.Transition(consignHandoffID(7, "t"), handoff.StatusPending, handoff.StatusDone,
+		func(r *handoff.Record) { r.MovedQty = 300 }); err != nil {
+		t.Fatalf("Transition: %v", err)
+	}
+	_, n2id := graphFor([]string{"a"}, [2]string{"a", "a"})
+
+	_ = runClaimedHaul(context.Background(), deps, io.Discard, opp, n2id, nil, haulFuel{}, 3)
+
+	if got := withdrawCalls(fc); len(got) != 0 {
+		t.Fatalf("withdraws = %v, want none after a real dock failure", got)
+	}
+}
+
 // A fresh claim enqueues the gift request for the holder named on the route.
 func TestRunClaimedHaulConsignedRequestsTheGift(t *testing.T) {
 	deps, _, _, q, opp := consignRunDeps(t)
