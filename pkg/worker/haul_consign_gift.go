@@ -27,8 +27,11 @@ var (
 	errConsignGiftPending = errors.New("consign: gift not yet landed")
 )
 
+// consignHandoffPrefix marks a queue record as a consigned-route gift.
+const consignHandoffPrefix = "consign/"
+
 func consignHandoffID(oppID int, agentID string) string {
-	return fmt.Sprintf("consign/%d/%s", oppID, agentID)
+	return fmt.Sprintf("%s%d/%s", consignHandoffPrefix, oppID, agentID)
 }
 
 // itemUnitSize is itemID's per-unit cargo footprint from the catalog, 1 when

@@ -21,21 +21,27 @@ const (
 	StatusPending Status = "pending"
 	StatusDone    Status = "done"
 	StatusFailed  Status = "failed"
+	// StatusCollected follows StatusDone on a consigned route: the recipient
+	// has the goods aboard, or has returned them. A record left at StatusDone
+	// is a gift still sitting in the recipient's storage at Station.
+	StatusCollected Status = "collected"
 )
 
 // Record is one "holder gifts stock to recipient" instruction.
 type Record struct {
-	ID          string `json:"id"`      // "<plan-id>/<node-id>" — unique per node
-	Holder      string `json:"holder"`  // agent_id that owns the stock
-	Station     string `json:"station"` // base_id where the stock sits
-	ItemID      string `json:"item_id"`
-	Qty         int    `json:"qty"`
-	Recipient   string `json:"recipient"` // agent_id to send_gift to
-	Status      Status `json:"status"`
-	MovedQty    int    `json:"moved_qty"` // actually transferred (may be < Qty)
-	Error       string `json:"error,omitempty"`
-	RequestedAt string `json:"requested_at"`
-	UpdatedAt   string `json:"updated_at"`
+	ID        string `json:"id"`      // "<plan-id>/<node-id>" — unique per node
+	Holder    string `json:"holder"`  // agent_id that owns the stock
+	Station   string `json:"station"` // base_id where the stock sits
+	ItemID    string `json:"item_id"`
+	Qty       int    `json:"qty"`
+	Recipient string `json:"recipient"` // agent_id to send_gift to
+	Status    Status `json:"status"`
+	MovedQty  int    `json:"moved_qty"` // actually transferred (may be < Qty)
+	Error     string `json:"error,omitempty"`
+	// RecoverAttempts counts failed trips to return an uncollected gift.
+	RecoverAttempts int    `json:"recover_attempts,omitempty"`
+	RequestedAt     string `json:"requested_at"`
+	UpdatedAt       string `json:"updated_at"`
 }
 
 // Queue is a handle on the shared queue file. Safe for concurrent use across

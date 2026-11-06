@@ -910,6 +910,14 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		}
 	}
 
+	// A gift this hauler never collected is stranded in its storage at the source,
+	// out of the offer and out of every route. Take it back before new work.
+	if recoverConsignGifts(ctx, deps, out, func(c context.Context, id string) (string, string, error) {
+		return resolveBase(c, deps.KB, id)
+	}) {
+		return nil
+	}
+
 	// With no active haul, any cargo in the hold is leftover (a prior run's goods) and
 	// blocks every buy. Liquidate it first; if it acted this pass, idle and re-evaluate
 	// next pass with a freer hold.
@@ -1129,6 +1137,18 @@ func abandonCollapsed(ctx context.Context, deps HaulDeps, out io.Writer, opp mar
 	return nil
 }
 
+// askGoneMarker is the server saying nobody at this station sells the item: the
+// ask the route was built on no longer exists.
+const askGoneMarker = "item_not_available"
+
+// isAskGoneErr reports whether a buy failed because the source book is empty.
+// Releasing such a route hands it straight back to the pool, and the hauler
+// standing at the station reclaims it. salvager-7 did that every 30 seconds on
+// 2026-11-05 for 14 reinforced_bulkhead that were no longer for sale.
+func isAskGoneErr(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), askGoneMarker)
+}
+
 // invalidItemMarker is the server's rejection of an item id the market cannot trade.
 // It arrives as `invalid_item: Unknown item '<id>'.` — a permanent property of the
 // item, not of this station, this book, or this hauler.
@@ -1323,9 +1343,13 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 			return releaseBookAnd(ctx, deps, out, opp, bookClaimID,
 				fmt.Sprintf("withdraw failed: %v", err))
 		}
+		markConsignCollected(deps, out, opp)
 	} else if err := deps.Client.Buy(ctx, opp.ItemID, qty); err != nil {
 		if isUnbuyableItemErr(err) {
 			return abandonUnbuyable(ctx, deps, out, opp, bookClaimID, err.Error())
+		}
+		if isAskGoneErr(err) {
+			return abandonCollapsed(ctx, deps, out, opp, bookClaimID, err.Error())
 		}
 		return releaseBookAnd(ctx, deps, out, opp, bookClaimID, fmt.Sprintf("buy failed: %v", err))
 	}
