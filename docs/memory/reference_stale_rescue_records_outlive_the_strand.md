@@ -152,3 +152,14 @@ docked agent with credits self-recovers; a towed one already has.
 removes them through the flock-protected queue and the owning overmind
 releases the agent on its next poll ("no record for quarantined X;
 releasing").
+
+## ⭐ 2026-11-04: `player_not_found` at the refuel = the strandee MOVED, not a name bug
+
+`refuel target=<player>` answers `player_not_found` for a pilot at another POI, in transit or
+cloaked, the same as for an unknown name. Three records failed that way. The names (with
+apostrophes) matched credentials exactly. All three ships had been **GSA-towed to stations**:
+trader-4 at Carnegie Hall (8.2M cr), pirate-15 at Ironhearth Station, pirate-1 at Ironhearth
+Station with 1 cr. Every assister flew to the stale record POI and failed. **Fixed `7507b700`:**
+on player_not_found the assist marks the record `done` (reason in `Error`), which releases the
+worker to self-refuel. A truly stranded ship stalls again and files a fresh record with the true
+POI. A released agent at 0 credits still can't refuel, so check credits ≥ 10k (the_banker).

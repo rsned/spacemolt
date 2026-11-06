@@ -51,6 +51,9 @@ type WorkerDispatch struct {
 	// role requests a consigned route's gift through it; nil leaves consigned
 	// routes unrunnable (they release before the hauler flies).
 	Handoff *handoff.Queue
+	// ConsignOffered is this agent's --consign-offer item set. Offers are read
+	// from personal storage, so the faction_deposit sweeps leave these alone.
+	ConsignOffered map[string]bool
 	// EnableFreight opts the missions role into the /shipping carrier path
 	// (freight evaluated co-equally with the mission board). Default false =
 	// the freight code is fully inert.
@@ -348,7 +351,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		}
 		return err
 	case "faction_deposit_all":
-		n, err := FactionDepositAll(ctx, d.Client)
+		n, err := FactionDepositAll(ctx, d.Client, d.ConsignOffered)
 		if n > 0 {
 			fmt.Fprintf(d.Out, "faction_deposit_all: moved %d item type(s) to faction storage\n", n) //nolint:errcheck
 		}
@@ -356,6 +359,9 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 	case "faction_deposit":
 		if len(args) < 1 {
 			return fmt.Errorf("faction_deposit: want ITEM, got %v", args)
+		}
+		if d.ConsignOffered[args[0]] {
+			return nil
 		}
 		return FactionDeposit(ctx, d.Client, args[0])
 	case "sell_all":

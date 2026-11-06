@@ -5,22 +5,31 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
 )
+
+// FactionPullRule is one --faction-pull entry. Keep units stay in faction
+// storage: a pull otherwise takes everything, and the goods worth selling are
+// often the ones facility upkeep and construction draw on.
+type FactionPullRule struct {
+	Item string
+	Keep int
+}
 
 // FactionPull moves allow-listed finished product from the crafter's faction
 // storage into its personal storage, so the consignment-offer and shopkeeper
 // steps (which only read personal storage) can see it. A facility craft that
 // drew its inputs from faction storage delivers its output there.
 //
-// Per item: withdraw min(faction quantity, free hold) into cargo, then deposit
-// it to personal storage. The withdraw lands in cargo, so the hold bounds each
+// Per item: withdraw min(faction quantity above Keep, free hold) into cargo, then
+// deposit it to personal storage. The withdraw lands in cargo, so the hold bounds each
 // trip. moved counts units. A missing faction-storage reading moves nothing
 // and is not an error; only a context error or a failed withdraw/deposit is.
-func FactionPull(ctx context.Context, client game.GameClient, items []string, out io.Writer) (moved int, err error) {
-	if len(items) == 0 {
+func FactionPull(ctx context.Context, client game.GameClient, rules []FactionPullRule, out io.Writer) (moved int, err error) {
+	if len(rules) == 0 {
 		return 0, nil
 	}
 	if err := client.ViewFactionStorage(ctx); err != nil {
@@ -37,7 +46,8 @@ func FactionPull(ctx context.Context, client game.GameClient, items []string, ou
 
 		return 0, nil
 	}
-	for _, item := range items {
+	for _, rule := range rules {
+		item := rule.Item
 		if cerr := ctx.Err(); cerr != nil {
 			return moved, cerr
 		}
@@ -59,7 +69,7 @@ func FactionPull(ctx context.Context, client game.GameClient, items []string, ou
 		if free <= 0 {
 			return moved, nil
 		}
-		qty := min(held[item], free)
+		qty := min(held[item]-rule.Keep, free)
 		if qty <= 0 {
 			continue
 		}
@@ -91,24 +101,37 @@ func FactionPull(ctx context.Context, client game.GameClient, items []string, ou
 	return moved, nil
 }
 
-// ParseFactionPull decodes the --faction-pull flag: comma-separated explicit
-// item ids. energy_crystal is refused because those crystals are reserved.
+// ParseFactionPull decodes the --faction-pull flag: comma-separated item[:keep]
+// entries. energy_crystal is refused because those crystals are reserved.
 // A repeated id is dropped, first occurrence wins: FactionPull reads faction
 // storage once per pass, so a second entry would withdraw units already moved.
-func ParseFactionPull(s string) ([]string, error) {
-	var out []string
+func ParseFactionPull(s string) ([]FactionPullRule, error) {
+	var out []FactionPullRule
 	for part := range strings.SplitSeq(s, ",") {
-		id := strings.TrimSpace(part)
-		if id == "" {
+		entry := strings.TrimSpace(part)
+		if entry == "" {
 			continue
+		}
+		id, keepStr, hasKeep := strings.Cut(entry, ":")
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return nil, fmt.Errorf("faction pull %q: no item id", entry)
 		}
 		if id == "energy_crystal" {
 			return nil, fmt.Errorf("energy_crystal is reserved and may not be pulled")
 		}
-		if slices.Contains(out, id) {
+		keep := 0
+		if hasKeep {
+			n, err := strconv.Atoi(strings.TrimSpace(keepStr))
+			if err != nil || n < 0 {
+				return nil, fmt.Errorf("faction pull %q: keep must be a non-negative integer", entry)
+			}
+			keep = n
+		}
+		if slices.ContainsFunc(out, func(r FactionPullRule) bool { return r.Item == id }) {
 			continue
 		}
-		out = append(out, id)
+		out = append(out, FactionPullRule{Item: id, Keep: keep})
 	}
 
 	return out, nil

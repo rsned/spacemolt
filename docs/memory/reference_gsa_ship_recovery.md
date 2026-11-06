@@ -121,3 +121,17 @@ salvager-3 lacks access ("best pirate_crix baseline -30, needs 10"). A
 stronghold destination is a FACT about a route, not evidence of a planner bug
 — check the claiming agent's capability row before blaming allocation.
 [[project_pirate_reputation_unlock_campaign]]
+
+**2026-11-03 (user):** failed rescue records from a strand are usually stale because GSA tow
+already docked the ship. 5 of 5 October `failed` records were docked on a live `get_status`
+(fuel 0–23, two at 0 credits). Verify with `bin/server-cmd` (REBUILD it first — the Aug binary
+predated Clerk), clear with `scripts/clear_rescue_records.py`, SIGHUP the overminds, then
+top up broke ones from the_banker ([[project_banker_fleet]]). A "detained ... Use pay_bounty"
+record can also be stale: salvager-7 had 5.8M and `pay_bounty empire=voidborn` → `no_bounty`.
+Same day, the last two (engineer-5, explorer-4, `stalled: 3 futile stall-restarts`): both docked
+with FULL fuel/hull, millions of credits, and in different systems than the record named. A
+rescue record's `error` is the RESCUER's last failure, not the target's: explorer-4's
+"detained by the Voidborn ... 5003-credit bounty" was assist-nexus being held at Nexus Prime and
+failing every claim on its first jump. By the time it was checked, assist-nexus (like salvager-7)
+answered `pay_bounty` with `no_bounty` — observed twice, the bounty did not survive the
+detention lifting, despite the server text saying it remains until paid. Queue empty 11-03.

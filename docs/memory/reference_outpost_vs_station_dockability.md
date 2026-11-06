@@ -1,6 +1,6 @@
 ---
 name: reference_outpost_vs_station_dockability
-description: type=outpost is faction-members-only and UNDOCKABLE for outsiders; 19 systems hold ONLY outposts and are effectively station-less. Migration 65 + stations-refresh now store type/wrecked; the routing GATE is still unbuilt.
+description: type=outpost is faction-members-only and UNDOCKABLE for outsiders; 19 systems hold ONLY outposts and are effectively station-less. Migration 65 + stations-refresh now store type/wrecked; routing GATE BUILT 2026-11-04 (bf345362, e203c4e6).
 metadata:
   node_type: memory
   type: reference
@@ -75,3 +75,12 @@ the truth is 19.
 
 Related: [[reference_station_id_aliases]] — market.db calls it `mera_sanctum`,
 the KB calls it `mera_sanctum_station`. Same station, two names.
+
+## ✅ GATE BUILT 2026-11-04 (user: "outposts are faction locked — no outsiders can dock")
+
+`SpaceBase.Type`/`IsOutpost()` (read by GetBase/GetBaseByPOI). `galaxy.queryAccessibleStations`,
+`missionStationPOI` (mission, hunt and haul recovery) and the shuttle's station picks all skip
+outposts (`bf345362`, `e203c4e6`). The shuttle also relocates when it is docked at an outpost or
+the server says "must be docked at a station". Victims that day: johnny_cab (Ironlight Ferrous
+Range, 2 days), engineer-5 (Ironlight Rime Range, 17 stall-restarts), engineer-3 (Pale Lantern
+Anchorage), salvager-7 (Ironbelt Range), explorer-5 (Goldcrest).

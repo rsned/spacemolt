@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 90ad50cf-9c6a-4f6f-a1d4-f3dc05c8ebcb
-  modified: 2026-10-25T22:26:02.158Z
+  modified: 2026-11-03T03:16:36.032Z
 ---
 
 **Conjunction Junction** — CRFT player station in `cloverfield` (lawless crossroads
@@ -50,4 +50,17 @@ feed a KB station guide (~/spacemolt/kb) and later a SCADA/HMI station console.
 - Build policy: `allow_outsiders=true` (set by operator 10-29). YSMT (hauler-0/smt_boss) built a faction_lockbox here, rent 10/cycle to CRFT.
 - Control-node line: explorer-3 hauls Ironhearth platinum (marketbot_015 consign) to CJ; miningbot_0000 crafts platinum wire, circuit boards (carbon_arc) and platinum control nodes hourly; trader-2 hauls carbon (Gold Run) and silicon (Grand Exchange).
 
+**Faction storage buckets at CJ (2026-11-02):** `view_faction_storage` now returns `buckets` (named storage extensions, each with `cap_per_item` 100000 and `package_cap` 1000). There is probably just one: bucket id `a6bc64fb3ce3ba7973fa08fe3fbaf3a3`, first seen under its default name "Storage Extension" and then named **"Maintainence"** by the operator. Check with `view_faction_storage`. Use that exact spelling in `bucket=<name>`. Deposit with `storage deposit target=faction bucket=<name>`, per the server hint. As of 11-02 our client does not pass a `bucket` param, and the 11-01 command docs don't mention buckets. The serverapi struct decodes `buckets` (commit 351e3cde).
+Server notes (operator-quoted 11-02):
+- A bucket is a facility; rename it with `facility action=set_name`.
+- Faction crafting can pull from and deliver into a bucket with `deliver_to="faction:<name>"`.
+- play_as `craft ... --deliver_to=faction:<name>` passes the string through unchanged (pkg/game/crafting.go craftJob), so it should already work. Untested.
+
+**Why (operator 11-02):** Maintainence is a reserve for station-maintenance inputs, so that construction (commission_ship materials, facility builds), sales (faction_restock sell orders) and crafting can't use them up by accident.
+**How to apply:** UNVERIFIED as of 11-02: whether facility maintenance can draw from a bucket at all. If maintenance only consumes the main faction pool, moving inputs into the bucket would starve the facilities, which is the operator's top fear. Test with a small amount first, and only bucket the surplus above about one cycle's needs until that's confirmed.
+
 **Contraband shelf at CJ (2026-11-01):** miningbot_0000 runs hourly `faction_restock <item> <price>` (lists whatever faction storage holds as a faction sell order; same-price orders consolidate): pirate_moonshine **1500** (operator floor — 200 was sold out to resellers in 12 fills), void_dust **5000**, nerve_burn **15000** (it sold 19k–33k elsewhere, once 82k; CJ traffic is the limit, not price). Moonshine now ships Voss → CJ (trader-9 task 11, recipient miningbot_0000) instead of Treasure Cache. Raising an order's price costs 1% of the value increase (nerve burn 8.5k→15k = 21,580); miningbot_0000 got a 50k float from the_banker for fees.
+
+**2026-11-05 foundry + steel:** 500k moved the_banker → miningbot_0000 → treasury (1,424,238 after spend). miningbot_0000 (Officer) built alloy_foundry, facility 789997108b3cbd91fe4d0d0f3345983b, because craftsman-1 is the operator's open play_as session; do not log into craftsman-1 from a tool. CJ had NO scheduled steel craft before this. miningbot_0000 schedule id 47 = hourly `craft refine_steel 500 prefer_own` (labor 5 cr/steel billed to the treasury, ~60k/day at full rate): cut or remove it once the steel backlog is met. Iron refinery L1 already makes ~6,600 steel/hr, so the L2 Industrial Forge is not the bottleneck fix; L2 is 3x speed, output per run stays 2, labor per run doubles.
+
+**2026-11-05 battery + coolant:** another 3M moved to the treasury; point_defense_battery built (f5aa79582a5fa81aab9826b1044565dd). miningbot_0000 ids 48 (daily `process_nitrogen_ice 300`) and 49 (hourly `synthesize_coolant_fluid 6`, ~144/day) feed coolant upkeep; raise id 49 before building shield_projector, which adds 2 coolant/cycle. Consign fixes written (faction_pull item:keep; deposit sweeps skip consign offers) but `deliver <item> ... faction` tasks are NOT guarded, so remove any such task before offering that item (miningbot_0000 id 12 for control_node).

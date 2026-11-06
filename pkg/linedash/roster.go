@@ -63,7 +63,7 @@ func LoadRoster(dir string) (map[string]RosterEntry, error) {
 				Pipeline:    w.Pipeline,
 				Consign:     w.Consign,
 				Shopkeep:    w.Shopkeep,
-				FactionPull: w.FactionPull,
+				FactionPull: factionPullItems(w.FactionPull),
 				Removed:     ov.IsRemoved(w.AgentID),
 			}
 			if old, ok := roster[w.AgentID]; ok && (!old.Removed || e.Removed) {
@@ -110,4 +110,15 @@ func ShopFloor(rules []string, item string) (start, floor int, ok bool) {
 		return s, f, true
 	}
 	return 0, 0, false
+}
+
+// factionPullItems strips the optional :keep from each faction_pull entry; the
+// board matches on item ids.
+func factionPullItems(entries []string) []string {
+	out := make([]string, 0, len(entries))
+	for _, e := range entries {
+		item, _, _ := strings.Cut(e, ":")
+		out = append(out, strings.TrimSpace(item))
+	}
+	return out
 }

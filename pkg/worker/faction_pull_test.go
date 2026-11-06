@@ -82,7 +82,7 @@ const factionReply = `{"base_id":"b1","items":[
 func TestFactionPullMovesAllowListedOnly(t *testing.T) {
 	fc := newFactionPullFake(150, factionReply)
 	var out bytes.Buffer
-	moved, err := FactionPull(context.Background(), fc, []string{"pirate_moonshine"}, &out)
+	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "pirate_moonshine"}}, &out)
 	if err != nil || moved != 72 {
 		t.Fatalf("moved=%d err=%v, want 72 nil", moved, err)
 	}
@@ -99,7 +99,7 @@ func TestFactionPullMovesAllowListedOnly(t *testing.T) {
 
 func TestFactionPullBoundedByFreeHold(t *testing.T) {
 	fc := newFactionPullFake(50, factionReply)
-	moved, err := FactionPull(context.Background(), fc, []string{"pirate_moonshine"}, &bytes.Buffer{})
+	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "pirate_moonshine"}}, &bytes.Buffer{})
 	if err != nil || moved != 50 {
 		t.Fatalf("moved=%d err=%v, want 50 nil", moved, err)
 	}
@@ -111,7 +111,7 @@ func TestFactionPullBoundedByFreeHold(t *testing.T) {
 func TestFactionPullSkipsWithoutAReading(t *testing.T) {
 	fc := newFactionPullFake(150, "")
 	var out bytes.Buffer
-	moved, err := FactionPull(context.Background(), fc, []string{"pirate_moonshine"}, &out)
+	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "pirate_moonshine"}}, &out)
 	if err != nil || moved != 0 || len(fc.withdrawn) != 0 {
 		t.Fatalf("moved=%d err=%v withdrawn=%v", moved, err, fc.withdrawn)
 	}
@@ -123,7 +123,7 @@ func TestFactionPullSkipsWithoutAReading(t *testing.T) {
 func TestFactionPullDepositFailureStops(t *testing.T) {
 	fc := newFactionPullFake(150, factionReply)
 	fc.depositEr = errors.New("boom")
-	moved, err := FactionPull(context.Background(), fc, []string{"pirate_moonshine", "water_ice"}, &bytes.Buffer{})
+	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "pirate_moonshine"}, {Item: "water_ice"}}, &bytes.Buffer{})
 	if err == nil || moved != 0 {
 		t.Fatalf("moved=%d err=%v, want 0 and error", moved, err)
 	}
@@ -134,7 +134,7 @@ func TestFactionPullDepositFailureStops(t *testing.T) {
 
 func TestParseFactionPull(t *testing.T) {
 	got, err := ParseFactionPull(" a , b ,")
-	if err != nil || len(got) != 2 || got[0] != "a" || got[1] != "b" {
+	if err != nil || len(got) != 2 || got[0].Item != "a" || got[1].Item != "b" {
 		t.Fatalf("got %v %v", got, err)
 	}
 	if got, err := ParseFactionPull(""); got != nil || err != nil {
@@ -152,7 +152,7 @@ func TestParseFactionPullDedupes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseFactionPull: %v", err)
 	}
-	if want := []string{"moonshine", "stolen_art", "iron_ore"}; !slices.Equal(got, want) {
+	if want := []FactionPullRule{{Item: "moonshine"}, {Item: "stolen_art"}, {Item: "iron_ore"}}; !slices.Equal(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
 }
@@ -167,7 +167,7 @@ func TestFactionPullDepositsWhatLandedInCargo(t *testing.T) {
 	f.addCargo("pirate_moonshine", 12) // stranded by an earlier failed pass
 	f.state.Ship.CargoUsed += 12
 	var out bytes.Buffer
-	moved, err := FactionPull(context.Background(), f, []string{"pirate_moonshine"}, &out)
+	moved, err := FactionPull(context.Background(), f, []FactionPullRule{{Item: "pirate_moonshine"}}, &out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestFactionPullDrainsStrandedCargoWhenFactionIsEmpty(t *testing.T) {
 	f.addCargo("pirate_moonshine", 60)
 	f.state.Ship.CargoUsed += 60
 	var out bytes.Buffer
-	moved, err := FactionPull(context.Background(), f, []string{"pirate_moonshine"}, &out)
+	moved, err := FactionPull(context.Background(), f, []FactionPullRule{{Item: "pirate_moonshine"}}, &out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,5 +203,46 @@ func TestFactionPullDrainsStrandedCargoWhenFactionIsEmpty(t *testing.T) {
 	}
 	if f.deposited["pirate_moonshine"] != 60 || moved != 60 {
 		t.Fatalf("want deposit 60 from cargo, got deposited %v moved %d", f.deposited, moved)
+	}
+}
+
+// A keep floor leaves that much in faction storage: the goods the pull serves
+// are often also station upkeep or build stock, and the pull has no other way
+// to know.
+func TestFactionPullLeavesKeepInFactionStorage(t *testing.T) {
+	fc := newFactionPullFake(1000, `{"base_id":"b1","items":[{"item_id":"control_node","quantity":300}]}`)
+	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "control_node", Keep: 200}}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if moved != 100 || fc.withdrawn["control_node"] != 100 {
+		t.Fatalf("moved %d, withdrew %d; want 100 of the 300 held above a keep of 200", moved, fc.withdrawn["control_node"])
+	}
+}
+
+func TestFactionPullAtOrBelowKeepWithdrawsNothing(t *testing.T) {
+	fc := newFactionPullFake(1000, `{"base_id":"b1","items":[{"item_id":"control_node","quantity":200}]}`)
+	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "control_node", Keep: 200}}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if moved != 0 || fc.withdrawn["control_node"] != 0 {
+		t.Fatalf("moved %d, withdrew %d; want nothing at the floor", moved, fc.withdrawn["control_node"])
+	}
+}
+
+func TestParseFactionPullKeep(t *testing.T) {
+	got, err := ParseFactionPull("trade_authenticator:200, pirate_moonshine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []FactionPullRule{{Item: "trade_authenticator", Keep: 200}, {Item: "pirate_moonshine"}}
+	if !slices.Equal(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+	for _, bad := range []string{"x:abc", "x:-1", ":5", "energy_crystal:10"} {
+		if _, err := ParseFactionPull(bad); err == nil {
+			t.Errorf("ParseFactionPull(%q) accepted", bad)
+		}
 	}
 }

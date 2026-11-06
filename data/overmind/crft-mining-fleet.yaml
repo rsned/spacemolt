@@ -12,7 +12,7 @@
 # (0026-0030, no pipeline, parked). Chlorine, titanium and spares sit in
 # crft-mining-overrides.json `removed` until they graduate from the unlock queue.
 workers:
-  - { agent_id: miningbot_0000, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-10-27 pinned home at Conjunction Junction (CRFT, pirate unlock): moves gifts into faction storage. Was pipeline "water_ice,frontier,icecap_drift,frontier_station,trader-9"
+  - { agent_id: miningbot_0000, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7, faction_pull: ["trade_authenticator:200"], consign_offer: ["trade_authenticator"] }  # 2026-10-27 pinned home at Conjunction Junction (CRFT, pirate unlock): moves gifts into faction storage. Was pipeline "water_ice,frontier,icecap_drift,frontier_station,trader-9"
   - { agent_id: miningbot_0001, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-10-27 pinned home at Conjunction Junction (CRFT, pirate unlock): moves gifts into faction storage. Was pipeline "water_ice,frontier,icecap_drift,frontier_station,trader-9"
   - { agent_id: miningbot_0002, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,altais,altais_outer_ice,frontier_station,trader-9" }
   - { agent_id: miningbot_0003, role: pipeline_miner, station: frontier_station, pipeline: "water_ice,deep_range,deep_range_cryobelt,deep_range_outpost,trader-9" }

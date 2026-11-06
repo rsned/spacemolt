@@ -25,6 +25,18 @@ type ConsignOffer struct {
 	Keep int
 }
 
+// ConsignOfferItems is the set of items offers advertises.
+func ConsignOfferItems(offers []ConsignOffer) map[string]bool {
+	if len(offers) == 0 {
+		return nil
+	}
+	out := make(map[string]bool, len(offers))
+	for _, o := range offers {
+		out[o.Item] = true
+	}
+	return out
+}
+
 // ConsignStockStore is the slice of *market.Collector the report writes to.
 type ConsignStockStore interface {
 	UpsertConsignStock(ctx context.Context, s market.ConsignStock) error

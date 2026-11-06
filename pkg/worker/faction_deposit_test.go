@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -102,7 +103,7 @@ func TestFactionDepositIsSupported(t *testing.T) {
 // which are reserved for the drone project and are never moved for it.
 func TestFactionDepositAllSkipsReserved(t *testing.T) {
 	c := &depositFake{docked: "cj", held: map[string]int{"coolant_fluid": 400, "shield_matrix": 29, "energy_crystal": 40}}
-	n, err := FactionDepositAll(context.Background(), c)
+	n, err := FactionDepositAll(context.Background(), c, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,9 +120,34 @@ func TestFactionDepositAllSkipsReserved(t *testing.T) {
 	}
 }
 
+// A collector's consign offers live in its personal storage. Without this skip
+// the half-hourly sweep returns them to faction storage, the idle pass pulls
+// them back out, and the offer flickers while the goods shuttle in a circle.
+func TestFactionDepositAllLeavesOfferedGoods(t *testing.T) {
+	c := &depositFake{docked: "cj", held: map[string]int{"coolant_fluid": 400, "trade_authenticator": 900}}
+	n, err := FactionDepositAll(context.Background(), c, map[string]bool{"trade_authenticator": true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 || len(c.deposits) != 1 {
+		t.Fatalf("deposited %d (%+v), want coolant_fluid only", n, c.deposits)
+	}
+}
+
+func TestDispatchFactionDepositLeavesOfferedGoods(t *testing.T) {
+	c := &depositFake{docked: "cj", held: map[string]int{"trade_authenticator": 900}}
+	d := &WorkerDispatch{Client: c, Out: io.Discard, ConsignOffered: map[string]bool{"trade_authenticator": true}}
+	if err := d.Run(context.Background(), []string{"faction_deposit", "trade_authenticator"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.deposits) != 0 {
+		t.Fatalf("deposited %+v, want the offered item left alone", c.deposits)
+	}
+}
+
 func TestFactionDepositAllUndockedIsNoop(t *testing.T) {
 	c := &depositFake{held: map[string]int{"coolant_fluid": 400}}
-	if n, err := FactionDepositAll(context.Background(), c); err != nil || n != 0 || len(c.deposits) != 0 {
+	if n, err := FactionDepositAll(context.Background(), c, nil); err != nil || n != 0 || len(c.deposits) != 0 {
 		t.Errorf("undocked = %d, %v, %v", n, err, c.deposits)
 	}
 }

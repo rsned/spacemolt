@@ -1,6 +1,6 @@
 ---
 name: project_banker_fleet
-description: "the_banker (outerrim, sol_central, role resident) funded with 10M on 2026-10-22; 9.66M after the 10-23 sweep. A NEW agent must EARN 1000cr before it can accept or send credits. cmd/tools/banker is operator-driven; `overmind` IS a real agent; freeze overmind+worker before play_as the_banker."
+description: "the_banker (outerrim, sol_central, role resident) funded with 10M on 2026-10-22; 9.66M after the 10-23 sweep. A new agent must EARN 1000cr before it can SEND gifts; receiving works (corrected 11-04). cmd/tools/banker is operator-driven; `overmind` IS a real agent; freeze overmind+worker before play_as the_banker."
 metadata:
   node_type: memory
   type: project
@@ -39,9 +39,12 @@ outpost unable to gift.
 - **Funded**: 10,000,000 gifted from johnny_cab 2026-10-22 (johnny_cab 43.2M →
   33.2M). Had to move johnny_cab off the outpost to Ironlight Crossroads first.
 
-## ⭐ A NEW AGENT MUST EARN 1000cr BEFORE IT CAN ACCEPT OR SEND CREDITS
+## ⭐ A NEW AGENT MUST EARN 1000cr BEFORE IT CAN *SEND* GIFTS — RECEIVING WORKS
 
-A freshly registered agent cannot transact. The cheap bootstrap:
+**Corrected 2026-11-04:** an agent with 0 credits earned CAN receive. A `send_gift` of 100 credits
+to Johnny_Ca (created 06-23, never played, 0 earned) from Grand Exchange returned `credits_sent: 100`.
+Only the *sender* needs the gift unlock (1,000 lifetime credits earned). The bootstrap below is for an
+agent that must itself send or gift:
 
 ```
 accept_mission market_participation_buying
@@ -75,6 +78,15 @@ works as documented; `send_gift` returns `credits_sent` per grant.
 
 At `--floor 10000` the sweep was **46 grants / 366,649 cr** — trivial against
 the 10M float.
+
+**2026-11-03 sweep (after the CVE-reboot cold start): 54 grants / 397,002 cr; the_banker
+held 176.5M.** `send_gift` now executes on the NEXT TICK (~10 s each), so the old "≤10 gifts
+per session" overruns the 90 s SilenceTimeout — use **≤5 gifts per session** (≈60 s incl.
+login), no `sleep` needed between them. Driver used: SIGSTOP banker worker →
+`printf 'run <chunk>\nquit\n' | timeout 85 go run ./cmd/tools/play_as the_banker` → rm lease →
+SIGCONT → 75 s gap (per-player 10 logins/min). Count `"credits_sent"` lines per chunk and stop
+on a mismatch; a killed session's unsent tail shows no `Executing:` line, so it is safe to resend.
+Status-file credits=0 right after a cold start were REAL (server `Ready! Credits: 0.00`).
 
 Note: usernames are genuinely 24 chars in the ledger (`Stella 'StarStrider' Ste`
 is the whole name, not a truncation) — don't "fix" them.

@@ -90,7 +90,7 @@ func main() {
 	consignSpec := flag.String("consign", "", "Standing consignment rules, comma-separated item:recipient:min[:keep] — hand allow-listed goods from this station's personal storage to a named hauler on each idle pass (e.g. adamantite_ore:salvager-2:50). Explicit allow-list only: gifting is irreversible.")
 	pipelineSpec := flag.String("pipeline", "", "Pinned pipeline route item,system,poi,to,recipient — the pipeline_miner role mines item at poi in system and hands the whole item line plus any other line the trip grew (never energy_crystal or fuel_cell) to recipient at to on each idle pass.")
 	consignOfferSpec := flag.String("consign-offer", "", "Consignment offers, comma-separated item[:keep] — advertise allow-listed goods in this station's personal storage to the hauler fleet as consigned routes; the claiming hauler is gifted them via the handoff queue (needs --handoff-queue). Explicit allow-list only: gifting is irreversible.")
-	factionPullSpec := flag.String("faction-pull", "", "Item ids, comma-separated — each idle pass, move these from faction storage into personal storage (bounded by free hold) so consign/shopkeep can see them. Explicit ids only; energy_crystal is refused.")
+	factionPullSpec := flag.String("faction-pull", "", "Items, comma-separated item[:keep] — each idle pass, move these from faction storage, leaving keep units there, into personal storage (bounded by free hold) so consign/shopkeep can see them. Explicit ids only; energy_crystal is refused.")
 	shopkeepSpec := flag.String("shopkeep", "", "Shop rules, comma-separated item:start[:floor] — keep one ask open per allow-listed item in this station's personal storage, stepping the price up after a fill and down (never below floor, default max(1, start/2), floor >= 1) when stale. Explicit allow-list only: a sale is irreversible; energy_crystal is refused, and an item may not also be in --consign or --consign-offer.")
 	freightBootstrap := flag.Bool("freight-bootstrap", true, "Enable the probationary loss-leader freight floor for the missions role (default on when --enable-freight; set =false to keep freight on but disable bootstrapping)")
 	secondmentPath := flag.String("secondment-ledger", "", "Shared fleet-loan ledger a hauler writes its pirate-unlock nomination into (empty disables nominating; only the haul fleet sets it)")
@@ -464,6 +464,7 @@ func main() {
 		roleCfg, haveRole := roles[*role]
 		if haveRole {
 			dispatch := worker.NewWorkerDispatch(client, kb, mc, logOut)
+			dispatch.ConsignOffered = worker.ConsignOfferItems(consignOffers)
 			dispatch.AgentID = *agentID
 			dispatch.Station = *station
 			dispatch.Assets = assetStore

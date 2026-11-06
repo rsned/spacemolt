@@ -52,7 +52,9 @@ func FactionDeposit(ctx context.Context, client game.GameClient, itemID string) 
 var factionDepositReserved = map[string]bool{"energy_crystal": true}
 
 // FactionDepositAll moves every item in this agent's personal storage at the
-// station it is docked at into faction storage, except factionDepositReserved.
+// station it is docked at into faction storage, except factionDepositReserved
+// and anything in skip, the agent's own consign offers, which have to stay in
+// personal storage for the offer to mean anything.
 //
 // It exists for the Cloverfield dumping ground (operator, 2026-11-01): haulers
 // gift leftover cargo -- failed arbitrage legs, odds and ends -- to the
@@ -60,7 +62,7 @@ var factionDepositReserved = map[string]bool{"energy_crystal": true}
 // member's own storage; this sweep puts it in faction storage, where any CJ
 // craft can draw on it. Returns how many item types it moved. A refused item
 // is reported and the rest still move.
-func FactionDepositAll(ctx context.Context, client game.GameClient) (int, error) {
+func FactionDepositAll(ctx context.Context, client game.GameClient, skip map[string]bool) (int, error) {
 	state := client.GetState()
 	if state == nil || state.Player.DockedAtBase == "" {
 		return 0, nil
@@ -74,7 +76,7 @@ func FactionDepositAll(ctx context.Context, client game.GameClient) (int, error)
 	}
 	items := make([]string, 0, len(held))
 	for id, q := range held {
-		if q > 0 && !factionDepositReserved[id] {
+		if q > 0 && !factionDepositReserved[id] && !skip[id] {
 			items = append(items, id)
 		}
 	}

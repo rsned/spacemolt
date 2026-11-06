@@ -13,7 +13,7 @@
 - ⭐🔴 [NO stronghold routing without pirate unlock](feedback_stronghold_routing_requires_pirate_unlock.md) — per-agent rule; strongholds are dead ends; 8 of 24 losses incl. assist-sol's tanker
 - Archives: [Aug](project_status_archive_2026_08.md) · [Jul 22–29](project_status_archive_2026_07.md) · [Jul 4–10](project_current_status.md) — misnamed: the OLDEST archive, 81 KB
 - ⭐🟢✅ [Clerk-token login + host-wide connection gate LIVE 10-22](reference_clerk_token_login_and_connection_gate.md) — fleet cold start ~5 min (was 15–30), zero 429s; `--stagger` is dead; key in ~/.config/spacemolt/clerk_api_key; run clerk-sync after new accounts; 4001 parks; play_as lease; **key regen still pending**
-- ⭐ [Cold start: follow docs/COLD_START.md, but it lists 7 of 9 fleets](reference_cold_start_runbook_drift.md) — mining + shuttle + fleet-watch missing; pool ~90 is HEALTHY now, not starved
+- ⭐ [Cold start runbook re-synced 11-03: 11 fleets + fleet-watch](reference_cold_start_runbook_drift.md) — shuttle NOT retired; fleet-watch launches LAST; login gate stays 60/min (headroom)
 - [Shipped-feature index](reference_shipped_history.md) — check before rebuilding anything
 - [Sunless systems = generation artifact](reference_sunless_systems_intentional.md) — 9 systems, LLM-map slip, do NOT chase; real reveal hook is gsc_0026 faint_signature
 
@@ -54,5 +54,7 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [Public stations API](reference_public_stations_api.md) — game.spacemolt.com/api/stations: every station/outpost live; find player stations without a marketbot; mobile pins OK
 - [Gift unlock + officer storage split](reference_gift_unlock_and_officer_storage_split.md) — send_gift needs 1,000 earned credits; gifts land in officer's own storage → faction_deposit sweeps
 - [Facility speed + rent rules](reference_facility_speed_rules.md) — recipe time = hand baseline; L1 5x, +3x/upgrade; admin +15%/tier (2 tiers); recruit +5%/lvl; rent 3%/day (x2 pirate); hand-craft queues are per agent, so spread them
+- 🟡 [Hull costs page merged 11-03](project_hull_production_costs.md) — KB private hulls.html; migration 66 (quote/license capture) NOT applied to live DB yet → run bin/kb-migrate first
+- 🟢 [CRFT owns congregation license (11-02)](reference_congregation_is_outerrim_exclusive.md) — 1M paid; build at CJ, 10% royalty (~662) to outerrim; treasury now ~1.0M = AT floor
 - [Haul leftovers → Cloverfield (11-01)](reference_haul_leftovers_to_cloverfield.md) — haulers carry failed-arbitrage cargo, gift to miningbot_0000 at CJ within 3 jumps; faction_deposit_all sweeps it
 - [pgrep self-match + sole-member fleets](reference_pgrep_self_match_and_sole_member.md) — use `[b]in/...` patterns; a fleet's only member can't be override-removed, SIGSTOP it for play_as
