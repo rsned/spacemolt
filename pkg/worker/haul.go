@@ -924,7 +924,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	// opportunities. Runs after the claim-resume above so a committed haul is never
 	// interrupted.
 	if galGraph != nil {
-		if rescued, rerr := haulRecoverIfStranded(ctx, deps, out, galGraph, current); rerr != nil {
+		if rescued, rerr := haulRecoverIfStranded(ctx, deps, out, galGraph, current, systems); rerr != nil {
 			fmt.Fprintf(out, "haul: recovery check error: %v\n", rerr) //nolint:errcheck
 		} else if rescued {
 			return nil
@@ -1028,21 +1028,38 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	return runClaimedHaul(ctx, deps, out, opp, nameToID, m, fuel, bookClaimID)
 }
 
-// haulRecoverIfStranded routes the worker to the nearest stronghold-free station when
-// it is stranded in a system that has no accessible station of its own — where it
-// cannot trade, refuel, or deposit and would otherwise idle and burn restarts (e.g.
-// salvager-5 in Struve 1321, a station-less Lawless dead-end). It uses the same
-// nearest-accessible-station query as databot (FindNearestByPOIType, which excludes
-// strongholds and non-public stations). Returns rescued=true when it issued a
-// relocation, so the caller ends the pass and re-evaluates next pass.
-func haulRecoverIfStranded(ctx context.Context, deps HaulDeps, out io.Writer, galGraph *galaxy.GalaxyGraph, current string) (bool, error) {
-	near, err := galaxy.FindNearestByPOIType(ctx, deps.KB, galGraph, current, "station", 1)
+// haulRecoverIfStranded routes the worker to the nearest station it can use when
+// it is stranded in a system with no such station of its own -- where it cannot
+// trade, refuel, or deposit and would otherwise idle and burn restarts (e.g.
+// salvager-5 in Struve 1321, a station-less Lawless dead-end). Returns
+// rescued=true when it issued a relocation, so the caller ends the pass and
+// re-evaluates next pass.
+//
+// Which stations count depends on the agent. An agent without the pirate unlock
+// gets the query databot uses, which excludes strongholds and non-public
+// stations. An agent holding the unlock can dock at a stronghold, so it counts:
+// salvager-8 sat at Sheratan's star with 23 fuel looping on an 11-jump route
+// beside Thane Keep's fuel desk (2026-11-06), and on 2026-11-03 it was hauled
+// off Sable Port, a station it was docked at.
+func haulRecoverIfStranded(ctx context.Context, deps HaulDeps, out io.Writer, galGraph *galaxy.GalaxyGraph, current string, systems []knowledge.System) (bool, error) {
+	st := deps.Client.GetState()
+	unlocked := smugglingUnlocked(st)
+	near, err := galaxy.FindNearestStation(ctx, deps.KB, galGraph, current, 1, unlocked)
 	if err != nil {
 		return false, fmt.Errorf("nearest station: %w", err)
 	}
-	// current already has its own accessible station (Hops 0) — not stranded.
-	if len(near) == 0 || near[0].Hops == 0 || near[0].SystemID == current {
+	if len(near) == 0 {
 		return false, nil
+	}
+	// current already has a usable station (Hops 0). Off-station in a stronghold
+	// is the one such case that needs help: autopilot refuels only when docked,
+	// so a low tank there can never leave.
+	if near[0].Hops == 0 || near[0].SystemID == current {
+		if !unlocked || st.Doc || !buildStrongholdRefs(systems)[current] {
+			return false, nil
+		}
+
+		return haulDockAtStronghold(ctx, deps, out, current), nil
 	}
 	dest := near[0]
 	name := dest.SystemName
@@ -1052,8 +1069,8 @@ func haulRecoverIfStranded(ctx context.Context, deps HaulDeps, out io.Writer, ga
 	// FindNearestByPOIType never fills NearestResult.POIs for a POI-type
 	// lookup, so dest.POIs[0] was always empty and the relocation stopped in
 	// open space. Resolve the dockable station the way hunt recovery does.
-	station, _ := missionStationPOI(ctx, deps.KB, dest.SystemID)
-	fmt.Fprintf(out, "haul: stranded in station-less %s; relocating to nearest safe station %s (%s, %d jump(s))\n", current, name, dest.SystemID, dest.Hops) //nolint:errcheck
+	station := haulUsableStationPOI(ctx, deps.KB, dest.SystemID, unlocked)
+	fmt.Fprintf(out, "haul: stranded in station-less %s; relocating to nearest usable station %s (%s, %d jump(s))\n", current, name, dest.SystemID, dest.Hops) //nolint:errcheck
 	if aerr := haulAutopilot(ctx, deps, out, dest.SystemID, station, nil); aerr != nil {
 		fmt.Fprintf(out, "haul: relocation transit failed: %v; will retry next pass\n", aerr) //nolint:errcheck
 		return true, nil
@@ -1062,6 +1079,50 @@ func haulRecoverIfStranded(ctx context.Context, deps HaulDeps, out io.Writer, ga
 		fmt.Fprintf(out, "haul: relocation dock at %s failed: %v\n", station, derr) //nolint:errcheck
 	}
 	return true, nil
+}
+
+// haulDockAtStronghold moves an unlocked agent to the station in its current
+// stronghold, docks and refuels. It reports whether it acted.
+func haulDockAtStronghold(ctx context.Context, deps HaulDeps, out io.Writer, current string) bool {
+	station := haulUsableStationPOI(ctx, deps.KB, current, true)
+	if station == "" {
+		return false
+	}
+	fmt.Fprintf(out, "haul: off-station in stronghold %s; docking at %s\n", current, station) //nolint:errcheck
+	if aerr := haulAutopilot(ctx, deps, out, current, station, nil); aerr != nil {
+		fmt.Fprintf(out, "haul: stronghold transit failed: %v; will retry next pass\n", aerr) //nolint:errcheck
+		return true
+	}
+	if derr := dockIdempotent(ctx, deps.Client); derr != nil {
+		fmt.Fprintf(out, "haul: stronghold dock at %s failed: %v\n", station, derr) //nolint:errcheck
+		return true
+	}
+	if rerr := RefuelAndSync(ctx, deps.Client, out, "haul stronghold dock"); rerr != nil {
+		fmt.Fprintf(out, "haul: stronghold refuel at %s failed: %v\n", station, rerr) //nolint:errcheck
+	}
+	return true
+}
+
+// haulUsableStationPOI is missionStationPOI for an agent that may hold the
+// pirate unlock: a stronghold's station is stored non-public, which is the
+// door the unlock opens, so strongholds fall back to any non-outpost station.
+func haulUsableStationPOI(ctx context.Context, kb knowledge.Base, systemID string, unlocked bool) string {
+	if station, _ := missionStationPOI(ctx, kb, systemID); station != "" || !unlocked {
+		return station
+	}
+	pois, err := kb.GetPOIs(ctx, systemID)
+	if err != nil {
+		return ""
+	}
+	for _, p := range pois {
+		if p.Type != "station" {
+			continue
+		}
+		if base, berr := kb.GetBaseByPOI(ctx, p.ID); berr == nil && base != nil && !base.IsOutpost() {
+			return p.ID
+		}
+	}
+	return ""
 }
 
 // filterStrongholdRoutes returns the opportunities whose shortest route avoids every

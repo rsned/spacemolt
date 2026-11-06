@@ -39,7 +39,7 @@ func FindNearestByPOIType(
 	var targets []string
 	var err error
 	if poiType == "station" {
-		targets, err = queryAccessibleStations(ctx, kb)
+		targets, err = queryAccessibleStations(ctx, kb, false)
 	} else {
 		targets, err = queryPOIsByType(ctx, kb, poiType)
 	}
@@ -54,6 +54,30 @@ func FindNearestByPOIType(
 	return graph.FindNearest(fromSystem, targets, limit)
 }
 
+// FindNearestStation is FindNearestByPOIType for stations, for a caller that
+// knows whether the agent may dock at a stronghold. includeStrongholds is only
+// correct for an agent holding the pirate unlock.
+func FindNearestStation(ctx context.Context, kb knowledge.Base, graph *GalaxyGraph, fromSystem string, limit int, includeStrongholds bool) ([]NearestResult, error) {
+	if !includeStrongholds {
+		return FindNearestByPOIType(ctx, kb, graph, fromSystem, "station", limit)
+	}
+	if kb == nil {
+		return nil, fmt.Errorf("nearest_by_poi: knowledge base is nil")
+	}
+	if graph == nil {
+		return nil, fmt.Errorf("nearest_by_poi: graph is nil")
+	}
+	targets, err := queryAccessibleStations(ctx, kb, true)
+	if err != nil {
+		return nil, err
+	}
+	if len(targets) == 0 {
+		return nil, nil
+	}
+
+	return graph.FindNearest(fromSystem, targets, limit)
+}
+
 // queryAccessibleStations returns system IDs that contain at least one
 // publicly accessible station and are not strongholds.
 //
@@ -61,7 +85,7 @@ func FindNearestByPOIType(
 // outsider's dock, yet their POIs are typed "station" and their bases stored
 // public_access=1 — so without this gate a stranded ship was routed onto one
 // and parked there (johnny_cab at Ironlight Ferrous Range, 2026-11-02..04).
-func queryAccessibleStations(ctx context.Context, kb knowledge.Base) ([]string, error) {
+func queryAccessibleStations(ctx context.Context, kb knowledge.Base, includeStrongholds bool) ([]string, error) {
 	systems, err := kb.GetSystems(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get systems: %w", err)
@@ -69,7 +93,7 @@ func queryAccessibleStations(ctx context.Context, kb knowledge.Base) ([]string, 
 
 	systemSet := make(map[string]bool)
 	for _, sys := range systems {
-		if sys.IsStronghold {
+		if sys.IsStronghold && !includeStrongholds {
 			continue
 		}
 		pois, err := kb.GetPOIs(ctx, sys.ID)
@@ -81,7 +105,9 @@ func queryAccessibleStations(ctx context.Context, kb knowledge.Base) ([]string, 
 				continue
 			}
 			base, err := kb.GetBaseByPOI(ctx, poi.ID)
-			if err == nil && base != nil && base.PublicAccess && !base.IsOutpost() {
+			// A stronghold's station is stored non-public, and the unlock is
+			// what opens it, so the flag only speaks for ordinary systems.
+			if err == nil && base != nil && (base.PublicAccess || sys.IsStronghold) && !base.IsOutpost() {
 				systemSet[sys.ID] = true
 				break
 			}
