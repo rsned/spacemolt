@@ -103,9 +103,12 @@ func droneIDsFromRoster(raw []byte, itemID string) ([]string, error) {
 // installedModule is one fitted module as get_ship reports it: ID is the
 // INSTANCE id uninstall_mod needs, TypeID the catalogue id worth logging.
 type installedModule struct {
-	ID     string `json:"id"`
-	TypeID string `json:"type_id"`
-	Name   string `json:"name"`
+	ID         string `json:"id"`
+	TypeID     string `json:"type_id"`
+	Name       string `json:"name"`
+	Slot       string `json:"slot"`
+	CPUUsage   int    `json:"cpu_usage"`
+	PowerUsage int    `json:"power_usage"`
 }
 
 // shipModules decodes the fitted-module list from the last get_ship reply.
