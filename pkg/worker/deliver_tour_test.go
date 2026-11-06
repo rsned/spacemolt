@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -75,7 +76,7 @@ func TestDeliverTourGiftsInOrder(t *testing.T) {
 // resumes on the item it had not sent.
 func TestDeliverTourResumeSkipsFinishedStops(t *testing.T) {
 	f := newTour(t, &game.State{}, fitStop("bot-a"), fitStop("bot-b"))
-	done := "bot-a\tadvanced_drone_bay\nbot-a\tmining_drone\nbot-b\tadvanced_drone_bay\n"
+	done := "bot-a\tadvanced_drone_bay\tdone\nbot-a\tmining_drone\tdone\nbot-b\tadvanced_drone_bay\tdone\n"
 	if err := os.WriteFile(f.manifest+".progress", []byte(done), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -124,5 +125,35 @@ func TestDeliverTourShortCargoStops(t *testing.T) {
 	}
 	if len(f.client.giftCalls) != 0 {
 		t.Fatalf("no partial gift: %v", giftedTo(f.client))
+	}
+}
+
+// A worker that died after sending a gift but before recording it leaves a
+// pending line. Sending again could double a gift that cannot be taken back.
+func TestDeliverTourPendingGiftHaltsForOperator(t *testing.T) {
+	f := newTour(t, &game.State{}, fitStop("bot-a"))
+	if err := os.WriteFile(f.manifest+".progress", []byte("bot-a\tadvanced_drone_bay\tpending\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := f.d.DeliverTour(context.Background(), f.manifest)
+	if err == nil || !strings.Contains(err.Error(), "bot-a") || !strings.Contains(err.Error(), "advanced_drone_bay") {
+		t.Fatalf("want a halt naming the gift, got %v", err)
+	}
+	if len(f.client.giftCalls) != 0 {
+		t.Fatalf("no gift past a pending line: %v", giftedTo(f.client))
+	}
+}
+
+// Travel fails often and sends nothing, so it must stay freely retryable.
+func TestDeliverTourTravelFailureLeavesNothingPending(t *testing.T) {
+	f := newTour(t, &game.State{}, fitStop("bot-a"))
+	f.client.routeErr = errors.New("You are not in a system")
+
+	if err := f.d.DeliverTour(context.Background(), f.manifest); err == nil {
+		t.Fatal("want the travel error")
+	}
+	if raw, err := os.ReadFile(f.manifest + ".progress"); err == nil && strings.Contains(string(raw), "pending") {
+		t.Fatalf("travel failure left a pending gift: %q", raw)
 	}
 }

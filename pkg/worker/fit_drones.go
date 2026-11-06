@@ -172,6 +172,9 @@ func (d *WorkerDispatch) freeModuleSlot(ctx context.Context, bayItem string) (in
 	}
 
 	victim := blockers[0]
+	if err := refuseRoleHarvester(d.Role, []string{victim.TypeID}); err != nil {
+		return none, err
+	}
 	if err := d.Client.UninstallMod(ctx, victim.ID); err != nil {
 		return none, fmt.Errorf("uninstall %s (%s): %w", victim.TypeID, victim.ID, err)
 	}
@@ -326,9 +329,15 @@ func (d *WorkerDispatch) FitDrones(ctx context.Context, script string, bays, dro
 		fmt.Fprint(d.Out, msg) //nolint:errcheck
 	}
 
-	if baysNeeded > 0 {
-		if err = d.Client.WithdrawItems(ctx, bayItem, float64(baysNeeded)); err != nil {
-			return fmt.Errorf("fit_drones: withdraw %d %s: %w", baysNeeded, bayItem, err)
+	// As with the drones below: a run that died after this withdraw left the bay
+	// in the hold, where storage can no longer supply it.
+	baysToWithdraw := baysNeeded
+	if opts.Resume {
+		baysToWithdraw = max(baysNeeded-int(cargoQty(d.Client.GetState(), bayItem)), 0)
+	}
+	if baysToWithdraw > 0 {
+		if err = d.Client.WithdrawItems(ctx, bayItem, float64(baysToWithdraw)); err != nil {
+			return fmt.Errorf("fit_drones: withdraw %d %s: %w", baysToWithdraw, bayItem, err)
 		}
 	}
 	if baysNeeded > 0 && len(opts.StripTypes) > 0 {

@@ -24,9 +24,11 @@ type TourStop struct {
 }
 
 // DeliverTour gifts a reviewed manifest from cargo, stop by stop. Gifts cannot
-// be taken back, so each one is recorded in <manifest>.progress as it lands and
-// a restarted tour skips it, and a stop is checked before its first gift: the
-// recipient must still be in that system and the cargo must cover the stop.
+// be taken back, so each one is written to <manifest>.progress as pending before
+// it is sent and done after. A restarted tour skips done gifts and halts on a
+// pending one, which may or may not have landed, until an operator settles it.
+// A stop is checked before its first gift: the recipient must still be in that
+// system and the cargo must cover the stop.
 func (d *WorkerDispatch) DeliverTour(ctx context.Context, manifestPath string) error {
 	raw, err := os.ReadFile(manifestPath)
 	if err != nil {
@@ -51,18 +53,36 @@ func (d *WorkerDispatch) DeliverTour(ctx context.Context, manifestPath string) e
 
 	for _, stop := range stops {
 		items := slices.Sorted(maps.Keys(stop.Items))
-		items = slices.DeleteFunc(items, func(item string) bool { return done[tourKey(stop.Recipient, item)] })
+		for _, item := range items {
+			if done[tourKey(stop.Recipient, item)] == tourPending {
+				return fmt.Errorf("deliver_tour: %s %s may already be gifted; check its storage and mark the progress line done or remove it", stop.Recipient, item)
+			}
+		}
+		items = slices.DeleteFunc(items, func(item string) bool { return done[tourKey(stop.Recipient, item)] == tourDone })
 		if len(items) == 0 {
 			continue
 		}
 		if err = d.checkTourStop(ctx, stop, items); err != nil {
 			return fmt.Errorf("deliver_tour: %w", err)
 		}
+		// Travel first: it fails often and sends nothing, so it stays outside
+		// the pending window and a retry needs no operator.
+		toSys, toPOI, rerr := resolveBase(ctx, d.KB, stop.StationID)
+		if rerr != nil {
+			return fmt.Errorf("deliver_tour: %s: %w", stop.Recipient, rerr)
+		}
+		if err = d.autopilotAndDock(ctx, toSys, toPOI); err != nil {
+			return fmt.Errorf("deliver_tour: %s: travel: %w", stop.Recipient, err)
+		}
 		for _, item := range items {
+			key := tourKey(stop.Recipient, item)
+			if err = appendTourProgress(progressPath, key, tourPending); err != nil {
+				return fmt.Errorf("deliver_tour: %s %s not sent: %w", stop.Recipient, item, err)
+			}
 			if err = d.Deliver(ctx, item, stop.Items[item], "", stop.StationID, stop.Recipient); err != nil {
 				return fmt.Errorf("deliver_tour: %s: %w", stop.Recipient, err)
 			}
-			if err = appendTourProgress(progressPath, tourKey(stop.Recipient, item)); err != nil {
+			if err = appendTourProgress(progressPath, key, tourDone); err != nil {
 				return fmt.Errorf("deliver_tour: %s %s gifted but not recorded: %w", stop.Recipient, item, err)
 			}
 		}
@@ -136,8 +156,14 @@ func statusRecipientSystem(agent string) (string, error) {
 
 func tourKey(recipient, item string) string { return recipient + "\t" + item }
 
-func readTourProgress(path string) (map[string]bool, error) {
-	done := map[string]bool{}
+// Gift states in the progress file; the last line for a key wins.
+const (
+	tourPending = "pending"
+	tourDone    = "done"
+)
+
+func readTourProgress(path string) (map[string]string, error) {
+	done := map[string]string{}
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return done, nil
@@ -146,18 +172,31 @@ func readTourProgress(path string) (map[string]bool, error) {
 		return nil, err
 	}
 	for line := range strings.Lines(string(raw)) {
-		done[strings.TrimRight(line, "\n")] = true
+		key, state, ok := cutLastTab(strings.TrimRight(line, "\n"))
+		if !ok {
+			return nil, fmt.Errorf("bad progress line %q", line)
+		}
+		done[key] = state
 	}
 
 	return done, nil
 }
 
-func appendTourProgress(path, key string) error {
+func cutLastTab(line string) (before, after string, ok bool) {
+	i := strings.LastIndexByte(line, '\t')
+	if i < 0 {
+		return "", "", false
+	}
+
+	return line[:i], line[i+1:], true
+}
+
+func appendTourProgress(path, key, state string) error {
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
 	}
-	if _, err = fmt.Fprintln(f, key); err != nil {
+	if _, err = fmt.Fprintln(f, key+"\t"+state); err != nil {
 		_ = f.Close()
 		return err
 	}

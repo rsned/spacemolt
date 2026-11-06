@@ -3,10 +3,13 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 type checkMod struct {
@@ -153,9 +156,9 @@ func TestFitDronesRefusesHarvesterOnGasRole(t *testing.T) {
 		t.Run(tc.role, func(t *testing.T) {
 			d, fc := namedStripDispatch(t, tc.role, [2]string{"h", tc.module})
 
-			err := d.FitDrones(context.Background(), "mine_gas", 1, 2, "", "", FitDronesOpts{StripTypes: []string{tc.module}})
-			if err == nil {
-				t.Fatal("stripping the role's harvester must be refused")
+			err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", FitDronesOpts{StripTypes: []string{tc.module}})
+			if err == nil || !strings.Contains(err.Error(), "refusing to strip") {
+				t.Fatalf("stripping the role's harvester must be refused: %v", err)
 			}
 			if len(fc.calls) != 0 {
 				t.Fatalf("a refused fit changes nothing: %v", fc.calls)
@@ -176,5 +179,35 @@ func TestFitDronesResumeDoesNotStripAgain(t *testing.T) {
 	}
 	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "uninstall_mod") }) {
 		t.Fatalf("resume with a bay fitted must not strip: %v", fc.calls)
+	}
+}
+
+// A strip that failed after the withdraw leaves the bay in the hold, and storage
+// no longer has it. Resume must use the one aboard.
+func TestFitDronesResumeUsesTheBayInCargo(t *testing.T) {
+	d, fc := namedStripDispatch(t, "resident", [2]string{"a", "mining_laser_i"})
+	fc.raw["drones"] = []byte(`{"drones":[]}`)
+	fc.state.Ship.Cargo = []game.CargoItem{{ItemID: "advanced_drone_bay", Quantity: 1}}
+
+	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", FitDronesOpts{
+		Resume: true, StripTypes: []string{"mining_laser_i"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(fc.calls, func(c string) bool { return strings.HasPrefix(c, "withdraw:advanced_drone_bay") }) {
+		t.Fatalf("withdrew a bay that was already aboard: %v", fc.calls)
+	}
+}
+
+func TestFitDronesStripRefusesRoleHarvesterAsSoleModule(t *testing.T) {
+	d, fc := namedStripDispatch(t, "resident_gas", [2]string{"h", "gas_harvester_i"})
+	fc.installModErrUntilStrip = errors.New("insufficient CPU")
+
+	err := d.FitDrones(context.Background(), "mine_asteroid", 1, 2, "", "", FitDronesOpts{Strip: true})
+	if err == nil || !strings.Contains(err.Error(), "refusing to strip") {
+		t.Fatalf("the legacy strip must not take the role's harvester: %v", err)
+	}
+	if slices.Contains(fc.calls, "uninstall_mod:h") {
+		t.Fatalf("harvester was stripped: %v", fc.calls)
 	}
 }
