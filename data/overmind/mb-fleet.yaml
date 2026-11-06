@@ -95,9 +95,9 @@ workers:
   - { agent_id: miner-2, role: resident, station: 0321b3e4406021575337b7be26e53dd7 }  # LHS 1140 / Ironlight Crossroads — 12 jumps from Alfirk, measured 4 fuel/jump
   # =========================================================================
 
-  - { agent_id: marketbot_alpha_centauri, role: resident_ice, station: "" }
+  - { agent_id: marketbot_alpha_centauri, role: resident, station: "" }
   - { agent_id: marketbot_blood_forge, role: resident, station: "" }
-  - { agent_id: marketbot_cargo_lanes, role: resident_gas, station: "" }
+  - { agent_id: marketbot_cargo_lanes, role: resident, station: "" }
   - { agent_id: marketbot_deep_range, role: resident_gas, station: "" }  # belt+gas+ice available; user fit gas
   - { agent_id: marketbot_factory_belt, role: resident_gas, station: "" }
   - { agent_id: marketbot_first_step, role: resident, station: "" }

@@ -22,7 +22,7 @@
  {
   "station_id": "frontier_station",
   "system": "starfall",
-  "recipient": "marketbot_frontier",
+  "recipient": "marketbot_starfall",
   "items": {
    "advanced_drone_bay": 1,
    "mining_drone": 5

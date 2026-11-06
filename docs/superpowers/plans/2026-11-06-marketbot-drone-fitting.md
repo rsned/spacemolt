@@ -64,7 +64,7 @@ Excluded bots:
 | Route | Wave 1 bots | Bays | Drones | Longest trip, one way | Hub bot |
 |---|---:|---:|---:|---:|---|
 | Krynn (`crimson_war_citadel`) | 16 | 16 | 80 | 9 jumps | `marketbot_krynn` |
-| Starfall (`frontier_station`) | 8 | 8 | 40 | 4 jumps | `marketbot_starfall` |
+| Starfall (`frontier_station`) | 8 | 8 | 40 | 4 jumps | `marketbot_frontier` |
 | Haven (`grand_exchange_station`) | 6 | 6 | 30 | 3 jumps | `marketbot_haven` |
 | Sol (`confederacy_central_command`) | 6 | 6 | 30 | 4 jumps | `marketbot_sol` |
 | Nexus Prime (`central_nexus`) | 5 | 5 | 25 | 3 jumps | `marketbot_nexus_prime` |
