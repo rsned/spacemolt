@@ -40,10 +40,13 @@ type WorkerDispatch struct {
 	// any paying activity and must never be a new way for a pass to fail.
 	Assets  *assets.Store
 	Out     io.Writer
-	AgentID string      // claim owner for opportunity-claiming roles (e.g. hauler)
-	Station string      // home base id: pins the assist and missionrunner roles
-	Role    string      // --role; fit_drones keeps the harvester a role depends on
-	Rescue  RescueQueue // shared stranded-worker rescue queue, used by the assist role
+	AgentID string // claim owner for opportunity-claiming roles (e.g. hauler)
+	Station string // home base id: pins the assist and missionrunner roles
+	Role    string // --role; fit_drones keeps the harvester a role depends on
+	// TourRecipientSystem is a test seam for deliver_tour's location check.
+	// Nil reads the fleet status files.
+	TourRecipientSystem func(agent string) (string, error)
+	Rescue              RescueQueue // shared stranded-worker rescue queue, used by the assist role
 	// AgentsDir is where agent credential files live (<AgentsDir>/<agent-id>/
 	// credentials.json), used by Deliver to resolve a gift recipient's agent
 	// id to its in-game username. Empty -> DefaultAgentsDir ("data/agents").
@@ -220,7 +223,7 @@ var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true, "ensure_home": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
 	"hunt": true,
-	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "buy_directed": true, "craft_node": true, "craft": true,
+	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "deliver_tour": true, "buy_directed": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "fit_check": true, "launch_drones": true,
 	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "faction_deposit_all": true, "faction_restock": true, "announce": true, "capture_craft_queue": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
@@ -472,6 +475,11 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			AgentID: d.AgentID, HomeStation: d.Station,
 			SetActivity: d.setActivity, Market: d.Market,
 		})
+	case "deliver_tour":
+		if len(args) != 1 {
+			return fmt.Errorf("deliver_tour: want MANIFEST, got %v", args)
+		}
+		return d.DeliverTour(ctx, args[0])
 	case "deliver":
 		if len(args) < 5 {
 			return fmt.Errorf("deliver: want ITEM QTY FROM TO RECIPIENT, got %v", args)
