@@ -1,0 +1,62 @@
+[
+ {
+  "station_id": "grand_exchange_station",
+  "system": "haven",
+  "recipient": "marketbot_market_prime",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "grand_exchange_station"
+ },
+ {
+  "station_id": "grand_exchange_station",
+  "system": "haven",
+  "recipient": "marketbot_cargo_lanes",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "grand_exchange_station"
+ },
+ {
+  "station_id": "grand_exchange_station",
+  "system": "haven",
+  "recipient": "marketbot_gold_run",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "grand_exchange_station"
+ },
+ {
+  "station_id": "grand_exchange_station",
+  "system": "haven",
+  "recipient": "marketbot_the_levy",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "grand_exchange_station"
+ },
+ {
+  "station_id": "grand_exchange_station",
+  "system": "haven",
+  "recipient": "marketbot_factory_belt",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "grand_exchange_station"
+ },
+ {
+  "station_id": "grand_exchange_station",
+  "system": "haven",
+  "recipient": "marketbot_treasure_cache",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "grand_exchange_station"
+ }
+]

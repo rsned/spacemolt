@@ -1,0 +1,152 @@
+[
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_007",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_000",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_002",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_008",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_ramens_rest",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_009",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_003",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_004",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_005",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_006",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_the_crucible",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_iron_reach",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_the_anvil",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_blood_forge",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ },
+ {
+  "station_id": "crimson_war_citadel",
+  "system": "krynn",
+  "recipient": "marketbot_020",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "crimson_war_citadel"
+ }
+]

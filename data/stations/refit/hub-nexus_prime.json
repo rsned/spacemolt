@@ -1,0 +1,42 @@
+[
+ {
+  "station_id": "central_nexus",
+  "system": "nexus_prime",
+  "recipient": "marketbot_the_experiment",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "central_nexus"
+ },
+ {
+  "station_id": "central_nexus",
+  "system": "nexus_prime",
+  "recipient": "marketbot_node_gamma",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "central_nexus"
+ },
+ {
+  "station_id": "central_nexus",
+  "system": "nexus_prime",
+  "recipient": "marketbot_node_alpha",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "central_nexus"
+ },
+ {
+  "station_id": "central_nexus",
+  "system": "nexus_prime",
+  "recipient": "marketbot_node_beta",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "central_nexus"
+ }
+]

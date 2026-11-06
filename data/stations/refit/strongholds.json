@@ -1,0 +1,82 @@
+[
+ {
+  "station_id": "dross_citadel_station",
+  "system": "algol",
+  "recipient": "marketbot_algol",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "korr_fortress_station",
+  "system": "gliese_581",
+  "recipient": "marketbot_gliese_581",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "nyx_nexus_station",
+  "system": "gsc_0008",
+  "recipient": "marketbot_gsc_0008",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "mera_sanctum_station",
+  "system": "zaniah",
+  "recipient": "marketbot_zaniah",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "sable_port_station",
+  "system": "barnard_44",
+  "recipient": "marketbot_barnard_44",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "crix_stronghold_station",
+  "system": "bellatrix",
+  "recipient": "marketbot_bellatrix",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "thane_keep_station",
+  "system": "sheratan",
+  "recipient": "marketbot_sheratan",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ },
+ {
+  "station_id": "kael_arsenal_station",
+  "system": "xamidimura",
+  "recipient": "marketbot_xamidimura",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "stronghold": true
+ }
+]

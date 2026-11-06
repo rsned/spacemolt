@@ -4,7 +4,7 @@
 
 **Goal:** Fit 62 marketbots with one `advanced_drone_bay` and five `mining_drone` each, using only parts we already hold, so their storage fills with raw materials we can pull from.
 
-**Architecture:** A hauler carries the parts on one tour and gifts them into each bot's storage at its station. Each bot then runs the existing `fit_drones` verb from its schedule. New code is limited to a read-only fit check, a multi-module strip, and a tour verb built on `Deliver`.
+**Architecture:** Parts sit at the five nearest capitals. Each bot collects its own, flies home and runs `fit_drones` there; a courier serves the 8 strongholds. New code is a read-only fit check, a named strip, `deliver_tour` and `refit_trip`.
 
 **Tech Stack:** Go worker verbs (`pkg/worker`), agent `schedule.json` tasks, DroneLang templates in `data/scripts/drones/`.
 
@@ -26,7 +26,7 @@
 ## Review Focus
 
 - A bot that moved after the manifest was built should stop the tour at that stop with a clear error, not gift parts into the wrong storage. Task 3 pins this.
-- A tour restarted mid-way should skip finished stops, because a repeat gift cannot be taken back. Task 3 pins this.
+- A tour restarted mid-way should skip finished gifts, because a repeat gift cannot be taken back. Task 3 pins this.
 - A hull with a harvester the bot's role needs should refuse the strip and change nothing. Task 2 pins this.
 - A bay that installs while the drones fail should resume without withdrawing or stripping again. Task 2 pins this; `Resume` already exists.
 - A stronghold stop on a courier without the unlock should fail before any jump. Task 3 pins this.
@@ -59,7 +59,18 @@ Excluded bots:
 | Drones | Sol | `craftsman-1` | 500 |
 | Drones | Frontier | `craftsman-1` | 90 |
 
-**Tour:** Wave 1 fits one Congregation trip: 49 × 10 + 245 × 5 = 1,715 of 1,900 cargo. The greedy route below is 207 jumps from Haven across 46 systems, not counting the pickup trip to Sol, Frontier and Central Nexus. The fleet's measured pace (about 330 jumps a day) makes that about 15 hours plus stops; Task 5's pilot replaces this estimate.
+**Delivery:** Operator chose hub-and-spoke on 2026-11-06. Each bot flies to its nearest capital, collects its parts, flies home and fits there, because drone scripts bind to the system they are fitted in. The 8 stronghold bots stay put and a courier delivers to them.
+
+| Route | Wave 1 bots | Bays | Drones | Longest trip, one way | Hub bot |
+|---|---:|---:|---:|---:|---|
+| Krynn (`crimson_war_citadel`) | 16 | 16 | 80 | 9 jumps | `marketbot_krynn` |
+| Starfall (`frontier_station`) | 8 | 8 | 40 | 4 jumps | `marketbot_starfall` |
+| Haven (`grand_exchange_station`) | 6 | 6 | 30 | 3 jumps | `marketbot_haven` |
+| Sol (`confederacy_central_command`) | 6 | 6 | 30 | 4 jumps | `marketbot_sol` |
+| Nexus Prime (`central_nexus`) | 5 | 5 | 25 | 3 jumps | `marketbot_nexus_prime` |
+| Stronghold courier | 8 | 8 | 40 | 131 jumps in all from Sol | Unlocked Congregation |
+
+Altais has no station in the knowledge base, so Starfall is the Outerrim hub. `craftsman-1` already holds 20 bays and 90 drones at `frontier_station`.
 
 **Yield:** A new bot starts near 15,200 units a day and climbs toward 30,400 as drone control rises. Wave 1 adds about 745,000 units a day at the start. The bots fill their own storage; hauling that output is out of scope.
 
@@ -186,61 +197,47 @@ git add pkg/worker/deliver_tour.go pkg/worker/deliver_tour_test.go pkg/worker/di
 git commit -m "worker: deliver_tour carries a reviewed manifest stop by stop"
 ```
 
-### Task 4: Manifest and pickup
+### Task 4: Hub delivery
 
-**Files:**
-- Create: `data/stations/refit/wave1.json`
+Built: `refit_trip HUB HOME SCRIPT [STRIP_TYPES]` and `TourStop.FromStation`. Manifests and assignments are in `data/stations/refit/`: `hub-*.json`, `strongholds.json` and `assignments.json`.
 
-- [ ] **Step 1: Build `wave1.json` from the table in Task 5**
+- [ ] **Step 1: Stock each hub**
 
-One `TourStop` per bot, each with `{"advanced_drone_bay": 1, "mining_drone": 5}`. Resolve `StationID` from each bot's live base, never from the POI id; the two are different names. Expected: 49 stops, 49 bays, 245 drones.
+Operator action: `craftsman-1` gifts each hub's parts to its hub bot at the hub station. A gift lands in the sender's station, so the parts must be carried there first. Krynn has no bays today; 2 are for sale at `war_citadel` at 9,240.
 
-- [ ] **Step 2: Choose the courier**
+- [ ] **Step 2: Hand parts to visitors**
 
-Use one Congregation holding the unlock, running a worker binary built after Task 3. Second it out of the haul fleet in both yamls; fleet overrides are removed-sets. Expected: it appears as `removed` in `haul-status.json`.
+Add `deliver_tour data/stations/refit/hub-<hub>.json` to the hub bot. Expected: every recipient has 1 bay and 5 drones in its storage at the hub, and the progress file has a `done` line per item.
 
-- [ ] **Step 3: Operator gifts from `craftsman-1`**
+- [ ] **Step 3: Pilot on Nexus Prime**
 
-Operator action, all to the courier: 245 `mining_drone` at Sol, 20 `advanced_drone_bay` at Frontier, 3 at Central Nexus and 1 at Grand Exchange. Gifts land in the courier's storage at that station.
+Add `refit_trip central_nexus <home> <script> <strip>` to the 5 Nexus Prime bots from `assignments.json`, one at a time, with strip types from the Task 1 survey. Expected: `fit_drones: 1 bay(s), 5 drone(s) deployed`, the bot docked at home, and ore in storage within 2 hours. Stop and report otherwise.
 
-- [ ] **Step 4: Faction withdraw at Grand Exchange**
+- [ ] **Step 4: Remaining hubs**
 
-The courier withdraws the 25 bays from CRFT storage at Grand Exchange. This needs Officer rank; check with a 1-unit withdraw first. Expected: 49 bays and 245 drones in cargo, verified with `get_cargo`.
+Repeat one bot at a time per hub, with hubs running side by side. Expected: 41 fitted bots.
 
-- [ ] **Step 5: Commit the manifest**
+### Task 5: Stronghold delivery and wave 2
 
-```bash
-git add data/stations/refit/wave1.json
-git commit -m "refit: wave 1 manifest for 49 marketbots"
-```
+- [ ] **Step 1: Choose the courier**
 
-### Task 5: Pilot, tour and fit
+One unlocked Congregation, seconded out of the haul fleet in both yamls; fleet overrides are removed-sets.
 
-Scripts use the generic templates. `mine_asteroid`, `mine_ice` and `mine_gas` resolve their POIs at fit time, so no per-site file is needed. Pointing a bot at a specific ore is a later retarget.
+- [ ] **Step 2: Run `deliver_tour data/stations/refit/strongholds.json`**
 
-- [ ] **Step 1: Pilot on stops 1–3**
+Load 8 bays and 40 drones first. Expected: 8 stops done, about 131 jumps.
 
-Cut a copy of the manifest to the first three stops and run `deliver_tour`. Then add to each of the three bots: `fit_drones <script> 1 5 advanced_drone_bay mining_drone true <strip> false <types>`, using Task 1's survey for the strip fields. Expected: `fit_drones: 1 bay(s), 5 drone(s) deployed` in each log, and ore in storage within 2 hours.
+- [ ] **Step 3: Fit the 8 bots**
 
-- [ ] **Step 2: Check before the full tour**
+Add `fit_drones <script> 1 5 advanced_drone_bay mining_drone true false true <types>` to each. Expected: 8 `deployed` lines.
 
-Record jumps per hour and fuel per jump against the estimate above. Stop and report if any bot's ore has not appeared, or if a resident stayed undocked after `launch_drones`.
+- [ ] **Step 4: Wave 2**
 
-- [ ] **Step 3: Run the full tour**
+After `marketbot_021`–`033` leave the unlock fleet and park, assign each to its nearest hub and repeat Task 4. One bot waits for a bay; the cheapest for sale is 6,935 at Nova Terra.
 
-Add `deliver_tour data/stations/refit/wave1.json` to the courier. The progress file lets it skip the pilot's stops if those lines are carried over. Expected: 49 lines in the progress file.
+- [ ] **Step 5: Record the result**
 
-- [ ] **Step 4: Fit each bot as its stop completes**
-
-Add the `fit_drones` task from Step 1 to each schedule. Expected: 49 `deployed` lines, and `drone_control` above 0 for all 49 in `agent_skills` within 24 hours.
-
-- [ ] **Step 5: Wave 2**
-
-After `marketbot_021`–`033` leave the unlock fleet and park, repeat Tasks 4 and 5 with 12 bots. The 13th waits for one more bay.
-
-- [ ] **Step 6: Record the result**
-
-Update `project_fleet_drone_refit.md` with final counts and pace, then run `make memory-sync` and commit `docs/memory`.
+Update `project_fleet_drone_refit.md` with counts and pace, then run `make memory-sync` and commit `docs/memory`.
 
 ## Follow-up: second bay on `eigenstate` hulls
 
@@ -254,57 +251,3 @@ Researched 2026-11-06. Nothing bought. Decide after Task 5 shows real yields.
 - **Break-even:** about 33 hulls. At 62 hulls the license saves about 870,000.
 - **Parts:** after both waves no bays are left and about 301 drones remain, so 62 hulls need 62 more bays and 9 more drones. Crafting bays spends reserved energy crystals and needs operator approval.
 - **Delivery:** hulls appear at Conjunction Junction, where the garage holds 20. Each bot must fly there for `switch_ship`, and many are 25 or more jumps away. Strip and refit run again on the new hull.
-
-## Wave 1 stops
-
-| Stop | Bot | System | Hull | Fitted now | Script |
-|---|---|---|---|---:|---|
-| 1 | market_prime | market_prime | prospect | 1 | mine_gas |
-| 2 | cargo_lanes | cargo_lanes | appraisal | 2 | mine_gas |
-| 3 | gold_run | gold_run | prospect | 1 | mine_asteroid |
-| 4 | the_levy | the_levy | prospect | 1 | mine_ice |
-| 5 | factory_belt | factory_belt | prospect | 2 | mine_gas |
-| 6 | treasure_cache | treasure_cache | prospect | 1 | mine_asteroid |
-| 7 | home | cloverfield | cobble | 2 | mine_asteroid |
-| 8 | sulafat | sulafat | cobble | 2 | mine_asteroid |
-| 9 | frontier | starfall | cobble | 1 | mine_asteroid |
-| 10 | starfall | starfall | cobble | 1 | mine_asteroid |
-| 11 | void_gate | void_gate | cobble | 1 | mine_asteroid |
-| 12 | first_step | first_step | cobble | 1 | mine_asteroid |
-| 13 | the_telescope | unknown_edge | cobble | 1 | mine_asteroid |
-| 14 | unknown_edge | unknown_edge | cobble | 1 | mine_asteroid |
-| 15 | algol | algol (stronghold) | cobble | 2 | mine_gas |
-| 16 | nova_terra | nova_terra | theoria | 1 | mine_asteroid |
-| 17 | procyon | procyon | theoria | 1 | mine_gas |
-| 18 | 001 | dheneb | theoria | 2 | mine_asteroid |
-| 19 | sirius | sirius | theoria | 2 | mine_gas |
-| 20 | sol | sol | theoria | 1 | mine_asteroid |
-| 21 | alpha_centauri | alpha_centauri | archimedes | 3 | mine_ice |
-| 22 | the_experiment | the_experiment | threshold | 1 | mine_asteroid |
-| 23 | node_gamma | node_gamma | threshold | 1 | mine_asteroid |
-| 24 | node_alpha | node_alpha | threshold | 1 | mine_asteroid |
-| 25 | nexus_prime | nexus_prime | threshold | 1 | mine_asteroid |
-| 26 | node_beta | node_beta | threshold | 1 | mine_asteroid |
-| 27 | gliese_581 | gliese_581 (stronghold) | threshold | 2 | mine_gas |
-| 28 | 007 | bd20_2457 | threshold | 1 | mine_asteroid |
-| 29 | 000 | gsc_0019 | prospect | 1 | mine_asteroid |
-| 30 | 002 | arneb | theoria | 1 | mine_asteroid |
-| 31 | 008 | kornephoros | shard | 1 | mine_asteroid |
-| 32 | ramens_rest | kornephoros | cobble | 1 | mine_asteroid |
-| 33 | 009 | thuban | shard | 1 | mine_asteroid |
-| 34 | 003 | crosshaven | prospect | 1 | mine_asteroid |
-| 35 | 004 | alpheratz | cobble | 1 | mine_gas |
-| 36 | 005 | saiph | cobble | 1 | mine_ice |
-| 37 | 006 | 40_eridani | threshold | 1 | mine_asteroid |
-| 38 | the_crucible | the_crucible | shard | 1 | mine_gas |
-| 39 | iron_reach | iron_reach | maul | 3 | mine_asteroid |
-| 40 | the_anvil | the_anvil | shard | 1 | mine_asteroid |
-| 41 | krynn | krynn | shard | 1 | mine_asteroid |
-| 42 | blood_forge | blood_forge | shard | 1 | mine_asteroid |
-| 43 | 020 | ironhearth | prospect | 1 | mine_asteroid |
-| 44 | gsc_0008 | gsc_0008 (stronghold) | maul | 1 | mine_ice |
-| 45 | zaniah | zaniah (stronghold) | theoria | 1 | mine_asteroid |
-| 46 | barnard_44 | barnard_44 (stronghold) | archimedes | 3 | mine_asteroid |
-| 47 | bellatrix | bellatrix (stronghold) | theoria | 3 | mine_ice |
-| 48 | sheratan | sheratan (stronghold) | prospect | 2 | mine_ice |
-| 49 | xamidimura | xamidimura (stronghold) | cobble | 1 | mine_asteroid |

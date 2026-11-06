@@ -21,6 +21,10 @@ type TourStop struct {
 	Recipient  string         `json:"recipient"`
 	Items      map[string]int `json:"items"`
 	Stronghold bool           `json:"stronghold,omitempty"`
+	// FromStation sends the parts from this agent's storage there instead of
+	// from cargo. A hub bot uses it: the gift lands in the recipient's storage
+	// at the hub, so the recipient's location and the hold do not matter.
+	FromStation string `json:"from_station,omitempty"`
 }
 
 // DeliverTour gifts a reviewed manifest from cargo, stop by stop. Gifts cannot
@@ -62,8 +66,10 @@ func (d *WorkerDispatch) DeliverTour(ctx context.Context, manifestPath string) e
 		if len(items) == 0 {
 			continue
 		}
-		if err = d.checkTourStop(ctx, stop, items); err != nil {
-			return fmt.Errorf("deliver_tour: %w", err)
+		if stop.FromStation == "" {
+			if err = d.checkTourStop(ctx, stop, items); err != nil {
+				return fmt.Errorf("deliver_tour: %w", err)
+			}
 		}
 		// Travel first: it fails often and sends nothing, so it stays outside
 		// the pending window and a retry needs no operator.
@@ -79,7 +85,7 @@ func (d *WorkerDispatch) DeliverTour(ctx context.Context, manifestPath string) e
 			if err = appendTourProgress(progressPath, key, tourPending); err != nil {
 				return fmt.Errorf("deliver_tour: %s %s not sent: %w", stop.Recipient, item, err)
 			}
-			if err = d.Deliver(ctx, item, stop.Items[item], "", stop.StationID, stop.Recipient); err != nil {
+			if err = d.Deliver(ctx, item, stop.Items[item], stop.FromStation, stop.StationID, stop.Recipient); err != nil {
 				return fmt.Errorf("deliver_tour: %s: %w", stop.Recipient, err)
 			}
 			if err = appendTourProgress(progressPath, key, tourDone); err != nil {

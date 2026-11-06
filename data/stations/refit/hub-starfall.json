@@ -1,0 +1,72 @@
+[
+ {
+  "station_id": "frontier_station",
+  "system": "starfall",
+  "recipient": "marketbot_home",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "frontier_station"
+ },
+ {
+  "station_id": "frontier_station",
+  "system": "starfall",
+  "recipient": "marketbot_sulafat",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "frontier_station"
+ },
+ {
+  "station_id": "frontier_station",
+  "system": "starfall",
+  "recipient": "marketbot_frontier",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "frontier_station"
+ },
+ {
+  "station_id": "frontier_station",
+  "system": "starfall",
+  "recipient": "marketbot_void_gate",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "frontier_station"
+ },
+ {
+  "station_id": "frontier_station",
+  "system": "starfall",
+  "recipient": "marketbot_first_step",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "frontier_station"
+ },
+ {
+  "station_id": "frontier_station",
+  "system": "starfall",
+  "recipient": "marketbot_the_telescope",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "frontier_station"
+ },
+ {
+  "station_id": "frontier_station",
+  "system": "starfall",
+  "recipient": "marketbot_unknown_edge",
+  "items": {
+   "advanced_drone_bay": 1,
+   "mining_drone": 5
+  },
+  "from_station": "frontier_station"
+ }
+]

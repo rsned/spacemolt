@@ -1,0 +1,289 @@
+[
+ {
+  "bot": "marketbot_nexus_prime",
+  "hub": "central_nexus",
+  "home": "central_nexus",
+  "script": "mine_asteroid",
+  "jumps": 0
+ },
+ {
+  "bot": "marketbot_node_alpha",
+  "hub": "central_nexus",
+  "home": "node_alpha_processing_station",
+  "script": "mine_asteroid",
+  "jumps": 1
+ },
+ {
+  "bot": "marketbot_node_beta",
+  "hub": "central_nexus",
+  "home": "node_beta_industrial_station",
+  "script": "mine_asteroid",
+  "jumps": 1
+ },
+ {
+  "bot": "marketbot_node_gamma",
+  "hub": "central_nexus",
+  "home": "node_gamma_relay_station",
+  "script": "mine_asteroid",
+  "jumps": 2
+ },
+ {
+  "bot": "marketbot_the_experiment",
+  "hub": "central_nexus",
+  "home": "the_experiment_research_station",
+  "script": "mine_asteroid",
+  "jumps": 3
+ },
+ {
+  "bot": "marketbot_sol",
+  "hub": "confederacy_central_command",
+  "home": "confederacy_central_command",
+  "script": "mine_asteroid",
+  "jumps": 0
+ },
+ {
+  "bot": "marketbot_sirius",
+  "hub": "confederacy_central_command",
+  "home": "sirius_observatory_station",
+  "script": "mine_gas",
+  "jumps": 1
+ },
+ {
+  "bot": "marketbot_alpha_centauri",
+  "hub": "confederacy_central_command",
+  "home": "alpha_centauri_colonial_station",
+  "script": "mine_ice",
+  "jumps": 1
+ },
+ {
+  "bot": "marketbot_nova_terra",
+  "hub": "confederacy_central_command",
+  "home": "nova_terra_central",
+  "script": "mine_asteroid",
+  "jumps": 2
+ },
+ {
+  "bot": "marketbot_procyon",
+  "hub": "confederacy_central_command",
+  "home": "procyon_colonial_station",
+  "script": "mine_gas",
+  "jumps": 3
+ },
+ {
+  "bot": "marketbot_001",
+  "hub": "confederacy_central_command",
+  "home": "b495c6003fc83e18f6d8cecbe6929133",
+  "script": "mine_asteroid",
+  "jumps": 4
+ },
+ {
+  "bot": "marketbot_krynn",
+  "hub": "crimson_war_citadel",
+  "home": "crimson_war_citadel",
+  "script": "mine_asteroid",
+  "jumps": 0
+ },
+ {
+  "bot": "marketbot_iron_reach",
+  "hub": "crimson_war_citadel",
+  "home": "iron_reach_mining_colony",
+  "script": "mine_asteroid",
+  "jumps": 1
+ },
+ {
+  "bot": "marketbot_the_anvil",
+  "hub": "crimson_war_citadel",
+  "home": "the_anvil_arsenal",
+  "script": "mine_asteroid",
+  "jumps": 1
+ },
+ {
+  "bot": "marketbot_blood_forge",
+  "hub": "crimson_war_citadel",
+  "home": "blood_forge_smelting_works",
+  "script": "mine_asteroid",
+  "jumps": 1
+ },
+ {
+  "bot": "marketbot_the_crucible",
+  "hub": "crimson_war_citadel",
+  "home": "the_crucible_garrison",
+  "script": "mine_gas",
+  "jumps": 2
+ },
+ {
+  "bot": "marketbot_020",
+  "hub": "crimson_war_citadel",
+  "home": "ironhearth_station",
+  "script": "mine_asteroid",
+  "jumps": 2
+ },
+ {
+  "bot": "marketbot_008",
+  "hub": "crimson_war_citadel",
+  "home": "2779fe259d6835829df185104259b3e4",
+  "script": "mine_asteroid",
+  "jumps": 5
+ },
+ {
+  "bot": "marketbot_ramens_rest",
+  "hub": "crimson_war_citadel",
+  "home": "2779fe259d6835829df185104259b3e4",
+  "script": "mine_asteroid",
+  "jumps": 5
+ },
+ {
+  "bot": "marketbot_007",
+  "hub": "crimson_war_citadel",
+  "home": "59b102279f508c17831e557d3df6ad88",
+  "script": "mine_asteroid",
+  "jumps": 6
+ },
+ {
+  "bot": "marketbot_002",
+  "hub": "crimson_war_citadel",
+  "home": "cca9e51e6eaf8dada77f698ccc4a09c7",
+  "script": "mine_asteroid",
+  "jumps": 6
+ },
+ {
+  "bot": "marketbot_009",
+  "hub": "crimson_war_citadel",
+  "home": "002844965843233bd15f5e8b23802650",
+  "script": "mine_asteroid",
+  "jumps": 6
+ },
+ {
+  "bot": "marketbot_000",
+  "hub": "crimson_war_citadel",
+  "home": "5466a7c6888fda9d6c39db2aedc30238",
+  "script": "mine_asteroid",
+  "jumps": 7
+ },
+ {
+  "bot": "marketbot_003",
+  "hub": "crimson_war_citadel",
+  "home": "b866042eb326d851de78e888deac8515",
+  "script": "mine_asteroid",
+  "jumps": 7
+ },
+ {
+  "bot": "marketbot_006",
+  "hub": "crimson_war_citadel",
+  "home": "95734cdcee4d6ff00f2b393bb4dfab53",
+  "script": "mine_asteroid",
+  "jumps": 7
+ },
+ {
+  "bot": "marketbot_004",
+  "hub": "crimson_war_citadel",
+  "home": "7d1f97987d5eb46bf603b8027e1eec8c",
+  "script": "mine_gas",
+  "jumps": 8
+ },
+ {
+  "bot": "marketbot_005",
+  "hub": "crimson_war_citadel",
+  "home": "0bf47c4aa0cb5fcea2d2ff20dac1729e",
+  "script": "mine_ice",
+  "jumps": 9
+ },
+ {
+  "bot": "marketbot_frontier",
+  "hub": "frontier_station",
+  "home": "frontier_station",
+  "script": "mine_asteroid",
+  "jumps": 0
+ },
+ {
+  "bot": "marketbot_starfall",
+  "hub": "frontier_station",
+  "home": "starfall_salvage_station",
+  "script": "mine_asteroid",
+  "jumps": 0
+ },
+ {
+  "bot": "marketbot_sulafat",
+  "hub": "frontier_station",
+  "home": "9b1e70b700b5de06e6f9e5ecf9e43df1",
+  "script": "mine_asteroid",
+  "jumps": 1
+ },
+ {
+  "bot": "marketbot_void_gate",
+  "hub": "frontier_station",
+  "home": "void_gate_outpost",
+  "script": "mine_asteroid",
+  "jumps": 1
+ },
+ {
+  "bot": "marketbot_first_step",
+  "hub": "frontier_station",
+  "home": "first_step_memorial_station",
+  "script": "mine_asteroid",
+  "jumps": 2
+ },
+ {
+  "bot": "marketbot_the_telescope",
+  "hub": "frontier_station",
+  "home": "unknown_edge_waystation",
+  "script": "mine_asteroid",
+  "jumps": 2
+ },
+ {
+  "bot": "marketbot_unknown_edge",
+  "hub": "frontier_station",
+  "home": "unknown_edge_waystation",
+  "script": "mine_asteroid",
+  "jumps": 2
+ },
+ {
+  "bot": "marketbot_home",
+  "hub": "frontier_station",
+  "home": "c976fa7df53c87f9616165d7d411b41a",
+  "script": "mine_asteroid",
+  "jumps": 4
+ },
+ {
+  "bot": "marketbot_market_prime",
+  "hub": "grand_exchange_station",
+  "home": "market_prime_exchange",
+  "script": "mine_gas",
+  "jumps": 1
+ },
+ {
+  "bot": "marketbot_cargo_lanes",
+  "hub": "grand_exchange_station",
+  "home": "cargo_lanes_freight_depot",
+  "script": "mine_gas",
+  "jumps": 2
+ },
+ {
+  "bot": "marketbot_gold_run",
+  "hub": "grand_exchange_station",
+  "home": "gold_run_extraction_hub",
+  "script": "mine_asteroid",
+  "jumps": 2
+ },
+ {
+  "bot": "marketbot_factory_belt",
+  "hub": "grand_exchange_station",
+  "home": "factory_belt_manufacturing_hub",
+  "script": "mine_gas",
+  "jumps": 2
+ },
+ {
+  "bot": "marketbot_the_levy",
+  "hub": "grand_exchange_station",
+  "home": "the_levy_customs_station",
+  "script": "mine_ice",
+  "jumps": 3
+ },
+ {
+  "bot": "marketbot_treasure_cache",
+  "hub": "grand_exchange_station",
+  "home": "treasure_cache_trading_post",
+  "script": "mine_asteroid",
+  "jumps": 3
+ }
+]

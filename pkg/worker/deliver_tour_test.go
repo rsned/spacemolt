@@ -157,3 +157,26 @@ func TestDeliverTourTravelFailureLeavesNothingPending(t *testing.T) {
 		t.Fatalf("travel failure left a pending gift: %q", raw)
 	}
 }
+
+// A hub bot hands parts to visitors from its own storage. The gift lands at the
+// hub in the visitor's storage, so the visitor can be anywhere.
+func TestDeliverTourFromStorageGiftsInPlace(t *testing.T) {
+	stop := fitStop("bot-a")
+	stop.FromStation = "from_base"
+	stop.StationID = "from_base"
+	f := newTour(t, &game.State{}, stop)
+	f.client.state.Ship.Cargo = nil
+	f.client.storageStock = map[string]float64{"advanced_drone_bay": 1, "mining_drone": 5}
+	f.d.TourRecipientSystem = func(string) (string, error) { return "elsewhere", nil }
+
+	if err := f.d.DeliverTour(context.Background(), f.manifest); err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join(giftedTo(f.client), " ")
+	if got != "bot-a-name:advanced_drone_bay bot-a-name:mining_drone" {
+		t.Fatalf("got %s", got)
+	}
+	if strings.Count(strings.Join(f.client.calls, " "), "withdraw:") != 2 {
+		t.Fatalf("parts must come from storage: %v", f.client.calls)
+	}
+}

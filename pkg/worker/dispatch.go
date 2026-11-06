@@ -224,7 +224,7 @@ var supported = map[string]bool{
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
 	"hunt": true,
 	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "deliver_tour": true, "buy_directed": true, "craft_node": true, "craft": true,
-	"fit_drones": true, "fit_check": true, "launch_drones": true,
+	"fit_drones": true, "fit_check": true, "refit_trip": true, "launch_drones": true,
 	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "faction_deposit_all": true, "faction_restock": true, "announce": true, "capture_craft_queue": true, "sell_all": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
@@ -584,6 +584,16 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		}
 		return d.FitDrones(ctx, args[0], bays, drones, bayItem, droneItem,
 			FitDronesOpts{Deploy: deploy, Strip: strip, Resume: resume, StripTypes: stripTypes})
+
+	case "refit_trip":
+		if len(args) < 3 {
+			return fmt.Errorf("refit_trip: want HUB HOME SCRIPT [STRIP_TYPES], got %v", args)
+		}
+		var stripTypes []string
+		if len(args) >= 4 && args[3] != "-" {
+			stripTypes = strings.Split(args[3], ",")
+		}
+		return d.RefitTrip(ctx, args[0], args[1], args[2], stripTypes)
 
 	case "fit_check":
 		bayItem := ""
