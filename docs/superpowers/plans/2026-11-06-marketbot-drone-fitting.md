@@ -242,6 +242,19 @@ After `marketbot_021`–`033` leave the unlock fleet and park, repeat Tasks 4 an
 
 Update `project_fleet_drone_refit.md` with final counts and pace, then run `make memory-sync` and commit `docs/memory`.
 
+## Follow-up: second bay on `eigenstate` hulls
+
+Researched 2026-11-06. Nothing bought. Decide after Task 5 shows real yields.
+
+`eigenstate` is the only T1 hull that holds 2 bays at engineering 0 (cpu 24, power 36, 3 utility slots). Both default modules must come off. A third bay fits at engineering 34.
+
+- **License:** `commission_quote eigenstate` at Conjunction Junction replied that it is Voidborn-exclusive and needs `buy_ship_license ship_class=eigenstate`. The T1 price is 1,000,000 from the treasury, taken from the 2026-11-02 tier list; the game gave no price for this hull.
+- **Build cost:** about 10,100 a hull: 8,282 materials at today's cheapest asks, about 830 royalty at 10%, and 1,000 labor. Labor and royalty are read across from the Congregation quote until a real quote exists.
+- **Buy cost:** 40,236 and 40,536 from Station Managers at Node Gamma and Central Nexus, one hull each.
+- **Break-even:** about 33 hulls. At 62 hulls the license saves about 870,000.
+- **Parts:** after both waves no bays are left and about 301 drones remain, so 62 hulls need 62 more bays and 9 more drones. Crafting bays spends reserved energy crystals and needs operator approval.
+- **Delivery:** hulls appear at Conjunction Junction, where the garage holds 20. Each bot must fly there for `switch_ship`, and many are 25 or more jumps away. Strip and refit run again on the new hull.
+
 ## Wave 1 stops
 
 | Stop | Bot | System | Hull | Fitted now | Script |
