@@ -107,3 +107,31 @@ func TestRefitTripEmptyHubReturnsHome(t *testing.T) {
 		t.Fatalf("no fit without parts: %v", c.calls)
 	}
 }
+
+// staleSystemClient models the live client after a jump: state names the new
+// system but holds no POIs until get_system refreshes it.
+type staleSystemClient struct {
+	*deliverFakeClient
+	pois []game.POI
+}
+
+func (c *staleSystemClient) GetSystem(ctx context.Context) error {
+	c.state.System.POIs = c.pois
+	return c.fakeClient.GetSystem(ctx)
+}
+
+// Live 2026-11-06, marketbot_node_alpha: the fit failed at home with "no
+// asteroid_belt POI" because a jump leaves the cached system empty.
+func TestRefitTripRefreshesSystemBeforeFitting(t *testing.T) {
+	d, c := refitDispatch(t, shipJSON(), noDrones)
+	stale := &staleSystemClient{deliverFakeClient: c, pois: c.state.System.POIs}
+	c.state.System.POIs = nil
+	d.Client = stale
+
+	if err := d.RefitTrip(context.Background(), "from_base", "to_base", "mine_asteroid", nil); err != nil {
+		t.Fatal(err)
+	}
+	if indexOfPrefix(c.calls, "install_mod:") < 0 {
+		t.Fatalf("no fit: %v", c.calls)
+	}
+}

@@ -55,6 +55,11 @@ func (d *WorkerDispatch) RefitTrip(ctx context.Context, hub, home, script string
 	if collectErr != nil {
 		return collectErr
 	}
+	// A jump leaves the cached system without POIs, and the script's tokens
+	// resolve from them.
+	if err = d.Client.GetSystem(ctx); err != nil {
+		return fmt.Errorf("refit_trip: get_system: %w", err)
+	}
 
 	return d.FitDrones(ctx, script, refitBays, refitDrones, refitBayItem, refitDroneItem,
 		FitDronesOpts{Deploy: true, Resume: true, StripTypes: stripTypes})
