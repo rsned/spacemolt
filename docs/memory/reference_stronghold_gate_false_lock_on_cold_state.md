@@ -30,17 +30,16 @@ all nine pirate keys**, against `pirateUnlockBaseline = 10` — fully unlocked.
 Re-running the identical autopilot with `get_status` seeded ahead of it in the
 same session departed normally.
 
-**How to apply:** when hand-flying through a stronghold, always send
-`get_status` (or any command that lands a full player payload) before
-`autopilot`. A refusal naming the unlock is NOT evidence the agent lacks it —
-check `base N` on the `pirate_*` keys before concluding anything.
+**Seen again 2026-11-06** on craftsman-1 routing to Barnard 44, after a server restart.
 
-**The fail-closed default is correct and should not be "fixed" by loosening
-it** — guessing unlocked costs the ship, guessing locked costs one skipped
-route, which is the tradeoff the code comments argue for deliberately. The
-defect is diagnostic: the message asserts a missing unlock when the truth is
-unread standings. Distinguishing "standings unknown" from "unlocked=false" in
-that error is the targeted fix, NOT relaxing the gate. Not yet implemented.
+**Fixed 2026-11-06:** `strongholdRefsForRoute` now calls `get_status` once when
+standings are empty, and still blocks if they stay unread. A play_as session or
+worker started before that commit needs a restart to get it; until then send
+`get_status` before `autopilot`.
+
+A refusal naming the unlock is NOT evidence the agent lacks it: check `base N`
+on the `pirate_*` keys first. Keep the gate failing closed: guessing unlocked
+costs the ship, guessing locked costs one skipped route.
 
 Note the unlock raises the BASELINE to 10 on all nine keys; the current
 standing (40 for voss here) is separate and is not what the gate reads.
