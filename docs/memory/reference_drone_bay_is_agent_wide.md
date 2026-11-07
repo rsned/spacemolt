@@ -9,8 +9,9 @@ metadata:
 system (operator, 2026-11-06).** This corrects the earlier reading of this note,
 which said they keep mining elsewhere. Drones cannot jump, so a bot must stay in
 the system it mines. Launch-and-leave does not work, a hull switch that leaves the
-system stops them, and a station-less system leaves them only the ship's cargo
-hold to deposit into.
+system stops them. Drones keep mining while the launching agent is in the system
+and they have somewhere to empty into: a ship's hold or station storage. A full
+hold or capped storage stops them, and a station-less system offers only the hold.
 
 **Why:** the 2026-08-28 reply below only showed the ledger still listing them.
 **How to apply:** a marketbot's station must share a system with a resource POI;
