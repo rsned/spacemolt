@@ -479,7 +479,7 @@ func repositionShuttle(ctx context.Context, deps ShuttleDeps, out io.Writer, cur
 	}
 	targets := make([]string, 0, len(neighbors))
 	for _, n := range neighbors {
-		if pois, perr := deps.KB.GetPOIs(ctx, n); perr == nil && freshestStation(withoutOutposts(ctx, deps.KB, pois)) != "" {
+		if shuttleUsableStation(ctx, deps, n) != "" {
 			targets = append(targets, n)
 		}
 	}
@@ -499,12 +499,7 @@ func repositionShuttle(ctx context.Context, deps ShuttleDeps, out io.Writer, cur
 		name = pick
 	}
 
-	pois, err := deps.KB.GetPOIs(ctx, pick)
-	if err != nil {
-		fmt.Fprintf(out, "shuttle: reposition aborted (pois for %s: %v)\n", name, err) //nolint:errcheck
-		return
-	}
-	station := freshestStation(withoutOutposts(ctx, deps.KB, pois))
+	station := shuttleUsableStation(ctx, deps, pick)
 	if station == "" {
 		fmt.Fprintf(out, "shuttle: no known station in %s; staying put\n", name) //nolint:errcheck
 		return
@@ -613,18 +608,37 @@ func shuttleNearestStationSystem(ctx context.Context, deps ShuttleDeps, out io.W
 		fmt.Fprintf(out, "shuttle: reposition graph build failed: %v\n", err) //nolint:errcheck
 		return nil
 	}
-	near, err := galaxy.FindNearestByPOIType(ctx, deps.KB, graph, current, "station", 2)
+	near, err := galaxy.FindNearestByPOIType(ctx, deps.KB, graph, current, "station", shuttleStationCandidates)
 	if err != nil {
 		fmt.Fprintf(out, "shuttle: nearest-station lookup failed: %v\n", err) //nolint:errcheck
 		return nil
 	}
 	for _, n := range near {
-		if n.SystemID != current {
+		if n.SystemID != current && shuttleUsableStation(ctx, deps, n.SystemID) != "" {
 			return []string{n.SystemID}
 		}
 	}
 
 	return nil
+}
+
+// shuttleStationCandidates is how many of the nearest stations a shuttle
+// considers when moving, enough to get past a cluster of refusing stations.
+const shuttleStationCandidates = 8
+
+// shuttleUsableStation returns the station POI a shuttle should fly to in
+// system, or "" when it has none or that station has refused us.
+func shuttleUsableStation(ctx context.Context, deps ShuttleDeps, system string) string {
+	pois, err := deps.KB.GetPOIs(ctx, system)
+	if err != nil {
+		return ""
+	}
+	station := freshestStation(withoutOutposts(ctx, deps.KB, pois))
+	if deps.Access.Denied(station) {
+		return ""
+	}
+
+	return station
 }
 
 // shuttleRecoverIfStranded routes the shuttle to the nearest accessible, non-stronghold
@@ -640,7 +654,8 @@ func shuttleNearestStationSystem(ctx context.Context, deps ShuttleDeps, out io.W
 // in the CURRENT system (intra-system reposition) or another system entirely.
 //
 // currentPOI is the shuttle's present POI: when it already equals the target station POI
-// recovery re-docks there. Returns true when it issued a dock or a relocation (so the
+// recovery re-docks there, moving on to the next station if the dock is refused.
+// Returns true when it issued a dock or a relocation (so the
 // caller ends the pass), false when no station is reachable at all or recovery could not run. Best-effort
 // throughout: any failure logs and the shuttle retries next pass. Aboard passengers are
 // left in place; once docked at the destination station the normal deliverAboardPassengers
@@ -651,57 +666,62 @@ func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writ
 		fmt.Fprintf(out, "shuttle: recovery graph build failed: %v\n", err) //nolint:errcheck
 		return false
 	}
-	near, err := galaxy.FindNearestByPOIType(ctx, deps.KB, galGraph, current, "station", 1)
+	near, err := galaxy.FindNearestByPOIType(ctx, deps.KB, galGraph, current, "station", shuttleStationCandidates)
 	if err != nil {
 		fmt.Fprintf(out, "shuttle: nearest-station lookup failed: %v\n", err) //nolint:errcheck
 		return false
 	}
-	if len(near) == 0 {
-		return false // no station known anywhere reachable — nothing to do but idle
-	}
-	dest := near[0]
-	name := dest.SystemName
-	if name == "" {
-		name = dest.SystemID
-	}
 
-	// Resolve the destination station POI. FindNearestByPOIType leaves POIs nil for
-	// POI-type lookups, so query the KB directly (as repositionShuttle does).
-	station := ""
-	if pois, perr := deps.KB.GetPOIs(ctx, dest.SystemID); perr == nil {
-		station = freshestStation(withoutOutposts(ctx, deps.KB, pois))
-	}
+	for _, dest := range near {
+		station := shuttleUsableStation(ctx, deps, dest.SystemID)
+		if station == "" {
+			continue
+		}
 
-	// Already at the target station POI: nothing else in the loop will dock. A
-	// dock that timed out leaves the ship here for good otherwise.
-	if shuttleAlreadyAtStation(dest.SystemID, station, current, currentPOI) {
-		if derr := dockIdempotent(ctx, deps.Client); derr != nil {
+		// Already at the target station POI: nothing else in the loop will dock.
+		// A dock that timed out leaves the ship here for good otherwise, while
+		// one that was refused means trying the next station.
+		if shuttleAlreadyAtStation(dest.SystemID, station, current, currentPOI) {
+			derr := dockIdempotent(ctx, deps.Client)
+			deps.Access.RecordDock(station, derr)
+			if derr == nil {
+				return true
+			}
 			fmt.Fprintf(out, "shuttle: re-dock at %s failed: %v\n", station, derr) //nolint:errcheck
+			if !strings.Contains(strings.ToLower(derr.Error()), accessDeniedMarker) {
+				return true
+			}
+			continue
+		}
+
+		name := dest.SystemName
+		if name == "" {
+			name = dest.SystemID
+		}
+		if dest.SystemID == current {
+			fmt.Fprintf(out, "shuttle: undocked at non-station POI %q in %s; repositioning to its station %s\n", //nolint:errcheck
+				currentPOI, current, station)
+		} else {
+			fmt.Fprintf(out, "shuttle: stranded in station-less %s; relocating to nearest safe station %s (%s, %d jump(s))\n", //nolint:errcheck
+				current, name, dest.SystemID, dest.Hops)
+		}
+		err = Autopilot(ctx, AutopilotDeps{
+			Client:     deps.Client,
+			Out:        out,
+			KB:         deps.KB,
+			OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
+		}, dest.SystemID, station)
+		if err != nil {
+			fmt.Fprintf(out, "shuttle: relocation transit to %s failed: %v; will retry next pass\n", name, err) //nolint:errcheck
+			return true
+		}
+		if derr := deps.Client.Dock(ctx); derr != nil {
+			fmt.Fprintf(out, "shuttle: relocation dock at %s failed: %v\n", name, derr) //nolint:errcheck
 		}
 		return true
 	}
 
-	if dest.SystemID == current {
-		fmt.Fprintf(out, "shuttle: undocked at non-station POI %q in %s; repositioning to its station %s\n", //nolint:errcheck
-			currentPOI, current, station)
-	} else {
-		fmt.Fprintf(out, "shuttle: stranded in station-less %s; relocating to nearest safe station %s (%s, %d jump(s))\n", //nolint:errcheck
-			current, name, dest.SystemID, dest.Hops)
-	}
-	err = Autopilot(ctx, AutopilotDeps{
-		Client:     deps.Client,
-		Out:        out,
-		KB:         deps.KB,
-		OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, deps.Client, deps.KB) },
-	}, dest.SystemID, station)
-	if err != nil {
-		fmt.Fprintf(out, "shuttle: relocation transit to %s failed: %v; will retry next pass\n", name, err) //nolint:errcheck
-		return true
-	}
-	if derr := deps.Client.Dock(ctx); derr != nil {
-		fmt.Fprintf(out, "shuttle: relocation dock at %s failed: %v\n", name, derr) //nolint:errcheck
-	}
-	return true
+	return false // no usable station known anywhere reachable: nothing to do but idle
 }
 
 // rankShuttleDestinations groups the waiting passengers by destination station,
