@@ -66,3 +66,8 @@ only. They can work smaller deposits than agents can and keep going on a belt
 down to crumbs, so low yield at a contested site is not a problem to chase.
 Active demand goes to the miningbots, which can travel to POIs with no station
 nearby.
+
+**Bay supply, 2026-11-07 (operator):** the `advanced_drone_bay` sell orders on
+the markets (15 across 7 stations, about 130k total on 11-06) are all Station
+Manager orders, so stations likely craft and restock them. Market bays are a
+renewable source, not a one-time stock, for the next round of drone bots.
