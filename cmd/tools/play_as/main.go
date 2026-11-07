@@ -2132,19 +2132,8 @@ func formatFacilityActionMessage(raw []byte) string {
 // bill and any rent arrears.
 func formatFacilityOwned(raw []byte) string {
 	var resp struct {
-		Facilities []struct {
-			Name              string `json:"name"`
-			Type              string `json:"type"`
-			BaseName          string `json:"base_name"`
-			SystemID          string `json:"system_id"`
-			RentPerCycle      int    `json:"rent_per_cycle"`
-			LaborPerRun       int    `json:"labor_per_run"`
-			ArrearsOwed       int    `json:"arrears_owed"`
-			MissedRentCycles  int    `json:"missed_rent_cycles"`
-			Active            bool   `json:"active"`
-			UnderConstruction bool   `json:"under_construction"`
-		} `json:"facilities"`
-		Rent struct {
+		Facilities []ownedFacilityRow `json:"facilities"`
+		Rent       struct {
 			Facilities        int    `json:"facilities"`
 			TotalRentPerCycle int    `json:"total_rent_per_cycle"`
 			EstRentPerDay     int    `json:"est_rent_per_day"`
@@ -2168,30 +2157,21 @@ func formatFacilityOwned(raw []byte) string {
 		return b.String()
 	}
 
-	nameW, typeW, baseW := len("Name"), len("Type"), len("Base")
+	nameW, typeW, baseW, idW := len("Name"), len("Type"), len("Base"), len("Facility ID")
 	for _, f := range resp.Facilities {
 		nameW = max(nameW, len(f.Name))
 		typeW = max(typeW, len(f.Type))
 		baseW = max(baseW, len(f.BaseName))
+		idW = max(idW, len(f.FacilityID))
 	}
-	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %9s | %5s | Status\n",
-		nameW, "Name", typeW, "Type", baseW, "Base", "Rent/cyc", "Labor")
-	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s-+--------\n",
+	fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %9s | %5s | %-*s | Status\n",
+		nameW, "Name", typeW, "Type", baseW, "Base", "Rent/cyc", "Labor", idW, "Facility ID")
+	fmt.Fprintf(&b, "  %s-+-%s-+-%s-+-%s-+-%s-+-%s-+--------\n",
 		strings.Repeat("-", nameW), strings.Repeat("-", typeW), strings.Repeat("-", baseW),
-		strings.Repeat("-", 9), strings.Repeat("-", 5))
+		strings.Repeat("-", 9), strings.Repeat("-", 5), strings.Repeat("-", idW))
 	for _, f := range resp.Facilities {
-		status := "active"
-		switch {
-		case f.UnderConstruction:
-			status = "building"
-		case !f.Active:
-			status = "idle"
-		}
-		if f.MissedRentCycles > 0 {
-			status += fmt.Sprintf(" ⚠%d missed", f.MissedRentCycles)
-		}
-		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %9d | %5d | %s\n",
-			nameW, f.Name, typeW, f.Type, baseW, f.BaseName, f.RentPerCycle, f.LaborPerRun, status)
+		fmt.Fprintf(&b, "  %-*s | %-*s | %-*s | %9d | %5d | %-*s | %s\n",
+			nameW, f.Name, typeW, f.Type, baseW, f.BaseName, f.RentPerCycle, f.LaborPerRun, idW, f.FacilityID, f.statusText())
 	}
 	if resp.Rent.Note != "" {
 		fmt.Fprintf(&b, "  %s\n", resp.Rent.Note)
@@ -2310,25 +2290,14 @@ func factionOwnedPaused(f serverapi.FactionOwnedFacilityEntry) bool {
 // factionOwnedStatus renders why a facility is or is not billing. Arrears are
 // appended because a paused facility still owes what it missed.
 func factionOwnedStatus(f serverapi.FactionOwnedFacilityEntry) string {
-	status := "active"
-	switch {
-	case f.UnderConstruction:
-		status = "building"
-	case f.Dismantling:
-		status = "dismantling"
-	case f.Damaged:
-		status = "damaged"
-		if f.RepairCompleteTick > 0 {
-			status = fmt.Sprintf("repairing (until tick %d)", f.RepairCompleteTick)
-		}
-	case f.PowerThrottled:
-		status = "power-throttled"
-	}
-	if f.MissedRentCycles > 0 {
-		status += fmt.Sprintf(" ⚠ %d missed cycle(s)", f.MissedRentCycles)
-	}
-
-	return status
+	return facilityHealth{
+		Damaged:            f.Damaged,
+		RepairCompleteTick: int64(f.RepairCompleteTick),
+		UnderConstruction:  f.UnderConstruction,
+		Dismantling:        f.Dismantling,
+		PowerThrottled:     f.PowerThrottled,
+		MissedRentCycles:   f.MissedRentCycles,
+	}.statusOr("active")
 }
 
 // formatFacilityForSale renders a `facility browse_for_sale` response — the
@@ -2722,7 +2691,7 @@ func renderProductionFacilityTable(b *strings.Builder, facs []productionFacility
 // Lifted out of the formatters so the rendering helper can sit beside it
 // without re-declaring the type per call site.
 type factionFacilityRow struct {
-	Active         bool   `json:"active"`
+	facilityHealth
 	Capacity       int64  `json:"capacity"`
 	CustomName     string `json:"custom_name,omitempty"`
 	FacilityID     string `json:"facility_id"`
@@ -2825,15 +2794,15 @@ func (f factionFacilityRow) serviceName() string {
 	return f.Service
 }
 
-// statusText returns the server's status, or "-" when it sends none. The
-// faction rows of `facility list` carry neither status nor active (266 of 266
+// statusText returns any health problem, else the server's status, or "-" when
+// it sends none. The faction rows of `facility list` carry neither status nor active (266 of 266
 // recorded rows at Conjunction Junction, 2026-11-03), so a status derived from
 // the absent active flag would mark every facility inactive.
 func (f factionFacilityRow) statusText() string {
 	if f.Status != "" {
-		return f.Status
+		return f.statusOr(f.Status)
 	}
-	return "-"
+	return f.statusOr("-")
 }
 
 // maintenanceCell renders a facility's upkeep for the Maint column: the
@@ -2876,7 +2845,7 @@ func renderFactionFacilities(b *strings.Builder, facilities []factionFacilityRow
 		for _, f := range production {
 			rent := f.RentPerCycle
 			pf = append(pf, productionFacility{
-				name:         f.displayName(),
+				name:         f.nameWithProblem(f.displayName()),
 				prod:         f.Production,
 				facilityID:   f.FacilityID,
 				rentPerCycle: &rent,
@@ -3099,7 +3068,7 @@ var showStationFacilities bool
 
 func formatFacilityList(raw []byte) string {
 	type personalFacility struct {
-		Active               bool     `json:"active"`
+		facilityHealth
 		Category             string   `json:"category"`
 		FacilityID           string   `json:"facility_id"`
 		MaintenanceLevel     *float64 `json:"maintenance_level"`
@@ -3113,7 +3082,7 @@ func formatFacilityList(raw []byte) string {
 	// stationFacility describes a facility the station itself owns/operates.
 	// Only rendered when --show_station_facilities is set.
 	type stationFacility struct {
-		Active               bool                `json:"active"`
+		facilityHealth
 		Category             string              `json:"category"`
 		Description          string              `json:"description"`
 		FacilityID           string              `json:"facility_id"`
@@ -3192,7 +3161,9 @@ func formatFacilityList(raw []byte) string {
 		tickW := len("Paid until tick")
 		idW := len("Facility ID")
 		maintW := len("Maint")
+		statusW := len("Status")
 		for _, f := range resp.PlayerFacilities {
+			statusW = max(statusW, len(f.statusOr("-")))
 			maintW = max(maintW, len(maintenanceCell(f.MaintenanceLevel, f.MaintenanceSatisfied)))
 			nameW = max(nameW, len(f.Name))
 			typeW = max(typeW, len(f.Type))
@@ -3204,21 +3175,17 @@ func formatFacilityList(raw []byte) string {
 		// Show both per-cycle and per-day so the operator can sanity-check
 		// burn rate against credit balance.
 		fmt.Fprintf(&b, "\n  Personal: (1 cycle = 100 ticks ≈ 17 min, 86.4 cycles/day)\n")
-		fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Active | %-*s | %10s | %10s | %-*s | %-*s\n",
-			nameW, "Name", typeW, "Type", svcW, "Service", maintW, "Maint", "Rent/cycle", "Rent/day", tickW, "Paid until tick", idW, "Facility ID")
-		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+--------+-%s-+-%s-+-%s-+-%s-+-%s\n",
+		fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %-*s | %-*s | %10s | %10s | %-*s | %-*s\n",
+			nameW, "Name", typeW, "Type", svcW, "Service", statusW, "Status", maintW, "Maint", "Rent/cycle", "Rent/day", tickW, "Paid until tick", idW, "Facility ID")
+		fmt.Fprintf(&b, "    %s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s-+-%s\n",
 			strings.Repeat("-", nameW), strings.Repeat("-", typeW),
-			strings.Repeat("-", svcW), strings.Repeat("-", maintW),
+			strings.Repeat("-", svcW), strings.Repeat("-", statusW), strings.Repeat("-", maintW),
 			strings.Repeat("-", 10), strings.Repeat("-", 10),
 			strings.Repeat("-", tickW), strings.Repeat("-", idW))
 		for _, f := range resp.PlayerFacilities {
-			active := "no"
-			if f.Active {
-				active = "yes"
-			}
-			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %-6s | %-*s | %10s | %10s | %-*d | %-*s\n",
+			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %-*s | %-*s | %10s | %10s | %-*d | %-*s\n",
 				nameW, f.Name, typeW, f.Type, svcW, f.PersonalService,
-				active, maintW, maintenanceCell(f.MaintenanceLevel, f.MaintenanceSatisfied),
+				statusW, f.statusOr("-"), maintW, maintenanceCell(f.MaintenanceLevel, f.MaintenanceSatisfied),
 				formatCredits(float64(f.RentPerCycle)),
 				formatCredits(float64(dailyRent(f.RentPerCycle))),
 				tickW, f.RentPaidUntilTick,
@@ -3312,7 +3279,7 @@ func formatFacilityList(raw []byte) string {
 				typeW = max(typeW, len(f.Type))
 				catW = max(catW, len(f.Category))
 				svcW = max(svcW, len(f.Service))
-				statusW = max(statusW, len(stationFacilityStatus(f.Active, f.IdleReason)))
+				statusW = max(statusW, len(stationFacilityStatus(f.facilityHealth, f.IdleReason)))
 			}
 			fmt.Fprintf(&b, "\n  Station Services (%d):\n", len(services))
 			fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | Lvl | %-*s | %-*s | %-*s\n",
@@ -3324,7 +3291,7 @@ func formatFacilityList(raw []byte) string {
 				fmt.Fprintf(&b, "    %-*s | %-*s | %-*s | %3d | %-*s | %-*s | %-*s\n",
 					nameW, f.Name, typeW, f.Type, catW, f.Category, f.Level,
 					svcW, f.Service, maintW, maintenanceCell(f.MaintenanceLevel, f.MaintenanceSatisfied),
-					statusW, stationFacilityStatus(f.Active, f.IdleReason))
+					statusW, stationFacilityStatus(f.facilityHealth, f.IdleReason))
 			}
 		}
 
@@ -3332,7 +3299,7 @@ func formatFacilityList(raw []byte) string {
 			totalSections++
 			pf := make([]productionFacility, 0, len(production))
 			for _, f := range production {
-				pf = append(pf, productionFacility{name: f.Name, prod: f.Production, facilityID: f.FacilityID})
+				pf = append(pf, productionFacility{name: f.nameWithProblem(f.Name), prod: f.Production, facilityID: f.FacilityID})
 			}
 			renderProductionFacilityTable(&b, pf, "  ", fmt.Sprintf("Station Production (%d)", len(production)))
 		}
@@ -3348,17 +3315,15 @@ func formatFacilityList(raw []byte) string {
 	return b.String()
 }
 
-// stationFacilityStatus summarizes a station facility's operating state: an
-// inactive facility reads "inactive"; an active-but-stalled one surfaces its
-// idle_reason (e.g. "idle: no_inputs"); otherwise "active".
-func stationFacilityStatus(active bool, idleReason string) string {
-	if !active {
-		return "inactive"
-	}
+// stationFacilityStatus summarizes a station facility's operating state: a
+// health problem first, then its idle_reason (e.g. "idle: no_inputs"), otherwise
+// "active".
+func stationFacilityStatus(h facilityHealth, idleReason string) string {
 	if idleReason != "" {
-		return "idle: " + idleReason
+		return h.statusOr("idle: " + idleReason)
 	}
-	return "active"
+
+	return h.statusOr("active")
 }
 
 // formatFacilityTypeDetail renders the single-facility detail variant of a
