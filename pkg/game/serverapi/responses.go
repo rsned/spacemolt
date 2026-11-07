@@ -135,6 +135,12 @@ type GetBaseResponse struct {
 	FuelPriceAllIn      int64 `json:"fuel_price_all_in,omitempty"`
 	FuelTaxPerUnit      int64 `json:"fuel_tax_per_unit,omitempty"`
 
+	// DiningPoints and LeisurePoints are the station's current tourism appeal.
+	// TourismRevenue is the lifetime credits spent at its venues.
+	DiningPoints   int   `json:"dining_points,omitempty"`
+	LeisurePoints  int   `json:"leisure_points,omitempty"`
+	TourismRevenue int64 `json:"tourism_revenue,omitempty"`
+
 	LifeSupport *LifeSupport `json:"life_support,omitempty"`
 
 	// Repairs reports the station's automatic facility repairs: per-facility

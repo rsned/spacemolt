@@ -888,6 +888,8 @@ func formatStyledResponse(raw []byte, command string) string {
 		return formatSystem(raw)
 	case "poi", "get_poi":
 		return formatPOI(raw)
+	case "base", "get_base":
+		return formatBase(raw)
 	case "withdraw", "withdraw_items":
 		return formatWithdraw(raw)
 	case "create_faction":
