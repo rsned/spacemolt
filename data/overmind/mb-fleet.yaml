@@ -201,6 +201,7 @@ workers:
   - { agent_id: marketbot_021, role: resident, station: 01bad6afe17a96264def4e8066bad050 }  # Woodstock (nekkar), open, no market
   - { agent_id: marketbot_031, role: resident, station: 92fd0bb3c5232a0d9a337afe5f883116 }  # Hive Segin (segin), no market
   - { agent_id: marketbot_024, role: resident, station: 199fa2c026d6af7bf6e938638425416c }  # Hive Antares (antares), no market
+  - { agent_id: marketbot_025, role: resident, station: kael_arsenal }  # Xamidimura: second bot, drones on the ice field beside marketbot_xamidimura
   # =========================================================================
 
   # === CRFT HOME STATION (2026-10-25) =======================================

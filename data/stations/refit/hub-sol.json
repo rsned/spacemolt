@@ -1,52 +1,62 @@
 [
- {
-  "station_id": "confederacy_central_command",
-  "system": "sol",
-  "recipient": "marketbot_nova_terra",
-  "items": {
-   "advanced_drone_bay": 1,
-   "mining_drone": 5
+  {
+    "station_id": "confederacy_central_command",
+    "system": "sol",
+    "recipient": "marketbot_nova_terra",
+    "items": {
+      "advanced_drone_bay": 1,
+      "mining_drone": 5
+    },
+    "from_station": "confederacy_central_command"
   },
-  "from_station": "confederacy_central_command"
- },
- {
-  "station_id": "confederacy_central_command",
-  "system": "sol",
-  "recipient": "marketbot_procyon",
-  "items": {
-   "advanced_drone_bay": 1,
-   "mining_drone": 5
+  {
+    "station_id": "confederacy_central_command",
+    "system": "sol",
+    "recipient": "marketbot_procyon",
+    "items": {
+      "advanced_drone_bay": 1,
+      "mining_drone": 5
+    },
+    "from_station": "confederacy_central_command"
   },
-  "from_station": "confederacy_central_command"
- },
- {
-  "station_id": "confederacy_central_command",
-  "system": "sol",
-  "recipient": "marketbot_001",
-  "items": {
-   "advanced_drone_bay": 1,
-   "mining_drone": 5
+  {
+    "station_id": "confederacy_central_command",
+    "system": "sol",
+    "recipient": "marketbot_001",
+    "items": {
+      "advanced_drone_bay": 1,
+      "mining_drone": 5
+    },
+    "from_station": "confederacy_central_command"
   },
-  "from_station": "confederacy_central_command"
- },
- {
-  "station_id": "confederacy_central_command",
-  "system": "sol",
-  "recipient": "marketbot_sirius",
-  "items": {
-   "advanced_drone_bay": 1,
-   "mining_drone": 5
+  {
+    "station_id": "confederacy_central_command",
+    "system": "sol",
+    "recipient": "marketbot_sirius",
+    "items": {
+      "advanced_drone_bay": 1,
+      "mining_drone": 5
+    },
+    "from_station": "confederacy_central_command"
   },
-  "from_station": "confederacy_central_command"
- },
- {
-  "station_id": "confederacy_central_command",
-  "system": "sol",
-  "recipient": "marketbot_alpha_centauri",
-  "items": {
-   "advanced_drone_bay": 1,
-   "mining_drone": 5
+  {
+    "station_id": "confederacy_central_command",
+    "system": "sol",
+    "recipient": "marketbot_alpha_centauri",
+    "items": {
+      "advanced_drone_bay": 1,
+      "mining_drone": 5
+    },
+    "from_station": "confederacy_central_command"
   },
-  "from_station": "confederacy_central_command"
- }
+  {
+    "station_id": "confederacy_central_command",
+    "system": "sol",
+    "recipient": "marketbot_025",
+    "items": {
+      "advanced_drone_bay": 1,
+      "mining_drone": 5
+    },
+    "from_station": "confederacy_central_command"
+  }
 ]
