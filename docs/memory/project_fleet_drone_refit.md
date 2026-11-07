@@ -60,3 +60,9 @@ all spec numbers came from `assets.db`.
 
 Related: [[reference_public_facilities_player_station_id]] · [[project_crafting_brain]] ·
 [[reference_worker_quiesce_park]]
+
+**Operator strategy, 2026-11-07:** marketbot drones are passive resource growth
+only. They can work smaller deposits than agents can and keep going on a belt
+down to crumbs, so low yield at a contested site is not a problem to chase.
+Active demand goes to the miningbots, which can travel to POIs with no station
+nearby.

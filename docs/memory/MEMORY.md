@@ -58,3 +58,4 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - 🟢 [CRFT owns congregation license (11-02)](reference_congregation_is_outerrim_exclusive.md) — 1M paid; build at CJ, 10% royalty (~662) to outerrim; treasury now ~1.0M = AT floor
 - [Haul leftovers → Cloverfield (11-01)](reference_haul_leftovers_to_cloverfield.md) — haulers carry failed-arbitrage cargo, gift to miningbot_0000 at CJ within 3 jumps; faction_deposit_all sweeps it
 - [pgrep self-match + sole-member fleets](reference_pgrep_self_match_and_sole_member.md) — use `[b]in/...` patterns; a fleet's only member can't be override-removed, SIGSTOP it for play_as
+- [POI rename left stale KB rows](reference_poi_rename_stale_rows.md) — ~10-13 themed renames; old rows double-count belts and nebulae; trust live get_system
