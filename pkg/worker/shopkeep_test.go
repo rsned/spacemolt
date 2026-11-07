@@ -456,3 +456,47 @@ func TestShopStateRoundTrip(t *testing.T) {
 		t.Errorf("round trip = %+v", got)
 	}
 }
+
+func TestParseShopRulesKeepAndLot(t *testing.T) {
+	got, err := ParseShopRules("iron_ore:1:1:50000:25000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []ShopRule{{Item: "iron_ore", Start: 1, Floor: 1, Keep: 50000, Lot: 25000}}
+	if !slices.Equal(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+	for _, bad := range []string{"iron_ore:1:1:-1", "iron_ore:1:1:50000:0", "iron_ore:1:1:x", "iron_ore:1:1:5:5:5"} {
+		if _, err := ParseShopRules(bad); err == nil {
+			t.Errorf("ParseShopRules(%q) accepted a malformed rule", bad)
+		}
+	}
+}
+
+// Live 2026-11-07, operator: a marketbot keeps 50,000 of a common ore and sells
+// the rest in 25,000 batches.
+func TestShopkeepListsOnlyAboveKeepInLots(t *testing.T) {
+	f := newShopClient(t, map[string]int{"iron_ore": 80000}, nil)
+	f.sellOrderReply = sellReply("o1")
+	rule := ShopRule{Item: "iron_ore", Start: 1, Floor: 1, Keep: 50000, Lot: 25000}
+
+	if _, _, err := Shopkeep(context.Background(), f, []ShopRule{rule}, &ShopState{}, shopOpts(), io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.sellOrderPayloads) != 1 || f.sellOrderPayloads[0]["quantity"] != 25000 || f.sellOrderPayloads[0]["price_each"] != 1 {
+		t.Fatalf("want one ask of 25000 @1, got %+v", f.sellOrderPayloads)
+	}
+}
+
+// Less than a full lot above the keep waits rather than posting a small ask.
+func TestShopkeepWaitsForAFullLotAboveKeep(t *testing.T) {
+	f := newShopClient(t, map[string]int{"iron_ore": 74999}, nil)
+	rule := ShopRule{Item: "iron_ore", Start: 1, Floor: 1, Keep: 50000, Lot: 25000}
+
+	if _, _, err := Shopkeep(context.Background(), f, []ShopRule{rule}, &ShopState{}, shopOpts(), io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.sellOrderPayloads) != 0 {
+		t.Fatalf("nothing should post below keep+lot, got %+v", f.sellOrderPayloads)
+	}
+}

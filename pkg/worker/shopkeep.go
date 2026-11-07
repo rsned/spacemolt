@@ -31,9 +31,16 @@ type ShopRule struct {
 	Start int
 	// Floor is the lowest price a stale ask is stepped down to.
 	Floor int
+	// Keep is how many units stay in storage unlisted. 0 lists everything.
+	Keep int
+	// Lot, when set, is the size of every ask, and an ask posts only once a
+	// full lot is held above Keep. 0 uses ShopOptions.Lot.
+	Lot int
 }
 
-// ParseShopRules parses a comma-separated list of item:start[:floor] rules.
+// ParseShopRules parses a comma-separated list of item:start[:floor[:keep[:lot]]]
+// rules. keep (default 0) is held back from sale; lot, when given, is the size of
+// every ask.
 // Start must be at least 1; floor defaults to max(1, start/2), must be at
 // least 1 and may not exceed start. energy_crystal is refused: those crystals
 // are reserved. An empty spec yields no rules. A malformed rule is an error,
@@ -48,8 +55,8 @@ func ParseShopRules(s string) ([]ShopRule, error) {
 	seen := map[string]bool{}
 	for raw := range strings.SplitSeq(s, ",") {
 		parts := strings.Split(strings.TrimSpace(raw), ":")
-		if len(parts) < 2 || len(parts) > 3 {
-			return nil, fmt.Errorf("shop rule %q: want item:start[:floor]", raw)
+		if len(parts) < 2 || len(parts) > 5 {
+			return nil, fmt.Errorf("shop rule %q: want item:start[:floor[:keep[:lot]]]", raw)
 		}
 		item := strings.TrimSpace(parts[0])
 		if item == "" {
@@ -66,7 +73,7 @@ func ParseShopRules(s string) ([]ShopRule, error) {
 			return nil, fmt.Errorf("shop rule %q: start must be an integer >= 1", raw)
 		}
 		floor := max(1, start/2)
-		if len(parts) == 3 {
+		if len(parts) >= 3 {
 			floor, err = strconv.Atoi(strings.TrimSpace(parts[2]))
 			if err != nil || floor < 1 {
 				return nil, fmt.Errorf("shop rule %q: floor must be an integer >= 1", raw)
@@ -75,8 +82,21 @@ func ParseShopRules(s string) ([]ShopRule, error) {
 				return nil, fmt.Errorf("shop rule %q: floor %d above start %d", raw, floor, start)
 			}
 		}
+		rule := ShopRule{Item: item, Start: start, Floor: floor}
+		if len(parts) >= 4 {
+			rule.Keep, err = strconv.Atoi(strings.TrimSpace(parts[3]))
+			if err != nil || rule.Keep < 0 {
+				return nil, fmt.Errorf("shop rule %q: keep must be an integer >= 0", raw)
+			}
+		}
+		if len(parts) == 5 {
+			rule.Lot, err = strconv.Atoi(strings.TrimSpace(parts[4]))
+			if err != nil || rule.Lot < 1 {
+				return nil, fmt.Errorf("shop rule %q: lot must be an integer >= 1", raw)
+			}
+		}
 		seen[item] = true
-		rules = append(rules, ShopRule{Item: item, Start: start, Floor: floor})
+		rules = append(rules, rule)
 	}
 
 	return rules, nil
@@ -258,7 +278,7 @@ func Shopkeep(ctx context.Context, client game.GameClient, rules []ShopRule, st 
 			return posted, repriced, err
 		}
 		cur, known := st.Items[r.Item]
-		units := held[r.Item]
+		units := max(held[r.Item]-r.Keep, 0)
 		ask, open := pickShopAsk(asks[r.Item], cur.OrderID)
 		if !known && units < 1 && !open {
 			continue
@@ -307,8 +327,12 @@ func Shopkeep(ctx context.Context, client game.GameClient, rules []ShopRule, st 
 		}
 		cur.Price = max(shopMinPrice, cur.Price, r.Floor)
 
-		if units >= 1 {
-			qty := min(units, opts.Lot)
+		lot := opts.Lot
+		if r.Lot > 0 {
+			lot = r.Lot
+		}
+		if units >= 1 && (r.Lot == 0 || units >= r.Lot) {
+			qty := min(units, lot)
 			prev := bytes.Clone(client.GetRawJSON("create_sell_order"))
 			if cerr := client.CreateSellOrder(ctx, map[string]any{
 				"item_id": r.Item, "quantity": qty, "price_each": cur.Price,
