@@ -37,6 +37,9 @@ type fakeClient struct {
 	// the shape of the mission-grant bug (accept_mission delivers cargo but
 	// carries no cargo field, so nothing updates State.Ship.Cargo).
 	onGetCargo func()
+	// onGetStatus, when set, runs inside GetStatus so a test can model a full
+	// player payload landing in state.
+	onGetStatus func()
 
 	refuelShipCalls []refuelShipCall // records of RefuelShip(target, quantity) calls
 	refuelShipErr   error            // when set, RefuelShip returns it instead of recording success
@@ -202,6 +205,9 @@ func (f *fakeClient) Travel(ctx context.Context, poi string) (*game.TravelResult
 }
 func (f *fakeClient) GetStatus(ctx context.Context) error {
 	f.calls = append(f.calls, "get_status")
+	if f.onGetStatus != nil {
+		f.onGetStatus()
+	}
 	// Re-reading state is what publishes a server-side fuel change into the
 	// cache; nothing else does.
 	if f.refuelFuel > 0 && f.state != nil {

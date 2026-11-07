@@ -118,5 +118,14 @@ func strongholdRefsForRoute(ctx context.Context, kb knowledge.Base, client game.
 		return buildStrongholdRefs(systems)
 	}
 
+	// Reading locked from standings this session never received refused an
+	// unlocked agent on 2026-10-13 and 2026-11-06. A failed refresh leaves them
+	// unread, which still blocks.
+	if st := client.GetState(); st == nil || len(st.Player.Standings) == 0 {
+		if err := client.GetStatus(ctx); err != nil {
+			fmt.Fprintf(out, "autopilot: stronghold guard: read standings: %v\n", err) //nolint:errcheck
+		}
+	}
+
 	return strongholdRefsFor(client.GetState(), systems)
 }

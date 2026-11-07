@@ -1,10 +1,14 @@
 package worker
 
 import (
+	"context"
+	"io"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // A locked agent must be stopped by any stronghold on the route, including one
@@ -81,5 +85,53 @@ func TestErrRouteThroughStrongholdMessage(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "Algol") {
 		t.Fatalf("error %q does not name the destination", err)
+	}
+}
+
+func strongholdKB(t *testing.T) knowledge.Base {
+	t.Helper()
+	kb := knowledge.NewMemoryKB()
+	t.Cleanup(func() { _ = kb.Close() })
+	if err := kb.RememberSystem(context.Background(), knowledge.System{ID: "barnard_44", Name: "Barnard 44", IsStronghold: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	return kb
+}
+
+// Live 2026-10-13 and 2026-11-06, craftsman-1: an unlocked agent whose session
+// had not read its standings yet was refused for a missing unlock.
+func TestStrongholdRefsReadsUnreadStandings(t *testing.T) {
+	f := &fakeClient{state: &game.State{}}
+	f.onGetStatus = func() {
+		f.state.Player.Standings = map[string]game.EmpireStanding{"pirate_voss": {Baseline: pirateUnlockBaseline}}
+	}
+
+	if refs := strongholdRefsForRoute(context.Background(), strongholdKB(t), f, io.Discard); len(refs) != 0 {
+		t.Fatalf("an unlocked agent must not be blocked: %v", refs)
+	}
+}
+
+// Standings that stay unreadable still block: guessing unlocked costs the ship.
+func TestStrongholdRefsFailsClosedWhenStandingsStayUnread(t *testing.T) {
+	f := &fakeClient{state: &game.State{}}
+
+	if refs := strongholdRefsForRoute(context.Background(), strongholdKB(t), f, io.Discard); !refs["barnard_44"] {
+		t.Fatalf("want barnard_44 blocked: %v", refs)
+	}
+}
+
+// A locked agent whose standings are known costs no extra server call.
+func TestStrongholdRefsTrustsKnownStandings(t *testing.T) {
+	st := &game.State{}
+	st.Player.Standings = map[string]game.EmpireStanding{"pirate_voss": {Baseline: 0}}
+	f := &fakeClient{state: st}
+
+	refs := strongholdRefsForRoute(context.Background(), strongholdKB(t), f, io.Discard)
+	if !refs["barnard_44"] {
+		t.Fatalf("want barnard_44 blocked: %v", refs)
+	}
+	if slices.Contains(f.calls, "get_status") {
+		t.Fatalf("known standings need no refresh: %v", f.calls)
 	}
 }
