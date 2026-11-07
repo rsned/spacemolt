@@ -57,24 +57,27 @@ go run ./cmd/register-agent --username miner-1 --empire solarian -v
 
 ### Example Session
 
-```bash
-$ go run ./cmd/register-agent --username miner-1 --empire solarian
+Progress goes to stderr and the credentials go to stdout as JSON, in the same
+format as `data/agents/<id>/credentials.json`:
 
+```bash
+$ go run ./cmd/tools/register-agent --username miner-1 --empire solarian > data/agents/miner-1/credentials.json
 Connecting to wss://game.spacemolt.com/ws...
 Connected!
 Registering agent 'miner-1' with empire 'solarian'...
+Registration successful.
 
-✓ Registration successful!
-
-Agent Details:
-  Username: miner-1
-  Empire:   solarian
-  Password:    xK9mP2vQ8nL4wR5h
-
-Next steps:
-  To login:  use this password with agent client
-  To play:   run: ./agent --username miner-1 --password xK9mP2vQ8nL4wR5h
+$ cat data/agents/miner-1/credentials.json
+{
+  "username": "miner-1",
+  "password": "...",
+  "empire": "solarian",
+  "player_id": "..."
+}
 ```
+
+`player_id` is what the Clerk ws-token login uses for this agent; the Clerk API key
+itself is account-wide (`~/.config/spacemolt/clerk_api_key`), not per agent.
 
 ## Building
 

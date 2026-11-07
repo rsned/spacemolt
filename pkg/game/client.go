@@ -2601,6 +2601,9 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.state.Password = token
 			c.password = token
 		}
+		if playerID, ok := resp.Payload["player_id"].(string); ok {
+			c.state.Player.ID = playerID
+		}
 		c.mu.Unlock()
 
 	case protocol.TypeLoggedIn:

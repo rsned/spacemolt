@@ -110,9 +110,10 @@ func (ms *mockServer) setupDefaultHandlers() {
 		return protocol.Response{
 			Type: protocol.TypeRegistered,
 			Payload: map[string]any{
-				"password": "new_token_" + username,
-				"username": username,
-				"empire":   empire,
+				"password":  "new_token_" + username,
+				"player_id": "pid_" + username,
+				"username":  username,
+				"empire":    empire,
 			},
 		}
 	}
@@ -332,6 +333,9 @@ func TestRegister_Success(t *testing.T) {
 
 	if stateToken != "new_token_newuser" {
 		t.Errorf("Expected state token 'new_token_newuser', got %s", stateToken)
+	}
+	if got := client.GetState().Player.ID; got != "pid_newuser" {
+		t.Errorf("Expected player id 'pid_newuser', got %q", got)
 	}
 }
 

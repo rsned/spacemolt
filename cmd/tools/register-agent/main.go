@@ -61,8 +61,9 @@ func main() {
 		logger,
 	)
 
-	// Connect to server
-	fmt.Printf("Connecting to %s...\n", *serverURL)
+	// Progress goes to stderr so stdout is only the credentials JSON, ready to
+	// redirect into data/agents/<id>/credentials.json.
+	fmt.Fprintf(os.Stderr, "Connecting to %s...\n", *serverURL)
 	if err := client.Connect(interruptCtx); err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
@@ -71,7 +72,7 @@ func main() {
 	// Wait for connection ready
 	select {
 	case <-client.Ready():
-		fmt.Println("Connected!")
+		fmt.Fprintln(os.Stderr, "Connected!")
 	case <-interruptCtx.Done():
 		log.Fatalf("Connection interrupted")
 	case <-time.After(10 * time.Second):
@@ -79,40 +80,36 @@ func main() {
 	}
 
 	// Send register command
-	fmt.Printf("Registering agent '%s' with empire '%s'...\n", *username, *empire)
+	fmt.Fprintf(os.Stderr, "Registering agent '%s' with empire '%s'...\n", *username, *empire)
 	if *registrationCode != "" {
-		fmt.Printf("Using registration code: %s\n", *registrationCode)
+		fmt.Fprintf(os.Stderr, "Using registration code: %s\n", *registrationCode)
 	}
 	if err := client.Register(interruptCtx, *empire, *registrationCode); err != nil {
 		log.Fatalf("Registration failed: %v", err)
 	}
 
 	// Get the password from client state (updated by Register)
-	receivedPassword := client.GetState().Password
+	state := client.GetState()
+	receivedPassword := state.Password
 	if receivedPassword == "" {
 		log.Fatalf("Registration completed but no password received")
 	}
 
-	// Success!
-	fmt.Println("\n✓ Registration successful!")
-	fmt.Printf("\nAgent Details:\n")
-	fmt.Printf("  Username: %s\n", *username)
-	fmt.Printf("  Empire:   %s\n", *empire)
-	fmt.Printf("  Password:    %s\n", receivedPassword)
+	out, err := credentialsJSON(*username, receivedPassword, *empire, state.Player.ID)
+	if err != nil {
+		log.Fatalf("Encode credentials: %v", err)
+	}
+	fmt.Fprintln(os.Stderr, "Registration successful.")
+	fmt.Println(string(out))
 
 	// Save password if requested
 	if *savePassword {
 		if err := savePasswordFile(*username, receivedPassword); err != nil {
 			log.Printf("Warning: failed to save password: %v", err)
 		} else {
-			fmt.Printf("\nPassword saved to ~/.spacemolt/agents/%s.password\n", *username)
+			fmt.Fprintf(os.Stderr, "Password saved to ~/.spacemolt/agents/%s.password\n", *username)
 		}
 	}
-
-	// Display next steps
-	fmt.Printf("\nNext steps:\n")
-	fmt.Printf("  To login:  use this password with agent client\n")
-	fmt.Printf("  To play:   run: ./agent --username %s --password %s\n", *username, receivedPassword)
 }
 
 func savePasswordFile(username, password string) error {
