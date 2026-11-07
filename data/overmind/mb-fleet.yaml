@@ -189,6 +189,18 @@ workers:
   # winterhold CONFIRMED OPEN 10:26 (scout 018). All three unflown stations
   # admitted us -- 0 refusals across the wave.
   - { agent_id: marketbot_020, role: resident, station: ironhearth_station }                # Ironhearth Station 2nd - the_old_seam (iron_ore richness 85)
+  # === WAVE 2 PINS (2026-11-06) ==============================================
+  # Graduated from the unlock fleet to uncovered public player stations. Keep the
+  # unlock-fleet lines: fleet overrides are removed-sets. Market stations first,
+  # then three with storage but no market, which host drones only.
+  - { agent_id: marketbot_033, role: resident, station: 4e89fb5d4df8bdd7c1c408e1713dc161 }  # The Full Moon (wealth_lane), open
+  - { agent_id: marketbot_030, role: resident, station: moon_foundation }                   # Goldcrest Moon (bd20_2457), mobile
+  - { agent_id: marketbot_028, role: resident, station: 428b353757ef4100317abd39cbdb79bf }  # The Half Moon (ross_248)
+  - { agent_id: marketbot_032, role: resident, station: ecd8eb6e6eecf2285445266f9d771d73 }  # STLR Central (gsc_0013)
+  - { agent_id: marketbot_027, role: resident, station: ec315132a710a7d0fbc68cca05073154 }  # The Crescent Moon (mebsuta)
+  - { agent_id: marketbot_021, role: resident, station: 01bad6afe17a96264def4e8066bad050 }  # Woodstock (nekkar), open, no market
+  - { agent_id: marketbot_031, role: resident, station: 92fd0bb3c5232a0d9a337afe5f883116 }  # Hive Segin (segin), no market
+  - { agent_id: marketbot_024, role: resident, station: 199fa2c026d6af7bf6e938638425416c }  # Hive Antares (antares), no market
   # =========================================================================
 
   # === CRFT HOME STATION (2026-10-25) =======================================

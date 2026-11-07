@@ -79,7 +79,16 @@
     "assist-krynn",
     "assist-frontier",
     "assist-sol",
-    "marketbot_008"
+    "marketbot_008",
+    "explorer-8",
+    "marketbot_033",
+    "marketbot_030",
+    "marketbot_028",
+    "marketbot_032",
+    "marketbot_027",
+    "marketbot_021",
+    "marketbot_031",
+    "marketbot_024"
   ],
   "updated_at": "2026-10-30T03:29:35Z",
   "by": "marketbot_008 graduated the unlock (9/9); it was in no removed set, so the b64fceca roll launched it in unlock AND mb (session_replaced loop). Back to mb only."

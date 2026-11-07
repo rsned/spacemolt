@@ -1,0 +1,10 @@
+[
+ {"bot":"marketbot_033","station":"The Full Moon","system":"wealth_lane","base_id":"4e89fb5d4d","market":true,"access":"open","jumps_now":1,"script":"mine_asteroid"},
+ {"bot":"marketbot_030","station":"Goldcrest Moon","system":"bd20_2457","base_id":"moon_foundation","market":true,"access":"unknown","jumps_now":2,"script":"mine_asteroid","mobile":true},
+ {"bot":"marketbot_028","station":"The Half Moon","system":"ross_248","base_id":"428b353757","market":true,"access":"unknown","jumps_now":3,"script":"mine_asteroid"},
+ {"bot":"marketbot_032","station":"STLR Central","system":"gsc_0013","base_id":"ecd8eb6e6e","market":true,"access":"unknown","jumps_now":3,"script":"mine_asteroid"},
+ {"bot":"marketbot_027","station":"The Crescent Moon","system":"mebsuta","base_id":"ec315132a7","market":true,"access":"unknown","jumps_now":5,"script":"mine_asteroid"},
+ {"bot":"marketbot_021","station":"Woodstock","system":"nekkar","base_id":"01bad6afe1","market":false,"access":"open","jumps_now":2,"script":"mine_asteroid"},
+ {"bot":"marketbot_031","station":"Hive Segin","system":"segin","base_id":"92fd0bb3c5","market":false,"access":"unknown","jumps_now":5,"script":"mine_gas"},
+ {"bot":"marketbot_024","station":"Hive Antares","system":"antares","base_id":"199fa2c026","market":false,"access":"unknown","jumps_now":9,"script":"mine_gas"}
+]
