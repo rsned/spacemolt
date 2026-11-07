@@ -27,7 +27,7 @@ metadata:
 - [Jettison → loot transfer flow](reference_jettison_loot_transfer_flow.md) — hand cargo to a ship that cannot dock; verified working
 - [Ship replacement workflow](reference_ship_replacement_workflow.md) — insurance pays credits, not a ship
 - [Cargo liquidation](project_cargo_liquidation_cut_losses.md) — best bid, else DEPOSIT (never jettison)
-- [drone_bay is an agent-wide ledger](reference_drone_bay_is_agent_wide.md) — drones keep mining across a ship switch; capacity fields report 0
+- [drone_bay is an agent-wide ledger](reference_drone_bay_is_agent_wide.md) — drones go DORMANT when the ship leaves the system; capacity fields report 0
 - ⭐ [send_gift ship_id transfers a hull FREE](reference_send_gift_ship_transfer.md) — remote send, but the ship STAYS PARKED; recipient must travel to it. Credit gifts need no co-location
 - ⭐🔴 [commission_ship has TWO modes](reference_ship_commissioning_is_credits_only.md) — credits-only 38,603 vs provide-materials 5,939 labour+components; BUYING at ~13,300 beats credits-only; outerrim hulls need an Outer Rim yard
 - ⭐ [Rank freight hulls FITTED, not by base stats](reference_prayer_class_freight_hulls.md) — `cargo_expander_iii` = +100/slot; congregation = 1900 cargo, tier 1

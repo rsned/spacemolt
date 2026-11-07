@@ -1,19 +1,25 @@
 ---
 name: reference_drone_bay_is_agent_wide
-description: get_ship's drone_bay is an agent-wide ledger — deployed drones keep working in another system and survive a ship switch
+description: get_ship's drone_bay is an agent-wide ledger, but drones go DORMANT when the controlling ship or agent leaves the system
 metadata:
   type: reference
 ---
 
-**Deployed drones belong to the AGENT, not the hull.** Confirmed 2026-08-28 by
-the operator: craftsman-1 launched 25 mining drones in one system, then switched
-hulls and flew a `survey_vessel` to Haven. `get_ship` still reported
-`deployed_count: 25`, `bandwidth_used: 250`, `in_bay: []` — the drones stayed
-mining in the other system the whole time.
+**Deployed drones go DORMANT as soon as the controlling ship or agent leaves the
+system (operator, 2026-11-06).** This corrects the earlier reading of this note,
+which said they keep mining elsewhere. Drones cannot jump, so a bot must stay in
+the system it mines. Launch-and-leave does not work, a hull switch that leaves the
+system stops them, and a station-less system leaves them only the ship's cargo
+hold to deposit into.
 
-So `drone_bay` in a `get_ship` reply is an agent-wide ledger, NOT a description
-of what is physically aboard. Reading `deployed_count` as "drones here with me"
-is wrong, and `in_bay: []` means "none stowed", not "none owned".
+**Why:** the 2026-08-28 reply below only showed the ledger still listing them.
+**How to apply:** a marketbot's station must share a system with a resource POI;
+fit at home and stay. Trips away pause mining until the bot returns.
+
+So `drone_bay` in a `get_ship` reply is an agent-wide ledger, NOT a description of
+what is physically aboard or working. craftsman-1 launched 25 drones, then flew to
+Haven in another hull; `get_ship` still reported `deployed_count: 25`,
+`bandwidth_used: 250`, `in_bay: []`. `in_bay: []` means "none stowed", not "none owned".
 
 `bandwidth_used` is 10 per drone (25 drones -> 250).
 

@@ -45,7 +45,7 @@ Live data from 2026-11-06. Of 79 marketbots, 12 already have drones and 67 do no
 
 Excluded bots:
 - `marketbot_deep_range` (`huffnpuff`, cpu 9) and `marketbot_last_light` (`prayer`, cpu 4) cannot take a bay.
-- `marketbot_synchrony`, `marketbot_the_rampart` and `marketbot_traders_rest` have no belt, ice field or gas cloud in their systems.
+- `marketbot_synchrony`, `marketbot_the_rampart` and `marketbot_traders_rest` have no belt, ice field or gas cloud in their systems. Drones go dormant when the ship leaves the system, so launching next door and flying home cannot work.
 
 **Parts held:**
 
@@ -250,4 +250,5 @@ Researched 2026-11-06. Nothing bought. Decide after Task 5 shows real yields.
 - **Buy cost:** 40,236 and 40,536 from Station Managers at Node Gamma and Central Nexus, one hull each.
 - **Break-even:** about 33 hulls. At 62 hulls the license saves about 870,000.
 - **Parts:** after both waves no bays are left and about 301 drones remain, so 62 hulls need 62 more bays and 9 more drones. Crafting bays spends reserved energy crystals and needs operator approval.
+- **Downtime:** fitted bots' drones go dormant while the bot is away collecting its new hull.
 - **Delivery:** hulls appear at Conjunction Junction, where the garage holds 20. Each bot must fly there for `switch_ship`, and many are 25 or more jumps away. Strip and refit run again on the new hull.
