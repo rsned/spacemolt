@@ -477,12 +477,23 @@ func repositionShuttle(ctx context.Context, deps ShuttleDeps, out io.Writer, cur
 			neighbors = append(neighbors, n)
 		}
 	}
-	if len(neighbors) == 0 {
-		fmt.Fprintln(out, "shuttle: no safe neighbor to reposition to; staying put") //nolint:errcheck
+	targets := make([]string, 0, len(neighbors))
+	for _, n := range neighbors {
+		if pois, perr := deps.KB.GetPOIs(ctx, n); perr == nil && freshestStation(withoutOutposts(ctx, deps.KB, pois)) != "" {
+			targets = append(targets, n)
+		}
+	}
+	// A station-less neighborhood would otherwise pin the shuttle in place
+	// forever, so look past it to the nearest station.
+	if len(targets) == 0 {
+		targets = shuttleNearestStationSystem(ctx, deps, out, current)
+	}
+	if len(targets) == 0 {
+		fmt.Fprintln(out, "shuttle: no station to reposition to; staying put") //nolint:errcheck
 		return
 	}
-	sort.Strings(neighbors) // deterministic ordering for the rotating cursor
-	pick := neighbors[deps.State.nextNeighbor(len(neighbors))]
+	sort.Strings(targets) // deterministic ordering for the rotating cursor
+	pick := targets[deps.State.nextNeighbor(len(targets))]
 	name := nameByID[pick]
 	if name == "" {
 		name = pick
@@ -594,6 +605,28 @@ func shuttleAlreadyAtStation(destSystem, stationPOI, current, currentPOI string)
 	return destSystem == current && stationPOI != "" && stationPOI == currentPOI
 }
 
+// shuttleNearestStationSystem returns the nearest accessible station system
+// other than current, or nothing when none is known.
+func shuttleNearestStationSystem(ctx context.Context, deps ShuttleDeps, out io.Writer, current string) []string {
+	graph := &galaxy.GalaxyGraph{}
+	if err := graph.BuildFromDB(ctx, deps.KB); err != nil {
+		fmt.Fprintf(out, "shuttle: reposition graph build failed: %v\n", err) //nolint:errcheck
+		return nil
+	}
+	near, err := galaxy.FindNearestByPOIType(ctx, deps.KB, graph, current, "station", 2)
+	if err != nil {
+		fmt.Fprintf(out, "shuttle: nearest-station lookup failed: %v\n", err) //nolint:errcheck
+		return nil
+	}
+	for _, n := range near {
+		if n.SystemID != current {
+			return []string{n.SystemID}
+		}
+	}
+
+	return nil
+}
+
 // shuttleRecoverIfStranded routes the shuttle to the nearest accessible, non-stronghold
 // station when it is undocked somewhere it cannot board. It is the shuttle's escape hatch
 // from the deadlock a server-restart mid-run disconnect leaves it in: parked undocked at
@@ -607,9 +640,8 @@ func shuttleAlreadyAtStation(destSystem, stationPOI, current, currentPOI string)
 // in the CURRENT system (intra-system reposition) or another system entirely.
 //
 // currentPOI is the shuttle's present POI: when it already equals the target station POI
-// the dock is merely pending (recovery is a no-op, returns false so the caller idles and
-// lets it complete). Returns true when it issued a relocation (so the caller ends the
-// pass), false when no station is reachable at all or recovery could not run. Best-effort
+// recovery re-docks there. Returns true when it issued a dock or a relocation (so the
+// caller ends the pass), false when no station is reachable at all or recovery could not run. Best-effort
 // throughout: any failure logs and the shuttle retries next pass. Aboard passengers are
 // left in place; once docked at the destination station the normal deliverAboardPassengers
 // path clears the berths, so recovery stays focused on reaching a station.
@@ -640,9 +672,13 @@ func shuttleRecoverIfStranded(ctx context.Context, deps ShuttleDeps, out io.Writ
 		station = freshestStation(withoutOutposts(ctx, deps.KB, pois))
 	}
 
-	// Already at the target station POI: the dock is just pending, not a strand.
+	// Already at the target station POI: nothing else in the loop will dock. A
+	// dock that timed out leaves the ship here for good otherwise.
 	if shuttleAlreadyAtStation(dest.SystemID, station, current, currentPOI) {
-		return false
+		if derr := dockIdempotent(ctx, deps.Client); derr != nil {
+			fmt.Fprintf(out, "shuttle: re-dock at %s failed: %v\n", station, derr) //nolint:errcheck
+		}
+		return true
 	}
 
 	if dest.SystemID == current {
