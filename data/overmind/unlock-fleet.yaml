@@ -476,3 +476,14 @@ workers:
   # 2026-10-30 explorer-8 (Survey Vessel, high-tier survey/detection): unlock first so it can reach
   # every system, then back to mission-learn as role explorer for a full galaxy survey.
   - { agent_id: explorer-8, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  # 2026-11-08 truckers (haul) rotate through pirate unlock (operator); removed-set until seconded.
+  - { agent_id: trucker-00, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-01, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-02, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-03, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-04, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-05, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-06, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-07, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-08, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-09, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
