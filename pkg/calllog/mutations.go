@@ -12,6 +12,7 @@ var Mutations = map[string]bool{
 	"cancel_order":               true,
 	"cancel_ship_listing":        true,
 	"cloak":                      true,
+	"generator":                  true,
 	"commission_ship":            true,
 	"complete_mission":           true,
 	"craft":                      true,

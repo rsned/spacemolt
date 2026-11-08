@@ -36,6 +36,9 @@ type GameClient interface {
 	// Equivalent to Attack on a creature id. Wildlife never dogpile.
 	Hunt(ctx context.Context, creatureID string) error
 	Cloak(ctx context.Context, enable bool) error
+	// Generator links (disconnect=false) or unlinks the docked ship's field
+	// generator to the station power grid.
+	Generator(ctx context.Context, disconnect bool) error
 	Battle(ctx context.Context, action string, payload map[string]any) error
 	GetBattleStatus(ctx context.Context) error
 	Reload(ctx context.Context, weaponInstanceID, ammoItemID string) error

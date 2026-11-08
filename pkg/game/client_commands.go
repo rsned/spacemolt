@@ -118,6 +118,22 @@ func (c *Client) Cloak(ctx context.Context, enable bool) error {
 	return err
 }
 
+// Generator links the docked ship's field generator to the station's power
+// grid, or unlinks it when disconnect is true. Connecting again restarts the
+// 360-tick link timer.
+func (c *Client) Generator(ctx context.Context, disconnect bool) error {
+	msg := protocol.Message{
+		Type:      "generator",
+		Payload:   map[string]any{"disconnect": disconnect},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithTimeout(SleepTick*3))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return err
+}
+
 // ScanTarget scans a specific target player.
 // Note: the server command type is "scan" (same as Scan), not "scan_target".
 func (c *Client) ScanTarget(ctx context.Context, targetID string) error {

@@ -151,6 +151,10 @@ func (m *mockGameClient) Cloak(ctx context.Context, enable bool) error {
 	m.actionsRecorded = append(m.actionsRecorded, "cloak")
 	return nil
 }
+func (m *mockGameClient) Generator(ctx context.Context, disconnect bool) error {
+	m.actionsRecorded = append(m.actionsRecorded, "generator")
+	return nil
+}
 
 // Commerce
 func (m *mockGameClient) Sell(ctx context.Context, itemID string, quantity float64) error {

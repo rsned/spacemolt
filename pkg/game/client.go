@@ -4780,6 +4780,10 @@ func (c *Client) parseActionResult(payload map[string]any) {
 			// survey_system does not mutate ship/player state; the REPL
 			// formatter renders the result. Log cleanly instead of "unhandled".
 			c.debugLogger.Printf("Action result: survey complete (%s)", command)
+		case "generator":
+			// The REPL formatter renders the link state; nothing cached changes
+			// (fuel burn shows up on the next ship sync).
+			c.debugLogger.Printf("Action result: generator (%s)", command)
 		case "cloak":
 			// cloak's result omits the "action" field and carries enabled +
 			// cloak_strength. Reflect the toggle in cached player state so

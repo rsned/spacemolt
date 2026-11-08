@@ -852,6 +852,8 @@ func formatStyledResponse(raw []byte, command string) string {
 	switch command {
 	case "cloak":
 		return formatCloak(raw)
+	case "generator":
+		return formatGenerator(raw)
 	case "status", "get_status":
 		return formatGetStatus(raw)
 	case "get_state":
@@ -7198,6 +7200,14 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 			return client.Hunt(ctx, parts[1])
 		}, ctx, game.SleepTick*3, cmd, format)
 
+	case "generator":
+		// generator            link the docked ship's field generator to the grid
+		// generator off        unlink it (also: disconnect)
+		disconnect := len(parts) >= 2 && (parts[1] == "off" || parts[1] == "disconnect" || parts[1] == "false")
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.Generator(ctx, disconnect)
+		}, ctx, game.SleepTick*3, cmd, format)
+
 	case "cloak":
 		enable := len(parts) >= 2 && (parts[1] == "on" || parts[1] == "true" || parts[1] == "1")
 		return simpleCommand(client, func(ctx context.Context) error {
@@ -10755,6 +10765,7 @@ func printHelp() {
 	fmt.Println("  mine, scan, survey        - Mining and scanning operations")
 	fmt.Println("  attack <target-id>        - Attack a target")
 	fmt.Println("  cloak [on|off]           - Toggle cloaking device")
+	fmt.Println("  generator [off]          - Link docked ship's field generator to station power (off: unlink)")
 
 	fmt.Println("\n=== COMMERCE ===")
 	fmt.Println("  sell <item> <qty>         - Sell items")

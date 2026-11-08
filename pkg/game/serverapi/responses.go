@@ -2374,6 +2374,22 @@ type CloakResponse struct {
 	Message       string `json:"message"`
 }
 
+// GeneratorResponse is returned by generator (v0.669.0): a docked ship's
+// field_generator linked to, or unlinked from, the station's power grid.
+type GeneratorResponse struct {
+	Connected      bool   `json:"connected"`
+	BaseID         string `json:"base_id"`
+	Output         int    `json:"output"`
+	EndTick        int64  `json:"end_tick,omitempty"`
+	FuelPerTick    int    `json:"fuel_per_tick"`
+	FuelReserve    int    `json:"fuel_reserve"`
+	FuelBurned     int    `json:"fuel_burned"`
+	PowerDelivered int    `json:"power_delivered"`
+	Message        string `json:"message"`
+	AutoDocked     bool   `json:"auto_docked,omitempty"`
+	AutoUndocked   bool   `json:"auto_undocked,omitempty"`
+}
+
 // ScanResponse wraps the response from scan command.
 type ScanResponse struct {
 	TargetID     string   `json:"target_id"`

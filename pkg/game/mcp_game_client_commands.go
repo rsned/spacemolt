@@ -294,6 +294,16 @@ func (m *MCPGameClient) Cloak(ctx context.Context, enable bool) error {
 	return m.updateStateFromResult(result)
 }
 
+func (m *MCPGameClient) Generator(ctx context.Context, disconnect bool) error {
+	result, err := m.callTool(ctx, "generator", map[string]any{
+		"disconnect": disconnect,
+	})
+	if err != nil {
+		return err
+	}
+	return m.updateStateFromResult(result)
+}
+
 // --- Commerce ---
 
 func (m *MCPGameClient) Sell(ctx context.Context, itemID string, quantity float64) error {
