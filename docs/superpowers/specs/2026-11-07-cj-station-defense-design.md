@@ -5,8 +5,12 @@ CRFT's home station in Cloverfield.
 
 ## Why
 
-CJ is one of 32 stations with no real defense. Nothing has attacked it; this gets ahead
-of an attack. A wrecked station has to be repaired before it works again, and the repair
+CJ was one of 32 stations with no real defense. Nothing has attacked it; this gets ahead
+of an attack. *Update 2026-11-08:* the public stations list shows 63 of 97 stations armed
+(all 42 empire stations, 21 player stations). CJ is now armed but the weakest of them at
+`weapon_dps` 30 (one L1 point defense battery); most armed player stations show 242 and the
+top one 914. **Every defense facility can be built more than once and the copies stack**
+(operator), so defense grows by adding copies as well as by upgrading. A wrecked station has to be repaired before it works again, and the repair
 costs about 30% of each facility's original cost, in credits and in that facility's
 build materials. Those materials must be at the station. Without them CJ stays down,
 with all 19 facilities, including life support and power, until someone hauls them in.
