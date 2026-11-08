@@ -15,7 +15,7 @@ type GiftClient interface {
 	SendGift(ctx context.Context, payload map[string]any) error
 }
 
-// DebtPayer pays a worker's outstanding rescue debts, one per docked pass, and
+// DebtPayer pays a worker's outstanding rescue debts, one per pass, and
 // announces a debt it cannot pay once per session instead of on every pass.
 //
 // The idle loop calls Pay every few seconds, so any per-pass logging here would
@@ -52,10 +52,10 @@ func (p *DebtPayer) announce(msg string) {
 	fmt.Fprintf(p.out, "%s\n", msg) //nolint:errcheck
 }
 
-// Pay settles the head outstanding rescue debt when the worker is docked
-// (send_gift credits requires a base with storage) and can afford it. One debt
-// per call respects the 1-gift-per-tick rate limit; the rest wait for the next
-// docked pass. Best-effort: every failure leaves the debt in place.
+// Pay settles the head outstanding rescue debt when the worker can afford it.
+// Since v0.669.0 a credit-only send_gift works anywhere, docked or in space.
+// One debt per call respects the 1-gift-per-tick rate limit; the rest wait for
+// the next pass. Best-effort: every failure leaves the debt in place.
 func (p *DebtPayer) Pay(ctx context.Context) {
 	debts, err := rescue.LoadDebts(p.agentsDir, p.agentID)
 	if err != nil {
@@ -73,15 +73,12 @@ func (p *DebtPayer) Pay(ctx context.Context) {
 	d := debts[0]
 	// Solvency gate: an insolvent debtor (notably a broke assister rescued by
 	// another assister) would otherwise fail send_gift and retry the same debt
-	// every docked pass forever. Announce the stall once, then wait for funds.
+	// every pass forever. Announce the stall once, then wait for funds.
 	if st.Credits < float64(d.Credits) {
 		p.announce(fmt.Sprintf(
 			"rescue-fee: cannot pay: %d debt(s) totalling %d cr, holding %.0f cr, next fee %d cr to %s (waiting for funds)",
 			len(debts), totalDebt(debts), st.Credits, d.Credits, d.Recipient))
 		return
-	}
-	if !st.Doc {
-		return // pay on a later pass once docked
 	}
 	payload := map[string]any{
 		"recipient": d.Recipient,

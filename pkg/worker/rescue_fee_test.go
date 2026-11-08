@@ -47,16 +47,18 @@ func TestPayRescueDebt(t *testing.T) {
 	})
 
 	// Undocked -> no gift, debt retained (send_gift credits needs a station).
-	t.Run("undocked skips", func(t *testing.T) {
+	// v0.669.0: credit-only send_gift works anywhere, including in space, so
+	// a solvent debtor pays in transit instead of waiting to dock.
+	t.Run("undocked pays", func(t *testing.T) {
 		dir := t.TempDir()
 		_ = rescue.AppendDebt(dir, "salvager-10", rescue.Debt{Recipient: "shipside_assist_haven", Credits: 1000})
 		c := &fakeGiftClient{state: &game.State{Doc: false, Credits: 5000}}
 		NewDebtPayer(c, io.Discard, dir, "salvager-10").Pay(ctx)
-		if len(c.gifts) != 0 {
-			t.Fatalf("undocked must not gift, got %+v", c.gifts)
+		if len(c.gifts) != 1 {
+			t.Fatalf("undocked solvent debtor must gift once, got %+v", c.gifts)
 		}
-		if debts, _ := rescue.LoadDebts(dir, "salvager-10"); len(debts) != 1 {
-			t.Fatalf("undocked must retain debt, got %+v", debts)
+		if debts, _ := rescue.LoadDebts(dir, "salvager-10"); len(debts) != 0 {
+			t.Fatalf("paid debt must be cleared, got %+v", debts)
 		}
 	})
 
@@ -143,8 +145,8 @@ func TestDebtPayerAnnouncesOncePerSession(t *testing.T) {
 		}
 	})
 
-	// A solvent worker in transit says nothing — it will simply pay on docking.
-	t.Run("solvent undocked stays quiet", func(t *testing.T) {
+	// A solvent worker in transit pays once and logs only the payment.
+	t.Run("solvent undocked pays once", func(t *testing.T) {
 		dir := t.TempDir()
 		_ = rescue.AppendDebt(dir, "salvager-10", rescue.Debt{Recipient: "shipside_assist_haven", Credits: 1000})
 		var buf bytes.Buffer
@@ -152,8 +154,11 @@ func TestDebtPayerAnnouncesOncePerSession(t *testing.T) {
 		p := NewDebtPayer(c, &buf, dir, "salvager-10")
 		p.Pay(ctx)
 		p.Pay(ctx)
-		if buf.Len() != 0 {
-			t.Fatalf("solvent worker in transit must stay quiet, got:\n%s", buf.String())
+		if len(c.gifts) != 1 {
+			t.Fatalf("gifts = %d, want 1", len(c.gifts))
+		}
+		if got := buf.String(); got != "rescue-fee: paid 1000 cr to shipside_assist_haven\n" {
+			t.Fatalf("log = %q, want only the payment line", got)
 		}
 	})
 

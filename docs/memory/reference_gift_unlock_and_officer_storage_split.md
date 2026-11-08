@@ -31,9 +31,12 @@ non-member funder (the_banker) gifts credits to a CRFT member docked at Conjunct
 (miningbot_0000), which deposits them. Done 10-30 for 1M after the treasury hit 0 (rent at
 Haven/Voss drains it ~4M/day; it emptied three times 10-26..10-30).
 
-**Correction 2026-10-31:** even a CREDIT gift needs the SENDER docked (any station) —
-14 of 18 haul agents failed `not_docked` while in transit. Wait for `docked: true` in
-`data/overmind/<fleet>-status.json` before pausing a worker to gift.
+**v0.669.0 (2026-11-08): credit-only send_gift works ANYWHERE, including in space**, and
+`faction_deposit_credits` / `faction_withdraw_credits` work docked or in space (withdraw still
+needs manage-treasury). ITEM gifts still need a dock at a station with storage. (Before v0.669
+a credit gift needed the sender docked: 14 of 18 haulers failed `not_docked` on 10-31.) The
+rescue-fee DebtPayer's dock gate was removed for this. Treasury top-ups no longer need
+miningbot_0000 at CJ: any CRFT member can receive and deposit.
 
 **Credit gifts go to the WALLET (verified 2026-11-08):** the_banker gifted 100k to each trucker
 (at Sol); trucker-00's heartbeat showed ~98.5k within 2 minutes while it was away in Iron Reach.
