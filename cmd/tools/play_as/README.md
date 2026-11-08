@@ -44,6 +44,7 @@ Type `help` in the terminal for a full command list. A few highlights:
 | `mine` | Mine at current location |
 | `sell <item> <qty>` | Sell items at station |
 | `cargo` | View ship cargo |
+| `fill_cargo --category=<cat> [--dry-run]` | Withdraw this station's storage items of one catalog category (`consumable`, `ore`, `refined`, `component`, `ammo`, `misc`, `unknown`, …), in item-id order, until the hold is full. Items too big for the space left are skipped so smaller ones can top it off. Must be docked. |
 | `set_format <mode>` | Change output format (`raw`, `json`, `styled`) |
 | `state` | Show compact state summary |
 | `help` | Full command list |

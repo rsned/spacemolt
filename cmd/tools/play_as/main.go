@@ -8334,6 +8334,13 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 			return client.LootWreck(ctx, parts[1], strings.ToLower(parts[2]), qty)
 		}, ctx, 3*time.Second, cmd, format)
 
+	case "fill_cargo":
+		opts, err := parseFillCargoArgs(parts[1:])
+		if err != nil {
+			return err
+		}
+		return runFillCargo(ctx, client, opts)
+
 	case "loot_all":
 		wreckID := ""
 		if len(parts) > 1 {
@@ -10829,6 +10836,7 @@ func printHelp() {
 	fmt.Println("  withdraw <item> <qty> [--source=<s>] [--target=<s>]  - Withdraw items (source/target: cargo|storage|faction)")
 	fmt.Println("  storage [filter] [--group] [--station_id <id>]  - View storage (--group: by category; filter: id/name substring)")
 	fmt.Println("  storage_at <id>           - View storage at a remote station")
+	fmt.Println("  fill_cargo --category=<c> [--dry-run] - Withdraw storage items of one category (A-Z) until the hold is full")
 	fmt.Println("  jettison <item> <qty>     - Jettison cargo")
 
 	fmt.Println("\n=== WRECKS ===")
