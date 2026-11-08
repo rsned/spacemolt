@@ -34,3 +34,8 @@ Haven/Voss drains it ~4M/day; it emptied three times 10-26..10-30).
 **Correction 2026-10-31:** even a CREDIT gift needs the SENDER docked (any station) —
 14 of 18 haul agents failed `not_docked` while in transit. Wait for `docked: true` in
 `data/overmind/<fleet>-status.json` before pausing a worker to gift.
+
+**Credit gifts go to the WALLET (verified 2026-11-08):** the_banker gifted 100k to each trucker
+(at Sol); trucker-00's heartbeat showed ~98.5k within 2 minutes while it was away in Iron Reach.
+Only ITEM gifts land in station storage. Note the recipient is the in-game USERNAME, not the
+agent id (trucker-00 = u_mother_trucker_000; `agents` table in assets.db maps them).
