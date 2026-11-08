@@ -62,8 +62,10 @@ Sources: `data/game-api/20261106/catalog_facilities.json`, CJ events in
 
 ## Decided by the operator
 
-**Defense order.**
-1. Upgrade the point defense line to its longest reach: `point_defense_battery` (L1,
+**Defense order.** *2026-11-07: the L2 and L3 gun upgrades are deferred to later;
+the first round is plating, shields, fire control, battery and power around the L1
+point defense battery.*
+1. Later: upgrade the point defense line to its longest reach: `point_defense_battery` (L1,
    180k, power 2, 1 coolant per cycle) → `station_defense_turret` (L2, 420k, power 4,
    2 coolant) → `heavy_defense_battery` (L3, 1.4M, power 8, 3 coolant).
 2. `reinforced_plating` (700k): armor that cuts incoming hull damage by its amount,
@@ -84,6 +86,18 @@ fuel CJ already makes. Supply 20 → 32. This was already chosen on 2026-11-01.
 
 **Coolant** is made from ice-bot output: `synthesize_coolant_fluid`, 3
 `liquid_nitrogen` + 2 `purified_water` → 3 `coolant_fluid` (hand recipe).
+
+**Ammo is crafted at CJ.** All three are hand recipes (no facility needed):
+- `ferrous_slug_case` (point defense battery): `manufacture_ferrous_slugs`, 3 `iron_ore`
+  + 2 `steel_plate` → 5. CJ has both.
+- `armor_piercing_rounds_box` (turret): `manufacture_ap_rounds`, 1 `steel_plate` + 1
+  `tungsten_ore` → 4. CJ holds no tungsten ore; drone bots mine it.
+- `fragmentation_rounds_box` (heavy battery): `manufacture_frag_rounds`, 1
+  `silicate_composite` + 1 `steel_plate` → 4. `silicate_composite` is made from
+  `silicon_ore` and `nickel_ore` (plus iridium in one recipe), both in demand on the
+  market, so the heavy battery's ammo competes with selling them.
+A `slug_casting_pit` facility (91k) exists if hand crafting cannot keep up. How much
+ammo a fight uses is unknown.
 
 **Haulers carry it.** Haulers pick up the bots' gas and ice products and deliver them
 to CJ. Three of the gas stations are in Nebula space, 3–4 jumps from CJ, so the runs

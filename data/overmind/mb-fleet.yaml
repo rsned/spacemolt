@@ -16,8 +16,8 @@
 # move; mining is the bonus. The mineable resource in each system is noted per
 # line, so flip a role once you have confirmed the fitting.
 workers:
-  - { agent_id: marketbot_001, role: resident, station: "" }  # added 2026-07-11: resident at Hex Star (dheneb, player station); dheneb has a belt
-  - { agent_id: marketbot_002, role: resident, station: "" }  # added 2026-07-31: resident at The Obsidian Well (arneb, player station); arneb has belt + gas + ice
+  - { agent_id: marketbot_001, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # added 2026-07-11: resident at Hex Star (dheneb, player station); dheneb has a belt
+  - { agent_id: marketbot_002, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # added 2026-07-31: resident at The Obsidian Well (arneb, player station); arneb has belt + gas + ice
 
   # === EIGHT NEW ACCOUNTS -> OPEN PLAYER STATIONS (2026-08-13) =============
   # Registered to staff the open player stations. A fresh account logs in at its
@@ -31,14 +31,14 @@ workers:
   # even the worst leg (25 jumps, Cobble) is 50 of a 120 tank and none of them
   # ever needs to buy fuel. Big-scale hulls are the fuel hogs, not starters.
   # Pinned below by measured margin, worst case +70.
-  - { agent_id: marketbot_000, role: resident, station: dbf463334120f3db5392dfccd401ba03 }  # The Deep Current (gsc_0019) — 21 jumps, Prospect
-  - { agent_id: marketbot_003, role: resident, station: d1c54e3a473f4d3ce9c7603c5e0c6b38 }  # Private Rain (crosshaven) — 22 jumps, Prospect
-  - { agent_id: marketbot_004, role: resident, station: 0367654caf8485adcef9a58b7122d223 }  # Starlight Cartographer (alpheratz) — 24 jumps, Cobble
-  - { agent_id: marketbot_005, role: resident, station: f9a69fe2de7833d14270f634f46622ae }  # Cryo Zenith (saiph) — 25 jumps, Cobble
-  - { agent_id: marketbot_006, role: resident, station: d6789ab34d7ec5bb3a9cdce9cdb1e31b }  # The Second Ledger (40_eridani) — 14 jumps, Threshold
-  - { agent_id: marketbot_007, role: resident, station: 9e0b4dbad76ae607e5ca994d8dd7363e }  # The Veil Anchor (bd20_2457) — 14 jumps, Threshold
-  - { agent_id: marketbot_008, role: resident, station: 91b887ed660acdcdc166e1e659c43ba0 }  # The Zero Point Nexus (kornephoros) — 5 jumps, Shard
-  - { agent_id: marketbot_009, role: resident, station: 6b710aa99f58aec15b0280ee71690ba4 }  # Ghost Runner Terminal (thuban) — 6 jumps, Shard
+  - { agent_id: marketbot_000, role: resident, station: dbf463334120f3db5392dfccd401ba03, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # The Deep Current (gsc_0019) — 21 jumps, Prospect
+  - { agent_id: marketbot_003, role: resident, station: d1c54e3a473f4d3ce9c7603c5e0c6b38, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Private Rain (crosshaven) — 22 jumps, Prospect
+  - { agent_id: marketbot_004, role: resident, station: 0367654caf8485adcef9a58b7122d223, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Starlight Cartographer (alpheratz) — 24 jumps, Cobble
+  - { agent_id: marketbot_005, role: resident, station: f9a69fe2de7833d14270f634f46622ae, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Cryo Zenith (saiph) — 25 jumps, Cobble
+  - { agent_id: marketbot_006, role: resident, station: d6789ab34d7ec5bb3a9cdce9cdb1e31b, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # The Second Ledger (40_eridani) — 14 jumps, Threshold
+  - { agent_id: marketbot_007, role: resident, station: 9e0b4dbad76ae607e5ca994d8dd7363e, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # The Veil Anchor (bd20_2457) — 14 jumps, Threshold
+  - { agent_id: marketbot_008, role: resident, station: 91b887ed660acdcdc166e1e659c43ba0, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # The Zero Point Nexus (kornephoros) — 5 jumps, Shard
+  - { agent_id: marketbot_009, role: resident, station: 6b710aa99f58aec15b0280ee71690ba4, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Ghost Runner Terminal (thuban) — 6 jumps, Shard
   # =========================================================================
 
   # === THE NINE STRONGHOLD RESIDENTS (returned 2026-08-13) =================
@@ -59,15 +59,15 @@ workers:
   # they are never-scanned warlord bases with no `bases` row to name -- sat still.
   # That is the same loop that drained alhena and sheratan to ZERO on 08-12,
   # reached from the other direction.
-  - { agent_id: marketbot_algol, role: resident, station: dross_citadel }      # Algol / Dross Citadel — gas_cloud
-  - { agent_id: marketbot_alhena, role: resident, station: voss_redoubt, shopkeep: ["pirate_moonshine:3000:1500"] }      # Alhena / Voss Redoubt — NOTHING mineable; capture only
-  - { agent_id: marketbot_barnard_44, role: resident, station: sable_port }            # Barnard 44 / Sable Port (unscanned) — asteroid_belt
-  - { agent_id: marketbot_bellatrix, role: resident, station: crix_stronghold } # Bellatrix / Crix Stronghold — ice_field
-  - { agent_id: marketbot_gliese_581, role: resident, station: korr_fortress }         # Gliese 581 / Korr Fortress (unscanned) — NOTHING mineable; capture only
-  - { agent_id: marketbot_gsc_0008, role: resident, station: nyx_nexus }       # GSC-0008 / Nyx Nexus — gas_cloud + ice_field
-  - { agent_id: marketbot_sheratan, role: resident, station: thane_keep }      # Sheratan / Thane Keep — ice_field
-  - { agent_id: marketbot_xamidimura, role: resident, station: kael_arsenal }  # Xamidimura / Kael Arsenal — asteroid_belt + ice_field
-  - { agent_id: marketbot_zaniah, role: resident, station: mera_sanctum }      # Zaniah / Mera Sanctum — asteroid_belt
+  - { agent_id: marketbot_algol, role: resident, station: dross_citadel, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }      # Algol / Dross Citadel — gas_cloud
+  - { agent_id: marketbot_alhena, role: resident, station: voss_redoubt, shopkeep: ["pirate_moonshine:3000:1500", "iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }      # Alhena / Voss Redoubt — NOTHING mineable; capture only
+  - { agent_id: marketbot_barnard_44, role: resident, station: sable_port, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }            # Barnard 44 / Sable Port (unscanned) — asteroid_belt
+  - { agent_id: marketbot_bellatrix, role: resident, station: crix_stronghold, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] } # Bellatrix / Crix Stronghold — ice_field
+  - { agent_id: marketbot_gliese_581, role: resident, station: korr_fortress, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }         # Gliese 581 / Korr Fortress (unscanned) — NOTHING mineable; capture only
+  - { agent_id: marketbot_gsc_0008, role: resident, station: nyx_nexus, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }       # GSC-0008 / Nyx Nexus — gas_cloud + ice_field
+  - { agent_id: marketbot_sheratan, role: resident, station: thane_keep, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }      # Sheratan / Thane Keep — ice_field
+  - { agent_id: marketbot_xamidimura, role: resident, station: kael_arsenal, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Xamidimura / Kael Arsenal — asteroid_belt + ice_field
+  - { agent_id: marketbot_zaniah, role: resident, station: mera_sanctum, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }      # Zaniah / Mera Sanctum — asteroid_belt
   # =========================================================================
 
   # === OPEN PLAYER STATIONS ================================================
@@ -95,40 +95,40 @@ workers:
   - { agent_id: miner-2, role: resident, station: 0321b3e4406021575337b7be26e53dd7 }  # LHS 1140 / Ironlight Crossroads — 12 jumps from Alfirk, measured 4 fuel/jump
   # =========================================================================
 
-  - { agent_id: marketbot_alpha_centauri, role: resident, station: "" }
-  - { agent_id: marketbot_blood_forge, role: resident, station: "" }
-  - { agent_id: marketbot_cargo_lanes, role: resident, station: "" }
-  - { agent_id: marketbot_deep_range, role: resident_gas, station: "" }  # belt+gas+ice available; user fit gas
-  - { agent_id: marketbot_factory_belt, role: resident_gas, station: "" }
-  - { agent_id: marketbot_first_step, role: resident, station: "" }
-  - { agent_id: marketbot_frontier, role: resident, station: mobile_capital }
-  - { agent_id: marketbot_gold_run, role: resident, station: "" }
-  - { agent_id: marketbot_haven, role: resident, station: "" }
-  - { agent_id: marketbot_iron_reach, role: resident, station: "" }
-  - { agent_id: marketbot_krynn, role: resident, station: "" }
-  - { agent_id: marketbot_last_light, role: resident, station: "" }
-  - { agent_id: marketbot_market_prime, role: resident, station: market_prime_exchange }
-  - { agent_id: marketbot_nexus_prime, role: resident, station: "" }
-  - { agent_id: marketbot_node_alpha, role: resident, station: "" }
-  - { agent_id: marketbot_node_beta, role: resident, station: node_beta_industrial_station }
-  - { agent_id: marketbot_node_gamma, role: resident, station: "" }
-  - { agent_id: marketbot_nova_terra, role: resident, station: "" }
-  - { agent_id: marketbot_procyon, role: resident_gas, station: "" }  # has gas+ice; defaulted to gas — flip to resident_ice if you fit an ice_harvester
-  - { agent_id: marketbot_ramens_rest, role: resident, station: 91b887ed660acdcdc166e1e659c43ba0 }  # rotation #1: holding The Zero Point Nexus while marketbot_008 is away unlocking
-  - { agent_id: marketbot_sirius, role: resident_gas, station: "" }
-  - { agent_id: marketbot_sol, role: resident, station: "" }
-  - { agent_id: marketbot_starfall, role: resident, station: "" }
-  - { agent_id: marketbot_synchrony, role: resident, station: "" }
-  - { agent_id: marketbot_the_anvil, role: resident, station: "" }
-  - { agent_id: marketbot_the_crucible, role: resident_gas, station: "" }
-  - { agent_id: marketbot_the_experiment, role: resident, station: "" }
-  - { agent_id: marketbot_the_levy, role: resident_ice, station: "" }
-  - { agent_id: marketbot_the_rampart, role: resident, station: "" }
-  - { agent_id: marketbot_the_telescope, role: resident, station: unknown_edge_waystation }
-  - { agent_id: marketbot_traders_rest, role: resident, station: "" }
-  - { agent_id: marketbot_treasure_cache, role: resident, station: treasure_cache_trading_post, shopkeep: ["pirate_moonshine:1500:1500"] }
-  - { agent_id: marketbot_unknown_edge, role: resident, station: "" }
-  - { agent_id: marketbot_void_gate, role: resident, station: "" }
+  - { agent_id: marketbot_alpha_centauri, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_blood_forge, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_cargo_lanes, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_deep_range, role: resident_gas, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # belt+gas+ice available; user fit gas
+  - { agent_id: marketbot_factory_belt, role: resident_gas, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_first_step, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_frontier, role: resident, station: mobile_capital, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_gold_run, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_haven, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_iron_reach, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_krynn, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_last_light, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_market_prime, role: resident, station: market_prime_exchange, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_nexus_prime, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_node_alpha, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_node_beta, role: resident, station: node_beta_industrial_station, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_node_gamma, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_nova_terra, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_procyon, role: resident_gas, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # has gas+ice; defaulted to gas — flip to resident_ice if you fit an ice_harvester
+  - { agent_id: marketbot_ramens_rest, role: resident, station: 91b887ed660acdcdc166e1e659c43ba0, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # rotation #1: holding The Zero Point Nexus while marketbot_008 is away unlocking
+  - { agent_id: marketbot_sirius, role: resident_gas, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_sol, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_starfall, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_synchrony, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_the_anvil, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_the_crucible, role: resident_gas, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_the_experiment, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_the_levy, role: resident_ice, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_the_rampart, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_the_telescope, role: resident, station: unknown_edge_waystation, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_traders_rest, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_treasure_cache, role: resident, station: treasure_cache_trading_post, shopkeep: ["pirate_moonshine:1500:1500", "iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_unknown_edge, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
+  - { agent_id: marketbot_void_gate, role: resident, station: "", shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }
 
   # === FOUR NEW ACCOUNTS -> THE BELT PLAYER STATIONS (2026-09-08) ==========
   # marketbot_010..013, all nebula, so all four start at Haven. Posted to the
@@ -153,10 +153,10 @@ workers:
   # data/scripts/drones/mine_asteroid_<system>.ds uploaded per drone once it has
   # arrived and docked (bulk_upload_drone_script, 1 tick/drone). Until then the
   # drones sit idle -- the post still captures market data, which is the point.
-  - { agent_id: marketbot_010, role: resident, station: b6007ea0d1b905492a17dcd5d3e72286 }  # Event Horizon Relay (alzirr) - 26 jumps; belt alzirr_belt (of 2)
-  - { agent_id: marketbot_011, role: resident, station: 2574b16e0e18d90b98354bcae963854e }  # The Hush Chamber (diphda) - 22 jumps; belt crystalline_field_diphda
-  - { agent_id: marketbot_012, role: resident, station: 1e2d6bd532e06724b80851cff3d68e2e }  # Stellar Leap Station (tiaki) - 23 jumps; belt dense_nickel_field_tiaki (of 2)
-  - { agent_id: marketbot_013, role: resident, station: d6bc503e703c4422a0bbbc95f5ed9b18 }  # The Whisper Point (gsc_0034) - 23 jumps; belt gsc_0034_belt
+  - { agent_id: marketbot_010, role: resident, station: b6007ea0d1b905492a17dcd5d3e72286, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Event Horizon Relay (alzirr) - 26 jumps; belt alzirr_belt (of 2)
+  - { agent_id: marketbot_011, role: resident, station: 2574b16e0e18d90b98354bcae963854e, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # The Hush Chamber (diphda) - 22 jumps; belt crystalline_field_diphda
+  - { agent_id: marketbot_012, role: resident, station: 1e2d6bd532e06724b80851cff3d68e2e, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Stellar Leap Station (tiaki) - 23 jumps; belt dense_nickel_field_tiaki (of 2)
+  - { agent_id: marketbot_013, role: resident, station: d6bc503e703c4422a0bbbc95f5ed9b18, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # The Whisper Point (gsc_0034) - 23 jumps; belt gsc_0034_belt
   # =========================================================================
 
   # === WAVE 1 of the 014-020 postings (2026-09-08) =========================
@@ -173,35 +173,35 @@ workers:
   # Belt-first per the operator's rule; ranked by `richness`, never by
   # `remaining`, which reads 0 on producing POIs
   # ([[reference_poi_resources_remaining_is_unreliable]]).
-  - { agent_id: marketbot_016, role: resident, station: 56da4dcca499808b0e76ab482fdfa71c }  # Echo Protocol Hub (lilii_borea) OPEN - gas
-  - { agent_id: marketbot_017, role: resident, station: ef377cbdf4962c2b8c8a8b4e4665742e }  # Plasma Echo Station (gsc_0010) OPEN - gas
-  - { agent_id: marketbot_014, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d }  # SCOUT: Hex Wellspring (zosma) UNFLOWN - zosma_belt
-  - { agent_id: marketbot_015, role: resident, station: ironhearth_station, consign: ["platinum_ore:explorer-3:925"] }  # SCOUT: Ironhearth Station UNFLOWN, struggling - ironhearth_fields. 2026-10-29: gifts its platinum to explorer-3 for the control-node line at Conjunction Junction
-  - { agent_id: marketbot_018, role: resident, station: 6a286d5d8c48468a8d50e57da6cb3690 }  # SCOUT: Carnegie Hall (winterhold) UNFLOWN, 4 services - gas
+  - { agent_id: marketbot_016, role: resident, station: 56da4dcca499808b0e76ab482fdfa71c, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Echo Protocol Hub (lilii_borea) OPEN - gas
+  - { agent_id: marketbot_017, role: resident, station: ef377cbdf4962c2b8c8a8b4e4665742e, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Plasma Echo Station (gsc_0010) OPEN - gas
+  - { agent_id: marketbot_014, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # SCOUT: Hex Wellspring (zosma) UNFLOWN - zosma_belt
+  - { agent_id: marketbot_015, role: resident, station: ironhearth_station, consign: ["platinum_ore:explorer-3:925"], shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # SCOUT: Ironhearth Station UNFLOWN, struggling - ironhearth_fields. 2026-10-29: gifts its platinum to explorer-3 for the control-node line at Conjunction Junction
+  - { agent_id: marketbot_018, role: resident, station: 6a286d5d8c48468a8d50e57da6cb3690, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # SCOUT: Carnegie Hall (winterhold) UNFLOWN, 4 services - gas
   # WAVE 2, released as each scout docks:
   # zosma CONFIRMED OPEN 2026-09-08 10:15 -- marketbot_014 docked at Hex
   # Wellspring and held there ("already docked; skipped" at tick cadence, not the
   # undock/re-dock thrash a base-id pin causes). Note the station-access ledger
   # did NOT record it: the resident dock path does not feed RecordDock, so
   # station-access.json still lists this station as unknown.
-  - { agent_id: marketbot_019, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d }  # Hex Wellspring (zosma) 2nd - zosma_ice_belt
+  - { agent_id: marketbot_019, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Hex Wellspring (zosma) 2nd - zosma_ice_belt
   # ironhearth CONFIRMED OPEN 2026-09-08 10:36 (scout 015 docked and held);
   # winterhold CONFIRMED OPEN 10:26 (scout 018). All three unflown stations
   # admitted us -- 0 refusals across the wave.
-  - { agent_id: marketbot_020, role: resident, station: ironhearth_station }                # Ironhearth Station 2nd - the_old_seam (iron_ore richness 85)
+  - { agent_id: marketbot_020, role: resident, station: ironhearth_station, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }                # Ironhearth Station 2nd - the_old_seam (iron_ore richness 85)
   # === WAVE 2 PINS (2026-11-06) ==============================================
   # Graduated from the unlock fleet to uncovered public player stations. Keep the
   # unlock-fleet lines: fleet overrides are removed-sets. Market stations first,
   # then three with storage but no market, which host drones only.
-  - { agent_id: marketbot_033, role: resident, station: 4e89fb5d4df8bdd7c1c408e1713dc161 }  # The Full Moon (wealth_lane), open
-  - { agent_id: marketbot_030, role: resident, station: moon_foundation }                   # Goldcrest Moon (bd20_2457), mobile
-  - { agent_id: marketbot_028, role: resident, station: 428b353757ef4100317abd39cbdb79bf }  # The Half Moon (ross_248)
-  - { agent_id: marketbot_032, role: resident, station: ecd8eb6e6eecf2285445266f9d771d73 }  # STLR Central (gsc_0013)
-  - { agent_id: marketbot_027, role: resident, station: ec315132a710a7d0fbc68cca05073154 }  # The Crescent Moon (mebsuta)
-  - { agent_id: marketbot_021, role: resident, station: 01bad6afe17a96264def4e8066bad050 }  # Woodstock (nekkar), open, no market
-  - { agent_id: marketbot_031, role: resident, station: 92fd0bb3c5232a0d9a337afe5f883116 }  # Hive Segin (segin), no market
-  - { agent_id: marketbot_024, role: resident, station: 199fa2c026d6af7bf6e938638425416c }  # Hive Antares (antares), no market
-  - { agent_id: marketbot_025, role: resident, station: kael_arsenal }  # Xamidimura: second bot, drones on the ice field beside marketbot_xamidimura
+  - { agent_id: marketbot_033, role: resident, station: 4e89fb5d4df8bdd7c1c408e1713dc161, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # The Full Moon (wealth_lane), open
+  - { agent_id: marketbot_030, role: resident, station: moon_foundation, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }                   # Goldcrest Moon (bd20_2457), mobile
+  - { agent_id: marketbot_028, role: resident, station: 428b353757ef4100317abd39cbdb79bf, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # The Half Moon (ross_248)
+  - { agent_id: marketbot_032, role: resident, station: ecd8eb6e6eecf2285445266f9d771d73, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # STLR Central (gsc_0013)
+  - { agent_id: marketbot_027, role: resident, station: ec315132a710a7d0fbc68cca05073154, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # The Crescent Moon (mebsuta)
+  - { agent_id: marketbot_021, role: resident, station: 01bad6afe17a96264def4e8066bad050, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Woodstock (nekkar), open, no market
+  - { agent_id: marketbot_031, role: resident, station: 92fd0bb3c5232a0d9a337afe5f883116, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Hive Segin (segin), no market
+  - { agent_id: marketbot_024, role: resident, station: 199fa2c026d6af7bf6e938638425416c, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Hive Antares (antares), no market
+  - { agent_id: marketbot_025, role: resident, station: kael_arsenal, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Xamidimura: second bot, drones on the ice field beside marketbot_xamidimura
   # =========================================================================
 
   # === CRFT HOME STATION (2026-10-25) =======================================
@@ -210,8 +210,8 @@ workers:
   # so a non-member dock works. outerrim account -> spawns at the Outer Rim
   # capital. Pinned by POI id (base id is c976fa7df53c87f9616165d7d411b41a).
   # No market facility yet, so update_market captures nothing until one exists.
-  - { agent_id: marketbot_home, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # Conjunction Junction (cloverfield) - CRFT home
+  - { agent_id: marketbot_home, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Conjunction Junction (cloverfield) - CRFT home
 
   # Hive Sulafat, the player station in sulafat (joined 2026-10-29). Pinned by
   # POI id, like marketbot_home above.
-  - { agent_id: marketbot_sulafat, role: resident, station: 07bf78755682cf3e8ef049f3fa560049 }  # Hive Sulafat (sulafat) - player station
+  - { agent_id: marketbot_sulafat, role: resident, station: 07bf78755682cf3e8ef049f3fa560049, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Hive Sulafat (sulafat) - player station

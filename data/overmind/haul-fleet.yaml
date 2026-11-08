@@ -22,6 +22,10 @@ workers:
   - { agent_id: trader-6, role: hauler, station: "" }
   - { agent_id: trader-7, role: hauler, station: "" }
   - { agent_id: trader-8, role: hauler, station: "" }
+  # Truckers 2026-11-07: new outerrim accounts (Clerk player_id in credentials.json).
+  - { agent_id: trucker-00, role: hauler, station: "" }
+  - { agent_id: trucker-01, role: hauler, station: "" }
+  - { agent_id: trucker-02, role: hauler, station: "" }
   # === CANARY 2026-08-12: stronghold arbitrage ===================
   # explorer-1 already HOLDS the pirate unlock (smuggling 19, baseline 10) and
   # flies a Floor Price: 420 cargo at 1 fuel/jump. strongholdRefsFor keeps
