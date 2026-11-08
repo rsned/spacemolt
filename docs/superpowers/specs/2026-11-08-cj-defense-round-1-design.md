@@ -106,7 +106,7 @@ miningbot_0000 `faction_deposit_credits <n>` at CJ.
 | ferrous_slug_case (ammo) | — | 5,000 |
 | coolant_fluid (upkeep) | — | 444 |
 
-Only power cells are short. **Buy them** (my call): cheapest asks 290 at
+Only power cells are short. **Make them at CJ** (my call, revised 11-08 when the operator pointed out CJ's cell labs): CJ holds 142,500 argon_gas and 222,698 neon_gas, `purify_argon` is a hand recipe, and the wire mill supplies wiring. Buying is the fallback: cheapest asks 290 at
 `node_alpha_processing_station` (35,510 listed) and 291 at base
 `0321b3e4406021575337b7be26e53dd7` (4,200 listed). Making 1,000 at CJ would need ~1,500
 purified_argon (CJ holds none) and 1,000 copper_wiring, so buying is faster. Buy ~1,100 to
