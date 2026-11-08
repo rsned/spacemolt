@@ -60,3 +60,4 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [pgrep self-match + sole-member fleets](reference_pgrep_self_match_and_sole_member.md) — use `[b]in/...` patterns; a fleet's only member can't be override-removed, SIGSTOP it for play_as
 - [POI rename left stale KB rows](reference_poi_rename_stale_rows.md) — ~10-13 themed renames; old rows double-count belts and nebulae; trust live get_system
 - [Commission: supply the materials](reference_commission_supply_materials.md) — anyone can commission; cash-price builds stall if mats are not on the market
+- [Transit hub passenger strategy](reference_transit_hub_passenger_strategy.md) — LT1428 hint: 150-seat concourse + ~9 speed-6 ships feeding it; CJ lounge L1 built 11-08; shuttle worker has no lounge support yet

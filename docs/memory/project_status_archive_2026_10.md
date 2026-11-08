@@ -48,3 +48,5 @@ matter into a proper memory; delete the rest once acted on.
 Newest entries at the top. When Live exceeds 15, move the oldest to the current
 month's archive as-is (do not summarise — the archive is the record). Keep the
 archive chain in `MEMORY.md` pointing at every month.
+- **⭐🟢 10-22 — 17 QUARANTINED AGENTS RECOVERED; rescue queue EMPTY.** 16 of 17 were **already docked and fine** — the status file's position is FROZEN at quarantine time. Four were docked-and-broke; gifting 10k–50k brought them all back (random-3/-5 self-refuelled). **Always read LIVE state before acting on a quarantined agent** — I ignored my own rule and `distress_signal` auto-undocked a safe, loaded trader-7.
+- **10-22 — ally/faction facility capture VERIFIED IN PROD** (`e463b13a` finally deployed): rows with populated `owner_faction` landing for the first time. Voss's own five lines still awaited marketbot_alhena's hourly `facilities` task at session end — **CHECK `public_facilities` FOR voss_redoubt ON RESUME.**
