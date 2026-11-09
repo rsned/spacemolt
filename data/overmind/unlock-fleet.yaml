@@ -517,3 +517,7 @@ workers:
   - { agent_id: random-8, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: random-9, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: random-npc, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  # 2026-11-08 shuttle alts rotate through pirate unlock (operator).
+  - { agent_id: johhnycab, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: johnny_ca, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: johnnycab, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
