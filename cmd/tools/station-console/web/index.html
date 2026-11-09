@@ -1,4 +1,42 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Conjunction Junction</title>
-<p>Station console placeholder.</p>
+<link rel="stylesheet" href="/static/console.css">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="stage">
+  <div class="scan"></div>
+  <div id="tags"><svg id="leads"></svg></div>
+  <div id="msg"></div>
+
+  <header id="hdr">
+    <div id="word">CONNECTING</div>
+    <div class="sub"><span id="station">CONJUNCTION JUNCTION</span> · CLOVERFIELD</div>
+    <div class="sub" id="reading">awaiting first reading</div>
+    <div id="link" hidden>LINK LOST · showing last reading</div>
+  </header>
+  <div id="stale" hidden></div>
+
+  <aside id="model">
+    <select id="switch" aria-label="Station model"></select>
+    <figure id="badge">
+      <img id="art" alt="">
+      <figcaption>CONCEPT ART</figcaption>
+    </figure>
+  </aside>
+
+  <section id="pop" hidden>
+    <button id="popx" type="button" aria-label="Close">✕</button>
+    <h4 id="popt"></h4>
+    <div id="popb"></div>
+  </section>
+
+  <footer id="bars"></footer>
+</div>
+<script type="module" src="/static/console.js"></script>
+</body>
+</html>

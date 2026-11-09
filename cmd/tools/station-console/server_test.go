@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/assets"
+	"github.com/rsned/spacemolt/pkg/stationstate"
 )
 
 const testBase = "c976fa7df53c87f9616165d7d411b41a"
@@ -188,5 +190,48 @@ func TestStaticAndZones(t *testing.T) {
 	}
 	if rec := get(t, s, "/zones/nope.json"); rec.Code != http.StatusNotFound {
 		t.Errorf("zones: code=%d", rec.Code)
+	}
+	for _, p := range []string{"/static/console.js", "/static/console.css"} {
+		if rec := get(t, s, p); rec.Code != http.StatusOK {
+			t.Errorf("%s: code=%d", p, rec.Code)
+		}
+	}
+}
+
+// Every zone map is embedded, names a listed model, and places all eight zones.
+func TestZoneMaps(t *testing.T) {
+	s, _ := newTestServer(t)
+	wheel := "/zones/" + stationModels[0].ID + ".json"
+	if rec := get(t, s, wheel); rec.Code != http.StatusOK {
+		t.Fatalf("%s: code=%d", wheel, rec.Code)
+	}
+	files, err := fs.Glob(webFS, "web/zones/*.json")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("zone maps: %v %v", files, err)
+	}
+	for _, f := range files {
+		raw, err := webFS.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m struct {
+			Model   string
+			Regions []struct{ Zone string }
+		}
+		if err := json.Unmarshal(raw, &m); err != nil {
+			t.Fatalf("%s: %v", f, err)
+		}
+		if _, ok := findModel(m.Model); !ok || filepath.Base(f) != m.Model+".json" {
+			t.Errorf("%s: model %q", f, m.Model)
+		}
+		seen := map[string]bool{}
+		for _, r := range m.Regions {
+			seen[r.Zone] = true
+		}
+		for _, z := range stationstate.Zones {
+			if !seen[string(z)] {
+				t.Errorf("%s: no region for zone %s", f, z)
+			}
+		}
 	}
 }
