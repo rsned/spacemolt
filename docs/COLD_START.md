@@ -104,6 +104,10 @@ setsid nohup ./bin/overmind-status --addr ":8087" --refresh 300 \
 go build -o bin/line-dashboard ./cmd/tools/line-dashboard
 setsid nohup ./bin/line-dashboard --addr ":8093" \
   >> data/overmind/line-dashboard.log 2>&1 < /dev/null &              # :8093 production lines
+
+go build -o bin/station-console ./cmd/tools/station-console
+setsid nohup ./bin/station-console --addr ":8094" \
+  >> data/overmind/station-console.log 2>&1 < /dev/null &            # :8094 CJ station console
 ```
 
 - `overmind-dashboard` needs a built `frontend/dist`; it logs `505 systems loaded, serving on :8091`.
@@ -122,12 +126,18 @@ setsid nohup ./bin/line-dashboard --addr ":8093" \
   Every DB is opened read-only; a source it cannot read shows as a `data stale` badge, and capture
   cadence or override problems as warnings at the top of the board.
 
-**Checkpoint:** all three return HTTP 200.
+- `station-console` serves the CJ hologram console from `data/assets.db` (hourly `capture_base`,
+  `capture_facilities`, `capture_station_passengers` on miningbot_0000) and the station meshes in
+  `~/spacemolt/kb/data/mesh_bakeoff/out-stations` (`--models`). It shows a STALE banner when the
+  newest reading is over 2 h old.
+
+**Checkpoint:** all four return HTTP 200.
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8091/
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8087/
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8093/healthz
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8094/api/state
 ```
 
 ---

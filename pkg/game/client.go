@@ -5131,6 +5131,11 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 					c.checkXPChanges()
 				}
 			case "list", "get", "accept", "deliver", "return", "cancel", "profile", "track", "pay_debt", "quote", "post":
+				// `facility list` also replies with action "list"; its
+				// facility arrays mark it, and the facility probe below keys it.
+				if isFacilityListPayload(resp.Payload) {
+					break
+				}
 				// /shipping is action-dispatched; the reply's action is the verb.
 				// Namespace the key so it can't collide with other commands' keys.
 				// (quote/post included so shipper-side reads land somewhere too, even
@@ -6605,4 +6610,15 @@ func extractQuantityFromArgs(args map[string]any) int {
 		}
 	}
 	return 1 // default to 1 for single actions
+}
+
+// isFacilityListPayload reports whether a reply is a `facility list`: it
+// carries at least one of the station/faction/player facility arrays.
+func isFacilityListPayload(p map[string]any) bool {
+	for _, k := range []string{"station_facilities", "faction_facilities", "player_facilities"} {
+		if _, ok := p[k]; ok {
+			return true
+		}
+	}
+	return false
 }
