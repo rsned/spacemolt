@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"path/filepath"
 	"slices"
@@ -498,5 +499,17 @@ func TestShopkeepWaitsForAFullLotAboveKeep(t *testing.T) {
 	}
 	if len(f.sellOrderPayloads) != 0 {
 		t.Fatalf("nothing should post below keep+lot, got %+v", f.sellOrderPayloads)
+	}
+}
+
+func TestStorageReadingWhy(t *testing.T) {
+	if got := storageReadingWhy(errors.New("timeout"), nil); got != "view_storage: timeout" {
+		t.Fatalf("err case = %q", got)
+	}
+	if got := storageReadingWhy(nil, nil); got != "no cached storage response" {
+		t.Fatalf("empty case = %q", got)
+	}
+	if got := storageReadingWhy(nil, []byte(`{"items":[]}`)); got != `cached storage has no base_id: {"items":[]}` {
+		t.Fatalf("shape case = %q", got)
 	}
 }

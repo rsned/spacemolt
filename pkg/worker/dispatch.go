@@ -230,8 +230,8 @@ var supported = map[string]bool{
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
 	"capture_storage": true, "capture_faction": true, "capture_cargo": true,
 	"capture_action_log": true, "capture_wildlife_attacks": true, "capture_tax": true,
-	"capture_citizenship": true,
-	"get_status":          true, "get_system": true, "get_cargo": true,
+	"capture_citizenship": true, "capture_base": true,
+	"get_status": true, "get_system": true, "get_cargo": true,
 	// get_system_agents stays in the vocabulary although it is deprecated and
 	// dispatches to nothing: Supports() must keep returning true so a stale
 	// schedule seed is recognised and skipped instead of falling through to the
@@ -735,6 +735,10 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		return assets.CaptureCargo(ctx, d.Client, d.Assets, d.AgentID, time.Now())
 	case "capture_faction":
 		return assets.CaptureFaction(ctx, d.Client, d.Assets, d.AgentID, time.Now())
+	case "capture_base":
+		// The docked station's get_base, appended: defense, power, life
+		// support, fuel and tourism revenue over time.
+		return assets.CaptureBase(ctx, d.Client, d.Assets, d.AgentID, time.Now())
 	case "capture_action_log":
 		// Walks the server's action log forward from a stored since_id cursor.
 		// Unlike the other captures this one races expiry: the server keeps

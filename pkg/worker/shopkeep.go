@@ -258,12 +258,14 @@ func Shopkeep(ctx context.Context, client game.GameClient, rules []ShopRule, st 
 	}
 
 	var held map[string]int
-	ok := client.ViewStorage(ctx) == nil
+	vsErr := client.ViewStorage(ctx)
+	raw := client.GetRawJSON("storage")
+	ok := vsErr == nil
 	if ok {
-		held, ok = consignHeld(client.GetRawJSON("storage"))
+		held, ok = consignHeld(raw)
 	}
 	if !ok {
-		_, _ = fmt.Fprintln(out, "shopkeep: no storage reading; skipping")
+		_, _ = fmt.Fprintf(out, "shopkeep: no storage reading; skipping (%s)\n", storageReadingWhy(vsErr, raw))
 		return 0, 0, ctx.Err()
 	}
 	asks, ok := shopOwnAsks(ctx, client, state.Player.Username)
@@ -420,4 +422,21 @@ func shopReplyOrderID(raw []byte, item string) string {
 	}
 
 	return resp.OrderID
+}
+
+// storageReadingWhy explains a failed shopkeep storage read for the skip line:
+// the view_storage error, an empty cache, or the start of what was cached
+// (a reading needs a base_id).
+func storageReadingWhy(err error, raw []byte) string {
+	switch {
+	case err != nil:
+		return "view_storage: " + err.Error()
+	case len(raw) == 0:
+		return "no cached storage response"
+	}
+	const maxShown = 160
+	if len(raw) > maxShown {
+		raw = raw[:maxShown]
+	}
+	return "cached storage has no base_id: " + string(raw)
 }

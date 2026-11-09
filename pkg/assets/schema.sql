@@ -433,3 +433,32 @@ CREATE TABLE IF NOT EXISTS agent_cargo (
     PRIMARY KEY (player_id, ship_id, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_agent_cargo_item ON agent_cargo(item_id);
+
+-- base_snapshots: one row per capture_base pass of a docked station's get_base
+-- (defense, power, life support, fuel, tourism). Append-only history, so
+-- tourism_revenue (a lifetime counter) differences into a rate.
+CREATE TABLE IF NOT EXISTS base_snapshots (
+    base_id             TEXT    NOT NULL,
+    agent_id            TEXT    NOT NULL DEFAULT '',
+    condition           TEXT    NOT NULL DEFAULT '',
+    hull                INTEGER NOT NULL DEFAULT 0,
+    max_hull            INTEGER NOT NULL DEFAULT 0,
+    shield              INTEGER NOT NULL DEFAULT 0,
+    max_shield          INTEGER NOT NULL DEFAULT 0,
+    weapon_dps          INTEGER NOT NULL DEFAULT 0,
+    weapon_reach        INTEGER NOT NULL DEFAULT 0,
+    satisfaction_pct    INTEGER NOT NULL DEFAULT 0,
+    dining_points       INTEGER NOT NULL DEFAULT 0,
+    leisure_points      INTEGER NOT NULL DEFAULT 0,
+    tourism_revenue     INTEGER NOT NULL DEFAULT 0,
+    life_support_supply INTEGER NOT NULL DEFAULT 0,
+    life_support_demand INTEGER NOT NULL DEFAULT 0,
+    power_supply        INTEGER NOT NULL DEFAULT 0,
+    power_draw          INTEGER NOT NULL DEFAULT 0,
+    battery_capacity    INTEGER NOT NULL DEFAULT 0,
+    battery_stored      INTEGER NOT NULL DEFAULT 0,
+    fuel_reserve        INTEGER NOT NULL DEFAULT 0,
+    fuel_capacity       INTEGER NOT NULL DEFAULT 0,
+    captured_at         TEXT    NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_base_snapshots_base ON base_snapshots(base_id, captured_at);
