@@ -43,6 +43,24 @@ func sevBar(pct float64, s stationstate.Severity) string {
 	return colorize("["+strings.Repeat("█", filled)+strings.Repeat("░", baseBarWidth-filled)+"]", severityColor(s))
 }
 
+// barOf renders the named bar, or an empty grey track when the station has no
+// denominator for it (the key is absent from bars).
+func barOf(bars map[string]float64, key string, s stationstate.Severity) string {
+	v, ok := bars[key]
+	if !ok {
+		return colorize("["+strings.Repeat("░", baseBarWidth)+"]", severityColor(stationstate.NoData))
+	}
+	return sevBar(v, s)
+}
+
+// barPctText is the bar's percentage text, "—" when absent.
+func barPctText(bars map[string]float64, key string) string {
+	if v, ok := bars[key]; ok {
+		return fmt.Sprintf("%.0f%%", v)
+	}
+	return "—"
+}
+
 // formatBase renders a get_base reply as a sectioned station summary. The
 // facility list (a cached `facility list` reply, possibly stale or nil) is used
 // only when its base_id matches the station. It returns "" when the reply is
@@ -104,13 +122,13 @@ func formatBase(raw, facilityRaw []byte) string {
 		colorize(st.Word, severityColor(st.Overall)))
 
 	def := zones[stationstate.Defense]
-	fmt.Fprintf(&b, "  Hull      %s %s / %s   armor %d%s\n", sevBar(st.Bars["hull"], subSev(stationstate.Defense, "hull")),
+	fmt.Fprintf(&b, "  Hull      %s %s / %s   armor %d%s\n", barOf(st.Bars, "hull", subSev(stationstate.Defense, "hull")),
 		commaInt(snap.Hull), commaInt(snap.MaxHull), snap.Armor, why(stationstate.Defense, "hull"))
 	shell := "shells"
 	if st.ShieldShells == 1 {
 		shell = "shell"
 	}
-	fmt.Fprintf(&b, "  Shield    %s %s / %s   %d %s%s\n", sevBar(st.Bars["shield"], subSev(stationstate.Defense, "shield")),
+	fmt.Fprintf(&b, "  Shield    %s %s / %s   %d %s%s\n", barOf(st.Bars, "shield", subSev(stationstate.Defense, "shield")),
 		commaInt(snap.Shield), commaInt(snap.MaxShield), st.ShieldShells, shell, why(stationstate.Defense, "shield"))
 	defLine := fmt.Sprintf("%d dps · reach %d", snap.WeaponDPS, snap.WeaponReach)
 	if len(def.Facilities) > 0 {
@@ -126,12 +144,12 @@ func formatBase(raw, facilityRaw []byte) string {
 	if snap.BatteryCapacity > 0 {
 		battery = fmt.Sprintf("%s/%s", commaInt(snap.BatteryStored), commaInt(snap.BatteryCapacity))
 	}
-	fmt.Fprintf(&b, "  Power     %s draw %s / %s · battery %s%s\n", sevBar(st.Bars["power"], zones[stationstate.Core].Severity),
+	fmt.Fprintf(&b, "  Power     %s draw %s / %s · battery %s%s\n", barOf(st.Bars, "power", zones[stationstate.Core].Severity),
 		commaInt(snap.PowerDraw), commaInt(snap.PowerSupply), battery, why(stationstate.Core, ""))
-	fmt.Fprintf(&b, "  Life      %s / %s (%.0f%%)%s\n", commaInt(snap.LifeSupportSupply), commaInt(snap.LifeSupportDemand),
-		st.Bars["life"], why(stationstate.Life, ""))
-	fmt.Fprintf(&b, "  Fuel      %s %s / %s (%.0f%%)%s\n", sevBar(st.Bars["fuel"], zones[stationstate.Fuel].Severity),
-		commaInt(snap.FuelReserve), commaInt(snap.FuelCapacity), st.Bars["fuel"], why(stationstate.Fuel, ""))
+	fmt.Fprintf(&b, "  Life      %s / %s (%s)%s\n", commaInt(snap.LifeSupportSupply), commaInt(snap.LifeSupportDemand),
+		barPctText(st.Bars, "life"), why(stationstate.Life, ""))
+	fmt.Fprintf(&b, "  Fuel      %s %s / %s (%s)%s\n", barOf(st.Bars, "fuel", zones[stationstate.Fuel].Severity),
+		commaInt(snap.FuelReserve), commaInt(snap.FuelCapacity), barPctText(st.Bars, "fuel"), why(stationstate.Fuel, ""))
 
 	var tour []string
 	if snap.TourismRevenue > 0 {

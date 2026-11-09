@@ -100,6 +100,16 @@ func TestEvaluate_ZeroMaxes(t *testing.T) {
 			t.Errorf("bar %s = %v", k, v)
 		}
 	}
+	for _, k := range []string{"hull", "shield", "fuel", "power", "life"} {
+		if _, has := st.Bars[k]; has {
+			t.Errorf("bar %s present with zero denominator", k)
+		}
+	}
+	for _, z := range st.Zones {
+		if z.Severity != OK {
+			t.Errorf("zone %s = %v, want OK", z.Zone, z.Severity)
+		}
+	}
 }
 
 func TestEvaluate_NoData(t *testing.T) {
@@ -169,7 +179,7 @@ func TestEvaluate_ProductionBacklog(t *testing.T) {
 			row.BacklogTicks = 50
 		}
 	})
-	if got := zone(t, Evaluate(all, true, now), Production).Severity; got != Critical {
+	if got := zone(t, Evaluate(all, true, now), Production).Severity; got != Strained {
 		t.Errorf("all = %v", got)
 	}
 	h2 := set(func(_ int, row *assets.FacilityRow) {
@@ -207,6 +217,9 @@ func TestZoneOf(t *testing.T) {
 		{"hydroponics_bay", "infrastructure", Life}, {"refueling_dock", "service", Fuel},
 		{"h2_fuel_combustor", "production", Fuel}, {"rec_lounge", "infrastructure", Tourism},
 		{"transit_lounge", "faction", Tourism}, {"fabrication_yard", "service", Shipyard},
+		{"heavy_defense_battery", "defense", Defense}, {"nimh_battery_line", "production", Production},
+		{"reactor_core_production_line", "production", Production},
+		{"dining_hall_fabrication_unit", "production", Production},
 		{"iron_refinery", "production", Production}, {"faction_office", "faction", Commerce},
 	} {
 		if got := ZoneOf(tc.typ, tc.cat); got != tc.want {

@@ -172,8 +172,8 @@ func Evaluate(r assets.StationReading, ok bool, now time.Time) Status {
 	// Production.
 	prod := zs[Production]
 	switch {
-	case prodLines > 0 && prodBacklogged == prodLines:
-		prod.raise(Critical, "all %d lines backlogged", prodLines)
+	case prodBacklogged > 0 && prodBacklogged == prodLines:
+		prod.raise(Strained, "all %d lines backlogged", prodLines)
 	case prodBacklogged > 0:
 		prod.raise(Strained, "%d of %d lines backlogged", prodBacklogged, prodLines)
 	}
@@ -232,10 +232,21 @@ func Evaluate(r assets.StationReading, ok bool, now time.Time) Status {
 		ShieldShells: shells,
 		CapturedAt:   r.CapturedAt,
 		Stale:        now.Sub(r.CapturedAt) > staleAfter,
-		Bars: map[string]float64{
-			"hull": hullPct, "shield": shieldPct, "fuel": fuelPct, "power": powerPct,
-			"life": lifePct, "satisfaction": float64(b.SatisfactionPct),
-		},
+		Bars:         map[string]float64{"satisfaction": float64(b.SatisfactionPct)},
+	}
+	// A bar with no denominator has no meaningful percentage: omit it.
+	for _, bar := range []struct {
+		key string
+		den int64
+		pct float64
+	}{
+		{"hull", b.MaxHull, hullPct}, {"shield", b.MaxShield, shieldPct},
+		{"fuel", b.FuelCapacity, fuelPct}, {"power", b.PowerSupply, powerPct},
+		{"life", b.LifeSupportDemand, lifePct},
+	} {
+		if bar.den > 0 {
+			st.Bars[bar.key] = bar.pct
+		}
 	}
 	for _, z := range Zones {
 		st.Zones = append(st.Zones, *zs[z])

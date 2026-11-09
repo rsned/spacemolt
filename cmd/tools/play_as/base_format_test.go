@@ -72,3 +72,16 @@ func TestFormatBase_DeclinesNonBase(t *testing.T) {
 		t.Fatalf("want no styled view, got:\n%s", got)
 	}
 }
+
+func TestFormatBase_MissingDenominatorsShowDash(t *testing.T) {
+	reply := `{"action":"get_base","base":{"id":"b1","name":"Bare","hull":5,"shield":3,"fuel":2},
+"condition":{"condition":"thriving","satisfaction_pct":100},
+"life_support":{"supply":1,"demand":0},"power":{"supply":0,"current_draw":0}}`
+	got := formatBase([]byte(reply), nil)
+	if !strings.Contains(got, "(—)") {
+		t.Errorf("want dash for absent percentages in:\n%s", got)
+	}
+	if strings.Contains(got, "(0%)") {
+		t.Errorf("zero denominators must not print 0%% in:\n%s", got)
+	}
+}

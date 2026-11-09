@@ -50,21 +50,22 @@ func ZoneOf(facilityType, category string) Zone {
 	switch {
 	case t == "point_defense_battery":
 		return Defense
-	case t == "stellar_collector_grid", t == "bunker_fed_reactor",
-		strings.Contains(t, "reactor"), strings.Contains(t, "battery"):
+	case t == "stellar_collector_grid", t == "bunker_fed_reactor":
 		return Core
-	case t == "atmospheric_recycler", strings.HasPrefix(t, "hydroponic"), strings.Contains(t, "plants"):
-		return Life
 	case t == "fuel_tank_expansion", t == "refueling_dock", t == h2Combustor:
 		return Fuel
 	case t == "fabrication_yard", t == "faction_ship_garage":
 		return Shipyard
-	case strings.HasSuffix(t, "_lounge"), strings.Contains(t, "dining"):
-		return Tourism
-	case category == "defense":
-		return Defense
 	case category == "production":
 		return Production
+	case category == "defense":
+		return Defense
+	case strings.Contains(t, "reactor"), strings.Contains(t, "battery"):
+		return Core
+	case t == "atmospheric_recycler", strings.HasPrefix(t, "hydroponic"), strings.Contains(t, "plants"):
+		return Life
+	case strings.HasSuffix(t, "_lounge"), strings.Contains(t, "dining"):
+		return Tourism
 	}
 	return Commerce
 }
