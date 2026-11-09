@@ -29,7 +29,7 @@ func TestFormatBase_CJSections(t *testing.T) {
 	for _, want := range []string{
 		"Conjunction Junction — THRIVING (satisfaction 100%)", "STRAINED",
 		"Hull", "85,000 / 85,000", "armor 60",
-		"Shield", "12,000 / 12,000", "1 shell",
+		"Shield", "12,000 / 12,000", "1 layer",
 		"30 dps", "reach 1", "point_defense_battery L1",
 		"battery none", "12 / 10 (120%)",
 		"21,293 / 55,000 (39%)", "fuel 39% < 40%",

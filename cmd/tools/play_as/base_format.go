@@ -124,9 +124,9 @@ func formatBase(raw, facilityRaw []byte) string {
 	def := zones[stationstate.Defense]
 	fmt.Fprintf(&b, "  Hull      %s %s / %s   armor %d%s\n", barOf(st.Bars, "hull", subSev(stationstate.Defense, "hull")),
 		commaInt(snap.Hull), commaInt(snap.MaxHull), snap.Armor, why(stationstate.Defense, "hull"))
-	shell := "shells"
+	shell := "layers"
 	if st.ShieldShells == 1 {
-		shell = "shell"
+		shell = "layer"
 	}
 	fmt.Fprintf(&b, "  Shield    %s %s / %s   %d %s%s\n", barOf(st.Bars, "shield", subSev(stationstate.Defense, "shield")),
 		commaInt(snap.Shield), commaInt(snap.MaxShield), st.ShieldShells, shell, why(stationstate.Defense, "shield"))

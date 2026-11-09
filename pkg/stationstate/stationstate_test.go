@@ -241,3 +241,15 @@ func TestSeverityJSON(t *testing.T) {
 		t.Errorf("got %q %v", b, err)
 	}
 }
+
+// The defense callout sits next to dps, so a bare shell count read as ammo
+// (operator, 2026-11-09). It names the shield amount instead.
+func TestEvaluate_DefenseBriefNamesShield(t *testing.T) {
+	r := cj(t)
+	st := Evaluate(r, true, r.CapturedAt)
+	for _, z := range st.Zones {
+		if z.Zone == Defense && z.Brief != "30 dps · shield 12k" {
+			t.Fatalf("defense brief = %q", z.Brief)
+		}
+	}
+}

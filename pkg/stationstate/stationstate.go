@@ -219,11 +219,7 @@ func Evaluate(r assets.StationReading, ok bool, now time.Time) Status {
 			def.raise(Strained, "hull %.0f%% < %.0f%%", hullPct, hullStrainedPct)
 		}
 	}
-	plural := "s"
-	if shells == 1 {
-		plural = ""
-	}
-	def.Brief = fmt.Sprintf("%d dps · %d shell%s", b.WeaponDPS, shells, plural)
+	def.Brief = fmt.Sprintf("%d dps · shield %s", b.WeaponDPS, kilo(b.MaxShield))
 
 	zs[Shipyard].Brief = facilityBrief(zs[Shipyard])
 	zs[Commerce].Brief = facilityBrief(zs[Commerce])
@@ -275,4 +271,16 @@ func commas(n int64) string {
 		s = "-" + s
 	}
 	return s
+}
+
+// kilo renders n compactly for a callout: 12000 → "12k", 1500 → "1.5k", 900 → "900".
+func kilo(n int64) string {
+	switch {
+	case n >= 1000 && n%1000 == 0:
+		return fmt.Sprintf("%dk", n/1000)
+	case n >= 1000:
+		return fmt.Sprintf("%.1fk", float64(n)/1000)
+	default:
+		return fmt.Sprintf("%d", n)
+	}
 }

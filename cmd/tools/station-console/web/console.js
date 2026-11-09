@@ -585,7 +585,7 @@ function zoneFigures(zone) {
     case 'defense':
       return row('Weapons', `${num(b.WeaponDPS)} dps · reach ${num(b.WeaponReach)}`)
         + row('Armor', num(b.Armor))
-        + row('Shield shells', num(state.ShieldShells))
+        + row('Shield layers', num(state.ShieldShells))
         + row('Shield', `${num(b.Shield)} / ${num(b.MaxShield)} (${Math.round(pctOf(b.Shield, b.MaxShield))}%)`)
         + row('Hull', `${num(b.Hull)} / ${num(b.MaxHull)} (${Math.round(pctOf(b.Hull, b.MaxHull))}%)`);
   }
