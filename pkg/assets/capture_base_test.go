@@ -7,7 +7,7 @@ import (
 )
 
 const cjBaseRaw = `{"action":"get_base","base":{"id":"c976fa7df53c87f9616165d7d411b41a","hull":85000,"max_hull":85000,
-"shield":12000,"max_shield":12000,"weapon_dps":30,"weapon_reach":1},
+"shield":12000,"max_shield":12000,"weapon_dps":30,"weapon_reach":1,"armor":60,"fuel":21293,"max_fuel":55000},
 "condition":{"condition":"thriving","satisfaction_pct":100},
 "dining_points":0,"leisure_points":2,"tourism_revenue":3956,
 "life_support":{"supply":12,"demand":10},
@@ -24,7 +24,7 @@ func TestBaseSnapshotFrom_ParsesCJ(t *testing.T) {
 		Shield: 12000, MaxShield: 12000, WeaponDPS: 30, WeaponReach: 1,
 		Condition: "thriving", SatisfactionPct: 100, LeisurePoints: 2, TourismRevenue: 3956,
 		LifeSupportSupply: 12, LifeSupportDemand: 10, PowerSupply: 40,
-		FuelReserve: 4200, FuelCapacity: 55000,
+		Armor: 60, FuelReserve: 21293, FuelCapacity: 55000,
 	}
 	if got != want {
 		t.Fatalf("got %+v\nwant %+v", got, want)

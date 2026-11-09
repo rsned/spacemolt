@@ -21,6 +21,7 @@ type BaseSnapshot struct {
 	MaxShield         int64
 	WeaponDPS         int64
 	WeaponReach       int64
+	Armor             int64
 	SatisfactionPct   int64
 	DiningPoints      int64
 	LeisurePoints     int64
@@ -47,6 +48,9 @@ func BaseSnapshotFrom(raw []byte) (BaseSnapshot, bool) {
 			MaxShield   int64  `json:"max_shield"`
 			WeaponDPS   int64  `json:"weapon_dps"`
 			WeaponReach int64  `json:"weapon_reach"`
+			Armor       int64  `json:"armor"`
+			Fuel        *int64 `json:"fuel"`
+			MaxFuel     *int64 `json:"max_fuel"`
 		} `json:"base"`
 		Condition struct {
 			Condition       string `json:"condition"`
@@ -71,8 +75,17 @@ func BaseSnapshotFrom(raw []byte) (BaseSnapshot, bool) {
 	if len(raw) == 0 || json.Unmarshal(raw, &r) != nil || r.Base.ID == "" {
 		return BaseSnapshot{}, false
 	}
+	// A player station reports its tank as base.fuel / base.max_fuel; the
+	// top-level faction_fuel_* pair is the fallback for other bases.
+	fuel, fuelCap := r.FuelReserve, r.FuelCapacity
+	if r.Base.Fuel != nil {
+		fuel = *r.Base.Fuel
+	}
+	if r.Base.MaxFuel != nil {
+		fuelCap = *r.Base.MaxFuel
+	}
 	return BaseSnapshot{
-		BaseID: r.Base.ID, Condition: r.Condition.Condition,
+		BaseID: r.Base.ID, Armor: r.Base.Armor, Condition: r.Condition.Condition,
 		Hull: r.Base.Hull, MaxHull: r.Base.MaxHull, Shield: r.Base.Shield, MaxShield: r.Base.MaxShield,
 		WeaponDPS: r.Base.WeaponDPS, WeaponReach: r.Base.WeaponReach,
 		SatisfactionPct: r.Condition.SatisfactionPct,
@@ -80,7 +93,7 @@ func BaseSnapshotFrom(raw []byte) (BaseSnapshot, bool) {
 		LifeSupportSupply: r.LifeSupport.Supply, LifeSupportDemand: r.LifeSupport.Demand,
 		PowerSupply: r.Power.Supply, PowerDraw: r.Power.CurrentDraw,
 		BatteryCapacity: r.Power.BatteryCapacity, BatteryStored: r.Power.BatteryStored,
-		FuelReserve: r.FuelReserve, FuelCapacity: r.FuelCapacity,
+		FuelReserve: fuel, FuelCapacity: fuelCap,
 	}, true
 }
 
@@ -88,12 +101,12 @@ func BaseSnapshotFrom(raw []byte) (BaseSnapshot, bool) {
 func (s *Store) InsertBaseSnapshot(ctx context.Context, agentID string, b BaseSnapshot, now time.Time) error {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO base_snapshots (base_id, agent_id, condition, hull, max_hull, shield, max_shield,
-			weapon_dps, weapon_reach, satisfaction_pct, dining_points, leisure_points, tourism_revenue,
+			weapon_dps, weapon_reach, armor, satisfaction_pct, dining_points, leisure_points, tourism_revenue,
 			life_support_supply, life_support_demand, power_supply, power_draw, battery_capacity,
 			battery_stored, fuel_reserve, fuel_capacity, captured_at)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		b.BaseID, agentID, b.Condition, b.Hull, b.MaxHull, b.Shield, b.MaxShield,
-		b.WeaponDPS, b.WeaponReach, b.SatisfactionPct, b.DiningPoints, b.LeisurePoints, b.TourismRevenue,
+		b.WeaponDPS, b.WeaponReach, b.Armor, b.SatisfactionPct, b.DiningPoints, b.LeisurePoints, b.TourismRevenue,
 		b.LifeSupportSupply, b.LifeSupportDemand, b.PowerSupply, b.PowerDraw, b.BatteryCapacity,
 		b.BatteryStored, b.FuelReserve, b.FuelCapacity, rfc3339(now))
 	if err != nil {

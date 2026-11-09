@@ -447,6 +447,7 @@ CREATE TABLE IF NOT EXISTS base_snapshots (
     max_shield          INTEGER NOT NULL DEFAULT 0,
     weapon_dps          INTEGER NOT NULL DEFAULT 0,
     weapon_reach        INTEGER NOT NULL DEFAULT 0,
+    armor               INTEGER NOT NULL DEFAULT 0,
     satisfaction_pct    INTEGER NOT NULL DEFAULT 0,
     dining_points       INTEGER NOT NULL DEFAULT 0,
     leisure_points      INTEGER NOT NULL DEFAULT 0,

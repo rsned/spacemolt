@@ -22,6 +22,7 @@ func runMigrations(db *sql.DB) error {
 	for _, c := range []struct{ table, column, colType string }{
 		{"agent_tax", "outstanding_bounty_total", "INTEGER NOT NULL DEFAULT 0"},
 		{"agent_tax", "inactivity_exempt", "INTEGER NOT NULL DEFAULT 0"},
+		{"base_snapshots", "armor", "INTEGER NOT NULL DEFAULT 0"},
 	} {
 		if err := ensureColumn(db, c.table, c.column, c.colType); err != nil {
 			return err
