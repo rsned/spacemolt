@@ -502,3 +502,8 @@ fleet's entire scrubber stock. Stop-gaps:
   30 each), reach 1; power supply 40 → **52** (bunker_fed_reactor), draw reported 0. Fuel 46,477 / 55,000
   after the 40k top-up. Condition thriving, satisfaction 100%. Tourism lifetime 52,404 (7,638 at
   11-08 19:54 → ~2,900 cr/h).
+- 2026-11-09 · **hypothesis** (operator) · Shield and gun power draw likely applies only in combat, the
+  way production lines draw 0 when idle: get_base showed draw 0 / 52 with 2 shield_projectors and 6
+  PDB active. Catalog power_draw (data/game-api/20261002): shield_projector 10, point_defense_battery 2,
+  each production line 1. Worst case at CJ = 20 shields + 12 guns + 10 lines = **42 / 52**, so 10
+  headroom with all of it firing and every line busy. To confirm: read get_base during an attack.
