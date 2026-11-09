@@ -234,4 +234,10 @@ func TestZoneMaps(t *testing.T) {
 			}
 		}
 	}
+	// Every switcher model has its own map, so none falls back to the generic one.
+	for _, m := range stationModels {
+		if _, err := fs.Stat(webFS, "web/zones/"+m.ID+".json"); err != nil {
+			t.Errorf("model %s has no zone map: %v", m.ID, err)
+		}
+	}
 }

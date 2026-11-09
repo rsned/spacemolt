@@ -1,0 +1,24 @@
+{
+  "model": "voidborn__pylon_toroid__moderate_s5440",
+  "orient": {"upAxis": "thinnest", "tiltX": -0.3},
+  "regions": [
+    {"zone": "defense", "shape": "band", "r": [0.3, 9], "h": [0, 9]},
+    {"zone": "core", "shape": "radial", "r": [0, 0.2]},
+    {"zone": "life", "shape": "radial", "r": [0.2, 0.4]},
+    {"zone": "fuel", "shape": "radial", "r": [0.4, 0.8]},
+    {"zone": "production", "shape": "sector", "r": [0.8, 9], "a": [0.0, 0.25]},
+    {"zone": "tourism", "shape": "sector", "r": [0.8, 9], "a": [0.25, 0.5]},
+    {"zone": "shipyard", "shape": "sector", "r": [0.8, 9], "a": [0.5, 0.75]},
+    {"zone": "commerce", "shape": "sector", "r": [0.8, 9], "a": [0.75, 1.0]}
+  ],
+  "labels": {
+    "core": {"offset": [0, -300], "anchor": [0.09, -0.511, -0.016]},
+    "life": {"offset": [-290, -130], "anchor": [-0.272, -0.764, -0.268]},
+    "fuel": {"offset": [-300, 0], "anchor": [-0.708, -0.541, 0.045]},
+    "shipyard": {"offset": [-280, 130], "anchor": [0.535, -0.49, 0.6]},
+    "production": {"offset": [280, -180], "anchor": [-0.57, -0.483, -0.568]},
+    "defense": {"offset": [300, -60], "anchor": [0.608, 0.614, -0.022]},
+    "tourism": {"offset": [300, 60], "anchor": [0.543, -0.476, -0.597]},
+    "commerce": {"offset": [260, 180], "anchor": [-0.578, -0.486, 0.556]}
+  }
+}

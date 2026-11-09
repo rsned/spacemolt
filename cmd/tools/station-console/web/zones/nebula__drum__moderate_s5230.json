@@ -1,0 +1,24 @@
+{
+  "model": "nebula__drum__moderate_s5230",
+  "orient": {"upAxis": "longest", "tiltX": 0},
+  "regions": [
+    {"zone": "commerce", "shape": "band", "h": [0.7, 9]},
+    {"zone": "fuel", "shape": "band", "h": [0.3, 0.7]},
+    {"zone": "core", "shape": "band", "h": [-0.1, 0.3]},
+    {"zone": "life", "shape": "band", "h": [-0.3, -0.1]},
+    {"zone": "production", "shape": "band", "r": [0, 0.6], "h": [-9, -0.3]},
+    {"zone": "tourism", "shape": "sector", "r": [0.6, 9], "h": [-9, -0.3], "a": [0.0, 0.333]},
+    {"zone": "shipyard", "shape": "sector", "r": [0.6, 9], "h": [-9, -0.3], "a": [0.333, 0.667]},
+    {"zone": "defense", "shape": "sector", "r": [0.6, 9], "h": [-9, -0.3], "a": [0.667, 1.0]}
+  ],
+  "labels": {
+    "core": {"offset": [0, -300], "anchor": [-0.546, 0.174, 0.198]},
+    "life": {"offset": [-290, -130], "anchor": [-0.586, -0.101, 0.106]},
+    "fuel": {"offset": [-300, 0], "anchor": [-0.664, 0.576, 0.035]},
+    "shipyard": {"offset": [-280, 130], "anchor": [0.612, -0.93, -0.055]},
+    "production": {"offset": [280, -180], "anchor": [0.495, -0.316, -0.001]},
+    "defense": {"offset": [300, -60], "anchor": [-0.564, -0.58, 0.419]},
+    "tourism": {"offset": [300, 60], "anchor": [-0.514, -0.593, -0.456]},
+    "commerce": {"offset": [260, 180], "anchor": [0.523, 0.723, -0.062]}
+  }
+}
