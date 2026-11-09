@@ -231,6 +231,7 @@ var supported = map[string]bool{
 	"capture_storage": true, "capture_faction": true, "capture_cargo": true,
 	"capture_action_log": true, "capture_wildlife_attacks": true, "capture_tax": true,
 	"capture_citizenship": true, "capture_base": true,
+	"capture_facilities": true, "capture_station_passengers": true,
 	"get_status": true, "get_system": true, "get_cargo": true,
 	// get_system_agents stays in the vocabulary although it is deprecated and
 	// dispatches to nothing: Supports() must keep returning true so a stale
@@ -739,6 +740,17 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		// The docked station's get_base, appended: defense, power, life
 		// support, fuel and tourism revenue over time.
 		return assets.CaptureBase(ctx, d.Client, d.Assets, d.AgentID, time.Now())
+	case "capture_facilities":
+		// The docked station's `facility list`: production queues, maintenance.
+		return assets.CaptureFacilities(ctx, d.Client, d.Assets, d.AgentID, time.Now())
+	case "capture_station_passengers":
+		// The docked station's passenger board; the reply names only the
+		// station, so the base id comes from client state.
+		var baseID string
+		if st := d.Client.GetState(); st != nil {
+			baseID = st.Player.DockedAtBase
+		}
+		return assets.CapturePassengers(ctx, d.Client, d.Assets, d.AgentID, baseID, time.Now())
 	case "capture_action_log":
 		// Walks the server's action log forward from a stored since_id cursor.
 		// Unlike the other captures this one races expiry: the server keeps

@@ -1,0 +1,529 @@
+{
+ "action": "list",
+ "base_id": "c976fa7df53c87f9616165d7d411b41a",
+ "faction_facilities": [
+  {
+   "category": "production",
+   "description": "A dedicated furnace system with ore hoppers and casting molds, producing molten steel at steady intervals. Basic automation handles charge cycling and temperature control.",
+   "facility_id": "310e2c91b5267902146eff67276fab43",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "name": "Iron Refinery",
+   "production": {
+    "backlog_ticks": 0,
+    "items_per_hour": 8666,
+    "output_per_run": 2,
+    "public": true,
+    "queued_items": 0,
+    "queued_runs": 0,
+    "recipe": "Refine Steel",
+    "rental_fee_per_run": 9,
+    "ticks_per_run": 0.08307692307692308
+   },
+   "recipe_id": "refine_steel",
+   "rent_paid_until_tick": 2253800,
+   "type": "iron_refinery"
+  },
+  {
+   "capacity": 100000,
+   "category": "faction",
+   "custom_name": "Maintainence",
+   "description": "A modular storage pod bolted onto the faction vault \u2014 its own sealed compartment with a fresh 100,000-per-item-type allowance. Build up to 10 per station to carve faction stock into named buckets (a crafting pile, a free-for-all pile, whatever your faction needs). Rename it with facility action=set_name; faction crafting can pull from and deposit into a bucket with deliver_to=\"faction:<name>\". Must be emptied before it can be dismantled.",
+   "facility_id": "a6bc64fb3ce3ba7973fa08fe3fbaf3a3",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "faction_service": "faction_storage_extension",
+   "level": 1,
+   "name": "Storage Extension",
+   "rent_paid_until_tick": 2304100,
+   "type": "storage_extension"
+  },
+  {
+   "category": "production",
+   "description": "A dedicated metal-working line with ore roasting, smelting, and drawing dies for copper wire and pipe stock. Produces standard-gauge piping suitable for station plumbing and coolant runs.",
+   "facility_id": "2c91ab07c795630c83011a75415df1df",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "name": "Copper Drawing Mill",
+   "production": {
+    "backlog_ticks": 0,
+    "items_per_hour": 5200,
+    "output_per_run": 4,
+    "public": true,
+    "queued_items": 0,
+    "queued_runs": 0,
+    "recipe": "Draw Copper Piping",
+    "rental_fee_per_run": 30,
+    "ticks_per_run": 0.27692307692307694
+   },
+   "recipe_id": "draw_copper_piping",
+   "rent_paid_until_tick": 2253800,
+   "type": "copper_drawing_mill"
+  },
+  {
+   "capacity": 20,
+   "category": "faction",
+   "description": "A leased corner of the station's docking ring with room to rack a handful of hulls. Faction members park spare ships here for the whole crew to draw on: gift a docked ship to the faction to store it (send_gift recipient=faction ship_id=<id>), and any member can take one out with switch_ship \u2014 claiming transfers ownership to them, so only stash what the faction is happy to share. list_ships shows the garage. Holds up to 20 ships. Upgrade to a Faction Ship Hangar (L2) for more racks.",
+   "facility_id": "1de10b22b73910edf51dcbb784b403d4",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "faction_service": "faction_ship_garage",
+   "level": 1,
+   "name": "Faction Ship Garage",
+   "rent_paid_until_tick": 2304100,
+   "type": "faction_ship_garage"
+  },
+  {
+   "category": "production",
+   "description": "Pressurized containment lab for ionizing neon into power cell casings. Produces two cells per run but requires careful pressure management.",
+   "facility_id": "11801f290d00956da1dc2e7825c49fd7",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "name": "Neon Cell Lab",
+   "production": {
+    "backlog_ticks": 0,
+    "items_per_hour": 585,
+    "output_per_run": 2,
+    "public": true,
+    "queued_items": 0,
+    "queued_runs": 0,
+    "recipe": "Synthesize Neon Power Cell",
+    "rental_fee_per_run": 225,
+    "ticks_per_run": 1.2307692307692308
+   },
+   "recipe_id": "synthesize_neon_power_cell",
+   "rent_paid_until_tick": 2345600,
+   "type": "neon_cell_lab"
+  },
+  {
+   "category": "production",
+   "description": "Pressurized containment lab for ionizing and compressing purified argon into power cell casings. Produces two cells per run but requires careful pressure management.",
+   "facility_id": "3dc18d6c9a5fca9b38ccd1a85d755138",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "name": "Argon Cell Lab",
+   "production": {
+    "backlog_ticks": 0,
+    "items_per_hour": 585,
+    "output_per_run": 2,
+    "public": true,
+    "queued_items": 0,
+    "queued_runs": 0,
+    "recipe": "Synthesize Argon Power Cell",
+    "rental_fee_per_run": 225,
+    "ticks_per_run": 1.2307692307692308
+   },
+   "recipe_id": "synthesize_argon_power_cell",
+   "rent_paid_until_tick": 2345600,
+   "type": "argon_cell_lab"
+  },
+  {
+   "category": "production",
+   "description": "A focused thermal processing line with controlled heating and alloying injection, converting raw titanium ore into finished alloy for hull applications.",
+   "facility_id": "789997108b3cbd91fe4d0d0f3345983b",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "name": "Alloy Foundry",
+   "production": {
+    "backlog_ticks": 0,
+    "items_per_hour": 1560,
+    "output_per_run": 1,
+    "public": true,
+    "queued_items": 0,
+    "queued_runs": 0,
+    "recipe": "Forge Titanium Alloy",
+    "rental_fee_per_run": 25,
+    "ticks_per_run": 0.23076923076923078
+   },
+   "recipe_id": "forge_titanium_alloy",
+   "rent_paid_until_tick": 2329700,
+   "type": "alloy_foundry"
+  },
+  {
+   "category": "production",
+   "description": "A compact pressurization and compression line that condenses liquid hydrogen into fuel reserves. Copper piping carries cryogenic feed through steel-plated containment chambers with basic flow control.",
+   "facility_id": "6e4a3018ae5f31627d2bfda941301a18",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "name": "H2 Fuel Combustor",
+   "production": {
+    "backlog_ticks": 0,
+    "items_per_hour": 78000,
+    "output_per_run": 100,
+    "public": true,
+    "queued_items": 0,
+    "queued_runs": 0,
+    "recipe": "Manufacture Fuel Basic",
+    "rental_fee_per_run": 50,
+    "ticks_per_run": 0.46153846153846156
+   },
+   "recipe_id": "manufacture_fuel_basic",
+   "rent_paid_until_tick": 2247900,
+   "type": "h2_fuel_combustor"
+  },
+  {
+   "capacity": 20,
+   "category": "faction",
+   "description": "A roped-off corner of the concourse with hard plastic seats and a departures board that mostly works. Faction ships can drop connecting passengers here (unload_passenger target=lounge) for other members to fly onward (load_passenger picks them up alongside the platform queue) \u2014 fares and fare deadlines carry over, and whoever completes the delivery collects the full fare. Layover passengers spend a little at the station's dining and leisure amenities while they wait, and the departures board warns your faction when anyone is about to miss their connection \u2014 a passenger whose fare deadline runs out mid-layover walks out to the public pickup queue and the fare is gone. Holds up to 20 passengers. Upgrade to a Transit Terminal (L2) for more seats and a fare-deadline extension for connecting passengers.",
+   "facility_id": "5fa72b1f940b26b55a4eb4d0ab492c91",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "faction_service": "faction_transit",
+   "level": 1,
+   "name": "Transit Lounge",
+   "rent_paid_until_tick": 2353000,
+   "type": "transit_lounge"
+  },
+  {
+   "category": "production",
+   "description": "A dedicated drawing and bundling line that refines raw copper ore into standardized conductive wiring. Steady-state production with basic automated controls.",
+   "facility_id": "89ddabb7e5df073db33f407ad17813c6",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "name": "Copper Wire Mill",
+   "production": {
+    "backlog_ticks": 0,
+    "items_per_hour": 7428,
+    "output_per_run": 2,
+    "public": true,
+    "queued_items": 0,
+    "queued_runs": 0,
+    "recipe": "Process Copper Wiring",
+    "rental_fee_per_run": 10,
+    "ticks_per_run": 0.09692307692307692
+   },
+   "recipe_id": "process_copper_wiring",
+   "rent_paid_until_tick": 2353900,
+   "type": "copper_wire_mill"
+  },
+  {
+   "category": "production",
+   "description": "Sealed environmental chamber maintaining controlled temperature and atmospheric composition to cultivate standardized biotech cultures. Basic air circulation and isolation prevent contamination during growth phases.",
+   "facility_id": "cd90a3b3b1d4e420b3798e720f196726",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "name": "Pharmaceutical Lab",
+   "production": {
+    "backlog_ticks": 0,
+    "items_per_hour": 2600,
+    "output_per_run": 3,
+    "public": true,
+    "queued_items": 0,
+    "queued_runs": 0,
+    "recipe": "Run Pharmaceutical Lab",
+    "rental_fee_per_run": 28,
+    "ticks_per_run": 0.4153846153846154
+   },
+   "recipe_id": "run_pharmaceutical_lab",
+   "rent_paid_until_tick": 2291500,
+   "type": "pharmaceutical_lab"
+  },
+  {
+   "category": "faction",
+   "description": "A proper office with your faction emblem on the door. Still shared plumbing, but at least you have walls. Faction customization is unlocked galaxy-wide by a single admin office, but each one also speeds up your faction's own production facilities at its station by 15% per tier \u2014 at this tier, a 30% boost \u2014 so an admin office at every industrial hub pays for itself.",
+   "facility_id": "10ccd1324e395935f9b29818642d885c",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "faction_service": "faction_admin",
+   "level": 2,
+   "name": "Faction Office",
+   "rent_paid_until_tick": 2285200,
+   "type": "faction_office"
+  },
+  {
+   "category": "production",
+   "description": "Crude arc chamber that floods the etch bay with carbon plasma. Wasteful with carbon but lets a thin silicon wafer carry far more circuitry.",
+   "facility_id": "beb2ca3a35782bcaf71fdc3f801e2d4f",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "name": "Carbon Arc Furnace",
+   "production": {
+    "backlog_ticks": 0,
+    "items_per_hour": 1170,
+    "output_per_run": 3,
+    "public": true,
+    "queued_items": 0,
+    "queued_runs": 0,
+    "recipe": "Carbon-Arc Circuit Etching",
+    "rental_fee_per_run": 150,
+    "ticks_per_run": 0.9230769230769231
+   },
+   "recipe_id": "carbon_arc_circuit_etching",
+   "rent_paid_until_tick": 2283700,
+   "type": "carbon_arc_furnace"
+  },
+  {
+   "category": "infrastructure",
+   "description": "A rec room with worn sofas, a bank of arcade cabinets, and a drink dispenser that's usually working. Not glamorous, but it's somewhere to unwind between shifts. The arcade cabinets are all lit up and the dispenser's pouring. There's usually a small crowd here between shifts.",
+   "facility_id": "4ae2bda915bb1de28eba35a517de3073",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "labor_per_cycle": 3,
+   "leisure_points": 2,
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_per_cycle": [
+    {
+     "item_id": "purified_water",
+     "name": "Purified Water",
+     "quantity": 1
+    },
+    {
+     "item_id": "crimson_iron_rations",
+     "name": "Crimson Iron Rations",
+     "quantity": 1
+    },
+    {
+     "item_id": "biogas_fizz",
+     "name": "Biogas Fizz",
+     "quantity": 1
+    },
+    {
+     "item_id": "station_seltzer",
+     "name": "Station Seltzer",
+     "quantity": 1
+    }
+   ],
+   "maintenance_satisfied": true,
+   "name": "Rec Lounge",
+   "rent_paid_until_tick": 2354400,
+   "tourism_upkeep": true,
+   "type": "rec_lounge"
+  },
+  {
+   "category": "infrastructure",
+   "description": "Panel arrays with no fuel line at all \u2014 power from starlight and a steady supply of replacement circuit boards. No fuel runs to manage, but the circuit-board pipeline has to stay open. Panels track the local star without fault. No fuel to haul, no fuel to burn \u2014 just periodic circuit swaps.",
+   "facility_id": "41f3e9dcc5edb0d7a8ca072af3af96dc",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_satisfied": true,
+   "name": "Stellar Collector Grid",
+   "rent_paid_until_tick": 2354300,
+   "type": "stellar_collector_grid"
+  },
+  {
+   "capacity": 50,
+   "category": "faction",
+   "description": "A notice board outside the docks advertising for new blood. Mostly gets ignored next to the wanted posters. Your member cap is set by your single highest-tier recruitment office, and every OTHER station that also has one adds 25% of its own cap \u2014 so spreading recruitment offices across stations raises the ceiling instead of being wasted.",
+   "facility_id": "91693d121baad2115472df743336848c",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "faction_service": "faction_recruitment",
+   "level": 1,
+   "name": "Hiring Board",
+   "rent_paid_until_tick": 2346900,
+   "type": "hiring_board"
+  },
+  {
+   "category": "production",
+   "description": "Assembles control nodes around platinum relay contacts wound from drawn wire instead of gold and silver conductors. Contacts that never pit, from a metal nobody wants \u2014 while that lasts.",
+   "facility_id": "800b3889597e7a188446925796d8d0cf",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "name": "Platinum Contact Assembly Line",
+   "production": {
+    "backlog_ticks": 0,
+    "items_per_hour": 260,
+    "output_per_run": 1,
+    "public": true,
+    "queued_items": 0,
+    "queued_runs": 0,
+    "recipe": "Assemble Platinum Control Node",
+    "rental_fee_per_run": 100,
+    "ticks_per_run": 1.3846153846153846
+   },
+   "recipe_id": "assemble_platinum_control_node",
+   "rent_paid_until_tick": 2277400,
+   "type": "platinum_contact_assembly_line"
+  },
+  {
+   "category": "service",
+   "description": "An enclosed construction bay with proper gantries \u2014 the faction's shipwrights can build hulls now, not just sell them. Gantry arms swing smoothly through their arcs. The bay holds atmosphere, and hulls take shape on schedule.",
+   "facility_id": "2b4771b47b700dd0522e66a8dbcca7f5",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 2,
+   "maintenance_level": 1,
+   "maintenance_satisfied": true,
+   "name": "Fabrication Yard",
+   "rent_paid_until_tick": 2301800,
+   "service": "shipyard",
+   "type": "fabrication_yard"
+  },
+  {
+   "category": "infrastructure",
+   "description": "An additional pressurized tank bolted onto the station's own fuel line \u2014 grows the shared reserve every docked ship draws from. Build more for more capacity. Top it off from fuel-production facilities or by depositing fuel straight from a docked ship's tank (storage deposit, item_id=fuel). Pressure readings nominal. The expanded tank holds its share of the station's reserve without incident.",
+   "facility_id": "7fb1fa946966a464a3e2050151a42430",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_satisfied": true,
+   "name": "Fuel Tank Expansion",
+   "rent_paid_until_tick": 2283700,
+   "type": "fuel_tank_expansion"
+  },
+  {
+   "category": "service",
+   "description": "Fuel lines and storage tanks run by the faction's own dockhands. Faction members draw from the shared tank for free; everyone else pays station price. Fuel lines pressurized and ready. Ships dock, fill up, and depart with barely a wait.",
+   "facility_id": "90901d6f05756e5e0a588dbadc22c8e3",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_satisfied": true,
+   "name": "Refueling Dock",
+   "rent_paid_until_tick": 2241700,
+   "service": "refuel",
+   "type": "refueling_dock"
+  },
+  {
+   "category": "defense",
+   "description": "Clusters of fast-tracking autocannon studded across the station's outer hull, sighted for anything that comes inside a few hundred metres. It cannot reach a ship holding at range, and it does not care: the things it is built to kill are the ones already close enough to read the hull numbers. The feed belts are full and the gun crews are bored, which is the correct state for a point defense crew to be in.",
+   "facility_id": "f5aa79582a5fa81aab9826b1044565dd",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_satisfied": true,
+   "name": "Point Defense Battery",
+   "rent_paid_until_tick": 2329600,
+   "type": "point_defense_battery"
+  },
+  {
+   "category": "service",
+   "description": "Workbenches and tools, open to anyone flying under the faction banner. Workbenches are stocked and clean. The hum of power tools fills the shop floor.",
+   "facility_id": "bf83e1d9789f70078f65f75c16f7bee9",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_satisfied": true,
+   "name": "Faction Workshop",
+   "rent_paid_until_tick": 2240400,
+   "service": "crafting",
+   "type": "faction_workshop"
+  },
+  {
+   "category": "service",
+   "description": "Secure personal storage for anyone docked here, faction or not. Locker seals hold firm. The bay is clean and organized by section.",
+   "facility_id": "ccebca67f80b05ac66e9fef340579706",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_satisfied": true,
+   "name": "Locker Bay",
+   "rent_paid_until_tick": 2233900,
+   "service": "storage",
+   "type": "locker_bay"
+  },
+  {
+   "category": "infrastructure",
+   "description": "Atmospheric recycling and water purification, built and run by the faction. Fresh air circulates through the corridors. Humidity and temperature hold steady.",
+   "facility_id": "91e99781298943672515e99c2aa0d377",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_satisfied": true,
+   "name": "Atmospheric Recycler",
+   "rent_paid_until_tick": 2245400,
+   "type": "atmospheric_recycler"
+  },
+  {
+   "category": "defense",
+   "description": "A darkened room of plot tables and range clocks, buried deep enough in the station that losing it means the fight was already over. It does not shoot at anything. It tells everything that does where the target is going to be, which turns out to be most of the problem. The plot is live and the solutions are updating. The batteries are shooting where the target will be rather than where it was.",
+   "facility_id": "cbaaa308c5d0c41d4e31aa40cfc1641c",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_satisfied": true,
+   "name": "Fire Control Center",
+   "rent_paid_until_tick": 2345700,
+   "type": "fire_control_center"
+  },
+  {
+   "category": "service",
+   "description": "A trading floor built and staffed by the faction itself \u2014 order boards, a settlement desk, and a ledger nobody outside the crew gets to see. Upkeep grows with the station's recent market trade volume. Order boards update in real time. The settlement desk clears trades as fast as they come in, bearer ciphers verified and logged.",
+   "facility_id": "e54bac985708adaf9fbc95a52411dcc2",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "labor_per_cycle": 100,
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_per_cycle": [
+    {
+     "item_id": "trade_authenticator",
+     "name": "Trade Authenticator",
+     "quantity": 1
+    }
+   ],
+   "maintenance_satisfied": true,
+   "name": "Trade Concourse",
+   "rent_paid_until_tick": 2249700,
+   "service": "market",
+   "type": "trade_concourse"
+  },
+  {
+   "category": "defense",
+   "description": "Layered ablative plate welded over the station's structural frame. It does not stop a determined capital gun, but it turns the constant chatter of light raider weapons into paint damage, which over a long siege is the difference between a bad afternoon and a wreck. The plating is sound, and the weld crews are keeping ahead of the pitting.",
+   "facility_id": "b7e2e3c47de32fd5c549ae8250f4adad",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_satisfied": true,
+   "name": "Reinforced Plating",
+   "rent_paid_until_tick": 2345600,
+   "type": "reinforced_plating"
+  },
+  {
+   "category": "infrastructure",
+   "description": "Panel arrays with no fuel line at all \u2014 power from starlight and a steady supply of replacement circuit boards. No fuel runs to manage, but the circuit-board pipeline has to stay open. Panels track the local star without fault. No fuel to haul, no fuel to burn \u2014 just periodic circuit swaps.",
+   "facility_id": "09960be12c023698746990244760a86d",
+   "faction_id": "e727c0e918d994c72db2978fe5b18edc",
+   "level": 1,
+   "maintenance_level": 1,
+   "maintenance_satisfied": true,
+   "name": "Stellar Collector Grid",
+   "rent_paid_until_tick": 2237700,
+   "type": "stellar_collector_grid"
+  }
+ ],
+ "faction_rent": {
+  "est_rent_per_day": 0,
+  "facilities": 28,
+  "grace_cycles": 260,
+  "note": "Rent for your faction's facilities at this station. Deducted from the faction treasury each cycle. Totals exclude facilities whose rent is paused while damaged, under construction, or dismantling. Listed per-facility rates apply when billing resumes after repair or construction; existing arrears remain owed.",
+  "total_rent_per_cycle": 0
+ },
+ "life_support": {
+  "demand": 10,
+  "maintenance": [
+   {
+    "item_id": "catalytic_scrubber_cartridge",
+    "name": "Catalytic Scrubber Cartridge",
+    "quantity_per_cycle": 1
+   },
+   {
+    "item_id": "oxygen_gas",
+    "name": "Oxygen Gas",
+    "quantity_per_cycle": 2
+   },
+   {
+    "item_id": "purified_water",
+    "name": "Purified Water",
+    "quantity_per_cycle": 1
+   },
+   {
+    "item_id": "sunspindle",
+    "name": "Sunspindle",
+    "quantity_per_cycle": 1
+   },
+   {
+    "item_id": "water_ice",
+    "name": "Water Ice",
+    "quantity_per_cycle": 3
+   }
+  ],
+  "maintenance_cycle_ticks": 100,
+  "plants": 1,
+  "supply": 12
+ },
+ "player_facilities": [],
+ "power": {
+  "battery_capacity": 0,
+  "battery_stored": 0,
+  "current_draw": 0,
+  "efficiency": 1,
+  "supply": 40
+ },
+ "station_facilities": []
+}

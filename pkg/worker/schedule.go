@@ -106,16 +106,18 @@ const maxWidePhase = time.Hour
 // keeping an agent's reads on its own tight phase is what makes successive
 // snapshots comparable -- that burst is wanted.
 var widePhaseCommands = map[string]bool{
-	"capture_action_log":       true,
-	"capture_base":             true,
-	"capture_cargo":            true,
-	"capture_citizenship":      true,
-	"capture_faction":          true,
-	"capture_fuel":             true,
-	"capture_profile":          true,
-	"capture_storage":          true,
-	"capture_tax":              true,
-	"capture_wildlife_attacks": true,
+	"capture_action_log":         true,
+	"capture_base":               true,
+	"capture_cargo":              true,
+	"capture_citizenship":        true,
+	"capture_facilities":         true,
+	"capture_faction":            true,
+	"capture_fuel":               true,
+	"capture_profile":            true,
+	"capture_station_passengers": true,
+	"capture_storage":            true,
+	"capture_tax":                true,
+	"capture_wildlife_attacks":   true,
 }
 
 // FrequencyPeriod is how long one full period of freq lasts, or 0 when freq is

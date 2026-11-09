@@ -463,3 +463,41 @@ CREATE TABLE IF NOT EXISTS base_snapshots (
     captured_at         TEXT    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_base_snapshots_base ON base_snapshots(base_id, captured_at);
+
+-- facility_snapshots: one row per facility per capture_facilities pass of a
+-- docked station's `facility list`. Append-only; a pass shares one captured_at,
+-- so the newest pass is "rows at max(captured_at)". maintenance_satisfied is
+-- NULL for facilities with no upkeep (offices, production lines).
+CREATE TABLE IF NOT EXISTS facility_snapshots (
+    base_id               TEXT    NOT NULL,
+    agent_id              TEXT    NOT NULL DEFAULT '',
+    captured_at           TEXT    NOT NULL,
+    facility_id           TEXT    NOT NULL,
+    type                  TEXT    NOT NULL DEFAULT '',
+    name                  TEXT    NOT NULL DEFAULT '',
+    category              TEXT    NOT NULL DEFAULT '',
+    recipe                TEXT    NOT NULL DEFAULT '',
+    level                 INTEGER NOT NULL DEFAULT 0,
+    maintenance_satisfied INTEGER,
+    maintenance_level     INTEGER NOT NULL DEFAULT 0,
+    queued_runs           INTEGER NOT NULL DEFAULT 0,
+    queued_items          INTEGER NOT NULL DEFAULT 0,
+    backlog_ticks         INTEGER NOT NULL DEFAULT 0,
+    items_per_hour        REAL    NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_facility_snapshots_base ON facility_snapshots(base_id, captured_at);
+
+-- station_passenger_snapshots: one row per capture_station_passengers pass
+-- (list_station_passengers at the docked station): queue, lounge and fare state.
+CREATE TABLE IF NOT EXISTS station_passenger_snapshots (
+    base_id           TEXT    NOT NULL,
+    agent_id          TEXT    NOT NULL DEFAULT '',
+    captured_at       TEXT    NOT NULL,
+    waiting           INTEGER NOT NULL DEFAULT 0,
+    lounge_occupancy  INTEGER NOT NULL DEFAULT 0,
+    lounge_capacity   INTEGER NOT NULL DEFAULT 0,
+    demand_level      TEXT    NOT NULL DEFAULT '',
+    fare_surge        REAL    NOT NULL DEFAULT 0,
+    market_conditions TEXT    NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_station_passenger_snapshots_base ON station_passenger_snapshots(base_id, captured_at);
