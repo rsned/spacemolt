@@ -391,10 +391,10 @@ function placeTags() {
     const alert = sev === 'strained' || sev === 'critical';
     el.style.left = `${left}px`;
     el.style.top = `${ty - 12}px`;
-    el.style.opacity = focus && focus !== zone ? 0.25 : alert || focus === zone ? 1 : 0.6;
+    el.style.opacity = focus && focus !== zone ? 0.25 : alert || focus === zone ? 1 : 0.92;
     ln.setAttribute('points', `${x},${y} ${tx},${ty}`);
     ln.setAttribute('stroke', severityColor(sev));
-    ln.setAttribute('stroke-opacity', focus && focus !== zone ? 0.15 : alert ? 0.9 : 0.4);
+    ln.setAttribute('stroke-opacity', focus && focus !== zone ? 0.15 : alert ? 0.95 : 0.7);
     ln.setAttribute('stroke-dasharray', alert ? '' : '3 3');
   }
 }
