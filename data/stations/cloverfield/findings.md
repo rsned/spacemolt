@@ -507,3 +507,11 @@ fleet's entire scrubber stock. Stop-gaps:
   PDB active. Catalog power_draw (data/game-api/20261002): shield_projector 10, point_defense_battery 2,
   each production line 1. Worst case at CJ = 20 shields + 12 guns + 10 lines = **42 / 52**, so 10
   headroom with all of it firing and every line busy. To confirm: read get_base during an attack.
+- 2026-11-09 · **measured** · v0.677.5 fixed loaded-battery upgrades. `facility upgrade --facility_id
+  <id> --facility_type station_defense_turret` (facility_type is required) replaced PDB f5aa7958… with
+  **Station Defense Turret L2** 876aa45064f2f09244608e02eeec0a33 (tick 2361767; under construction).
+  Catalog: L2 = 55 dmg / cooldown 2 (**27.5 dps, below L1's 30**) but **reach 2**; ammo
+  armor_piercing_rounds_box (CJ held 0 — operator delivering); upkeep 2 coolant/cycle; power 4;
+  cost 420k + 900 steel + 140 circuit_board + 10 targeting_computer + 40 superconductor.
+  12 targeting computers queued (build_targeting_computer: 4 circuit_board + 1 focused_crystal +
+  1 processing_core) for the second upgrade.
