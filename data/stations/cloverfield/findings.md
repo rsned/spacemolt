@@ -496,3 +496,9 @@ fleet's entire scrubber stock. Stop-gaps:
   one-off 40,000 (job 2428d5fd…, 4,000 liquid_hydrogen, labor 3,200) and raised schedule id 22 to
   2,000/h. Liquid hydrogen on hand: 90,018 (~10 LH2 per 100 fuel). The bunker-fed reactor adds
   55/cycle (~4,750/day) on top.
+- 2026-11-09 11:20 PST · **measured** (get_base, tick 2361388) · **Defense round 1 built and active.**
+  Before → after: hull 85,000 → **110,000**; shield 12,000 → **48,000** (base + 2 shield_projector);
+  armor 60 → **105** (2 reinforced_plating); weapon_dps 30 → **180** (6 point_defense_battery L1,
+  30 each), reach 1; power supply 40 → **52** (bunker_fed_reactor), draw reported 0. Fuel 46,477 / 55,000
+  after the 40k top-up. Condition thriving, satisfaction 100%. Tourism lifetime 52,404 (7,638 at
+  11-08 19:54 → ~2,900 cr/h).
