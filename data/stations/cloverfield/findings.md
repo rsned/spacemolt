@@ -482,3 +482,17 @@ fleet's entire scrubber stock. Stop-gaps:
   `transit_lounge` (L1, 20 seats) built. Lifetime counter; take a second reading for a rate.
   Rec lounge upkeep per cycle: 2 purified_water, 1 crimson_iron_rations, 1 biogas_fizz,
   1 station_seltzer (~3 cycles/day ≈ 8–9k cr/day at market prices).
+
+## Defense round 1 notes (2026-11-09)
+
+- 2026-11-09 · **measured** (operator) · **Turret upgrade is a server bug.** `facility upgrade` on the
+  point_defense_battery → `upgrade_failed: loaded station weapons cannot be upgraded; dismantle the
+  battery to recover its ammunition and construction materials first` (tick 2356884). Reported; the
+  developer (cahaseler, 05:39) confirmed it is a real bug being fixed and said **ignore the dismantle
+  instruction** (the battery reloads itself automatically). Round 2's L2 gun upgrades wait on the fix.
+- 2026-11-09 · **measured** · **Station fuel tank was draining faster than it was refilled.**
+  `base.fuel` 21,293 (11-08 ~19:00) → 10,839 (07:07) → 10,352 (08:11) → 8,605 (09:10), ~500–1,700/h;
+  the only refill was miningbot_0000's hourly `craft manufacture_fuel_basic 500` (+500/h). Queued a
+  one-off 40,000 (job 2428d5fd…, 4,000 liquid_hydrogen, labor 3,200) and raised schedule id 22 to
+  2,000/h. Liquid hydrogen on hand: 90,018 (~10 LH2 per 100 fuel). The bunker-fed reactor adds
+  55/cycle (~4,750/day) on top.
