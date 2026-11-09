@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rsned/spacemolt/pkg/assets"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/navigation"
 )
@@ -302,6 +303,24 @@ func formatListPassengers(raw []byte) string {
 	return b.String()
 }
 
+// writeStationDemand writes the transit lounge and passenger-demand header of a
+// list_station_passengers reply; stations that report neither get nothing.
+func writeStationDemand(b *strings.Builder, raw []byte) {
+	snap, ok := assets.PassengerSnapshotFrom(raw)
+	if !ok {
+		return
+	}
+	if snap.LoungeCapacity > 0 {
+		fmt.Fprintf(b, "Transit Lounge  %d / %d seated\n", snap.LoungeOccupancy, snap.LoungeCapacity)
+	}
+	if snap.DemandLevel != "" {
+		fmt.Fprintf(b, "Demand          %s · fares %g×\n", snap.DemandLevel, snap.FareSurge)
+	}
+	if snap.MarketConditions != "" {
+		fmt.Fprintf(b, "  \"%s\"\n", snap.MarketConditions)
+	}
+}
+
 // formatStationPassengers renders a list_station_passengers response: passengers
 // waiting at a station, grouped by destination (alphabetical) then class.
 func formatStationPassengers(raw []byte) string {
@@ -333,6 +352,7 @@ func formatStationPassengers(raw []byte) string {
 		station = "this station"
 	}
 	var b strings.Builder
+	writeStationDemand(&b, raw)
 	if len(resp.Waiting) == 0 {
 		fmt.Fprintf(&b, "No passengers waiting at %s\n", station)
 		return b.String()

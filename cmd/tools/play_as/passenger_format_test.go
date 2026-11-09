@@ -234,3 +234,15 @@ func TestFormatUnloadPassenger_ErrorFrame(t *testing.T) {
 		t.Errorf("expected empty string for empty object, got:\n%s", out)
 	}
 }
+
+func TestFormatStationPassengers_Lounge(t *testing.T) {
+	out := formatStationPassengers(readFixture(t, "cj_station_passengers.json"))
+	for _, want := range []string{
+		"Transit Lounge  0 / 20 seated", "discounted · fares 0.6×", "economy is struggling",
+		"No passengers waiting at Conjunction Junction",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}

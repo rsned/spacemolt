@@ -801,7 +801,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 }
 
 // printResponse formats and prints the server response based on the current format.
-func printResponse(raw []byte, format outputFormat, command string) {
+func printResponse(raw []byte, format outputFormat, command string, facilityRaw []byte) {
 	if format == formatRaw {
 		fmt.Printf("\n%s\n", string(raw))
 		return
@@ -809,7 +809,7 @@ func printResponse(raw []byte, format outputFormat, command string) {
 
 	// For styled format, try command-specific formatters first
 	if format == formatStyled {
-		if styled := formatStyledResponse(raw, command); styled != "" {
+		if styled := formatStyledResponse(raw, command, facilityRaw); styled != "" {
 			fmt.Printf("\n%s\n", styled)
 			return
 		}
@@ -848,7 +848,7 @@ func unwrapActionResult(raw []byte) []byte {
 }
 
 // formatStyledResponse returns a styled string for the given command, or "" if no formatter exists.
-func formatStyledResponse(raw []byte, command string) string {
+func formatStyledResponse(raw []byte, command string, facilityRaw []byte) string {
 	switch command {
 	case "cloak":
 		return formatCloak(raw)
@@ -891,7 +891,7 @@ func formatStyledResponse(raw []byte, command string) string {
 	case "poi", "get_poi":
 		return formatPOI(raw)
 	case "base", "get_base":
-		return formatBase(raw)
+		return formatBase(raw, facilityRaw)
 	case "withdraw", "withdraw_items":
 		return formatWithdraw(raw)
 	case "create_faction":
@@ -9897,7 +9897,7 @@ func lookupRawJSON(client game.GameClient, command string) []byte {
 // showLastResponse prints the most recent server response for command.
 func showLastResponse(client game.GameClient, format outputFormat, command string) {
 	if raw := lookupRawJSON(client, command); len(raw) > 0 {
-		printResponse(raw, format, command)
+		printResponse(raw, format, command, baseFacilityRaw(client, command))
 	}
 }
 
@@ -9961,13 +9961,13 @@ func simpleCommand(client game.GameClient, fn func(context.Context) error, ctx c
 		// before any frame, or MCP transport).
 		if format != formatStyled {
 			if raw := chooseErrorJSON(sink, client); len(raw) > 0 {
-				printResponse(raw, format, command)
+				printResponse(raw, format, command, nil)
 			}
 		}
 		return err
 	}
 	if raw := chooseResponseJSON(sink, client, command); len(raw) > 0 {
-		printResponse(raw, format, command)
+		printResponse(raw, format, command, baseFacilityRaw(client, command))
 	}
 	if wait > 0 {
 		time.Sleep(wait)
