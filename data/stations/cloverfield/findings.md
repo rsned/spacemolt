@@ -474,3 +474,11 @@ fleet's entire scrubber stock. Stop-gaps:
    from the station tank, which the combustor refills. The Stellar Collector Grid (20) has
    no upgrade, so this adds alongside it (20 → 32). Chosen by the operator because its
    upkeep is fuel we make.
+
+## Tourism revenue (2026-11-08)
+
+- 2026-11-08 ~17:30 PST · **measured** (operator `get_base`) · `tourism_revenue` **3,956** —
+  first reading, ~2 h after `rec_lounge` (2 leisure points) was ordered and the
+  `transit_lounge` (L1, 20 seats) built. Lifetime counter; take a second reading for a rate.
+  Rec lounge upkeep per cycle: 2 purified_water, 1 crimson_iron_rations, 1 biogas_fizz,
+  1 station_seltzer (~3 cycles/day ≈ 8–9k cr/day at market prices).
