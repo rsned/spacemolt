@@ -124,12 +124,17 @@ func formatBase(raw, facilityRaw []byte) string {
 	def := zones[stationstate.Defense]
 	fmt.Fprintf(&b, "  Hull      %s %s / %s   armor %d%s\n", barOf(st.Bars, "hull", subSev(stationstate.Defense, "hull")),
 		commaInt(snap.Hull), commaInt(snap.MaxHull), snap.Armor, why(stationstate.Defense, "hull"))
-	shell := "layers"
-	if st.ShieldShells == 1 {
-		shell = "layer"
+	// The layer count comes from shield_projector rows, so it is only known
+	// with this base's facility list.
+	layers := ""
+	if len(reading.Facilities) > 0 {
+		layers = fmt.Sprintf("   %d layers", st.ShieldShells)
+		if st.ShieldShells == 1 {
+			layers = "   1 layer"
+		}
 	}
-	fmt.Fprintf(&b, "  Shield    %s %s / %s   %d %s%s\n", barOf(st.Bars, "shield", subSev(stationstate.Defense, "shield")),
-		commaInt(snap.Shield), commaInt(snap.MaxShield), st.ShieldShells, shell, why(stationstate.Defense, "shield"))
+	fmt.Fprintf(&b, "  Shield    %s %s / %s%s%s\n", barOf(st.Bars, "shield", subSev(stationstate.Defense, "shield")),
+		commaInt(snap.Shield), commaInt(snap.MaxShield), layers, why(stationstate.Defense, "shield"))
 	defLine := fmt.Sprintf("%d dps · reach %d", snap.WeaponDPS, snap.WeaponReach)
 	if len(def.Facilities) > 0 {
 		parts := make([]string, len(def.Facilities))

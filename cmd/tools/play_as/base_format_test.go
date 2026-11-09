@@ -85,3 +85,12 @@ func TestFormatBase_MissingDenominatorsShowDash(t *testing.T) {
 		t.Errorf("zero denominators must not print 0%% in:\n%s", got)
 	}
 }
+
+// Without a facility list for this base the shield layer count is unknown
+// (it counts shield_projector rows), so it must not claim "1 layer".
+func TestFormatBase_NoFacilityListOmitsLayers(t *testing.T) {
+	got := formatBase([]byte(cjBaseReply), nil)
+	if strings.Contains(got, "layer") {
+		t.Fatalf("layer count shown without a facility list:\n%s", got)
+	}
+}
