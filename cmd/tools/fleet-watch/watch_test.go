@@ -261,3 +261,27 @@ func TestNotifiable_Credit(t *testing.T) {
 		t.Error("credit alerts must notify")
 	}
 }
+
+func TestCreditAlerts_DistinctKeys(t *testing.T) {
+	now := time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
+	open := []creditreq.Record{{AgentID: "a1", Status: creditreq.StatusHeld, HeldReason: "x"}}
+	hist := []creditreq.Entry{
+		{At: now.Add(-time.Hour), AgentID: "a1", Event: creditreq.EventPaid},
+		{At: now.Add(-2 * time.Hour), AgentID: "a1", Event: creditreq.EventPaid},
+	}
+	got := CreditAlerts(open, hist, now)
+	if len(got) != 2 {
+		t.Fatalf("got %v, want 2 alerts", got)
+	}
+	if got[0].Fleet+"/"+got[0].Kind == got[1].Fleet+"/"+got[1].Kind {
+		t.Errorf("alerts share firing key %s/%s", got[0].Fleet, got[0].Kind)
+	}
+}
+
+func TestReadCreditAlerts_MissingQueueCreatesNoLock(t *testing.T) {
+	qp := filepath.Join(t.TempDir(), "credit-requests.json")
+	ReadCreditAlerts(qp, time.Now())
+	if _, err := os.Stat(qp + ".lock"); !os.IsNotExist(err) {
+		t.Errorf("lock file created for a missing queue: %v", err)
+	}
+}

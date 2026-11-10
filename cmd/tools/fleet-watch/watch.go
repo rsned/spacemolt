@@ -203,18 +203,18 @@ func Notifiable(kind string) bool {
 // CreditAlerts reports credit requests that need a human: any held request,
 // any pending one the banker has not paid within creditPendingStale, and any
 // agent paid creditRepeatPaid or more times inside creditRepeatWindow (hist
-// is expected to already be limited to that window). Each alert is keyed on
-// the agent so one agent's alert cannot mask another's.
+// is expected to already be limited to that window). Each alert has its own
+// Fleet key (<agent>:held, :pending, :repeat) so conditions never mask each other.
 func CreditAlerts(open []creditreq.Record, hist []creditreq.Entry, now time.Time) []Alert {
 	var out []Alert
 	for _, r := range open {
 		switch r.Status {
 		case creditreq.StatusHeld:
-			out = append(out, Alert{Fleet: r.AgentID, Kind: KindCredit,
+			out = append(out, Alert{Fleet: r.AgentID + ":held", Kind: KindCredit,
 				Message: fmt.Sprintf("%s credit request held: %s", r.AgentID, r.HeldReason)})
 		case creditreq.StatusPending:
 			if age := now.Sub(r.RequestedAt); age > creditPendingStale {
-				out = append(out, Alert{Fleet: r.AgentID, Kind: KindCredit,
+				out = append(out, Alert{Fleet: r.AgentID + ":pending", Kind: KindCredit,
 					Message: fmt.Sprintf("%s credit request pending %dm — is the banker paying?", r.AgentID, int(age.Minutes()))})
 			}
 		}
@@ -234,7 +234,7 @@ func CreditAlerts(open []creditreq.Record, hist []creditreq.Entry, now time.Time
 	}
 	sort.Strings(agents)
 	for _, a := range agents {
-		out = append(out, Alert{Fleet: a, Kind: KindCredit,
+		out = append(out, Alert{Fleet: a + ":repeat", Kind: KindCredit,
 			Message: fmt.Sprintf("%s paid %d times in 7 days", a, paid[a])})
 	}
 
@@ -263,14 +263,21 @@ func CreditHaltAlerts(haltPath string) ([]Alert, error) {
 // alerts; each other failure is returned in errs and the remaining checks
 // still run, so one bad file cannot hide the others.
 func ReadCreditAlerts(queuePath string, now time.Time) (alerts []Alert, errs []error) {
-	open, err := creditreq.NewQueue(queuePath).List()
-	if err != nil && !os.IsNotExist(err) {
+	// Stat first: List takes a lock and creates a .lock file, which a
+	// watcher must not do to a queue that does not exist yet.
+	var open []creditreq.Record
+	if _, err := os.Stat(queuePath); err == nil {
+		open, err = creditreq.NewQueue(queuePath).List()
+		if err != nil {
+			errs = append(errs, fmt.Errorf("credit queue: %w", err))
+		}
+	} else if !os.IsNotExist(err) {
 		errs = append(errs, fmt.Errorf("credit queue: %w", err))
 	}
 
 	histPath := filepath.Join(filepath.Dir(queuePath), "credit-requests-history.jsonl")
 	hist, err := creditreq.NewHistory(histPath).Since(now.Add(-creditRepeatWindow))
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
 		errs = append(errs, fmt.Errorf("credit history: %w", err))
 	}
 
