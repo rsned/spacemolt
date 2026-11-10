@@ -268,9 +268,9 @@ func Shopkeep(ctx context.Context, client game.GameClient, rules []ShopRule, st 
 		_, _ = fmt.Fprintf(out, "shopkeep: no storage reading; skipping (%s)\n", storageReadingWhy(vsErr, raw))
 		return 0, 0, ctx.Err()
 	}
-	asks, ok := shopOwnAsks(ctx, client, state.Player.Username)
+	asks, why, ok := shopOwnAsks(ctx, client, state.Player.Username)
 	if !ok {
-		_, _ = fmt.Fprintln(out, "shopkeep: no order book reading; skipping")
+		_, _ = fmt.Fprintf(out, "shopkeep: no order book reading; skipping (%s)\n", why)
 		return 0, 0, ctx.Err()
 	}
 
@@ -366,17 +366,39 @@ func Shopkeep(ctx context.Context, client game.GameClient, rules []ShopRule, st 
 //
 // view_orders, not view_market: the market book aggregates by price and
 // carries no order ids or sellers, so it cannot identify our own ask.
-func shopOwnAsks(ctx context.Context, client game.GameClient, username string) (map[string][]serverapi.ExchangeOrder, bool) {
-	if err := client.ViewOrders(ctx); err != nil {
-		return nil, false
+func shopOwnAsks(ctx context.Context, client game.GameClient, username string) (map[string][]serverapi.ExchangeOrder, string, bool) {
+	err := client.ViewOrders(ctx)
+	var raw []byte
+	if err == nil {
+		raw = client.GetRawJSON("orders")
 	}
-	raw := client.GetRawJSON("orders")
+
+	return parseOwnAsks(err, raw, username)
+}
+
+// parseOwnAsks turns a view_orders result into our open asks keyed by item.
+// When it is not a usable reading, why names the failure for the skip line.
+func parseOwnAsks(err error, raw []byte, username string) (map[string][]serverapi.ExchangeOrder, string, bool) {
+	if err != nil {
+		return nil, "view_orders: " + err.Error(), false
+	}
 	if len(raw) == 0 {
-		return nil, false
+		return nil, "no cached view_orders response", false
 	}
 	var resp serverapi.ViewOrdersResponse
-	if err := json.Unmarshal(raw, &resp); err != nil || resp.HasMore || resp.OrdersTruncated {
-		return nil, false
+	if jerr := json.Unmarshal(raw, &resp); jerr != nil {
+		const maxShown = 160
+		shown := raw
+		if len(shown) > maxShown {
+			shown = shown[:maxShown]
+		}
+		return nil, fmt.Sprintf("unparsable view_orders response (%v): %s", jerr, shown), false
+	}
+	if resp.HasMore {
+		return nil, fmt.Sprintf("view_orders is paged (has_more), page %d size %d count %d", resp.Page, resp.PageSize, resp.OrdersCount), false
+	}
+	if resp.OrdersTruncated {
+		return nil, fmt.Sprintf("view_orders orders_truncated (count %d)", resp.OrdersCount), false
 	}
 	asks := map[string][]serverapi.ExchangeOrder{}
 	for _, o := range resp.Orders {
@@ -391,7 +413,7 @@ func shopOwnAsks(ctx context.Context, client game.GameClient, username string) (
 		}
 	}
 
-	return asks, true
+	return asks, "", true
 }
 
 // pickShopAsk chooses the ask to manage: the one the state remembers if it is
