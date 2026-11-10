@@ -1,28 +1,32 @@
 ---
 name: project_drone_project_crystal_reserve
-description: The fleet's energy_crystal stock (~6,100, incl. 2,724 at cargo_lanes under fighter-2/8/10) is RESERVED for the drone project — do not sell or craft it away, however good the margin
+description: "RESERVATION LIFTED 2026-11-10 — energy_crystal is no longer earmarked for the drone project (operator: project a success); crystals may be crafted/used like any other stock"
 metadata:
+  node_type: memory
   type: project
+  originSessionId: 45e19edc-89f8-4358-bb3e-11324020d741
+  modified: 2026-11-10T20:29:01.667Z
 ---
 
-**Operator, 2026-08-31:** "the energy crystals are for the drone project."
+**Operator, 2026-11-10:** "i think the drone project can be considered a success
+so we can use them for other tasks now."
 
-Said while striking the crystal→power_cell crafting play during the
-grand_exchange war-demand spike (build_power_cell needed 3 crystals/cell and
-would have consumed ~2,700). **Treat all stored energy_crystal as earmarked**
-— check with the operator before any plan that spends them.
+**Why:** the drone project that the reserve existed for is done.
+**How to apply:** energy_crystal is ordinary stock again — crafting it into
+power cells, circuit boards, shield boosters etc. no longer needs a check-in.
+Normal rules still apply (approve big spends, the CJ 1M floor).
 
-Holdings at the time: 6,103 across 32 holders; the big pile is 2,724 at
-cargo_lanes_freight_depot (fighter-2: 1,200, fighter-8: 1,082, fighter-10:
-442). Related: [[reference_drone_bay_is_agent_wide]],
-[[project_titanium_alloy_war_demand]]. The drone project itself has no
-memory file yet — details unknown beyond the reservation.
+## History (the reservation, 2026-08-31 → 2026-11-10)
+Operator 2026-08-31: "the energy crystals are for the drone project" — said
+while striking the crystal→power_cell play (build_power_cell, 3 crystals/cell).
+Holdings then: 6,103 across 32 holders (2,724 at cargo_lanes under
+fighter-2/8/10). Crystal sites were exhausted galaxy-wide by 2026-09-01
+(Forgotten Prism 0, Wanderer's Veil 5; best pools GSC-0002 Quiet Shimmer,
+Frontier Veil Nebula) — supply is scarce, so spend deliberately.
 
-## Crystal sites EXHAUSTED galaxy-wide (2026-09-01)
-Forgotten Prism (ivorygate) energy_crystal remaining = 0; Wanderer's Veil
-(struve_1321) = 5. Best live pools: GSC-0002 Quiet Shimmer 661 @ rich 22,
-Frontier Veil Nebula 109 @ 40. The 16-hull crystal squad cannot close the
-3,607-short at any current site; several members went 0-credit/0-fuel looping
-dry passes at home (fighter-7/random-4 @ bd20_2457, fighter-10 @ cargo_lanes)
-— rescues filed. v0.573.0 "newly uncovered mineral deposits" may respawn
-fields; re-survey before re-tasking the squad.
+On 2026-11-10 craftsman-1's play_as `faction_deposit_all` swept 350 into CRFT
+faction storage at Conjunction Junction; that stock is now usable by CJ
+facilities and Officer hand-crafts. 22 recipes take energy_crystal (KB
+recipe_inputs).
+
+Related: [[reference_drone_bay_is_agent_wide]], [[project_titanium_alloy_war_demand]].

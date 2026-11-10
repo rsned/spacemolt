@@ -52,7 +52,7 @@ metadata:
 - ⭐🔴 [Schedule seeding is ADDITIVE ONLY](reference_schedule_seeding_is_additive_only.md) — deleting a command from roles.yaml never removes it from agents; it fires forever. Pruning-by-absence is UNSAFE (per-agent tasks like capture_action_log exist)
 - ⭐ [Ore→component conversion, hourly](project_ore_to_component_conversion.md) — refine_steel + copper wiring/piping on miners & residents; beats the 100k/item cap (overmind was capped on iron AND copper). `quantity`=OUTPUT items; new hourly tasks fire an hour AFTER restart
 - ⭐ [Drone marketbots 010-019](project_drone_marketbots.md) — 09-11: drone_control 35-37 (+18 in 2 days), storage 66k→480k units. Watch **iron ore on 010 at 47% of the 100k PER-ITEM cap**; storage table keeps only the newest capture
-- [Energy crystals RESERVED for drone project](project_drone_project_crystal_reserve.md) — ~6.1k held; never sell/craft them without asking
+- [Energy crystals: reserve LIFTED 11-10](project_drone_project_crystal_reserve.md) — drone project done; usable stock again (sites exhausted, spend deliberately)
 - [Titanium-alloy war demand](project_titanium_alloy_war_demand.md) — OPTION 08-30: galaxy-wide repair demand; 374k top-tier at grand_exchange; sol_central 242-ask arbitrage first; krynn pipeline pre-positioned
 - [Mining fleet](project_mining_fleet.md) — created 08-21 as the unlock campaign's graduation destination; two-system loop, ore-selection refinements
 - [Outer Rim capital is MOBILE; marketbot homes ≠ names](reference_outer_rim_mobile_capital_and_marketbot_homes.md) — Frontier has no station now; station-less residents never move; market_prime sits in Haven
