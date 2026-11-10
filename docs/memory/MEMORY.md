@@ -28,6 +28,7 @@
 - [play_as via `go run ./cmd/tools/play_as`](feedback_play_as_go_run.md) — never bin/
 - [Station ids are dual-named](reference_station_id_aliases.md) — POI id ≠ base id; never compare across commands
 - [Combat escape = `battle stance flee`](reference_combat_damage_pipeline.md) — `battle retreat` never exits
+- ⭐🔴 [Environmental hazards v0.687 (11-10)](reference_environmental_hazards.md) — POI hazards 1/3/8/25% hull per dose; worker gate leaves/refuses; route planning NOT hazard-aware yet
 - [Energy crystals: reserve LIFTED 11-10](project_drone_project_crystal_reserve.md) — drone project done; crystals are ordinary stock (scarce: sites exhausted)
 - [craftsman-1 vacuum bids are INTENTIONAL](reference_craftsman1_vacuum_bid_economics.md) — never cancel
 - [NEVER unbatched DELETE on a huge table](feedback_bulk_delete_scale.md)
