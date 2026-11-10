@@ -1821,6 +1821,7 @@ type TravelResponse struct {
 	POIID                  string         `json:"poi_id,omitempty"`
 	ArrivalTick            int64          `json:"arrival_tick,omitempty"`
 	Destination            string         `json:"destination,omitempty"`
+	DestinationName        string         `json:"destination_name,omitempty"` // v0.686.0: display name of Destination
 	AutoUndocked           bool           `json:"auto_undocked,omitempty"`
 	OnlinePlayersCount     int            `json:"online_players_count,omitempty"`
 	OnlinePlayersTruncated bool           `json:"online_players_truncated,omitempty"`
@@ -1843,7 +1844,9 @@ type JumpResponse struct {
 	Pending     bool   `json:"pending,omitempty"`
 	ArrivalTick int64  `json:"arrival_tick,omitempty"`
 	Destination string `json:"destination,omitempty"`
-	IsWormhole  bool   `json:"is_wormhole,omitempty"`
+	// DestinationName (v0.686.0) is the display name of Destination.
+	DestinationName string `json:"destination_name,omitempty"`
+	IsWormhole      bool   `json:"is_wormhole,omitempty"`
 }
 
 // JumpedResponse wraps the response from jumped event after jump completes.
