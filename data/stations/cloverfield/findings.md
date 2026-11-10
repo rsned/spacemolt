@@ -515,3 +515,7 @@ fleet's entire scrubber stock. Stop-gaps:
   cost 420k + 900 steel + 140 circuit_board + 10 targeting_computer + 40 superconductor.
   12 targeting computers queued (build_targeting_computer: 4 circuit_board + 1 focused_crystal +
   1 processing_core) for the second upgrade.
+- 2026-11-09 · **measured** · Built `reclamation_dock` (service `salvage_yard`; 500k + 2,000 steel +
+  200 circuit_board; build 100 ticks). Upkeep 1 steel_plate + 1 fuel_cell per cycle (~86 each/day);
+  CJ held 988 fuel_cell (~11 days) — needs a fuel_cell source before then. Also built today:
+  2nd atmospheric_recycler (life support 12 → 24 when done), scrubber_cartridge_assembly_line.
