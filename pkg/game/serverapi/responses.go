@@ -2390,6 +2390,59 @@ type GeneratorResponse struct {
 	AutoUndocked   bool   `json:"auto_undocked,omitempty"`
 }
 
+// FitPreviewResponse is returned by fit_preview (read-only): stats for a
+// planned module fit, every reason the fit would be refused, and a safe
+// uninstall_mod/install_mod order.
+type FitPreviewResponse struct {
+	ShipID string           `json:"ship_id"`
+	Valid  bool             `json:"valid"`
+	Issues []FitIssue       `json:"issues"`
+	Stats  FitPreviewStats  `json:"stats"`
+	Steps  []FitPreviewStep `json:"steps"`
+}
+
+// FitIssue is one reason a planned fit is refused. Code matches the error
+// code install_mod/uninstall_mod returns, or no_safe_order.
+type FitIssue struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// FitPreviewStep is one uninstall_mod or install_mod call of a safe refit.
+type FitPreviewStep struct {
+	Action    string `json:"action"` // uninstall_mod or install_mod
+	ModuleID  string `json:"module_id"`
+	TypeID    string `json:"type_id"`
+	Name      string `json:"name"`
+	Temporary bool   `json:"temporary,omitempty"`
+}
+
+// FitPreviewStats are the ship stats with exactly the planned modules fitted.
+type FitPreviewStats struct {
+	MaxHull                 int `json:"max_hull"`
+	MaxShield               int `json:"max_shield"`
+	ShieldRecharge          int `json:"shield_recharge"`
+	Armor                   int `json:"armor"`
+	Speed                   int `json:"speed"`
+	MaxFuel                 int `json:"max_fuel"`
+	CargoCapacity           int `json:"cargo_capacity"`
+	CargoUsed               int `json:"cargo_used"`
+	CPUCapacity             int `json:"cpu_capacity"`
+	CPUUsed                 int `json:"cpu_used"`
+	PowerCapacity           int `json:"power_capacity"`
+	PowerUsed               int `json:"power_used"`
+	WeaponSlots             int `json:"weapon_slots"`
+	WeaponSlotsUsed         int `json:"weapon_slots_used"`
+	DefenseSlots            int `json:"defense_slots"`
+	DefenseSlotsUsed        int `json:"defense_slots_used"`
+	UtilitySlots            int `json:"utility_slots"`
+	UtilitySlotsUsed        int `json:"utility_slots_used"`
+	EffectiveCrewCapacity   int `json:"effective_crew_capacity"`
+	EffectiveMarineCapacity int `json:"effective_marine_capacity"`
+	Crew                    int `json:"crew"`
+	Marines                 int `json:"marines"`
+}
+
 // ScanResponse wraps the response from scan command.
 type ScanResponse struct {
 	TargetID     string   `json:"target_id"`

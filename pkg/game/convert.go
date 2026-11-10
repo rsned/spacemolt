@@ -126,6 +126,7 @@ func POIFromAPI(ext serverapi.POI) POI {
 		Resources:        resources,
 		BaseID:           ext.BaseID,
 		HasBase:          ext.HasBase,
+		BaseType:         ext.BaseType,
 		BaseName:         ext.BaseName,
 		Online:           ext.Online,
 		Hidden:           ext.Hidden,

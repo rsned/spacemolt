@@ -151,6 +151,10 @@ func (m *mockGameClient) Cloak(ctx context.Context, enable bool) error {
 	m.actionsRecorded = append(m.actionsRecorded, "cloak")
 	return nil
 }
+func (m *mockGameClient) FitPreview(ctx context.Context, modules []string) error {
+	m.actionsRecorded = append(m.actionsRecorded, "fit_preview")
+	return nil
+}
 func (m *mockGameClient) Generator(ctx context.Context, disconnect bool) error {
 	m.actionsRecorded = append(m.actionsRecorded, "generator")
 	return nil

@@ -234,6 +234,17 @@ type ConnectionInfo struct {
 	Distance int    `json:"distance"`
 }
 
+// Values of POI.BaseType (server v0.684.0). The field is empty when HasBase is
+// false.
+const (
+	// BaseTypeStation is a full station (empire or player-built).
+	BaseTypeStation = "station"
+	// BaseTypeOutpost is a faction outpost: members-only storage and fuel.
+	BaseTypeOutpost = "outpost"
+	// BaseTypeMobileBase is a faction mobile base or the Frontier mobile capital.
+	BaseTypeMobileBase = "mobile_base"
+)
+
 // POI represents a Point of Interest in a system (planets, stations, asteroid belts, etc).
 // Server commands that return this struct:
 //   - get_poi (single POI in payload.poi)
@@ -252,6 +263,7 @@ type POI struct {
 	Resources        []POIResource `json:"resources"`
 	BaseID           string        `json:"base_id,omitempty"`
 	HasBase          bool          `json:"has_base,omitempty"`
+	BaseType         string        `json:"base_type,omitempty"` // BaseType* constant; omitted when HasBase is false (v0.684.0)
 	BaseName         string        `json:"base_name,omitempty"`
 	Online           int           `json:"online,omitempty"`
 	Hidden           bool          `json:"hidden,omitempty"`
