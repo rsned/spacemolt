@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/creditreq"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 type fakeGifts struct {
@@ -175,7 +176,7 @@ func TestPay_UnknownUsernameHolds(t *testing.T) {
 
 func TestPay_ThreeSendFailuresHold(t *testing.T) {
 	e := newPayEnv(t)
-	e.gifts.err = errors.New("boom")
+	e.gifts.err = &game.ServerError{Code: "boom", Message: "boom"}
 	e.file(t, "a", payNow.Add(-time.Minute))
 	for i := range 3 {
 		_, held, err := PayCreditRequests(t.Context(), e.d)
@@ -394,7 +395,7 @@ func TestPay_DoubleFaultLatches(t *testing.T) {
 	if !errors.Is(err, ErrPayHalted) || p != 0 || h != 0 || len(e.gifts.payloads) != 1 {
 		t.Fatalf("second run p=%d h=%d err=%v gifts=%d", p, h, err, len(e.gifts.payloads))
 	}
-	if strings.Count(out.String(), "exists; reconcile and delete it") != 1 {
+	if strings.Count(out.String(), "reconcile and delete it") != 1 {
 		t.Fatalf("log = %q", out.String())
 	}
 }
@@ -409,5 +410,48 @@ func TestPay_HaltFileStopsRun(t *testing.T) {
 	_, _, err := PayCreditRequests(t.Context(), e.d)
 	if !errors.Is(err, ErrPayHalted) || len(e.gifts.payloads) != 0 {
 		t.Fatalf("err=%v gifts=%d", err, len(e.gifts.payloads))
+	}
+}
+
+func TestPay_TimeoutHoldsNotRetried(t *testing.T) {
+	e := newPayEnv(t)
+	e.gifts.err = errors.New("timeout waiting for send_gift (request_id=1)")
+	e.file(t, "a", payNow.Add(-time.Hour))
+	e.file(t, "b", payNow.Add(-time.Minute))
+	paid, held, err := PayCreditRequests(t.Context(), e.d)
+	if err == nil || paid != 0 || held != 1 {
+		t.Fatalf("paid=%d held=%d err=%v", paid, held, err)
+	}
+	a, _ := e.record(t, "a")
+	if a.Status != creditreq.StatusHeld || !strings.HasPrefix(a.HeldReason, "send outcome unknown: ") {
+		t.Fatalf("a = %+v", a)
+	}
+	if b, _ := e.record(t, "b"); b.Status != creditreq.StatusPending {
+		t.Fatalf("run did not stop: b = %+v", b)
+	}
+	if countEvents(e.history(t), creditreq.EventHeld) != 1 {
+		t.Fatal("no held entry")
+	}
+	e.gifts.err = nil
+	if _, _, err := PayCreditRequests(t.Context(), e.d); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range e.gifts.payloads {
+		if p["recipient"] == "Josephus Miller" {
+			t.Fatalf("a was gifted after an unknown outcome: %v", e.gifts.payloads)
+		}
+	}
+}
+
+func TestPay_ServerRefusalRetries(t *testing.T) {
+	e := newPayEnv(t)
+	e.gifts.err = &game.ServerError{Code: "insufficient_credits", Message: "no"}
+	e.file(t, "a", payNow.Add(-time.Hour))
+	paid, held, err := PayCreditRequests(t.Context(), e.d)
+	if err != nil || paid != 0 || held != 0 {
+		t.Fatalf("paid=%d held=%d err=%v", paid, held, err)
+	}
+	if a, _ := e.record(t, "a"); a.Status != creditreq.StatusPending || a.Attempts != 1 {
+		t.Fatalf("a = %+v", a)
 	}
 }

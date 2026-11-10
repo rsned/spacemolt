@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/creditreq"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // Banker-side limits for pay_credit_requests.
@@ -61,7 +62,7 @@ type PayDeps struct {
 func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err error) {
 	if d.HaltPath != "" {
 		if _, serr := os.Stat(d.HaltPath); serr == nil {
-			msg := fmt.Sprintf("halted — %s exists; reconcile and delete it", d.HaltPath)
+			msg := fmt.Sprintf("halted — %s exists; add the missing paid line to credit-requests-history.jsonl, reconcile and delete it", d.HaltPath)
 			if d.Out != nil {
 				fmt.Fprintf(d.Out, "pay_credit_requests: %s\n", msg) //nolint:errcheck
 			}
@@ -76,7 +77,7 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 	for _, r := range recs {
 		if r.Status == creditreq.StatusHeld && strings.Contains(r.HeldReason, historyFailedMarker) {
 			if d.Out != nil {
-				fmt.Fprintf(d.Out, "pay_credit_requests: halted — a payment is unrecorded (agent %s); fix the history file and clear the hold\n", r.AgentID) //nolint:errcheck
+				fmt.Fprintf(d.Out, "pay_credit_requests: halted — a payment is unrecorded (agent %s); fix the history file, add the missing paid line to credit-requests-history.jsonl, then clear the hold\n", r.AgentID) //nolint:errcheck
 			}
 			return 0, 0, fmt.Errorf("%w: a payment is unrecorded (agent %s)", ErrPayHalted, r.AgentID)
 		}
@@ -153,6 +154,15 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 
 		gerr := d.Sender.SendGift(ctx, map[string]any{"recipient": username, "credits": creditGiftAmount})
 		if gerr != nil {
+			var se *game.ServerError
+			if !errors.As(gerr, &se) {
+				// Timeout, cancel, disconnect, or anything unrecognised: the
+				// server may have processed the gift. Never retry on doubt.
+				if err := hold(r, username, "send outcome unknown: "+gerr.Error()); err != nil {
+					return paid, held, err
+				}
+				return paid, held, fmt.Errorf("pay_credit_requests: send outcome unknown for %s: %w", r.AgentID, gerr)
+			}
 			attempts := r.Attempts + 1
 			if _, err := d.Queue.Update(r.AgentID, func(rec *creditreq.Record) { rec.Attempts = attempts }); err != nil {
 				return paid, held, err
@@ -176,7 +186,7 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 			// The gift is out and cannot be undone. Park the record as held so
 			// no later run pays it again, and stop: with the history unwritable
 			// the 24h and daily-cap checks can no longer be trusted.
-			reason := fmt.Sprintf("paid %s but %s: %v", now.Format(time.RFC3339), historyFailedMarker, herr)
+			reason := fmt.Sprintf("paid %s but %s: %v — add the missing paid line to credit-requests-history.jsonl before clearing this hold", now.Format(time.RFC3339), historyFailedMarker, herr)
 			_, uerr := d.Queue.Update(r.AgentID, func(rec *creditreq.Record) {
 				rec.Status = creditreq.StatusHeld
 				rec.HeldReason = reason
@@ -221,7 +231,7 @@ func (d *WorkerDispatch) payCreditRequests(ctx context.Context) error {
 		Sender:  d.Client,
 		OwnCredits: func() float64 {
 			if st := d.Client.GetState(); st != nil {
-				return st.Player.Credits
+				return st.GetCredits()
 			}
 			return 0
 		},

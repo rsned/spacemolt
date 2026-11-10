@@ -2,8 +2,10 @@ package creditreq
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -68,18 +70,50 @@ func (h *History) Since(t time.Time) ([]Entry, error) {
 	}
 	defer f.Close() //nolint:errcheck
 	var out []Entry
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for sc.Scan() {
-		var e Entry
-		if json.Unmarshal(sc.Bytes(), &e) != nil {
-			continue
+	r := bufio.NewReaderSize(f, 64*1024)
+	for {
+		line, err := readLine(r)
+		if len(line) > 0 {
+			var e Entry
+			if json.Unmarshal(line, &e) == nil && !e.At.Before(t) {
+				out = append(out, e)
+			}
 		}
-		if !e.At.Before(t) {
-			out = append(out, e)
+		if err == io.EOF {
+			return out, nil
+		}
+		if err != nil {
+			return out, err
 		}
 	}
-	return out, sc.Err()
+}
+
+// maxHistoryLine bounds one history line; longer lines are skipped whole
+// (returned empty) so one corrupt line cannot block every later read.
+const maxHistoryLine = 1 << 20
+
+// readLine returns the next line without its newline, or nil for a line over
+// maxHistoryLine. io.EOF is returned with any final unterminated line.
+func readLine(r *bufio.Reader) ([]byte, error) {
+	var line []byte
+	tooLong := false
+	for {
+		chunk, err := r.ReadSlice('\n')
+		if !tooLong {
+			line = append(line, chunk...)
+			if len(line) > maxHistoryLine {
+				tooLong = true
+				line = nil
+			}
+		}
+		if err == bufio.ErrBufferFull {
+			continue
+		}
+		if tooLong {
+			return nil, err
+		}
+		return bytes.TrimRight(line, "\r\n"), err
+	}
 }
 
 // PaidSince counts the agent's paid entries at or after t.

@@ -3,6 +3,7 @@ package creditreq
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -57,5 +58,29 @@ func TestTotalPaidSince_UTCDay(t *testing.T) {
 	}
 	if n := TotalPaidSince(es, day); n != 20000 {
 		t.Fatalf("TotalPaidSince = %d, want 20000", n)
+	}
+}
+
+func TestHistory_SkipsOverlongLine(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "h.jsonl")
+	h := NewHistory(path)
+	now := time.Now().UTC()
+	if err := h.Append(Entry{At: now, AgentID: "a", Event: EventPaid, Amount: 1}); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.WriteString(strings.Repeat("x", 2<<20) + "\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
+	if err = h.Append(Entry{At: now, AgentID: "b", Event: EventPaid, Amount: 2}); err != nil {
+		t.Fatal(err)
+	}
+	es, err := h.Since(now.Add(-time.Hour))
+	if err != nil || len(es) != 2 || es[0].AgentID != "a" || es[1].AgentID != "b" {
+		t.Fatalf("es=%+v err=%v", es, err)
 	}
 }
