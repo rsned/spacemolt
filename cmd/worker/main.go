@@ -26,6 +26,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/assets"
 	"github.com/rsned/spacemolt/pkg/buildinfo"
+	"github.com/rsned/spacemolt/pkg/creditreq"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/handoff"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -95,6 +96,7 @@ func main() {
 	freightBootstrap := flag.Bool("freight-bootstrap", true, "Enable the probationary loss-leader freight floor for the missions role (default on when --enable-freight; set =false to keep freight on but disable bootstrapping)")
 	secondmentPath := flag.String("secondment-ledger", "", "Shared fleet-loan ledger a hauler writes its pirate-unlock nomination into (empty disables nominating; only the haul fleet sets it)")
 	fleetName := flag.String("fleet-name", "", "This worker's home fleet name, recorded on a secondment nomination so the reconciler knows where to return it")
+	creditRequestsPath := flag.String("credit-requests", filepath.Join("data", "overmind", "credit-requests.json"), "Shared credit-request queue file; a worker that cannot pay for a station refuel files a request the banker pays (empty disables)")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
@@ -463,7 +465,22 @@ func main() {
 		}
 		roleCfg, haveRole := roles[*role]
 		if haveRole {
-			dispatch := worker.NewWorkerDispatch(client, kb, mc, logOut)
+			// wc is the client every worker verb and autopilot sees. Wrapped
+			// only when credit requests are enabled, so a refuel that fails for
+			// lack of credits files a request; otherwise it is the plain client.
+			var wc game.GameClient = client
+			if *creditRequestsPath != "" {
+				creditUsername, _ := worker.UsernameFor("", *agentID) // empty when unreadable
+				wc = &worker.CreditRequestingClient{
+					GameClient: client,
+					Queue:      creditreq.NewQueue(*creditRequestsPath),
+					History:    creditreq.NewHistory(filepath.Join(filepath.Dir(*creditRequestsPath), "credit-requests-history.jsonl")),
+					AgentID:    *agentID,
+					Username:   creditUsername,
+					Out:        logOut,
+				}
+			}
+			dispatch := worker.NewWorkerDispatch(wc, kb, mc, logOut)
 			dispatch.ConsignOffered = worker.ConsignOfferItems(consignOffers)
 			dispatch.AgentID = *agentID
 			dispatch.Station = *station
@@ -501,7 +518,7 @@ func main() {
 			var execMu sync.Mutex
 			// One payer for the whole standing session: it announces an unpayable
 			// debt once rather than on every idle pass.
-			debtPayer := worker.NewDebtPayer(client, logOut, filepath.Join("data", "agents"), *agentID)
+			debtPayer := worker.NewDebtPayer(wc, logOut, filepath.Join("data", "agents"), *agentID)
 			// Every task, idle line and behaviour outcome lands in the agent's
 			// task-outcomes.json for the line dashboard's "why".
 			outLog := outcomes.New(filepath.Join("data", "agents", *agentID))
@@ -511,7 +528,7 @@ func main() {
 					Outcomes:   outLog,
 					Runner:     dispatch,
 					Scheduler:  sched,
-					Client:     client,
+					Client:     wc,
 					ExecMu:     &execMu,
 					Paused:     paused.Load,
 					Draining:   draining.Load,
@@ -572,7 +589,7 @@ func main() {
 				}
 				if len(consignRules) > 0 {
 					deps.Consign = func(c context.Context) {
-						n, cerr := worker.Consign(c, client, consignRules,
+						n, cerr := worker.Consign(c, wc, consignRules,
 							func(id string) (string, error) { return worker.UsernameFor("", id) })
 						// cerr carries refused gifts (with the server's reason)
 						// and unresolvable recipients; either way goods would
@@ -601,7 +618,7 @@ func main() {
 							logger.Printf("consign offer: read handoff queue: %v", oerr)
 							return
 						}
-						rerr := worker.ReportConsignStock(c, client, mc, *agentID, consignOffers, owed)
+						rerr := worker.ReportConsignStock(c, wc, mc, *agentID, consignOffers, owed)
 						outLog.Record("behaviour:consign_offer", "consign_offer", rerr, time.Now())
 						if rerr != nil {
 							logger.Printf("consign offer: %v", rerr)
@@ -610,7 +627,7 @@ func main() {
 				}
 				if len(factionPullItems) > 0 {
 					deps.FactionPull = func(c context.Context) {
-						_, perr := worker.FactionPull(c, client, factionPullItems, logOut)
+						_, perr := worker.FactionPull(c, wc, factionPullItems, logOut)
 						outLog.Record("behaviour:faction_pull", "faction_pull", perr, time.Now())
 						if perr != nil {
 							logger.Printf("faction_pull: %v", perr)
@@ -627,7 +644,7 @@ func main() {
 						logger.Printf("shopkeep disabled: %v", lerr)
 					} else {
 						deps.Shopkeep = func(c context.Context) {
-							_, _, serr := worker.Shopkeep(c, client, shopRules, shopState, worker.ShopOptions{}, logOut)
+							_, _, serr := worker.Shopkeep(c, wc, shopRules, shopState, worker.ShopOptions{}, logOut)
 							outLog.Record("behaviour:shopkeep", "shopkeep", serr, time.Now())
 							if serr != nil {
 								logger.Printf("shopkeep: %v", serr)
