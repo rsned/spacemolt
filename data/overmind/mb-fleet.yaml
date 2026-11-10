@@ -184,7 +184,7 @@ workers:
   # undock/re-dock thrash a base-id pin causes). Note the station-access ledger
   # did NOT record it: the resident dock path does not feed RecordDock, so
   # station-access.json still lists this station as unknown.
-  - { agent_id: marketbot_019, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d, consign: ["water_ice:trader-7:1000"], shopkeep: ["nitrogen_ice:2:2:99000:600", "iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Hex Wellspring (zosma) 2nd - zosma_ice_belt
+  - { agent_id: marketbot_019, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d, consign: ["nitrogen_ice:trader-7:1000", "water_ice:trader-7:1000"], shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Hex Wellspring (zosma) 2nd - zosma_ice_belt
   # ironhearth CONFIRMED OPEN 2026-09-08 10:36 (scout 015 docked and held);
   # winterhold CONFIRMED OPEN 10:26 (scout 018). All three unflown stations
   # admitted us -- 0 refusals across the wave.
