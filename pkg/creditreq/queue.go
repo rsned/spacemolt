@@ -56,6 +56,9 @@ func NewQueue(path string) *Queue {
 	return &Queue{path: path, now: time.Now}
 }
 
+// Path is the queue file's path.
+func (q *Queue) Path() string { return q.path }
+
 // List returns all records. A missing file is an empty queue.
 func (q *Queue) List() ([]Record, error) {
 	var out []Record

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -26,6 +27,14 @@ const (
 // check share it.
 const historyFailedMarker = "history write failed"
 
+// ErrPaymentUnrecorded marks a gift that went out but could be recorded
+// neither in the history nor as a held queue record, so nothing stops a repeat.
+var ErrPaymentUnrecorded = errors.New("pay_credit_requests: a payment is unrecorded")
+
+// ErrPayHalted is returned by a run that refused to pay because an earlier
+// payment is unrecorded (a held marker record or the halt file).
+var ErrPayHalted = errors.New("pay_credit_requests: halted")
+
 // GiftSender is the slice of game.GameClient the banker needs.
 type GiftSender interface {
 	SendGift(ctx context.Context, payload map[string]any) error
@@ -40,6 +49,9 @@ type PayDeps struct {
 	Usernames  func(agentID string) string
 	Now        func() time.Time
 	Out        io.Writer
+	// HaltPath is a durable sentinel written on an unrecorded payment; while
+	// it exists no run pays. Empty disables it.
+	HaltPath string
 }
 
 // PayCreditRequests pays pending credit requests oldest first, subject to the
@@ -47,6 +59,15 @@ type PayDeps struct {
 // A payment is written to the history BEFORE the record leaves the queue, so a
 // crash between the two can never cause a second gift (the 24h rule sees it).
 func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err error) {
+	if d.HaltPath != "" {
+		if _, serr := os.Stat(d.HaltPath); serr == nil {
+			msg := fmt.Sprintf("halted — %s exists; reconcile and delete it", d.HaltPath)
+			if d.Out != nil {
+				fmt.Fprintf(d.Out, "pay_credit_requests: %s\n", msg) //nolint:errcheck
+			}
+			return 0, 0, fmt.Errorf("%w: %s", ErrPayHalted, msg)
+		}
+	}
 	recs, err := d.Queue.List()
 	if err != nil {
 		return 0, 0, err
@@ -57,7 +78,7 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 			if d.Out != nil {
 				fmt.Fprintf(d.Out, "pay_credit_requests: halted — a payment is unrecorded (agent %s); fix the history file and clear the hold\n", r.AgentID) //nolint:errcheck
 			}
-			return 0, 0, nil
+			return 0, 0, fmt.Errorf("%w: a payment is unrecorded (agent %s)", ErrPayHalted, r.AgentID)
 		}
 		if r.Status == creditreq.StatusPending {
 			pending = append(pending, r)
@@ -165,7 +186,8 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 			logf("pay_credit_requests: %s (%s): %s", r.AgentID, username, reason)
 			if uerr != nil {
 				logf("pay_credit_requests: %s (%s): could not hold the record either: %v", r.AgentID, username, uerr)
-				return paid, held, errors.Join(herr, uerr)
+				d.writeHaltFile(logf, r.AgentID, username, now)
+				return paid, held, fmt.Errorf("%w: %w", ErrPaymentUnrecorded, errors.Join(herr, uerr))
 			}
 			held++
 			return paid, held, herr
@@ -185,6 +207,10 @@ func (d *WorkerDispatch) payCreditRequests(ctx context.Context) error {
 	if d.CreditQueue == nil || d.CreditHistory == nil {
 		return errors.New("pay_credit_requests: credit requests are not enabled (--credit-requests)")
 	}
+	if d.creditPayHalted {
+		fmt.Fprintln(d.Out, "pay_credit_requests: refusing — an earlier payment is unrecorded; restart the worker after reconciling") //nolint:errcheck
+		return fmt.Errorf("%w: latched in this process", ErrPayHalted)
+	}
 	names, nerr := d.loadCreditUsernames(ctx)
 	if nerr != nil {
 		fmt.Fprintf(d.Out, "pay_credit_requests: username lookup failed: %v\n", nerr) //nolint:errcheck
@@ -202,7 +228,11 @@ func (d *WorkerDispatch) payCreditRequests(ctx context.Context) error {
 		Usernames: func(id string) string { return names[id] },
 		Now:       time.Now,
 		Out:       d.Out,
+		HaltPath:  d.CreditQueue.Path() + ".halt",
 	})
+	if errors.Is(err, ErrPaymentUnrecorded) {
+		d.creditPayHalted = true
+	}
 	fmt.Fprintf(d.Out, "pay_credit_requests: paid %d, held %d\n", paid, held) //nolint:errcheck
 	return err
 }
@@ -228,4 +258,15 @@ func (d *WorkerDispatch) loadCreditUsernames(ctx context.Context) (map[string]st
 		out[id] = user
 	}
 	return out, rows.Err()
+}
+
+// writeHaltFile best-effort records an unrecorded payment in the sentinel file.
+func (d PayDeps) writeHaltFile(logf func(string, ...any), agentID, username string, at time.Time) {
+	if d.HaltPath == "" {
+		return
+	}
+	body := fmt.Sprintf("agent_id=%s\nusername=%s\nat=%s\n", agentID, username, at.Format(time.RFC3339))
+	if err := os.WriteFile(d.HaltPath, []byte(body), 0o644); err != nil {
+		logf("pay_credit_requests: could not write halt file %s: %v", d.HaltPath, err)
+	}
 }

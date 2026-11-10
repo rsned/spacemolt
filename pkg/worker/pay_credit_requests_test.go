@@ -272,7 +272,7 @@ func TestPay_HistoryAppendFailureHoldsAndStops(t *testing.T) {
 	// b is not gifted either, and the halt is logged once.
 	out.Reset()
 	rp, rh, rerr := PayCreditRequests(t.Context(), e.d)
-	if rerr != nil || rp != 0 || rh != 0 || len(e.gifts.payloads) != 1 {
+	if !errors.Is(rerr, ErrPayHalted) || rp != 0 || rh != 0 || len(e.gifts.payloads) != 1 {
 		t.Fatalf("re-run paid=%d held=%d err=%v gifts=%d", rp, rh, rerr, len(e.gifts.payloads))
 	}
 	if n := strings.Count(out.String(), "halted"); n != 1 {
@@ -364,5 +364,50 @@ func TestPay_LowBalanceLogsOnce(t *testing.T) {
 	}
 	if n := strings.Count(out.String(), "floor"); n != 1 {
 		t.Fatalf("floor lines = %d", n)
+	}
+}
+
+func TestPay_DoubleFaultLatches(t *testing.T) {
+	e := newPayEnv(t)
+	hdir, qdir := filepath.Join(e.dir, "h"), filepath.Join(e.dir, "q")
+	e.d.HaltPath = filepath.Join(e.dir, "halt")
+	e.file(t, "a", payNow.Add(-time.Hour))
+	if err := os.MkdirAll(hdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	skipIfPermsNotEnforced(t, hdir)
+	e.gifts.after = func() { _ = os.Chmod(hdir, 0o555); _ = os.Chmod(qdir, 0o555) }
+	t.Cleanup(func() { _ = os.Chmod(hdir, 0o755); _ = os.Chmod(qdir, 0o755) })
+
+	_, _, err := PayCreditRequests(t.Context(), e.d)
+	if !errors.Is(err, ErrPaymentUnrecorded) {
+		t.Fatalf("err = %v", err)
+	}
+	if _, serr := os.Stat(e.d.HaltPath); serr != nil {
+		t.Fatalf("halt file: %v", serr)
+	}
+	_ = os.Chmod(qdir, 0o755) // queue back, history still broken
+	e.file(t, "b", payNow)
+	var out bytes.Buffer
+	e.d.Out = &out
+	p, h, err := PayCreditRequests(t.Context(), e.d)
+	if !errors.Is(err, ErrPayHalted) || p != 0 || h != 0 || len(e.gifts.payloads) != 1 {
+		t.Fatalf("second run p=%d h=%d err=%v gifts=%d", p, h, err, len(e.gifts.payloads))
+	}
+	if strings.Count(out.String(), "exists; reconcile and delete it") != 1 {
+		t.Fatalf("log = %q", out.String())
+	}
+}
+
+func TestPay_HaltFileStopsRun(t *testing.T) {
+	e := newPayEnv(t)
+	e.d.HaltPath = filepath.Join(e.dir, "halt")
+	if err := os.WriteFile(e.d.HaltPath, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	e.file(t, "a", payNow)
+	_, _, err := PayCreditRequests(t.Context(), e.d)
+	if !errors.Is(err, ErrPayHalted) || len(e.gifts.payloads) != 0 {
+		t.Fatalf("err=%v gifts=%d", err, len(e.gifts.payloads))
 	}
 }

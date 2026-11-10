@@ -44,10 +44,12 @@ type WorkerDispatch struct {
 	// (--credit-requests). pay_credit_requests needs both; nil errors out.
 	CreditQueue   *creditreq.Queue
 	CreditHistory *creditreq.History
-	Out           io.Writer
-	AgentID       string // claim owner for opportunity-claiming roles (e.g. hauler)
-	Station       string // home base id: pins the assist and missionrunner roles
-	Role          string // --role; fit_drones keeps the harvester a role depends on
+	// creditPayHalted latches after an unrecorded payment; only a restart clears it.
+	creditPayHalted bool
+	Out             io.Writer
+	AgentID         string // claim owner for opportunity-claiming roles (e.g. hauler)
+	Station         string // home base id: pins the assist and missionrunner roles
+	Role            string // --role; fit_drones keeps the harvester a role depends on
 	// TourRecipientSystem is a test seam for deliver_tour's location check.
 	// Nil reads the fleet status files.
 	TourRecipientSystem func(agent string) (string, error)
