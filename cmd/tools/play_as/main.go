@@ -5498,6 +5498,9 @@ func formatMissions(raw []byte) string {
 			stars := strings.Repeat("★", m.Difficulty)
 			emptyStars := strings.Repeat("☆", 10-m.Difficulty)
 			fmt.Fprintf(&b, "Difficulty:  %s%s%s %d/10\n", stars, emptyStars, "", m.Difficulty)
+			if m.ChainNext != "" {
+				fmt.Fprintf(&b, "Chain next:  %s\n", m.ChainNext)
+			}
 
 			// Objectives — rendered as an unchecked checklist since these are
 			// templates, not yet accepted. formatActiveMissions adds ✓/progress

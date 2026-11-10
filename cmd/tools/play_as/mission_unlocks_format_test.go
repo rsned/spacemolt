@@ -57,3 +57,12 @@ func TestCaptureMissionCompletion_KeepsUnlocks(t *testing.T) {
 		t.Fatalf("ledger dropped unlocks: %s", b)
 	}
 }
+
+func TestFormatMissions_ShowsChainNext(t *testing.T) {
+	raw := `{"missions":[{"chain_next":"parallel_installations","difficulty":6,"mission_id":"observation_points",
+"template_id":"observation_points","title":"Observation Points","type":"exploration","rewards":{"credits":10000}}]}`
+	got := formatMissions([]byte(raw))
+	if !strings.Contains(got, "Chain next:  parallel_installations") {
+		t.Fatalf("missing chain_next in:\n%s", got)
+	}
+}
