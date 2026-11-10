@@ -389,6 +389,7 @@ func GetPOI(ctx context.Context, client game.GameClient) (game.POI, error) {
 		Position:         game.Position{X: p.Position.X, Y: p.Position.Y},
 		BaseID:           p.BaseID,
 		HasBase:          p.HasBase,
+		BaseType:         p.BaseType,
 		BaseName:         p.BaseName,
 		Online:           p.Online,
 		Hidden:           p.Hidden,
@@ -508,6 +509,7 @@ func GetLocationPOI(ctx context.Context, client game.GameClient) (game.POI, erro
 		poi.Position = sp.Position
 		poi.BaseID = sp.BaseID
 		poi.HasBase = sp.HasBase
+		poi.BaseType = sp.BaseType
 		poi.BaseName = sp.BaseName
 		poi.Hidden = sp.Hidden
 		poi.RevealDifficulty = sp.RevealDifficulty

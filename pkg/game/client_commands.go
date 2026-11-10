@@ -134,6 +134,26 @@ func (c *Client) Generator(ctx context.Context, disconnect bool) error {
 	return err
 }
 
+// FitPreview asks the server to evaluate a planned module fit for the active
+// ship without changing anything (read-only, works anywhere). modules is the
+// complete planned fit, one module type ID per fitted module. The reply
+// (serverapi.FitPreviewResponse) is cached as raw JSON under "fit_preview".
+func (c *Client) FitPreview(ctx context.Context, modules []string) error {
+	if modules == nil {
+		modules = []string{}
+	}
+	msg := protocol.Message{
+		Type:      "fit_preview",
+		Payload:   map[string]any{"modules": modules},
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return err
+}
+
 // ScanTarget scans a specific target player.
 // Note: the server command type is "scan" (same as Scan), not "scan_target".
 func (c *Client) ScanTarget(ctx context.Context, targetID string) error {

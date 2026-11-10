@@ -94,3 +94,21 @@ func TestShip_DecodesCombatAndCustodyFields(t *testing.T) {
 		t.Errorf("battle_self_destruct = %+v", s.BattleSelfDestruct)
 	}
 }
+
+func TestShip_DecodesFieldJobs(t *testing.T) {
+	raw := `{"id":"s1","field_jobs":[{"id":"j1","recipe_id":"r1","runs":3,"runs_remaining":2,
+		"progress":0.5,"escrow":[{"item_id":"iron_ore","quantity":10,"size":1}],
+		"queued_tick":99,"initiated_by":"pilot"}]}`
+	var s Ship
+	if err := json.Unmarshal([]byte(raw), &s); err != nil {
+		t.Fatal(err)
+	}
+	if len(s.FieldJobs) != 1 {
+		t.Fatalf("field_jobs = %+v", s.FieldJobs)
+	}
+	j := s.FieldJobs[0]
+	if j.ID != "j1" || j.RunsRemaining != 2 || j.Progress != 0.5 || j.QueuedTick != 99 ||
+		j.InitiatedBy != "pilot" || len(j.Escrow) != 1 || j.Escrow[0].Quantity != 10 {
+		t.Errorf("job = %+v", j)
+	}
+}

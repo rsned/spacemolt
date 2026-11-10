@@ -119,6 +119,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	// Combat and scanning
 	"cloak":           reflect.TypeOf(serverapi.CloakResponse{}),
 	"generator":       reflect.TypeOf(serverapi.GeneratorResponse{}),
+	"fit_preview":     reflect.TypeOf(serverapi.FitPreviewResponse{}),
 	"scan":            reflect.TypeOf(serverapi.ScanResponse{}),
 	"battle":          reflect.TypeOf(serverapi.BattleResponse{}),
 	"arena":           reflect.TypeOf(serverapi.ArenaResponse{}),

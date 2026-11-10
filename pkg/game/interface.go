@@ -39,6 +39,9 @@ type GameClient interface {
 	// Generator links (disconnect=false) or unlinks the docked ship's field
 	// generator to the station power grid.
 	Generator(ctx context.Context, disconnect bool) error
+	// FitPreview is a read-only check of a planned module fit; the reply is
+	// cached as raw JSON "fit_preview".
+	FitPreview(ctx context.Context, modules []string) error
 	Battle(ctx context.Context, action string, payload map[string]any) error
 	GetBattleStatus(ctx context.Context) error
 	Reload(ctx context.Context, weaponInstanceID, ammoItemID string) error

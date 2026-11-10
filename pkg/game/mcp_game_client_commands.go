@@ -304,6 +304,22 @@ func (m *MCPGameClient) Generator(ctx context.Context, disconnect bool) error {
 	return m.updateStateFromResult(result)
 }
 
+func (m *MCPGameClient) FitPreview(ctx context.Context, modules []string) error {
+	if modules == nil {
+		modules = []string{}
+	}
+	result, err := m.callTool(ctx, "fit_preview", map[string]any{"modules": modules})
+	if err != nil {
+		return err
+	}
+	if text, parseErr := parseToolResultText(result); parseErr == nil {
+		m.rawJSONMu.Lock()
+		m.latestRawJSON["fit_preview"] = []byte(text)
+		m.rawJSONMu.Unlock()
+	}
+	return m.updateStateFromResult(result)
+}
+
 // --- Commerce ---
 
 func (m *MCPGameClient) Sell(ctx context.Context, itemID string, quantity float64) error {

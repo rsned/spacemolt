@@ -270,6 +270,10 @@ type Ship struct {
 	ArmorMeltPct            float64 `json:"armor_melt_pct,omitempty"`
 	ArmorMeltTicksRemaining int     `json:"armor_melt_ticks_remaining,omitempty"`
 
+	// FieldJobs are the jobs queued on a Field Workshop hull, in run order.
+	// Their escrowed inputs take hold space but are not in Cargo.
+	FieldJobs []FieldJob `json:"field_jobs,omitempty"`
+
 	// BattleSelfDestruct is the durable in-battle self-destruct countdown
 	// (v0.572.0 board stance counterplay); nil when not armed.
 	BattleSelfDestruct *BattleSelfDestructState `json:"battle_self_destruct,omitempty"`
@@ -283,6 +287,18 @@ type Ship struct {
 	InFactionGarage      string `json:"in_faction_garage,omitempty"`
 	LoadoutVersion       int    `json:"loadout_version,omitempty"`
 	SingletonInstanceKey string `json:"singleton_instance_key,omitempty"`
+}
+
+// FieldJob is a craft job queued on a Field Workshop (spec schema FieldJob).
+type FieldJob struct {
+	ID            string      `json:"id"` // craft job_id=<id> cancels it
+	RecipeID      string      `json:"recipe_id"`
+	Runs          int         `json:"runs"`
+	RunsRemaining int         `json:"runs_remaining"`
+	Progress      float64     `json:"progress"` // fraction of the current run done, in [0,1)
+	Escrow        []CargoItem `json:"escrow"`
+	QueuedTick    int64       `json:"queued_tick"`
+	InitiatedBy   string      `json:"initiated_by"`
 }
 
 // BattleSelfDestructState is a ship's armed self-destruct countdown inside a
@@ -363,6 +379,7 @@ type POI struct {
 	Resources        []POIResource `json:"resources"`
 	BaseID           string        `json:"base_id,omitempty"`
 	HasBase          bool          `json:"has_base,omitempty"`
+	BaseType         string        `json:"base_type,omitempty"` // station, outpost or mobile_base (v0.684.0)
 	BaseName         string        `json:"base_name,omitempty"`
 	Online           int           `json:"online,omitempty"`
 	Hidden           bool          `json:"hidden,omitempty"`
@@ -411,6 +428,7 @@ type CurrentPOI struct {
 	Name     string   `json:"name"`
 	Type     string   `json:"type"`
 	HasBase  bool     `json:"has_base"`
+	BaseType string   `json:"base_type,omitempty"` // station, outpost or mobile_base (v0.684.0)
 	BaseID   string   `json:"base_id,omitempty"`
 	BaseName string   `json:"base_name,omitempty"`
 	Online   int      `json:"online"`
