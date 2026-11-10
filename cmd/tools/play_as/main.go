@@ -5580,7 +5580,15 @@ func formatActiveMissions(raw []byte) string {
 		Required    int    `json:"required"`
 		// SystemName is the destination system for travel/dock/deliver
 		// objectives; appended to the line so the operator knows where to go.
-		SystemName string `json:"system_name"`
+		SystemName     string `json:"system_name"`
+		Type           string `json:"type"`
+		TargetBaseName string `json:"target_base_name"`
+		ItemID         string `json:"item_id"`
+		ItemName       string `json:"item_name"`
+		// InCargo/InStorage are pointers so "0 held" is distinguishable from
+		// "server did not say".
+		InCargo   *int `json:"in_cargo"`
+		InStorage *int `json:"in_storage"`
 	}
 	type activeMission struct {
 		MissionID   string `json:"mission_id"`
@@ -5595,7 +5603,18 @@ func formatActiveMissions(raw []byte) string {
 		ExpiresInTicks  int               `json:"expires_in_ticks"`
 		AcceptedAt      string            `json:"accepted_at"`
 		Objectives      []activeObjective `json:"objectives"`
-		Rewards         *struct {
+		Giver           struct {
+			Name  string `json:"name"`
+			Title string `json:"title"`
+		} `json:"giver"`
+		IssuingBase          string            `json:"issuing_base"`
+		IssuingSystemName    string            `json:"issuing_system_name"`
+		SequentialObjectives bool              `json:"sequential_objectives"`
+		RestitutionRelief    int64             `json:"restitution_relief"`
+		Community            bool              `json:"community"`
+		CommunityPercent     float64           `json:"community_percent"`
+		CommunityProgress    map[string]string `json:"community_progress"`
+		Rewards              *struct {
 			Credits    int            `json:"credits"`
 			Reputation int            `json:"reputation,omitempty"`
 			PirateRep  int            `json:"pirate_rep,omitempty"`
@@ -5673,6 +5692,39 @@ func formatActiveMissions(raw []byte) string {
 				}
 				fmt.Fprintf(&b, "%s\n", line)
 			}
+			if m.Giver.Name != "" {
+				line := "Giver:       " + m.Giver.Name
+				if m.Giver.Title != "" {
+					line += " — " + m.Giver.Title
+				}
+				fmt.Fprintf(&b, "%s\n", line)
+			}
+			if m.IssuingBase != "" {
+				line := "Issued at:   " + m.IssuingBase
+				if m.IssuingSystemName != "" {
+					line += " (" + m.IssuingSystemName + ")"
+				}
+				fmt.Fprintf(&b, "%s\n", line)
+			}
+			if m.RestitutionRelief > 0 {
+				fmt.Fprintf(&b, "Restitution: up to %s cr debt relief\n", commaInt(m.RestitutionRelief))
+			}
+			if m.Community {
+				line := fmt.Sprintf("Community:   %.0f%%", m.CommunityPercent)
+				if len(m.CommunityProgress) > 0 {
+					items := make([]string, 0, len(m.CommunityProgress))
+					for id := range m.CommunityProgress {
+						items = append(items, id)
+					}
+					slices.Sort(items)
+					parts := make([]string, 0, len(items))
+					for _, id := range items {
+						parts = append(parts, id+" "+m.CommunityProgress[id])
+					}
+					line += " — " + strings.Join(parts, ", ")
+				}
+				fmt.Fprintf(&b, "%s\n", line)
+			}
 
 			desc := m.Description
 			if !missionsShowFull && len(desc) > 200 {
@@ -5687,7 +5739,11 @@ func formatActiveMissions(raw []byte) string {
 			fmt.Fprintf(&b, "Difficulty:  %s%s %d/10\n", stars, emptyStars, m.Difficulty)
 
 			if len(m.Objectives) > 0 {
-				fmt.Fprintf(&b, "Objectives:\n")
+				if m.SequentialObjectives {
+					fmt.Fprintf(&b, "Objectives (in order):\n")
+				} else {
+					fmt.Fprintf(&b, "Objectives:\n")
+				}
 				for _, o := range m.Objectives {
 					mark := "☐"
 					if o.Completed {
@@ -5700,10 +5756,21 @@ func formatActiveMissions(raw []byte) string {
 					if o.SystemName != "" && !strings.Contains(line, o.SystemName) {
 						line = fmt.Sprintf("%s in %s", line, o.SystemName)
 					}
+					// The prose ("calibration circuits") rarely names the item;
+					// show the item_id the market and storage commands take.
+					if o.ItemID != "" && !strings.Contains(line, o.ItemID) {
+						line = fmt.Sprintf("%s (%s)", line, o.ItemID)
+					}
 					if o.Required > 0 && !o.Completed {
 						line = fmt.Sprintf("%s [%d/%d]", line, o.Current, o.Required)
 					}
+					if o.Type != "" {
+						line = "[" + o.Type + "] " + line
+					}
 					fmt.Fprintf(&b, "  %s %s\n", mark, line)
+					if detail := objectiveDetail(o.TargetBaseName, o.SystemName, o.InCargo, o.InStorage); detail != "" {
+						fmt.Fprintf(&b, "      → %s\n", detail)
+					}
 				}
 			}
 
