@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/assets"
+	"github.com/rsned/spacemolt/pkg/creditreq"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/handoff"
@@ -38,11 +39,15 @@ type WorkerDispatch struct {
 	// Assets is the agent asset + capability ledger (data/assets.db). Nil
 	// disables capture entirely: asset capture is strictly less important than
 	// any paying activity and must never be a new way for a pass to fail.
-	Assets  *assets.Store
-	Out     io.Writer
-	AgentID string // claim owner for opportunity-claiming roles (e.g. hauler)
-	Station string // home base id: pins the assist and missionrunner roles
-	Role    string // --role; fit_drones keeps the harvester a role depends on
+	Assets *assets.Store
+	// CreditQueue and CreditHistory are the shared credit-request channel
+	// (--credit-requests). pay_credit_requests needs both; nil errors out.
+	CreditQueue   *creditreq.Queue
+	CreditHistory *creditreq.History
+	Out           io.Writer
+	AgentID       string // claim owner for opportunity-claiming roles (e.g. hauler)
+	Station       string // home base id: pins the assist and missionrunner roles
+	Role          string // --role; fit_drones keeps the harvester a role depends on
 	// TourRecipientSystem is a test seam for deliver_tour's location check.
 	// Nil reads the fleet status files.
 	TourRecipientSystem func(agent string) (string, error)
@@ -230,7 +235,7 @@ var supported = map[string]bool{
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
 	"capture_storage": true, "capture_faction": true, "capture_cargo": true,
 	"capture_action_log": true, "capture_wildlife_attacks": true, "capture_tax": true,
-	"capture_citizenship": true, "capture_base": true,
+	"capture_citizenship": true, "capture_base": true, "pay_credit_requests": true,
 	"capture_facilities": true, "capture_station_passengers": true,
 	"get_status": true, "get_system": true, "get_cargo": true,
 	// get_system_agents stays in the vocabulary although it is deprecated and
@@ -740,6 +745,8 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		// The docked station's get_base, appended: defense, power, life
 		// support, fuel and tourism revenue over time.
 		return assets.CaptureBase(ctx, d.Client, d.Assets, d.AgentID, time.Now())
+	case "pay_credit_requests":
+		return d.payCreditRequests(ctx)
 	case "capture_facilities":
 		// The docked station's `facility list`: production queues, maintenance.
 		return assets.CaptureFacilities(ctx, d.Client, d.Assets, d.AgentID, time.Now())

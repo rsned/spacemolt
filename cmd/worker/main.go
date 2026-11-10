@@ -469,12 +469,16 @@ func main() {
 			// only when credit requests are enabled, so a refuel that fails for
 			// lack of credits files a request; otherwise it is the plain client.
 			var wc game.GameClient = client
+			var creditQueue *creditreq.Queue
+			var creditHistory *creditreq.History
 			if *creditRequestsPath != "" {
+				creditQueue = creditreq.NewQueue(*creditRequestsPath)
+				creditHistory = creditreq.NewHistory(filepath.Join(filepath.Dir(*creditRequestsPath), "credit-requests-history.jsonl"))
 				creditUsername, _ := worker.UsernameFor("", *agentID) // empty when unreadable
 				wc = &worker.CreditRequestingClient{
 					GameClient: client,
-					Queue:      creditreq.NewQueue(*creditRequestsPath),
-					History:    creditreq.NewHistory(filepath.Join(filepath.Dir(*creditRequestsPath), "credit-requests-history.jsonl")),
+					Queue:      creditQueue,
+					History:    creditHistory,
 					AgentID:    *agentID,
 					Username:   creditUsername,
 					Out:        logOut,
@@ -486,6 +490,8 @@ func main() {
 			dispatch.Station = *station
 			dispatch.Role = *role
 			dispatch.Assets = assetStore
+			dispatch.CreditQueue = creditQueue
+			dispatch.CreditHistory = creditHistory
 			dispatch.SetActivitySink(&activity)
 			dispatch.Rescue = rescue.NewQueue(*rescueQueuePath)
 			if *missionCategories != "" {
