@@ -268,17 +268,15 @@ func TestPay_HistoryAppendFailureHoldsAndStops(t *testing.T) {
 	if !strings.Contains(out.String(), "Josephus Miller") {
 		t.Fatalf("log lacks username: %q", out.String())
 	}
-	// Re-run (history still broken): a is held, so it is never gifted again.
-	// b is still pending and is paid then, hence 2 gifts in total.
-	_, _, _ = PayCreditRequests(t.Context(), e.d)
-	n := 0
-	for _, p := range e.gifts.payloads {
-		if p["recipient"] == "Josephus Miller" {
-			n++
-		}
+	// Re-run (history still broken): the unrecorded payment halts the run, so
+	// b is not gifted either, and the halt is logged once.
+	out.Reset()
+	rp, rh, rerr := PayCreditRequests(t.Context(), e.d)
+	if rerr != nil || rp != 0 || rh != 0 || len(e.gifts.payloads) != 1 {
+		t.Fatalf("re-run paid=%d held=%d err=%v gifts=%d", rp, rh, rerr, len(e.gifts.payloads))
 	}
-	if n != 1 {
-		t.Fatalf("a gifted %d times: %v", n, e.gifts.payloads)
+	if n := strings.Count(out.String(), "halted"); n != 1 {
+		t.Fatalf("halt lines = %d: %q", n, out.String())
 	}
 }
 

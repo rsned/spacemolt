@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/creditreq"
@@ -19,6 +20,11 @@ const (
 	creditPerAgentSpan  = 24 * time.Hour
 	creditMaxSendErrors = 3
 )
+
+// historyFailedMarker is in the HeldReason of a record whose gift went out but
+// whose history entry could not be written. The hold and the run-level halt
+// check share it.
+const historyFailedMarker = "history write failed"
 
 // GiftSender is the slice of game.GameClient the banker needs.
 type GiftSender interface {
@@ -47,6 +53,12 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 	}
 	var pending []creditreq.Record
 	for _, r := range recs {
+		if r.Status == creditreq.StatusHeld && strings.Contains(r.HeldReason, historyFailedMarker) {
+			if d.Out != nil {
+				fmt.Fprintf(d.Out, "pay_credit_requests: halted — a payment is unrecorded (agent %s); fix the history file and clear the hold\n", r.AgentID) //nolint:errcheck
+			}
+			return 0, 0, nil
+		}
 		if r.Status == creditreq.StatusPending {
 			pending = append(pending, r)
 		}
@@ -143,7 +155,7 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 			// The gift is out and cannot be undone. Park the record as held so
 			// no later run pays it again, and stop: with the history unwritable
 			// the 24h and daily-cap checks can no longer be trusted.
-			reason := fmt.Sprintf("paid %s but history write failed: %v", now.Format(time.RFC3339), herr)
+			reason := fmt.Sprintf("paid %s but %s: %v", now.Format(time.RFC3339), historyFailedMarker, herr)
 			_, uerr := d.Queue.Update(r.AgentID, func(rec *creditreq.Record) {
 				rec.Status = creditreq.StatusHeld
 				rec.HeldReason = reason
