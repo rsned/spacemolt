@@ -87,6 +87,7 @@ type PlayerStats struct {
 	CustomsEvaded           int   `json:"customs_evaded,omitempty"`
 	DamageDealt             int64 `json:"damage_dealt,omitempty"`
 	DamageTaken             int64 `json:"damage_taken,omitempty"`
+	DeathsByHazard          int   `json:"deaths_by_hazard,omitempty"` // v0.687.0
 	DeathsByPirate          int   `json:"deaths_by_pirate,omitempty"`
 	DeathsByPlayer          int   `json:"deaths_by_player,omitempty"`
 	DeathsBySelfDestruct    int   `json:"deaths_by_self_destruct,omitempty"`
@@ -385,6 +386,7 @@ type POI struct {
 	Hidden           bool          `json:"hidden,omitempty"`
 	RevealDifficulty int           `json:"reveal_difficulty,omitempty"`
 	ExpiresAt        string        `json:"expires_at,omitempty"` // ISO-8601 timestamp when POI expires (e.g., wormholes)
+	Hazard           *POIHazard    `json:"hazard,omitempty"`     // v0.687.0 environmental hazard; nil when none
 }
 
 // SystemData holds complete system information.
@@ -424,15 +426,16 @@ type NearbyPlayer struct {
 
 // CurrentPOI represents the current POI with minimal info (from get_system response).
 type CurrentPOI struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Type     string   `json:"type"`
-	HasBase  bool     `json:"has_base"`
-	BaseType string   `json:"base_type,omitempty"` // station, outpost or mobile_base (v0.684.0)
-	BaseID   string   `json:"base_id,omitempty"`
-	BaseName string   `json:"base_name,omitempty"`
-	Online   int      `json:"online"`
-	Position Position `json:"position,omitempty"`
+	ID       string     `json:"id"`
+	Name     string     `json:"name"`
+	Type     string     `json:"type"`
+	HasBase  bool       `json:"has_base"`
+	BaseType string     `json:"base_type,omitempty"` // station, outpost or mobile_base (v0.684.0)
+	BaseID   string     `json:"base_id,omitempty"`
+	BaseName string     `json:"base_name,omitempty"`
+	Online   int        `json:"online"`
+	Position Position   `json:"position,omitempty"`
+	Hazard   *POIHazard `json:"hazard,omitempty"` // v0.687.0 environmental hazard; nil when none
 }
 
 // MapSystem represents a system in the galaxy map (from get_map).
@@ -505,6 +508,9 @@ type BaseCombat struct {
 
 // Base represents a player-owned or NPC base.
 type Base struct {
+	// Gate (v0.687.0) is present only when this outpost is one end of a
+	// player-built jump gate. Kept raw until gate building is automated.
+	Gate              json.RawMessage `json:"gate,omitempty"`
 	ID                string          `json:"id"`
 	Name              string          `json:"name"`
 	Description       string          `json:"description,omitempty"`
@@ -1236,6 +1242,8 @@ type ShipListingDetail struct {
 
 // RevealedPOI represents a POI revealed by a system survey.
 type RevealedPOI struct {
+	// Hazard (v0.687.0) is the POI's environmental hazard; nil when none.
+	Hazard      *POIHazard       `json:"hazard,omitempty"`
 	ID          string           `json:"id"`
 	Name        string           `json:"name"`
 	Type        string           `json:"type"`

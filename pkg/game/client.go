@@ -2907,6 +2907,9 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 		c.logEvent(line)
 
+	case protocol.TypeHazardWarning:
+		c.handleHazardWarning(resp.Payload)
+
 	case protocol.TypeGiftReceived:
 		// A gift has committed to us. Credits are already in the wallet; items
 		// and ships sit in personal storage at base_id, which for a ship can be
@@ -4993,6 +4996,7 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeFactionPeaceAccepted:    {},
 	protocol.TypeDroneAdrift:             {},
 	protocol.TypeFacilityRentWarning:     {},
+	protocol.TypeHazardWarning:           {},
 	protocol.TypeFacilityReclaimed:       {},
 	protocol.TypeGiftReceived:            {},
 	protocol.TypeAchievementUnlocked:     {},

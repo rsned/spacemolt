@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game"
@@ -246,6 +247,11 @@ func (d *WorkerDispatch) mineLoop(ctx context.Context, itemID string, qty int, p
 			progress = func() int { return cargoTotal(d.Client.GetState()) }
 		}
 		before := progress()
+		// Environmental hazards: this loop mines for many ticks without
+		// returning to dispatch, so it carries its own copy of the gate.
+		if gerr := hazardGate(ctx, d.Out, d.Client.GetState(), time.Now(), []string{"mine"}, d.Run); gerr != nil {
+			return fmt.Errorf("mine_qty: at %s: %w", poiLabel, gerr)
+		}
 		if err := d.Client.Mine(ctx); err != nil {
 			return fmt.Errorf("mine_qty: mine at %s: %w", poiLabel, err)
 		}

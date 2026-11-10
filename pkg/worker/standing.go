@@ -476,6 +476,11 @@ func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
 	if err != nil {
 		return err
 	}
+	// Environmental hazards (v0.687.0): leave a POI that is dosing us, and
+	// refuse to fly into or mine at a known deadly one, before the command.
+	if gerr := hazardGate(ctx, deps.Out, st, time.Now(), resolved, deps.Runner.Run); gerr != nil {
+		return gerr
+	}
 	// Bound the command. Without this a reply lost to a disconnect parks the
 	// caller forever inside RequestHandle.Result (a sync.Cond wait that only
 	// the reply or a context cancel releases) while holding ExecMu -- which

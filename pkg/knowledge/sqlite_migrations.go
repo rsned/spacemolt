@@ -482,6 +482,25 @@ func migrations() []Migration {
 				return ensureColumn(tx, "mission_templates", "rewards_pirate_rep", "INTEGER NOT NULL DEFAULT 0")
 			},
 		},
+		{
+			version: 68,
+			name:    "poi_hazards",
+			// v0.687.0 environmental hazards, one per POI, from get_system /
+			// get_poi / survey reads and hazard_warning doses.
+			fn: func(tx *sql.Tx) error {
+				if err := ensureColumn(tx, "pois", "hazard_type", "TEXT NOT NULL DEFAULT ''"); err != nil {
+					return err
+				}
+				if err := ensureColumn(tx, "pois", "hazard_severity", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+					return err
+				}
+				if err := ensureColumn(tx, "pois", "hazard_seen_tick", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+					return err
+				}
+				_, err := tx.Exec(`CREATE INDEX IF NOT EXISTS idx_pois_hazard ON pois(hazard_severity) WHERE hazard_severity > 0`)
+				return err
+			},
+		},
 	}
 }
 

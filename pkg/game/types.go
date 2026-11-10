@@ -137,6 +137,7 @@ type PlayerStats struct {
 	DeathsByPlayer       int `json:"deaths_by_player,omitempty"`
 	DeathsBySelfDestruct int `json:"deaths_by_self_destruct,omitempty"`
 	DeathsByWildlife     int `json:"deaths_by_wildlife,omitempty"`
+	DeathsByHazard       int `json:"deaths_by_hazard,omitempty"` // v0.687.0 environmental hazards
 
 	InsuranceClaimsMade   int   `json:"insurance_claims_made,omitempty"`
 	InsurancePayoutsRecvd int64 `json:"insurance_payouts_received,omitempty"`
@@ -146,7 +147,7 @@ type PlayerStats struct {
 // against ShipsLost: the two disagree in live data because a death does not
 // always destroy a hull.
 func (s PlayerStats) Deaths() int {
-	return s.DeathsByPirate + s.DeathsByPlayer + s.DeathsBySelfDestruct + s.DeathsByWildlife
+	return s.DeathsByPirate + s.DeathsByPlayer + s.DeathsBySelfDestruct + s.DeathsByWildlife + s.DeathsByHazard
 }
 
 // Ship represents the player's ship with all stats, modules, and cargo.
@@ -274,6 +275,8 @@ type POI struct {
 	// destination once known. Both come from get_poi and are zero elsewhere.
 	WormholePredictionNeeded int    `json:"wormhole_prediction_needed,omitempty"`
 	WormholeDestination      string `json:"wormhole_destination,omitempty"`
+	// Hazard (v0.687.0) is the POI's environmental hazard; nil when none.
+	Hazard *serverapi.POIHazard `json:"hazard,omitempty"`
 }
 
 // Position represents 3D coordinates (Z is reserved for future use).
@@ -521,6 +524,11 @@ type State struct {
 	PirateID   string
 	LastDamage float64
 
+	// LastHazardDose is the most recent hazard_warning push (v0.687.0): an
+	// environmental hazard at our POI took a dose of hull. Zero until one
+	// lands. Workers compare its At against "now" to decide whether to leave.
+	LastHazardDose HazardDose
+
 	// Battle system (from get_battle_status / battle responses)
 	InBattle    bool
 	BattleState *BattleState
@@ -695,6 +703,7 @@ func (s *State) Clone() *State {
 		PirateTier:        s.PirateTier,
 		PirateID:          s.PirateID,
 		LastDamage:        s.LastDamage,
+		LastHazardDose:    s.LastHazardDose.clone(),
 		LastBattleID:      s.LastBattleID,
 		SkillXP:           copyStringFloatMap(s.SkillXP),
 		SkillNextLevelXP:  copyStringFloatMap(s.SkillNextLevelXP),

@@ -108,6 +108,9 @@ func SurveyPOIsToKB(resp serverapi.SurveySystemResponse, agentID string, tick in
 			LastUpdatedTick: tick,
 			DetectedBy:      agentID,
 		}
+		if r.Hazard != nil {
+			kbPOI.HazardType, kbPOI.HazardSeverity = r.Hazard.Type, r.Hazard.Severity
+		}
 		for _, res := range r.Resources {
 			kbPOI.Resources = append(kbPOI.Resources, game.POIResource{
 				ResourceID:   res.ResourceID,

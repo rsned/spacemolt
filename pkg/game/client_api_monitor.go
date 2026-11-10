@@ -513,6 +513,15 @@ var eventExpectedFields = map[string]map[string]bool{
 		"tick": true,
 		"jobs": true,
 	},
+	protocol.TypeHazardWarning: {
+		"poi_id":   true,
+		"poi_name": true,
+		"hazard":   true,
+		"hull":     true,
+		"max_hull": true,
+		"dose_pct": true,
+		"message":  true,
+	},
 	protocol.TypePirateWarning: {
 		"pirate_name": true,
 		"pirate_tier": true,

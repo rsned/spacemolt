@@ -10,6 +10,11 @@ import (
 // ignoredCommands are server commands the client intentionally does not support.
 // Every entry MUST carry a justification; adding one is a deliberate, reviewed act.
 var ignoredCommands = map[string]string{
+	// v0.687.0: player-built jump gates (2.5M per end, faction ManageBases)
+	// and archive interaction are not automated yet; play_as reaches both
+	// through the generic command path.
+	"build_gate_site": "v0.687.0 gate building: operator-driven, not automated yet",
+	"interact_poi":    "v0.687.0 archive interaction: not automated yet",
 	// v0.572.0 personnel/prize commands ("Layer B"): typed wrappers are
 	// deliberately deferred until the passive absorption (structs, pushes,
 	// KB tables — committed 2026-08-30) is rolled out to the fleets. Remove

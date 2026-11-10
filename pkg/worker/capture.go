@@ -325,6 +325,9 @@ func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Ba
 			LastUpdatedTick: currentTick(state),
 			DetectedBy:      detectedBy,
 		}
+		if poi.Hazard != nil {
+			kbPOI.HazardType, kbPOI.HazardSeverity = poi.Hazard.Type, poi.Hazard.Severity
+		}
 		if err := kb.RememberPOI(ctx, kbPOI); err != nil {
 			fmt.Printf("  Warning: failed to save POI %s: %v\n", poi.Name, err)
 		} else {
@@ -619,6 +622,9 @@ func KBUpdatePOIData(ctx context.Context, client game.GameClient, kb knowledge.B
 		Resources:                poi.Resources,
 		LastUpdatedTick:          currentTick(state),
 		DetectedBy:               detectedBy,
+	}
+	if poi.Hazard != nil {
+		kbPOI.HazardType, kbPOI.HazardSeverity = poi.Hazard.Type, poi.Hazard.Severity
 	}
 	if kbPOI.SystemID == "" {
 		kbPOI.SystemID = state.System.ID

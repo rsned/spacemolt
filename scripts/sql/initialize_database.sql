@@ -11,7 +11,7 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 9
+-- Migrations applied: 10
 -- Last Regenerated: 2026-11-10
 
 -- ============================================================================
@@ -683,7 +683,7 @@ CREATE TABLE pois (
 	position_x REAL NOT NULL,
 	position_y REAL NOT NULL,
 	base_id TEXT,
-	last_updated_tick INTEGER DEFAULT 0, class TEXT, hidden BOOLEAN NOT NULL DEFAULT 0, reveal_difficulty INTEGER NOT NULL DEFAULT 0, expires_at TEXT, detected_by TEXT, wormhole_prediction_needed INTEGER NOT NULL DEFAULT 0, wormhole_destination TEXT NOT NULL DEFAULT '',
+	last_updated_tick INTEGER DEFAULT 0, class TEXT, hidden BOOLEAN NOT NULL DEFAULT 0, reveal_difficulty INTEGER NOT NULL DEFAULT 0, expires_at TEXT, detected_by TEXT, wormhole_prediction_needed INTEGER NOT NULL DEFAULT 0, wormhole_destination TEXT NOT NULL DEFAULT '', hazard_type TEXT NOT NULL DEFAULT '', hazard_severity INTEGER NOT NULL DEFAULT 0, hazard_seen_tick INTEGER NOT NULL DEFAULT 0,
 	FOREIGN KEY (system_id) REFERENCES systems(id) ON DELETE CASCADE
 );
 
@@ -1268,6 +1268,8 @@ CREATE INDEX idx_players_empire ON players(empire);
 
 CREATE INDEX idx_pois_expires_at ON pois(expires_at);
 
+CREATE INDEX idx_pois_hazard ON pois(hazard_severity) WHERE hazard_severity > 0;
+
 CREATE INDEX idx_pois_system_id ON pois(system_id);
 
 CREATE INDEX idx_public_facilities_recipe ON public_facilities(recipe_id);
@@ -1393,4 +1395,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (64, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (65, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (66, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (67, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (68, datetime('now'));
 

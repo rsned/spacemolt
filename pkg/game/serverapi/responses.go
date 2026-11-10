@@ -1835,6 +1835,9 @@ type TravelResponse struct {
 	// This is the only warning the server gives before a cloaked ambush, so it
 	// must not be dropped: a player hunter killed ten of our ships in 2026-08.
 	UnknownSignature bool `json:"unknown_signature,omitempty"`
+	// POIHazard (v0.687.0) is the environmental hazard at the arrival POI.
+	// A steady hazard doses the ship every tick it stays undocked there.
+	POIHazard *POIHazard `json:"poi_hazard,omitempty"`
 }
 
 // JumpResponse wraps the response from jump command.
@@ -1847,6 +1850,8 @@ type JumpResponse struct {
 	// DestinationName (v0.686.0) is the display name of Destination.
 	DestinationName string `json:"destination_name,omitempty"`
 	IsWormhole      bool   `json:"is_wormhole,omitempty"`
+	// POIHazard (v0.687.0) is the environmental hazard at the arrival POI.
+	POIHazard *POIHazard `json:"poi_hazard,omitempty"`
 }
 
 // JumpedResponse wraps the response from jumped event after jump completes.

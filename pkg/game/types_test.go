@@ -189,6 +189,11 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 		PirateID:     "pirate-001",
 		LastDamage:   25.5,
 		LastBattleID: "13ec2c95ba853a657b00385cf2683d49",
+		LastHazardDose: HazardDose{
+			HazardWarning: serverapi.HazardWarning{POIID: "the_maw", Hazard: &serverapi.POIHazard{Type: "radiation", Severity: 4}, Hull: 50, MaxHull: 200},
+			Tick:          7,
+			At:            time.Unix(1700000000, 0),
+		},
 	}
 
 	clone := original.Clone()

@@ -401,8 +401,8 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 	// hidden / detected_by / last_updated_tick are tick-guarded so an older
 	// (stale or out-of-order) write can't downgrade a fresher one.
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO pois (id, system_id, name, type, class, description, position_x, position_y, hidden, reveal_difficulty, expires_at, last_updated_tick, detected_by, wormhole_prediction_needed, wormhole_destination)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO pois (id, system_id, name, type, class, description, position_x, position_y, hidden, reveal_difficulty, expires_at, last_updated_tick, detected_by, wormhole_prediction_needed, wormhole_destination, hazard_type, hazard_severity, hazard_seen_tick)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? > 0 THEN ? ELSE 0 END)
 		ON CONFLICT(id) DO UPDATE SET
 			system_id = excluded.system_id,
 			name = CASE WHEN excluded.name != '' THEN excluded.name ELSE pois.name END,
@@ -420,11 +420,17 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 			-- carry the hint) must not erase what an earlier read established.
 			wormhole_prediction_needed = CASE WHEN excluded.wormhole_prediction_needed != 0 THEN excluded.wormhole_prediction_needed ELSE pois.wormhole_prediction_needed END,
 			wormhole_destination = CASE WHEN excluded.wormhole_destination != '' THEN excluded.wormhole_destination ELSE pois.wormhole_destination END,
+			-- A hazard is only ever set by a read that carries one: most read
+			-- paths omit the field, so absence is not evidence of safety.
+			hazard_type = CASE WHEN excluded.hazard_severity > 0 THEN excluded.hazard_type ELSE pois.hazard_type END,
+			hazard_severity = CASE WHEN excluded.hazard_severity > 0 THEN excluded.hazard_severity ELSE pois.hazard_severity END,
+			hazard_seen_tick = CASE WHEN excluded.hazard_severity > 0 THEN MAX(pois.hazard_seen_tick, excluded.hazard_seen_tick) ELSE pois.hazard_seen_tick END,
 			last_updated_tick = MAX(pois.last_updated_tick, excluded.last_updated_tick)
 	`, poi.ID, poi.SystemID, poi.Name, poi.Type, sql.NullString{String: poi.Class, Valid: poi.Class != ""}, poi.Description,
 		poi.Position.X, poi.Position.Y, poi.Hidden, poi.RevealDifficulty, sql.NullString{String: poi.ExpiresAt, Valid: poi.ExpiresAt != ""}, poi.LastUpdatedTick,
 		sql.NullString{String: poi.DetectedBy, Valid: poi.DetectedBy != ""},
-		poi.WormholePredictionNeeded, poi.WormholeDestination)
+		poi.WormholePredictionNeeded, poi.WormholeDestination,
+		poi.HazardType, poi.HazardSeverity, poi.HazardSeverity, poi.LastUpdatedTick)
 	if err != nil {
 		return fmt.Errorf("failed to upsert POI: %w", err)
 	}

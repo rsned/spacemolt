@@ -87,6 +87,10 @@ const (
 
 	// Facility events
 	TypeFacilityRentWarning = "facility_rent_warning"
+	// TypeHazardWarning (v0.687.0) is an environmental hazard at the ship's
+	// POI dosing the hull. Steady hazards repeat every tick the ship stays
+	// undocked there; an emptied hull is a lost ship.
+	TypeHazardWarning = "hazard_warning"
 	// TypeFacilityReclaimed is the station taking a facility back for unpaid
 	// rent. It is the terminal outcome of TypeFacilityRentWarning and cannot be
 	// undone: the facility must be rebuilt and paid for from scratch.

@@ -82,6 +82,14 @@ func ExecuteLoop(
 				// A *TokenError is fatal: an unresolved $TOKEN$ aborts the entire
 				// loop immediately, even under -f (which only tolerates ordinary
 				// errors). Return it so every enclosing loop level aborts too.
+				// A hazard escape or refusal is fatal even under -f: the ship
+				// was moved off a POI that is dosing it (or refused one known
+				// to be deadly), and the next iteration -- `mine` again -- is
+				// what would put it back there to die.
+				if errors.Is(err, ErrHazardEscape) || errors.Is(err, ErrHazardRefused) {
+					fmt.Fprintf(out, "%s☢️  %v → aborting loop after %d/%d iterations\n", indent, err, i+1, count) //nolint:errcheck
+					return err
+				}
 				var tokErr *TokenError
 				if errors.As(err, &tokErr) {
 					fmt.Fprintf(out, "%s❌ %v → aborting loop\n", indent, tokErr) //nolint:errcheck

@@ -454,7 +454,13 @@ type POI struct {
 	// traversed. Paired with Needed it is what tests whether a longer jump
 	// demands more skill.
 	WormholeDestination string
-	LastUpdatedTick     int64
+	// HazardType / HazardSeverity (v0.687.0) are the POI's environmental
+	// hazard as last observed; "" / 0 when none has been seen. A read that
+	// omits the hazard never clears one (paths differ in what they carry, and
+	// a stale warning is the safe error).
+	HazardType      string
+	HazardSeverity  int
+	LastUpdatedTick int64
 	// DetectedBy is the agent id that produced this observation. Provenance for
 	// the shared KB so a later capability-aware merge can rank quality; today it
 	// is recorded but not used to gate overwrites.
