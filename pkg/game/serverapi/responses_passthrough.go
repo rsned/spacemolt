@@ -230,20 +230,23 @@ type NotificationChannel struct {
 // player/faction station. ServiceAccess maps a service name to its access policy.
 //   - station
 type StationConfigResponse struct {
-	Action                  string            `json:"action"`
-	BaseID                  string            `json:"base_id"`
-	Name                    string            `json:"name"`
-	Description             string            `json:"description,omitempty"`
-	PublicAccess            bool              `json:"public_access"`
-	AllowOutsiderFacilities bool              `json:"allow_outsider_facilities"`
-	AutoBuyFuel             bool              `json:"auto_buy_fuel"`
-	AllowedFactions         []string          `json:"allowed_factions,omitempty"`
-	AllowedPlayers          []string          `json:"allowed_players,omitempty"`
-	BannedPlayers           []string          `json:"banned_players,omitempty"`
-	ServiceAccess           map[string]string `json:"service_access,omitempty"`
-	MarketFeeBps            int               `json:"market_fee_bps,omitempty"`
-	RefuelPriceEach         int               `json:"refuel_price_each,omitempty"`
-	RepairPricePerHull      int               `json:"repair_price_per_hull,omitempty"`
+	Action                  string   `json:"action"`
+	BaseID                  string   `json:"base_id"`
+	Name                    string   `json:"name"`
+	Description             string   `json:"description,omitempty"`
+	PublicAccess            bool     `json:"public_access"`
+	AllowOutsiderFacilities bool     `json:"allow_outsider_facilities"`
+	AutoBuyFuel             bool     `json:"auto_buy_fuel"`
+	AllowedFactions         []string `json:"allowed_factions,omitempty"`
+	AllowedPlayers          []string `json:"allowed_players,omitempty"`
+	BannedPlayers           []string `json:"banned_players,omitempty"`
+	// PlayerUsernames (v0.686.0) maps allowed/banned player ids to usernames;
+	// an id with no key belongs to a deleted account.
+	PlayerUsernames    map[string]string `json:"player_usernames,omitempty"`
+	ServiceAccess      map[string]string `json:"service_access,omitempty"`
+	MarketFeeBps       int               `json:"market_fee_bps,omitempty"`
+	RefuelPriceEach    int               `json:"refuel_price_each,omitempty"`
+	RepairPricePerHull int               `json:"repair_price_per_hull,omitempty"`
 	// ContrabandMode is "default" (the general contraband rules apply) or
 	// "custom" (ContrabandItems replaces them at this player-owned station or
 	// mobile base). Empire customs are unaffected either way.

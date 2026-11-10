@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 8
--- Last Regenerated: 2026-11-03
+-- Migrations applied: 9
+-- Last Regenerated: 2026-11-10
 
 -- ============================================================================
 -- TABLES
@@ -511,6 +511,22 @@ CREATE TABLE market_supply_history (
 				);
 
 
+CREATE TABLE mission_completions (
+					mission_id TEXT PRIMARY KEY,
+					template_id TEXT NOT NULL DEFAULT '',
+					agent_id TEXT NOT NULL DEFAULT '',
+					title TEXT NOT NULL DEFAULT '',
+					credits_earned INTEGER NOT NULL DEFAULT 0,
+					credits_promised INTEGER NOT NULL DEFAULT 0,
+					reputation_changes TEXT NOT NULL DEFAULT '{}',
+					skill_xp_gained TEXT NOT NULL DEFAULT '{}',
+					items_received TEXT NOT NULL DEFAULT '{}',
+					chain_next TEXT NOT NULL DEFAULT '',
+					tick INTEGER NOT NULL DEFAULT 0,
+					completed_at TEXT NOT NULL
+				);
+
+
 CREATE TABLE mission_objectives (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     mission_id        TEXT NOT NULL,
@@ -525,6 +541,22 @@ CREATE TABLE mission_objectives (
     target_base_name  TEXT,
     FOREIGN KEY (mission_id) REFERENCES mission_templates(id) ON DELETE CASCADE
 );
+
+
+CREATE TABLE mission_prerequisites (
+					mission_id TEXT NOT NULL,
+					requires_mission_id TEXT NOT NULL,
+					mission_title TEXT NOT NULL DEFAULT '',
+					requires_title TEXT NOT NULL DEFAULT '',
+					mission_base_id TEXT NOT NULL DEFAULT '',
+					mission_system_id TEXT NOT NULL DEFAULT '',
+					agent_id TEXT NOT NULL DEFAULT '',
+					first_seen_tick INTEGER NOT NULL DEFAULT 0,
+					last_seen_tick INTEGER NOT NULL DEFAULT 0,
+					first_seen_at TEXT NOT NULL,
+					last_seen_at TEXT NOT NULL,
+					PRIMARY KEY (mission_id, requires_mission_id)
+				);
 
 
 CREATE TABLE mission_template_locations (
@@ -568,7 +600,7 @@ CREATE TABLE mission_templates (
     last_seen_tick      INTEGER DEFAULT 0,
     first_seen_at       TEXT,
     last_seen_at        TEXT
-, exclusive_base_id TEXT, exclusive_system_id TEXT, exclusive_source TEXT, exclusive_seen_tick INTEGER, exclusive_seen_at TEXT);
+, exclusive_base_id TEXT, exclusive_system_id TEXT, exclusive_source TEXT, exclusive_seen_tick INTEGER, exclusive_seen_at TEXT, rewards_reputation INTEGER NOT NULL DEFAULT 0, rewards_pirate_rep INTEGER NOT NULL DEFAULT 0);
 
 
 CREATE TABLE passengers (
@@ -1215,9 +1247,15 @@ CREATE INDEX idx_item_weapons_damage_type ON item_weapons(damage_type);
 
 CREATE INDEX idx_items_category ON items(category);
 
+CREATE INDEX idx_mission_completions_template
+					ON mission_completions(template_id);
+
 CREATE INDEX idx_mission_locations_base    ON mission_template_locations(base_id);
 
 CREATE INDEX idx_mission_objectives_mission ON mission_objectives(mission_id);
+
+CREATE INDEX idx_mission_prerequisites_requires
+					ON mission_prerequisites(requires_mission_id);
 
 CREATE INDEX idx_mission_templates_exclusive_base
 					ON mission_templates(exclusive_base_id);
@@ -1354,4 +1392,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (63, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (64, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (65, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (66, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (67, datetime('now'));
 

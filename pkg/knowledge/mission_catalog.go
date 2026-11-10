@@ -47,6 +47,8 @@ type missionCatalogRow struct {
 	Repeatable      bool
 	ExpiresInTicks  int
 	RewardsCredits  int
+	RewardsRep      int
+	RewardsPirate   int
 	RewardsSkillXP  string // JSON object
 	RewardsItems    string // JSON object
 	Requirements    string // JSON object
@@ -140,6 +142,8 @@ func missionRowFromEntry(e serverapi.MissionBoardEntry) missionCatalogRow {
 	}
 	if e.Rewards != nil {
 		row.RewardsCredits = e.Rewards.Credits
+		row.RewardsRep = e.Rewards.Reputation
+		row.RewardsPirate = e.Rewards.PirateRep
 		row.RewardsSkillXP = jsonMarshalString(e.Rewards.SkillXP, "{}")
 		row.RewardsItems = jsonMarshalString(e.Rewards.Items, "{}")
 	}
@@ -226,6 +230,8 @@ func diffMissionRows(old, new missionCatalogRow) []MissionFieldDiff {
 	// of elapsed time. What the column keeps instead is the longest window ever
 	// seen (see missionOfferWindow), which is a template property.
 	addInt("rewards_credits", old.RewardsCredits, new.RewardsCredits)
+	addInt("rewards_reputation", old.RewardsRep, new.RewardsRep)
+	addInt("rewards_pirate_rep", old.RewardsPirate, new.RewardsPirate)
 	add("rewards_skill_xp", old.RewardsSkillXP, new.RewardsSkillXP)
 	add("rewards_items", old.RewardsItems, new.RewardsItems)
 	add("requirements", old.Requirements, new.Requirements)

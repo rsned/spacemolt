@@ -5357,19 +5357,21 @@ func formatMissions(raw []byte) string {
 				Quantity    int    `json:"quantity,omitempty"`
 			} `json:"objectives,omitempty"`
 		} `json:"missions"`
-		BaseName string        `json:"base_name,omitempty"`
-		BaseID   string        `json:"base_id,omitempty"`
-		Fixer    *fixerAccount `json:"fixer,omitempty"`
+		BaseName string                        `json:"base_name,omitempty"`
+		BaseID   string                        `json:"base_id,omitempty"`
+		Fixer    *fixerAccount                 `json:"fixer,omitempty"`
+		Locked   []serverapi.LockedMissionHint `json:"locked_missions,omitempty"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
 	}
 
 	if len(resp.Missions) == 0 {
+		tail := formatLockedMissions(resp.Locked) + formatFixer(resp.Fixer)
 		if resp.BaseName != "" {
-			return fmt.Sprintf("No missions available at %s\n", resp.BaseName) + formatFixer(resp.Fixer)
+			return fmt.Sprintf("No missions available at %s\n", resp.BaseName) + tail
 		}
-		return "No missions available\n" + formatFixer(resp.Fixer)
+		return "No missions available\n" + tail
 	}
 
 	type missionObjective struct {
@@ -5564,6 +5566,7 @@ func formatMissions(raw []byte) string {
 		}
 	}
 
+	b.WriteString(formatLockedMissions(resp.Locked))
 	b.WriteString(formatFixer(resp.Fixer))
 	return b.String()
 }
@@ -5832,10 +5835,11 @@ func formatCompleteMission(raw []byte) string {
 		// The server states the advertised figure and the unpaid remainder
 		// alongside what it actually paid (the empire-treasury shortfall).
 		// Rendering only credits_earned hid a mission paying 46% of face value.
-		CreditsPromised   int            `json:"credits_promised,omitempty"`
-		CreditsShortfall  int            `json:"credits_shortfall,omitempty"`
-		ReputationChanges map[string]int `json:"reputation_changes,omitempty"`
-		Fixer             *fixerAccount  `json:"fixer,omitempty"`
+		CreditsPromised   int                       `json:"credits_promised,omitempty"`
+		CreditsShortfall  int                       `json:"credits_shortfall,omitempty"`
+		ReputationChanges map[string]int            `json:"reputation_changes,omitempty"`
+		Fixer             *fixerAccount             `json:"fixer,omitempty"`
+		Unlocks           []serverapi.MissionUnlock `json:"unlocks,omitempty"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -5907,6 +5911,9 @@ func formatCompleteMission(raw []byte) string {
 		fmt.Fprintf(&b, "Chain continues: %s (use accept_mission to pick it up)\n", resp.ChainNext)
 	}
 
+	if u := formatUnlocks(resp.Unlocks); u != "" {
+		b.WriteString("\n" + u)
+	}
 	b.WriteString(formatFixer(resp.Fixer))
 	return b.String()
 }
@@ -9479,6 +9486,13 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 			if cerr := captureMissionCompletion(missionCompletionLedgerPath(globalAgentID), globalAgentID, raw); cerr != nil {
 				fmt.Printf("(mission ledger: %v)\n", cerr)
 			}
+			// Payout incl. per-empire reputation_changes, and the v0.685
+			// unlock edges, into the KB. Best-effort like the ledger.
+			if sqliteKB, ok := globalKB.(*knowledge.SQLiteKB); ok {
+				if kerr := recordCompletionInKB(ctx, sqliteKB, globalAgentID, missionCompletionLedgerPath(globalAgentID), raw); kerr != nil {
+					fmt.Printf("(mission KB: %v)\n", kerr)
+				}
+			}
 		}
 		return err
 
@@ -9502,9 +9516,17 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 		if len(parts) < 2 {
 			return fmt.Errorf("usage: view_completed_mission <template-id>")
 		}
-		return simpleCommand(client, func(ctx context.Context) error {
+		err := simpleCommand(client, func(ctx context.Context) error {
 			return client.RawCommand(ctx, "view_completed_mission", map[string]any{"template_id": parts[1]})
 		}, ctx, 2*time.Second, cmd, format)
+		if sqliteKB, ok := globalKB.(*knowledge.SQLiteKB); ok {
+			if raw := client.GetRawJSON("view_completed_mission"); len(raw) > 0 {
+				if kerr := recordViewedUnlocksInKB(ctx, sqliteKB, globalAgentID, raw); kerr != nil {
+					fmt.Printf("(mission KB: %v)\n", kerr)
+				}
+			}
+		}
+		return err
 
 	// === ACTION LOG ===
 	case "get_action_log", "action_log":

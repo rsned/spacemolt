@@ -579,6 +579,9 @@ type GetMissionsResponse struct {
 	Missions []MissionBoardEntry `json:"missions"`
 	BaseName string              `json:"base_name"`
 	BaseID   string              `json:"base_id"`
+	// LockedMissions (v0.685.0) hints at station-exclusive missions the player
+	// has partly unlocked here; omitted when there are none.
+	LockedMissions []LockedMissionHint `json:"locked_missions,omitempty"`
 }
 
 // GetActiveMissionsResponse wraps the response from get_active_missions command.
@@ -631,6 +634,11 @@ type CompleteMissionResponse struct {
 	CommunityContributed json.RawMessage `json:"community_contributed,omitempty"`
 	CommunityProgress    json.RawMessage `json:"community_progress,omitempty"`
 	CommunityPercent     float64         `json:"community_percent,omitempty"`
+	// ReputationChanges is the standing moved per empire by this completion.
+	ReputationChanges map[string]int `json:"reputation_changes,omitempty"`
+	// Unlocks (v0.685.0) lists every mission this completion opens, with what
+	// each still requires.
+	Unlocks []MissionUnlock `json:"unlocks,omitempty"`
 }
 
 // CatalogResponse wraps the response from catalog command.
@@ -3265,6 +3273,9 @@ type DeclineMissionResponse struct {
 
 // ViewCompletedMissionResponse — view_completed_mission
 type ViewCompletedMissionResponse struct {
+	// Unlocks (v0.685.0): same shape as complete_mission's, evaluated against
+	// current progress.
+	Unlocks        []MissionUnlock `json:"unlocks,omitempty"`
 	TemplateID     string          `json:"template_id"`
 	Title          string          `json:"title"`
 	Type           string          `json:"type,omitempty"`

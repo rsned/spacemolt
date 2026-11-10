@@ -431,6 +431,57 @@ func migrations() []Migration {
 				return err
 			},
 		},
+		{
+			version: 67,
+			name:    "mission_reputation_prerequisites_completions",
+			sql: `
+				-- v0.685.0 unlocks: one row per "mission requires mission" edge,
+				-- learned from complete_mission / view_completed_mission. The
+				-- board's chain_next is set on a handful of templates; this is
+				-- the real graph.
+				CREATE TABLE IF NOT EXISTS mission_prerequisites (
+					mission_id TEXT NOT NULL,
+					requires_mission_id TEXT NOT NULL,
+					mission_title TEXT NOT NULL DEFAULT '',
+					requires_title TEXT NOT NULL DEFAULT '',
+					mission_base_id TEXT NOT NULL DEFAULT '',
+					mission_system_id TEXT NOT NULL DEFAULT '',
+					agent_id TEXT NOT NULL DEFAULT '',
+					first_seen_tick INTEGER NOT NULL DEFAULT 0,
+					last_seen_tick INTEGER NOT NULL DEFAULT 0,
+					first_seen_at TEXT NOT NULL,
+					last_seen_at TEXT NOT NULL,
+					PRIMARY KEY (mission_id, requires_mission_id)
+				);
+				CREATE INDEX IF NOT EXISTS idx_mission_prerequisites_requires
+					ON mission_prerequisites(requires_mission_id);
+				-- What a completion actually paid, including standing moves per
+				-- empire (reputation_changes). One row per mission instance.
+				CREATE TABLE IF NOT EXISTS mission_completions (
+					mission_id TEXT PRIMARY KEY,
+					template_id TEXT NOT NULL DEFAULT '',
+					agent_id TEXT NOT NULL DEFAULT '',
+					title TEXT NOT NULL DEFAULT '',
+					credits_earned INTEGER NOT NULL DEFAULT 0,
+					credits_promised INTEGER NOT NULL DEFAULT 0,
+					reputation_changes TEXT NOT NULL DEFAULT '{}',
+					skill_xp_gained TEXT NOT NULL DEFAULT '{}',
+					items_received TEXT NOT NULL DEFAULT '{}',
+					chain_next TEXT NOT NULL DEFAULT '',
+					tick INTEGER NOT NULL DEFAULT 0,
+					completed_at TEXT NOT NULL
+				);
+				CREATE INDEX IF NOT EXISTS idx_mission_completions_template
+					ON mission_completions(template_id);
+			`,
+			fn: func(tx *sql.Tx) error {
+				// The board's flat reputation/pirate_rep rewards were dropped.
+				if err := ensureColumn(tx, "mission_templates", "rewards_reputation", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+					return err
+				}
+				return ensureColumn(tx, "mission_templates", "rewards_pirate_rep", "INTEGER NOT NULL DEFAULT 0")
+			},
+		},
 	}
 }
 

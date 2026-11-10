@@ -1740,6 +1740,7 @@ func missionComplete(ctx context.Context, deps MissionDeps, out io.Writer, c mis
 		missionLogShortfall(deps, out, c, earned, acceptedTick)
 	}
 	missionRecord(ctx, deps, out, c, fromBase, acceptedAt, acceptedTick, earned, "completed", "")
+	missionRecordCompletionKB(ctx, deps, out, c)
 }
 
 // missionCreditsEarned returns the realized reward for a just-completed

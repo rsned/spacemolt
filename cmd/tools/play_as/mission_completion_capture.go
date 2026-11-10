@@ -55,6 +55,11 @@ type missionCompletionRecord struct {
 	ReputationChanges map[string]int `json:"reputation_changes,omitempty"`
 	ItemsReceived     map[string]int `json:"items_received,omitempty"`
 
+	// Unlocks (v0.685.0) is kept verbatim: the missions this completion
+	// opens and what each still requires -- the chain graph chain_next
+	// alone never captured.
+	Unlocks json.RawMessage `json:"unlocks,omitempty"`
+
 	Message string `json:"message,omitempty"`
 }
 
@@ -76,19 +81,20 @@ func captureMissionEvent(path, agentID, event string, raw []byte) error {
 	}
 
 	var r struct {
-		MissionID         string         `json:"mission_id"`
-		TemplateID        string         `json:"template_id"`
-		Title             string         `json:"title"`
-		Type              string         `json:"type"`
-		ExpiresAt         string         `json:"expires_at"`
-		ChainNext         string         `json:"chain_next"`
-		Message           string         `json:"message"`
-		CreditsEarned     int            `json:"credits_earned"`
-		CreditsPromised   int            `json:"credits_promised"`
-		CreditsShortfall  int            `json:"credits_shortfall"`
-		SkillXPGained     map[string]int `json:"skill_xp_gained"`
-		ReputationChanges map[string]int `json:"reputation_changes"`
-		ItemsReceived     map[string]int `json:"items_received"`
+		MissionID         string          `json:"mission_id"`
+		TemplateID        string          `json:"template_id"`
+		Title             string          `json:"title"`
+		Type              string          `json:"type"`
+		ExpiresAt         string          `json:"expires_at"`
+		ChainNext         string          `json:"chain_next"`
+		Message           string          `json:"message"`
+		CreditsEarned     int             `json:"credits_earned"`
+		CreditsPromised   int             `json:"credits_promised"`
+		CreditsShortfall  int             `json:"credits_shortfall"`
+		SkillXPGained     map[string]int  `json:"skill_xp_gained"`
+		ReputationChanges map[string]int  `json:"reputation_changes"`
+		ItemsReceived     map[string]int  `json:"items_received"`
+		Unlocks           json.RawMessage `json:"unlocks"`
 	}
 	if err := json.Unmarshal(unwrapActionResult(body), &r); err != nil {
 		return fmt.Errorf("parse complete_mission: %w", err)
@@ -114,6 +120,7 @@ func captureMissionEvent(path, agentID, event string, raw []byte) error {
 		SkillXPGained:     r.SkillXPGained,
 		ReputationChanges: r.ReputationChanges,
 		ItemsReceived:     r.ItemsReceived,
+		Unlocks:           r.Unlocks,
 		Message:           r.Message,
 	}
 	line, err := json.Marshal(rec)
