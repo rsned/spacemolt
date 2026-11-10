@@ -53,6 +53,7 @@
 Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `description:` line is searchable.
 - [Public stations API](reference_public_stations_api.md) — game.spacemolt.com/api/stations: every station/outpost live; find player stations without a marketbot; mobile pins OK
 - [Gift unlock + officer storage split](reference_gift_unlock_and_officer_storage_split.md) — send_gift needs 1,000 earned credits; gifts land in officer's own storage → faction_deposit sweeps
+- [shopkeep+consign sharing an item = silent crash loop](reference_shopkeep_consign_overlap_is_fatal.md) — worker log.Fatalf goes to stderr, not the overmind log; parks at 100 restarts
 - [Facility speed + rent rules](reference_facility_speed_rules.md) — recipe time = hand baseline; L1 5x, +3x/upgrade; admin +15%/tier (2 tiers); recruit +5%/lvl; rent 3%/day (x2 pirate); hand-craft queues are per agent, so spread them
 - 🟡 [Hull costs page merged 11-03](project_hull_production_costs.md) — KB private hulls.html; migration 66 (quote/license capture) NOT applied to live DB yet → run bin/kb-migrate first
 - 🟢 [CRFT owns congregation license (11-02)](reference_congregation_is_outerrim_exclusive.md) — 1M paid; build at CJ, 10% royalty (~662) to outerrim; treasury now ~1.0M = AT floor
