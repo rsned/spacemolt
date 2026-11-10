@@ -5357,8 +5357,9 @@ func formatMissions(raw []byte) string {
 				Quantity    int    `json:"quantity,omitempty"`
 			} `json:"objectives,omitempty"`
 		} `json:"missions"`
-		BaseName string `json:"base_name,omitempty"`
-		BaseID   string `json:"base_id,omitempty"`
+		BaseName string        `json:"base_name,omitempty"`
+		BaseID   string        `json:"base_id,omitempty"`
+		Fixer    *fixerAccount `json:"fixer,omitempty"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -5366,9 +5367,9 @@ func formatMissions(raw []byte) string {
 
 	if len(resp.Missions) == 0 {
 		if resp.BaseName != "" {
-			return fmt.Sprintf("No missions available at %s", resp.BaseName)
+			return fmt.Sprintf("No missions available at %s\n", resp.BaseName) + formatFixer(resp.Fixer)
 		}
-		return "No missions available"
+		return "No missions available\n" + formatFixer(resp.Fixer)
 	}
 
 	type missionObjective struct {
@@ -5563,6 +5564,7 @@ func formatMissions(raw []byte) string {
 		}
 	}
 
+	b.WriteString(formatFixer(resp.Fixer))
 	return b.String()
 }
 
@@ -5605,13 +5607,14 @@ func formatActiveMissions(raw []byte) string {
 		Missions    []activeMission `json:"missions"`
 		MaxMissions int             `json:"max_missions,omitempty"`
 		TotalCount  int             `json:"total_count,omitempty"`
+		Fixer       *fixerAccount   `json:"fixer,omitempty"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
 	}
 
 	if len(resp.Missions) == 0 {
-		return "No active missions"
+		return "No active missions\n" + formatFixer(resp.Fixer)
 	}
 
 	// Group by type, sort missions within each group.
@@ -5741,6 +5744,7 @@ func formatActiveMissions(raw []byte) string {
 		}
 	}
 
+	b.WriteString(formatFixer(resp.Fixer))
 	return b.String()
 }
 
@@ -5764,6 +5768,7 @@ func formatCompleteMission(raw []byte) string {
 		CreditsPromised   int            `json:"credits_promised,omitempty"`
 		CreditsShortfall  int            `json:"credits_shortfall,omitempty"`
 		ReputationChanges map[string]int `json:"reputation_changes,omitempty"`
+		Fixer             *fixerAccount  `json:"fixer,omitempty"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -5835,6 +5840,7 @@ func formatCompleteMission(raw []byte) string {
 		fmt.Fprintf(&b, "Chain continues: %s (use accept_mission to pick it up)\n", resp.ChainNext)
 	}
 
+	b.WriteString(formatFixer(resp.Fixer))
 	return b.String()
 }
 
