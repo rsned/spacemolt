@@ -191,3 +191,16 @@ func TestSurveySystem_RefusesWhenRefreshFails(t *testing.T) {
 		t.Error("surveySystem: surveyed after a failed ship refresh left a scanner-less state")
 	}
 }
+
+// TestCheckForSurveyScanner_AnomalyDetectorCounts: survey_system also works with an
+// anomaly_detector fitted (operator, 2026-11-09), so it must not be refused.
+func TestCheckForSurveyScanner_AnomalyDetectorCounts(t *testing.T) {
+	resetSurveyScannerCache(t)
+	st := stateWithSurveyScanner()
+	def := st.ModuleDefinitions["c1bab746e71529711f9d8e34fef8a061"]
+	def.Name, def.TypeID = "Anomaly Detector", "anomaly_detector"
+	st.ModuleDefinitions["c1bab746e71529711f9d8e34fef8a061"] = def
+	if !checkForSurveyScanner(st) {
+		t.Fatal("checkForSurveyScanner: got false for a fit with anomaly_detector, want true")
+	}
+}

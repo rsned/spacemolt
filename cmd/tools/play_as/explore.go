@@ -260,7 +260,7 @@ func surveySystem(client game.GameClient, ctx context.Context, format outputForm
 
 	if !checkForSurveyScanner(state) {
 		if format == formatStyled {
-			fmt.Printf("\nNo survey scanner installed — skipping system survey\n")
+			fmt.Printf("\nNo survey scanner or anomaly detector installed — skipping system survey\n")
 		} else {
 			fmt.Printf("{\"error\": \"no survey scanner installed\"}\n")
 		}
@@ -994,6 +994,7 @@ func checkForSurveyScanner(state *game.State) bool {
 		"survey_scanner_i",
 		"survey_scanner_ii",
 		"deep_core_survey_scanner",
+		"anomaly_detector", // survey_system runs with it too (operator, 2026-11-09)
 	}
 	for _, scanner := range surveyScanners {
 		if game.HasModuleType(state, scanner) {
