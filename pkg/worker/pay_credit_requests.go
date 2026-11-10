@@ -71,11 +71,12 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 		return d.History.Append(creditreq.Entry{At: now, AgentID: r.AgentID, Username: username, Event: creditreq.EventHeld, Detail: reason})
 	}
 
+	spent := 0.0 // credits gifted this run; the client's balance may lag
 	for _, r := range pending {
 		if err := ctx.Err(); err != nil {
 			return paid, held, err
 		}
-		if own := d.OwnCredits(); own < creditBankerFloor {
+		if own := d.OwnCredits() - spent; own < creditBankerFloor {
 			logf("pay_credit_requests: banker has %.0f credits, below the %.0f floor; paying nothing", own, creditBankerFloor)
 			return paid, held, nil
 		}
@@ -92,11 +93,9 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 
 		now := d.Now().UTC()
 		midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-		since := now.Add(-creditPerAgentSpan)
-		if midnight.Before(since) {
-			since = midnight
-		}
-		entries, err := d.History.Since(since)
+		// The 24h window always reaches back past UTC midnight, so one read
+		// serves both the per-agent rule and the daily cap.
+		entries, err := d.History.Since(now.Add(-creditPerAgentSpan))
 		if err != nil {
 			return paid, held, err
 		}
@@ -137,11 +136,28 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 			continue
 		}
 
-		// History first: if the Remove below fails, the 24h rule still stops a repeat.
-		if err := d.History.Append(creditreq.Entry{At: now, AgentID: r.AgentID, Username: username, Event: creditreq.EventPaid, Amount: creditGiftAmount}); err != nil {
-			return paid, held, err
-		}
+		spent += creditGiftAmount
 		paid++
+		// History first: if the Remove below fails, the 24h rule still stops a repeat.
+		if herr := d.History.Append(creditreq.Entry{At: now, AgentID: r.AgentID, Username: username, Event: creditreq.EventPaid, Amount: creditGiftAmount}); herr != nil {
+			// The gift is out and cannot be undone. Park the record as held so
+			// no later run pays it again, and stop: with the history unwritable
+			// the 24h and daily-cap checks can no longer be trusted.
+			reason := fmt.Sprintf("paid %s but history write failed: %v", now.Format(time.RFC3339), herr)
+			_, uerr := d.Queue.Update(r.AgentID, func(rec *creditreq.Record) {
+				rec.Status = creditreq.StatusHeld
+				rec.HeldReason = reason
+				rec.Amount = creditGiftAmount
+				rec.PaidAt = now
+			})
+			logf("pay_credit_requests: %s (%s): %s", r.AgentID, username, reason)
+			if uerr != nil {
+				logf("pay_credit_requests: %s (%s): could not hold the record either: %v", r.AgentID, username, uerr)
+				return paid, held, errors.Join(herr, uerr)
+			}
+			held++
+			return paid, held, herr
+		}
 		if err := d.Queue.Remove(r.AgentID); err != nil {
 			return paid, held, err
 		}
@@ -157,7 +173,10 @@ func (d *WorkerDispatch) payCreditRequests(ctx context.Context) error {
 	if d.CreditQueue == nil || d.CreditHistory == nil {
 		return errors.New("pay_credit_requests: credit requests are not enabled (--credit-requests)")
 	}
-	names := d.loadCreditUsernames(ctx)
+	names, nerr := d.loadCreditUsernames(ctx)
+	if nerr != nil {
+		fmt.Fprintf(d.Out, "pay_credit_requests: username lookup failed: %v\n", nerr) //nolint:errcheck
+	}
 	paid, held, err := PayCreditRequests(ctx, PayDeps{
 		Queue:   d.CreditQueue,
 		History: d.CreditHistory,
@@ -177,23 +196,24 @@ func (d *WorkerDispatch) payCreditRequests(ctx context.Context) error {
 }
 
 // loadCreditUsernames reads agent_id -> username from the assets ledger. A nil
-// store or a failed query yields an empty map, so each record is held
+// store or a failed query yields a partial map plus the error, so each record is held
 // "no username" rather than the run failing.
-func (d *WorkerDispatch) loadCreditUsernames(ctx context.Context) map[string]string {
+func (d *WorkerDispatch) loadCreditUsernames(ctx context.Context) (map[string]string, error) {
 	out := map[string]string{}
 	if d.Assets == nil {
-		return out
+		return out, nil
 	}
 	rows, err := d.Assets.DB().QueryContext(ctx, `SELECT agent_id, username FROM agents WHERE username != ''`)
 	if err != nil {
-		return out
+		return out, err
 	}
 	defer rows.Close() //nolint:errcheck
 	for rows.Next() {
 		var id, user string
-		if rows.Scan(&id, &user) == nil {
-			out[id] = user
+		if err := rows.Scan(&id, &user); err != nil {
+			return out, err
 		}
+		out[id] = user
 	}
-	return out
+	return out, rows.Err()
 }

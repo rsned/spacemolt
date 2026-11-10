@@ -1,10 +1,12 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,9 +16,13 @@ import (
 type fakeGifts struct {
 	payloads []map[string]any
 	err      error
+	after    func() // runs after a successful send
 }
 
 func (f *fakeGifts) SendGift(_ context.Context, p map[string]any) error {
+	if f.after != nil && f.err == nil {
+		defer f.after()
+	}
 	if f.err != nil {
 		return f.err
 	}
@@ -176,7 +182,7 @@ func TestPay_ThreeSendFailuresHold(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if want := 0; i < 2 && held != want {
+		if i < 2 && held != 0 {
 			t.Fatalf("run %d held=%d", i, held)
 		}
 	}
@@ -193,7 +199,7 @@ func TestPay_ThreeSendFailuresHold(t *testing.T) {
 func TestPay_HistoryBeforeTransition(t *testing.T) {
 	e := newPayEnv(t)
 	e.file(t, "a", payNow.Add(-time.Minute))
-	qdir := filepath.Dir(e.dir + "/q/queue.json")
+	qdir := filepath.Join(e.dir, "q")
 	if err := os.Chmod(qdir, 0o555); err != nil {
 		t.Fatal(err)
 	}
@@ -207,11 +213,10 @@ func TestPay_HistoryBeforeTransition(t *testing.T) {
 	if len(e.gifts.payloads) != 1 {
 		t.Fatalf("gifts after run 1 = %d", len(e.gifts.payloads))
 	}
-	_, held, _ := PayCreditRequests(t.Context(), e.d)
+	_, _, _ = PayCreditRequests(t.Context(), e.d)
 	if len(e.gifts.payloads) != 1 {
 		t.Fatalf("second run gifted again: %d", len(e.gifts.payloads))
 	}
-	_ = held
 }
 
 func TestPay_OldestFirst(t *testing.T) {
@@ -228,5 +233,138 @@ func TestPay_OldestFirst(t *testing.T) {
 	}
 	if len(got) != 3 || got[0] != "Josephus Miller" || got[1] != "Bea" || got[2] != "Cy" {
 		t.Fatalf("order = %v", got)
+	}
+}
+
+func TestPay_HistoryAppendFailureHoldsAndStops(t *testing.T) {
+	e := newPayEnv(t)
+	var out bytes.Buffer
+	e.d.Out = &out
+	hdir := filepath.Join(e.dir, "h")
+	if err := os.MkdirAll(hdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Once the first gift is out, make the history unwritable.
+	e.gifts.after = func() { _ = os.Chmod(hdir, 0o555) }
+	t.Cleanup(func() { _ = os.Chmod(hdir, 0o755) })
+	skipIfPermsNotEnforced(t, hdir)
+	e.file(t, "a", payNow.Add(-time.Hour))
+	e.file(t, "b", payNow.Add(-time.Minute))
+
+	paid, held, err := PayCreditRequests(t.Context(), e.d)
+	if err == nil {
+		t.Fatal("expected the history error")
+	}
+	if paid != 1 || held != 1 || len(e.gifts.payloads) != 1 {
+		t.Fatalf("paid=%d held=%d gifts=%d", paid, held, len(e.gifts.payloads))
+	}
+	a, _ := e.record(t, "a")
+	if a.Status != creditreq.StatusHeld || a.Amount != 20000 || a.PaidAt.IsZero() || !strings.Contains(a.HeldReason, "history write failed") {
+		t.Fatalf("record a = %+v", a)
+	}
+	if b, _ := e.record(t, "b"); b.Status != creditreq.StatusPending {
+		t.Fatalf("record b = %+v", b)
+	}
+	if !strings.Contains(out.String(), "Josephus Miller") {
+		t.Fatalf("log lacks username: %q", out.String())
+	}
+	// Re-run (history still broken): a is held, so it is never gifted again.
+	// b is still pending and is paid then, hence 2 gifts in total.
+	_, _, _ = PayCreditRequests(t.Context(), e.d)
+	n := 0
+	for _, p := range e.gifts.payloads {
+		if p["recipient"] == "Josephus Miller" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("a gifted %d times: %v", n, e.gifts.payloads)
+	}
+}
+
+// skipIfPermsNotEnforced skips when a 0555 dir is still writable (root).
+func skipIfPermsNotEnforced(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(dir, 0o755) //nolint:errcheck
+	if f, err := os.Create(filepath.Join(dir, "probe")); err == nil {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+		t.Skip("directory permissions not enforced (root?)")
+	}
+}
+
+func TestPay_FloorCountsThisRunsGifts(t *testing.T) {
+	e := newPayEnv(t)
+	var out bytes.Buffer
+	e.d.Out = &out
+	e.d.OwnCredits = func() float64 { return 1_010_000 }
+	e.file(t, "a", payNow.Add(-time.Hour))
+	e.file(t, "b", payNow.Add(-time.Minute))
+	paid, _, err := PayCreditRequests(t.Context(), e.d)
+	if err != nil || paid != 1 || len(e.gifts.payloads) != 1 {
+		t.Fatalf("paid=%d gifts=%d err=%v", paid, len(e.gifts.payloads), err)
+	}
+	if r, _ := e.record(t, "b"); r.Status != creditreq.StatusPending {
+		t.Fatalf("b = %+v", r)
+	}
+	if n := strings.Count(out.String(), "floor"); n != 1 {
+		t.Fatalf("floor lines = %d: %q", n, out.String())
+	}
+}
+
+func TestPay_DailyCapAcrossOneRun(t *testing.T) {
+	e := newPayEnv(t)
+	for range 49 {
+		_ = e.d.History.Append(creditreq.Entry{At: payNow.Add(-5 * time.Hour), AgentID: "x", Event: creditreq.EventPaid, Amount: 20000})
+	}
+	e.file(t, "a", payNow.Add(-time.Hour))
+	e.file(t, "b", payNow.Add(-time.Minute))
+	paid, held, err := PayCreditRequests(t.Context(), e.d)
+	if err != nil || paid != 1 || held != 1 {
+		t.Fatalf("paid=%d held=%d err=%v", paid, held, err)
+	}
+	if r, _ := e.record(t, "b"); r.HeldReason != "daily cap" {
+		t.Fatalf("b = %+v", r)
+	}
+}
+
+func TestPay_CapResetsAtUTCMidnight(t *testing.T) {
+	e := newPayEnv(t)
+	e.d.Now = func() time.Time { return time.Date(2026, 11, 10, 0, 10, 0, 0, time.UTC) }
+	for range 50 {
+		_ = e.d.History.Append(creditreq.Entry{At: time.Date(2026, 11, 9, 23, 50, 0, 0, time.UTC), AgentID: "x", Event: creditreq.EventPaid, Amount: 20000})
+	}
+	e.file(t, "a", payNow)
+	paid, held, err := PayCreditRequests(t.Context(), e.d)
+	if err != nil || paid != 1 || held != 0 {
+		t.Fatalf("paid=%d held=%d err=%v", paid, held, err)
+	}
+}
+
+func TestPay_LowBalanceLogsOnce(t *testing.T) {
+	e := newPayEnv(t)
+	var out bytes.Buffer
+	e.d.Out = &out
+	e.d.OwnCredits = func() float64 { return 900_000 }
+	for _, id := range []string{"a", "b", "c"} {
+		e.file(t, id, payNow.Add(-time.Minute))
+	}
+	if _, _, err := PayCreditRequests(t.Context(), e.d); err != nil {
+		t.Fatal(err)
+	}
+	recs, _ := e.d.Queue.List()
+	if len(e.gifts.payloads) != 0 || len(recs) != 3 {
+		t.Fatalf("gifts=%d recs=%d", len(e.gifts.payloads), len(recs))
+	}
+	for _, r := range recs {
+		if r.Status != creditreq.StatusPending {
+			t.Fatalf("record %+v", r)
+		}
+	}
+	if n := strings.Count(out.String(), "floor"); n != 1 {
+		t.Fatalf("floor lines = %d", n)
 	}
 }
