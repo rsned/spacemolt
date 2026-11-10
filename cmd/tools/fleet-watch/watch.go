@@ -3,9 +3,13 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/creditreq"
 )
 
 // Fleet log lines are prefixed "[worker:<agent>] 2026/08/18 15:18:29 ..." or
@@ -46,6 +50,14 @@ const (
 	KindUnrecovered = "unrecovered"
 	KindUnreadable  = "unreadable"
 	KindProcess     = "process"
+	KindCredit      = "credit"
+)
+
+// Credit-request alert thresholds.
+const (
+	creditPendingStale = 30 * time.Minute
+	creditRepeatWindow = 7 * 24 * time.Hour
+	creditRepeatPaid   = 2
 )
 
 // ParseTail extracts the newest timestamp and the disconnect/reconnect counts
@@ -186,4 +198,88 @@ func ProcessAlerts(counts map[string]int, want map[string]int) []Alert {
 // missing daemon all stay broken until someone intervenes.
 func Notifiable(kind string) bool {
 	return kind != KindUnrecovered
+}
+
+// CreditAlerts reports credit requests that need a human: any held request,
+// any pending one the banker has not paid within creditPendingStale, and any
+// agent paid creditRepeatPaid or more times inside creditRepeatWindow (hist
+// is expected to already be limited to that window). Each alert is keyed on
+// the agent so one agent's alert cannot mask another's.
+func CreditAlerts(open []creditreq.Record, hist []creditreq.Entry, now time.Time) []Alert {
+	var out []Alert
+	for _, r := range open {
+		switch r.Status {
+		case creditreq.StatusHeld:
+			out = append(out, Alert{Fleet: r.AgentID, Kind: KindCredit,
+				Message: fmt.Sprintf("%s credit request held: %s", r.AgentID, r.HeldReason)})
+		case creditreq.StatusPending:
+			if age := now.Sub(r.RequestedAt); age > creditPendingStale {
+				out = append(out, Alert{Fleet: r.AgentID, Kind: KindCredit,
+					Message: fmt.Sprintf("%s credit request pending %dm — is the banker paying?", r.AgentID, int(age.Minutes()))})
+			}
+		}
+	}
+
+	paid := map[string]int{}
+	for _, e := range hist {
+		if e.Event == creditreq.EventPaid && !e.At.Before(now.Add(-creditRepeatWindow)) {
+			paid[e.AgentID]++
+		}
+	}
+	agents := make([]string, 0, len(paid))
+	for a, n := range paid {
+		if n >= creditRepeatPaid {
+			agents = append(agents, a)
+		}
+	}
+	sort.Strings(agents)
+	for _, a := range agents {
+		out = append(out, Alert{Fleet: a, Kind: KindCredit,
+			Message: fmt.Sprintf("%s paid %d times in 7 days", a, paid[a])})
+	}
+
+	return out
+}
+
+// CreditHaltAlerts raises an alert when the banker's halt file exists. The
+// banker writes <queue>.halt when a payment went out unrecorded and pays
+// nothing until a human reconciles and deletes it. A stat error other than
+// not-exist is returned so the caller can log it.
+func CreditHaltAlerts(haltPath string) ([]Alert, error) {
+	_, err := os.Stat(haltPath)
+	switch {
+	case err == nil:
+		return []Alert{{Fleet: "banker", Kind: KindCredit,
+			Message: fmt.Sprintf("credit payments HALTED — %s exists; reconcile and delete it", haltPath)}}, nil
+	case os.IsNotExist(err):
+		return nil, nil
+	default:
+		return nil, err
+	}
+}
+
+// ReadCreditAlerts reads the queue and history at queuePath and the sibling
+// history file, and returns every credit alert. Missing files yield no
+// alerts; each other failure is returned in errs and the remaining checks
+// still run, so one bad file cannot hide the others.
+func ReadCreditAlerts(queuePath string, now time.Time) (alerts []Alert, errs []error) {
+	open, err := creditreq.NewQueue(queuePath).List()
+	if err != nil && !os.IsNotExist(err) {
+		errs = append(errs, fmt.Errorf("credit queue: %w", err))
+	}
+
+	histPath := filepath.Join(filepath.Dir(queuePath), "credit-requests-history.jsonl")
+	hist, err := creditreq.NewHistory(histPath).Since(now.Add(-creditRepeatWindow))
+	if err != nil && !os.IsNotExist(err) {
+		errs = append(errs, fmt.Errorf("credit history: %w", err))
+	}
+
+	alerts = CreditAlerts(open, hist, now)
+
+	halt, err := CreditHaltAlerts(queuePath + ".halt")
+	if err != nil {
+		errs = append(errs, fmt.Errorf("credit halt file: %w", err))
+	}
+
+	return append(alerts, halt...), errs
 }

@@ -42,6 +42,7 @@ func main() {
 	minWorkers := flag.Int("min-workers", 0, "alert when fewer workers than this are running (0 = derive from the first pass)")
 	once := flag.Bool("once", false, "run a single pass and exit (for cron or a manual check)")
 	fleetList := flag.String("fleets", "", "comma-separated fleets to watch (default: those with a running overmind)")
+	creditRequests := flag.String("credit-requests", filepath.Join("data", "overmind", "credit-requests.json"), "credit-request queue file (the history file is read from the same directory; empty disables)")
 	flag.Parse()
 
 	logger := log.New(os.Stderr, "[fleet-watch] ", log.LstdFlags)
@@ -74,6 +75,7 @@ func main() {
 		alertFile:  af,
 		notify:     *notify,
 		minWorkers: *minWorkers,
+		creditPath: *creditRequests,
 		logger:     logger,
 		prevUnrec:  map[string]int{},
 		firing:     map[string]string{},
@@ -110,6 +112,7 @@ type watcher struct {
 	alertFile  io.Writer
 	notify     bool
 	minWorkers int
+	creditPath string
 	logger     *log.Logger
 
 	prevUnrec map[string]int
@@ -160,6 +163,14 @@ func (w *watcher) pass() {
 		want["worker"] = w.minWorkers
 	}
 	alerts = append(alerts, ProcessAlerts(counts, want)...)
+
+	if w.creditPath != "" {
+		creditAlerts, errs := ReadCreditAlerts(w.creditPath, now)
+		for _, err := range errs {
+			w.logger.Printf("%v", err)
+		}
+		alerts = append(alerts, creditAlerts...)
+	}
 
 	snap := snapshot{
 		CheckedAt: now.Format(time.RFC3339),

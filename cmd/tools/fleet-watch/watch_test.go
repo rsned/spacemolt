@@ -2,8 +2,12 @@ package main
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/rsned/spacemolt/pkg/creditreq"
 )
 
 // realTail is shaped exactly like the live logs, including the mid-line start a
@@ -163,5 +167,97 @@ func TestEvaluate_StillRecordsUnrecovered(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("unrecovered alert no longer produced: %+v", alerts)
+	}
+}
+
+func TestCreditAlerts(t *testing.T) {
+	now := time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
+	paid := func(agent string, ago time.Duration) creditreq.Entry {
+		return creditreq.Entry{At: now.Add(-ago), AgentID: agent, Event: creditreq.EventPaid}
+	}
+	tests := []struct {
+		name string
+		open []creditreq.Record
+		hist []creditreq.Entry
+		want []string
+	}{
+		{"held", []creditreq.Record{{AgentID: "a1", Status: creditreq.StatusHeld, HeldReason: "gift failed 3 times"}}, nil,
+			[]string{"a1 credit request held: gift failed 3 times"}},
+		{"pending 10m", []creditreq.Record{{AgentID: "a1", Status: creditreq.StatusPending, RequestedAt: now.Add(-10 * time.Minute)}}, nil, nil},
+		{"pending 45m", []creditreq.Record{{AgentID: "a1", Status: creditreq.StatusPending, RequestedAt: now.Add(-45 * time.Minute)}}, nil,
+			[]string{"a1 credit request pending 45m — is the banker paying?"}},
+		{"two paid in 3 days", nil, []creditreq.Entry{paid("a1", 24*time.Hour), paid("a1", 72*time.Hour)},
+			[]string{"a1 paid 2 times in 7 days"}},
+		{"one paid", nil, []creditreq.Entry{paid("a1", time.Hour)}, nil},
+		{"two paid by different agents", nil, []creditreq.Entry{paid("a1", time.Hour), paid("a2", time.Hour)}, nil},
+		{"second payment outside window", nil, []creditreq.Entry{paid("a1", time.Hour), paid("a1", 8*24*time.Hour)}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CreditAlerts(tt.open, tt.hist, now)
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d alerts %v, want %d", len(got), got, len(tt.want))
+			}
+			for i, a := range got {
+				if a.Kind != KindCredit || a.Message != tt.want[i] {
+					t.Errorf("alert %d = %q/%q, want %q", i, a.Kind, a.Message, tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestCreditHaltAlerts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "credit-requests.json.halt")
+	got, err := CreditHaltAlerts(path)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("missing halt file: got %v, %v; want none", got, err)
+	}
+	if err = os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err = CreditHaltAlerts(path)
+	want := "credit payments HALTED — " + path + " exists; reconcile and delete it"
+	if err != nil || len(got) != 1 || got[0].Kind != KindCredit || got[0].Message != want {
+		t.Fatalf("got %v, %v; want one alert %q", got, err, want)
+	}
+}
+
+func TestReadCreditAlerts_MissingFilesAreQuiet(t *testing.T) {
+	got, errs := ReadCreditAlerts(filepath.Join(t.TempDir(), "credit-requests.json"), time.Now())
+	if len(got) != 0 || len(errs) != 0 {
+		t.Fatalf("got %v, %v; want nothing", got, errs)
+	}
+}
+
+func TestReadCreditAlerts_ReadsQueueHistoryAndHalt(t *testing.T) {
+	dir := t.TempDir()
+	qp := filepath.Join(dir, "credit-requests.json")
+	now := time.Now()
+	q := creditreq.NewQueue(qp)
+	if _, err := q.File(creditreq.Record{AgentID: "a1", RequestedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := q.Update("a1", func(r *creditreq.Record) { r.Status, r.HeldReason = creditreq.StatusHeld, "x" }); err != nil {
+		t.Fatal(err)
+	}
+	h := creditreq.NewHistory(filepath.Join(dir, "credit-requests-history.jsonl"))
+	for range 2 {
+		if err := h.Append(creditreq.Entry{At: now.Add(-time.Hour), AgentID: "a2", Event: creditreq.EventPaid}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(qp+".halt", nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, errs := ReadCreditAlerts(qp, now)
+	if len(errs) != 0 || len(got) != 3 {
+		t.Fatalf("got %v, %v; want 3 alerts", got, errs)
+	}
+}
+
+func TestNotifiable_Credit(t *testing.T) {
+	if !Notifiable(KindCredit) {
+		t.Error("credit alerts must notify")
 	}
 }
