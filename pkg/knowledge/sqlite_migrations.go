@@ -501,6 +501,14 @@ func migrations() []Migration {
 				return err
 			},
 		},
+		{
+			version: 69,
+			name:    "mission_completions_recipes_unlocked",
+			// v0.687.0: complete_mission reports the recipes it taught.
+			fn: func(tx *sql.Tx) error {
+				return ensureColumn(tx, "mission_completions", "recipes_unlocked", "TEXT NOT NULL DEFAULT '[]'")
+			},
+		},
 	}
 }
 

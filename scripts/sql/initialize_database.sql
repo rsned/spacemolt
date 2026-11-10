@@ -11,7 +11,7 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 10
+-- Migrations applied: 11
 -- Last Regenerated: 2026-11-10
 
 -- ============================================================================
@@ -524,7 +524,7 @@ CREATE TABLE mission_completions (
 					chain_next TEXT NOT NULL DEFAULT '',
 					tick INTEGER NOT NULL DEFAULT 0,
 					completed_at TEXT NOT NULL
-				);
+				, recipes_unlocked TEXT NOT NULL DEFAULT '[]');
 
 
 CREATE TABLE mission_objectives (
@@ -1396,4 +1396,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (65, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (66, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (67, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (68, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (69, datetime('now'));
 

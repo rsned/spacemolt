@@ -106,3 +106,35 @@ func TestRecordMissionCompletion_Reputation(t *testing.T) {
 		t.Fatalf("count=%d rep=%s tmpl=%s", count, rep, tmpl)
 	}
 }
+
+// v0.687.0: the recipes a completion taught are stored; a later record
+// without them (e.g. a backfill from an older ledger) does not erase them.
+func TestRecordMissionCompletion_RecipesUnlocked(t *testing.T) {
+	kb := newTestSQLiteKB(t)
+	ctx := t.Context()
+	c := MissionCompletion{AgentID: "craftsman-1", MissionID: "m1", Title: "Teach",
+		RecipesUnlocked: []string{"build_focused_crystal", "build_power_cell"}}
+	if err := kb.RecordMissionCompletion(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	c.RecipesUnlocked = nil
+	if err := kb.RecordMissionCompletion(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	var got string
+	if err := kb.db.QueryRowContext(ctx, `SELECT recipes_unlocked FROM mission_completions WHERE mission_id='m1'`).Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got != `["build_focused_crystal","build_power_cell"]` {
+		t.Fatalf("recipes_unlocked = %s", got)
+	}
+	if err := kb.RecordMissionCompletion(ctx, MissionCompletion{MissionID: "m2"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := kb.db.QueryRowContext(ctx, `SELECT recipes_unlocked FROM mission_completions WHERE mission_id='m2'`).Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got != `[]` {
+		t.Fatalf("no recipes: got %s, want []", got)
+	}
+}

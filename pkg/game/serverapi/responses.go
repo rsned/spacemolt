@@ -639,6 +639,9 @@ type CompleteMissionResponse struct {
 	// Unlocks (v0.685.0) lists every mission this completion opens, with what
 	// each still requires.
 	Unlocks []MissionUnlock `json:"unlocks,omitempty"`
+	// RecipesUnlocked (v0.687.0) are the recipe ids this completion taught;
+	// craftable from now on. Omitted when none (or already known).
+	RecipesUnlocked []string `json:"recipes_unlocked,omitempty"`
 }
 
 // CatalogResponse wraps the response from catalog command.

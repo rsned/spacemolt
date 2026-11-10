@@ -5843,6 +5843,7 @@ func formatCompleteMission(raw []byte) string {
 		ReputationChanges map[string]int            `json:"reputation_changes,omitempty"`
 		Fixer             *fixerAccount             `json:"fixer,omitempty"`
 		Unlocks           []serverapi.MissionUnlock `json:"unlocks,omitempty"`
+		RecipesUnlocked   []string                  `json:"recipes_unlocked,omitempty"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -5862,7 +5863,8 @@ func formatCompleteMission(raw []byte) string {
 	}
 
 	hasRewards := resp.CreditsEarned > 0 || len(resp.ItemsReceived) > 0 ||
-		len(resp.SkillXPGained) > 0 || len(resp.ReputationChanges) > 0
+		len(resp.SkillXPGained) > 0 || len(resp.ReputationChanges) > 0 ||
+		len(resp.RecipesUnlocked) > 0
 	if hasRewards {
 		b.WriteString("Rewards:\n")
 		if resp.CreditsEarned > 0 {
@@ -5904,6 +5906,10 @@ func formatCompleteMission(raw []byte) string {
 			for _, e := range empires {
 				fmt.Fprintf(&b, "  standing: %20s %s %+d\n", "", e, resp.ReputationChanges[e])
 			}
+		}
+		// v0.687.0: a completion can teach recipes.
+		for _, r := range resp.RecipesUnlocked {
+			fmt.Fprintf(&b, "  recipe:   %20s %s (now craftable)\n", "", r)
 		}
 	}
 
