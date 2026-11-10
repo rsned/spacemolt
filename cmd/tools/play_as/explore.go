@@ -994,7 +994,7 @@ func checkForSurveyScanner(state *game.State) bool {
 		"survey_scanner_i",
 		"survey_scanner_ii",
 		"deep_core_survey_scanner",
-		"anomaly_detector", // survey_system runs with it too (operator, 2026-11-09)
+		"anomaly_detector", // finds wormholes and anomalies; survey scanners find hidden POIs (operator, 2026-11-09)
 	}
 	for _, scanner := range surveyScanners {
 		if game.HasModuleType(state, scanner) {
