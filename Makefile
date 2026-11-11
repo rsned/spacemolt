@@ -94,7 +94,7 @@ help-race:
 # Update server documentation from spacemolt.com
 update-server-docs:
 	@echo "Fetching latest API documentation from spacemolt.com..."
-	go run ./cmd/update-server-docs
+	go run ./cmd/data/update-server-docs
 
 # Generate MCP tools from OpenAPI spec
 generate-mcp-tools:
