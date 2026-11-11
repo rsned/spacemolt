@@ -81,6 +81,7 @@ type MissionCompletion struct {
 	ItemsReceived     map[string]int
 	ChainNext         string
 	RecipesUnlocked   []string // v0.687.0: recipe ids the completion taught
+	Message           string   // the completion dialog the giver speaks
 	Tick              int64
 }
 
@@ -106,17 +107,27 @@ func (kb *SQLiteKB) RecordMissionCompletion(ctx context.Context, c MissionComple
 			mission_id, template_id, agent_id, title,
 			credits_earned, credits_promised,
 			reputation_changes, skill_xp_gained, items_received,
-			chain_next, recipes_unlocked, tick, completed_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			chain_next, recipes_unlocked, message, tick, completed_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (mission_id) DO UPDATE SET
 			template_id = CASE WHEN template_id = '' THEN excluded.template_id ELSE template_id END,
-			recipes_unlocked = CASE WHEN recipes_unlocked = '[]' THEN excluded.recipes_unlocked ELSE recipes_unlocked END`,
+			recipes_unlocked = CASE WHEN recipes_unlocked = '[]' THEN excluded.recipes_unlocked ELSE recipes_unlocked END,
+			message = CASE WHEN message = '' THEN excluded.message ELSE message END`,
 		c.MissionID, c.TemplateID, c.AgentID, c.Title,
 		c.CreditsEarned, c.CreditsPromised,
 		js(c.ReputationChanges), js(c.SkillXPGained), js(c.ItemsReceived),
-		c.ChainNext, recipesJSON(c.RecipesUnlocked), c.Tick, time.Now().UTC().Format(time.RFC3339))
+		c.ChainNext, recipesJSON(c.RecipesUnlocked), c.Message, c.Tick, time.Now().UTC().Format(time.RFC3339))
 	if err != nil {
 		return fmt.Errorf("record mission completion %s: %w", c.MissionID, err)
+	}
+	// The board never shows the completion dialog; this reply is the only
+	// source, so teach it to the template when the template is known.
+	if c.TemplateID != "" && c.Message != "" {
+		if _, err := kb.db.ExecContext(ctx, `
+			UPDATE mission_templates SET dialog_complete = ?
+			WHERE id = ? AND COALESCE(dialog_complete, '') = ''`, c.Message, c.TemplateID); err != nil {
+			return fmt.Errorf("record mission completion %s: template dialog: %w", c.MissionID, err)
+		}
 	}
 	return nil
 }

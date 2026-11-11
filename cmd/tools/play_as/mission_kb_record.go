@@ -23,6 +23,7 @@ type completionKBRecord struct {
 	ItemsReceived     map[string]int            `json:"items_received"`
 	Unlocks           []serverapi.MissionUnlock `json:"unlocks"`
 	RecipesUnlocked   []string                  `json:"recipes_unlocked"`
+	Message           string                    `json:"message"`
 }
 
 // acceptedTemplateID maps a mission instance id to the template id recorded
@@ -70,7 +71,7 @@ func recordCompletionInKB(ctx context.Context, kb *knowledge.SQLiteKB, agentID, 
 		CreditsEarned: r.CreditsEarned, CreditsPromised: r.CreditsPromised,
 		ReputationChanges: r.ReputationChanges, SkillXPGained: r.SkillXPGained,
 		ItemsReceived: r.ItemsReceived, ChainNext: r.ChainNext, Tick: outer.Tick,
-		RecipesUnlocked: r.RecipesUnlocked,
+		RecipesUnlocked: r.RecipesUnlocked, Message: r.Message,
 	}); err != nil {
 		return err
 	}

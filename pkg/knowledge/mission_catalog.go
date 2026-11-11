@@ -220,7 +220,12 @@ func diffMissionRows(old, new missionCatalogRow) []MissionFieldDiff {
 	add("dialog_offer", old.DialogOffer, new.DialogOffer)
 	add("dialog_accept", old.DialogAccept, new.DialogAccept)
 	add("dialog_decline", old.DialogDecline, new.DialogDecline)
-	add("dialog_complete", old.DialogComplete, new.DialogComplete)
+	// The board never carries the completion text; it is learned from a
+	// complete_mission reply (RecordMissionCompletion). A board read with it
+	// empty is "not reported", not a change.
+	if new.DialogComplete != "" {
+		add("dialog_complete", old.DialogComplete, new.DialogComplete)
+	}
 	add("chain_next", old.ChainNext, new.ChainNext)
 	addBool("repeatable", old.Repeatable, new.Repeatable)
 	// expires_in_ticks is deliberately NOT diffed. It is a countdown on a live

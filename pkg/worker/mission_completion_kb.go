@@ -40,6 +40,7 @@ func missionRecordCompletionKB(ctx context.Context, deps MissionDeps, out io.Wri
 		ItemsReceived:     intMap(res.ItemsReceived),
 		ChainNext:         res.ChainNext, Tick: outer.Tick,
 		RecipesUnlocked: res.RecipesUnlocked,
+		Message:         res.Message,
 	}); err != nil {
 		fmt.Fprintf(out, "missions: KB completion record: %v\n", err) //nolint:errcheck
 	}

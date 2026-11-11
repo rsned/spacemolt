@@ -138,3 +138,47 @@ func TestRecordMissionCompletion_RecipesUnlocked(t *testing.T) {
 		t.Fatalf("no recipes: got %s, want []", got)
 	}
 }
+
+// The completion dialog is only ever in the complete_mission reply. It is kept
+// on the completion row, taught to the template, and a later board read (which
+// never carries it) neither erases it nor reports it as a change.
+func TestRecordMissionCompletion_MessageTeachesTemplate(t *testing.T) {
+	kb := newTestSQLiteKB(t)
+	ctx := t.Context()
+	entry := serverapi.MissionBoardEntry{MissionID: "threx_audit", TemplateID: "threx_audit", Title: "Audit", Type: "delivery",
+		Rewards: &serverapi.MissionRewards{Credits: 100}}
+	if _, err := kb.UpsertMissionTemplate(ctx, entry, "b", "s", 1); err != nil {
+		t.Fatal(err)
+	}
+	const msg = "You didn't reach Threx. An auditor inside the Collective did."
+	if err := kb.RecordMissionCompletion(ctx, MissionCompletion{MissionID: "inst1", TemplateID: "threx_audit", Message: msg}); err != nil {
+		t.Fatal(err)
+	}
+	var got string
+	if err := kb.db.QueryRowContext(ctx, `SELECT message FROM mission_completions WHERE mission_id='inst1'`).Scan(&got); err != nil || got != msg {
+		t.Fatalf("completion message = %q, %v", got, err)
+	}
+	readDialog := func() string {
+		var d string
+		if err := kb.db.QueryRowContext(ctx, `SELECT COALESCE(dialog_complete,'') FROM mission_templates WHERE id='threx_audit'`).Scan(&d); err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	if d := readDialog(); d != msg {
+		t.Fatalf("template dialog_complete = %q", d)
+	}
+	entry.Rewards.Credits = 200 // force an update row
+	res, err := kb.UpsertMissionTemplate(ctx, entry, "b", "s", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range res.Diffs {
+		if d.Field == "dialog_complete" {
+			t.Fatalf("board read reported dialog_complete change: %+v", d)
+		}
+	}
+	if d := readDialog(); d != msg {
+		t.Fatalf("board read erased dialog_complete: %q", d)
+	}
+}

@@ -509,6 +509,15 @@ func migrations() []Migration {
 				return ensureColumn(tx, "mission_completions", "recipes_unlocked", "TEXT NOT NULL DEFAULT '[]'")
 			},
 		},
+		{
+			version: 70,
+			name:    "mission_completions_message",
+			// The completion dialog (complete_mission "message") was shown and
+			// dropped; mission_templates.dialog_complete was empty everywhere.
+			fn: func(tx *sql.Tx) error {
+				return ensureColumn(tx, "mission_completions", "message", "TEXT NOT NULL DEFAULT ''")
+			},
+		},
 	}
 }
 
