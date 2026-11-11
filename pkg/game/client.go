@@ -3126,6 +3126,10 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		}
 		c.state.LastWreck = w
 		c.mu.Unlock()
+		// The operational log, not just debug (which production discards):
+		// explorer-8 lost its 1,020-fuel explorer at Oxbow on 2026-11-11 and
+		// nothing in the fleet log said so — it only showed max fuel 90.
+		c.logEvent(formatPlayerDied(resp.Payload, w))
 
 	case protocol.TypeCombatUpdate:
 		c.mu.Lock()
