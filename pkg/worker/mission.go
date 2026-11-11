@@ -552,9 +552,9 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 				// "station" — every result would otherwise be filtered out
 				// here (the bug: "0 targets" on every dry pass). Resolve the
 				// actual station POI id from the KB instead.
-				poiID, perr := missionStationPOI(ctx, deps.KB, n.SystemID)
+				poiID, perr := missionBoardStationPOI(ctx, deps.KB, n.SystemID)
 				if perr != nil || poiID == "" {
-					continue // KB gap or no accessible station POI in this system
+					continue // KB gap, or no empire (NPC) station in this system
 				}
 				hops = append(hops, stationHop{SystemID: n.SystemID, POIID: poiID})
 			}
@@ -1366,6 +1366,30 @@ func missionStationPOI(ctx context.Context, kb knowledge.Base, systemID string) 
 		// An outpost is typed "station" and stored public, but it is
 		// members-only and refuses an outsider's dock ("Access denied").
 		if berr == nil && base != nil && base.PublicAccess && !base.IsOutpost() {
+			return p.ID, nil
+		}
+	}
+	return "", nil
+}
+
+// missionBoardStationPOI is missionStationPOI restricted to empire (NPC)
+// stations: the mission runner repositions to find a board, and a
+// player-built station (no empire; 52 of them in the KB, Conjunction Junction
+// among them) rarely posts missions or freight. explorer-11 sat on The Full
+// Moon's empty board in Wealth Lane, stall-restarted every ~20 minutes
+// (2026-11-11). Recovery and refuel paths keep using missionStationPOI: any
+// public station will do for those.
+func missionBoardStationPOI(ctx context.Context, kb knowledge.Base, systemID string) (string, error) {
+	pois, err := kb.GetPOIs(ctx, systemID)
+	if err != nil {
+		return "", err
+	}
+	for _, p := range pois {
+		if p.Type != "station" {
+			continue
+		}
+		base, berr := kb.GetBaseByPOI(ctx, p.ID)
+		if berr == nil && base != nil && base.PublicAccess && !base.IsOutpost() && base.Empire != "" {
 			return p.ID, nil
 		}
 	}

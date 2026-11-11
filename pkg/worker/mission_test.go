@@ -1257,8 +1257,8 @@ func TestMissionsDefaultRepositionFindsRealStationPOI(t *testing.T) {
 			"sol":   {{ID: "sol_station", Type: "station", SystemID: "sol"}},
 		},
 		bases: map[string]*knowledge.SpaceBase{
-			"haven_station": {ID: "haven_base", POIID: "haven_station", PublicAccess: true},
-			"sol_station":   {ID: "sol_base", POIID: "sol_station", PublicAccess: true},
+			"haven_station": {ID: "haven_base", POIID: "haven_station", PublicAccess: true, Empire: "nebula"},
+			"sol_station":   {ID: "sol_base", POIID: "sol_station", PublicAccess: true, Empire: "solarian"},
 		},
 	}
 	fc := &fakeClient{
@@ -1446,5 +1446,31 @@ func TestMissionsResumeRefreshesCargoBeforeJudgingCoverage(t *testing.T) {
 		if r.Outcome == "abandoned" {
 			t.Fatalf("no abandoned row may be recorded for a deliverable mission: %+v", store.results)
 		}
+	}
+}
+
+// A mission runner repositioning for a board skips player-built stations (no
+// empire): The Full Moon held explorer-11 on an empty board (2026-11-11).
+func TestMissionBoardStationPOISkipsPlayerStations(t *testing.T) {
+	kb := &fakeKB{
+		pois: map[string][]knowledge.POI{
+			"wealth_lane": {{ID: "full_moon", Type: "station", SystemID: "wealth_lane"}},
+			"the_levy":    {{ID: "full_moon_2", Type: "station"}, {ID: "levy_customs", Type: "station"}},
+		},
+		bases: map[string]*knowledge.SpaceBase{
+			"full_moon":    {ID: "4e89", POIID: "full_moon", PublicAccess: true},
+			"full_moon_2":  {ID: "4e8a", POIID: "full_moon_2", PublicAccess: true},
+			"levy_customs": {ID: "the_levy_customs_station", POIID: "levy_customs", PublicAccess: true, Empire: "nebula"},
+		},
+	}
+	if id, _ := missionBoardStationPOI(context.Background(), kb, "wealth_lane"); id != "" {
+		t.Errorf("wealth_lane: got %q, want none (player station only)", id)
+	}
+	if id, _ := missionBoardStationPOI(context.Background(), kb, "the_levy"); id != "levy_customs" {
+		t.Errorf("the_levy: got %q, want the empire station levy_customs", id)
+	}
+	// Recovery still accepts the player station.
+	if id, _ := missionStationPOI(context.Background(), kb, "wealth_lane"); id != "full_moon" {
+		t.Errorf("missionStationPOI: got %q, want full_moon", id)
 	}
 }
