@@ -38,7 +38,7 @@ func main() {
 	stale := flag.Duration("stale", 3*time.Minute, "alert when a fleet's log has been silent this long")
 	statusPath := flag.String("status-file", "data/overmind/fleet-watch-status.json", "current health snapshot")
 	alertLog := flag.String("alert-log", "data/overmind/fleet-watch.log", "append alerts here")
-	notify := flag.Bool("notify", true, "raise a desktop notification via notify-send")
+	notify := flag.Bool("notify", false, "raise a desktop notification via notify-send (off by default: the operator asked for no popups, 2026-11-10)")
 	minWorkers := flag.Int("min-workers", 0, "alert when fewer workers than this are running (0 = derive from the first pass)")
 	once := flag.Bool("once", false, "run a single pass and exit (for cron or a manual check)")
 	fleetList := flag.String("fleets", "", "comma-separated fleets to watch (default: those with a running overmind)")

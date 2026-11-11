@@ -8,12 +8,12 @@ metadata:
 **SHIPPED `daff4469`.** Relaunch line (it is itself unsupervised — start it with
 the fleets):
 ```
-setsid nohup ./bin/fleet-watch --interval 60s --stale 3m --notify \
+setsid nohup ./bin/fleet-watch --interval 60s --stale 3m \
   >> data/overmind/fleet-watch-daemon.log 2>&1 < /dev/null &
 ```
 - Health snapshot: `data/overmind/fleet-watch-status.json` (`healthy` bool,
   per-fleet `silent_for`, process census, active alerts).
-- Alert history: `data/overmind/fleet-watch.log`. Desktop alerts via `notify-send`.
+- Alert history: `data/overmind/fleet-watch.log`. Desktop popups are OFF by default (operator asked, 2026-11-10); `--notify` re-enables `notify-send`.
 - One-shot check: `./bin/fleet-watch --once --notify=false`.
 
 ## Why the rule is two-sided

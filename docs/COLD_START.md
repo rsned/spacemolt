@@ -518,7 +518,7 @@ fleets launched after it. Confirm the banner lists all eleven:
 `watching fleets: assist, banker, craft, crft-mining, haul, hunt, mb, mining, mission-learn, shuttle, unlock`.
 
 ```bash
-setsid nohup ./bin/fleet-watch --interval 60s --stale 3m --notify \
+setsid nohup ./bin/fleet-watch --interval 60s --stale 3m \
   >> data/overmind/fleet-watch-daemon.log 2>&1 < /dev/null &
 ```
 
