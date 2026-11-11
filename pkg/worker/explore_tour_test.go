@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -66,7 +67,7 @@ func tourSystem() *game.State {
 				Hazard: &serverapi.POIHazard{Type: serverapi.HazardTidalShear, Severity: 3}},
 			{ID: "belt", Type: "asteroid_belt", Position: game.Position{X: 2}},
 			{ID: "outpost", Type: "station", HasBase: true, BaseType: game.BaseTypeOutpost, Position: game.Position{X: 3}},
-			{ID: "veil", Type: "nebula", Hidden: true, Position: game.Position{X: 4}},
+			{ID: "veil", Type: "wormhole_entrance", Name: "The Veil", Hidden: true, Position: game.Position{X: 4}},
 		}},
 	}
 }
@@ -84,7 +85,7 @@ func TestPlanTourRouteNearestNeighbourFromStart(t *testing.T) {
 }
 
 // The tour is what keeps the explorer fueled: every POI visited, the station
-// docked at and refueled; hazardous, hidden and outpost POIs handled safely.
+// docked at and refueled; hazardous and outpost POIs handled safely.
 func TestSystemTourDocksAndRefuelsAtStations(t *testing.T) {
 	f := &tourFake{st: tourSystem()}
 
@@ -94,6 +95,7 @@ func TestSystemTourDocksAndRefuelsAtStations(t *testing.T) {
 	want := []string{
 		"travel belt",
 		"travel outpost", // visited and captured, never docked: outposts refuse outsiders
+		"travel veil",    // a charted hidden POI (wormhole mouth) is toured, never entered
 		"travel far_station",
 		"dock far_station",
 		"refuel far_station",
@@ -174,5 +176,29 @@ func TestExploreFuelStopNoopWhenFuelHealthy(t *testing.T) {
 	handled, err := exploreFuelStop(context.Background(), ExploreDeps{Client: f, KB: &fakeKB{}}, io.Discard, "a")
 	if handled || err != nil || len(f.calls) != 0 {
 		t.Errorf("handled=%v err=%v calls=%v, want untouched", handled, err, f.calls)
+	}
+}
+
+// Every wormhole entrance in the system is reported, NEW when the KB lacks it.
+func TestReportWormholesFlagsNewEntrances(t *testing.T) {
+	st := tourSystem()
+	st.System.POIs = append(st.System.POIs, game.POI{ID: "old_mouth", Type: "wormhole_entrance", Name: "Old Mouth",
+		WormholeDestination: "praecipua", ExpiresAt: "2026-11-11T00:00:00Z"})
+	kb := &fakeKB{pois: map[string][]knowledge.POI{"a": {{ID: "old_mouth"}}}}
+	var b strings.Builder
+
+	reportWormholes(context.Background(), ExploreDeps{KB: kb}, &b, st.System, st.System.POIs)
+
+	out := b.String()
+	for _, want := range []string{
+		"WORMHOLE ENTRANCE (NEW): The Veil [veil] in A — destination uncharted",
+		"WORMHOLE ENTRANCE (known): Old Mouth [old_mouth] in A — destination praecipua, expires 2026-11-11T00:00:00Z",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+	if strings.Count(out, "WORMHOLE") != 2 {
+		t.Errorf("want exactly the two entrances reported:\n%s", out)
 	}
 }

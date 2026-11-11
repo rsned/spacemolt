@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
 )
@@ -46,13 +47,11 @@ func planTourRoute(pois []game.POI, startPOI string) []game.POI {
 	return route
 }
 
-// tourSkipReason reports why the tour must not visit p, or "" to visit it.
-// A hidden POI is not travelable until revealed; a hazard that doses at
-// moderate severity or worse is not worth a capture.
+// tourSkipReason reports why the tour must not visit p, or "" to visit it:
+// a hazard that doses at moderate severity or worse is not worth a capture.
+// Hidden POIs are NOT skipped: get_system lists only the ones this pilot has
+// charted, and those (wormhole mouths, deep-core deposits) are travelable.
 func tourSkipReason(p game.POI) string {
-	if p.Hidden {
-		return "hidden"
-	}
 	if p.Hazard.Damaging() && p.Hazard.Severity >= hazardLeaveSeverity {
 		return fmt.Sprintf("%s hazard severity %d", p.Hazard.Type, p.Hazard.Severity)
 	}
@@ -83,6 +82,7 @@ func systemTour(ctx context.Context, deps ExploreDeps, out io.Writer) error {
 		return nil
 	}
 	route := planTourRoute(state.System.POIs, state.CurrentPOI)
+	reportWormholes(ctx, deps, out, state.System, route)
 	fmt.Fprintf(out, "explore: touring %d POI(s) in %s\n", len(route), nonEmpty(state.System.Name, state.System.ID)) //nolint:errcheck
 
 	for _, p := range route {
@@ -147,4 +147,51 @@ func exploreStationStop(ctx context.Context, deps ExploreDeps, out io.Writer, p 
 		f, m := s.GetFuel()
 		fmt.Fprintf(out, "explore: refueled at %s: %.0f/%.0f\n", name, f, m) //nolint:errcheck
 	}
+}
+
+// Wormhole POI types.
+const (
+	poiWormholeEntrance = "wormhole_entrance"
+	poiWormholeExit     = "wormhole_exit"
+)
+
+// reportWormholes logs every wormhole entrance in the system, flagging ones
+// the knowledge base had not recorded yet as NEW. Report only: the explorer
+// never enters one (operator decision 2026-11-10). It runs before the tour so
+// an entrance the tour skips (hazard) is still reported.
+func reportWormholes(ctx context.Context, deps ExploreDeps, out io.Writer, sys game.SystemData, pois []game.POI) {
+	known := map[string]bool{}
+	if deps.KB != nil {
+		if rows, err := deps.KB.GetPOIs(ctx, sys.ID); err == nil {
+			for _, r := range rows {
+				known[r.ID] = true
+			}
+		}
+	}
+	for _, p := range pois {
+		if p.Type != poiWormholeEntrance {
+			continue
+		}
+		tag := "known"
+		if !known[p.ID] {
+			tag = "NEW"
+		}
+		fmt.Fprintf(out, "🌀 WORMHOLE ENTRANCE (%s): %s [%s] in %s — %s\n", //nolint:errcheck
+			tag, nonEmpty(p.Name, p.ID), p.ID, nonEmpty(sys.Name, sys.ID), wormholeDetail(p))
+	}
+}
+
+// wormholeDetail summarizes what is known of a wormhole's far side and life.
+func wormholeDetail(p game.POI) string {
+	parts := []string{"destination uncharted"}
+	if p.WormholeDestination != "" {
+		parts[0] = "destination " + p.WormholeDestination
+	}
+	if p.WormholePredictionNeeded > 0 {
+		parts = append(parts, fmt.Sprintf("prediction needed %d", p.WormholePredictionNeeded))
+	}
+	if p.ExpiresAt != "" {
+		parts = append(parts, "expires "+p.ExpiresAt)
+	}
+	return strings.Join(parts, ", ")
 }
