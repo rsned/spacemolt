@@ -42,6 +42,10 @@ type StandingDeps struct {
 	SetQuiesced func(bool, string)
 	Out         io.Writer        // worker stdout / logs
 	NowFn       func() time.Time // injectable clock
+	// Battle, when set, arms the battle gate: a ship found in combat before a
+	// command sends the flee stance instead of running it. nil for roles that
+	// fight on purpose (hunt) and for tests.
+	Battle BattleClient
 
 	IdleInterval time.Duration // between idle passes (0 → game.SleepTick)
 	// KeepaliveInterval is how long a worker may stay silent before it sends a
@@ -475,6 +479,11 @@ func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
 	resolved, err := ResolveTokens(tokens, st)
 	if err != nil {
 		return err
+	}
+	// Caught in a battle we did not start: flee rather than retry a command
+	// the server refuses in combat until the ship dies.
+	if berr := battleGate(ctx, deps.Out, st, resolved, deps.Battle); berr != nil {
+		return berr
 	}
 	// Environmental hazards (v0.687.0): leave a POI that is dosing us, and
 	// refuse to fly into or mine at a known deadly one, before the command.

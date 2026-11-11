@@ -86,7 +86,7 @@ func ExecuteLoop(
 				// was moved off a POI that is dosing it (or refused one known
 				// to be deadly), and the next iteration -- `mine` again -- is
 				// what would put it back there to die.
-				if errors.Is(err, ErrHazardEscape) || errors.Is(err, ErrHazardRefused) {
+				if errors.Is(err, ErrHazardEscape) || errors.Is(err, ErrHazardRefused) || errors.Is(err, ErrFleeingBattle) {
 					fmt.Fprintf(out, "%s☢️  %v → aborting loop after %d/%d iterations\n", indent, err, i+1, count) //nolint:errcheck
 					return err
 				}

@@ -549,6 +549,7 @@ func main() {
 					Out:     logOut,
 					NowFn:   func() time.Time { return time.Now().UTC() },
 					AgentID: *agentID,
+					Battle:  worker.BattleGateClient(*role, wc),
 					NextTask: func() *worker.AssignedTask {
 						t := pendingTask.Swap(nil)
 						if t != nil {
