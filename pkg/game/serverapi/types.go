@@ -1645,6 +1645,16 @@ type ShipModule struct {
 	DroneCapacity       int            `json:"drone_capacity,omitempty"`
 	ResistanceBonus     map[string]int `json:"resistance_bonus,omitempty"`
 	Special             string         `json:"special,omitempty"`
+	// Hazard gear (server v0.689.0). HazardResistance maps a hazard type
+	// (HazardRadiation, ...) to percent less damage from it; it adds to the
+	// hazard's damage-type resistance, total capped at 90%.
+	// HazardMiningReduction is percent less hazard damage per mining action
+	// (damped mining heads); HazardScanFilter is percent of a hazard's
+	// scan/survey penalty cancelled (signal scrubbers). For both only the
+	// strongest fitted module counts.
+	HazardResistance      map[string]int `json:"hazard_resistance,omitempty"`
+	HazardMiningReduction int            `json:"hazard_mining_reduction,omitempty"`
+	HazardScanFilter      int            `json:"hazard_scan_filter,omitempty"`
 	// Boarding, personnel, medical, and fleet-support module stats (server
 	// v0.572.0). Zero on modules that lack the capability.
 	BoardingCapability      int  `json:"boarding_capability,omitempty"`
