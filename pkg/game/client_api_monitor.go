@@ -104,6 +104,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	"travel":                 reflect.TypeOf(serverapi.TravelResponse{}),
 	"arrived":                reflect.TypeOf(serverapi.TravelResponse{}),
 	"jump":                   reflect.TypeOf(serverapi.JumpResponse{}),
+	"pathfinder_jump":        reflect.TypeOf(serverapi.PathfinderJumpResponse{}),
 	"jumped":                 reflect.TypeOf(serverapi.JumpedResponse{}),
 	"mobile_capital_transit": reflect.TypeOf(serverapi.MobileCapitalTransitResponse{}),
 	"dock":                   reflect.TypeOf(serverapi.DockResponse{}),

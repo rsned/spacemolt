@@ -1278,6 +1278,14 @@ func formatGetLocation(raw []byte) string {
 		Players          []nearbyPlayer    `json:"nearby_players"`
 		NPCs             []empireNPC       `json:"nearby_empire_npcs"`
 		Pirates          []json.RawMessage `json:"nearby_pirates"`
+		// Pathfinder drift (first seen 2026-11-11): no system or POI, only a
+		// position in open space and the plotted bearing.
+		InTransit           bool    `json:"in_transit"`
+		TransitType         string  `json:"transit_type"`
+		TransitBearing      float64 `json:"transit_bearing"`
+		TransitTicksElapsed int     `json:"transit_ticks_elapsed"`
+		TransitX            float64 `json:"transit_x"`
+		TransitY            float64 `json:"transit_y"`
 	}
 	var resp struct {
 		Location loc    `json:"location"`
@@ -1287,6 +1295,9 @@ func formatGetLocation(raw []byte) string {
 		return ""
 	}
 	l := resp.Location
+	if l.InTransit && l.TransitType == "pathfinder" {
+		return formatPathfinderDrift(l.TransitBearing, l.TransitTicksElapsed, l.TransitX, l.TransitY)
+	}
 	if l.POIID == "" && l.SystemID == "" {
 		return ""
 	}

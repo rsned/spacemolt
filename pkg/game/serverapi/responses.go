@@ -1866,6 +1866,16 @@ type JumpResponse struct {
 	POIHazard *POIHazard `json:"poi_hazard,omitempty"`
 }
 
+// PathfinderJumpResponse is the OK reply to `jump <numeric bearing>` with a
+// Pathfinder Drive fitted (first seen 2026-11-11). The ship is then adrift in
+// open space on the bearing; get_location tracks it, a new bearing changes
+// course (180° reverses), and self_destruct is the way out.
+type PathfinderJumpResponse struct {
+	Action  string  `json:"action"`
+	Bearing float64 `json:"bearing"`
+	Message string  `json:"message,omitempty"`
+}
+
 // JumpedResponse wraps the response from jumped event after jump completes.
 type JumpedResponse struct {
 	// POIHazard (v0.687.0) is the environmental hazard at the arrival POI.
