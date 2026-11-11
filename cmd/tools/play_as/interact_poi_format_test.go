@@ -17,3 +17,15 @@ func TestFormatInteractPOI(t *testing.T) {
 		t.Error("empty reply should fall back to raw JSON")
 	}
 }
+
+// Live reply, 2026-11-11, Receiver Housing in The Sanctum (action_result
+// wrapper with command/result/tick).
+func TestFormatInteractPOILiveReceiverHousing(t *testing.T) {
+	raw := `{"command":"interact_poi","result":{"data_copied":true,"message":"Something is receiving this. / What it is, it has not yet decided.\n\nBefore you heard this / what were you listening with","poi_id":"receiver_housing"},"tick":2380223}`
+	got := formatInteractPOI([]byte(raw))
+	for _, want := range []string{"Interaction at receiver_housing", "Something is receiving this.", "Data copied"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
