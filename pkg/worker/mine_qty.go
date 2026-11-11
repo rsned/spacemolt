@@ -139,6 +139,15 @@ func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, 
 	// Snapshot before departure: besides the target, only lines this trip
 	// grew are handed off.
 	before := cargoQuantities(state)
+	if cargoFreeSpace(state) <= 0 {
+		// A hold already full at the start (a restart or a failed hand-off
+		// left the last load aboard) has nothing that can "grow" this trip,
+		// so the snapshot rule would keep all of it forever: miningbot_0023
+		// sat at Timberline with 180/180 of byproduct gas, delivering
+		// nothing, every 30s (2026-11-11). Treat the whole hold as this
+		// trip's load so it goes to the recipient.
+		before = map[string]int{}
+	}
 	if cargoCount(state, itemID) < qty {
 		err = d.mineWithMigration(ctx, itemID, qty, systemID, poiID, recipient == RecipientFaction, strongholds)
 		// Every deposit tried was depleted: still hand off whatever this

@@ -957,3 +957,35 @@ func TestMineLoopOtherOreIsNotDry(t *testing.T) {
 		t.Fatalf("copper_ore aboard = %v after %d passes, want the hold filled to 100", got, client.mineCalls)
 	}
 }
+
+// A hold already full of byproduct at the start of a pass is handed off in
+// full; the snapshot rule alone kept it aboard forever (miningbot_0023,
+// 180/180 argon/hydrogen/neon/nebula gas, no plasma, 2026-11-11). Reserved
+// items still stay.
+func TestMineQtyAtHandsOffAFullStartingHold(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMineAtTestKB(t, "", false)
+	client := newMineAtClient(130)
+	client.mineItemID = "plasma_gas"
+	client.state.Ship.CargoCapacity = 180
+	client.state.Ship.CargoUsed = 180
+	client.state.Ship.Cargo = []game.CargoItem{
+		{ItemID: "argon_gas", Quantity: 90},
+		{ItemID: "hydrogen_gas", Quantity: 50},
+		{ItemID: "neon_gas", Quantity: 30},
+		{ItemID: "fuel_cell", Quantity: 10},
+	}
+	d := noWaitMineDispatch(client, kb, agentsDir)
+
+	if err := d.MineQtyAt(context.Background(), "plasma_gas", 1, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("MineQtyAt: %v", err)
+	}
+	got := giftsByItem(client)
+	if got["argon_gas"] != 90 || got["hydrogen_gas"] != 50 || got["neon_gas"] != 30 {
+		t.Fatalf("gifts = %v, want the whole byproduct hold", got)
+	}
+	if got["fuel_cell"] != 0 {
+		t.Errorf("fuel cells handed off: %v", got)
+	}
+}
