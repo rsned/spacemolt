@@ -936,6 +936,8 @@ func formatStyledResponse(raw []byte, command string, facilityRaw []byte) string
 		return formatGetDrones(raw)
 	case "get_location", "location":
 		return formatGetLocation(raw)
+	case "interact_poi", "interact":
+		return formatInteractPOI(raw)
 	case "get_drone":
 		return formatGetDrone(raw)
 	case "load_drone":
@@ -8528,6 +8530,14 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 			return client.RawCommand(ctx, "get_location", nil)
 		}, ctx, 2*time.Second, "get_location", format)
 
+	case "interact_poi", "interact":
+		// Archives, derelicts and relics (v0.687.0): get_poi's "interaction"
+		// block names this command. A mutation: copies data, recovers items,
+		// or starts a mission at the current POI.
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "interact_poi", nil)
+		}, ctx, 12*time.Second, "interact_poi", format)
+
 	case "base", "get_base":
 		return simpleCommand(client, client.GetBase, ctx, 2*time.Second, cmd, format)
 
@@ -11036,6 +11046,7 @@ func printHelp() {
 
 	fmt.Println("\n=== KNOWLEDGE BASE ===")
 	fmt.Println("  update_system             - Save current system data to KB")
+	fmt.Println("  interact_poi              - Interact with the archive/derelict at this POI (get_poi shows when one is available)")
 	fmt.Println("  update_poi                - Save current POI data to KB")
 	fmt.Println("  update_station            - Save base, market, ships to KB (must be docked)")
 	fmt.Println("  update_facilities         - Save facility details to KB (must be docked)")
