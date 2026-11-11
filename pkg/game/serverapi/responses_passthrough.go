@@ -1,7 +1,5 @@
 package serverapi
 
-import "encoding/json"
-
 // Response structs for commands the client has no dedicated method for. They are
 // still reachable — play_as's raw passthrough will send any command the server
 // accepts — so a response can and does arrive for every one of them.
@@ -232,19 +230,18 @@ type NotificationChannel struct {
 // player/faction station. ServiceAccess maps a service name to its access policy.
 //   - station
 type StationConfigResponse struct {
-	// Gate (v0.687.0): this base's jump-gate end, when it is one. Raw until
-	// gate building is automated.
-	Gate                    json.RawMessage `json:"gate,omitempty"`
-	Action                  string          `json:"action"`
-	BaseID                  string          `json:"base_id"`
-	Name                    string          `json:"name"`
-	Description             string          `json:"description,omitempty"`
-	PublicAccess            bool            `json:"public_access"`
-	AllowOutsiderFacilities bool            `json:"allow_outsider_facilities"`
-	AutoBuyFuel             bool            `json:"auto_buy_fuel"`
-	AllowedFactions         []string        `json:"allowed_factions,omitempty"`
-	AllowedPlayers          []string        `json:"allowed_players,omitempty"`
-	BannedPlayers           []string        `json:"banned_players,omitempty"`
+	// Gate (v0.687.0): this base's jump-gate end, when it is one. Full status.
+	Gate                    *GateStatus `json:"gate,omitempty"`
+	Action                  string      `json:"action"`
+	BaseID                  string      `json:"base_id"`
+	Name                    string      `json:"name"`
+	Description             string      `json:"description,omitempty"`
+	PublicAccess            bool        `json:"public_access"`
+	AllowOutsiderFacilities bool        `json:"allow_outsider_facilities"`
+	AutoBuyFuel             bool        `json:"auto_buy_fuel"`
+	AllowedFactions         []string    `json:"allowed_factions,omitempty"`
+	AllowedPlayers          []string    `json:"allowed_players,omitempty"`
+	BannedPlayers           []string    `json:"banned_players,omitempty"`
 	// PlayerUsernames (v0.686.0) maps allowed/banned player ids to usernames;
 	// an id with no key belongs to a deleted account.
 	PlayerUsernames    map[string]string `json:"player_usernames,omitempty"`

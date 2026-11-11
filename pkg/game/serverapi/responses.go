@@ -26,6 +26,7 @@ type GetSystemResponse struct {
 
 // GetPOIResponse wraps the response from get_poi command.
 type GetPOIResponse struct {
+	Interaction *POIInteractionInfo `json:"interaction,omitempty"` // v0.687.0: private archive prompt at the current charted archive
 	// Kind is the v0.531.4 response discriminator: normal|transit (transit variant folded into this one struct).
 	Kind   string `json:"kind,omitempty"`
 	Action string `json:"action,omitempty"`
@@ -84,11 +85,12 @@ type GetStatusResponse struct {
 
 // GetShipResponse wraps the response from get_ship command.
 type GetShipResponse struct {
-	Ship      Ship         `json:"ship"`
-	Modules   []ShipModule `json:"modules"`
-	CargoUsed int          `json:"cargo_used"`
-	CargoMax  int          `json:"cargo_max"`
-	Class     *ShipClass   `json:"class,omitempty"`
+	FieldWorkshop *FieldWorkshopView `json:"field_workshop,omitempty"` // v0.687.0
+	Ship          Ship               `json:"ship"`
+	Modules       []ShipModule       `json:"modules"`
+	CargoUsed     int                `json:"cargo_used"`
+	CargoMax      int                `json:"cargo_max"`
+	Class         *ShipClass         `json:"class,omitempty"`
 	// DroneBay summarizes fitted drone bays and the drones in them
 	// (spec first carried it 2026-08-30). Note the drone LEDGER is
 	// agent-wide, not per-hull; this view is what this hull can host.
@@ -266,6 +268,8 @@ type GetCargoResponse struct {
 
 // GetNearbyResponse wraps the response from get_nearby command.
 type GetNearbyResponse struct {
+	RepeaterCount    int              `json:"repeater_count,omitempty"` // v0.687.0
+	Repeaters        []RepeaterInfo   `json:"repeaters,omitempty"`      // v0.687.0: Frontier Repeaters at this POI
 	Action           string           `json:"action,omitempty"`
 	Nearby           []NearbyPlayer   `json:"nearby"`
 	Pirates          []NearbyPirate   `json:"pirates,omitempty"`
@@ -594,6 +598,7 @@ type GetActiveMissionsResponse struct {
 
 // AcceptMissionResponse wraps the response from accept_mission command.
 type AcceptMissionResponse struct {
+	NoExpiry   bool   `json:"no_expiry,omitempty"` // v0.687.0: mission has no deadline; expires_at is empty
 	Message    string `json:"message"`
 	MissionID  string `json:"mission_id"`
 	Title      string `json:"title"`
@@ -1464,9 +1469,10 @@ type GetCommandsResponse struct {
 
 // HelpResponse wraps the response from help command.
 type HelpResponse struct {
-	Commands    []GameCommand `json:"commands"`
-	Topic       string        `json:"topic,omitempty"`
-	Description string        `json:"description,omitempty"`
+	Help        json.RawMessage `json:"help,omitempty"` // v0.687.0: seen live, absent from the spec
+	Commands    []GameCommand   `json:"commands"`
+	Topic       string          `json:"topic,omitempty"`
+	Description string          `json:"description,omitempty"`
 }
 
 // GetGuideResponse wraps the response from get_guide command.
@@ -1567,6 +1573,7 @@ type GiftShipResponse struct {
 
 // FactionInfoResponse wraps the response from faction_info command.
 type FactionInfoResponse struct {
+	ShipLicenses     []FactionShipLicense  `json:"ship_licenses,omitempty"` // v0.687.0: empire shipbuilding licenses owned, oldest first
 	Action           string                `json:"action,omitempty"`
 	ID               string                `json:"id"`
 	Name             string                `json:"name"`
@@ -1748,13 +1755,15 @@ type EspionageResponse struct {
 
 // ViewFactionStorageResponse wraps the response from view_faction_storage.
 type ViewFactionStorageResponse struct {
-	FactionID      string           `json:"faction_id"`
-	FactionName    string           `json:"faction_name"`
-	FactionTag     string           `json:"faction_tag"`
-	BaseID         string           `json:"base_id"`
-	Credits        int              `json:"credits"`
-	Items          []CargoItem      `json:"items"`
-	RecentActivity []map[string]any `json:"recent_activity,omitempty"`
+	DepositsBlocked       bool             `json:"deposits_blocked,omitempty"`        // v0.687.0
+	DepositsBlockedReason string           `json:"deposits_blocked_reason,omitempty"` // v0.687.0: dismantling | no_storage_facility
+	FactionID             string           `json:"faction_id"`
+	FactionName           string           `json:"faction_name"`
+	FactionTag            string           `json:"faction_tag"`
+	BaseID                string           `json:"base_id"`
+	Credits               int              `json:"credits"`
+	Items                 []CargoItem      `json:"items"`
+	RecentActivity        []map[string]any `json:"recent_activity,omitempty"`
 	// Buckets are the faction's named storage extensions at this base, each
 	// with its own per-item and package caps. Deposit into one with
 	// `storage deposit target=faction bucket=<name>`.
@@ -1874,6 +1883,7 @@ type JumpedResponse struct {
 
 // DockResponse wraps the response from dock command.
 type DockResponse struct {
+	GiftsTruncated      bool            `json:"gifts_truncated,omitempty"` // v0.687.0
 	Action              string          `json:"action,omitempty"`
 	Command             string          `json:"command,omitempty"`
 	Pending             bool            `json:"pending,omitempty"`
@@ -2117,6 +2127,7 @@ type UndockResponse struct {
 
 // RefuelResponse wraps the response from refuel command.
 type RefuelResponse struct {
+	PilotingXP       int    `json:"piloting_xp,omitempty"` // v0.687.0: ship-to-ship refuel XP
 	Action           string `json:"action"`
 	Source           string `json:"source,omitempty"`
 	Fuel             int    `json:"fuel,omitempty"`
@@ -2146,6 +2157,7 @@ type RefuelResponse struct {
 // RepairResponse wraps the response from repair command.
 // Supports station repair (credits), in-space repair (kits), and repairing other ships (repair arm + kits).
 type RepairResponse struct {
+	PilotingXP       int                 `json:"piloting_xp,omitempty"` // v0.687.0: ship-to-ship repair XP
 	Action           string              `json:"action"`
 	Source           string              `json:"source,omitempty"` // "station", "kits", etc.
 	Repaired         int                 `json:"repaired"`
@@ -2816,10 +2828,11 @@ type ActionLogEntry struct {
 
 // GetBaseCostResponse wraps the response from get_base_cost command.
 type GetBaseCostResponse struct {
-	StationTypes []StationType  `json:"station_types"`
-	Requirements []string       `json:"requirements"`
-	BaseCost     map[string]int `json:"base_cost,omitempty"`
-	Message      string         `json:"message,omitempty"`
+	OutpostFoundingFee int64          `json:"outpost_founding_fee,omitempty"` // v0.687.0: credits to found an outpost with build_outpost
+	StationTypes       []StationType  `json:"station_types"`
+	Requirements       []string       `json:"requirements"`
+	BaseCost           map[string]int `json:"base_cost,omitempty"`
+	Message            string         `json:"message,omitempty"`
 }
 
 // StationType represents a type of station that can be built.
@@ -3393,6 +3406,7 @@ type CancelShipListingResponse struct {
 
 // CancelCommissionResponse — cancel_commission
 type CancelCommissionResponse struct {
+	RefundedTo        string          `json:"refunded_to,omitempty"` // v0.687.0: who received the credit refund
 	Message           string          `json:"message"`
 	CreditsTotal      int64           `json:"credits_total,omitempty"`
 	MaterialsNote     string          `json:"materials_note,omitempty"`

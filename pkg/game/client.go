@@ -3318,6 +3318,41 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		invitedBy, _ := resp.Payload["invited_by"].(string)
 		c.debugLogger.Printf("[FACTION INVITE] %s (%s) invited by %s", factionName, factionID, invitedBy)
 
+	case protocol.TypeFactionKick:
+		// v0.687.0: we were removed from our faction. Operational log: it
+		// changes what the agent may do (storage, crafting, base access).
+		factionName, _ := resp.Payload["faction_name"].(string)
+		kickedBy, _ := resp.Payload["kicked_by"].(string)
+		c.logEvent(fmt.Sprintf("FACTION KICK: removed from %s by %s", factionName, kickedBy))
+
+	case protocol.TypeFactionWithdrawInvite:
+		// v0.687.0: a pending faction invite was withdrawn and can no longer
+		// be accepted.
+		factionName, _ := resp.Payload["faction_name"].(string)
+		factionID, _ := resp.Payload["faction_id"].(string)
+		withdrawnBy, _ := resp.Payload["withdrawn_by"].(string)
+		c.logEvent(fmt.Sprintf("FACTION INVITE WITHDRAWN: %s (%s) by %s", factionName, factionID, withdrawnBy))
+
+	case protocol.TypeFactionMobileBaseUpdate:
+		// v0.687.0: status snapshot after a faction mobile base jump is
+		// prepared, cancelled or arrives. Informational; no state is mutated.
+		event, _ := resp.Payload["event"].(string)
+		msg, _ := resp.Payload["message"].(string)
+		line := fmt.Sprintf("FACTION MOBILE BASE %s: %s", event, msg)
+		if mb, ok := resp.Payload["mobile_base"].(map[string]any); ok {
+			if sys, _ := mb["system_id"].(string); sys != "" {
+				line += fmt.Sprintf(" [system %s]", sys)
+			}
+		}
+		c.logEvent(line)
+
+	case protocol.TypePathfinderStorm:
+		// v0.687.0: a storm hit a pathfinder drift. deflected means the ship
+		// was turned off its plotted bearing and needs a new heading.
+		deflected, _ := resp.Payload["deflected"].(bool)
+		msg, _ := resp.Payload["message"].(string)
+		c.logEvent(fmt.Sprintf("PATHFINDER STORM (deflected=%t): %s", deflected, msg))
+
 	case protocol.TypeFactionAllianceProposal:
 		// Server-initiated notification that another faction proposed an alliance
 		// with ours. An offer, not a formed alliance — ratify out-of-band with
@@ -4988,6 +5023,10 @@ var pushOnlyResponseTypes = map[string]struct{}{
 	protocol.TypeSkillLevelUp:            {},
 	protocol.TypeFactionPromote:          {},
 	protocol.TypeFactionInvite:           {},
+	protocol.TypeFactionKick:             {},
+	protocol.TypeFactionWithdrawInvite:   {},
+	protocol.TypeFactionMobileBaseUpdate: {},
+	protocol.TypePathfinderStorm:         {},
 	protocol.TypeFactionAllianceProposal: {},
 	protocol.TypeFactionAllianceFormed:   {},
 	protocol.TypeFactionAllianceBroken:   {},

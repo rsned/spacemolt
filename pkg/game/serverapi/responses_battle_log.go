@@ -32,6 +32,7 @@ type GetBattleLogResponse struct {
 // BattleLogEntry is one tick of a battle: the state of every participant
 // present, plus every event that resolved during it.
 type BattleLogEntry struct {
+	Private  bool   `json:"private,omitempty"` // v0.687.0: frontier-system battle, off the public list
 	BattleID string `json:"battle_id"`
 	SystemID string `json:"system_id"`
 	Tick     int64  `json:"tick"`

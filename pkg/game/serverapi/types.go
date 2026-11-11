@@ -73,6 +73,13 @@ func (s *Skill) UnmarshalJSON(data []byte) error {
 
 // PlayerStats tracks player statistics and lifetime achievements.
 type PlayerStats struct {
+	ArchivesCopied          int   `json:"archives_copied,omitempty"`           // v0.687.0
+	CloakedCreaturesKilled  int   `json:"cloaked_creatures_killed,omitempty"`  // v0.687.0
+	FrontierSystemsExplored int   `json:"frontier_systems_explored,omitempty"` // v0.687.0
+	GateCrossings           int   `json:"gate_crossings,omitempty"`            // v0.687.0
+	GateSitesFounded        int   `json:"gate_sites_founded,omitempty"`        // v0.687.0
+	MonolithsDestroyed      int   `json:"monoliths_destroyed,omitempty"`       // v0.687.0
+	RepeatersDestroyed      int   `json:"repeaters_destroyed,omitempty"`       // v0.687.0
 	BasesDestroyed          int   `json:"bases_destroyed"`
 	BattlesFled             int   `json:"battles_fled,omitempty"`
 	BattlesStarted          int   `json:"battles_started,omitempty"`
@@ -181,6 +188,7 @@ type EmpireStanding struct {
 }
 
 type Player struct {
+	RefuelXP          *RefuelXPLedger             `json:"refuel_xp,omitempty"` // v0.687.0: players refueled ship-to-ship for piloting XP today (UTC)
 	ID                string                      `json:"id"`
 	Username          string                      `json:"username"`
 	Empire            string                      `json:"empire"`
@@ -391,6 +399,7 @@ type POI struct {
 
 // SystemData holds complete system information.
 type SystemData struct {
+	FrontierTier   int              `json:"frontier_tier,omitempty"` // v0.687.0: 1 near frontier, 2 deep frontier; omitted for known space
 	ID             string           `json:"id"`
 	Name           string           `json:"name"`
 	Description    string           `json:"description"`
@@ -440,15 +449,16 @@ type CurrentPOI struct {
 
 // MapSystem represents a system in the galaxy map (from get_map).
 type MapSystem struct {
-	SystemID    string   `json:"system_id"`
-	Name        string   `json:"name"`
-	Position    Position `json:"position"`
-	Connections []string `json:"connections"`
-	POICount    int      `json:"poi_count"`
-	Online      int      `json:"online"`
-	Visited     bool     `json:"visited"`
-	VisitedAt   string   `json:"visited_at"`
-	Empire      string   `json:"empire,omitempty"`
+	FrontierTier int      `json:"frontier_tier,omitempty"` // v0.687.0: 1 near frontier, 2 deep frontier; omitted for known space
+	SystemID     string   `json:"system_id"`
+	Name         string   `json:"name"`
+	Position     Position `json:"position"`
+	Connections  []string `json:"connections"`
+	POICount     int      `json:"poi_count"`
+	Online       int      `json:"online"`
+	Visited      bool     `json:"visited"`
+	VisitedAt    string   `json:"visited_at"`
+	Empire       string   `json:"empire,omitempty"`
 }
 
 // MarketListing represents a single market listing.
@@ -509,8 +519,8 @@ type BaseCombat struct {
 // Base represents a player-owned or NPC base.
 type Base struct {
 	// Gate (v0.687.0) is present only when this outpost is one end of a
-	// player-built jump gate. Kept raw until gate building is automated.
-	Gate              json.RawMessage `json:"gate,omitempty"`
+	// player-built jump gate.
+	Gate              *BaseGate       `json:"gate,omitempty"`
 	ID                string          `json:"id"`
 	Name              string          `json:"name"`
 	Description       string          `json:"description,omitempty"`
@@ -706,6 +716,7 @@ type ShipClass struct {
 
 // Recipe represents a crafting recipe.
 type Recipe struct {
+	RequiresUnlock  bool           `json:"requires_unlock,omitempty"` // v0.687.0: must first be earned from a quest
 	ID              string         `json:"id"`
 	Name            string         `json:"name"`
 	Description     string         `json:"description,omitempty"`
@@ -923,11 +934,12 @@ type Mission struct {
 
 // MissionRewards represents mission completion rewards.
 type MissionRewards struct {
-	Credits    int            `json:"credits"`
-	Items      map[string]int `json:"items,omitempty"`
-	SkillXP    map[string]int `json:"skill_xp,omitempty"`
-	PirateRep  int            `json:"pirate_rep,omitempty"`
-	Reputation int            `json:"reputation,omitempty"`
+	UnlockRecipes []string       `json:"unlock_recipes,omitempty"` // v0.687.0: requires_unlock recipe IDs taught on completion
+	Credits       int            `json:"credits"`
+	Items         map[string]int `json:"items,omitempty"`
+	SkillXP       map[string]int `json:"skill_xp,omitempty"`
+	PirateRep     int            `json:"pirate_rep,omitempty"`
+	Reputation    int            `json:"reputation,omitempty"`
 }
 
 // MissionObjective represents a single objective in a mission.
@@ -1496,6 +1508,7 @@ type MissionRequirements struct {
 
 // ActiveMission represents a mission the player has accepted.
 type ActiveMission struct {
+	NoExpiry       bool         `json:"no_expiry,omitempty"` // v0.687.0: no deadline; expires_in_ticks is zero
 	MissionID      string       `json:"mission_id"`
 	TemplateID     string       `json:"template_id,omitempty"`
 	Type           string       `json:"type"`

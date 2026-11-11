@@ -26,6 +26,7 @@ type ShipmentActor struct {
 // server documents as always better than defaulting. Treat DeadlineTick as a
 // bonus target and RecoveryDeadlineTick as the real point of no return.
 type ShipmentContract struct {
+	RequiresHazmat          bool           `json:"requires_hazmat,omitempty"` // v0.687.0: refined radioactive cargo; carrier needs a hazmat-rated ship
 	ID                      string         `json:"id"`
 	PackageID               string         `json:"package_id"`
 	Shipper                 *ShipmentActor `json:"shipper"`
@@ -76,6 +77,7 @@ type ShipmentContract struct {
 // ShippingListing wraps a contract for the board view; Eligible reports whether
 // this carrier can actually accept it (Reason explains when not).
 type ShippingListing struct {
+	Warning  string           `json:"warning,omitempty"` // v0.687.0: fixable problem with this run for the ship you fly now
 	Contract ShipmentContract `json:"contract"`
 	Eligible bool             `json:"eligible"`
 	Reason   string           `json:"reason,omitempty"`
@@ -173,6 +175,7 @@ type ShippingContractResponse struct {
 
 // ShippingSettlementResponse is action=deliver|return|cancel.
 type ShippingSettlementResponse struct {
+	PilotingXP    int              `json:"piloting_xp,omitempty"` // v0.687.0: piloting XP the delivering pilot earned
 	Action        string           `json:"action"`
 	Contract      ShipmentContract `json:"contract"`
 	CarrierPayout int64            `json:"carrier_payout,omitempty"`

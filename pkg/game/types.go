@@ -112,19 +112,26 @@ type PlayerSkill struct {
 // Server commands that include this:
 //   - Any command returning Player (logged_in, state_update, get_status)
 type PlayerStats struct {
-	ShipsDestroyed    int   `json:"ships_destroyed"`
-	OreMined          int64 `json:"ore_mined"`
-	CreditsEarned     int64 `json:"credits_earned"`
-	CreditsSpent      int64 `json:"credits_spent"`
-	TradesCompleted   int   `json:"trades_completed"`
-	SystemsExplored   int   `json:"systems_explored"`
-	ItemsCrafted      int   `json:"items_crafted"`
-	MissionsCompleted int   `json:"missions_completed"`
-	BasesDestroyed    int   `json:"bases_destroyed"`
-	DistanceTraveled  int64 `json:"distance_traveled"`
-	PiratesDestroyed  int   `json:"pirates_destroyed"`
-	ShipsLost         int   `json:"ships_lost"`
-	TimePlayed        int64 `json:"time_played"`
+	ArchivesCopied          int   `json:"archives_copied,omitempty"` // v0.687.0
+	CloakedCreaturesKilled  int   `json:"cloaked_creatures_killed,omitempty"`
+	FrontierSystemsExplored int   `json:"frontier_systems_explored,omitempty"`
+	GateCrossings           int   `json:"gate_crossings,omitempty"`
+	GateSitesFounded        int   `json:"gate_sites_founded,omitempty"`
+	MonolithsDestroyed      int   `json:"monoliths_destroyed,omitempty"`
+	RepeatersDestroyed      int   `json:"repeaters_destroyed,omitempty"`
+	ShipsDestroyed          int   `json:"ships_destroyed"`
+	OreMined                int64 `json:"ore_mined"`
+	CreditsEarned           int64 `json:"credits_earned"`
+	CreditsSpent            int64 `json:"credits_spent"`
+	TradesCompleted         int   `json:"trades_completed"`
+	SystemsExplored         int   `json:"systems_explored"`
+	ItemsCrafted            int   `json:"items_crafted"`
+	MissionsCompleted       int   `json:"missions_completed"`
+	BasesDestroyed          int   `json:"bases_destroyed"`
+	DistanceTraveled        int64 `json:"distance_traveled"`
+	PiratesDestroyed        int   `json:"pirates_destroyed"`
+	ShipsLost               int   `json:"ships_lost"`
+	TimePlayed              int64 `json:"time_played"`
 
 	// Deaths are counted per cause and are the only lifetime record of an agent
 	// dying that exists anywhere: workers log no death, and the asset ledger
@@ -312,6 +319,7 @@ type POIResource struct {
 //   - POIs are objects with has_base/base_name/online instead of bare IDs
 //   - Connections are ConnectionInfo objects instead of bare system IDs
 type SystemData struct {
+	FrontierTier    int              `json:"frontier_tier,omitempty"` // v0.687.0
 	ID              string           `json:"id"`
 	Name            string           `json:"name"`
 	Description     string           `json:"description"`
@@ -684,6 +692,7 @@ func (s *State) Clone() *State {
 			Description:     s.System.Description,
 			Empire:          s.System.Empire,
 			PoliceLevel:     s.System.PoliceLevel,
+			FrontierTier:    s.System.FrontierTier,
 			SecurityStatus:  s.System.SecurityStatus,
 			IsStronghold:    s.System.IsStronghold,
 			Online:          s.System.Online,

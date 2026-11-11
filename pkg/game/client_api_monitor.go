@@ -64,6 +64,7 @@ var actionResponseTypes = map[string]reflect.Type{
 	"get_skills":          reflect.TypeOf(serverapi.GetSkillsResponse{}),
 	"get_listings":        reflect.TypeOf(serverapi.GetListingsResponse{}),
 	"get_cargo":           reflect.TypeOf(serverapi.GetCargoResponse{}),
+	"interact_poi":        reflect.TypeOf(serverapi.InteractPOIResponse{}),
 	"get_nearby":          reflect.TypeOf(serverapi.GetNearbyResponse{}),
 	"get_map":             reflect.TypeOf(serverapi.GetMapResponse{}),
 	"get_recipes":         reflect.TypeOf(serverapi.GetRecipesResponse{}),
@@ -703,6 +704,26 @@ var eventExpectedFields = map[string]map[string]bool{
 		"faction_name": true,
 		"invited_by":   true,
 		"message":      true,
+	},
+	protocol.TypeFactionKick: {
+		"faction_name": true,
+		"kicked_by":    true,
+		"message":      true,
+	},
+	protocol.TypeFactionWithdrawInvite: {
+		"faction_id":   true,
+		"faction_name": true,
+		"withdrawn_by": true,
+		"message":      true,
+	},
+	protocol.TypeFactionMobileBaseUpdate: {
+		"event":       true,
+		"message":     true,
+		"mobile_base": true,
+	},
+	protocol.TypePathfinderStorm: {
+		"deflected": true,
+		"message":   true,
 	},
 	protocol.TypeTradeOfferReceived: {
 		"trade_id": true,

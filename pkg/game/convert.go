@@ -68,6 +68,8 @@ func PlayerStatsFromAPI(ext serverapi.PlayerStats) PlayerStats {
 		DeathsByPlayer:       ext.DeathsByPlayer,
 		DeathsBySelfDestruct: ext.DeathsBySelfDestruct,
 		DeathsByWildlife:     ext.DeathsByWildlife,
+		ArchivesCopied:       ext.ArchivesCopied, CloakedCreaturesKilled: ext.CloakedCreaturesKilled, FrontierSystemsExplored: ext.FrontierSystemsExplored,
+		GateCrossings: ext.GateCrossings, GateSitesFounded: ext.GateSitesFounded, MonolithsDestroyed: ext.MonolithsDestroyed, RepeatersDestroyed: ext.RepeatersDestroyed,
 
 		InsuranceClaimsMade:   ext.InsuranceClaimsMade,
 		InsurancePayoutsRecvd: ext.InsurancePayoutsRecvd,
@@ -152,6 +154,7 @@ func SystemDataFromAPI(ext serverapi.SystemData) SystemData {
 		Empire:         ext.Empire,
 		PoliceLevel:    ext.PoliceLevel,
 		SecurityStatus: ext.SecurityStatus,
+		FrontierTier:   ext.FrontierTier,
 		IsStronghold:   ext.IsStronghold,
 		Online:         ext.Online,
 		POIs:           pois,

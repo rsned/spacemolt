@@ -123,6 +123,15 @@ const (
 	TypeFactionWarDeclared      = "faction_war_declared"
 	TypeFactionPeaceProposal    = "faction_peace_proposal"
 	TypeFactionPeaceAccepted    = "faction_peace_accepted"
+	// v0.687.0 faction membership and mobile-base notifications.
+	TypeFactionKick           = "faction_kick"
+	TypeFactionWithdrawInvite = "faction_withdraw_invite"
+	// TypeFactionMobileBaseUpdate is a status snapshot after a mobile base
+	// jump starts, is cancelled, or arrives.
+	TypeFactionMobileBaseUpdate = "faction_mobile_base_update"
+	// TypePathfinderStorm is a storm buffeting (or deflecting) a pathfinder
+	// drift.
+	TypePathfinderStorm = "pathfinder_storm"
 
 	// Achievement events
 	TypeAchievementUnlocked = "achievement_unlocked"

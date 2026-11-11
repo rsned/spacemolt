@@ -14,7 +14,6 @@ var ignoredCommands = map[string]string{
 	// and archive interaction are not automated yet; play_as reaches both
 	// through the generic command path.
 	"build_gate_site": "v0.687.0 gate building: operator-driven, not automated yet",
-	"interact_poi":    "v0.687.0 archive interaction: not automated yet",
 	// v0.572.0 personnel/prize commands ("Layer B"): typed wrappers are
 	// deliberately deferred until the passive absorption (structs, pushes,
 	// KB tables — committed 2026-08-30) is rolled out to the fleets. Remove

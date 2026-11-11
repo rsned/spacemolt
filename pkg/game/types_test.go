@@ -146,6 +146,7 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 			Description:    "The birthplace of humanity",
 			Empire:         "solarian",
 			PoliceLevel:    100,
+			FrontierTier:   2,
 			SecurityStatus: "Maximum Security",
 			IsStronghold:   true,
 			Online:         42,
