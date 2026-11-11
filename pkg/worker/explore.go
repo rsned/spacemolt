@@ -7,6 +7,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
@@ -115,6 +116,9 @@ type ExploreDeps struct {
 	Out        io.Writer // progress; nil -> io.Discard
 	StaleTicks int64     // 0 -> DefaultExploreStaleTicks
 	AgentID    string    // stamped as DetectedBy on the POIs a survey reveals
+	// Market receives the market snapshot of every station the tour docks at;
+	// nil skips the market.db write (the KB capture still runs).
+	Market *market.Collector
 }
 
 // Explore performs one exploration step: resolve the current system, choose the
@@ -148,6 +152,9 @@ func Explore(ctx context.Context, deps ExploreDeps) error {
 	if label == "" {
 		label = currentID
 	}
+	if handled, err := exploreFuelStop(ctx, deps, out, currentID); handled || err != nil {
+		return err
+	}
 	target, ok, err := NextExploreTarget(ctx, deps.KB, currentID, stale, state.CurrentTick)
 	if err != nil {
 		return err
@@ -171,6 +178,7 @@ func Explore(ctx context.Context, deps ExploreDeps) error {
 	if _, err := SurveyHere(ctx, deps.Client, deps.KB, deps.AgentID, out); err != nil {
 		fmt.Fprintf(out, "explore: survey skipped in %s: %v\n", target, err) //nolint:errcheck
 	}
-
-	return nil
+	// Then tour it: every POI captured, every station docked at, captured and
+	// refueled — the refuel is what keeps an explorer's tank up.
+	return systemTour(ctx, deps, out)
 }

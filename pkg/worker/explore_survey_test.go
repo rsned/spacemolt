@@ -130,6 +130,8 @@ func (f *exploreFake) GetState() *game.State {
 	return &game.State{CurrentTick: 100, System: game.SystemData{ID: "a", Name: "A"}}
 }
 
+func (f *exploreFake) GetSystem(context.Context) error { return nil }
+
 func (f *exploreFake) FindRoute(context.Context, string) ([]game.RouteStep, error) {
 	return f.route, nil
 }

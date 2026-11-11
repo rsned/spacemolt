@@ -405,7 +405,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, d.Client, d.KB) },
 		}, args[0], poi)
 	case "explore":
-		return Explore(ctx, ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID})
+		return Explore(ctx, ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID, Market: d.Market})
 	case "haul":
 		if d.Market == nil {
 			fmt.Fprintln(d.Out, "haul: market collector not configured (use --market-db-path)") //nolint:errcheck
