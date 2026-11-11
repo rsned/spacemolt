@@ -169,3 +169,43 @@ func TestQueueConcurrentWriters(t *testing.T) {
 		t.Fatalf("want %d records, got %d (%v)", len(agents), len(recs), err)
 	}
 }
+
+func TestNeedsFuelRescue(t *testing.T) {
+	for _, tc := range []struct {
+		fuel, max float64
+		want      bool
+	}{
+		{100, 100, false}, // miningbot_0018: full tank, stalled on a depleted belt
+		{120, 120, false},
+		{50, 100, false}, // exactly half
+		{49, 100, true},
+		{3, 100, true},
+		{0, 0, true}, // capacity unknown: old behaviour
+	} {
+		if got := NeedsFuelRescue(tc.fuel, tc.max); got != tc.want {
+			t.Errorf("NeedsFuelRescue(%v, %v) = %v, want %v", tc.fuel, tc.max, got, tc.want)
+		}
+	}
+}
+
+// A record filed already failed stays failed, so no assister claims it.
+func TestEnqueueKeepsFailedStatus(t *testing.T) {
+	q := NewQueue(filepath.Join(t.TempDir(), "queue.json"))
+	if _, err := q.Enqueue(Record{AgentID: "miningbot_0018", Status: StatusFailed}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := q.Enqueue(Record{AgentID: "trader-8", Status: StatusClaimed}); err != nil {
+		t.Fatal(err)
+	}
+	recs, err := q.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]Status{}
+	for _, r := range recs {
+		got[r.AgentID] = r.Status
+	}
+	if got["miningbot_0018"] != StatusFailed || got["trader-8"] != StatusPending {
+		t.Fatalf("statuses = %v, want failed kept and anything else pending", got)
+	}
+}

@@ -83,6 +83,9 @@ type WorkerDispatch struct {
 	// Pipeline pins the pipeline_miner role's mine-and-hand-off route
 	// (--pipeline). Nil leaves the pipeline_mine verb erroring.
 	Pipeline *Pipeline
+	// restingPOIs records resource POIs this worker found depleted, by POI id,
+	// so MineQtyAt leaves them to regrow (see MineDepletedRest).
+	restingPOIs map[string]time.Time
 
 	// treasury rate-limits faction-treasury rescue withdrawals across idle passes.
 	// Held here (not per Run call) so the cooldown survives between command passes.

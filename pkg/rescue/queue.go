@@ -27,6 +27,20 @@ const (
 	StatusFailed  Status = "failed"
 )
 
+// FuelRescueMaxFraction is the tank level at or above which a quarantined
+// worker gets no fuel rescue: its stall is not a fuel problem, and sending an
+// assister only burns the assister's tank. On 2026-11-11 assists flew repeated
+// runs at miningbot_0018 and miningbot_0023 (both 100% full, quarantined on a
+// depleted belt) until each gave up, and assist-sol stranded itself doing it.
+const FuelRescueMaxFraction = 0.5
+
+// NeedsFuelRescue reports whether a worker with this tank could be helped by
+// a fuel transfer. An unknown capacity (maxFuel <= 0) is treated as needing
+// one, the old behaviour.
+func NeedsFuelRescue(fuel, maxFuel float64) bool {
+	return maxFuel <= 0 || fuel < FuelRescueMaxFraction*maxFuel
+}
+
 // Record is one stranded worker awaiting (or through) rescue.
 type Record struct {
 	AgentID        string  `json:"agent_id"`
@@ -107,7 +121,11 @@ func (q *Queue) Enqueue(rec Record) (bool, error) {
 			}
 		}
 		ts := q.now().UTC().Format(time.RFC3339)
-		rec.Status = StatusPending
+		// A record filed already failed (no rescue warranted) keeps that
+		// status, so no assister ever claims it; anything else starts pending.
+		if rec.Status != StatusFailed {
+			rec.Status = StatusPending
+		}
 		rec.RequestedAt, rec.UpdatedAt, rec.PendingSince = ts, ts, ts
 		inserted = true
 		return append(recs, rec), true, nil

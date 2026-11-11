@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -48,8 +49,19 @@ func makeOnQuarantine(ctx context.Context, logger *log.Logger, queue *rescue.Que
 		} else {
 			logger.Printf("rescue: no KB available; cannot resolve system_id for %s — record will need operator attention", w.AgentID)
 		}
+		if !rescue.NeedsFuelRescue(st.Fuel, st.MaxFuel) {
+			// Filed already failed: the record keeps the worker quarantined
+			// (no record would read as a manual release) and raises the
+			// operator alert, but no assister is sent with fuel it does not need.
+			rec.Status = rescue.StatusFailed
+			rec.RescueFuel = 0
+			rec.Error = fmt.Sprintf("no fuel rescue: tank %.0f/%.0f is not low, so the stall is not a fuel problem", st.Fuel, st.MaxFuel)
+		}
 		if ok, err := queue.Enqueue(rec); err != nil {
 			logger.Printf("rescue: enqueue %s: %v", w.AgentID, err)
+		} else if ok && rec.Status == rescue.StatusFailed {
+			logger.Printf("rescue: NOT dispatching for %s (%s @ %s/%s): %s — operator action needed",
+				w.AgentID, reason, rec.System, rec.POI, rec.Error)
 		} else if ok {
 			logger.Printf("rescue: queued %s (%s @ %s/%s, %d fuel)", w.AgentID, reason, rec.System, rec.POI, rec.RescueFuel)
 		}
@@ -75,6 +87,11 @@ func warnRescueExhausted(logger *log.Logger, rec rescue.Record) {
 		return
 	}
 	warnedExhausted[rec.AgentID] = true
+	if rec.Attempts == 0 {
+		logger.Printf("rescue: ALERT %s is quarantined (%s) at %s/%s and no rescue was sent: %s — operator action needed.",
+			rec.AgentID, rec.Reason, rec.System, rec.POI, rec.Error)
+		return
+	}
 	logger.Printf("rescue: ALERT %s is UNRESCUABLE after %d attempts by [%s] and stays quarantined "+
 		"— operator action needed. last error: %s. Check the strandee's LIVE position first: a stale "+
 		"record POI sends every rescuer to the wrong place.",

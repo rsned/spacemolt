@@ -124,7 +124,8 @@ func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, 
 	if err != nil {
 		return fmt.Errorf("mine_qty_at: look up system %q: %w", systemID, err)
 	}
-	if sys != nil && strongholdBlocked(d.mineStrongholdRefs(ctx, state), sys.ID, sys.Name) {
+	strongholds := d.mineStrongholdRefs(ctx, state)
+	if sys != nil && strongholdBlocked(strongholds, sys.ID, sys.Name) {
 		return fmt.Errorf("mine_qty_at: %s is a pirate stronghold and this agent lacks the pirate unlock", systemID)
 	}
 	blocked, reason := lawlessBlocked(sys, d.pirateUnlocked(ctx))
@@ -139,10 +140,14 @@ func (d *WorkerDispatch) MineQtyAt(ctx context.Context, itemID string, qty int, 
 	// grew are handed off.
 	before := cargoQuantities(state)
 	if cargoCount(state, itemID) < qty {
-		if err = d.autopilotAndUndock(ctx, systemID, poiID); err != nil {
-			return fmt.Errorf("mine_qty_at: travel to %s: %w", poiID, err)
+		err = d.mineWithMigration(ctx, itemID, qty, systemID, poiID, recipient == RecipientFaction, strongholds)
+		// Every deposit tried was depleted: still hand off whatever this
+		// trip did mine rather than carry it into the next failure.
+		if isDepletedErr(err) && cargoTotal(d.Client.GetState()) > sumQuantities(before) {
+			fmt.Fprintf(d.Out, "mine_qty_at: %v — handing off what was mined\n", err) //nolint:errcheck
+			err = nil
 		}
-		if err = d.mineLoop(ctx, itemID, qty, poiID, recipient == RecipientFaction); err != nil {
+		if err != nil {
 			return err
 		}
 	}
@@ -206,6 +211,15 @@ func cargoTotal(state *game.State) int {
 	total := 0
 	for _, q := range cargoQuantities(state) {
 		total += q
+	}
+	return total
+}
+
+// sumQuantities totals a cargoQuantities snapshot.
+func sumQuantities(q map[string]int) int {
+	total := 0
+	for _, n := range q {
+		total += n
 	}
 	return total
 }

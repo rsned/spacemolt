@@ -418,3 +418,44 @@ func TestPollRescuesNoDebtWhenArchiveFails(t *testing.T) {
 		t.Fatalf("archive failure must not write a fee debt (double-charge guard), got %+v", debts)
 	}
 }
+
+// A quarantined worker with a healthy tank gets a failed record and an
+// operator alert, never a fuel run; a low one is queued for rescue as before.
+func TestOnQuarantineSkipsRescueForHealthyTank(t *testing.T) {
+	dir := t.TempDir()
+	queue := rescue.NewQueue(filepath.Join(dir, "queue.json"))
+	var logBuf bytes.Buffer
+	logger := log.New(&logBuf, "", 0)
+	onQ := makeOnQuarantine(context.Background(), logger, queue, nil, "crft-mining")
+
+	full := supervisor.WorkerInfo{AgentID: "miningbot_0018",
+		LastStatus: control.Status{System: "Cloverfield", POI: "cloverfield_belt", Fuel: 100, MaxFuel: 100}}
+	low := supervisor.WorkerInfo{AgentID: "miner-3",
+		LastStatus: control.Status{System: "Sol", POI: "sol_belt", Fuel: 4, MaxFuel: 100}}
+	onQ(full, "stalled: 3 futile stall-restarts without progress")
+	onQ(low, "stalled: 3 futile stall-restarts without progress")
+
+	recs, err := queue.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]rescue.Record{}
+	for _, r := range recs {
+		byID[r.AgentID] = r
+	}
+	if r := byID["miningbot_0018"]; r.Status != rescue.StatusFailed || r.RescueFuel != 0 || !strings.Contains(r.Error, "100/100") {
+		t.Errorf("full-tank record = %+v, want failed with no fuel and the tank in the error", r)
+	}
+	if r := byID["miner-3"]; r.Status != rescue.StatusPending || r.RescueFuel <= 0 {
+		t.Errorf("low-tank record = %+v, want pending with fuel", r)
+	}
+	if !strings.Contains(logBuf.String(), "NOT dispatching for miningbot_0018") {
+		t.Errorf("log lacks the no-dispatch line:\n%s", logBuf.String())
+	}
+
+	var alert bytes.Buffer
+	warnRescueExhausted(log.New(&alert, "", 0), byID["miningbot_0018"])
+	if !strings.Contains(alert.String(), "no rescue was sent") {
+		t.Errorf("alert = %q, want the no-rescue-sent wording", alert.String())
+	}
+}
