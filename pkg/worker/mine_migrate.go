@@ -107,12 +107,21 @@ func (d *WorkerDispatch) mineWithMigration(ctx context.Context, itemID string, q
 	}
 
 	for attempt := 0; ; attempt++ {
-		if err := d.autopilotAndUndock(ctx, sys, poi); err != nil {
-			return fmt.Errorf("mine_qty_at: travel to %s: %w", poi, err)
-		}
-		err := d.mineLoop(ctx, itemID, qty, poi, anyYield)
-		if !isDepletedErr(err) {
-			return err
+		var err error
+		why := "depleted"
+		if terr := d.autopilotAndUndock(ctx, sys, poi); terr != nil {
+			err = fmt.Errorf("mine_qty_at: travel to %s: %w", poi, terr)
+			// Only a vanished alternate is skipped; the pinned POI failing
+			// to resolve is a config problem the operator must see.
+			if poi == poiID || !isUnknownDestinationErr(terr) {
+				return err
+			}
+			why = "no longer exists (Unknown destination)"
+		} else {
+			err = d.mineLoop(ctx, itemID, qty, poi, anyYield)
+			if !isDepletedErr(err) {
+				return err
+			}
 		}
 		d.markResting(poi, time.Now())
 		if attempt >= mineMigrateCandidates {
@@ -120,11 +129,18 @@ func (d *WorkerDispatch) mineWithMigration(ctx context.Context, itemID string, q
 		}
 		alt, altPOI, ferr := d.findAlternateMinePOI(ctx, systemID, itemID, strongholds, time.Now())
 		if ferr != nil {
-			fmt.Fprintf(d.Out, "⛏️  mine_qty_at: %s depleted and %v\n", poi, ferr) //nolint:errcheck
+			fmt.Fprintf(d.Out, "⛏️  mine_qty_at: %s %s and %v\n", poi, why, ferr) //nolint:errcheck
 			return err
 		}
-		fmt.Fprintf(d.Out, "⛏️  mine_qty_at: %s depleted — resting it %s; migrating to %s/%s for %s\n", //nolint:errcheck
-			poi, MineDepletedRest, alt, altPOI, itemID)
+		fmt.Fprintf(d.Out, "⛏️  mine_qty_at: %s %s — resting it %s; migrating to %s/%s for %s\n", //nolint:errcheck
+			poi, why, MineDepletedRest, alt, altPOI, itemID)
 		sys, poi = alt, altPOI
 	}
+}
+
+// isUnknownDestinationErr reports whether err is the server refusing travel
+// to a POI it does not know: a transient POI (a Phantom Glint) that the KB
+// still lists after it vanished.
+func isUnknownDestinationErr(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "unknown destination")
 }

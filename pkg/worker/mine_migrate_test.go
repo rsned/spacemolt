@@ -18,6 +18,15 @@ import (
 type depletingMineClient struct {
 	*mineFakeClient
 	depleted map[string]bool
+	vanished map[string]bool // Travel answers "Unknown destination"
+}
+
+func (f *depletingMineClient) Travel(ctx context.Context, poi string) (*game.TravelResult, error) {
+	if f.vanished[poi] {
+		f.calls = append(f.calls, "travel:"+poi)
+		return nil, errors.New("travel to " + poi + " failed: Unknown destination: " + poi)
+	}
+	return f.mineFakeClient.Travel(ctx, poi)
 }
 
 func (f *depletingMineClient) Mine(ctx context.Context) error {
@@ -130,5 +139,39 @@ func TestMineQtyAtDepletedWithNoAlternateErrors(t *testing.T) {
 	}
 	if len(client.giftCalls) != 0 {
 		t.Fatalf("gift calls = %+v, want none", client.giftCalls)
+	}
+}
+
+// An alternate the KB still lists but the server no longer knows (a vanished
+// Phantom Glint) is rested and the next deposit is tried.
+func TestMineQtyAtSkipsVanishedAlternate(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMigrateKB(t)
+	if err := kb.RememberPOI(context.Background(), knowledge.POI{ID: "glenhaven_glint", SystemID: "glenhaven", Name: "Phantom Glint", Type: "nebula",
+		Resources: []game.POIResource{{ResourceID: "ice", Richness: 90, Remaining: 100000}}, LastUpdatedTick: 2}); err != nil {
+		t.Fatal(err)
+	}
+	client := &depletingMineClient{mineFakeClient: newMineAtClient(130, 5),
+		depleted: map[string]bool{"glenhaven_ice_belt": true},
+		vanished: map[string]bool{"glenhaven_glint": true}}
+	d := noWaitMineDispatch(client, kb, agentsDir)
+	d.markResting("glenhaven_ice_field", time.Now()) // force the glint to be picked first
+
+	if err := d.MineQtyAt(context.Background(), "ice", 5, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3"); err == nil {
+		t.Fatal("want an error: every deposit is depleted, resting or gone")
+	}
+	if !d.isResting("glenhaven_glint", time.Now()) {
+		t.Errorf("vanished glint not rested; calls %v", client.calls)
+	}
+
+	// Once the field's rest is over, the miner goes there and skips the glint.
+	delete(d.restingPOIs, "glenhaven_ice_field")
+	client.calls = nil
+	if err := d.MineQtyAt(context.Background(), "ice", 5, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("MineQtyAt: %v", err)
+	}
+	if slices.Contains(client.calls, "travel:glenhaven_glint") || !slices.Contains(client.calls, "travel:glenhaven_ice_field") {
+		t.Fatalf("calls %v: want the field, not the vanished glint", client.calls)
 	}
 }
