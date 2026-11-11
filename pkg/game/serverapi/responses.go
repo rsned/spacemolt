@@ -1859,15 +1859,17 @@ type JumpResponse struct {
 
 // JumpedResponse wraps the response from jumped event after jump completes.
 type JumpedResponse struct {
-	Action        string `json:"action"`
-	FromSystem    string `json:"from_system,omitempty"`
-	NavigationXP  int    `json:"navigation_xp,omitempty"`
-	ExplorationXP int    `json:"exploration_xp,omitempty"`
-	PilotingXP    int    `json:"piloting_xp,omitempty"`
-	POI           string `json:"poi,omitempty"`
-	System        string `json:"system,omitempty"`
-	SystemID      string `json:"system_id,omitempty"`
-	AutoUndocked  bool   `json:"auto_undocked,omitempty"`
+	// POIHazard (v0.687.0) is the environmental hazard at the arrival POI.
+	POIHazard     *POIHazard `json:"poi_hazard,omitempty"`
+	Action        string     `json:"action"`
+	FromSystem    string     `json:"from_system,omitempty"`
+	NavigationXP  int        `json:"navigation_xp,omitempty"`
+	ExplorationXP int        `json:"exploration_xp,omitempty"`
+	PilotingXP    int        `json:"piloting_xp,omitempty"`
+	POI           string     `json:"poi,omitempty"`
+	System        string     `json:"system,omitempty"`
+	SystemID      string     `json:"system_id,omitempty"`
+	AutoUndocked  bool       `json:"auto_undocked,omitempty"`
 }
 
 // DockResponse wraps the response from dock command.

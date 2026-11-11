@@ -50,3 +50,13 @@ func TestHazardFieldsDecode(t *testing.T) {
 		t.Fatalf("hazard_warning: %+v", w)
 	}
 }
+
+func TestJumpedPOIHazardDecode(t *testing.T) {
+	var j JumpedResponse
+	if err := json.Unmarshal([]byte(`{"action":"jumped","system":"alzirr","poi_hazard":{"type":"radiation","severity":4}}`), &j); err != nil {
+		t.Fatal(err)
+	}
+	if j.POIHazard == nil || j.POIHazard.Severity != 4 {
+		t.Fatalf("jumped poi_hazard: %+v", j.POIHazard)
+	}
+}
