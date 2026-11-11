@@ -16,7 +16,7 @@ This tool downloads and versions the latest Spacemolt server documentation.
 Build and run the updater:
 
 ```bash
-go build -o update-server-docs ./cmd/update-server-docs
+go build -o bin/update-server-docs ./cmd/data/update-server-docs
 ./update-server-docs
 ```
 

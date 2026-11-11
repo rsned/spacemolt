@@ -30,10 +30,10 @@ The tool fetches:
 
 ```bash
 # Download all latest documentation
-go run ./cmd/update-server-docs
+go run ./cmd/data/update-server-docs
 
 # Build and run
-go build -o bin/update-server-docs ./cmd/update-server-docs
+go build -o bin/update-server-docs ./cmd/data/update-server-docs
 ./bin/update-server-docs
 ```
 
@@ -42,7 +42,7 @@ go build -o bin/update-server-docs ./cmd/update-server-docs
 ### Example 1: Initial Download
 
 ```bash
-go run ./cmd/update-server-docs
+go run ./cmd/data/update-server-docs
 ```
 
 **Output:**
@@ -63,7 +63,7 @@ Documentation updated successfully
 ### Example 2: No Changes
 
 ```bash
-go run ./cmd/update-server-docs
+go run ./cmd/data/update-server-docs
 ```
 
 **Output (if no changes):**
@@ -80,7 +80,7 @@ Documentation updated successfully
 
 ```bash
 # Server updated, run downloader
-go run ./cmd/update-server-docs
+go run ./cmd/data/update-server-docs
 ```
 
 **Output:**
@@ -162,7 +162,7 @@ For each file:
 
 ```bash
 # 1. Update documentation
-go run ./cmd/update-server-docs
+go run ./cmd/data/update-server-docs
 
 # 2. Regenerate MCP tools
 go run ./cmd/generate-mcp-tools
@@ -176,7 +176,7 @@ go build ./cmd/mcp-ws-bridge
 Add to cron job or automation:
 ```bash
 # Daily update at 9 AM
-0 9 * * * cd /path/to/spacemolt && go run ./cmd/update-server-docs
+0 9 * * * cd /path/to/spacemolt && go run ./cmd/data/update-server-docs
 ```
 
 ### Pre-Commit Hook
@@ -187,7 +187,7 @@ Add to cron job or automation:
 
 # Update docs before commit
 echo "Updating server documentation..."
-go run ./cmd/update-server-docs
+go run ./cmd/data/update-server-docs
 
 # Check if anything changed
 if git diff --quiet server_docs/; then
@@ -227,7 +227,7 @@ docsDir = "custom_docs"
 
 ```bash
 # Update workflow
-go run ./cmd/update-server-docs        # 1. Get latest docs
+go run ./cmd/data/update-server-docs        # 1. Get latest docs
 go run ./cmd/generate-mcp-tools         # 2. Regenerate tools
 go build ./cmd/mcp-ws-bridge            # 3. Rebuild
 ```
@@ -290,10 +290,10 @@ docs_path = "server_docs/api.20260223.md"
 Run regularly to keep docs current:
 ```bash
 # Daily (cron)
-0 9 * * * go run ./cmd/update-server-docs
+0 9 * * * go run ./cmd/data/update-server-docs
 
 # Weekly
-0 9 * * 1 go run ./cmd/update-server-docs
+0 9 * * 1 go run ./cmd/data/update-server-docs
 ```
 
 ### Version Control
@@ -301,7 +301,7 @@ Run regularly to keep docs current:
 Commit updated docs to track API changes:
 ```bash
 # Update docs
-go run ./cmd/update-server-docs
+go run ./cmd/data/update-server-docs
 
 # Commit changes
 git add server_docs/

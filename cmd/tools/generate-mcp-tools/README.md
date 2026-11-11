@@ -114,7 +114,7 @@ go run ./cmd/generate-mcp-tools -output cmd/custom-mcp/tools.go
 
 ```bash
 # Update server docs first
-go run ./cmd/update-server-docs
+go run ./cmd/data/update-server-docs
 
 # Regenerate MCP tools from updated specs
 go run ./cmd/generate-mcp-tools
@@ -358,7 +358,7 @@ build-mcp-bridge: generate-tools
 
 ```bash
 # 1. Update OpenAPI specs
-go run ./cmd/update-server-docs
+go run ./cmd/data/update-server-docs
 
 # 2. Regenerate tools
 go run ./cmd/generate-mcp-tools
