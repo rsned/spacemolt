@@ -7056,12 +7056,13 @@ func executeCommand(client game.GameClient, ctx context.Context, parts []string,
 	// an outer sink catches their correlated frame; simpleCommand's own sink
 	// shadows it and is preferred via noteReply.
 	currentReply = protocol.Response{}
+	from := placeOf(client)
 	var outer protocol.Response
 	err := executeCommandInner(client, game.WithResultSink(ctx, &outer), parts, format)
 	if currentReply.Type == "" {
 		noteReply(outer)
 	}
-	return recordExecution(client, parts, err, replyForRecord(currentReply))
+	return recordExecution(client, parts, err, replyForRecord(currentReply), from)
 }
 
 func executeCommandInner(client game.GameClient, ctx context.Context, parts []string, format outputFormat) error {

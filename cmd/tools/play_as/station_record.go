@@ -31,14 +31,22 @@ var globalSnapshotID string
 
 // stationEvent is one line of <record-dir>/events.jsonl.
 type stationEvent struct {
-	ObservedUTC string          `json:"observed_utc"`
-	Tick        int64           `json:"tick,omitempty"`
-	AgentID     string          `json:"agent_id"`
-	Command     string          `json:"command"`
-	Args        []string        `json:"args,omitempty"`
-	SnapshotID  string          `json:"snapshot_id,omitempty"`
-	Error       string          `json:"error,omitempty"`
-	Raw         json.RawMessage `json:"raw,omitempty"`
+	ObservedUTC string   `json:"observed_utc"`
+	Tick        int64    `json:"tick,omitempty"`
+	AgentID     string   `json:"agent_id"`
+	Command     string   `json:"command"`
+	Args        []string `json:"args,omitempty"`
+	SnapshotID  string   `json:"snapshot_id,omitempty"`
+	// Where the ship was when the command finished, so the record can be
+	// filtered to the station later. From* is where it started, set only
+	// when the command moved it (a jump, travel, or pathfinder run).
+	System     string          `json:"system,omitempty"`
+	POI        string          `json:"poi,omitempty"`
+	Docked     bool            `json:"docked,omitempty"`
+	FromSystem string          `json:"from_system,omitempty"`
+	FromPOI    string          `json:"from_poi,omitempty"`
+	Error      string          `json:"error,omitempty"`
+	Raw        json.RawMessage `json:"raw,omitempty"`
 }
 
 // unrecordedCommands are local or bookkeeping commands with no server reply
@@ -107,7 +115,7 @@ func replyForRecord(r protocol.Response) json.RawMessage {
 
 // recordExecution writes the event for one executed command and returns
 // cmdErr unchanged: a recording failure is reported, never propagated.
-func recordExecution(client game.GameClient, parts []string, cmdErr error, raw json.RawMessage) error {
+func recordExecution(client game.GameClient, parts []string, cmdErr error, raw json.RawMessage, from shipPlace) error {
 	if globalRecordDir == "" || len(parts) == 0 {
 		return cmdErr
 	}
@@ -120,6 +128,11 @@ func recordExecution(client game.GameClient, parts []string, cmdErr error, raw j
 	}
 	if st := client.GetState(); st != nil {
 		ev.Tick = st.CurrentTick
+	}
+	at := placeOf(client)
+	ev.System, ev.POI, ev.Docked = at.System, at.POI, at.Docked
+	if from.System != at.System || from.POI != at.POI {
+		ev.FromSystem, ev.FromPOI = from.System, from.POI
 	}
 	if cmdErr != nil {
 		ev.Error = cmdErr.Error()
@@ -215,4 +228,24 @@ func runLedger(dir string, args []string) error {
 	}
 	fmt.Printf("📒 ledger: %s %s %d\n", e.Category, e.Item, e.Qty)
 	return nil
+}
+
+// shipPlace is where the ship is, as play_as's state knows it.
+type shipPlace struct {
+	System string
+	POI    string
+	Docked bool
+}
+
+// placeOf reads the ship's current place from client state; zero when unknown.
+func placeOf(client game.GameClient) shipPlace {
+	st := client.GetState()
+	if st == nil {
+		return shipPlace{}
+	}
+	sys := st.System.ID
+	if sys == "" {
+		sys = st.CurrentSystem
+	}
+	return shipPlace{System: sys, POI: st.CurrentPOI, Docked: st.Doc}
 }

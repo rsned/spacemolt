@@ -20,13 +20,15 @@ import (
 // fixed tick; everything else in game.GameClient panics if touched.
 type stubRecordClient struct {
 	game.GameClient
-	raw  map[string][]byte
-	tick int64
+	raw   map[string][]byte
+	tick  int64
+	place shipPlace
 }
 
 func (s stubRecordClient) GetRawJSON(key string) []byte { return s.raw[key] }
 func (s stubRecordClient) GetState() *game.State {
-	return &game.State{CurrentTick: s.tick}
+	return &game.State{CurrentTick: s.tick, System: game.SystemData{ID: s.place.System},
+		CurrentPOI: s.place.POI, Doc: s.place.Docked}
 }
 
 func readJSONLines(t *testing.T, path string) []map[string]any {
@@ -173,11 +175,11 @@ func TestRecordedExecute_RecordErrorDoesNotFailCommand(t *testing.T) {
 	t.Cleanup(func() { globalRecordDir = old })
 
 	c := stubRecordClient{raw: map[string][]byte{}}
-	if err := recordExecution(c, []string{"get_status"}, nil, nil); err != nil {
+	if err := recordExecution(c, []string{"get_status"}, nil, nil, shipPlace{}); err != nil {
 		t.Errorf("recording failure leaked into command result: %v", err)
 	}
 	want := errors.New("server said no")
-	if err := recordExecution(c, []string{"get_status"}, want, nil); !errors.Is(err, want) {
+	if err := recordExecution(c, []string{"get_status"}, want, nil, shipPlace{}); !errors.Is(err, want) {
 		t.Errorf("command error not returned unchanged: %v", err)
 	}
 }
@@ -189,7 +191,7 @@ func TestRecordExecution_CapturesFailure(t *testing.T) {
 	t.Cleanup(func() { globalRecordDir = old })
 
 	c := stubRecordClient{tick: 77}
-	_ = recordExecution(c, []string{"station", "info"}, errors.New("not_docked"), json.RawMessage(`{"error":"not_docked"}`))
+	_ = recordExecution(c, []string{"station", "info"}, errors.New("not_docked"), json.RawMessage(`{"error":"not_docked"}`), shipPlace{})
 
 	lines := readJSONLines(t, filepath.Join(dir, "events.jsonl"))
 	if len(lines) != 1 {
@@ -293,5 +295,29 @@ func TestLedgerCommand_NoAppendOnError(t *testing.T) {
 	lines := readJSONLines(t, filepath.Join(dir, "ledger.jsonl"))
 	if len(lines) != 1 || lines[0]["category"] != "haul-in" || lines[0]["qty"] != float64(200) {
 		t.Errorf("ledger = %v", lines)
+	}
+}
+
+// Every event carries where the ship ended up; a command that moved it also
+// carries where it started, so a jump or pathfinder run records both ends.
+func TestRecordExecution_StampsLocation(t *testing.T) {
+	dir := t.TempDir()
+	old := globalRecordDir
+	globalRecordDir = dir
+	t.Cleanup(func() { globalRecordDir = old })
+
+	cj := shipPlace{System: "cloverfield", POI: "conjunction_junction", Docked: true}
+	_ = recordExecution(stubRecordClient{place: cj}, []string{"facility", "list"}, nil, nil, cj)
+	_ = recordExecution(stubRecordClient{place: shipPlace{System: "void_7"}}, []string{"pathfinder"}, nil, nil, cj)
+
+	lines := readJSONLines(t, filepath.Join(dir, "events.jsonl"))
+	if len(lines) != 2 {
+		t.Fatalf("got %d events, want 2", len(lines))
+	}
+	if e := lines[0]; e["system"] != "cloverfield" || e["poi"] != "conjunction_junction" || e["docked"] != true || e["from_system"] != nil {
+		t.Errorf("station event = %v, want CJ location and no from_*", e)
+	}
+	if e := lines[1]; e["system"] != "void_7" || e["from_system"] != "cloverfield" || e["from_poi"] != "conjunction_junction" {
+		t.Errorf("move event = %v, want from cloverfield/CJ to void_7", e)
 	}
 }
