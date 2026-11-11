@@ -126,3 +126,31 @@ func TestJumpArrival_SameSystemKeepsStrongholdFlag(t *testing.T) {
 		t.Error("a same-system arrival cleared alhena's stronghold flag")
 	}
 }
+
+// A Pathfinder drift ends with pathfinder_arrival naming the system and the
+// POI the ship came out at; the status line kept the departure POI
+// (grand_exchange at Haven) when the client ignored it (2026-11-11).
+func TestPathfinderArrivalUpdatesLocation(t *testing.T) {
+	c := newTestClient()
+	c.latestRawJSON = map[string][]byte{}
+	c.state.System = SystemData{ID: "haven", Name: "Haven"}
+	c.state.CurrentPOI = "grand_exchange"
+
+	c.handleResponse(protocol.Response{Type: protocol.TypeOK, Payload: map[string]any{"action": "pathfinder_jump", "bearing": 51.0}})
+	if !c.state.Traveling {
+		t.Fatal("pathfinder_jump did not mark the ship traveling")
+	}
+	c.handleResponse(protocol.Response{Type: protocol.TypeOK, Payload: map[string]any{
+		"action": "pathfinder_arrival", "from_system": "Haven", "poi": "warehouse_world",
+		"system": "Market Prime", "system_id": "market_prime", "piloting_xp": 12.0, "navigation_xp": 3.0,
+	}})
+	if c.state.Traveling {
+		t.Error("still traveling after pathfinder_arrival")
+	}
+	if c.state.CurrentPOI != "warehouse_world" {
+		t.Errorf("CurrentPOI = %q, want warehouse_world", c.state.CurrentPOI)
+	}
+	if c.state.System.ID != "market_prime" {
+		t.Errorf("System.ID = %q, want market_prime", c.state.System.ID)
+	}
+}

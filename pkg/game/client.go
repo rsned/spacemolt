@@ -1579,6 +1579,13 @@ func (c *Client) Jump(ctx context.Context, targetSystem string) (*JumpResult, er
 		c.mu.Unlock()
 	}
 
+	// A numeric bearing with a Pathfinder Drive starts an open-ended drift:
+	// there is no arrival tick to wait for, and the ship may never arrive.
+	// Return at once; pathfinder_arrival updates state when (if) it lands.
+	if action, _ := resp.Payload["action"].(string); action == "pathfinder_jump" {
+		return &JumpResult{Drifting: true}, nil
+	}
+
 	// Compute the arrival-wait safety bound from arrival_tick. As with Travel,
 	// the start reference is the free-running GameClock (which can drift ahead),
 	// so arrivalWaitTimeout floors the result to avoid a too-short wait.
@@ -4311,11 +4318,14 @@ func (c *Client) parseTravelAction(payload map[string]any) {
 			c.state.Doc = false
 		case "dock":
 			c.state.Doc = true
-		case "travel", "jump":
-			// Travel initiated, will get progress in state_update
+		case "travel", "jump", "pathfinder_jump":
+			// Travel initiated, will get progress in state_update. A
+			// pathfinder_jump leaves the ship adrift in open space, between
+			// systems, until a pathfinder_arrival.
 			c.state.Traveling = true
-		case "jumped":
-			// Jump completed — update current system and location
+		case "jumped", "pathfinder_arrival":
+			// Jump completed — update current system and location. A
+			// Pathfinder drift ends the same way, with the POI it came out at.
 			c.state.Traveling = false
 			c.state.TravelProgress = nil
 			c.state.Doc = false

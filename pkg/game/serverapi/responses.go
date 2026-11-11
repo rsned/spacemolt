@@ -1866,6 +1866,20 @@ type JumpResponse struct {
 	POIHazard *POIHazard `json:"poi_hazard,omitempty"`
 }
 
+// PathfinderArrivalResponse is the reply sent when a Pathfinder drift
+// intersects a system (first seen 2026-11-11, Haven -> Market Prime on bearing
+// 51: 12 piloting + 3 navigation XP). System is the display name; SystemID the
+// id; POI where the ship came out.
+type PathfinderArrivalResponse struct {
+	Action       string `json:"action"`
+	FromSystem   string `json:"from_system,omitempty"`
+	System       string `json:"system"`
+	SystemID     string `json:"system_id"`
+	POI          string `json:"poi,omitempty"`
+	NavigationXP int    `json:"navigation_xp,omitempty"`
+	PilotingXP   int    `json:"piloting_xp,omitempty"`
+}
+
 // PathfinderJumpResponse is the OK reply to `jump <numeric bearing>` with a
 // Pathfinder Drive fitted (first seen 2026-11-11). The ship is then adrift in
 // open space on the bearing; get_location tracks it, a new bearing changes

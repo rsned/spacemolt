@@ -7216,11 +7216,18 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 			}
 		}
 		// Server blocks until jump completes.
-		_, err := client.Jump(ctx, parts[1])
+		res, err := client.Jump(ctx, parts[1])
 		if err != nil {
 			return err
 		}
 		showLastResponse(client, format, cmd)
+		if res != nil && res.Drifting {
+			// Pathfinder bearing: nothing to save until the drift lands. The
+			// server plots the intercept at engage time; get_system shows it.
+			fmt.Println(pathfinderProjection(client, ctx))
+			fmt.Println("🧭 Adrift on the Pathfinder Drive — `get_location` tracks the drift; run `update_system` after pathfinder_arrival to chart where you land.")
+			return nil
+		}
 		saveArrivedSystem(client, ctx)
 		return nil
 

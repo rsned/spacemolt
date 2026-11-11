@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -36,5 +37,16 @@ func TestDriftTargetsFirstLiveDrift(t *testing.T) {
 func TestPathfinderBearingWraps(t *testing.T) {
 	if b := pathfinderBearing(0, 0, 0, -10); b != 270 {
 		t.Errorf("bearing straight down = %v, want 270", b)
+	}
+}
+
+func TestFormatPathfinderProjection(t *testing.T) {
+	live := `{"action":"get_system","from_system":"haven","in_transit":true,"kind":"transit","message":"You are in hyperspace, jumping between systems.","ticks_remaining":41,"to_system":"market_prime","transit_type":"jump"}`
+	if got := formatPathfinderProjection([]byte(live)); !strings.Contains(got, "haven → market_prime in 41 tick(s)") {
+		t.Errorf("projection = %q", got)
+	}
+	void := `{"action":"get_system","from_system":"haven","in_transit":true,"kind":"transit","transit_type":"jump"}`
+	if got := formatPathfinderProjection([]byte(void)); !strings.Contains(got, "void") {
+		t.Errorf("void projection = %q", got)
 	}
 }

@@ -388,6 +388,7 @@ type JumpResult struct {
 	SystemName string // Human-readable system name
 	POI        string // POI arrived at in the new system
 	Canceled   bool   // True if jump was interrupted
+	Drifting   bool   // True if a Pathfinder bearing started an open-ended drift
 }
 
 // BattleParticipant represents a participant in a tactical battle.

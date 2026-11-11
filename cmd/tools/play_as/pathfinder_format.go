@@ -3,11 +3,14 @@ package main
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"slices"
 	"strings"
+	"time"
 
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
@@ -105,4 +108,33 @@ func label(t driftTarget) string {
 		return t.Name
 	}
 	return t.ID
+}
+
+// pathfinderProjection reads the server's plotted intercept for a drift just
+// started. get_system mid-drift answers the transit variant with to_system and
+// ticks_remaining (2026-11-11: Haven bearing 51 -> market_prime, 41 ticks,
+// and it arrived on time). No to_system is reported as a drift into the void.
+func pathfinderProjection(client game.GameClient, ctx context.Context) string {
+	if err := client.RawCommand(ctx, "get_system", nil); err != nil {
+		return fmt.Sprintf("🧭 Projection unavailable: %v", err)
+	}
+	return formatPathfinderProjection(client.GetRawJSON("_last"))
+}
+
+// formatPathfinderProjection renders a transit-variant get_system reply.
+func formatPathfinderProjection(raw []byte) string {
+	var r struct {
+		InTransit      bool   `json:"in_transit"`
+		FromSystem     string `json:"from_system"`
+		ToSystem       string `json:"to_system"`
+		TicksRemaining int    `json:"ticks_remaining"`
+	}
+	if err := json.Unmarshal(unwrapActionResult(raw), &r); err != nil || !r.InTransit {
+		return "🧭 Projection unavailable: get_system did not report a transit"
+	}
+	if r.ToSystem == "" {
+		return fmt.Sprintf("🧭 Projection: no system on this bearing from %s — drifting into the void (change bearing or self_destruct)", r.FromSystem)
+	}
+	return fmt.Sprintf("🧭 Projection: %s → %s in %d tick(s) (~%s)", r.FromSystem, r.ToSystem, r.TicksRemaining,
+		time.Duration(r.TicksRemaining)*game.SleepTick)
 }
