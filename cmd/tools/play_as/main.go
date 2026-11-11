@@ -7209,7 +7209,7 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 			return err
 		}
 		showLastResponse(client, format, cmd)
-		_ = client.GetSystem(ctx) // Refresh system data (POIs, connections) for the new system.
+		saveArrivedSystem(client, ctx)
 		return nil
 
 	// === MINING & SCANNING ===
@@ -7263,7 +7263,8 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 		// newly revealed POIs (with resource data) to the KB, and report
 		// aggregate XP gained.
 		surveySystem(client, ctx, format)
-		return nil
+		// Re-save the system so its record carries what the survey revealed.
+		return refreshAndSaveSystem(client, ctx, format)
 
 	// === COMBAT ===
 	case "attack":

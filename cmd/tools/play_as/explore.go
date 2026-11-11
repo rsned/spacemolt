@@ -27,10 +27,13 @@ func explore(client game.GameClient, ctx context.Context, format outputFormat) e
 // if a refuel service is available, or cargo fuel cells otherwise). Used
 // by auto_explore so long exploration runs can replenish opportunistically.
 func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations, stopOnUnscanned bool, format outputFormat) error {
-	if err := client.GetSystem(ctx); err != nil {
-		return fmt.Errorf("get_system failed: %w", err)
+	// Survey first, so the hidden POIs it reveals are in the route, then
+	// record the system itself (not only its POIs): auto_explore reaches each
+	// system by a bare jump, so a system without a station was never saved.
+	surveySystem(client, ctx, format)
+	if err := refreshAndSaveSystem(client, ctx, format); err != nil {
+		return err
 	}
-	time.Sleep(game.SleepQuick)
 
 	state := client.GetState()
 	if state.System.ID == "" {
@@ -88,8 +91,6 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 
 	// Execute the route.
 
-	// Survey system at the start to potentially reveal new POIs for exploration.
-	surveySystem(client, ctx, format)
 	startTime := time.Now()
 	for i, poi := range route {
 		// Skip travel to current POI.

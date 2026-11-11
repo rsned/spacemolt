@@ -333,3 +333,43 @@ func seedFactionsFromList(ctx context.Context, client game.GameClient) error {
 	fmt.Printf("  → seeded %d faction(s): %d new, %d refreshed\n", len(seen), inserted, refreshed)
 	return nil
 }
+
+// saveArrivedSystem refreshes system data after a manual jump and, when a KB
+// is configured, records the system (and its listed POIs) so hand-flown
+// visits to uncharted systems are not lost. Failures are reported, never
+// fatal: the jump itself already succeeded.
+func saveArrivedSystem(client game.GameClient, ctx context.Context) {
+	if globalKB == nil {
+		_ = client.GetSystem(ctx) // Refresh system data (POIs, connections) for the new system.
+		return
+	}
+	if err := kbUpdateSystem(client, ctx); err != nil {
+		fmt.Printf("Warning: update_system after jump: %v\n", err)
+		return
+	}
+	if st := client.GetState(); st != nil {
+		fmt.Printf("💾 Saved system %s to KB\n", firstNonEmpty(st.System.Name, st.System.ID))
+	}
+}
+
+// refreshAndSaveSystem re-reads the current system and, when a KB is
+// configured, saves it. Only the get_system read can fail the caller; a KB
+// write failure is reported and swallowed.
+func refreshAndSaveSystem(client game.GameClient, ctx context.Context, format outputFormat) error {
+	if globalKB == nil {
+		if err := client.GetSystem(ctx); err != nil {
+			return fmt.Errorf("get_system failed: %w", err)
+		}
+		time.Sleep(game.SleepQuick)
+		return nil
+	}
+	if err := kbUpdateSystem(client, ctx); err != nil {
+		if strings.Contains(err.Error(), "get_system failed") {
+			return err
+		}
+		if format == formatStyled {
+			fmt.Printf("  (update_system failed: %v)\n", err)
+		}
+	}
+	return nil
+}

@@ -175,8 +175,14 @@ func Explore(ctx context.Context, deps ExploreDeps) error {
 	// Survey on arrival, so hidden POIs are found and known ones refreshed.
 	// A survey problem never fails the step: the flight already captured the
 	// system, and the next pass moves on regardless.
-	if _, err := SurveyHere(ctx, deps.Client, deps.KB, deps.AgentID, out); err != nil {
+	if newly, err := SurveyHere(ctx, deps.Client, deps.KB, deps.AgentID, out); err != nil {
 		fmt.Fprintf(out, "explore: survey skipped in %s: %v\n", target, err) //nolint:errcheck
+	} else if newly > 0 && deps.KB != nil {
+		// The arrival capture ran before the survey; re-save the system so its
+		// record carries the POIs the survey just revealed.
+		if err := KBUpdateSystem(ctx, deps.Client, deps.KB, deps.AgentID); err != nil {
+			fmt.Fprintf(out, "explore: update_system after survey: %v\n", err) //nolint:errcheck
+		}
 	}
 	// Then tour it: every POI captured, every station docked at, captured and
 	// refueled — the refuel is what keeps an explorer's tank up.
