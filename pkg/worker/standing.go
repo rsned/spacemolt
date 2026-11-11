@@ -475,6 +475,9 @@ func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
 	var st *game.State
 	if deps.Client != nil {
 		st = deps.Client.GetState()
+		if relocateIfUnknown(ctx, deps.Out, st, tokens, deps.Runner.Run) {
+			st = deps.Client.GetState()
+		}
 	}
 	resolved, err := ResolveTokens(tokens, st)
 	if err != nil {
@@ -576,4 +579,35 @@ func sleepCtx(ctx context.Context, d time.Duration) (cancelled bool) {
 	case <-t.C:
 		return false
 	}
+}
+
+// relocateIfUnknown re-reads the ship's location when the client no longer
+// knows its system. A death clears it (the clone wakes somewhere else), and
+// nothing else re-fetched it: salvager-5 respawned at central_nexus on
+// 2026-11-11 and its haul loop logged "current system unknown; skipping" every
+// pass, as did explore, missions and shuttle in the same state. Reports
+// whether it ran the refresh. Best-effort: failures are logged and the command
+// runs anyway.
+func relocateIfUnknown(ctx context.Context, out io.Writer, st *game.State, tokens []string,
+	run func(context.Context, []string) error,
+) bool {
+	// Died marks the respawn (a fresh worker's empty state before its first
+	// get_system is not a reason to refresh).
+	if st == nil || !st.Died || st.System.ID != "" || st.CurrentSystem != "" || run == nil {
+		return false
+	}
+	if len(tokens) > 0 {
+		switch strings.ToLower(tokens[0]) {
+		case "get_status", "get_system":
+			return false // already the refresh
+		}
+	}
+	fmt.Fprintln(out, "standing: current system unknown (respawn?); refreshing location") //nolint:errcheck
+	for _, cmd := range []string{"get_status", "get_system"} {
+		if err := run(ctx, []string{cmd}); err != nil {
+			fmt.Fprintf(out, "standing: location refresh %s failed: %v\n", cmd, err) //nolint:errcheck
+		}
+	}
+
+	return true
 }

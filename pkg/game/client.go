@@ -591,7 +591,7 @@ func NewClient(url, username, password string, debugLogger *log.Logger) *Client 
 		inflight:           newInflight(16),
 		actionLocks:        newActionLockMap(),
 		debugLogger:        debugLogger,
-		eventLogger:        log.New(debugLogger.Writer(), "[GAME] ", log.LstdFlags),
+		eventLogger:        log.New(debugLogger.Writer(), debugLogger.Prefix(), log.LstdFlags), // keep the "[agent-GAME]" tag: an untagged SHIP DESTROYED line names no ship
 		debugOut:           debugLogger.Writer(),
 		debugPayloadMaxLen: 200,
 		latestListings:     make([]MarketListing, 0),
