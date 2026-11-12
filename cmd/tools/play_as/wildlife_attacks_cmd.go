@@ -99,7 +99,7 @@ func writeBattleDamageSummary(out io.Writer, m *battlereplay.ReplayModel) error 
 	for _, p := range m.Participants {
 		kindOf[p.PlayerID] = p.Kind
 		nameOf[p.PlayerID] = p.Username
-		if p.Kind == "creature" {
+		if battlereplay.IsWildlife(p) {
 			creatures++
 		}
 	}

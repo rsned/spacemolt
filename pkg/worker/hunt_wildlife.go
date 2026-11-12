@@ -37,7 +37,7 @@ func huntCaptureWildlife(ctx context.Context, deps HuntDeps, out io.Writer, near
 		poiID = nearby.POIID
 	}
 
-	n, err := knowledge.CaptureWildlifeNearby(ctx, deps.KB, nearby.Creatures,
+	n, err := knowledge.CaptureWildlifeNearby(ctx, deps.KB, knowledge.NearbyWithRepeaters(nearby.Creatures, nearby.Repeaters),
 		systemID, poiID, huntPOIType(deps, poiID), deps.AgentID, tick)
 	if err != nil {
 		fmt.Fprintf(out, "hunt: wildlife not recorded at %s: %v\n", poiID, err) //nolint:errcheck
