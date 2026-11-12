@@ -134,6 +134,7 @@ func POIFromAPI(ext serverapi.POI) POI {
 		Hidden:           ext.Hidden,
 		RevealDifficulty: ext.RevealDifficulty,
 		Hazard:           ext.Hazard,
+		ParentID:         ext.ParentID,
 	}
 }
 

@@ -96,3 +96,11 @@ func TestFormatPOIShowsParent(t *testing.T) {
 		t.Errorf("missing parent in:\n%s", got)
 	}
 }
+
+// Deep Range's get_system POIs carry parent_id; the system table shows it.
+func TestFormatSystemShowsPOIParent(t *testing.T) {
+	raw := `{"system":{"id":"deep_range","name":"Deep Range","pois":[{"id":"deep_range_outpost","name":"Deep Range Outpost","type":"station","parent_id":"deep_range_mineral_fields","position":{"x":1,"y":2}}]}}`
+	if got := formatSystem([]byte(raw)); !strings.Contains(got, "attached to deep_range_mineral_fields") {
+		t.Errorf("missing parent in:\n%s", got)
+	}
+}

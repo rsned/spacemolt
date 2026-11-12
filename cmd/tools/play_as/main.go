@@ -6254,6 +6254,7 @@ type systemPOI struct {
 	HasBase  bool   `json:"has_base,omitempty"`
 	BaseID   string `json:"base_id,omitempty"`
 	BaseName string `json:"base_name,omitempty"`
+	ParentID string `json:"parent_id,omitempty"` // v0.692.0: attached to this POI
 }
 
 // systemConnection is a parsed connection from a get_system response.
@@ -6338,6 +6339,9 @@ func formatSystem(raw []byte) string {
 
 		for _, p := range sys.POIs {
 			pos := fmt.Sprintf("(%.1f, %.1f)", p.Position.X, p.Position.Y)
+			if p.ParentID != "" {
+				pos += "  ↳ attached to " + p.ParentID
+			}
 			fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %s\n",
 				nameW, p.Name, idW, p.ID, typeW, p.Type, pos)
 		}

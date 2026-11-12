@@ -284,6 +284,9 @@ type POI struct {
 	WormholeDestination      string `json:"wormhole_destination,omitempty"`
 	// Hazard (v0.687.0) is the POI's environmental hazard; nil when none.
 	Hazard *serverapi.POIHazard `json:"hazard,omitempty"`
+	// ParentID (v0.692.0) is the POI this one is attached to in the same
+	// system (a station at a planet); seen in Deep Range's get_system list.
+	ParentID string `json:"parent_id,omitempty"`
 }
 
 // Position represents 3D coordinates (Z is reserved for future use).

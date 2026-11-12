@@ -202,3 +202,17 @@ func TestGetSystemSameSystemKeepsLanesWhenOmitted(t *testing.T) {
 		t.Errorf("same-system partial reply dropped the lanes: %+v", c.state.System.Connections)
 	}
 }
+
+// v0.692.0 parent_id on a get_system POI (Deep Range) survives conversion.
+func TestGetSystemKeepsPOIParent(t *testing.T) {
+	c := newTestClient()
+	c.latestRawJSON = map[string][]byte{}
+	c.handleResponse(protocol.Response{Type: protocol.TypeOK, Payload: map[string]any{
+		"action": "get_system",
+		"system": map[string]any{"id": "deep_range", "name": "Deep Range", "connections": []any{},
+			"pois": []any{map[string]any{"id": "deep_range_outpost", "type": "station", "parent_id": "deep_range_mineral_fields"}}},
+	}})
+	if len(c.state.System.POIs) != 1 || c.state.System.POIs[0].ParentID != "deep_range_mineral_fields" {
+		t.Fatalf("POIs = %+v", c.state.System.POIs)
+	}
+}
