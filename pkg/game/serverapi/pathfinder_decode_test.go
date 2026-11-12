@@ -31,3 +31,16 @@ func TestPathfinderRedirectDecodes(t *testing.T) {
 		t.Fatalf("redirect = %+v", r)
 	}
 }
+
+// Live 2026-11-12 (Deep Range -> Whitecap): exploration XP and the hazard at
+// the landing POI.
+func TestPathfinderArrivalHazardAndExplorationXP(t *testing.T) {
+	raw := `{"action":"pathfinder_arrival","exploration_xp":5,"from_system":"Deep Range","navigation_xp":3,"piloting_xp":12,"poi":"the_spindle","poi_hazard":{"severity":1,"type":"scar_dust"},"system":"Whitecap","system_id":"whitecap"}`
+	var a PathfinderArrivalResponse
+	if err := json.Unmarshal([]byte(raw), &a); err != nil {
+		t.Fatal(err)
+	}
+	if a.ExplorationXP != 5 || a.POIHazard == nil || a.POIHazard.Type != HazardScarDust || a.POIHazard.Severity != 1 {
+		t.Fatalf("arrival = %+v hazard %+v", a, a.POIHazard)
+	}
+}

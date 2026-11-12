@@ -1878,6 +1878,10 @@ type PathfinderArrivalResponse struct {
 	POI          string `json:"poi,omitempty"`
 	NavigationXP int    `json:"navigation_xp,omitempty"`
 	PilotingXP   int    `json:"piloting_xp,omitempty"`
+	// ExplorationXP and POIHazard first seen 2026-11-12 (Deep Range ->
+	// Whitecap, landing on scar_dust severity 1 at the_spindle).
+	ExplorationXP int        `json:"exploration_xp,omitempty"`
+	POIHazard     *POIHazard `json:"poi_hazard,omitempty"`
 }
 
 // PathfinderRedirectResponse is the reply to a new numeric bearing submitted
