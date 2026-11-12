@@ -26,6 +26,10 @@ const (
 	// missionRepositionPool: how many nearby stations the reposition cursor
 	// rotates through.
 	missionRepositionPool = 5
+	// missionBoardSearchFactor widens the station search so the NPC-only
+	// board filter still finds missionRepositionPool candidates near lawless
+	// space, where most stations are player-owned.
+	missionBoardSearchFactor = 4
 	// missionParkWindow: once a full circuit of the reposition pool comes up
 	// dry, boards are globally thin (overnight soak 2026-07-17: 248 fuel-burning
 	// hops for zero accepts, ~2.7k cr/h lost). Park at the current station for
@@ -530,35 +534,9 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// strongholds and non-public stations). Initialized before recovery so the
 	// recovery escape can reuse it to leave a station-less system.
 	if deps.nearbyStations == nil {
+		kb, from := deps.KB, current
 		deps.nearbyStations = func(ctx context.Context, limit int) ([]stationHop, error) {
-			gal := &galaxy.GalaxyGraph{}
-			if gerr := gal.BuildFromDB(ctx, deps.KB); gerr != nil {
-				return nil, gerr
-			}
-			// +1: the query's own accessible-station set always includes
-			// `current` (Hops 0, filtered out below), so asking for exactly
-			// `limit` would waste one slot on the system we're leaving.
-			near, nerr := galaxy.FindNearestByPOIType(ctx, deps.KB, gal, current, "station", limit+1)
-			if nerr != nil {
-				return nil, nerr
-			}
-			hops := make([]stationHop, 0, len(near))
-			for _, n := range near {
-				if n.SystemID == current {
-					continue // skip the station we're camping; we want elsewhere
-				}
-				// NearestResult.POIs is only populated for resource lookups
-				// (pkg/galaxy/types.go), never for POI-type lookups like
-				// "station" — every result would otherwise be filtered out
-				// here (the bug: "0 targets" on every dry pass). Resolve the
-				// actual station POI id from the KB instead.
-				poiID, perr := missionBoardStationPOI(ctx, deps.KB, n.SystemID)
-				if perr != nil || poiID == "" {
-					continue // KB gap, or no empire (NPC) station in this system
-				}
-				hops = append(hops, stationHop{SystemID: n.SystemID, POIID: poiID})
-			}
-			return hops, nil
+			return missionNearbyStations(ctx, kb, from, limit)
 		}
 	}
 
@@ -1981,4 +1959,56 @@ func missionRecord(ctx context.Context, deps MissionDeps, out io.Writer, c missi
 	if err := deps.Market.RecordMissionResult(ctx, r); err != nil {
 		fmt.Fprintf(out, "missions: record result %s: %v\n", c.Entry.MissionID, err) //nolint:errcheck
 	}
+}
+
+// missionNearbyStations lists up to limit stations near from to reposition
+// to: empire (NPC) stations first, since only those post boards; failing
+// any, the nearest public stations of any kind, so a worker stranded in a
+// station-less system can still escape.
+func missionNearbyStations(ctx context.Context, kb knowledge.Base, from string, limit int) ([]stationHop, error) {
+	gal := &galaxy.GalaxyGraph{}
+	if gerr := gal.BuildFromDB(ctx, kb); gerr != nil {
+		return nil, gerr
+	}
+	// +1: the query's own accessible-station set always includes
+	// `from` (Hops 0, filtered out below), so asking for exactly
+	// `limit` would waste one slot on the system we're leaving.
+	// Search a wider ring than limit: only empire (NPC) stations post
+	// boards, and around lawless space the nearest few stations can all
+	// be player-owned (Ankaa, 2026-11-11: two bots stranded with full
+	// tanks, "0 targets", after the NPC-only filter went in).
+	near, nerr := galaxy.FindNearestByPOIType(ctx, kb, gal, from, "station", limit*missionBoardSearchFactor+1)
+	if nerr != nil {
+		return nil, nerr
+	}
+	hops := make([]stationHop, 0, limit)
+	var fallback []stationHop // any public station, for escaping
+	for _, n := range near {
+		if n.SystemID == from {
+			continue // skip the station we're camping; we want elsewhere
+		}
+		// NearestResult.POIs is only populated for resource lookups
+		// (pkg/galaxy/types.go), never for POI-type lookups like
+		// "station" — every result would otherwise be filtered out
+		// here (the bug: "0 targets" on every dry pass). Resolve the
+		// actual station POI id from the KB instead.
+		if poiID, perr := missionBoardStationPOI(ctx, kb, n.SystemID); perr == nil && poiID != "" {
+			hops = append(hops, stationHop{SystemID: n.SystemID, POIID: poiID})
+			if len(hops) == limit {
+				break
+			}
+			continue
+		}
+		if len(fallback) < limit {
+			if poiID, perr := missionStationPOI(ctx, kb, n.SystemID); perr == nil && poiID != "" {
+				fallback = append(fallback, stationHop{SystemID: n.SystemID, POIID: poiID})
+			}
+		}
+	}
+	if len(hops) == 0 {
+		// No NPC station in reach: any dockable public station still
+		// beats sitting in a station-less system until quarantine.
+		return fallback, nil
+	}
+	return hops, nil
 }

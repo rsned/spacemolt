@@ -1474,3 +1474,31 @@ func TestMissionBoardStationPOISkipsPlayerStations(t *testing.T) {
 		t.Errorf("missionStationPOI: got %q, want full_moon", id)
 	}
 }
+
+// Stranded where every station in reach is player-owned (Ankaa, 2026-11-11),
+// the reposition list falls back to any public station instead of "0
+// targets"; with an NPC station in reach, that one is chosen.
+func TestMissionNearbyStationsFallsBackToPlayerStations(t *testing.T) {
+	kb := &fakeKB{
+		systems: []knowledge.System{{ID: "ankaa"}, {ID: "propus"}, {ID: "alphecca"}},
+		conns:   undirected([2]string{"ankaa", "propus"}, [2]string{"ankaa", "alphecca"}),
+		pois: map[string][]knowledge.POI{
+			"propus":   {{ID: "propus_st", Type: "station", SystemID: "propus"}},
+			"alphecca": {{ID: "alphecca_st", Type: "station", SystemID: "alphecca"}},
+		},
+		bases: map[string]*knowledge.SpaceBase{
+			"propus_st":   {ID: "p_base", POIID: "propus_st", PublicAccess: true},
+			"alphecca_st": {ID: "a_base", POIID: "alphecca_st", PublicAccess: true},
+		},
+	}
+	hops, err := missionNearbyStations(context.Background(), kb, "ankaa", missionRepositionPool)
+	if err != nil || len(hops) == 0 {
+		t.Fatalf("hops=%v err=%v, want the player stations as a fallback", hops, err)
+	}
+
+	kb.bases["alphecca_st"].Empire = "nebula"
+	hops, err = missionNearbyStations(context.Background(), kb, "ankaa", missionRepositionPool)
+	if err != nil || len(hops) != 1 || hops[0].POIID != "alphecca_st" {
+		t.Fatalf("hops=%v err=%v, want only the NPC station", hops, err)
+	}
+}
