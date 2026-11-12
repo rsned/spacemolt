@@ -328,6 +328,7 @@ func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Ba
 			},
 			LastUpdatedTick: currentTick(state),
 			DetectedBy:      detectedBy,
+			ParentID:        poi.ParentID,
 		}
 		if poi.Hazard != nil {
 			kbPOI.HazardType, kbPOI.HazardSeverity = poi.Hazard.Type, poi.Hazard.Severity
@@ -562,6 +563,9 @@ func mergePOIDetail(dst *game.POI, detail game.POI) {
 	if detail.ExpiresAt != "" {
 		dst.ExpiresAt = detail.ExpiresAt
 	}
+	if detail.ParentID != "" {
+		dst.ParentID = detail.ParentID
+	}
 	// Capacity is per resource and only get_poi reports it. Match by id: a
 	// resource the detail omits keeps whatever it already had.
 	caps := make(map[string]float64, len(detail.Resources))
@@ -626,6 +630,7 @@ func KBUpdatePOIData(ctx context.Context, client game.GameClient, kb knowledge.B
 		Resources:                poi.Resources,
 		LastUpdatedTick:          currentTick(state),
 		DetectedBy:               detectedBy,
+		ParentID:                 poi.ParentID,
 	}
 	if poi.Hazard != nil {
 		kbPOI.HazardType, kbPOI.HazardSeverity = poi.Hazard.Type, poi.Hazard.Severity

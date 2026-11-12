@@ -420,8 +420,8 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 	// hidden / detected_by / last_updated_tick are tick-guarded so an older
 	// (stale or out-of-order) write can't downgrade a fresher one.
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO pois (id, system_id, name, type, class, description, position_x, position_y, hidden, reveal_difficulty, expires_at, last_updated_tick, detected_by, wormhole_prediction_needed, wormhole_destination, hazard_type, hazard_severity, hazard_seen_tick)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? > 0 THEN ? ELSE 0 END)
+		INSERT INTO pois (id, system_id, name, type, class, description, position_x, position_y, hidden, reveal_difficulty, expires_at, last_updated_tick, detected_by, wormhole_prediction_needed, wormhole_destination, hazard_type, hazard_severity, hazard_seen_tick, parent_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? > 0 THEN ? ELSE 0 END, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			system_id = excluded.system_id,
 			name = CASE WHEN excluded.name != '' THEN excluded.name ELSE pois.name END,
@@ -444,12 +444,14 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 			hazard_type = CASE WHEN excluded.hazard_severity > 0 THEN excluded.hazard_type ELSE pois.hazard_type END,
 			hazard_severity = CASE WHEN excluded.hazard_severity > 0 THEN excluded.hazard_severity ELSE pois.hazard_severity END,
 			hazard_seen_tick = CASE WHEN excluded.hazard_severity > 0 THEN MAX(pois.hazard_seen_tick, excluded.hazard_seen_tick) ELSE pois.hazard_seen_tick END,
+			-- Only some reads carry parent_id; an omission keeps what is known.
+			parent_id = CASE WHEN excluded.parent_id != '' THEN excluded.parent_id ELSE pois.parent_id END,
 			last_updated_tick = MAX(pois.last_updated_tick, excluded.last_updated_tick)
 	`, poi.ID, poi.SystemID, poi.Name, poi.Type, sql.NullString{String: poi.Class, Valid: poi.Class != ""}, poi.Description,
 		poi.Position.X, poi.Position.Y, poi.Hidden, poi.RevealDifficulty, sql.NullString{String: poi.ExpiresAt, Valid: poi.ExpiresAt != ""}, poi.LastUpdatedTick,
 		sql.NullString{String: poi.DetectedBy, Valid: poi.DetectedBy != ""},
 		poi.WormholePredictionNeeded, poi.WormholeDestination,
-		poi.HazardType, poi.HazardSeverity, poi.HazardSeverity, poi.LastUpdatedTick)
+		poi.HazardType, poi.HazardSeverity, poi.HazardSeverity, poi.LastUpdatedTick, poi.ParentID)
 	if err != nil {
 		return fmt.Errorf("failed to upsert POI: %w", err)
 	}
@@ -489,7 +491,7 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 // GetPOIs retrieves all POIs in a system
 func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, system_id, name, type, COALESCE(class, ''), description, position_x, position_y, hidden, reveal_difficulty, last_updated_tick
+		SELECT id, system_id, name, type, COALESCE(class, ''), description, position_x, position_y, hidden, reveal_difficulty, last_updated_tick, parent_id
 		FROM pois
 		WHERE system_id = ?
 		ORDER BY name
@@ -516,6 +518,7 @@ func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 			&poi.Hidden,
 			&poi.RevealDifficulty,
 			&poi.LastUpdatedTick,
+			&poi.ParentID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan POI: %w", err)

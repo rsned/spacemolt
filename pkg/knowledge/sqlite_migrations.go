@@ -518,6 +518,15 @@ func migrations() []Migration {
 				return ensureColumn(tx, "mission_completions", "message", "TEXT NOT NULL DEFAULT ''")
 			},
 		},
+		{
+			version: 71,
+			name:    "pois_parent_id",
+			// v0.692.0: get_poi / get_system name the POI a POI is attached
+			// to (a station at a planet; seen at Deep Range).
+			fn: func(tx *sql.Tx) error {
+				return ensureColumn(tx, "pois", "parent_id", "TEXT NOT NULL DEFAULT ''")
+			},
+		},
 	}
 }
 

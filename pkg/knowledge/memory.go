@@ -463,8 +463,11 @@ type POI struct {
 	// hazard as last observed; "" / 0 when none has been seen. A read that
 	// omits the hazard never clears one (paths differ in what they carry, and
 	// a stale warning is the safe error).
-	HazardType      string
-	HazardSeverity  int
+	HazardType     string
+	HazardSeverity int
+	// ParentID (v0.692.0) is the POI this one is attached to in the same
+	// system (a station at a planet); "" when unattached or never seen.
+	ParentID        string
 	LastUpdatedTick int64
 	// DetectedBy is the agent id that produced this observation. Provenance for
 	// the shared KB so a later capability-aware merge can rank quality; today it
