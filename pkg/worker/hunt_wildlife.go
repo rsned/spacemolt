@@ -37,7 +37,11 @@ func huntCaptureWildlife(ctx context.Context, deps HuntDeps, out io.Writer, near
 		poiID = nearby.POIID
 	}
 
-	n, err := knowledge.CaptureWildlifeNearby(ctx, deps.KB, knowledge.NearbyWithRepeaters(nearby.Creatures, nearby.Repeaters),
+	if _, herr := knowledge.CaptureHostilesNearby(ctx, deps.KB, nearby.Repeaters,
+		systemID, poiID, deps.AgentID, tick); herr != nil {
+		fmt.Fprintf(out, "hunt: hostiles not recorded at %s: %v\n", poiID, herr) //nolint:errcheck
+	}
+	n, err := knowledge.CaptureWildlifeNearby(ctx, deps.KB, nearby.Creatures,
 		systemID, poiID, huntPOIType(deps, poiID), deps.AgentID, tick)
 	if err != nil {
 		fmt.Fprintf(out, "hunt: wildlife not recorded at %s: %v\n", poiID, err) //nolint:errcheck

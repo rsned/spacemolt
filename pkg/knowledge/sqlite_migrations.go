@@ -527,6 +527,44 @@ func migrations() []Migration {
 				return ensureColumn(tx, "pois", "parent_id", "TEXT NOT NULL DEFAULT ''")
 			},
 		},
+		{
+			version: 72,
+			name:    "hostiles",
+			// Hostiles are non-wildlife enemies that are not players: v0.687
+			// Frontier Repeaters (pane / spire / monolith) first. A Repeater
+			// Monolith destroyed craftsman-1's Survey Vessel at Gloaming on
+			// 2026-11-12. Kept apart from wildlife_* by operator request:
+			// they are not creatures (no species, ranching, carcasses).
+			// Individuals are stored because a repeater_id persists at its
+			// POI, unlike a creature's crt_ id.
+			sql: `
+				CREATE TABLE IF NOT EXISTS hostile_types (
+					hostile_type   TEXT PRIMARY KEY,
+					kind           TEXT NOT NULL DEFAULT '',
+					class          TEXT NOT NULL DEFAULT '',
+					name           TEXT NOT NULL DEFAULT '',
+					max_hull       INTEGER NOT NULL DEFAULT 0,
+					max_shield     INTEGER NOT NULL DEFAULT 0,
+					first_seen_utc TEXT NOT NULL DEFAULT '',
+					last_seen_utc  TEXT NOT NULL DEFAULT ''
+				);
+				CREATE TABLE IF NOT EXISTS hostile_sightings (
+					id           INTEGER PRIMARY KEY AUTOINCREMENT,
+					hostile_id   TEXT NOT NULL,
+					hostile_type TEXT NOT NULL,
+					system_id    TEXT NOT NULL DEFAULT '',
+					poi_id       TEXT NOT NULL DEFAULT '',
+					hull         INTEGER NOT NULL DEFAULT 0,
+					shield       INTEGER NOT NULL DEFAULT 0,
+					in_battle    INTEGER NOT NULL DEFAULT 0,
+					game_tick    INTEGER NOT NULL DEFAULT 0,
+					observed_utc TEXT NOT NULL DEFAULT '',
+					agent_id     TEXT NOT NULL DEFAULT ''
+				);
+				CREATE INDEX IF NOT EXISTS idx_hostile_sightings_where ON hostile_sightings(system_id, poi_id);
+				CREATE INDEX IF NOT EXISTS idx_hostile_sightings_id ON hostile_sightings(hostile_id);
+			`,
+		},
 	}
 }
 

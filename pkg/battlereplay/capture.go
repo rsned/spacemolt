@@ -92,7 +92,7 @@ func ResolveCreatureSpecies(ctx context.Context, rec AttackRecorder, m *ReplayMo
 	out := make(map[string]string, len(m.Participants))
 	var unresolved []Participant
 	for _, p := range m.Participants {
-		if !IsWildlife(p) {
+		if p.Kind != "creature" {
 			continue
 		}
 		if s := known[p.PlayerID]; s != "" {

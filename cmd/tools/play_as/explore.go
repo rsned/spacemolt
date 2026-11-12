@@ -603,7 +603,16 @@ func captureWildlifeAtPOI(client game.GameClient, ctx context.Context, poiID, po
 		fmt.Printf("  (creature observations not logged: %v)\n", err)
 	}
 
-	n, err := knowledge.CaptureWildlifeNearby(ctx, globalKB, knowledge.NearbyWithRepeaters(nearby.Creatures, nearby.Repeaters),
+	if hn, herr := knowledge.CaptureHostilesNearby(ctx, globalKB, nearby.Repeaters,
+		systemID, poiID, globalAgentID, currentTick(state)); format == formatStyled {
+		if herr != nil {
+			fmt.Printf("  (hostiles not saved: %v)\n", herr)
+		} else if hn > 0 {
+			fmt.Printf("  Hostiles: %d repeater(s) recorded\n", hn)
+		}
+	}
+
+	n, err := knowledge.CaptureWildlifeNearby(ctx, globalKB, nearby.Creatures,
 		systemID, poiID, poiType, globalAgentID, currentTick(state))
 	if err != nil {
 		if format == formatStyled {

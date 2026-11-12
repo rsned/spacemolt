@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 12
--- Last Regenerated: 2026-11-11
+-- Migrations applied: 14
+-- Last Regenerated: 2026-11-12
 
 -- ============================================================================
 -- TABLES
@@ -340,6 +340,33 @@ CREATE TABLE factions (
 					intel_systems   INTEGER,
 					intel_trade     INTEGER,
 					captured_utc    TEXT NOT NULL
+				);
+
+
+CREATE TABLE hostile_sightings (
+					id           INTEGER PRIMARY KEY AUTOINCREMENT,
+					hostile_id   TEXT NOT NULL,
+					hostile_type TEXT NOT NULL,
+					system_id    TEXT NOT NULL DEFAULT '',
+					poi_id       TEXT NOT NULL DEFAULT '',
+					hull         INTEGER NOT NULL DEFAULT 0,
+					shield       INTEGER NOT NULL DEFAULT 0,
+					in_battle    INTEGER NOT NULL DEFAULT 0,
+					game_tick    INTEGER NOT NULL DEFAULT 0,
+					observed_utc TEXT NOT NULL DEFAULT '',
+					agent_id     TEXT NOT NULL DEFAULT ''
+				);
+
+
+CREATE TABLE hostile_types (
+					hostile_type   TEXT PRIMARY KEY,
+					kind           TEXT NOT NULL DEFAULT '',
+					class          TEXT NOT NULL DEFAULT '',
+					name           TEXT NOT NULL DEFAULT '',
+					max_hull       INTEGER NOT NULL DEFAULT 0,
+					max_shield     INTEGER NOT NULL DEFAULT 0,
+					first_seen_utc TEXT NOT NULL DEFAULT '',
+					last_seen_utc  TEXT NOT NULL DEFAULT ''
 				);
 
 
@@ -1233,6 +1260,10 @@ CREATE INDEX idx_danger_zones_level ON danger_zones(danger_level DESC);
 
 CREATE INDEX idx_experiences_agent_id ON experiences(agent_id, time DESC);
 
+CREATE INDEX idx_hostile_sightings_id ON hostile_sightings(hostile_id);
+
+CREATE INDEX idx_hostile_sightings_where ON hostile_sightings(system_id, poi_id);
+
 CREATE INDEX idx_item_ammo_type ON item_ammo(ammo_type);
 
 CREATE INDEX idx_item_consumable_effects_type ON item_consumable_effects(effect_type);
@@ -1398,4 +1429,6 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (67, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (68, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (69, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (70, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (71, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (72, datetime('now'));
 

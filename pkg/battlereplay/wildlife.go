@@ -1,8 +1,6 @@
 package battlereplay
 
 import (
-	"strings"
-
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
@@ -28,7 +26,7 @@ func WildlifeAttacks(m *ReplayModel, speciesByCreatureID map[string]string) []kn
 	// Which participants are creatures we can name.
 	species := make(map[string]string, len(m.Participants))
 	for _, p := range m.Participants {
-		if !IsWildlife(p) {
+		if p.Kind != "creature" {
 			continue
 		}
 		if s := speciesByCreatureID[p.PlayerID]; s != "" {
@@ -105,7 +103,7 @@ func WildlifeDefences(m *ReplayModel, speciesByCreatureID map[string]string) []k
 	}
 	out := make([]knowledge.WildlifeSpecies, 0, len(m.Participants))
 	for _, p := range m.Participants {
-		if !IsWildlife(p) {
+		if p.Kind != "creature" {
 			continue
 		}
 		sp := speciesByCreatureID[p.PlayerID]
@@ -120,13 +118,4 @@ func WildlifeDefences(m *ReplayModel, speciesByCreatureID map[string]string) []k
 		})
 	}
 	return out
-}
-
-// IsWildlife reports whether a battle participant is non-player wildlife:
-// a creature, or a Frontier Repeater (v0.687). Repeater participant ids carry
-// the "repeater_" prefix; their kind is matched too in case the server labels
-// it. Repeaters resolve to species through the display-name index once a
-// get_nearby has filed them ("Repeater Pane" -> repeater_pane).
-func IsWildlife(p Participant) bool {
-	return p.Kind == "creature" || p.Kind == "repeater" || strings.HasPrefix(p.PlayerID, "repeater_")
 }
