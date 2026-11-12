@@ -490,3 +490,27 @@ func TestPay_ReleasesExpiredPaidHolds(t *testing.T) {
 		t.Error("want one released history entry")
 	}
 }
+
+// A hauler is paid creditHaulerAmount; any other role the standard amount.
+// The daily cap counts the larger payment.
+func TestPay_HaulerGetsMore(t *testing.T) {
+	e := newPayEnv(t)
+	for id, role := range map[string]string{"a": "hauler", "b": "missionrunner"} {
+		if _, err := e.d.Queue.File(creditreq.Record{AgentID: id, Role: role, RequestedAt: payNow.Add(-time.Minute)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := PayCreditRequests(t.Context(), e.d); err != nil {
+		t.Fatal(err)
+	}
+	got := map[any]any{}
+	for _, p := range e.gifts.payloads {
+		got[p["recipient"]] = p["credits"]
+	}
+	if got["Josephus Miller"] != creditHaulerAmount || got["Bea"] != creditGiftAmount {
+		t.Fatalf("payments = %v, want hauler %d and other %d", got, creditHaulerAmount, creditGiftAmount)
+	}
+	if total := creditreq.TotalPaidSince(e.history(t), time.Time{}); total != creditHaulerAmount+creditGiftAmount {
+		t.Fatalf("history total = %d", total)
+	}
+}

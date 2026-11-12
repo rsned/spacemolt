@@ -29,6 +29,7 @@ type CreditRequestingClient struct {
 	History  *creditreq.History
 	AgentID  string
 	Username string
+	Role     string // --role, recorded so the banker can size the payment
 	Out      io.Writer
 }
 
@@ -74,6 +75,7 @@ func (c *CreditRequestingClient) fileRequest(ctx context.Context, reason string)
 	filed, ferr := c.Queue.File(creditreq.Record{
 		AgentID:     c.AgentID,
 		Username:    c.Username,
+		Role:        c.Role,
 		BaseID:      baseID,
 		SystemID:    systemID,
 		Reason:      reason,

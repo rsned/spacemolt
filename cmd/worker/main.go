@@ -481,6 +481,7 @@ func main() {
 					History:    creditHistory,
 					AgentID:    *agentID,
 					Username:   creditUsername,
+					Role:       *role,
 					Out:        logOut,
 				}
 			}

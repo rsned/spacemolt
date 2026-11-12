@@ -25,8 +25,11 @@ const (
 
 // Record is one agent's request for credits.
 type Record struct {
-	AgentID     string    `json:"agent_id"`
-	Username    string    `json:"username"`
+	AgentID  string `json:"agent_id"`
+	Username string `json:"username"`
+	// Role is the filing worker's --role; the banker sizes the payment by it
+	// (haulers get more: arbitrage needs capital). Empty on older records.
+	Role        string    `json:"role,omitempty"`
 	BaseID      string    `json:"base_id"`
 	SystemID    string    `json:"system_id"`
 	Reason      string    `json:"reason"`

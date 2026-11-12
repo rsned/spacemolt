@@ -104,3 +104,13 @@ func TestRefuel_FilerErrorIsSwallowed(t *testing.T) {
 		t.Errorf("filer error not logged: %q", out.String())
 	}
 }
+
+// The filed record carries the worker's role so the banker can size it.
+func TestRefuel_FilesRole(t *testing.T) {
+	c, filer, _ := newCreditClient(errors.New(brokeErr), true, 0)
+	c.Role = "hauler"
+	_ = c.Refuel(context.Background())
+	if len(filer.recs) != 1 || filer.recs[0].Role != "hauler" {
+		t.Fatalf("records = %+v, want one with role hauler", filer.recs)
+	}
+}

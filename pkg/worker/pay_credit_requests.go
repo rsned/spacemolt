@@ -16,7 +16,12 @@ import (
 
 // Banker-side limits for pay_credit_requests.
 const (
-	creditGiftAmount    = 20000
+	creditGiftAmount = 20000
+	// creditHaulerAmount is what a hauler gets: arbitrage is capital
+	// intensive, and 20,000 bought loads too small to clear the haul profit
+	// floor, so paid truckers sat broke again within hours (operator,
+	// 2026-11-11). Same 24h rule and daily cap.
+	creditHaulerAmount  = 100000
 	creditBankerFloor   = 1_000_000.0
 	creditDailyCap      = 1_000_000
 	creditPerAgentSpan  = 24 * time.Hour
@@ -128,6 +133,7 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 			continue
 		}
 
+		amount := creditAmountFor(r.Role)
 		now := d.Now().UTC()
 		midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 		// The 24h window always reaches back past UTC midnight, so one read
@@ -148,14 +154,14 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 			}
 			continue
 		}
-		if creditreq.TotalPaidSince(entries, midnight)+creditGiftAmount > creditDailyCap {
+		if creditreq.TotalPaidSince(entries, midnight)+amount > creditDailyCap {
 			if err := hold(r, username, "daily cap"); err != nil {
 				return paid, held, err
 			}
 			continue
 		}
 
-		gerr := d.Sender.SendGift(ctx, map[string]any{"recipient": username, "credits": creditGiftAmount})
+		gerr := d.Sender.SendGift(ctx, map[string]any{"recipient": username, "credits": int(amount)})
 		if gerr != nil {
 			var se *game.ServerError
 			if !errors.As(gerr, &se) {
@@ -182,10 +188,10 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 			continue
 		}
 
-		spent += creditGiftAmount
+		spent += float64(amount)
 		paid++
 		// History first: if the Remove below fails, the 24h rule still stops a repeat.
-		if herr := d.History.Append(creditreq.Entry{At: now, AgentID: r.AgentID, Username: username, Event: creditreq.EventPaid, Amount: creditGiftAmount}); herr != nil {
+		if herr := d.History.Append(creditreq.Entry{At: now, AgentID: r.AgentID, Username: username, Event: creditreq.EventPaid, Amount: amount}); herr != nil {
 			// The gift is out and cannot be undone. Park the record as held so
 			// no later run pays it again, and stop: with the history unwritable
 			// the 24h and daily-cap checks can no longer be trusted.
@@ -193,7 +199,7 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 			_, uerr := d.Queue.Update(r.AgentID, func(rec *creditreq.Record) {
 				rec.Status = creditreq.StatusHeld
 				rec.HeldReason = reason
-				rec.Amount = creditGiftAmount
+				rec.Amount = amount
 				rec.PaidAt = now
 			})
 			logf("pay_credit_requests: %s (%s): %s", r.AgentID, username, reason)
@@ -208,7 +214,7 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 		if err := d.Queue.Remove(r.AgentID); err != nil {
 			return paid, held, err
 		}
-		logf("pay_credit_requests: paid %d credits to %s (%s)", creditGiftAmount, username, r.AgentID)
+		logf("pay_credit_requests: paid %d credits to %s (%s)", amount, username, r.AgentID)
 	}
 	return paid, held, nil
 }
@@ -317,4 +323,13 @@ func releaseExpiredHolds(d PayDeps, recs []creditreq.Record) error {
 	}
 
 	return nil
+}
+
+// creditAmountFor is the payment for a request filed by a worker of role.
+func creditAmountFor(role string) int64 {
+	if role == "hauler" {
+		return creditHaulerAmount
+	}
+
+	return creditGiftAmount
 }
