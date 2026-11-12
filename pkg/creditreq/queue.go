@@ -42,6 +42,10 @@ type Record struct {
 	PaidAt      time.Time `json:"paid_at,omitzero"`
 	Amount      int64     `json:"amount,omitempty"`
 	Attempts    int       `json:"attempts,omitempty"`
+	// Override marks an operator-filed record: the banker pays Amount
+	// instead of the role's standard payment and skips the one-payment-per-
+	// 24h rule. The banker floor and the daily cap still apply.
+	Override bool `json:"override,omitempty"`
 }
 
 func (r Record) open() bool { return r.Status == StatusPending || r.Status == StatusHeld }

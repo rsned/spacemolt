@@ -136,7 +136,7 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 			continue
 		}
 
-		amount := creditAmountFor(r.Role)
+		amount := creditAmountFor(r)
 		now := d.Now().UTC()
 		midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 		// The 24h window always reaches back past UTC midnight, so one read
@@ -145,7 +145,7 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 		if err != nil {
 			return paid, held, err
 		}
-		if creditreq.PaidSince(entries, r.AgentID, now.Add(-creditPerAgentSpan)) >= 1 {
+		if !r.Override && creditreq.PaidSince(entries, r.AgentID, now.Add(-creditPerAgentSpan)) >= 1 {
 			var last time.Time
 			for _, e := range entries {
 				if e.Event == creditreq.EventPaid && e.AgentID == r.AgentID && e.At.After(last) {
@@ -328,10 +328,19 @@ func releaseExpiredHolds(d PayDeps, recs []creditreq.Record) error {
 	return nil
 }
 
-// creditAmountFor is the payment for a request filed by a worker of role.
-func creditAmountFor(role string) int64 {
-	if role == "hauler" {
+// creditAmountFor is the payment for request r: an operator override pays its
+// own Amount, a hauler gets creditHaulerAmount, an assist is topped up to
+// assistCreditFloor from the balance it filed with, anyone else gets the
+// standard amount.
+func creditAmountFor(r creditreq.Record) int64 {
+	if r.Override && r.Amount > 0 {
+		return r.Amount
+	}
+	switch r.Role {
+	case "hauler":
 		return creditHaulerAmount
+	case "assist":
+		return max(int64(assistCreditFloor-r.Credits), creditGiftAmount/10)
 	}
 
 	return creditGiftAmount

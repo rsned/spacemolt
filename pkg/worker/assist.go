@@ -162,7 +162,27 @@ func Assist(ctx context.Context, deps AssistDeps) error {
 	if rec, ok := claimNearestPending(ctx, deps, recs); ok {
 		return runRescue(ctx, deps, rec)
 	}
+	assistKeepFloor(ctx, deps)
 	return assistEnsureHome(ctx, deps)
+}
+
+// assistKeepFloor files a credit request when an idle assist holds less than
+// assistCreditFloor; the banker tops it back up to the floor. The cached
+// balance gates it so a funded assist costs no extra query per pass.
+func assistKeepFloor(ctx context.Context, deps AssistDeps) {
+	st := deps.Client.GetState()
+	if st == nil {
+		return
+	}
+	st.Mu.Lock()
+	credits := st.Credits
+	st.Mu.Unlock()
+	if credits >= assistCreditFloor {
+		return
+	}
+	if r, ok := deps.Client.(CreditRequester); ok {
+		r.RequestCredits(ctx, fmt.Sprintf("assist below the %d credit floor", assistCreditFloor))
+	}
 }
 
 func claimNearestPending(ctx context.Context, deps AssistDeps, recs []rescue.Record) (rescue.Record, bool) {

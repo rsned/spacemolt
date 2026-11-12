@@ -15,6 +15,20 @@ import (
 // refuel counts as "cannot pay" and is worth a request to the banker.
 const creditRequestThreshold = 5000
 
+// assistCreditFloor is the balance an assist agent is kept at: below it the
+// assist files a request and the banker tops it back up to the floor. Assists
+// buy fuel for strandees and must never be the next ship to strand
+// (operator, 2026-11-12).
+const assistCreditFloor = 50000
+
+// creditThresholdFor is the balance below which a worker of role may file.
+func creditThresholdFor(role string) float64 {
+	if role == "assist" {
+		return assistCreditFloor
+	}
+	return creditRequestThreshold
+}
+
 // CreditFiler is the slice of creditreq.Queue the decorator needs.
 type CreditFiler interface {
 	File(creditreq.Record) (bool, error)
@@ -68,7 +82,7 @@ func (c *CreditRequestingClient) fileRequest(ctx context.Context, reason string)
 	credits, fuel, maxFuel := st.Credits, st.Fuel, st.MaxFuel
 	systemID, baseID := st.CurrentSystem, st.Player.DockedAtBase
 	st.Mu.Unlock()
-	if credits >= creditRequestThreshold {
+	if credits >= creditThresholdFor(c.Role) {
 		return
 	}
 	now := time.Now().UTC()

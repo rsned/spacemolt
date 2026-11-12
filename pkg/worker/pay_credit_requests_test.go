@@ -515,3 +515,39 @@ func TestPay_HaulerGetsMore(t *testing.T) {
 		t.Fatalf("history total = %d", total)
 	}
 }
+
+// An assist is topped up to assistCreditFloor from the balance it filed with.
+func TestPay_AssistToppedUpToFloor(t *testing.T) {
+	e := newPayEnv(t)
+	if _, err := e.d.Queue.File(creditreq.Record{AgentID: "a", Role: "assist", Credits: 12430, RequestedAt: payNow.Add(-time.Minute)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := PayCreditRequests(t.Context(), e.d); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.gifts.payloads) != 1 || e.gifts.payloads[0]["credits"] != assistCreditFloor-12430 {
+		t.Fatalf("payments = %+v, want one of %d", e.gifts.payloads, assistCreditFloor-12430)
+	}
+}
+
+// An operator override pays its own amount even inside the 24h window.
+func TestPay_OperatorOverride(t *testing.T) {
+	e := newPayEnv(t)
+	_ = e.d.History.Append(creditreq.Entry{At: payNow.Add(-2 * time.Hour), AgentID: "a", Event: creditreq.EventPaid, Amount: creditGiftAmount})
+	if _, err := e.d.Queue.File(creditreq.Record{AgentID: "a", Role: "miner", Override: true, Amount: 25000, RequestedAt: payNow.Add(-time.Minute)}); err != nil {
+		t.Fatal(err)
+	}
+	paid, held, err := PayCreditRequests(t.Context(), e.d)
+	if err != nil || paid != 1 || held != 0 {
+		t.Fatalf("paid=%d held=%d err=%v", paid, held, err)
+	}
+	if e.gifts.payloads[0]["credits"] != 25000 {
+		t.Fatalf("payment = %v, want 25000", e.gifts.payloads[0]["credits"])
+	}
+}
+
+func TestCreditThresholdFor(t *testing.T) {
+	if creditThresholdFor("assist") != assistCreditFloor || creditThresholdFor("miner") != creditRequestThreshold {
+		t.Fatal("assist must file below its floor; others below the standard threshold")
+	}
+}
