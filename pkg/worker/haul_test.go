@@ -1806,7 +1806,9 @@ type requestingFake struct {
 	asked []string
 }
 
-func (r *requestingFake) RequestCredits(_ context.Context, reason string) { r.asked = append(r.asked, reason) }
+func (r *requestingFake) RequestCredits(_ context.Context, reason string) {
+	r.asked = append(r.asked, reason)
+}
 
 // A broke hauler docked at a station claims no buy run (it could not pay, and
 // flying out only burns the tank: trucker-07, 2026-11-11) and asks for credits.

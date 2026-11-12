@@ -100,14 +100,14 @@ func TestPay_PaysPending(t *testing.T) {
 	if err != nil || paid != 1 || held != 0 {
 		t.Fatalf("paid=%d held=%d err=%v", paid, held, err)
 	}
-	if len(e.gifts.payloads) != 1 || e.gifts.payloads[0]["recipient"] != "Josephus Miller" || e.gifts.payloads[0]["credits"] != 20000 {
+	if len(e.gifts.payloads) != 1 || e.gifts.payloads[0]["recipient"] != "Josephus Miller" || e.gifts.payloads[0]["credits"] != creditGiftAmount {
 		t.Fatalf("payloads = %v", e.gifts.payloads)
 	}
 	if _, ok := e.record(t, "a"); ok {
 		t.Fatal("record not removed")
 	}
 	es := e.history(t)
-	if len(es) != 1 || es[0].Event != creditreq.EventPaid || es[0].Amount != 20000 {
+	if len(es) != 1 || es[0].Event != creditreq.EventPaid || es[0].Amount != creditGiftAmount {
 		t.Fatalf("history = %+v", es)
 	}
 }
@@ -260,7 +260,7 @@ func TestPay_HistoryAppendFailureHoldsAndStops(t *testing.T) {
 		t.Fatalf("paid=%d held=%d gifts=%d", paid, held, len(e.gifts.payloads))
 	}
 	a, _ := e.record(t, "a")
-	if a.Status != creditreq.StatusHeld || a.Amount != 20000 || a.PaidAt.IsZero() || !strings.Contains(a.HeldReason, "history write failed") {
+	if a.Status != creditreq.StatusHeld || a.Amount != creditGiftAmount || a.PaidAt.IsZero() || !strings.Contains(a.HeldReason, "history write failed") {
 		t.Fatalf("record a = %+v", a)
 	}
 	if b, _ := e.record(t, "b"); b.Status != creditreq.StatusPending {
@@ -316,8 +316,9 @@ func TestPay_FloorCountsThisRunsGifts(t *testing.T) {
 
 func TestPay_DailyCapAcrossOneRun(t *testing.T) {
 	e := newPayEnv(t)
-	for range 49 {
-		_ = e.d.History.Append(creditreq.Entry{At: payNow.Add(-5 * time.Hour), AgentID: "x", Event: creditreq.EventPaid, Amount: 20000})
+	// One payment short of the cap: a fits, b does not.
+	for range creditDailyCap/creditGiftAmount - 1 {
+		_ = e.d.History.Append(creditreq.Entry{At: payNow.Add(-5 * time.Hour), AgentID: "x", Event: creditreq.EventPaid, Amount: creditGiftAmount})
 	}
 	e.file(t, "a", payNow.Add(-time.Hour))
 	e.file(t, "b", payNow.Add(-time.Minute))

@@ -16,7 +16,10 @@ import (
 
 // Banker-side limits for pay_credit_requests.
 const (
-	creditGiftAmount = 20000
+	// creditGiftAmount is the standard (non-hauler) payment. Raised from
+	// 20,000 when empire-station fuel ran 10-20 cr/unit and 20,000 covered
+	// only a few tanks (operator, 2026-11-12).
+	creditGiftAmount = 50000
 	// creditHaulerAmount is what a hauler gets: arbitrage is capital
 	// intensive, and 20,000 bought loads too small to clear the haul profit
 	// floor, so paid truckers sat broke again within hours (operator,
