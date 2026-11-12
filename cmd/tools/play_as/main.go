@@ -4582,6 +4582,9 @@ type shipListing struct {
 	Price     float64 `json:"price"`
 	Seller    string  `json:"seller"`
 	ListingID string  `json:"listing_id"`
+	// v0.693.0: every listing names its station (all_stations spans many).
+	BaseID   string `json:"base_id,omitempty"`
+	BaseName string `json:"base_name,omitempty"`
 }
 
 // Survey scanner cache - only check modules when ship might change.
@@ -4607,7 +4610,21 @@ func formatBrowseShips(raw []byte) string {
 		b.WriteString("  (no ships for sale)\n")
 		return b.String()
 	}
-	fmt.Fprintf(&b, "Station:  %q\n\nListings (%d):\n", resp.BaseName, len(resp.Listings))
+	// all_stations (v0.693.0) returns listings from many stations, each
+	// naming its own; show a Station column whenever they differ from the
+	// reply's base. Buying still needs a dock at that station.
+	multi := false
+	for _, l := range resp.Listings {
+		if l.BaseName != "" && l.BaseName != resp.BaseName {
+			multi = true
+			break
+		}
+	}
+	if multi {
+		fmt.Fprintf(&b, "Listings across charted stations (%d) — buy_listed_ship needs a dock at the listing's station:\n", len(resp.Listings))
+	} else {
+		fmt.Fprintf(&b, "Station:  %q\n\nListings (%d):\n", resp.BaseName, len(resp.Listings))
+	}
 
 	slices.SortFunc(resp.Listings, func(a, c shipListing) int {
 		if a.Price != c.Price {
@@ -4647,15 +4664,33 @@ func formatBrowseShips(raw []byte) string {
 		idW = max(idW, len(r.ListingID))
 	}
 
-	fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %*s | %-*s | %-*s\n",
+	stationW := 0
+	if multi {
+		stationW = len("Station")
+		for _, r := range rows {
+			stationW = max(stationW, len(r.BaseName))
+		}
+	}
+	station := func(v string) string {
+		if !multi {
+			return ""
+		}
+		return fmt.Sprintf(" | %-*s", stationW, v)
+	}
+
+	fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %*s | %-*s | %-*s%s\n",
 		shipW, "Ship", catW, "Category", classW, "Class", tierW, "Tier",
-		priceW, "Price", sellerW, "Seller", idW, "Listing ID")
-	b.WriteString(strings.Repeat("-", shipW+catW+classW+tierW+priceW+sellerW+idW+18) + "\n")
+		priceW, "Price", sellerW, "Seller", idW, "Listing ID", station("Station"))
+	extra := 0
+	if multi {
+		extra = stationW + 3
+	}
+	b.WriteString(strings.Repeat("-", shipW+catW+classW+tierW+priceW+sellerW+idW+18+extra) + "\n")
 
 	for _, r := range rows {
-		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %*s | %-*s | %-*s\n",
+		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %*s | %-*s | %-*s%s\n",
 			shipW, r.ShipName, catW, r.Category, classW, r.ClassID, tierW, r.tierStr,
-			priceW, formatCredits(r.Price), sellerW, r.Seller, idW, r.ListingID)
+			priceW, formatCredits(r.Price), sellerW, r.Seller, idW, r.ListingID, station(r.BaseName))
 	}
 
 	return b.String()
@@ -5362,6 +5397,7 @@ func formatMissions(raw []byte) string {
 				PirateRep  int            `json:"pirate_rep,omitempty"`
 				Items      map[string]int `json:"items,omitempty"`
 				SkillXP    map[string]int `json:"skill_xp,omitempty"`
+				PilotingXP int            `json:"piloting_xp,omitempty"` // v0.695.0
 			} `json:"rewards,omitempty"`
 			Objectives []struct {
 				Type        string `json:"type"`
@@ -5409,6 +5445,7 @@ func formatMissions(raw []byte) string {
 		PirateRep      int
 		Items          map[string]int
 		SkillXP        map[string]int
+		PilotingXP     int
 		Objectives     []missionObjective
 	}
 
@@ -5419,7 +5456,9 @@ func formatMissions(raw []byte) string {
 		pirateRep := 0
 		items := make(map[string]int)
 		skillXP := make(map[string]int)
+		pilotingXP := 0
 		if m.Rewards != nil {
+			pilotingXP = m.Rewards.PilotingXP
 			credits = m.Rewards.Credits
 			reputation = m.Rewards.Reputation
 			pirateRep = m.Rewards.PirateRep
@@ -5451,6 +5490,7 @@ func formatMissions(raw []byte) string {
 			PirateRep:      pirateRep,
 			Items:          items,
 			SkillXP:        skillXP,
+			PilotingXP:     pilotingXP,
 			Objectives:     objectives,
 		})
 	}
@@ -5577,6 +5617,11 @@ func formatMissions(raw []byte) string {
 					fmt.Fprintf(&b, "  skills:   %20s %s +%4d xp\n", "", skill, xp)
 				}
 			}
+			// v0.695.0: route piloting XP, separate from skill_xp; it uses
+			// the current ship's tier.
+			if m.PilotingXP > 0 {
+				fmt.Fprintf(&b, "  piloting: %20s +%4d xp (route, current ship tier)\n", "", m.PilotingXP)
+			}
 
 			b.WriteString("\n")
 		}
@@ -5639,6 +5684,7 @@ func formatActiveMissions(raw []byte) string {
 			PirateRep  int            `json:"pirate_rep,omitempty"`
 			Items      map[string]int `json:"items,omitempty"`
 			SkillXP    map[string]int `json:"skill_xp,omitempty"`
+			PilotingXP int            `json:"piloting_xp,omitempty"` // v0.695.0
 		} `json:"rewards,omitempty"`
 	}
 	var resp struct {
@@ -5823,6 +5869,9 @@ func formatActiveMissions(raw []byte) string {
 					for _, skill := range skillNames {
 						fmt.Fprintf(&b, "  skills:   %20s %s +%4d xp\n", "", skill, m.Rewards.SkillXP[skill])
 					}
+				}
+				if m.Rewards.PilotingXP > 0 {
+					fmt.Fprintf(&b, "  piloting: %20s +%4d xp (route, current ship tier)\n", "", m.Rewards.PilotingXP)
 				}
 			}
 
@@ -8048,18 +8097,30 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 				if key, ok := strings.CutPrefix(arg, "--"); ok {
 					if k, v, ok2 := strings.Cut(key, "="); ok2 {
 						payload[k] = v
-					} else if i+1 < len(parts) {
+					} else if i+1 < len(parts) && !strings.HasPrefix(parts[i+1], "--") {
 						i++
 						payload[key] = parts[i]
+					} else {
+						// Bare flag (v0.693.0 --all_stations, --can_fly).
+						payload[key] = "true"
 					}
 				}
 			}
 		}
-		// max_price is a schema integer; coerce so it isn't sent as a string.
+		// Schema integers and booleans: coerce so they aren't sent as strings.
 		// (Safe when payload is nil: the assertion on a nil map is a no-op.)
-		if v, ok := payload["max_price"].(string); ok {
-			if n, err := strconv.Atoi(v); err == nil {
-				payload["max_price"] = n
+		for _, k := range []string{"max_price", "page", "page_size"} {
+			if v, ok := payload[k].(string); ok {
+				if n, err := strconv.Atoi(v); err == nil {
+					payload[k] = n
+				}
+			}
+		}
+		for _, k := range []string{"all_stations", "can_fly"} {
+			if v, ok := payload[k].(string); ok {
+				if bv, err := strconv.ParseBool(v); err == nil {
+					payload[k] = bv
+				}
 			}
 		}
 		return simpleCommand(client, func(ctx context.Context) error {

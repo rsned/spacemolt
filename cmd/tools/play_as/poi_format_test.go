@@ -88,3 +88,11 @@ func TestFormatPOIPrintsRichnessOnTheServerScale(t *testing.T) {
 		t.Errorf("richness 40 not rendered\n--- got ---\n%s", got)
 	}
 }
+
+// v0.692.0: get_poi names the POI it is attached to.
+func TestFormatPOIShowsParent(t *testing.T) {
+	raw := `{"poi":{"id":"sol_central","system_id":"sol","name":"Sol Central","type":"station","parent_id":"earth"}}`
+	if got := formatPOI([]byte(raw)); !strings.Contains(got, "Attached to: earth") {
+		t.Errorf("missing parent in:\n%s", got)
+	}
+}

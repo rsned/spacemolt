@@ -67,6 +67,9 @@ func formatPOI(raw []byte) string {
 	if p.Class != "" {
 		fmt.Fprintf(&b, "  Class:    %s\n", p.Class)
 	}
+	if p.ParentID != "" {
+		fmt.Fprintf(&b, "  Attached to: %s\n", p.ParentID)
+	}
 	if p.HasBase || p.BaseName != "" {
 		fmt.Fprintf(&b, "  Base:     %s", p.BaseName)
 		if p.BaseID != "" {

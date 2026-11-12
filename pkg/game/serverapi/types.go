@@ -378,23 +378,26 @@ type PrizeRecovery struct {
 
 // POI represents a Point of Interest in a system.
 type POI struct {
-	ID               string        `json:"id"`
-	SystemID         string        `json:"system_id"`
-	Type             string        `json:"type"`
-	Class            string        `json:"class,omitempty"` // MK classification (e.g., "G2 V") or planet class
-	Name             string        `json:"name"`
-	Description      string        `json:"description"`
-	Position         Position      `json:"position"`
-	Resources        []POIResource `json:"resources"`
-	BaseID           string        `json:"base_id,omitempty"`
-	HasBase          bool          `json:"has_base,omitempty"`
-	BaseType         string        `json:"base_type,omitempty"` // station, outpost or mobile_base (v0.684.0)
-	BaseName         string        `json:"base_name,omitempty"`
-	Online           int           `json:"online,omitempty"`
-	Hidden           bool          `json:"hidden,omitempty"`
-	RevealDifficulty int           `json:"reveal_difficulty,omitempty"`
-	ExpiresAt        string        `json:"expires_at,omitempty"` // ISO-8601 timestamp when POI expires (e.g., wormholes)
-	Hazard           *POIHazard    `json:"hazard,omitempty"`     // v0.687.0 environmental hazard; nil when none
+	ID          string        `json:"id"`
+	SystemID    string        `json:"system_id"`
+	Type        string        `json:"type"`
+	Class       string        `json:"class,omitempty"` // MK classification (e.g., "G2 V") or planet class
+	Name        string        `json:"name"`
+	Description string        `json:"description"`
+	Position    Position      `json:"position"`
+	Resources   []POIResource `json:"resources"`
+	BaseID      string        `json:"base_id,omitempty"`
+	HasBase     bool          `json:"has_base,omitempty"`
+	BaseType    string        `json:"base_type,omitempty"` // station, outpost or mobile_base (v0.684.0)
+	BaseName    string        `json:"base_name,omitempty"`
+	// ParentID (v0.692.0, get_poi) is the POI this one is attached to in the
+	// same system, e.g. a station at a planet; omitted when unattached.
+	ParentID         string     `json:"parent_id,omitempty"`
+	Online           int        `json:"online,omitempty"`
+	Hidden           bool       `json:"hidden,omitempty"`
+	RevealDifficulty int        `json:"reveal_difficulty,omitempty"`
+	ExpiresAt        string     `json:"expires_at,omitempty"` // ISO-8601 timestamp when POI expires (e.g., wormholes)
+	Hazard           *POIHazard `json:"hazard,omitempty"`     // v0.687.0 environmental hazard; nil when none
 }
 
 // SystemData holds complete system information.
@@ -938,8 +941,11 @@ type MissionRewards struct {
 	Credits       int            `json:"credits"`
 	Items         map[string]int `json:"items,omitempty"`
 	SkillXP       map[string]int `json:"skill_xp,omitempty"`
-	PirateRep     int            `json:"pirate_rep,omitempty"`
-	Reputation    int            `json:"reputation,omitempty"`
+	// PilotingXP (v0.695.0) is the piloting XP for flying the route, at the
+	// current ship's tier; not part of SkillXP, and 0 at the piloting cap.
+	PilotingXP int `json:"piloting_xp,omitempty"`
+	PirateRep  int `json:"pirate_rep,omitempty"`
+	Reputation int `json:"reputation,omitempty"`
 }
 
 // MissionObjective represents a single objective in a mission.
@@ -1250,6 +1256,10 @@ type ShipListingDetail struct {
 	Seller       string `json:"seller,omitempty"`
 	ModulesCount int    `json:"modules_count,omitempty"`
 	ListedAt     string `json:"listed_at,omitempty"`
+	// BaseID/BaseName (v0.693.0) name the listing's station; browse_ships
+	// all_stations=true spans every charted station.
+	BaseID   string `json:"base_id,omitempty"`
+	BaseName string `json:"base_name,omitempty"`
 }
 
 // RevealedPOI represents a POI revealed by a system survey.
