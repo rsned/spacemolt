@@ -1776,3 +1776,26 @@ func TestClaimBestBookConsignedReservesUnits(t *testing.T) {
 		t.Fatalf("got %+v, want route 1 sized to 150", got)
 	}
 }
+
+// The buy leaves the haul leg's fuel money in the wallet: trucker-07 spent its
+// whole 20,000 at Mera Sanctum and could not refuel for the 18-jump delivery
+// (2026-11-10).
+func TestHaulGateKeepsFuelMoney(t *testing.T) {
+	opp := market.ArbitrageOpportunity{FromStationID: "buyst", ToStationID: "sellst", ItemID: "x", Quantity: 1000}
+	prices := []market.ItemStationPrice{
+		{StationID: "buyst", HasSell: true, BestAsk: 20},
+		{StationID: "sellst", HasBuy: true, BestBid: 40},
+	}
+	// 20,000 credits, 2,000 of fuel for the leg: at most 900 units at 20.
+	qty, _, _, ok, reason := haulGate(opp, prices, 1000, 1000, 20000, 2000, nil)
+	if !ok {
+		t.Fatalf("rejected: %s", reason)
+	}
+	if qty != 900 {
+		t.Fatalf("qty = %.0f, want 900 (wallet minus the leg's fuel)", qty)
+	}
+	// A wallet that only covers the fuel buys nothing.
+	if _, _, _, ok, reason := haulGate(opp, prices, 1000, 1000, 2000, 2000, nil); ok || !strings.Contains(reason, "unaffordable") {
+		t.Fatalf("ok=%v reason=%q, want an unaffordable rejection", ok, reason)
+	}
+}

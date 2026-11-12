@@ -154,7 +154,10 @@ func haulGate(opp market.ArbitrageOpportunity, prices []market.ItemStationPrice,
 	if !haveBid {
 		return 0, liveAsk, sellBid, false, "no live bid at sell station"
 	}
-	qty = sizeBuy(opp, cargoFree, credits, liveAsk)
+	// Keep the haul leg's fuel money out of the buy: sizing on the whole
+	// wallet left trucker-07 with 1 credit after a 20,000 buy at Mera
+	// Sanctum, unable to refuel for the 18-jump delivery (2026-11-10).
+	qty = sizeBuy(opp, cargoFree, max(credits-fuelCost, 0), liveAsk)
 	if qty < 1 {
 		return qty, liveAsk, sellBid, false, fmt.Sprintf("unaffordable/no cargo (qty=%.0f)", qty)
 	}
