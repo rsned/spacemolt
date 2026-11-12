@@ -647,6 +647,7 @@ var eventExpectedFields = map[string]map[string]bool{
 		"your_zone":      true,
 	},
 	protocol.TypeBattleDamage: {
+		"effect_kind":   true,
 		"tick":          true,
 		"attacker_id":   true,
 		"attacker_name": true,

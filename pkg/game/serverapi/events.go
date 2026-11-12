@@ -127,9 +127,14 @@ type BattleDamage struct {
 	ShieldHit    float64  `json:"shield_hit"`
 	TotalDamage  float64  `json:"total_damage"`
 	WeaponsFired []string `json:"weapons_fired,omitempty"`
-	// XPGained maps skill_id -> xp earned from this hit (e.g. gunnery).
-	// Consistent with the map[string]int xp_gained shape used elsewhere.
-	XPGained map[string]int `json:"xp_gained,omitempty"`
+	// EffectKind names a non-weapon hit, e.g. "retaliation" when a creature
+	// strikes back (first seen 2026-11-12 from a Repeater Pane, 0 damage, no
+	// weapons). Empty on ordinary weapon fire.
+	EffectKind string `json:"effect_kind,omitempty"`
+	// XPGained maps player_id -> skill_id -> xp earned from this hit, e.g.
+	// {"<id>":{"piloting":4,"tactics":2}} (live 2026-11-12). It is keyed by
+	// player first, unlike the flat skill map in other replies.
+	XPGained map[string]map[string]int `json:"xp_gained,omitempty"`
 }
 
 // BattleEndedParticipant is a participant entry in a battle_ended push,

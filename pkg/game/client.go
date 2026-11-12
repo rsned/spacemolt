@@ -3239,8 +3239,12 @@ func (c *Client) handleResponse(resp protocol.Response) {
 			c.state.LastDamage = ev.TotalDamage
 		}
 		c.mu.Unlock()
-		c.debugLogger.Printf("[BATTLE DAMAGE] %s -> %s: %.0f (%s) hit=%v weapons=%v",
-			ev.AttackerName, ev.TargetName, ev.TotalDamage, ev.DamageType, ev.HitSuccess, ev.WeaponsFired)
+		kind := ""
+		if ev.EffectKind != "" {
+			kind = " effect=" + ev.EffectKind
+		}
+		c.debugLogger.Printf("[BATTLE DAMAGE] %s -> %s: %.0f (%s) hit=%v weapons=%v%s",
+			ev.AttackerName, ev.TargetName, ev.TotalDamage, ev.DamageType, ev.HitSuccess, ev.WeaponsFired, kind)
 
 	case protocol.TypeBattleEnded:
 		// A tactical battle we were in has concluded. Clear our combat/battle
