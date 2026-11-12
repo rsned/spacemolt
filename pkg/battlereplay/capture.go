@@ -44,7 +44,8 @@ func attackRecorder(kb knowledge.Base) AttackRecorder {
 // ambush, a death — still yields data. Whatever cannot be resolved either way
 // is skipped rather than filed under a guessed species.
 //
-// Returns the number of attack rows written.
+// Hostiles in the battle (Frontier Repeaters) are filed to hostile_attacks in
+// the same pass. Returns the number of attack rows written to both tables.
 func CaptureWildlifeAttacks(ctx context.Context, kb knowledge.Base, client game.GameClient, battleID string, speciesByCreatureID map[string]string, logf Logf) (int, error) {
 	rec := attackRecorder(kb)
 	if rec == nil || client == nil || battleID == "" {
@@ -56,26 +57,38 @@ func CaptureWildlifeAttacks(ctx context.Context, kb knowledge.Base, client game.
 		return 0, fmt.Errorf("capture wildlife attacks %s: %w", battleID, err)
 	}
 
+	// Hostiles (Frontier Repeaters) go to their own table. They share the
+	// battle log, so one capture files both.
+	hostile := 0
+	if hrec, ok := kb.(knowledge.HostileAttackRecorder); ok {
+		if rows := HostileAttacks(m); len(rows) > 0 {
+			if err = hrec.UpsertHostileAttacks(ctx, rows); err != nil {
+				return 0, fmt.Errorf("record hostile attacks %s: %w", battleID, err)
+			}
+			hostile = len(rows)
+		}
+	}
+
 	byID, err := ResolveCreatureSpecies(ctx, rec, m, speciesByCreatureID)
 	if err != nil {
-		return 0, err
+		return hostile, err
 	}
 	if len(byID) == 0 {
 		// No creature in this battle could be named. That is the normal result
 		// for a player-versus-player or player-versus-pirate fight, not a
 		// failure.
-		return 0, nil
+		return hostile, nil
 	}
 
 	attacks := WildlifeAttacks(m, byID)
 	if len(attacks) == 0 {
-		return 0, nil
+		return hostile, nil
 	}
 	if err := rec.UpsertWildlifeAttacks(ctx, attacks); err != nil {
-		return 0, fmt.Errorf("record wildlife attacks %s: %w", battleID, err)
+		return hostile, fmt.Errorf("record wildlife attacks %s: %w", battleID, err)
 	}
 
-	return len(attacks), nil
+	return hostile + len(attacks), nil
 }
 
 // ResolveCreatureSpecies decides, for every creature participant in a battle,

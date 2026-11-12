@@ -76,3 +76,21 @@ func TestMigration72_IsReplayable(t *testing.T) {
 		}
 	}
 }
+
+func TestUpsertHostileAttacksReplacesBattleRow(t *testing.T) {
+	kb := newTestSQLiteKB(t)
+	ctx := context.Background()
+	row := HostileAttack{HostileType: "repeater_monolith", BattleID: "b1", WeaponName: "w", DamageType: "em", Shots: 3, Hits: 2, DamageTotal: 305}
+	for range 2 {
+		if err := kb.UpsertHostileAttacks(ctx, []HostileAttack{row}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var n, shots int
+	if err := kb.db.QueryRow(`SELECT COUNT(*), SUM(shots) FROM hostile_attacks`).Scan(&n, &shots); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 || shots != 3 {
+		t.Errorf("rows %d shots %d, want 1, 3", n, shots)
+	}
+}

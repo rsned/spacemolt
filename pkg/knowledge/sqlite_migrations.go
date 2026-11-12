@@ -565,6 +565,28 @@ func migrations() []Migration {
 				CREATE INDEX IF NOT EXISTS idx_hostile_sightings_id ON hostile_sightings(hostile_id);
 			`,
 		},
+		{
+			version: 73,
+			name:    "hostile_attacks",
+			// Per-battle offence of hostiles, the hostile_types twin of
+			// wildlife_attacks: what a repeater class shoots with and how hard.
+			sql: `
+				CREATE TABLE IF NOT EXISTS hostile_attacks (
+					hostile_type TEXT NOT NULL,
+					battle_id    TEXT NOT NULL DEFAULT '',
+					weapon_name  TEXT NOT NULL DEFAULT '',
+					damage_type  TEXT NOT NULL DEFAULT '',
+					shot_kind    TEXT NOT NULL DEFAULT '',
+					shots        INTEGER NOT NULL DEFAULT 0,
+					hits         INTEGER NOT NULL DEFAULT 0,
+					damage_total REAL NOT NULL DEFAULT 0,
+					damage_min   REAL NOT NULL DEFAULT 0,
+					damage_max   REAL NOT NULL DEFAULT 0,
+					observed_utc TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (hostile_type, battle_id, weapon_name, damage_type, shot_kind)
+				);
+			`,
+		},
 	}
 }
 

@@ -122,3 +122,53 @@ func (kb *SQLiteKB) RecordHostileSightings(ctx context.Context, rows []HostileSi
 	}
 	return tx.Commit()
 }
+
+// HostileAttack is what one hostile type was observed shooting with in one
+// battle; the hostile_attacks twin of WildlifeAttack.
+type HostileAttack struct {
+	HostileType string
+	BattleID    string
+	WeaponName  string
+	DamageType  string
+	ShotKind    string
+	Shots       int
+	Hits        int
+	DamageTotal float64
+	DamageMin   float64
+	DamageMax   float64
+}
+
+// HostileAttackRecorder stores hostile offence. SQLiteKB implements it.
+type HostileAttackRecorder interface {
+	UpsertHostileAttacks(ctx context.Context, rows []HostileAttack) error
+}
+
+// UpsertHostileAttacks records per-battle attack rows; re-importing a battle
+// replaces its rows.
+func (kb *SQLiteKB) UpsertHostileAttacks(ctx context.Context, rows []HostileAttack) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	return kb.inTx(ctx, func(tx txer) error {
+		for _, r := range rows {
+			if r.HostileType == "" {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO hostile_attacks
+					(hostile_type, battle_id, weapon_name, damage_type, shot_kind,
+					 shots, hits, damage_total, damage_min, damage_max, observed_utc)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				ON CONFLICT(hostile_type, battle_id, weapon_name, damage_type, shot_kind) DO UPDATE SET
+					shots = excluded.shots, hits = excluded.hits,
+					damage_total = excluded.damage_total, damage_min = excluded.damage_min,
+					damage_max = excluded.damage_max, observed_utc = excluded.observed_utc
+			`, r.HostileType, r.BattleID, r.WeaponName, r.DamageType, r.ShotKind,
+				r.Shots, r.Hits, r.DamageTotal, r.DamageMin, r.DamageMax, now); err != nil {
+				return fmt.Errorf("upsert hostile attack %s/%s: %w", r.HostileType, r.WeaponName, err)
+			}
+		}
+		return nil
+	})
+}

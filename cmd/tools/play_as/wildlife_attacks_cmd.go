@@ -44,10 +44,10 @@ func captureWildlifeAttacksCmd(ctx context.Context, out io.Writer, kb knowledge.
 		// a species the field guide ALREADY holds, so a first encounter with a
 		// new creature lands here even though the damage is right there in the
 		// log.
-		fmt.Fprintf(out, "capture_wildlife_attacks: battle %s filed 0 rows.\n", battleID)              //nolint:errcheck
-		fmt.Fprintln(out, "  Either the battle had no creature participants (a player/pirate fight),") //nolint:errcheck
-		fmt.Fprintln(out, "  or its creatures are not in the field guide yet, so the species could")   //nolint:errcheck
-		fmt.Fprintln(out, "  not be resolved. Run get_battle_log <battle_id> to see which.")           //nolint:errcheck
+		fmt.Fprintf(out, "capture_wildlife_attacks: battle %s filed 0 rows.\n", battleID)                          //nolint:errcheck
+		fmt.Fprintln(out, "  Either the battle had no creature or repeater participants (a player/pirate fight),") //nolint:errcheck
+		fmt.Fprintln(out, "  or its creatures are not in the field guide yet, so the species could")               //nolint:errcheck
+		fmt.Fprintln(out, "  not be resolved. Run get_battle_log <battle_id> to see which.")                       //nolint:errcheck
 
 		return nil
 	}

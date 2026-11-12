@@ -11,7 +11,7 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 14
+-- Migrations applied: 15
 -- Last Regenerated: 2026-11-12
 
 -- ============================================================================
@@ -340,6 +340,22 @@ CREATE TABLE factions (
 					intel_systems   INTEGER,
 					intel_trade     INTEGER,
 					captured_utc    TEXT NOT NULL
+				);
+
+
+CREATE TABLE hostile_attacks (
+					hostile_type TEXT NOT NULL,
+					battle_id    TEXT NOT NULL DEFAULT '',
+					weapon_name  TEXT NOT NULL DEFAULT '',
+					damage_type  TEXT NOT NULL DEFAULT '',
+					shot_kind    TEXT NOT NULL DEFAULT '',
+					shots        INTEGER NOT NULL DEFAULT 0,
+					hits         INTEGER NOT NULL DEFAULT 0,
+					damage_total REAL NOT NULL DEFAULT 0,
+					damage_min   REAL NOT NULL DEFAULT 0,
+					damage_max   REAL NOT NULL DEFAULT 0,
+					observed_utc TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (hostile_type, battle_id, weapon_name, damage_type, shot_kind)
 				);
 
 
@@ -1431,4 +1447,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (69, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (70, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (71, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (72, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (73, datetime('now'));
 

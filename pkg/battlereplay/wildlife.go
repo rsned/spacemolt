@@ -33,7 +33,14 @@ func WildlifeAttacks(m *ReplayModel, speciesByCreatureID map[string]string) []kn
 			species[p.PlayerID] = s
 		}
 	}
-	if len(species) == 0 {
+	return attacksByType(m, species)
+}
+
+// attacksByType aggregates the shots fired by the participants in typeByID
+// (participant id -> species or hostile type) into one row per
+// type/weapon/damage-type/shot-kind. Rows carry the type in Species.
+func attacksByType(m *ReplayModel, species map[string]string) []knowledge.WildlifeAttack {
+	if m == nil || len(species) == 0 {
 		return nil
 	}
 
