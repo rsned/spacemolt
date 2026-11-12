@@ -187,6 +187,25 @@ func (kb *SQLiteKB) RememberSystem(ctx context.Context, sys System) error {
 	// Sticky, like description and is_stronghold above: MAX never moves the
 	// marker backwards, and a capture carrying no tick (a map import) leaves an
 	// existing stamp alone rather than blanking it. MAX is NULL-safe.
+	if sys.ReplaceConnections {
+		// A live get_system is the whole truth for this system's lanes: drop
+		// any stored lane it no longer lists. The Sanctum (no lanes at all)
+		// had been saved with Nexus Prime's two, 2026-11-11.
+		keep := make([]any, 0, len(sys.Connections)+1)
+		keep = append(keep, sys.ID)
+		marks := make([]string, 0, len(sys.Connections))
+		for _, conn := range sys.Connections {
+			keep = append(keep, conn.SystemID)
+			marks = append(marks, "?")
+		}
+		q := `DELETE FROM connections WHERE from_system = ?`
+		if len(marks) > 0 {
+			q += ` AND to_system NOT IN (` + strings.Join(marks, ",") + `)`
+		}
+		if _, err := tx.ExecContext(ctx, q, keep...); err != nil {
+			return fmt.Errorf("failed to prune stale connections of %s: %w", sys.ID, err)
+		}
+	}
 	for _, conn := range sys.Connections {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO connections (from_system, to_system, distance, last_updated_tick)

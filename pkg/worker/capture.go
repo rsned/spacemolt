@@ -289,16 +289,20 @@ func KBUpdateSystem(ctx context.Context, client game.GameClient, kb knowledge.Ba
 	}
 
 	kbSystem := knowledge.System{
-		ID:              state.System.ID,
-		Name:            state.System.Name,
-		Description:     state.System.Description,
-		PoliceLevel:     state.System.PoliceLevel,
-		SecurityStatus:  state.System.SecurityStatus,
-		Empire:          state.System.Empire,
-		IsStronghold:    state.System.IsStronghold,
-		Connections:     extractConnections(state.System.Connections),
-		LastUpdatedTick: currentTick(state),
-		LastVisitedTick: currentTick(state),
+		ID:             state.System.ID,
+		Name:           state.System.Name,
+		Description:    state.System.Description,
+		PoliceLevel:    state.System.PoliceLevel,
+		SecurityStatus: state.System.SecurityStatus,
+		Empire:         state.System.Empire,
+		IsStronghold:   state.System.IsStronghold,
+		Connections:    extractConnections(state.System.Connections),
+		// Only a get_system reply that describes THIS system and carries a
+		// lane list (empty included) is the complete list; a transit reply or
+		// a race with a jump arrival must never prune a real system's lanes.
+		ReplaceConnections: liveLaneList(client.GetRawJSON("system"), state.System.ID, state.System.Name),
+		LastUpdatedTick:    currentTick(state),
+		LastVisitedTick:    currentTick(state),
 		Position: game.Position{
 			X: state.System.Position.X,
 			Y: state.System.Position.Y,
@@ -1231,3 +1235,37 @@ func wormholePrediction(hint string) (power, needed int, ok bool) {
 }
 
 var wormholePredictionRe = regexp.MustCompile(`(?i)prediction power:\s*(\d+),\s*needed:\s*(\d+)`)
+
+// liveLaneList reports whether raw, the last get_system reply, describes the
+// system id/name and includes a "connections" list (an empty one counts:
+// a Pathfinder-only system has none). Anything else is not authoritative.
+func liveLaneList(raw []byte, id, name string) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	var r struct {
+		Result *struct {
+			System *struct {
+				ID          string           `json:"id"`
+				Name        string           `json:"name"`
+				Connections *json.RawMessage `json:"connections"`
+			} `json:"system"`
+		} `json:"result"`
+		System *struct {
+			ID          string           `json:"id"`
+			Name        string           `json:"name"`
+			Connections *json.RawMessage `json:"connections"`
+		} `json:"system"`
+	}
+	if json.Unmarshal(raw, &r) != nil {
+		return false
+	}
+	sys := r.System
+	if sys == nil && r.Result != nil {
+		sys = r.Result.System
+	}
+	if sys == nil || sys.Connections == nil {
+		return false
+	}
+	return (sys.ID != "" && sys.ID == id) || (sys.ID == "" && sys.Name != "" && sys.Name == name)
+}

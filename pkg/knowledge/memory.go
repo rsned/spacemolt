@@ -406,6 +406,11 @@ type System struct {
 	POIs            []string
 	LastUpdatedTick int64
 	LastVisitedTick int64 // 0 = never visited; PoliceLevel is untrusted when 0
+	// ReplaceConnections marks Connections as the system's complete lane list,
+	// read live from inside it (get_system): RememberSystem then deletes any
+	// stored outgoing lane not in it, an empty list included. Unset, lanes are
+	// only ever added (map imports and other partial sources).
+	ReplaceConnections bool
 }
 
 // Visited reports whether the system's PoliceLevel reflects a real

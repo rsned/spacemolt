@@ -202,3 +202,22 @@ func TestReportWormholesFlagsNewEntrances(t *testing.T) {
 		t.Errorf("want exactly the two entrances reported:\n%s", out)
 	}
 }
+
+func TestLiveLaneList(t *testing.T) {
+	for _, tc := range []struct {
+		name, raw string
+		want      bool
+	}{
+		{"own system, no lanes", `{"action":"get_system","system":{"id":"the_sanctum","name":"The Sanctum","connections":[]}}`, true},
+		{"own system, lanes", `{"action":"get_system","system":{"id":"the_sanctum","connections":[{"system_id":"x"}]}}`, true},
+		{"other system", `{"action":"get_system","system":{"id":"nexus_prime","connections":[]}}`, false},
+		{"lanes omitted", `{"action":"get_system","system":{"id":"the_sanctum"}}`, false},
+		{"transit variant", `{"action":"get_system","in_transit":true,"to_system":"the_sanctum"}`, false},
+		{"wrapped", `{"command":"get_system","result":{"system":{"id":"the_sanctum","connections":[]}}}`, true},
+		{"nothing", ``, false},
+	} {
+		if got := liveLaneList([]byte(tc.raw), "the_sanctum", "The Sanctum"); got != tc.want {
+			t.Errorf("%s: liveLaneList = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

@@ -4182,10 +4182,15 @@ func (c *Client) mergeSystemDataLocked(ext serverapi.SystemData) {
 		c.state.System.LastVisitedTick = tick
 	}
 
-	if len(sys.Connections) > 0 {
+	// A same-system partial reply may omit the lists, so keep what we have.
+	// A different system's lists replace ours outright, empty included: The
+	// Sanctum has no lanes at all (reachable only by Pathfinder), and keeping
+	// the departed system's list saved Nexus Prime's two lanes under it
+	// (2026-11-11).
+	if len(sys.Connections) > 0 || !sameSystem {
 		c.state.System.Connections = sys.Connections
 	}
-	if len(sys.POIs) > 0 {
+	if len(sys.POIs) > 0 || !sameSystem {
 		c.state.System.POIs = sys.POIs
 		c.state.LastMapUpdate = time.Now()
 	}

@@ -154,3 +154,51 @@ func TestPathfinderArrivalUpdatesLocation(t *testing.T) {
 		t.Errorf("System.ID = %q, want market_prime", c.state.System.ID)
 	}
 }
+
+// get_system for a different, lane-less system must replace the lane list,
+// not keep the previous system's: The Sanctum (Pathfinder-only) was saved with
+// Nexus Prime's two lanes, Node Alpha 353 and Node Beta 585 (2026-11-11).
+func TestGetSystemLanelessSystemClearsPreviousLanes(t *testing.T) {
+	c := newTestClient()
+	c.latestRawJSON = map[string][]byte{}
+	c.state.System = SystemData{
+		ID: "nexus_prime", Name: "Nexus Prime",
+		Connections: []ConnectionInfo{{SystemID: "node_alpha", Distance: 353}, {SystemID: "node_beta", Distance: 585}},
+		POIs:        []POI{{ID: "nexus_station"}},
+	}
+
+	c.handleResponse(protocol.Response{Type: protocol.TypeOK, Payload: map[string]any{
+		"action": "get_system",
+		"system": map[string]any{
+			"id": "the_sanctum", "name": "The Sanctum", "connections": []any{},
+			"pois": []any{map[string]any{"id": "receiver_housing", "name": "Receiver Housing", "type": "relic"}},
+		},
+	}})
+
+	if c.state.System.ID != "the_sanctum" {
+		t.Fatalf("System.ID = %q, want the_sanctum", c.state.System.ID)
+	}
+	if len(c.state.System.Connections) != 0 {
+		t.Errorf("The Sanctum kept Nexus Prime's lanes: %+v", c.state.System.Connections)
+	}
+	if len(c.state.System.POIs) != 1 || c.state.System.POIs[0].ID != "receiver_housing" {
+		t.Errorf("POIs = %+v, want only receiver_housing", c.state.System.POIs)
+	}
+}
+
+// A same-system partial reply that omits the lanes keeps the known lanes.
+func TestGetSystemSameSystemKeepsLanesWhenOmitted(t *testing.T) {
+	c := newTestClient()
+	c.latestRawJSON = map[string][]byte{}
+	c.state.System = SystemData{ID: "nexus_prime", Name: "Nexus Prime",
+		Connections: []ConnectionInfo{{SystemID: "node_alpha", Distance: 353}}}
+
+	c.handleResponse(protocol.Response{Type: protocol.TypeOK, Payload: map[string]any{
+		"action": "get_system",
+		"system": map[string]any{"id": "nexus_prime", "name": "Nexus Prime"},
+	}})
+
+	if len(c.state.System.Connections) != 1 {
+		t.Errorf("same-system partial reply dropped the lanes: %+v", c.state.System.Connections)
+	}
+}
