@@ -27,6 +27,12 @@
 # resources). This agent ran at a 50%% depleted rate there while every other
 # miner sat at 100%%. hd_20794_forge_vein holds 62,283 copper_ore + 12,875
 # iron_ore. Any multi-belt system needs the POI named outright.
+#
+# sell_ore BEFORE deposit_all (2026-11-12, operator): depositing every load
+# left this agent with no income — 11 credits, 6,000+ in rescue fees, fuel-dead
+# three times. sell_ore sells common/uncommon ore at the station market and
+# leaves rare-and-up for deposit_all to bank; it runs before refuel so the
+# sale pays for the tank.
 jump hd_20794
 get_system
 travel hd_20794_forge_vein
@@ -35,5 +41,6 @@ jump the_anvil
 get_system
 travel $STATION$
 dock
+sell_ore
 deposit_all
 refuel
