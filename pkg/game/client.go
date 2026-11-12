@@ -1582,7 +1582,7 @@ func (c *Client) Jump(ctx context.Context, targetSystem string) (*JumpResult, er
 	// A numeric bearing with a Pathfinder Drive starts an open-ended drift:
 	// there is no arrival tick to wait for, and the ship may never arrive.
 	// Return at once; pathfinder_arrival updates state when (if) it lands.
-	if action, _ := resp.Payload["action"].(string); action == "pathfinder_jump" {
+	if action, _ := resp.Payload["action"].(string); action == "pathfinder_jump" || action == "pathfinder_redirect" {
 		return &JumpResult{Drifting: true}, nil
 	}
 
@@ -4323,7 +4323,7 @@ func (c *Client) parseTravelAction(payload map[string]any) {
 			c.state.Doc = false
 		case "dock":
 			c.state.Doc = true
-		case "travel", "jump", "pathfinder_jump":
+		case "travel", "jump", "pathfinder_jump", "pathfinder_redirect":
 			// Travel initiated, will get progress in state_update. A
 			// pathfinder_jump leaves the ship adrift in open space, between
 			// systems, until a pathfinder_arrival.

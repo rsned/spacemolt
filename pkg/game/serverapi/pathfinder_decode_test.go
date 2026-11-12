@@ -20,3 +20,14 @@ func TestPathfinderRepliesDecode(t *testing.T) {
 		t.Fatalf("arrival = %+v", a)
 	}
 }
+
+func TestPathfinderRedirectDecodes(t *testing.T) {
+	raw := `{"action":"pathfinder_redirect","bearing":46.5,"message":"Pathfinder Drive re-engaged.","origin_x":-3819.651402816118,"origin_y":-5107.300857661337}`
+	var r PathfinderRedirectResponse
+	if err := json.Unmarshal([]byte(raw), &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.Bearing != 46.5 || r.OriginX > -3819 || r.OriginY > -5107 {
+		t.Fatalf("redirect = %+v", r)
+	}
+}

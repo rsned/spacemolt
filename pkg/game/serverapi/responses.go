@@ -1880,6 +1880,17 @@ type PathfinderArrivalResponse struct {
 	PilotingXP   int    `json:"piloting_xp,omitempty"`
 }
 
+// PathfinderRedirectResponse is the reply to a new numeric bearing submitted
+// mid-drift (first seen 2026-11-11): the drive replots from the ship's current
+// drifting position (origin_x/origin_y) on the new bearing.
+type PathfinderRedirectResponse struct {
+	Action  string  `json:"action"`
+	Bearing float64 `json:"bearing"`
+	Message string  `json:"message,omitempty"`
+	OriginX float64 `json:"origin_x"`
+	OriginY float64 `json:"origin_y"`
+}
+
 // PathfinderJumpResponse is the OK reply to `jump <numeric bearing>` with a
 // Pathfinder Drive fitted (first seen 2026-11-11). The ship is then adrift in
 // open space on the bearing; get_location tracks it, a new bearing changes
