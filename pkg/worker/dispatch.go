@@ -235,7 +235,7 @@ var supported = map[string]bool{
 	"hunt": true,
 	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "deliver_tour": true, "buy_directed": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "fit_check": true, "refit_trip": true, "launch_drones": true,
-	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "faction_deposit_all": true, "faction_restock": true, "announce": true, "capture_craft_queue": true, "sell_all": true, "sell_ore": true,
+	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "faction_deposit_all": true, "faction_restock": true, "announce": true, "capture_craft_queue": true, "sell_all": true, "sell_ore": true, "craft_stock": true,
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
 	"capture_storage": true, "capture_faction": true, "capture_cargo": true,
@@ -660,6 +660,25 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		}
 
 		return d.craftShrinking(ctx, args[0], qty, "")
+	case "craft_stock":
+		// craft_stock RECIPE ITEM TARGET [PRESET]: top ITEM in faction storage
+		// up to TARGET (held + queued output count toward it).
+		if len(args) < 3 {
+			return fmt.Errorf("craft_stock: want RECIPE ITEM TARGET [PRESET], got %v", args)
+		}
+		target, err := strconv.Atoi(args[2])
+		if err != nil || target < 1 {
+			return fmt.Errorf("craft_stock: bad TARGET %q: want a positive item count", args[2])
+		}
+		preset := ""
+		if len(args) >= 4 {
+			if !slices.Contains(game.CraftRoutingPresets, args[3]) {
+				return fmt.Errorf("craft_stock: invalid PRESET %q: want one of %s",
+					args[3], strings.Join(game.CraftRoutingPresets, ", "))
+			}
+			preset = args[3]
+		}
+		return d.CraftStock(ctx, args[0], args[1], target, preset)
 	case "craft_node":
 		if len(args) < 4 {
 			return fmt.Errorf("craft_node: want RECIPE NUM_OUTPUTS STATION FACILITY [EST_FEE], got %v", args)
