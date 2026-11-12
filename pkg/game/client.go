@@ -3485,6 +3485,13 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		c.debugLogger.Printf("[SHIP COMMISSION COMPLETE] %s (%s) ready for pickup at %s [commission %s]",
 			label, shipClass, baseName, commissionID)
 
+	case protocol.TypeTradeOfferReceived:
+		// Another player offered a trade (live 2026-11-12: a stranded player
+		// offering 5,000 cr for one fuel cell). Logged loudly, like a scan, so
+		// the operator can answer it before it expires; nothing auto-accepts.
+		c.debugLogger.Printf("trade_offer_received: %v", resp.Payload)
+		scanAlertLogger.Print(formatTradeOffer(resp.Payload))
+
 	default:
 		logUnhandledResponseType(resp)
 	}
