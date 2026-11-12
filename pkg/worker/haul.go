@@ -966,6 +966,29 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 		return haulDesertEscape(ctx, deps, out, graph, systems, current)
 	}
 
+	// Broke: a buy run cannot buy, and flying to one burns the tank with no
+	// way to refuel (trucker-07 and trucker-04 ran dry this way, 2026-11-11,
+	// each needing a fuel rescue). Only consigned runs, which need no capital,
+	// stay in play; with none, stay docked and ask the banker.
+	// Only while docked: idling in open space would trip the stall watchdog,
+	// so an undocked broke hauler still flies its next leg to a station.
+	if st := deps.Client.GetState(); st != nil && st.IsDocked() && st.Credits < creditRequestThreshold {
+		consigned := opps[:0]
+		for _, o := range opps {
+			if o.IsConsigned() {
+				consigned = append(consigned, o)
+			}
+		}
+		opps = consigned
+		if len(opps) == 0 {
+			fmt.Fprintf(out, "haul: broke (%.0f credits); no consigned run, idling docked for a credit top-up\n", st.Credits) //nolint:errcheck
+			if r, ok := deps.Client.(CreditRequester); ok {
+				r.RequestCredits(ctx, fmt.Sprintf("haul: broke (%.0f credits), cannot fund a buy", st.Credits))
+			}
+			return nil
+		}
+	}
+
 	// Never route a no-standing hauler into a pirate stronghold, however juicy the
 	// standing buy orders posted there look. Drop stronghold-endpoint opportunities
 	// before ranking/claiming.

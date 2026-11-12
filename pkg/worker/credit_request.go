@@ -106,3 +106,18 @@ func (c *CreditRequestingClient) fileRequest(ctx context.Context, reason string)
 		fmt.Fprintf(out, "  credit request: history append failed: %v\n", herr) //nolint:errcheck
 	}
 }
+
+// CreditRequester is implemented by a client that can file a credit request
+// on demand (CreditRequestingClient). Roles assert for it, so a client without
+// the credit-request channel simply never files.
+type CreditRequester interface {
+	RequestCredits(ctx context.Context, reason string)
+}
+
+// RequestCredits files a request when the agent is docked and below
+// creditRequestThreshold, under the same rules as the refuel-failure trigger
+// (at most one open record per agent). For a role that is broke but has no
+// failed refuel to report: a hauler idling docked with a full tank.
+func (c *CreditRequestingClient) RequestCredits(ctx context.Context, reason string) {
+	c.fileRequest(ctx, reason)
+}

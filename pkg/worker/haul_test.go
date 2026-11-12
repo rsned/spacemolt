@@ -1799,3 +1799,36 @@ func TestHaulGateKeepsFuelMoney(t *testing.T) {
 		t.Fatalf("ok=%v reason=%q, want an unaffordable rejection", ok, reason)
 	}
 }
+
+// requestingFake records RequestCredits calls.
+type requestingFake struct {
+	*fakeClient
+	asked []string
+}
+
+func (r *requestingFake) RequestCredits(_ context.Context, reason string) { r.asked = append(r.asked, reason) }
+
+// A broke hauler docked at a station claims no buy run (it could not pay, and
+// flying out only burns the tank: trucker-07, 2026-11-11) and asks for credits.
+func TestHaulBrokeDockedIdlesAndRequestsCredits(t *testing.T) {
+	f := &fakeStore{
+		available: []market.ArbitrageOpportunity{opp(1, "b", "c", 100)},
+		claims:    map[int]bool{1: true},
+		admitOK:   true,
+	}
+	fc := &requestingFake{fakeClient: &fakeClient{state: &game.State{
+		System: game.SystemData{ID: "a", Name: "A"}, Fuel: 100, MaxFuel: 100, Credits: 4, Doc: true}}}
+	kb := &fakeKB{
+		systems: []knowledge.System{{ID: "a"}, {ID: "b"}, {ID: "c"}},
+		conns:   undirected([2]string{"a", "b"}, [2]string{"b", "c"}),
+	}
+	if err := Haul(context.Background(), HaulDeps{Client: fc, KB: kb, Market: f, AgentID: "trader-x", Out: io.Discard}); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.admitCalls) != 0 || len(f.completed) != 0 {
+		t.Fatalf("broke hauler claimed a buy run: admitCalls=%d completed=%v", len(f.admitCalls), f.completed)
+	}
+	if len(fc.asked) != 1 {
+		t.Fatalf("credit requests = %v, want one", fc.asked)
+	}
+}
