@@ -17,6 +17,9 @@ const (
 	EventPaid       = "paid"
 	EventHeld       = "held"
 	EventSendFailed = "send_failed"
+	// EventReleased: a "paid … already" hold dropped once its 24 h window
+	// passed, so a still-broke agent can file a fresh request.
+	EventReleased = "released"
 )
 
 // Entry is one line of the append-only payment history.

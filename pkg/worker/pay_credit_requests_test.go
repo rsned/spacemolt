@@ -455,3 +455,38 @@ func TestPay_ServerRefusalRetries(t *testing.T) {
 		t.Fatalf("a = %+v", a)
 	}
 }
+
+// A "paid … already" hold is dropped once its 24 h window passes, so the
+// agent can file afresh; it is not paid from the stale record. A hold still
+// inside the window, and any other hold, stay.
+func TestPay_ReleasesExpiredPaidHolds(t *testing.T) {
+	e := newPayEnv(t)
+	for _, id := range []string{"a", "b", "c"} {
+		e.file(t, id, payNow.Add(-30*time.Hour))
+	}
+	hold := func(id, reason string) {
+		if _, err := e.d.Queue.Update(id, func(r *creditreq.Record) { r.Status, r.HeldReason = creditreq.StatusHeld, reason }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hold("a", "paid "+payNow.Add(-25*time.Hour).Format(time.RFC3339)+" already") // window passed
+	hold("b", "paid "+payNow.Add(-2*time.Hour).Format(time.RFC3339)+" already")  // still inside
+	hold("c", "daily cap")
+
+	paid, _, err := PayCreditRequests(t.Context(), e.d)
+	if err != nil || paid != 0 || len(e.gifts.payloads) != 0 {
+		t.Fatalf("paid=%d gifts=%d err=%v; a released hold must not be paid", paid, len(e.gifts.payloads), err)
+	}
+	if _, ok := e.record(t, "a"); ok {
+		t.Error("expired hold a was not released")
+	}
+	if _, ok := e.record(t, "b"); !ok {
+		t.Error("hold b inside its window was released")
+	}
+	if _, ok := e.record(t, "c"); !ok {
+		t.Error("daily-cap hold c was released")
+	}
+	if countEvents(e.history(t), creditreq.EventReleased) != 1 {
+		t.Error("want one released history entry")
+	}
+}

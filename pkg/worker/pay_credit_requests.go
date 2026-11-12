@@ -85,6 +85,9 @@ func PayCreditRequests(ctx context.Context, d PayDeps) (paid, held int, err erro
 			pending = append(pending, r)
 		}
 	}
+	if err := releaseExpiredHolds(d, recs); err != nil {
+		return 0, 0, err
+	}
 	sort.SliceStable(pending, func(i, j int) bool { return pending[i].RequestedAt.Before(pending[j].RequestedAt) })
 
 	logf := func(format string, a ...any) {
@@ -279,4 +282,39 @@ func (d PayDeps) writeHaltFile(logf func(string, ...any), agentID, username stri
 	if err := os.WriteFile(d.HaltPath, []byte(body), 0o644); err != nil {
 		logf("pay_credit_requests: could not write halt file %s: %v", d.HaltPath, err)
 	}
+}
+
+// heldPaidPrefix starts the HeldReason the 24 h rule writes ("paid <RFC3339>
+// already").
+const heldPaidPrefix = "paid "
+
+// releaseExpiredHolds drops "paid … already" holds whose 24 h window has
+// passed. Such a hold was terminal: trucker-07 and 13 others sat held from
+// 2026-11-10 with no way to be paid again. The stale record is removed, not
+// re-paid -- it describes the agent a day ago -- so an agent still broke files
+// a fresh request from where it is now, and only that one is paid.
+func releaseExpiredHolds(d PayDeps, recs []creditreq.Record) error {
+	now := d.Now().UTC()
+	for _, r := range recs {
+		if r.Status != creditreq.StatusHeld || !strings.HasPrefix(r.HeldReason, heldPaidPrefix) {
+			continue
+		}
+		ts := strings.TrimSuffix(strings.TrimPrefix(r.HeldReason, heldPaidPrefix), " already")
+		paidAt, err := time.Parse(time.RFC3339, ts)
+		if err != nil || now.Sub(paidAt) < creditPerAgentSpan {
+			continue
+		}
+		if err := d.Queue.Remove(r.AgentID); err != nil {
+			return err
+		}
+		if d.Out != nil {
+			fmt.Fprintf(d.Out, "pay_credit_requests: released %s's hold (last paid %s, over 24h ago); it may file again\n", r.AgentID, ts) //nolint:errcheck
+		}
+		if err := d.History.Append(creditreq.Entry{At: now, AgentID: r.AgentID, Username: r.Username,
+			Event: creditreq.EventReleased, Detail: r.HeldReason}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
