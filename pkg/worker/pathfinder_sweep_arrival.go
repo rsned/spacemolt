@@ -107,8 +107,21 @@ func (d *WorkerDispatch) sweepArrival(ctx context.Context, s *sweep.State, sysID
 	// Only a reading taken during this drift measures where it ended; a
 	// drift that landed before the first reading leaves LastX/LastY at the
 	// previous system, which must not be written as this one's position.
+	var tick int64
+	if gs := d.Client.GetState(); gs != nil {
+		tick = gs.CurrentTick
+	}
+	// ...and only a FRESH one: a worker stopped mid-drift and restarted after
+	// the landing holds a reading from far back along the drift.
+	fresh := s.LastReadTick > 0 && tick > 0 && tick-s.LastReadTick <= sweepMeasureMaxAgeTicks
+	if s.ReadSinceLaunch && sysID != "" && !fresh {
+		fmt.Fprintf(d.Out, "pathfinder_sweep: landed in %s with a reading %d tick(s) old; not measuring\n", sysID, tick-s.LastReadTick) //nolint:errcheck
+	}
 	if s.ReadSinceLaunch && sysID != "" {
-		s.PendingMeasureSystem, s.PendingX, s.PendingY = sysID, s.LastX, s.LastY
+		if fresh {
+			s.PendingMeasureSystem, s.PendingX, s.PendingY = sysID, s.LastX, s.LastY
+			s.PendingMeasureName = loc.Location.SystemName
+		}
 		if s.Phase == sweep.PhaseLap {
 			// Count the arc up to the landing and rejoin past it.
 			if deg := unwrapNear(s.LastX, s.LastY, s.ProgressDeg); deg < s.ProgressDeg && deg >= s.TargetDeg-sweep.StepDeg {
@@ -116,10 +129,6 @@ func (d *WorkerDispatch) sweepArrival(ctx context.Context, s *sweep.State, sysID
 			}
 			s.Landed = true
 		}
-	}
-	var tick int64
-	if gs := d.Client.GetState(); gs != nil {
-		tick = gs.CurrentTick
 	}
 	if n, err := knowledge.CaptureHostilesNearby(ctx, d.KB, loc.Location.NearbyRepeaters, sysID, loc.Location.POIID, d.AgentID, tick); err != nil {
 		fmt.Fprintf(d.Out, "pathfinder_sweep: hostile capture at %s: %v\n", sysID, err) //nolint:errcheck
@@ -135,18 +144,17 @@ func (d *WorkerDispatch) sweepArrival(ctx context.Context, s *sweep.State, sysID
 	fmt.Fprintf(d.Out, "pathfinder_sweep: drift landed in %s (phase %s)\n", sysID, s.Phase) //nolint:errcheck
 }
 
-// sweepWritePendingMeasure writes a held arrival measurement once the KB
-// has a row for the system (a brand-new system gets one from its tour).
+// sweepWritePendingMeasure writes a held arrival measurement. A frontier
+// system has no KB row (the map capture skips systems without coordinates
+// and the tour never makes one), so the write creates it; waiting for a row
+// silently dropped Patient Span's position on 2026-11-13.
 func (d *WorkerDispatch) sweepWritePendingMeasure(ctx context.Context, s *sweep.State) {
 	id := s.PendingMeasureSystem
 	rec, ok := d.KB.(knowledge.SystemPositionRecorder)
 	if id == "" || !ok {
 		return
 	}
-	if sys, err := d.KB.GetSystem(ctx, id); err != nil || sys == nil {
-		return // no row yet: keep it for the next pass
-	}
-	wrote, err := rec.RecordMeasuredSystemPosition(ctx, id, s.PendingX, s.PendingY)
+	wrote, err := rec.RecordMeasuredSystemPosition(ctx, id, s.PendingMeasureName, s.PendingX, s.PendingY)
 	switch {
 	case err != nil:
 		fmt.Fprintf(d.Out, "pathfinder_sweep: record position of %s: %v\n", id, err) //nolint:errcheck
@@ -154,7 +162,7 @@ func (d *WorkerDispatch) sweepWritePendingMeasure(ctx context.Context, s *sweep.
 	case wrote:
 		fmt.Fprintf(d.Out, "pathfinder_sweep: %s measured at (%.1f, %.1f)\n", id, s.PendingX, s.PendingY) //nolint:errcheck
 	}
-	s.PendingMeasureSystem = ""
+	s.PendingMeasureSystem, s.PendingMeasureName = "", ""
 }
 
 // sweepAPISystem reports whether sysID has map (API) coordinates, i.e. is

@@ -1919,6 +1919,7 @@ type LocationResponse struct {
 // transit_bearing and transit_ticks_elapsed describe the drift.
 type LocationInfo struct {
 	SystemID            string         `json:"system_id"`
+	SystemName          string         `json:"system_name,omitempty"`
 	POIID               string         `json:"poi_id"`
 	Connections         []string       `json:"connections"`
 	DockedAt            *string        `json:"docked_at"`

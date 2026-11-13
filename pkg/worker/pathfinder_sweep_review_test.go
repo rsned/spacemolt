@@ -124,23 +124,18 @@ func TestSweepSkipsExploreInAPISystem(t *testing.T) {
 	}
 }
 
-// Review I4: a brand-new system has no KB row on arrival; its measured
-// position is kept and written once the tour has created the row.
+// Review I4 (revised 2026-11-13): a brand-new frontier system has no KB row
+// on arrival and the tour never makes one in the live KB, so the landing
+// pass writes the measurement straight away, creating the row.
 func TestSweepMeasuresNewSystemAfterTour(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
 	s := sweep.NewState(7600, 148, 45)
 	s.LaunchCostMeasured, s.Launches, s.Drifted, s.ReadSinceLaunch = true, 1, true, true
-	s.LastX, s.LastY = -6100, 4300
+	s.LastX, s.LastY, s.LastReadTick = -6100, 4300, 2_400_000
 	c := inSystem("brand_new", 900)
 	d, _, _ := newArrivalDispatch(t, c, kb, s)
-	d.sweepTour = func(context.Context, ExploreDeps) error {
-		placeSystem(t, kb, "brand_new", 0, 0, 1, 2_400_000)
-		return nil
-	}
-	for range 2 {
-		if err := d.PathfinderSweep(context.Background()); err != nil {
-			t.Fatal(err)
-		}
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
 	}
 	sys, _ := kb.GetSystem(context.Background(), "brand_new")
 	if sys == nil || sys.Position.X != -6100 || sys.Position.Y != 4300 {

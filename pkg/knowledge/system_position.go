@@ -5,30 +5,44 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // SystemPositionRecorder stores a system position measured by a pathfinder
-// drift (the last transit_x/transit_y reading before arrival). It writes
-// only where the stored position is an estimate or a (0,0) placeholder,
-// never over map coordinates, and reports whether it wrote.
+// drift (the last transit_x/transit_y reading before arrival). The first
+// measurement stands: it writes where the system is unknown (creating the
+// row, named name), or where the stored position is an estimate or a (0,0)
+// placeholder, never over map coordinates or an earlier measurement, and
+// reports whether it wrote. Later landings are caught anywhere inside the
+// capture radius, tens of LY off, so they must not replace the first.
 type SystemPositionRecorder interface {
-	RecordMeasuredSystemPosition(ctx context.Context, systemID string, x, y float64) (bool, error)
+	RecordMeasuredSystemPosition(ctx context.Context, systemID, name string, x, y float64) (bool, error)
 }
 
-// RecordMeasuredSystemPosition implements SystemPositionRecorder. An
-// unknown system is (false, nil).
-func (kb *SQLiteKB) RecordMeasuredSystemPosition(ctx context.Context, systemID string, x, y float64) (bool, error) {
+// RecordMeasuredSystemPosition implements SystemPositionRecorder.
+func (kb *SQLiteKB) RecordMeasuredSystemPosition(ctx context.Context, systemID, name string, x, y float64) (bool, error) {
 	var px, py float64
 	var source string
 	err := kb.db.QueryRowContext(ctx,
 		`SELECT position_x, position_y, position_source FROM systems WHERE id = ?`, systemID).Scan(&px, &py, &source)
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+		// A frontier system reached by drift: the map capture never made a
+		// row for it (it has no coordinates), so the measurement does.
+		if name == "" {
+			name = systemID
+		}
+		if _, err = kb.db.ExecContext(ctx,
+			`INSERT INTO systems (id, name, position_x, position_y, position_source) VALUES (?, ?, ?, ?, 'measured')`,
+			systemID, name, x, y); err != nil {
+			return false, fmt.Errorf("measured position %s: %w", systemID, err)
+		}
+		return true, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("measured position %s: %w", systemID, err)
 	}
-	if source == "api" && (px != 0 || py != 0) {
+	if source == "measured" || (source == "api" && (px != 0 || py != 0)) {
 		return false, nil
 	}
 	if _, err = kb.db.ExecContext(ctx,
@@ -40,16 +54,26 @@ func (kb *SQLiteKB) RecordMeasuredSystemPosition(ctx context.Context, systemID s
 }
 
 // RecordMeasuredSystemPosition implements SystemPositionRecorder. The
-// memory KB keeps no position source, so only a (0,0) placeholder is
-// replaced.
-func (kb *MemoryKB) RecordMeasuredSystemPosition(_ context.Context, systemID string, x, y float64) (bool, error) {
+// memory KB keeps no position source: an unknown system is created and only
+// a (0,0) placeholder is replaced.
+func (kb *MemoryKB) RecordMeasuredSystemPosition(ctx context.Context, systemID, name string, x, y float64) (bool, error) {
 	kb.mu.Lock()
-	defer kb.mu.Unlock()
 	s, ok := kb.systems[systemID]
-	if !ok || s.Position.X != 0 || s.Position.Y != 0 {
-		return false, nil
+	if ok {
+		defer kb.mu.Unlock()
+		if s.Position.X != 0 || s.Position.Y != 0 {
+			return false, nil
+		}
+		s.Position.X, s.Position.Y = x, y
+		return true, nil
 	}
-	s.Position.X, s.Position.Y = x, y
+	kb.mu.Unlock()
+	if name == "" {
+		name = systemID
+	}
+	if err := kb.RememberSystem(ctx, System{ID: systemID, Name: name, Position: game.Position{X: x, Y: y}}); err != nil {
+		return false, err
+	}
 	return true, nil
 }
 

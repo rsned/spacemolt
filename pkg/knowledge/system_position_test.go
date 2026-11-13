@@ -26,7 +26,7 @@ func TestRecordMeasuredOverwritesEstimate(t *testing.T) {
 	if _, err := kb.DB().Exec(`UPDATE systems SET position_source = 'estimate' WHERE id = 'whitecap'`); err != nil {
 		t.Fatal(err)
 	}
-	wrote, err := kb.RecordMeasuredSystemPosition(ctx, "whitecap", -4790.2, -6130.1)
+	wrote, err := kb.RecordMeasuredSystemPosition(ctx, "whitecap", "Whitecap", -4790.2, -6130.1)
 	if err != nil || !wrote {
 		t.Fatalf("wrote=%v err=%v, want true", wrote, err)
 	}
@@ -44,7 +44,7 @@ func TestRecordMeasuredKeepsAPI(t *testing.T) {
 	if err := kb.RememberSystem(ctx, System{ID: "sol", Name: "Sol", Position: game.Position{X: 0, Y: 100}}); err != nil {
 		t.Fatal(err)
 	}
-	wrote, err := kb.RecordMeasuredSystemPosition(ctx, "sol", 5, 95)
+	wrote, err := kb.RecordMeasuredSystemPosition(ctx, "sol", "Sol", 5, 95)
 	if err != nil || wrote {
 		t.Fatalf("wrote=%v err=%v, want false", wrote, err)
 	}
@@ -62,7 +62,7 @@ func TestRecordMeasuredFillsZero(t *testing.T) {
 	if err := kb.RememberSystem(ctx, System{ID: "new_one", Name: "New One"}); err != nil {
 		t.Fatal(err)
 	}
-	wrote, err := kb.RecordMeasuredSystemPosition(ctx, "new_one", -6000, 4100)
+	wrote, err := kb.RecordMeasuredSystemPosition(ctx, "new_one", "New One", -6000, 4100)
 	if err != nil || !wrote {
 		t.Fatalf("wrote=%v err=%v, want true", wrote, err)
 	}
@@ -71,11 +71,39 @@ func TestRecordMeasuredFillsZero(t *testing.T) {
 	}
 }
 
-func TestRecordMeasuredUnknownSystem(t *testing.T) {
+// A frontier system first reached by drift has no KB row at all (the map
+// capture skips systems without coordinates): the measurement creates it.
+// Patient Span's position was silently dropped this way on 2026-11-13.
+func TestRecordMeasuredCreatesUnknownSystem(t *testing.T) {
 	kb := newTestSQLiteKB(t)
-	wrote, err := kb.RecordMeasuredSystemPosition(context.Background(), "nowhere", 1, 2)
+	ctx := context.Background()
+	wrote, err := kb.RecordMeasuredSystemPosition(ctx, "patient_span", "Patient Span", -6165, 5004)
+	if err != nil || !wrote {
+		t.Fatalf("wrote=%v err=%v, want true,nil", wrote, err)
+	}
+	if x, y, src := storedPosition(t, kb, "patient_span"); x != -6165 || y != 5004 || src != "measured" {
+		t.Fatalf("stored (%v,%v,%q), want the measurement", x, y, src)
+	}
+	if sys, _ := kb.GetSystem(ctx, "patient_span"); sys == nil || sys.Name != "Patient Span" {
+		t.Fatalf("system = %+v, want named Patient Span", sys)
+	}
+}
+
+// The first measurement stands. Later landings are caught anywhere inside
+// the capture radius (explorer-7 came in at an angle and read Ash Pearl
+// 87 LY off), so they must not overwrite it.
+func TestRecordMeasuredKeepsFirstMeasurement(t *testing.T) {
+	kb := newTestSQLiteKB(t)
+	ctx := context.Background()
+	if _, err := kb.RecordMeasuredSystemPosition(ctx, "ash_pearl", "Ash Pearl", -6259, 3300); err != nil {
+		t.Fatal(err)
+	}
+	wrote, err := kb.RecordMeasuredSystemPosition(ctx, "ash_pearl", "Ash Pearl", -6174, 3318)
 	if err != nil || wrote {
-		t.Fatalf("wrote=%v err=%v, want false,nil", wrote, err)
+		t.Fatalf("wrote=%v err=%v, want the second measurement refused", wrote, err)
+	}
+	if x, y, _ := storedPosition(t, kb, "ash_pearl"); x != -6259 || y != 3300 {
+		t.Fatalf("stored (%v,%v), want the first measurement", x, y)
 	}
 }
 
@@ -84,15 +112,21 @@ func TestMemoryRecordMeasuredFillsZeroKeepsKnown(t *testing.T) {
 	ctx := context.Background()
 	_ = kb.RememberSystem(ctx, System{ID: "blank", Name: "Blank"})
 	_ = kb.RememberSystem(ctx, System{ID: "known", Name: "Known", Position: game.Position{X: 10, Y: 10}})
-	if wrote, _ := kb.RecordMeasuredSystemPosition(ctx, "blank", 7, 8); !wrote {
+	if wrote, _ := kb.RecordMeasuredSystemPosition(ctx, "blank", "Blank", 7, 8); !wrote {
 		t.Error("blank system not written")
 	}
-	if wrote, _ := kb.RecordMeasuredSystemPosition(ctx, "known", 7, 8); wrote {
+	if wrote, _ := kb.RecordMeasuredSystemPosition(ctx, "known", "Known", 7, 8); wrote {
 		t.Error("known system overwritten")
 	}
 	s, _ := kb.GetSystem(ctx, "blank")
 	if s.Position.X != 7 || s.Position.Y != 8 {
 		t.Errorf("blank position = %+v", s.Position)
+	}
+	if wrote, _ := kb.RecordMeasuredSystemPosition(ctx, "fresh", "Fresh", 3, 4); !wrote {
+		t.Error("unknown system not created")
+	}
+	if f, _ := kb.GetSystem(ctx, "fresh"); f == nil || f.Name != "Fresh" || f.Position.X != 3 {
+		t.Errorf("fresh = %+v, want created with its measurement", f)
 	}
 }
 

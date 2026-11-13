@@ -22,6 +22,10 @@ const (
 	// sweepStormTolerance is how far (degrees) the live drift bearing may
 	// differ from the one we plotted before it counts as a storm deflection.
 	sweepStormTolerance = 0.5
+	// sweepMeasureMaxAgeTicks is the oldest drift reading a landing may
+	// record as the system's position: the drift loop reads every tick, so
+	// anything older came from before a worker restart.
+	sweepMeasureMaxAgeTicks = 2
 )
 
 // PathfinderSweep runs one bounded pass of the pathfinder frontier sweep:
@@ -89,6 +93,9 @@ func (d *WorkerDispatch) sweepDrift(ctx context.Context, s *sweep.State, path st
 		l := loc.Location
 		x, y := l.TransitX, l.TransitY
 		s.LastX, s.LastY, s.Drifted, s.ReadSinceLaunch = x, y, true, true
+		if gs := d.Client.GetState(); gs != nil {
+			s.LastReadTick = gs.CurrentTick
+		}
 		if s.Phase == sweep.PhaseHome && sweepHomeMissed(l, s) {
 			tank, _, cells, premium := sweepFuel(d.Client.GetState())
 			if sweep.Total(tank, cells, premium) >= s.LaunchCost {

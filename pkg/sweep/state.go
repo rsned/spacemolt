@@ -57,12 +57,18 @@ type State struct {
 	// launch: only then is LastX/LastY a measurement of where the drift
 	// ended rather than where it began.
 	ReadSinceLaunch bool `json:"read_since_launch"`
+	// LastReadTick is the game tick of LastX/LastY. A landing measures only
+	// from a reading a tick or two old: a worker stopped mid-drift and
+	// restarted after the landing holds a reading from far back along the
+	// drift (explorer-11 wrote Ash Pearl 160 LY short on 2026-11-13).
+	LastReadTick int64 `json:"last_read_tick,omitempty"`
 	// Landed marks a lap drift that stopped in a system: the rejoin then
 	// aims past the landing, so the ship does not land there again.
 	Landed bool `json:"landed"`
 	// PendingMeasure* hold an arrival measurement for a system the KB has
 	// no row for yet (the tour creates it); it is written once it can be.
 	PendingMeasureSystem string  `json:"pending_measure_system,omitempty"`
+	PendingMeasureName   string  `json:"pending_measure_name,omitempty"`
 	PendingX             float64 `json:"pending_x,omitempty"`
 	PendingY             float64 `json:"pending_y,omitempty"`
 
