@@ -1,11 +1,13 @@
 package worker
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"strings"
 	"time"
 
@@ -180,6 +182,10 @@ type AutopilotDeps struct {
 	// never be a transit hop, and the destination is the only stronghold a route
 	// can contain.
 	PassageTo map[string]bool
+	// AvoidSystemsPath is the avoid list (DefaultAvoidSystemsPath when empty).
+	// A route through an avoided system is replaced by a detour planned on the
+	// KB map; with no detour the route is refused. Tests point it elsewhere.
+	AvoidSystemsPath string
 }
 
 // fuelTimingFor resolves the endpoint fuel prices for a route into a refuel-timing
@@ -236,6 +242,7 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 		}
 		return nil
 	}
+	origin := route[0].SystemID
 	route = route[1:]
 
 	// Stronghold gate, at the movement layer so EVERY role inherits it. A
@@ -251,7 +258,8 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 	// PassageTo carves out the one legitimate exception: a stronghold an active
 	// mission has been granted temporary docking at. Without it the gate blocked
 	// an_introduction, the very mission that earns the unlock.
-	blocking := strongholdsOnRoute(route, strongholdRefsForRoute(ctx, deps.KB, client, out))
+	strongholdRefs := strongholdRefsForRoute(ctx, deps.KB, client, out)
+	blocking := strongholdsOnRoute(route, strongholdRefs)
 	if exempt := dropPassageExempt(blocking, deps.PassageTo); len(exempt) < len(blocking) {
 		fmt.Fprintf(out, "   stronghold passage: flying to %s on an active mission's guest pass\n", strings.Join(blocking, ", ")) //nolint:errcheck
 		blocking = exempt
@@ -261,7 +269,45 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 		return routeStrongholdError(targetSystem, blocking)
 	}
 
+	// Avoid list (data/overmind/avoid-systems.json): a system the operator has
+	// declared a kill zone — explorer-10 died 2026-11-13 merely transiting Izar,
+	// where a Molt Leviathan holds the belt. find_route cannot be told to skip a
+	// system, so a route through one is replaced by our own fewest-jumps detour
+	// on the KB map, which also stays out of the strongholds this agent may not
+	// enter. No detour, or an avoided destination, refuses the trip and leaves
+	// the ship where it is.
+	detoured := false
+	if avoid := loadAvoidSystems(deps.AvoidSystemsPath); len(avoid) > 0 {
+		if hits := avoidedOnRoute(route, avoid); len(hits) > 0 {
+			dest := route[len(route)-1]
+			if stepAvoided(dest, avoid) {
+				fmt.Fprintf(out, "   NOT DEPARTING: destination %s is on the avoid list\n", cmp.Or(dest.Name, dest.SystemID)) //nolint:errcheck
+				return fmt.Errorf("%w: destination %s", ErrRouteThroughAvoided, cmp.Or(dest.Name, dest.SystemID))
+			}
+			blocked := maps.Clone(strongholdRefs)
+			for sys := range deps.PassageTo {
+				delete(blocked, sys)
+			}
+			detour, derr := avoidDetour(ctx, deps.KB, origin, dest.SystemID, avoid, blocked)
+			if derr != nil || len(detour) == 0 {
+				why := "no route around it"
+				if derr != nil {
+					why = derr.Error()
+				}
+				fmt.Fprintf(out, "   NOT DEPARTING: route enters avoided %s (%s)\n", strings.Join(hits, ", "), why) //nolint:errcheck
+				return fmt.Errorf("%w: route to %s enters %s (%s)", ErrRouteThroughAvoided, targetSystem, strings.Join(hits, ", "), why)
+			}
+			fmt.Fprintf(out, "   AVOIDING %s: detour of %d jump(s) instead of %d\n", strings.Join(hits, ", "), len(detour), len(route)) //nolint:errcheck
+			route = detour
+			detoured = true
+		}
+	}
+
 	fuelPerJump, estimatedFuel, fuelAvailable := parseFuelEstimates(client)
+	if detoured && fuelPerJump > 0 {
+		// find_route priced the route we are not flying.
+		estimatedFuel = fuelPerJump * len(route)
+	}
 	// Top up at the origin station if the route needs more fuel than we have. Without
 	// this, a mobile worker carrying no fuel cells (e.g. a hauler) strands on jump 1.
 	// With FuelPriceAt configured this also defers a merely-optional top-off when the
