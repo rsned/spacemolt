@@ -36,6 +36,7 @@
 - [NEVER unbatched DELETE on a huge table](feedback_bulk_delete_scale.md)
 - [Mining loops: hold-full check FIRST, unload the whole hold](feedback_mining_loop_hold_full_first.md) — snapshot-diff hand-off livelocked miningbot_0023 at 180/180 (11-11)
 - ⭐ [Pathfinder drive mechanics (11-12)](reference_pathfinder_drive_mechanics.md) — flat 5x-jump fuel per launch/replot, no drift drain, 10 u/tick; range = hop count; T3 hull fit list
+- [Pathfinder drive sourcing (11-13)](reference_pathfinder_drive_sourcing.md) — buy from Solarian station managers ~276k (daily price); building needs 18 facilities, thorium gone; buy deferred
 - [Never `time.Sleep` in pkg/worker](reference_race_test_cost_sqlite_migrations.md) — use the `settle(ctx,d)` seam
 
 - [Faction-storage crafting needs Officer rank; faction_withdraw lands in cargo](reference_faction_storage_crafting_and_withdraw.md) — live 10-24; craft falls back to CRFT storage, output goes there too
