@@ -52,3 +52,22 @@ func (kb *MemoryKB) RecordMeasuredSystemPosition(_ context.Context, systemID str
 	s.Position.X, s.Position.Y = x, y
 	return true, nil
 }
+
+// SystemPositionSourcer reports where a system's coordinates came from:
+// "api" (map, exact), "estimate" or "measured"; "" for an unknown system.
+type SystemPositionSourcer interface {
+	SystemPositionSource(ctx context.Context, systemID string) (string, error)
+}
+
+// SystemPositionSource implements SystemPositionSourcer.
+func (kb *SQLiteKB) SystemPositionSource(ctx context.Context, systemID string) (string, error) {
+	var src string
+	err := kb.db.QueryRowContext(ctx, `SELECT position_source FROM systems WHERE id = ?`, systemID).Scan(&src)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("position source %s: %w", systemID, err)
+	}
+	return src, nil
+}

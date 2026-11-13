@@ -52,6 +52,19 @@ type State struct {
 	LastY   float64 `json:"last_y"`
 	Drifted bool    `json:"drifted"`
 
+	// ReadSinceLaunch is set once a drift reading arrives after the latest
+	// launch: only then is LastX/LastY a measurement of where the drift
+	// ended rather than where it began.
+	ReadSinceLaunch bool `json:"read_since_launch"`
+	// Landed marks a lap drift that stopped in a system: the rejoin then
+	// aims past the landing, so the ship does not land there again.
+	Landed bool `json:"landed"`
+	// PendingMeasure* hold an arrival measurement for a system the KB has
+	// no row for yet (the tour creates it); it is written once it can be.
+	PendingMeasureSystem string  `json:"pending_measure_system,omitempty"`
+	PendingX             float64 `json:"pending_x,omitempty"`
+	PendingY             float64 `json:"pending_y,omitempty"`
+
 	ArrivalToured bool `json:"arrival_toured"`
 	ExploreJumps  int  `json:"explore_jumps"`
 

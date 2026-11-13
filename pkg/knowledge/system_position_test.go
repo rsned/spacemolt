@@ -95,3 +95,17 @@ func TestMemoryRecordMeasuredFillsZeroKeepsKnown(t *testing.T) {
 		t.Errorf("blank position = %+v", s.Position)
 	}
 }
+
+func TestSystemPositionSource(t *testing.T) {
+	kb := newTestSQLiteKB(t)
+	ctx := context.Background()
+	if err := kb.RememberSystem(ctx, System{ID: "sol", Name: "Sol", Position: game.Position{X: 0, Y: 100}}); err != nil {
+		t.Fatal(err)
+	}
+	if src, err := kb.SystemPositionSource(ctx, "sol"); err != nil || src != "api" {
+		t.Errorf("sol source = %q, %v; want api", src, err)
+	}
+	if src, err := kb.SystemPositionSource(ctx, "nowhere"); err != nil || src != "" {
+		t.Errorf("unknown source = %q, %v; want empty", src, err)
+	}
+}

@@ -26,6 +26,10 @@ type sweepFakeClient struct {
 	calls      []string // "jump <bearing>", "use <item> <qty>", plus other verbs
 	jumps      []float64
 	raw        map[string][]byte
+	// lag models the real client: UseItem and Jump change fuel server-side
+	// but the cached state only catches up on GetShip.
+	lag         bool
+	pendingFuel float64
 }
 
 func (c *sweepFakeClient) GetState() *game.State { return c.state }
@@ -50,14 +54,14 @@ func (c *sweepFakeClient) Jump(_ context.Context, target string) (*game.JumpResu
 	}
 	c.calls = append(c.calls, "jump "+target)
 	c.jumps = append(c.jumps, b)
-	c.state.Ship.Fuel -= c.launchCost
+	c.addFuel(-c.launchCost)
 	return &game.JumpResult{Drifting: true}, nil
 }
 
 func (c *sweepFakeClient) UseItem(_ context.Context, itemID string, qty int) error {
 	c.calls = append(c.calls, fmt.Sprintf("use %s %d", itemID, qty))
 	per := map[string]float64{"fuel_cell": 20, "premium_fuel_cell": 50}[itemID]
-	c.state.Ship.Fuel += per * float64(qty)
+	c.addFuel(per * float64(qty))
 	for i := range c.state.Ship.Cargo {
 		if c.state.Ship.Cargo[i].ItemID == itemID {
 			c.state.Ship.Cargo[i].Quantity -= float64(qty)
@@ -66,7 +70,19 @@ func (c *sweepFakeClient) UseItem(_ context.Context, itemID string, qty int) err
 	return nil
 }
 
-func (c *sweepFakeClient) GetShip(context.Context) error { return nil }
+func (c *sweepFakeClient) addFuel(f float64) {
+	if c.lag {
+		c.pendingFuel += f
+		return
+	}
+	c.state.Ship.Fuel += f
+}
+
+func (c *sweepFakeClient) GetShip(context.Context) error {
+	c.state.Ship.Fuel += c.pendingFuel
+	c.pendingFuel = 0
+	return nil
+}
 
 func driftLoc(x, y, bearing float64) []byte {
 	b, _ := json.Marshal(map[string]any{"location": map[string]any{

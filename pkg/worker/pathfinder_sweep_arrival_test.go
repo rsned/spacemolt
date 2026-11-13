@@ -98,7 +98,7 @@ func TestSweepArrivalRecordsMeasuredPosition(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
 	placeSystem(t, kb, "new_sys", 0, 0, 1, 1)
 	s := sweep.NewState(7500, 148, 45)
-	s.Drifted, s.LastX, s.LastY = true, -6010, 4120
+	s.Drifted, s.ReadSinceLaunch, s.LastX, s.LastY = true, true, -6010, 4120
 	c := inSystem("new_sys", 900)
 	d, path, seams := newArrivalDispatch(t, c, kb, s)
 	if err := d.PathfinderSweep(context.Background()); err != nil {

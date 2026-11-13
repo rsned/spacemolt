@@ -37,6 +37,7 @@ func (d *WorkerDispatch) sweepInSystem(ctx context.Context, s *sweep.State, path
 	if s.Drifted {
 		d.sweepArrival(ctx, s, sysID, loc)
 	}
+	d.sweepWritePendingMeasure(ctx, s)
 
 	switch s.Phase {
 	case sweep.PhaseHome:
@@ -48,6 +49,12 @@ func (d *WorkerDispatch) sweepInSystem(ctx context.Context, s *sweep.State, path
 	}
 
 	// PhaseExplore.
+	if d.sweepAPISystem(ctx, sysID) {
+		// Map coordinates mean old-galaxy ground, already charted: exploring
+		// from here would tour the whole lane-connected old map.
+		fmt.Fprintf(d.Out, "pathfinder_sweep: %s is charted (map coordinates); relaunching without exploring\n", sysID) //nolint:errcheck
+		return d.sweepRejoin(ctx, s, path, sysID)
+	}
 	if len(loc.Location.NearbyRepeaters) > 0 {
 		fmt.Fprintf(d.Out, "pathfinder_sweep: %d repeater(s) at %s; leaving\n", len(loc.Location.NearbyRepeaters), sysID) //nolint:errcheck
 		s.AddUnfinished(sysID)
@@ -95,13 +102,17 @@ func (d *WorkerDispatch) sweepInSystem(ctx context.Context, s *sweep.State, path
 // sweepArrival records a drift's landing: the measured position, any
 // repeaters there, and the switch from lap to explore.
 func (d *WorkerDispatch) sweepArrival(ctx context.Context, s *sweep.State, sysID string, loc serverapi.LocationResponse) {
-	if rec, ok := d.KB.(knowledge.SystemPositionRecorder); ok && sysID != "" {
-		wrote, err := rec.RecordMeasuredSystemPosition(ctx, sysID, s.LastX, s.LastY)
-		switch {
-		case err != nil:
-			fmt.Fprintf(d.Out, "pathfinder_sweep: record position of %s: %v\n", sysID, err) //nolint:errcheck
-		case wrote:
-			fmt.Fprintf(d.Out, "pathfinder_sweep: %s measured at (%.1f, %.1f)\n", sysID, s.LastX, s.LastY) //nolint:errcheck
+	// Only a reading taken during this drift measures where it ended; a
+	// drift that landed before the first reading leaves LastX/LastY at the
+	// previous system, which must not be written as this one's position.
+	if s.ReadSinceLaunch && sysID != "" {
+		s.PendingMeasureSystem, s.PendingX, s.PendingY = sysID, s.LastX, s.LastY
+		if s.Phase == sweep.PhaseLap {
+			// Count the arc up to the landing and rejoin past it.
+			if deg := unwrapNear(s.LastX, s.LastY, s.ProgressDeg); deg < s.ProgressDeg && deg >= s.TargetDeg-sweep.StepDeg {
+				sweep.Advance(s, deg)
+			}
+			s.Landed = true
 		}
 	}
 	var tick int64
@@ -118,6 +129,46 @@ func (d *WorkerDispatch) sweepArrival(ctx context.Context, s *sweep.State, sysID
 		s.Phase = sweep.PhaseExplore
 	}
 	fmt.Fprintf(d.Out, "pathfinder_sweep: drift landed in %s (phase %s)\n", sysID, s.Phase) //nolint:errcheck
+}
+
+// sweepWritePendingMeasure writes a held arrival measurement once the KB
+// has a row for the system (a brand-new system gets one from its tour).
+func (d *WorkerDispatch) sweepWritePendingMeasure(ctx context.Context, s *sweep.State) {
+	id := s.PendingMeasureSystem
+	rec, ok := d.KB.(knowledge.SystemPositionRecorder)
+	if id == "" || !ok {
+		return
+	}
+	if sys, err := d.KB.GetSystem(ctx, id); err != nil || sys == nil {
+		return // no row yet: keep it for the next pass
+	}
+	wrote, err := rec.RecordMeasuredSystemPosition(ctx, id, s.PendingX, s.PendingY)
+	switch {
+	case err != nil:
+		fmt.Fprintf(d.Out, "pathfinder_sweep: record position of %s: %v\n", id, err) //nolint:errcheck
+		return
+	case wrote:
+		fmt.Fprintf(d.Out, "pathfinder_sweep: %s measured at (%.1f, %.1f)\n", id, s.PendingX, s.PendingY) //nolint:errcheck
+	}
+	s.PendingMeasureSystem = ""
+}
+
+// sweepAPISystem reports whether sysID has map (API) coordinates, i.e. is
+// charted old-galaxy ground. A KB that cannot say counts as uncharted.
+func (d *WorkerDispatch) sweepAPISystem(ctx context.Context, sysID string) bool {
+	src, ok := d.KB.(knowledge.SystemPositionSourcer)
+	if !ok {
+		return false
+	}
+	s, err := src.SystemPositionSource(ctx, sysID)
+	return err == nil && s == "api"
+}
+
+// unwrapNear is the polar angle of (x,y), unwrapped by whole turns to lie
+// within 180° of ref (progress angles keep decreasing past -180).
+func unwrapNear(x, y, ref float64) float64 {
+	_, deg := sweep.Polar(x, y)
+	return deg + 360*math.Round((ref-deg)/360)
 }
 
 // sweepPosition is the ship's map position in sysID: the KB position, or
@@ -139,10 +190,16 @@ func (d *WorkerDispatch) sweepRejoin(ctx context.Context, s *sweep.State, path, 
 	}
 	tank, _, cells, premium := sweepFuel(d.Client.GetState())
 	if !sweep.CanContinue(tank, cells, premium, s.LaunchCost) {
-		return d.sweepGoHome(ctx, s, path, x, y)
+		return d.sweepGoHome(ctx, s, path, x, y, true)
 	}
 	s.Phase = sweep.PhaseLap
 	tx, ty, deg := sweep.NextTarget(s, x, y)
+	if s.Landed {
+		// Back from a landing: aim at the next waypoint past it, not at the
+		// landing angle, or the drift lands in the same system again.
+		deg = s.ProgressDeg - sweep.StepDeg
+		tx, ty = sweep.RingPoint(s.Ring, deg)
+	}
 	s.TargetX, s.TargetY, s.TargetDeg = tx, ty, deg
 	return d.sweepLaunch(ctx, s, path, sweep.BearingTo(x, y, tx, ty))
 }
@@ -176,13 +233,10 @@ func (d *WorkerDispatch) sweepHomeInSystem(ctx context.Context, s *sweep.State, 
 			return d.ensureHomeNav(ctx, near[0].SystemID, "")
 		}
 	}
-	tank, _, cells, premium := sweepFuel(d.Client.GetState())
-	if sweep.Total(tank, cells, premium) >= s.LaunchCost {
-		x, y := d.sweepPosition(ctx, s, sysID)
-		if x != 0 || y != 0 {
-			return d.sweepGoHome(ctx, s, path, x, y)
-		}
+	if x, y := d.sweepPosition(ctx, s, sysID); x != 0 || y != 0 {
+		return d.sweepGoHome(ctx, s, path, x, y, true)
 	}
+	tank, _, cells, premium := sweepFuel(d.Client.GetState())
 	fmt.Fprintf(d.Out, "pathfinder_sweep: stuck at %s with %.0f fuel and no station by lane; waiting for GSA tow\n", sysID, sweep.Total(tank, cells, premium)) //nolint:errcheck
 	return sweep.Save(path, s)
 }

@@ -34,6 +34,11 @@ func (d *WorkerDispatch) PathfinderSweep(ctx context.Context) error {
 	if d.SweepRing <= 0 {
 		return errors.New("pathfinder_sweep: sweep_ring not configured")
 	}
+	if d.SweepLaunchCost <= 0 {
+		// The whole fuel reserve is a multiple of the launch cost: with no
+		// estimate a ship would never burn its cells and would run dry.
+		return errors.New("pathfinder_sweep: sweep_launch_cost not configured")
+	}
 	path := sweep.StatePath(d.agentsDir(), d.AgentID)
 	s, ok, err := sweep.Load(path)
 	if err != nil {
@@ -76,7 +81,14 @@ func (d *WorkerDispatch) sweepDrift(ctx context.Context, s *sweep.State, path st
 	for range sweepPassBudget {
 		l := loc.Location
 		x, y := l.TransitX, l.TransitY
-		s.LastX, s.LastY, s.Drifted = x, y, true
+		s.LastX, s.LastY, s.Drifted, s.ReadSinceLaunch = x, y, true, true
+		if s.Phase == sweep.PhaseHome && sweepHomeMissed(l, s) {
+			tank, _, cells, premium := sweepFuel(d.Client.GetState())
+			if sweep.Total(tank, cells, premium) >= s.LaunchCost {
+				fmt.Fprintf(d.Out, "pathfinder_sweep: home drift missed %s (bearing %.1f, plotted %.1f); correcting\n", s.HomeSystem, l.TransitBearing, s.PlannedBearing) //nolint:errcheck
+				return d.sweepGoHome(ctx, s, path, x, y, false)
+			}
+		}
 		if s.Phase == sweep.PhaseLap {
 			if bearingDiff(l.TransitBearing, s.PlannedBearing) > sweepStormTolerance {
 				s.Gaps = append(s.Gaps, sweep.Gap{FromDeg: s.ProgressDeg, ToDeg: s.TargetDeg, Reason: "storm"})
@@ -115,7 +127,7 @@ func (d *WorkerDispatch) sweepDrift(ctx context.Context, s *sweep.State, path st
 func (d *WorkerDispatch) sweepNextLeg(ctx context.Context, s *sweep.State, path string, x, y float64) error {
 	tank, _, cells, premium := sweepFuel(d.Client.GetState())
 	if sweep.LapDone(s) || !sweep.CanContinue(tank, cells, premium, s.LaunchCost) {
-		return d.sweepGoHome(ctx, s, path, x, y)
+		return d.sweepGoHome(ctx, s, path, x, y, false)
 	}
 	tx, ty, deg := sweep.NextTarget(s, x, y)
 	s.TargetX, s.TargetY, s.TargetDeg = tx, ty, deg
@@ -124,10 +136,18 @@ func (d *WorkerDispatch) sweepNextLeg(ctx context.Context, s *sweep.State, path 
 
 // sweepGoHome switches to the home phase and launches toward the nearest
 // accessible non-stronghold station system by straight-line distance.
-func (d *WorkerDispatch) sweepGoHome(ctx context.Context, s *sweep.State, path string, x, y float64) error {
+// Adrift there is no choice but to launch. From inside a system the ship is
+// safe (GSA tows it after 20 idle minutes), so it launches only with one
+// spare launch in hand; otherwise it stays and waits for the tow.
+func (d *WorkerDispatch) sweepGoHome(ctx context.Context, s *sweep.State, path string, x, y float64, fromSystem bool) error {
 	s.Phase = sweep.PhaseHome
 	tank, _, cells, premium := sweepFuel(d.Client.GetState())
-	fmt.Fprintf(d.Out, "pathfinder_sweep: heading home (swept %.1f°, fuel %.0f total)\n", s.SweptDeg, sweep.Total(tank, cells, premium)) //nolint:errcheck
+	total := sweep.Total(tank, cells, premium)
+	if fromSystem && total < 2*s.LaunchCost {
+		fmt.Fprintf(d.Out, "pathfinder_sweep: %.0f fuel is under two launches (%.0f each); staying put, waiting for GSA tow\n", total, s.LaunchCost) //nolint:errcheck
+		return sweep.Save(path, s)
+	}
+	fmt.Fprintf(d.Out, "pathfinder_sweep: heading home (swept %.1f°, fuel %.0f total)\n", s.SweptDeg, total) //nolint:errcheck
 	id, ok, err := galaxy.NearestStationByDistance(ctx, d.KB, x, y)
 	if err != nil || !ok {
 		_ = sweep.Save(path, s)
@@ -152,6 +172,7 @@ func (d *WorkerDispatch) sweepLaunch(ctx context.Context, s *sweep.State, path s
 			fmt.Fprintf(d.Out, "pathfinder_sweep: use %d %s: %v\n", r.Qty, r.Item, err) //nolint:errcheck
 		}
 	}
+	_ = d.Client.GetShip(ctx) // the cached tank lags use_item; measure from the real level
 	before, _, _, _ := sweepFuel(d.Client.GetState())
 	bearing = math.Round(bearing*10) / 10
 	if bearing >= 360 {
@@ -173,11 +194,22 @@ func (d *WorkerDispatch) sweepLaunch(ctx context.Context, s *sweep.State, path s
 			fmt.Fprintf(d.Out, "pathfinder_sweep: measured launch cost %.0f fuel\n", c) //nolint:errcheck
 		}
 	}
-	s.PlannedBearing, s.Drifted = bearing, true
+	s.PlannedBearing, s.Drifted, s.ReadSinceLaunch, s.Landed = bearing, true, false, false
+	s.PendingMeasureSystem = ""
 	s.Launches++
 	fmt.Fprintf(d.Out, "pathfinder_sweep: launch %d on %.1f° toward %.1f° (ring %.0f, swept %.1f°, phase %s)\n", //nolint:errcheck
 		s.Launches, bearing, s.TargetDeg, s.Ring, s.SweptDeg, s.Phase)
 	return sweep.Save(path, s)
+}
+
+// sweepHomeMissed reports whether a home drift has gone wrong: a storm
+// turned it, or it has passed the station's position without arriving.
+func sweepHomeMissed(l serverapi.LocationInfo, s *sweep.State) bool {
+	if bearingDiff(l.TransitBearing, s.PlannedBearing) > sweepStormTolerance {
+		return true
+	}
+	far := math.Hypot(s.TargetX-l.TransitX, s.TargetY-l.TransitY) > sweep.DriftPerTick
+	return far && sweep.Reached(l.TransitX, l.TransitY, s.TargetX, s.TargetY, l.TransitBearing)
 }
 
 // sweepFuel is the tank, its capacity, and the fuel cells in the hold.
