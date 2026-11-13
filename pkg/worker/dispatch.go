@@ -58,6 +58,13 @@ type WorkerDispatch struct {
 	// credentials.json), used by Deliver to resolve a gift recipient's agent
 	// id to its in-game username. Empty -> DefaultAgentsDir ("data/agents").
 	AgentsDir string
+	// SweepRing, SweepStartDeg and SweepLaunchCost configure the
+	// pathfinder_sweep role (--sweep-ring etc.): the ring radius in LY, the
+	// starting angle in degrees, and the launch-cost estimate the first
+	// launch replaces with a measurement.
+	SweepRing       float64
+	SweepStartDeg   float64
+	SweepLaunchCost float64
 	// Handoff is the shared stock-handoff queue (--handoff-queue). The haul
 	// role requests a consigned route's gift through it; nil leaves consigned
 	// routes unrunnable (they release before the hauler flies).
