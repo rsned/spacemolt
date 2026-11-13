@@ -55,7 +55,8 @@ func (d *WorkerDispatch) isResting(poiID string, now time.Time) bool {
 }
 
 // findAlternateMinePOI returns the nearest known deposit of itemID, searched
-// from fromSystem, that is not resting, not a blocked stronghold, and not in a
+// from fromSystem, that is not resting, not a blocked stronghold, not on the
+// operator's avoid list (avoid_systems.go), and not in a
 // Lawless system this agent may not mine. Only POIs the KB records as carrying
 // itemID qualify: an unsurveyed belt of the right type is no substitute here.
 func (d *WorkerDispatch) findAlternateMinePOI(ctx context.Context, fromSystem, itemID string, strongholds map[string]bool, now time.Time) (system, poi string, err error) {
@@ -72,7 +73,7 @@ func (d *WorkerDispatch) findAlternateMinePOI(ctx context.Context, fromSystem, i
 	}
 	unlocked := d.pirateUnlocked(ctx)
 	for _, r := range results {
-		if strongholdBlocked(strongholds, r.SystemID, r.SystemName) {
+		if strongholdBlocked(strongholds, r.SystemID, r.SystemName) || d.avoidedSystem(r.SystemID) {
 			continue
 		}
 		if sys, serr := d.KB.GetSystem(ctx, r.SystemID); serr == nil {

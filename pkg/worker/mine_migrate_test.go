@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -174,4 +175,44 @@ func TestMineQtyAtSkipsVanishedAlternate(t *testing.T) {
 	if slices.Contains(client.calls, "travel:glenhaven_glint") || !slices.Contains(client.calls, "travel:glenhaven_ice_field") {
 		t.Fatalf("calls %v: want the field, not the vanished glint", client.calls)
 	}
+}
+
+// A system on the operator's avoid list (a Molt Leviathan holds Izar Belt) is
+// never chosen as a fallback deposit, even when it is the nearest one.
+func TestMineQtyAtNeverMigratesIntoAvoidedSystem(t *testing.T) {
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	kb := newMigrateKB(t)
+	client := &depletingMineClient{mineFakeClient: newMineAtClient(130, 5)}
+	d := noWaitMineDispatch(client, kb, agentsDir)
+	d.AvoidSystemsPath = writeAvoidSystems(t, `{"systems": {"glenhaven": "Molt Leviathan"}}`)
+	d.markResting("glenhaven_ice_belt", time.Now())
+
+	err := d.MineQtyAt(context.Background(), "ice", 5, "glenhaven", "glenhaven_ice_belt", "to_base", "craftsman-3")
+	if err == nil {
+		t.Fatal("MineQtyAt succeeded; want no alternate outside the avoided system")
+	}
+	if slices.Contains(client.calls, "travel:glenhaven_ice_field") {
+		t.Fatalf("calls %v: migrated into an avoided system", client.calls)
+	}
+}
+
+func TestAvoidSystemsMissingFileAvoidsNothing(t *testing.T) {
+	d := &WorkerDispatch{AvoidSystemsPath: t.TempDir() + "/none.json"}
+	if d.avoidedSystem("izar") {
+		t.Error("izar avoided with no avoid file")
+	}
+	d.AvoidSystemsPath = writeAvoidSystems(t, `{"systems": {"izar": "Molt Leviathan"}}`)
+	if !d.avoidedSystem("izar") || d.avoidedSystem("sol") {
+		t.Error("avoid list not applied")
+	}
+}
+
+func writeAvoidSystems(t *testing.T, body string) string {
+	t.Helper()
+	p := t.TempDir() + "/avoid-systems.json"
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
 }

@@ -68,6 +68,8 @@ type WorkerDispatch struct {
 	// SweepStage is the optional pre-lap route "refuel,launch,target"
 	// (--sweep-stage); see sweep.ParseStage.
 	SweepStage string
+	// AvoidSystemsPath overrides DefaultAvoidSystemsPath (tests).
+	AvoidSystemsPath string
 	// sweepTour and sweepExploreStep are test seams for the sweep's
 	// arrival tour and explore-run step; nil runs systemTour / Explore.
 	sweepTour        func(ctx context.Context, deps ExploreDeps) error
