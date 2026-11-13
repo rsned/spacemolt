@@ -60,6 +60,7 @@ func (d *WorkerDispatch) PathfinderSweep(ctx context.Context) error {
 	}
 	if s.Phase == sweep.PhaseDone {
 		fmt.Fprintln(d.Out, "pathfinder_sweep: lap complete") //nolint:errcheck
+		d.sweepCollectCells(ctx)
 		return nil
 	}
 	loc, err := d.sweepLocation(ctx)
