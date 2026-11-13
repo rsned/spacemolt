@@ -175,6 +175,12 @@ type WorkerDispatch struct {
 	// heartbeat reports as control.Status.Progress. nil makes markProgress a
 	// no-op.
 	progressSink *atomic.Int64
+
+	// ChatBackfill, when set, pulls the current system's chat history into
+	// the agent's mbox and reports how many messages it walked. The sweep
+	// runs it once per landing: uncharted systems broadcast encoded messages
+	// (2026-11-13) and chat history is scoped to the system the ship is in.
+	ChatBackfill func(ctx context.Context) (int, error)
 }
 
 // SetActivitySink wires the shared atomic the worker heartbeat reads so role

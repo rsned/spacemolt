@@ -249,6 +249,29 @@ func (ing *Ingester) HandlePush(msg serverapi.ChatMessage) {
 	ing.ingestAPI(msg, "push")
 }
 
+// HandleEvent stores a non-chat server push (game.Client.SetOnPush) in the
+// "event" channel: Sender is the push type, Content its JSON payload. Pushes
+// carry no id, so the id is minted from the type and ingest time.
+func (ing *Ingester) HandleEvent(typ string, payload map[string]any) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		body = []byte(fmt.Sprintf("%v", payload))
+	}
+	now := time.Now().UTC()
+	m := Message{
+		ID:           fmt.Sprintf("event-%s-%d", typ, now.UnixNano()),
+		Channel:      "event",
+		SenderID:     "server",
+		Sender:       typ,
+		Content:      string(body),
+		TimestampUTC: now,
+		Source:       "push",
+	}
+	if _, err := ing.store.Ingest(m); err != nil {
+		ing.logger.Printf("event ingest error: %v", err)
+	}
+}
+
 // HandlePolled ingests a message discovered via polling get_chat_history.
 func (ing *Ingester) HandlePolled(msg serverapi.ChatMessage) {
 	ing.ingestAPI(msg, "reconcile")

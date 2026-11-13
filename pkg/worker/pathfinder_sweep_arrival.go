@@ -36,6 +36,7 @@ func (d *WorkerDispatch) sweepInSystem(ctx context.Context, s *sweep.State, path
 
 	if s.Drifted {
 		d.sweepArrival(ctx, s, sysID, loc)
+		d.sweepCollectChat(ctx, sysID)
 	}
 	d.sweepWritePendingMeasure(ctx, s)
 
@@ -99,6 +100,20 @@ func (d *WorkerDispatch) sweepInSystem(ctx context.Context, s *sweep.State, path
 		_ = exploreRefuelDocked(ctx, deps, d.Out)
 	}
 	return d.sweepRejoin(ctx, s, path, sysID)
+}
+
+// sweepCollectChat pulls this system's chat history into the mbox on
+// landing, before the ship moves on and the scoped history is out of reach.
+func (d *WorkerDispatch) sweepCollectChat(ctx context.Context, sysID string) {
+	if d.ChatBackfill == nil {
+		return
+	}
+	n, err := d.ChatBackfill(ctx)
+	if err != nil {
+		fmt.Fprintf(d.Out, "pathfinder_sweep: chat history at %s: %v\n", sysID, err) //nolint:errcheck
+		return
+	}
+	fmt.Fprintf(d.Out, "pathfinder_sweep: chat history at %s: %d message(s) walked\n", sysID, n) //nolint:errcheck
 }
 
 // sweepArrival records a drift's landing: the measured position, any

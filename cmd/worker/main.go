@@ -514,6 +514,11 @@ func main() {
 			dispatch.FreightMaxPackages = *freightMaxPackages
 			dispatch.SweepRing, dispatch.SweepStartDeg, dispatch.SweepLaunchCost = *sweepRing, *sweepStartDeg, *sweepLaunchCost
 			dispatch.SweepStage = *sweepStage
+			if *role == "pathfinder_sweep" {
+				if closeMbox := wireSweepMbox(client, dispatch, *agentID, logger); closeMbox != nil {
+					defer closeMbox()
+				}
+			}
 			dispatch.FreightBootstrap = *freightBootstrap
 			dispatch.SecondmentPath = *secondmentPath
 			dispatch.FleetName = *fleetName

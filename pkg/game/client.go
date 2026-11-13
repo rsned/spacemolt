@@ -173,6 +173,11 @@ type Client struct {
 	onChatMessage func(msg serverapi.ChatMessage)
 	onChatMu      sync.RWMutex
 
+	// Generic push recorder — fired for every non-routine push (see
+	// pushNotRecorded), including types this client has no handler for.
+	onPush   func(typ string, payload map[string]any)
+	onPushMu sync.RWMutex
+
 	// Crafting update callback — fired when a crafting_update push event is received
 	onCraftingUpdate func(ev serverapi.CraftingUpdateEvent)
 	onCraftingMu     sync.RWMutex
@@ -623,6 +628,43 @@ func (c *Client) SetOnChatMessage(fn func(msg serverapi.ChatMessage)) {
 	c.onChatMu.Lock()
 	defer c.onChatMu.Unlock()
 	c.onChatMessage = fn
+}
+
+// SetOnPush registers a recorder for every server push that is neither a
+// command reply nor per-tick noise (pushNotRecorded), including push types
+// this client does not know. Chat has its own hook (SetOnChatMessage).
+// Pathfinder sweep ships use it to keep the encoded broadcasts uncharted
+// systems send (2026-11-13), which fleet workers otherwise dropped.
+func (c *Client) SetOnPush(fn func(typ string, payload map[string]any)) {
+	c.onPushMu.Lock()
+	defer c.onPushMu.Unlock()
+	c.onPush = fn
+}
+
+// pushNotRecorded are the frame types SetOnPush never sees: command replies,
+// session frames, per-tick state, chat (own hook), and high-rate movement and
+// battle telemetry.
+var pushNotRecorded = map[string]struct{}{
+	protocol.TypeWelcome: {}, protocol.TypeRegistered: {}, protocol.TypeLoggedIn: {},
+	protocol.TypeOK: {}, protocol.TypeError: {}, protocol.TypeActionError: {}, protocol.TypeActionResult: {},
+	protocol.TypeStateUpdate: {}, protocol.TypeTick: {}, protocol.TypeListings: {},
+	protocol.TypeChatMessage: {}, protocol.TypeCombatUpdate: {}, protocol.TypeBattleUpdate: {},
+	protocol.TypeBattleDamage: {}, protocol.TypePOIArrival: {}, protocol.TypePOIDeparture: {},
+	protocol.TypeMining: {}, protocol.TypeMiningYield: {}, protocol.TypeDocked: {}, protocol.TypeUndocked: {},
+}
+
+// recordPush hands resp to the SetOnPush recorder when one is set and the
+// type is recordable.
+func (c *Client) recordPush(resp protocol.Response) {
+	if _, skip := pushNotRecorded[resp.Type]; skip {
+		return
+	}
+	c.onPushMu.RLock()
+	fn := c.onPush
+	c.onPushMu.RUnlock()
+	if fn != nil {
+		fn(resp.Type, resp.Payload)
+	}
 }
 
 // SetOnCraftingUpdate registers a callback that fires when a crafting_update
@@ -2579,6 +2621,8 @@ func (c *Client) handleResponse(resp protocol.Response) {
 	// process — pirate/combat events, action_result frames whose result.tick
 	// lives at top level, etc.
 	c.updateTickFromPayload(resp.Payload)
+
+	c.recordPush(resp)
 
 	// Use fine-grained locking - only lock when actually updating state
 	// This prevents GetState() from being blocked for long periods

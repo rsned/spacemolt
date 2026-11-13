@@ -143,3 +143,33 @@ func TestSweepRejoinStepsPastCapturedSystem(t *testing.T) {
 		t.Errorf("progress %v target %v, want 102.7 / 97.7", got.ProgressDeg, got.TargetDeg)
 	}
 }
+
+// Uncharted systems broadcast encoded messages (2026-11-13). Chat history is
+// scoped to the system the ship is in, so the sweep must pull the system and
+// local channels on landing, before it leaves; once is enough.
+func TestSweepLandingCollectsChatOnce(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	sx, sy := sweep.RingPoint(7850, 102.7)
+	placeSystem(t, kb, "bare_lamp", sx, sy, 1, 2_400_000)
+	s := sweep.NewState(7850, 148, 30)
+	s.LaunchCostMeasured, s.Launches, s.Drifted, s.ReadSinceLaunch = true, 15, true, true
+	s.ProgressDeg, s.TargetDeg = 108.5, 103.5
+	s.LastX, s.LastY, s.LastReadTick = sx, sy, 2_400_000
+	c := inSystem("bare_lamp", 900)
+	d, _, _ := newArrivalDispatch(t, c, kb, s)
+	var calls []string
+	d.ChatBackfill = func(_ context.Context) (int, error) {
+		calls = append(calls, c.state.System.ID)
+		return 3, nil
+	}
+	if err := d.PathfinderSweep(context.Background()); err != nil { // landing + tour
+		t.Fatal(err)
+	}
+	c.locs, c.locIdx = [][]byte{systemLoc("bare_lamp", 0)}, 0
+	if err := d.PathfinderSweep(context.Background()); err != nil { // rejoin
+		t.Fatal(err)
+	}
+	if len(calls) != 1 || calls[0] != "bare_lamp" {
+		t.Errorf("chat collected %v, want once at bare_lamp", calls)
+	}
+}
