@@ -16,8 +16,17 @@ import (
 // ship is.
 var sweepChatChannels = []string{"system", "local"}
 
-// sweepChatPerChannel bounds one landing's history walk per channel.
-const sweepChatPerChannel = 50
+// sweepChatPerChannel bounds one landing's history walk per channel; large
+// enough to reach back through a day of landings on the first pull.
+const sweepChatPerChannel = 300
+
+// sweepBackfillOptions reads each channel from NOW backwards. Without
+// ResetCursor, Backfill resumes below the oldest stored message, so every
+// landing walked pre-sweep history and missed the fragments the sweep
+// passed (live 2026-11-13). Known rows are skipped, so re-walking is cheap.
+func sweepBackfillOptions() mbox.BackfillOptions {
+	return mbox.BackfillOptions{Channels: sweepChatChannels, MaxPerChannel: sweepChatPerChannel, ResetCursor: true}
+}
 
 // wireSweepMbox makes a Pathfinder sweep worker keep what the server tells
 // it: every chat push and every non-routine push (game.Client.SetOnPush) is
@@ -44,7 +53,7 @@ func wireSweepMbox(client *game.Client, d *worker.WorkerDispatch, agentID string
 		logger.Printf("push %s: %s", typ, msg)
 	})
 	d.ChatBackfill = func(ctx context.Context) (int, error) {
-		rep, err := ing.Backfill(ctx, client, mbox.BackfillOptions{Channels: sweepChatChannels, MaxPerChannel: sweepChatPerChannel})
+		rep, err := ing.Backfill(ctx, client, sweepBackfillOptions())
 		n := 0
 		for _, c := range rep.Channels {
 			n += c.Fetched
