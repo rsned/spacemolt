@@ -208,7 +208,14 @@ func (d *WorkerDispatch) sweepRejoin(ctx context.Context, s *sweep.State, path, 
 	tx, ty, deg := sweep.NextTarget(s, x, y)
 	if s.Landed {
 		// Back from a landing: aim at the next waypoint past it, not at the
-		// landing angle, or the drift lands in the same system again.
+		// landing angle, or the drift lands in the same system again. A
+		// capture can drag the ship past the leg's waypoint (capture radius
+		// ~50-90 LY), so count the arc up to the system's own angle first:
+		// aiming at a waypoint behind it launches backwards and the next leg
+		// drifts straight back in (explorer-1/-9, live 2026-11-13).
+		if sd := unwrapNear(x, y, s.ProgressDeg); sd < s.ProgressDeg {
+			sweep.Advance(s, sd)
+		}
 		deg = s.ProgressDeg - sweep.StepDeg
 		tx, ty = sweep.RingPoint(s.Ring, deg)
 	}

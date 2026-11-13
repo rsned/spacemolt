@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"sync/atomic"
 	"testing"
 
@@ -104,5 +105,41 @@ func TestSweepDriftMarksProgress(t *testing.T) {
 	}
 	if mark.Load() == 0 {
 		t.Error("progress mark not bumped by a drift reading that moved")
+	}
+}
+
+// A capture can carry the ship past the leg's next waypoint: live 2026-11-13
+// explorer-1 (ring 7850) was pulled into Bottom Shelf at 102.7° while its
+// rejoin still aimed at the 103.5° waypoint behind the system. It launched
+// backwards (197°), counted the waypoint reached, turned for 98.5° and
+// drifted straight back into Bottom Shelf — three launches a loop, and
+// explorer-9 did the same at Nine Wide. The rejoin after a landing must step
+// past the landed system's own angle.
+func TestSweepRejoinStepsPastCapturedSystem(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	sx, sy := sweep.RingPoint(7850, 102.7)
+	placeSystem(t, kb, "bottom_shelf", sx, sy, 1, 2_400_000)
+	s := sweep.NewState(7850, 148, 30)
+	s.LaunchCostMeasured, s.Launches, s.Drifted, s.ReadSinceLaunch = true, 15, true, true
+	s.ProgressDeg, s.TargetDeg = 113.5, 108.5
+	s.TargetX, s.TargetY = sweep.RingPoint(7850, 108.5)
+	s.LastX, s.LastY = sweep.RingPoint(7850, 108.6) // last reading before the capture
+	s.LastReadTick = 2_400_000
+	c := inSystem("bottom_shelf", 900)
+	d, path, _ := newArrivalDispatch(t, c, kb, s)
+	if err := d.PathfinderSweep(context.Background()); err != nil { // arrival + tour
+		t.Fatal(err)
+	}
+	c.locs, c.locIdx = [][]byte{systemLoc("bottom_shelf", 0)}, 0
+	if err := d.PathfinderSweep(context.Background()); err != nil { // no targets: rejoin
+		t.Fatal(err)
+	}
+	got, _, _ := sweep.Load(path)
+	nx, ny := sweep.RingPoint(7850, 97.7)
+	if len(c.jumps) != 1 || c.jumps[0] != round1(sweep.BearingTo(sx, sy, nx, ny)) {
+		t.Fatalf("jumps %v, want one toward the ring at 97.7° (past the system)", c.jumps)
+	}
+	if math.Abs(got.ProgressDeg-102.7) > 1e-6 || math.Abs(got.TargetDeg-97.7) > 1e-6 {
+		t.Errorf("progress %v target %v, want 102.7 / 97.7", got.ProgressDeg, got.TargetDeg)
 	}
 }
