@@ -138,12 +138,18 @@ func (d *WorkerDispatch) sweepArrival(ctx context.Context, s *sweep.State, sysID
 			s.PendingMeasureName = loc.Location.SystemName
 		}
 		if s.Phase == sweep.PhaseLap {
-			// Count the arc up to the landing and rejoin past it.
+			// Count the arc up to the landing.
 			if deg := unwrapNear(s.LastX, s.LastY, s.ProgressDeg); deg < s.ProgressDeg && deg >= s.TargetDeg-sweep.StepDeg {
 				sweep.Advance(s, deg)
 			}
-			s.Landed = true
 		}
+	}
+	if s.Phase == sweep.PhaseLap && sysID != "" {
+		// A landing even with no reading since the last launch (captured on
+		// the tick after a replot): the rejoin must still step past it, or
+		// it aims at the current angle and drifts back in (explorer-5 at
+		// Strobe, live 2026-11-13).
+		s.Landed = true
 	}
 	if n, err := knowledge.CaptureHostilesNearby(ctx, d.KB, loc.Location.NearbyRepeaters, sysID, loc.Location.POIID, d.AgentID, tick); err != nil {
 		fmt.Fprintf(d.Out, "pathfinder_sweep: hostile capture at %s: %v\n", sysID, err) //nolint:errcheck

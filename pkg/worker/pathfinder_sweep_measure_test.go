@@ -173,3 +173,31 @@ func TestSweepLandingCollectsChatOnce(t *testing.T) {
 		t.Errorf("chat collected %v, want once at bare_lamp", calls)
 	}
 }
+
+// A capture on the tick after a mid-drift replot lands with no reading since
+// that launch. It is still a landing: live 2026-11-13 explorer-5 replotted,
+// was captured by Strobe (59.9°, 53 LY inside ring 7650) before a reading,
+// rejoined at its current angle instead of a step past, flew to the ring
+// point right outside Strobe and turned back into it — two wasted launches.
+func TestSweepLandingWithoutReadingStillStepsPast(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	sx, sy := sweep.RingPoint(7597, 59.9)
+	placeSystem(t, kb, "strobe", sx, sy, 1, 2_400_000)
+	s := sweep.NewState(7650, 148, 20)
+	s.LaunchCostMeasured, s.Launches, s.Drifted, s.ReadSinceLaunch = true, 27, true, false
+	s.ProgressDeg, s.TargetDeg = 59.9, 54.9
+	s.TargetX, s.TargetY = sweep.RingPoint(7650, 54.9)
+	c := inSystem("strobe", 900)
+	d, path, _ := newArrivalDispatch(t, c, kb, s)
+	if err := d.PathfinderSweep(context.Background()); err != nil { // arrival + tour
+		t.Fatal(err)
+	}
+	c.locs, c.locIdx = [][]byte{systemLoc("strobe", 0)}, 0
+	if err := d.PathfinderSweep(context.Background()); err != nil { // rejoin
+		t.Fatal(err)
+	}
+	got, _, _ := sweep.Load(path)
+	if math.Abs(got.TargetDeg-54.9) > 0.01 {
+		t.Errorf("target %v, want 54.9 (one step past the landing)", got.TargetDeg)
+	}
+}
