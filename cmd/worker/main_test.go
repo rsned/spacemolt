@@ -175,3 +175,12 @@ func TestNudgeReconnect(t *testing.T) {
 		t.Fatalf("client requested reconnect %d times, want 1", busy.requested)
 	}
 }
+
+// The heartbeat carries the worker's progress mark so the stall watchdog can
+// see a drifting Pathfinder ship moving (live 2026-11-13: ten restarts).
+func TestBuildStatusCarriesProgress(t *testing.T) {
+	st := &game.State{CurrentSystem: "sol"}
+	if got := buildStatus(st, "", "", "", statusFlags{Connected: true, Progress: 7}, time.Unix(1000, 0)); got.Progress != 7 {
+		t.Fatalf("Progress = %d, want 7", got.Progress)
+	}
+}

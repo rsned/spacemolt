@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"sync/atomic"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -78,5 +79,30 @@ func TestSweepDriftStampsReadingTick(t *testing.T) {
 	}
 	if got, _, _ := sweep.Load(path); got.LastReadTick != 2_400_123 {
 		t.Errorf("LastReadTick = %d, want 2400123", got.LastReadTick)
+	}
+}
+
+// Each drift reading that shows the ship moved bumps the progress mark the
+// heartbeat reports; without it the overmind's stall watchdog restarts (and,
+// on a low tank, quarantines) a ship that is drifting exactly as planned.
+func TestSweepDriftMarksProgress(t *testing.T) {
+	s := sweep.NewState(7500, 148, 45)
+	s.Phase = sweep.PhaseStage
+	s.StageRefueled, s.Drifted, s.Launches, s.LaunchCostMeasured = true, true, 1, true
+	s.TargetX, s.TargetY = -6259, 3300
+	b := round1(sweep.BearingTo(-5894, 3073, -6259, 3300))
+	s.PlannedBearing = b
+	x, y := back(-6259, 3300, b, 200)
+	s.LastX, s.LastY = x+5, y+5
+	c := &sweepFakeClient{state: shipWith(900, 1020), launchCost: 45, locs: [][]byte{driftLoc(x, y, b)}}
+	d, _ := newSweepDispatch(t, c, stageKB(t), s)
+	d.SweepStage = testStage
+	var mark atomic.Int64
+	d.SetProgressSink(&mark)
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if mark.Load() == 0 {
+		t.Error("progress mark not bumped by a drift reading that moved")
 	}
 }

@@ -185,6 +185,9 @@ func main() {
 	// activity carries the role goroutine's current human-readable unit of work
 	// (set via WorkerDispatch.setActivity) for the heartbeat goroutine to report.
 	var activity atomic.Pointer[string]
+	// progress is the role's forward-motion mark (WorkerDispatch.markProgress),
+	// reported so the stall watchdog sees a Pathfinder drift as motion.
+	var progress atomic.Int64
 	if hasIntent {
 		standing = savedIntent.StandingBehavior
 		if savedIntent.ActiveTaskID != "" {
@@ -498,6 +501,7 @@ func main() {
 			dispatch.CreditQueue = creditQueue
 			dispatch.CreditHistory = creditHistory
 			dispatch.SetActivitySink(&activity)
+			dispatch.SetProgressSink(&progress)
 			dispatch.Rescue = rescue.NewQueue(*rescueQueuePath)
 			if *missionCategories != "" {
 				for c := range strings.SplitSeq(*missionCategories, ",") {
@@ -742,6 +746,7 @@ func main() {
 					QuiesceReason:      quiesceReason.Load().(string),
 					CommandTimeouts:    int(cmdTimeouts.Load()),
 					LastCommandTimeout: lct,
+					Progress:           progress.Load(),
 				}, time.Now())
 				if sendErr := sendEnvelope(enc, control.TypeStatus, *agentID, status); sendErr != nil {
 					logger.Printf("warning: send status: %v", sendErr)
@@ -844,6 +849,8 @@ type statusFlags struct {
 	// blew the worker's own command bound; LastCommandTimeout names the newest.
 	CommandTimeouts    int
 	LastCommandTimeout string
+	// Progress is the role's forward-motion mark (see control.Status.Progress).
+	Progress int64
 }
 
 func buildStatus(st *game.State, standing, taskID, activity string, f statusFlags, now time.Time) control.Status {
@@ -875,6 +882,7 @@ func buildStatus(st *game.State, standing, taskID, activity string, f statusFlag
 		QuiesceReason:      f.QuiesceReason,
 		CommandTimeouts:    f.CommandTimeouts,
 		LastCommandTimeout: f.LastCommandTimeout,
+		Progress:           f.Progress,
 		Timestamp:          now.Format(time.RFC3339Nano),
 	}
 }

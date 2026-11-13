@@ -120,14 +120,15 @@ func (f *Fleet) ApplyStatus(agentID string, st control.Status, now time.Time) {
 }
 
 // statusProgressed reports whether new shows forward motion relative to old:
-// the worker changed system, moved to a different POI, gained/spent credits, or
-// docked/undocked. Any of these means it is doing something; none changing over a
+// the worker changed system, moved to a different POI, gained/spent credits,
+// docked/undocked, or bumped its progress mark (a Pathfinder drift). Any of these means it is doing something; none changing over a
 // long window (while undocked) is the stall signature.
 func statusProgressed(old, new control.Status) bool {
 	return old.System != new.System ||
 		old.POI != new.POI ||
 		old.Credits != new.Credits ||
-		old.Docked != new.Docked
+		old.Docked != new.Docked ||
+		old.Progress != new.Progress
 }
 
 // MarkRestart increments the restart counter and marks the worker unhealthy.

@@ -92,6 +92,9 @@ func (d *WorkerDispatch) sweepDrift(ctx context.Context, s *sweep.State, path st
 	for range sweepPassBudget {
 		l := loc.Location
 		x, y := l.TransitX, l.TransitY
+		if x != s.LastX || y != s.LastY {
+			d.markProgress()
+		}
 		s.LastX, s.LastY, s.Drifted, s.ReadSinceLaunch = x, y, true, true
 		if gs := d.Client.GetState(); gs != nil {
 			s.LastReadTick = gs.CurrentTick

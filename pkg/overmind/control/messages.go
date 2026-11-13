@@ -100,7 +100,13 @@ type Status struct {
 	// health check still read green. Omitted (0) by an older worker binary.
 	CommandTimeouts    int    `json:"command_timeouts,omitempty"`
 	LastCommandTimeout string `json:"last_command_timeout,omitempty"`
-	Timestamp          string `json:"timestamp"`
+	// Progress is a worker-owned counter a role bumps when it makes forward
+	// motion that system/POI/credits/docked cannot show -- a Pathfinder drift
+	// between systems keeps all four fixed for 15+ minutes (live 2026-11-13 the
+	// stall watchdog restarted ten drifting explorers). Any change counts as
+	// progress. Omitted (0) by an older worker binary.
+	Progress  int64  `json:"progress,omitempty"`
+	Timestamp string `json:"timestamp"`
 }
 
 // Event is a notable worker-side occurrence (action result, danger signal).

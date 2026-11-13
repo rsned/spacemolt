@@ -170,12 +170,29 @@ type WorkerDispatch struct {
 	// same atomic, so roles publish through setActivity rather than touching it
 	// directly. nil (tests, non-heartbeat callers) makes setActivity a no-op.
 	activitySink *atomic.Pointer[string]
+
+	// progressSink, when wired via SetProgressSink, is the counter the
+	// heartbeat reports as control.Status.Progress. nil makes markProgress a
+	// no-op.
+	progressSink *atomic.Int64
 }
 
 // SetActivitySink wires the shared atomic the worker heartbeat reads so role
 // commands can publish a "current activity" string for the fleet status page.
 // The caller (cmd/worker) owns the pointer; the dispatch only writes through it.
 func (d *WorkerDispatch) SetActivitySink(p *atomic.Pointer[string]) { d.activitySink = p }
+
+// SetProgressSink wires the counter the worker heartbeat reports as its
+// progress mark. The caller (cmd/worker) owns it; the dispatch only bumps it.
+func (d *WorkerDispatch) SetProgressSink(p *atomic.Int64) { d.progressSink = p }
+
+// markProgress records forward motion the heartbeat's system/POI/credits
+// cannot show, so the overmind's stall watchdog leaves the worker alone.
+func (d *WorkerDispatch) markProgress() {
+	if d.progressSink != nil {
+		d.progressSink.Add(1)
+	}
+}
 
 // setActivity publishes s as the worker's current activity (cleared with ""),
 // no-op when no sink is wired.
