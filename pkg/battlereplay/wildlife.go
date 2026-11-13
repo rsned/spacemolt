@@ -80,7 +80,7 @@ func attacksByType(m *ReplayModel, species map[string]string) []knowledge.Wildli
 			// range: a miss reports zero and would drag the observed minimum to
 			// a value the weapon never deals.
 			a.Hits++
-			d := float64(sh.Damage)
+			d := float64(shotDamage(sh))
 			a.DamageTotal += d
 			if a.Hits == 1 || d < a.DamageMin {
 				a.DamageMin = d
@@ -125,4 +125,22 @@ func WildlifeDefences(m *ReplayModel, speciesByCreatureID map[string]string) []k
 		})
 	}
 	return out
+}
+
+// shotDamage is the damage one weapon dealt, for attack profiles.
+//
+// Shot.Damage is the whole ATTACK's applied total, after the target's
+// resists, repeated on every weapon of a multi-weapon volley. Summing it per
+// shot multiplied each volley by its weapon count: a Repeater Monolith battle
+// (2026-11-12) filed 4,120 damage against a battle total of 673. The
+// per-weapon pre-resist WeaponDamage is used instead: it is counted once per
+// weapon and describes the attacker, not whichever hull it happened to hit,
+// which is what a fit decision needs. A shot with no weapon detail (a bare
+// attack, e.g. a 0-damage "retaliation") is the attack itself, so its applied
+// Damage stands.
+func shotDamage(sh Shot) int {
+	if sh.WeaponDamage > 0 {
+		return sh.WeaponDamage
+	}
+	return sh.Damage
 }

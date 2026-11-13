@@ -13,6 +13,10 @@ import (
 // stored here — they live on the server in the battle log — so these counters
 // are the observation itself, not a cached rollup of local data. Hit rate is
 // therefore computed on read, from Hits over Shots.
+//
+// Damage figures are per weapon and pre-resist when the log names the
+// weapon's damage (rows written from 2026-11-12 on); earlier rows summed the
+// attack's applied total once per weapon and overstate multi-weapon volleys.
 type WildlifeAttack struct {
 	Species     string
 	BattleID    string

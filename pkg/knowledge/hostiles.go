@@ -114,7 +114,8 @@ func (kb *SQLiteKB) RecordHostileSightings(ctx context.Context, rows []HostileSi
 }
 
 // HostileAttack is what one hostile type was observed shooting with in one
-// battle; the hostile_attacks twin of WildlifeAttack.
+// battle; the hostile_attacks twin of WildlifeAttack. Damage is per weapon,
+// pre-resist.
 type HostileAttack struct {
 	HostileType string
 	BattleID    string

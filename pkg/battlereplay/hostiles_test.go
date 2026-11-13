@@ -71,3 +71,24 @@ func TestHostileSpecsFromSnapshots(t *testing.T) {
 		t.Errorf("modules = %+v", s.Modules)
 	}
 }
+
+// A multi-weapon volley repeats the attack's applied total on every shot;
+// profiles must use each weapon's own damage, not the repeated total.
+func TestHostileAttacksUseWeaponDamageNotVolleyTotal(t *testing.T) {
+	m := &ReplayModel{
+		BattleID:     "b2",
+		Participants: []Participant{{PlayerID: "repeater_m1", Username: "Repeater Monolith", ShipClass: "monolith"}},
+		Frames: []Frame{{Shots: []Shot{
+			{FromID: "repeater_m1", WeaponName: "Heavy Pulse Laser", DamageType: "energy", Hit: true, Damage: 300, WeaponDamage: 100},
+			{FromID: "repeater_m1", WeaponName: "Heavy Pulse Laser", DamageType: "energy", Hit: true, Damage: 300, WeaponDamage: 110},
+			{FromID: "repeater_m1", WeaponName: "Heavy Pulse Laser", DamageType: "energy", Hit: true, Damage: 300, WeaponDamage: 90},
+		}}},
+	}
+	got := HostileAttacks(m)
+	if len(got) != 1 {
+		t.Fatalf("rows = %+v", got)
+	}
+	if a := got[0]; a.DamageTotal != 300 || a.DamageMin != 90 || a.DamageMax != 110 || a.Hits != 3 {
+		t.Errorf("row = %+v; want total 300 (one volley), min 90, max 110", a)
+	}
+}
