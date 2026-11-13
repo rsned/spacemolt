@@ -99,3 +99,13 @@ keeps showing rows you already bought until the next capture.
 
 `commission_status` with no argument prints `=== Commissions (0) ===` even
 with a commission in flight; it wants a base id.
+
+## Headless piped play_as: end the script with `quit` (2026-11-13)
+
+`./bin/play_as <agent> < script.txt` does NOT exit at end of input — it sat
+until `timeout` killed it (exit 124) after explorer-11's Reserve purchase.
+End every piped script with `quit`. Build `bin/play_as` fresh first. Releasing
+an agent via its fleet's `*-overrides.json` `removed` + SIGHUP to that
+overmind works the same as the remove API. **Read this file BEFORE any hull
+purchase** — on 11-13 I re-derived all of it from source and the operator
+rightly called it out.

@@ -33,6 +33,8 @@
 - [Energy crystals: reserve LIFTED 11-10](project_drone_project_crystal_reserve.md) — drone project done; crystals are ordinary stock (scarce: sites exhausted)
 - [craftsman-1 vacuum bids are INTENTIONAL](reference_craftsman1_vacuum_bid_economics.md) — never cancel
 - [NEVER unbatched DELETE on a huge table](feedback_bulk_delete_scale.md)
+- [Mining loops: hold-full check FIRST, unload the whole hold](feedback_mining_loop_hold_full_first.md) — snapshot-diff hand-off livelocked miningbot_0023 at 180/180 (11-11)
+- ⭐ [Pathfinder drive mechanics (11-12)](reference_pathfinder_drive_mechanics.md) — flat 5x-jump fuel per launch/replot, no drift drain, 10 u/tick; range = hop count; T3 hull fit list
 - [Never `time.Sleep` in pkg/worker](reference_race_test_cost_sqlite_migrations.md) — use the `settle(ctx,d)` seam
 
 - [Faction-storage crafting needs Officer rank; faction_withdraw lands in cargo](reference_faction_storage_crafting_and_withdraw.md) — live 10-24; craft falls back to CRFT storage, output goes there too
@@ -65,3 +67,6 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [Commission: supply the materials](reference_commission_supply_materials.md) — anyone can commission; cash-price builds stall if mats are not on the market
 - [Transit hub passenger strategy](reference_transit_hub_passenger_strategy.md) — LT1428 hint: 150-seat concourse + ~9 speed-6 ships feeding it; CJ lounge L1 built 11-08; shuttle worker has no lounge support yet
 - 🟡 [Stronghold demand: reactor cores (11-08)](project_stronghold_demand_reactor_cores.md) — station_reactor_core bid 1.24M at 7 strongholds, ZERO asks; ~535k input cost, neutronium-limited; salvage_metal 4,370 bids
+- [Schedule due batch not cancellable](reference_schedule_due_batch_not_cancellable.md) — removing a task mid-batch does not stop it; one-off buys fire twice
+- ⭐ [Uncharted-system fragments (11-13)](reference_uncharted_system_fragments.md) — "Unknown source" hex on system chat; Fibonacci cipher; system history is per-SYSTEM so only push capture keeps them; sweep workers save to mbox
+- [Pathfinder frontier sweep (11-12)](project_pathfinder_frontier_sweep.md) — spec+plan approved; MERGED 11-13 + migration 75 applied; ops pending: 7 drives in CJ faction storage, buy hulls
