@@ -1953,6 +1953,16 @@ type JumpedResponse struct {
 }
 
 // DockResponse wraps the response from dock command.
+// DockCommission is one in-progress commission in a dock reply.
+type DockCommission struct {
+	ClassID        string `json:"class_id"`
+	CommissionID   string `json:"commission_id"`
+	ETASeconds     int    `json:"eta_seconds"`
+	ShipClass      string `json:"ship_class"`
+	Status         string `json:"status"`
+	TicksRemaining int    `json:"ticks_remaining"`
+}
+
 type DockResponse struct {
 	GiftsTruncated      bool            `json:"gifts_truncated,omitempty"` // v0.687.0
 	Action              string          `json:"action,omitempty"`
@@ -1982,6 +1992,9 @@ type DockResponse struct {
 	// real (non-empty) dock response.
 	CommissionsNote  string           `json:"commissions_note,omitempty"`
 	CommissionsReady []map[string]any `json:"commissions_ready,omitempty"`
+	// CommissionsActive lists ships still being built for us at this station
+	// (seen live 2026-11-13).
+	CommissionsActive []DockCommission `json:"commissions_active,omitempty"`
 	// YourFacilities lists the player's personal facilities at this base
 	// (mirrors player_facilities from `facility list`); FacilityNote is the
 	// human-readable summary. Permissive map shape pending confirmation.
