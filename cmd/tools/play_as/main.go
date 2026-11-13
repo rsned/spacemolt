@@ -10002,7 +10002,7 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 				}
 			} else {
 				positional++
-				args[fmt.Sprintf("arg%d", positional)] = arg
+				args[passthroughParamName(cmd, positional)] = arg
 			}
 		}
 		if len(args) == 0 {
