@@ -1,34 +1,43 @@
-# Crystal run: struve_1321 -> cargo_lanes. Overrides data/scripts/idle_mine.smolt.
+# 2026-11-13: moved off struve_1321/wanderers_veil (Rainbow Leviathan killed fighter-10
+# there; struve_1321 is in data/overmind/avoid-systems.json). Now runs squad A's
+# crystal field, copied from fighter-5.
+# Crystal run: ivorygate -> bd20_2457. Overrides data/scripts/idle_mine.smolt.
 #
-# TARGET: energy_crystal for the drone refit. wanderers_veil is the RICHEST share
-# we know of — 21 of a 63-point mix = ~33% of yields, vs ~24% at ivorygate — but
-# its standing pool is only 444 against ivorygate's 5,000. This squad exists to
-# spread the draw so one field is not taken to the floor; deposits regenerate, so
-# round-trip time matters more than pool size.
+# TARGET: energy_crystal for the drone refit (3,607 short). forgotten_prism is 22
+# of a 92-point mix = ~24% of yields, standing pool 5,000 — the best combination
+# of share and depth in the survey. Yield is RANDOM from the site mix, so
+# iron_ore and copper_ore come back too; that is expected, not a misfire.
 #
-# autopilot, NOT jump. `jump` is SINGLE-HOP and fails with "X is not connected to
-# Y" for anything not adjacent; these agents start 2-16 jumps out. The first
-# version of this script used jump and failed on 2026-08-26 — and since an idle
-# script is best-effort, the failure did NOT stop the pass: the loop then ran 100
-# `mine` attempts against "Nothing to mine here" at the origin, every pass.
-# Autopilot routes multi-hop, tops up at the ORIGIN station, and takes the target
-# POI as its second argument.
+# autopilot, NOT jump. `jump` is SINGLE-HOP: it fails outright with "X is not
+# connected to Y" for anything not directly adjacent, and these agents start
+# 5-16 jumps out. That is exactly how the first version of this script failed on
+# 2026-08-26 — and because an idle script is best-effort, the failed jump did
+# NOT abort the pass: the loop below then ran 100 `mine` attempts against
+# "Nothing to mine here" while still docked at the origin, every pass. Autopilot
+# routes multi-hop, tops the tank up at the ORIGIN station first, and takes the
+# target POI as its second argument, which also removes the need for $NEBULA$.
 #
-# wanderers_veil is a NEBULA; the shared idle_mine travels to $ASTEROID_BELT$ and
-# would mine the wrong rock. Yield is RANDOM from the site mix.
+# The nebula matters: the shared idle_mine travels to $ASTEROID_BELT$, and every
+# high-share energy_crystal site is a NEBULA. On the default script these agents
+# would mine the wrong rock.
 #
-# struve_1321 has NO STATION. Home is cargo_lanes (6 jumps), desk MEASURED (2
-# cr/unit, ~49,970 reserve). NOT zaniah/mera_sanctum, which is 5 jumps and
-# measured but is our worst kill zone (6 combat deaths) and these agents hold no
-# pirate unlock. The extra jump is the cheap option.
+# ivorygate has NO STATION, which is why its rock is untouched — the same reason
+# frostfeld works for miner-10. Home is bd20_2457, 3 jumps out, whose fuel desk
+# is MEASURED (2 cr/unit, ~54,800 reserve). An unverified desk in lawless space
+# is how an agent strands, so do not shorten this to a nearer unmeasured station.
 #
-# refuel FIRST: tops up before each trip AND recovers a bot run to empty.
-# get_system before $STATION$: the POI cache still holds the previous system.
+# refuel FIRST, while still docked from the prior cycle: it tops up before each
+# trip AND recovers a bot that has run itself to empty. Several of these arrived
+# from mission-learn at 0-4 fuel.
+#
+# get_system after the return leg is load-bearing: $STATION$ resolves against the
+# client's cached POI list, which still holds the previous system right after a
+# jump. get_system is an info query, no tick cost.
 refuel
 undock
-autopilot struve_1321 wanderers_veil
+autopilot ivorygate forgotten_prism
 loop -f 100 mine
-autopilot cargo_lanes
+autopilot bd20_2457
 get_system
 travel $STATION$
 dock
