@@ -204,9 +204,3 @@ func bearingDiff(a, b float64) float64 {
 	}
 	return d
 }
-
-// sweepInSystem handles a pass that finds the ship in a system.
-func (d *WorkerDispatch) sweepInSystem(_ context.Context, s *sweep.State, path string, _ serverapi.LocationResponse) error {
-	fmt.Fprintln(d.Out, "pathfinder_sweep: in system (arrival handling: task 7)") //nolint:errcheck
-	return sweep.Save(path, s)
-}

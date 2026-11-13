@@ -65,6 +65,10 @@ type WorkerDispatch struct {
 	SweepRing       float64
 	SweepStartDeg   float64
 	SweepLaunchCost float64
+	// sweepTour and sweepExploreStep are test seams for the sweep's
+	// arrival tour and explore-run step; nil runs systemTour / Explore.
+	sweepTour        func(ctx context.Context, deps ExploreDeps) error
+	sweepExploreStep func(ctx context.Context, deps ExploreDeps) error
 	// Handoff is the shared stock-handoff queue (--handoff-queue). The haul
 	// role requests a consigned route's gift through it; nil leaves consigned
 	// routes unrunnable (they release before the hauler flies).
