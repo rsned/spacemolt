@@ -1280,6 +1280,7 @@ func formatGetLocation(raw []byte) string {
 		Players          []nearbyPlayer    `json:"nearby_players"`
 		NPCs             []empireNPC       `json:"nearby_empire_npcs"`
 		Pirates          []json.RawMessage `json:"nearby_pirates"`
+		Stars            []starSighting    `json:"star_sightings"`
 		// Pathfinder drift (first seen 2026-11-11): no system or POI, only a
 		// position in open space and the plotted bearing.
 		InTransit           bool    `json:"in_transit"`
@@ -1372,7 +1373,38 @@ func formatGetLocation(raw []byte) string {
 	if len(l.Pirates) > 0 {
 		fmt.Fprintf(&b, "\nPirates: %d\n", len(l.Pirates))
 	}
+	writeStarSightings(&b, l.Stars)
 	return b.String()
+}
+
+// starSighting is one entry of get_location's star_sightings: a star visible
+// from this system, by bearing (degrees), apparent brightness and surface
+// temperature (kelvin).
+type starSighting struct {
+	Bearing     float64 `json:"bearing"`
+	Brightness  int     `json:"brightness"`
+	Temperature int     `json:"temperature"`
+}
+
+// writeStarSightings lists the visible stars, brightest first and then by
+// bearing. Emits nothing when the reply carries none.
+func writeStarSightings(b *strings.Builder, stars []starSighting) {
+	if len(stars) == 0 {
+		return
+	}
+	rows := slices.Clone(stars)
+	slices.SortStableFunc(rows, func(x, y starSighting) int {
+		if c := cmp.Compare(y.Brightness, x.Brightness); c != 0 {
+			return c
+		}
+		return cmp.Compare(x.Bearing, y.Bearing)
+	})
+	fmt.Fprintf(b, "\nStar sightings: %d\n", len(rows))
+	fmt.Fprintf(b, "  %7s  %10s  %11s\n", "Bearing", "Brightness", "Temperature")
+	fmt.Fprintf(b, "  %s\n", strings.Repeat("-", 32))
+	for _, s := range rows {
+		fmt.Fprintf(b, "  %6s°  %10d  %9d K\n", trimFloat(s.Bearing), s.Brightness, s.Temperature)
+	}
 }
 
 // formatLoadDrone renders a load_drone action_result.
