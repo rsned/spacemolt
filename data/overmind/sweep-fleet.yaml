@@ -1,0 +1,20 @@
+# Pathfinder frontier sweep — round 1 (rings 7,500–7,950 LY, 50 LY apart).
+#
+# Spec: docs/superpowers/specs/2026-11-12-pathfinder-frontier-sweep-design.md
+# Plan: docs/superpowers/plans/2026-11-12-pathfinder-frontier-sweep.md
+#
+# NOT LAUNCHED until every ship below has a pathfinder_drive fitted and its
+# fuel cells aboard (plan Task 9). Launch this overmind LAST, after the
+# mission-learn overmind has released the explorers (list each one in
+# mission-learn-overrides.json `removed` and SIGHUP it): two fleets spawning
+# one agent means a double login and session_replaced thrash.
+#
+# Each ship sails one ring clockwise from sweep_start_deg (148 = Facing Away's
+# bearing) and keeps its progress in data/agents/<id>/sweep_state.json; a
+# restart resumes in place. sweep_launch_cost is the hull's ESTIMATE (Reserve
+# 41, Compendium 23, Survey Vessel 45); the first launch measures it.
+# When a ship logs "lap complete", take it out of this file and back into
+# mission-learn.
+workers:
+  # Filled in at plan Task 9 step 4 (hull fitted, cells loaded):
+  # - { agent_id: explorer-N, role: pathfinder_sweep, station: "", sweep_ring: 7500, sweep_start_deg: 148, sweep_launch_cost: 23 }

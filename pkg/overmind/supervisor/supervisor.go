@@ -83,6 +83,14 @@ func SpawnWith(cfg SpawnConfig) SpawnFunc {
 		if spec.FreightMaxPackages > 1 {
 			args = append(args, "--freight-max-packages", strconv.Itoa(spec.FreightMaxPackages))
 		}
+		for _, f := range []struct {
+			flag string
+			v    float64
+		}{{"--sweep-ring", spec.SweepRing}, {"--sweep-start-deg", spec.SweepStartDeg}, {"--sweep-launch-cost", spec.SweepLaunchCost}} {
+			if f.v != 0 {
+				args = append(args, f.flag, strconv.FormatFloat(f.v, 'f', -1, 64))
+			}
+		}
 		if spec.DisableFreightBootstrap {
 			args = append(args, "--freight-bootstrap=false")
 		}

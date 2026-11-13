@@ -28,6 +28,13 @@ type WorkerSpec struct {
 	// single-contract behavior; canary fighter-4 runs 3. Layers UNDER the
 	// server/cargo headroom gates.
 	FreightMaxPackages int `yaml:"freight_max_packages,omitempty"`
+	// SweepRing, SweepStartDeg and SweepLaunchCost configure the
+	// pathfinder_sweep role (--sweep-ring etc.): ring radius in LY, start
+	// angle in degrees, and the hull's launch-cost estimate. Zero = unset.
+	// Spec: docs/superpowers/specs/2026-11-12-pathfinder-frontier-sweep-design.md
+	SweepRing       float64 `yaml:"sweep_ring,omitempty"`
+	SweepStartDeg   float64 `yaml:"sweep_start_deg,omitempty"`
+	SweepLaunchCost float64 `yaml:"sweep_launch_cost,omitempty"`
 	// Consign forwards --consign, a standing instruction to hand named items
 	// from this station's personal storage to a named hauler as part of the
 	// ordinary idle pass -- no manual control and no interrupted routine.

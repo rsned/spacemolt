@@ -87,6 +87,9 @@ func main() {
 	handoffQueuePath := flag.String("handoff-queue", "", "Shared crafting-brain stock handoff queue file (empty disables handoff fulfillment)")
 	missionCategories := flag.String("mission-categories", "", "Comma-separated mission-board categories for the missions role (empty = delivery only; learning pool: delivery,exploration)")
 	enableFreight := flag.Bool("enable-freight", false, "Opt the missions role into the /shipping carrier path (freight evaluated co-equally with the mission board; default off)")
+	sweepRing := flag.Float64("sweep-ring", 0, "pathfinder_sweep: ring radius in LY from the galaxy centre")
+	sweepStartDeg := flag.Float64("sweep-start-deg", 0, "pathfinder_sweep: starting angle in degrees (CCW from +x)")
+	sweepLaunchCost := flag.Float64("sweep-launch-cost", 0, "pathfinder_sweep: estimated fuel per pathfinder launch (the first launch measures it)")
 	freightMaxPackages := flag.Int("freight-max-packages", 1, "Max concurrent freight contracts for the missions role (sub-project C multi-package trips; 1 = single-contract v1 behavior)")
 	consignSpec := flag.String("consign", "", "Standing consignment rules, comma-separated item:recipient:min[:keep] — hand allow-listed goods from this station's personal storage to a named hauler on each idle pass (e.g. adamantite_ore:salvager-2:50). Explicit allow-list only: gifting is irreversible.")
 	pipelineSpec := flag.String("pipeline", "", "Pinned pipeline route item,system,poi,to,recipient — the pipeline_miner role mines item at poi in system and hands the whole item line plus any other line the trip grew (never energy_crystal or fuel_cell) to recipient at to on each idle pass.")
@@ -504,6 +507,7 @@ func main() {
 			}
 			dispatch.EnableFreight = *enableFreight
 			dispatch.FreightMaxPackages = *freightMaxPackages
+			dispatch.SweepRing, dispatch.SweepStartDeg, dispatch.SweepLaunchCost = *sweepRing, *sweepStartDeg, *sweepLaunchCost
 			dispatch.FreightBootstrap = *freightBootstrap
 			dispatch.SecondmentPath = *secondmentPath
 			dispatch.FleetName = *fleetName

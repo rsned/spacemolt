@@ -243,7 +243,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true, "ensure_home": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
-	"hunt": true,
+	"hunt": true, "pathfinder_sweep": true,
 	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "deliver_tour": true, "buy_directed": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "fit_check": true, "refit_trip": true, "launch_drones": true,
 	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "faction_deposit_all": true, "faction_restock": true, "announce": true, "capture_craft_queue": true, "sell_all": true, "sell_ore": true, "craft_stock": true,
@@ -421,6 +421,8 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			KB:         d.KB,
 			OnWaypoint: func(ctx context.Context) error { return KBWaypointCapture(ctx, d.Client, d.KB) },
 		}, args[0], poi)
+	case "pathfinder_sweep":
+		return d.PathfinderSweep(ctx)
 	case "explore":
 		return Explore(ctx, ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID, Market: d.Market})
 	case "haul":

@@ -72,6 +72,20 @@ roles:
       - { every: daily, command: "capture_tax" }
       - { every: daily, command: "capture_citizenship" }
     idle: explore
+  # Pathfinder frontier sweep (2026-11-12): one ring per ship, clockwise round
+  # the galaxy on a pathfinder_drive; explores every system a drift lands in.
+  # Per-worker sweep_ring / sweep_start_deg / sweep_launch_cost come from
+  # sweep-fleet.yaml. No update_market: a sweep ship is adrift most of the time
+  # and a scheduled task only delays the next redirect.
+  # Spec: docs/superpowers/specs/2026-11-12-pathfinder-frontier-sweep-design.md
+  pathfinder_sweep:
+    schedule:
+      - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
+      - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
+    idle: pathfinder_sweep
   # The asset captures are the only schedule a miner carries: everything else a
   # miner does is idle-loop work, but the ledger is meant to cover every agent,
   # and a role with no schedule block is invisible to it.
