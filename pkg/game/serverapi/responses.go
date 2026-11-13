@@ -1905,6 +1905,37 @@ type PathfinderJumpResponse struct {
 	Message string  `json:"message,omitempty"`
 }
 
+// LocationResponse is the get_location reply: everything sits under a single
+// "location" object beside a "message" string.
+type LocationResponse struct {
+	Location LocationInfo `json:"location"`
+	Message  string       `json:"message,omitempty"`
+}
+
+// LocationInfo is the subset of get_location the pathfinder sweep reads.
+// While a Pathfinder drift is under way (first seen 2026-11-13 on
+// craftsman-1) the system/POI fields are empty and in_transit, transit_type
+// "pathfinder", transit_x/transit_y (the live map position),
+// transit_bearing and transit_ticks_elapsed describe the drift.
+type LocationInfo struct {
+	SystemID            string         `json:"system_id"`
+	POIID               string         `json:"poi_id"`
+	Connections         []string       `json:"connections"`
+	DockedAt            *string        `json:"docked_at"`
+	InTransit           bool           `json:"in_transit,omitempty"`
+	TransitType         string         `json:"transit_type,omitempty"`
+	TransitX            float64        `json:"transit_x,omitempty"`
+	TransitY            float64        `json:"transit_y,omitempty"`
+	TransitBearing      float64        `json:"transit_bearing,omitempty"`
+	TransitTicksElapsed int            `json:"transit_ticks_elapsed,omitempty"`
+	NearbyRepeaters     []RepeaterInfo `json:"nearby_repeaters"`
+}
+
+// Drifting reports whether the ship is adrift on a Pathfinder bearing.
+func (l LocationInfo) Drifting() bool {
+	return l.InTransit && l.TransitType == "pathfinder"
+}
+
 // JumpedResponse wraps the response from jumped event after jump completes.
 type JumpedResponse struct {
 	// POIHazard (v0.687.0) is the environmental hazard at the arrival POI.
