@@ -49,3 +49,44 @@ func HostileAttacks(m *ReplayModel) []knowledge.HostileAttack {
 	}
 	return out
 }
+
+// HostileSpecs reads each hostile's class, hull/shield maxima and fitted
+// modules from the battle snapshots, so a battle fills hostile_types and
+// hostile_loadouts even for a repeater no get_nearby ever saw. Modules are
+// counted by name ("Heavy Pulse Laser" x8).
+func HostileSpecs(m *ReplayModel) []knowledge.HostileSpec {
+	if m == nil {
+		return nil
+	}
+	var out []knowledge.HostileSpec
+	for _, p := range m.Participants {
+		t := HostileType(p)
+		if t == "" {
+			continue
+		}
+		counts := make(map[string]*knowledge.HostileModule)
+		var order []string
+		for _, mod := range p.Modules {
+			if mod.Name == "" {
+				continue
+			}
+			c, ok := counts[mod.Name]
+			if !ok {
+				c = &knowledge.HostileModule{Name: mod.Name, Category: mod.Category}
+				counts[mod.Name] = c
+				order = append(order, mod.Name)
+			}
+			c.Count++
+		}
+		mods := make([]knowledge.HostileModule, 0, len(order))
+		for _, n := range order {
+			mods = append(mods, *counts[n])
+		}
+		out = append(out, knowledge.HostileSpec{
+			HostileID: p.PlayerID, HostileType: t, Kind: knowledge.HostileKindRepeater,
+			Class: strings.TrimPrefix(t, knowledge.HostileKindRepeater+"_"), Name: p.Username,
+			MaxHull: p.MaxHull, MaxShield: p.MaxShield, Modules: mods, BattleID: m.BattleID,
+		})
+	}
+	return out
+}

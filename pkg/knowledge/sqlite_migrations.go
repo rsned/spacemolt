@@ -587,6 +587,27 @@ func migrations() []Migration {
 				);
 			`,
 		},
+		{
+			version: 74,
+			name:    "hostile_loadouts",
+			// Fitted modules per individual hostile, from battle-log snapshots
+			// ("8x Heavy Pulse Laser" on a Repeater Monolith). Keyed by
+			// hostile_id so two identical Monoliths do not double the count;
+			// a re-read battle replaces that hostile's rows.
+			sql: `
+				CREATE TABLE IF NOT EXISTS hostile_loadouts (
+					hostile_id   TEXT NOT NULL,
+					hostile_type TEXT NOT NULL,
+					module_name  TEXT NOT NULL,
+					category     TEXT NOT NULL DEFAULT '',
+					count        INTEGER NOT NULL DEFAULT 0,
+					battle_id    TEXT NOT NULL DEFAULT '',
+					observed_utc TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (hostile_id, module_name)
+				);
+				CREATE INDEX IF NOT EXISTS idx_hostile_loadouts_type ON hostile_loadouts(hostile_type);
+			`,
+		},
 	}
 }
 

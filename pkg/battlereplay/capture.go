@@ -57,9 +57,15 @@ func CaptureWildlifeAttacks(ctx context.Context, kb knowledge.Base, client game.
 		return 0, fmt.Errorf("capture wildlife attacks %s: %w", battleID, err)
 	}
 
-	// Hostiles (Frontier Repeaters) go to their own table. They share the
-	// battle log, so one capture files both.
+	// Hostiles (Frontier Repeaters) go to their own tables -- specs and
+	// loadouts from the snapshots, offence from the shots. They share the
+	// battle log, so one capture files hostiles and wildlife both.
 	hostile := 0
+	if srec, ok := kb.(knowledge.HostileSpecRecorder); ok {
+		if err = srec.RecordHostileSpecs(ctx, HostileSpecs(m)); err != nil {
+			return 0, fmt.Errorf("record hostile specs %s: %w", battleID, err)
+		}
+	}
 	if hrec, ok := kb.(knowledge.HostileAttackRecorder); ok {
 		if rows := HostileAttacks(m); len(rows) > 0 {
 			if err = hrec.UpsertHostileAttacks(ctx, rows); err != nil {

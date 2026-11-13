@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 15
--- Last Regenerated: 2026-11-12
+-- Migrations applied: 16
+-- Last Regenerated: 2026-11-13
 
 -- ============================================================================
 -- TABLES
@@ -356,6 +356,18 @@ CREATE TABLE hostile_attacks (
 					damage_max   REAL NOT NULL DEFAULT 0,
 					observed_utc TEXT NOT NULL DEFAULT '',
 					PRIMARY KEY (hostile_type, battle_id, weapon_name, damage_type, shot_kind)
+				);
+
+
+CREATE TABLE hostile_loadouts (
+					hostile_id   TEXT NOT NULL,
+					hostile_type TEXT NOT NULL,
+					module_name  TEXT NOT NULL,
+					category     TEXT NOT NULL DEFAULT '',
+					count        INTEGER NOT NULL DEFAULT 0,
+					battle_id    TEXT NOT NULL DEFAULT '',
+					observed_utc TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (hostile_id, module_name)
 				);
 
 
@@ -1276,6 +1288,8 @@ CREATE INDEX idx_danger_zones_level ON danger_zones(danger_level DESC);
 
 CREATE INDEX idx_experiences_agent_id ON experiences(agent_id, time DESC);
 
+CREATE INDEX idx_hostile_loadouts_type ON hostile_loadouts(hostile_type);
+
 CREATE INDEX idx_hostile_sightings_id ON hostile_sightings(hostile_id);
 
 CREATE INDEX idx_hostile_sightings_where ON hostile_sightings(system_id, poi_id);
@@ -1448,4 +1462,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (70, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (71, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (72, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (73, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (74, datetime('now'));
 

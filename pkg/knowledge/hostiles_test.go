@@ -94,3 +94,31 @@ func TestUpsertHostileAttacksReplacesBattleRow(t *testing.T) {
 		t.Errorf("rows %d shots %d, want 1, 3", n, shots)
 	}
 }
+
+// A battle spec fills hostile_types without any sighting, and a re-read
+// replaces the individual's loadout rather than adding to it.
+func TestRecordHostileSpecs(t *testing.T) {
+	kb := newTestSQLiteKB(t)
+	ctx := context.Background()
+	spec := HostileSpec{
+		HostileID: "repeater_m1", HostileType: "repeater_monolith", Kind: HostileKindRepeater, Class: "monolith",
+		Name: "Repeater Monolith", MaxHull: 6400, MaxShield: 9600, BattleID: "b1",
+		Modules: []HostileModule{{Name: "Heavy Pulse Laser", Category: "weapon", Count: 8}},
+	}
+	for range 2 {
+		if err := kb.RecordHostileSpecs(ctx, []HostileSpec{spec}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var hull, shield int
+	if err := kb.db.QueryRow(`SELECT max_hull, max_shield FROM hostile_types WHERE hostile_type='repeater_monolith'`).Scan(&hull, &shield); err != nil {
+		t.Fatal(err)
+	}
+	var rows, count int
+	if err := kb.db.QueryRow(`SELECT COUNT(*), SUM(count) FROM hostile_loadouts WHERE hostile_id='repeater_m1'`).Scan(&rows, &count); err != nil {
+		t.Fatal(err)
+	}
+	if hull != 6400 || shield != 9600 || rows != 1 || count != 8 {
+		t.Errorf("hull %d shield %d loadout rows %d count %d; want 6400 9600 1 8", hull, shield, rows, count)
+	}
+}

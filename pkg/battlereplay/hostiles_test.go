@@ -48,3 +48,26 @@ func TestHostileAttacksAggregates(t *testing.T) {
 		t.Errorf("row = %+v", a)
 	}
 }
+
+// Snapshots give class, maxima and a counted loadout per repeater.
+func TestHostileSpecsFromSnapshots(t *testing.T) {
+	m := &ReplayModel{
+		BattleID: "b1",
+		Participants: []Participant{
+			{PlayerID: "repeater_m1", Username: "Repeater Monolith", ShipClass: "monolith", MaxHull: 6400, MaxShield: 9600,
+				Modules: []Module{{Name: "Heavy Pulse Laser", Category: "weapon"}, {Name: "Heavy Pulse Laser", Category: "weapon"}, {Name: "Shield Lattice", Category: "defense"}}},
+			{PlayerID: "p1", Kind: "player", Username: "Arthur", Modules: []Module{{Name: "Railgun"}}},
+		},
+	}
+	got := HostileSpecs(m)
+	if len(got) != 1 {
+		t.Fatalf("specs = %+v, want 1", got)
+	}
+	s := got[0]
+	if s.HostileType != "repeater_monolith" || s.Class != "monolith" || s.MaxHull != 6400 || s.MaxShield != 9600 || s.BattleID != "b1" {
+		t.Errorf("spec = %+v", s)
+	}
+	if len(s.Modules) != 2 || s.Modules[0].Name != "Heavy Pulse Laser" || s.Modules[0].Count != 2 || s.Modules[1].Count != 1 {
+		t.Errorf("modules = %+v", s.Modules)
+	}
+}

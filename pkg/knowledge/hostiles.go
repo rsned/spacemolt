@@ -96,18 +96,8 @@ func (kb *SQLiteKB) RecordHostileSightings(ctx context.Context, rows []HostileSi
 	}
 	defer func() { _ = tx.Rollback() }()
 	for _, r := range rows {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO hostile_types (hostile_type, kind, class, name, max_hull, max_shield, first_seen_utc, last_seen_utc)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(hostile_type) DO UPDATE SET
-				kind = CASE WHEN excluded.kind <> '' THEN excluded.kind ELSE kind END,
-				class = CASE WHEN excluded.class <> '' THEN excluded.class ELSE class END,
-				name = CASE WHEN excluded.name <> '' THEN excluded.name ELSE name END,
-				max_hull = MAX(max_hull, excluded.max_hull),
-				max_shield = MAX(max_shield, excluded.max_shield),
-				last_seen_utc = excluded.last_seen_utc`,
-			r.HostileType, r.Kind, r.Class, r.Name, r.MaxHull, r.MaxShield, now, now); err != nil {
-			return fmt.Errorf("record hostile type %s: %w", r.HostileType, err)
+		if err := upsertHostileType(ctx, tx, r.HostileType, r.Kind, r.Class, r.Name, r.MaxHull, r.MaxShield, now); err != nil {
+			return err
 		}
 		inBattle := 0
 		if r.InBattle {
@@ -167,6 +157,87 @@ func (kb *SQLiteKB) UpsertHostileAttacks(ctx context.Context, rows []HostileAtta
 			`, r.HostileType, r.BattleID, r.WeaponName, r.DamageType, r.ShotKind,
 				r.Shots, r.Hits, r.DamageTotal, r.DamageMin, r.DamageMax, now); err != nil {
 				return fmt.Errorf("upsert hostile attack %s/%s: %w", r.HostileType, r.WeaponName, err)
+			}
+		}
+		return nil
+	})
+}
+
+// upsertHostileType inserts or merges one hostile_types row: max hull/shield
+// only grow; kind/class/name keep the latest non-empty value.
+func upsertHostileType(ctx context.Context, tx txer, hostileType, kind, class, name string, maxHull, maxShield int, now string) error {
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO hostile_types (hostile_type, kind, class, name, max_hull, max_shield, first_seen_utc, last_seen_utc)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(hostile_type) DO UPDATE SET
+			kind = CASE WHEN excluded.kind <> '' THEN excluded.kind ELSE kind END,
+			class = CASE WHEN excluded.class <> '' THEN excluded.class ELSE class END,
+			name = CASE WHEN excluded.name <> '' THEN excluded.name ELSE name END,
+			max_hull = MAX(max_hull, excluded.max_hull),
+			max_shield = MAX(max_shield, excluded.max_shield),
+			last_seen_utc = excluded.last_seen_utc`,
+		hostileType, kind, class, name, maxHull, maxShield, now, now); err != nil {
+		return fmt.Errorf("record hostile type %s: %w", hostileType, err)
+	}
+	return nil
+}
+
+// HostileModule is one fitted module type on a hostile and how many of it.
+type HostileModule struct {
+	Name     string
+	Category string
+	Count    int
+}
+
+// HostileSpec is one individual hostile's constants as read from a battle
+// log snapshot: class, hull/shield maxima and fitted modules. Battles fill
+// these even for a hostile no get_nearby ever saw.
+type HostileSpec struct {
+	HostileID   string
+	HostileType string
+	Kind        string
+	Class       string
+	Name        string
+	MaxHull     int
+	MaxShield   int
+	Modules     []HostileModule
+	BattleID    string
+}
+
+// HostileSpecRecorder stores battle-derived hostile specs. SQLiteKB implements it.
+type HostileSpecRecorder interface {
+	RecordHostileSpecs(ctx context.Context, specs []HostileSpec) error
+}
+
+// RecordHostileSpecs merges each spec into hostile_types and replaces that
+// individual's hostile_loadouts rows (a spec with no modules leaves any
+// earlier loadout in place rather than erasing it).
+func (kb *SQLiteKB) RecordHostileSpecs(ctx context.Context, specs []HostileSpec) error {
+	if len(specs) == 0 {
+		return nil
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	return kb.inTx(ctx, func(tx txer) error {
+		for _, sp := range specs {
+			if sp.HostileType == "" {
+				continue
+			}
+			if err := upsertHostileType(ctx, tx, sp.HostileType, sp.Kind, sp.Class, sp.Name, sp.MaxHull, sp.MaxShield, now); err != nil {
+				return err
+			}
+			if sp.HostileID == "" || len(sp.Modules) == 0 {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `DELETE FROM hostile_loadouts WHERE hostile_id = ?`, sp.HostileID); err != nil {
+				return fmt.Errorf("clear hostile loadout %s: %w", sp.HostileID, err)
+			}
+			for _, m := range sp.Modules {
+				if _, err := tx.ExecContext(ctx, `
+					INSERT INTO hostile_loadouts (hostile_id, hostile_type, module_name, category, count, battle_id, observed_utc)
+					VALUES (?, ?, ?, ?, ?, ?, ?)`,
+					sp.HostileID, sp.HostileType, m.Name, m.Category, m.Count, sp.BattleID, now); err != nil {
+					return fmt.Errorf("record hostile loadout %s/%s: %w", sp.HostileID, m.Name, err)
+				}
 			}
 		}
 		return nil
