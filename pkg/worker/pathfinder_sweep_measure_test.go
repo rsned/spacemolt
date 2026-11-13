@@ -201,3 +201,34 @@ func TestSweepLandingWithoutReadingStillStepsPast(t *testing.T) {
 		t.Errorf("target %v, want 54.9 (one step past the landing)", got.TargetDeg)
 	}
 }
+
+// Ring re-spacing (2026-11-13: the capture radius is ~100 LY, so rings 50 LY
+// apart shared captures). A changed sweep_ring takes effect on the rejoin
+// after the next landing: the leg out of that system aims at the new ring.
+func TestSweepRejoinAdoptsConfiguredRing(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	sx, sy := sweep.RingPoint(7850, 40)
+	placeSystem(t, kb, "landed", sx, sy, 1, 2_400_000)
+	s := sweep.NewState(7850, 148, 30)
+	s.LaunchCostMeasured, s.Launches, s.Drifted, s.ReadSinceLaunch = true, 20, true, true
+	s.ProgressDeg, s.TargetDeg = 40, 35
+	s.LastX, s.LastY, s.LastReadTick = sx, sy, 2_400_000
+	c := inSystem("landed", 900)
+	d, path, _ := newArrivalDispatch(t, c, kb, s)
+	d.SweepRing = 8050
+	if err := d.PathfinderSweep(context.Background()); err != nil { // arrival + tour
+		t.Fatal(err)
+	}
+	c.locs, c.locIdx = [][]byte{systemLoc("landed", 0)}, 0
+	if err := d.PathfinderSweep(context.Background()); err != nil { // rejoin
+		t.Fatal(err)
+	}
+	got, _, _ := sweep.Load(path)
+	if got.Ring != 8050 {
+		t.Fatalf("ring %v, want 8050", got.Ring)
+	}
+	nx, ny := sweep.RingPoint(8050, 35)
+	if len(c.jumps) != 1 || c.jumps[0] != round1(sweep.BearingTo(sx, sy, nx, ny)) {
+		t.Errorf("jumps %v, want one toward ring 8050 at 35°", c.jumps)
+	}
+}

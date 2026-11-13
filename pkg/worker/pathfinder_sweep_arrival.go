@@ -226,6 +226,12 @@ func (d *WorkerDispatch) sweepRejoin(ctx context.Context, s *sweep.State, path, 
 		return d.sweepGoHome(ctx, s, path, x, y, true)
 	}
 	s.Phase = sweep.PhaseLap
+	if d.SweepRing > 0 && d.SweepRing != s.Ring {
+		// The fleet re-spaced the rings (sweep_ring changed): take the new
+		// ring on this departure; the leg out aims at it.
+		fmt.Fprintf(d.Out, "pathfinder_sweep: ring %.0f -> %.0f (fleet config)\n", s.Ring, d.SweepRing) //nolint:errcheck
+		s.Ring = d.SweepRing
+	}
 	tx, ty, deg := sweep.NextTarget(s, x, y)
 	if s.Landed {
 		// Back from a landing: aim at the next waypoint past it, not at the
