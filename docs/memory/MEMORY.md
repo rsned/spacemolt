@@ -18,6 +18,7 @@
 - [Sunless systems = generation artifact](reference_sunless_systems_intentional.md) — 9 systems, LLM-map slip, do NOT chase; real reveal hook is gsc_0026 faint_signature
 
 ## Hard rules (detail in the linked file)
+- ⭐🔴 [Monitor reporting: actionable only](feedback_monitor_reporting_volume.md) — no per-landing/fragment/new-system posts; they flood the screen and bury losses + questions
 - [NEVER restart a disconnected worker](reference_never_restart_a_disconnected_worker.md) — only the gate reconnects it
 - [IP block: SIGSTOP/SIGCONT, stop overminds BEFORE workers](reference_sigstop_preserves_game_sessions.md) — a relaunch is a login; [runbook](reference_ip_block_20260909_freeze_and_staged_thaw.md)
 - [Schedule seeding is ADDITIVE ONLY](reference_schedule_seeding_is_additive_only.md) — removing from roles.yaml never removes from agents
