@@ -32,7 +32,7 @@ func TestNearestStationByDistanceSkipsStronghold(t *testing.T) {
 	addStationSystem(t, kb, "c_unplaced", 0, 0, false)
 	addStationSystem(t, kb, "d_far", 5000, 0, false)
 
-	id, ok, err := NearestStationByDistance(context.Background(), kb, 0, 0)
+	id, ok, err := NearestStationByDistance(context.Background(), kb, 0, 0, false)
 	if err != nil || !ok || id != "a_public" {
 		t.Fatalf("got %q ok=%v err=%v, want a_public", id, ok, err)
 	}
@@ -41,8 +41,19 @@ func TestNearestStationByDistanceSkipsStronghold(t *testing.T) {
 func TestNearestStationByDistanceNone(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
 	addStationSystem(t, kb, "only_stronghold", 10, 0, true)
-	_, ok, err := NearestStationByDistance(context.Background(), kb, 0, 0)
+	_, ok, err := NearestStationByDistance(context.Background(), kb, 0, 0, false)
 	if err != nil || ok {
 		t.Fatalf("ok=%v err=%v, want false,nil", ok, err)
+	}
+}
+
+// An explorer holding the pirate unlock may end its sweep at a stronghold.
+func TestNearestStationByDistanceIncludesStrongholdWhenUnlocked(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	addStationSystem(t, kb, "a_public", 100, 0, false)
+	addStationSystem(t, kb, "b_stronghold", 10, 0, true)
+	id, ok, err := NearestStationByDistance(context.Background(), kb, 0, 0, true)
+	if err != nil || !ok || id != "b_stronghold" {
+		t.Fatalf("got %q ok=%v err=%v, want b_stronghold", id, ok, err)
 	}
 }

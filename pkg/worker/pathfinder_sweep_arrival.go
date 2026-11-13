@@ -270,7 +270,7 @@ func (d *WorkerDispatch) sweepHomeInSystem(ctx context.Context, s *sweep.State, 
 	}
 	graph := &galaxy.GalaxyGraph{}
 	if err := graph.BuildFromDB(ctx, d.KB); err == nil {
-		if near, err := galaxy.FindNearestStation(ctx, d.KB, graph, sysID, 1, false); err == nil && len(near) > 0 && near[0].SystemID != sysID {
+		if near, err := galaxy.FindNearestStation(ctx, d.KB, graph, sysID, 1, smugglingUnlocked(d.Client.GetState())); err == nil && len(near) > 0 && near[0].SystemID != sysID {
 			s.HomeSystem = near[0].SystemID
 			if err := sweep.Save(path, s); err != nil {
 				return err
@@ -290,7 +290,9 @@ func (d *WorkerDispatch) sweepHomeInSystem(ctx context.Context, s *sweep.State, 
 // sweepStationPOI is the POI of an accessible, non-outpost station in
 // sysID, or "" when it has none.
 func (d *WorkerDispatch) sweepStationPOI(ctx context.Context, sysID string) string {
-	if sys, err := d.KB.GetSystem(ctx, sysID); err != nil || sys == nil || sys.IsStronghold {
+	unlocked := smugglingUnlocked(d.Client.GetState())
+	sys, err := d.KB.GetSystem(ctx, sysID)
+	if err != nil || sys == nil || (sys.IsStronghold && !unlocked) {
 		return ""
 	}
 	pois, err := d.KB.GetPOIs(ctx, sysID)
@@ -301,7 +303,7 @@ func (d *WorkerDispatch) sweepStationPOI(ctx context.Context, sysID string) stri
 		if p.Type != "station" {
 			continue
 		}
-		if b, err := d.KB.GetBaseByPOI(ctx, p.ID); err == nil && b != nil && b.PublicAccess && !b.IsOutpost() {
+		if b, err := d.KB.GetBaseByPOI(ctx, p.ID); err == nil && b != nil && (b.PublicAccess || sys.IsStronghold) && !b.IsOutpost() {
 			return p.ID
 		}
 	}

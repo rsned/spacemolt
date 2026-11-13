@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
@@ -69,5 +70,60 @@ func TestSweepDoneIgnoresOtherGifts(t *testing.T) {
 				t.Fatalf("calls %v, want no withdraw", c.calls)
 			}
 		})
+	}
+}
+
+func addSweepStronghold(t *testing.T, kb knowledge.Base, id string, x, y float64) {
+	t.Helper()
+	ctx := context.Background()
+	if err := kb.RememberSystem(ctx, knowledge.System{ID: id, Name: id, Position: game.Position{X: x, Y: y}, IsStronghold: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := kb.RememberPOI(ctx, knowledge.POI{ID: id + "_keep", SystemID: id, Type: "station"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := kb.RememberBase(ctx, knowledge.SpaceBase{ID: id + "_keep_station", POIID: id + "_keep"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestSweepGoesHomeToUnlockedStronghold(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		baseline int
+		want     string
+	}{{"unlocked", 10, "sheratan"}, {"locked", -30, "far_public"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, b := lapLeg()
+			x, y := back(s.TargetX, s.TargetY, b, 5)
+			kb := knowledge.NewMemoryKB()
+			addSweepStronghold(t, kb, "sheratan", x+100, y)
+			addSweepStation(t, kb, "far_public", x+3000, y)
+			st := shipWith(100, 1020)
+			st.Player.Standings = map[string]game.EmpireStanding{"pirate_thane": {Baseline: tc.baseline}}
+			c := &sweepFakeClient{state: st, launchCost: 45, locs: [][]byte{driftLoc(x, y, b)}}
+			d, path := newSweepDispatch(t, c, kb, s)
+			if err := d.PathfinderSweep(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			got, _, _ := sweep.Load(path)
+			if got.HomeSystem != tc.want {
+				t.Fatalf("home %q, want %s", got.HomeSystem, tc.want)
+			}
+		})
+	}
+}
+
+func TestSweepStationPOIUnlockedStronghold(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	addSweepStronghold(t, kb, "sheratan", 6000, -4000)
+	st := &game.State{Player: game.Player{Standings: map[string]game.EmpireStanding{"pirate_thane": {Baseline: 10}}}}
+	d := NewWorkerDispatch(&sweepFakeClient{state: st}, kb, nil, &bytes.Buffer{})
+	if got := d.sweepStationPOI(context.Background(), "sheratan"); got != "sheratan_keep" {
+		t.Fatalf("got %q, want sheratan_keep when unlocked", got)
+	}
+	st.Player.Standings["pirate_thane"] = game.EmpireStanding{Baseline: -30}
+	if got := d.sweepStationPOI(context.Background(), "sheratan"); got != "" {
+		t.Fatalf("got %q, want none when locked", got)
 	}
 }

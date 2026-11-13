@@ -7,12 +7,13 @@ import (
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
-// NearestStationByDistance is the accessible, non-stronghold station system
-// closest to map position (x,y) in a straight line: where a pathfinder ship
-// ends its sweep. Systems with no coordinates ((0,0)) are skipped; ties go
+// NearestStationByDistance is the accessible station system closest to map
+// position (x,y) in a straight line: where a pathfinder ship ends its sweep.
+// Strongholds count only with includeStrongholds (the ship holds the pirate
+// unlock; without it a stronghold is a dead end). Systems with no coordinates ((0,0)) are skipped; ties go
 // to the smaller id. ok is false when there is no candidate.
-func NearestStationByDistance(ctx context.Context, kb knowledge.Base, x, y float64) (string, bool, error) {
-	ids, err := queryAccessibleStations(ctx, kb, false)
+func NearestStationByDistance(ctx context.Context, kb knowledge.Base, x, y float64, includeStrongholds bool) (string, bool, error) {
+	ids, err := queryAccessibleStations(ctx, kb, includeStrongholds)
 	if err != nil {
 		return "", false, err
 	}

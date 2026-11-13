@@ -174,7 +174,7 @@ func (d *WorkerDispatch) sweepGoHome(ctx context.Context, s *sweep.State, path s
 		return sweep.Save(path, s)
 	}
 	fmt.Fprintf(d.Out, "pathfinder_sweep: heading home (swept %.1f°, fuel %.0f total)\n", s.SweptDeg, total) //nolint:errcheck
-	id, ok, err := galaxy.NearestStationByDistance(ctx, d.KB, x, y)
+	id, ok, err := galaxy.NearestStationByDistance(ctx, d.KB, x, y, smugglingUnlocked(d.Client.GetState()))
 	if err != nil || !ok {
 		_ = sweep.Save(path, s)
 		return fmt.Errorf("pathfinder_sweep: no station to head home to from (%.0f,%.0f): %v", x, y, err)
