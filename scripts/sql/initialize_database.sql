@@ -11,7 +11,7 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 16
+-- Migrations applied: 17
 -- Last Regenerated: 2026-11-13
 
 -- ============================================================================
@@ -1090,7 +1090,7 @@ CREATE TABLE systems (
 	empire TEXT,
 	description TEXT,
 	last_updated_tick INTEGER DEFAULT 0
-, is_stronghold BOOLEAN DEFAULT 0, security_status TEXT DEFAULT '', last_visited_tick INTEGER NOT NULL DEFAULT 0);
+, is_stronghold BOOLEAN DEFAULT 0, security_status TEXT DEFAULT '', last_visited_tick INTEGER NOT NULL DEFAULT 0, position_source TEXT NOT NULL DEFAULT 'api');
 
 
 CREATE TABLE wildlife_attacks (
@@ -1463,4 +1463,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (71, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (72, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (73, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (74, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (75, datetime('now'));
 

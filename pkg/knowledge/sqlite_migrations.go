@@ -608,6 +608,26 @@ func migrations() []Migration {
 				CREATE INDEX IF NOT EXISTS idx_hostile_loadouts_type ON hostile_loadouts(hostile_type);
 			`,
 		},
+		{
+			version: 75,
+			name:    "systems_position_source",
+			// Where a system's coordinates came from: 'api' (the map, exact),
+			// 'estimate' (operator-written; the API gives frontier systems
+			// none) or 'measured' (a pathfinder drift reading on arrival).
+			// A measurement replaces only an estimate or a (0,0) placeholder.
+			// The 19 estimated frontier systems are exactly those with no
+			// lane path to Sol on 2026-11-12.
+			fn: func(tx *sql.Tx) error {
+				if err := ensureColumn(tx, "systems", "position_source", "TEXT NOT NULL DEFAULT 'api'"); err != nil {
+					return err
+				}
+				_, err := tx.Exec(`UPDATE systems SET position_source = 'estimate' WHERE position_source = 'api' AND id IN (
+					'ash_pearl','bristle','brushfield','cold_lens','facing_away','far_wick','gloaming',
+					'grey_sill','long_night','narrows','quiet_floor','quiet_low','sallow','short_lane',
+					'slow_clock','split_lane','still_point','the_sanctum','whitecap')`)
+				return err
+			},
+		},
 	}
 }
 
