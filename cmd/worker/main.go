@@ -89,6 +89,7 @@ func main() {
 	enableFreight := flag.Bool("enable-freight", false, "Opt the missions role into the /shipping carrier path (freight evaluated co-equally with the mission board; default off)")
 	sweepRing := flag.Float64("sweep-ring", 0, "pathfinder_sweep: ring radius in LY from the galaxy centre")
 	sweepStartDeg := flag.Float64("sweep-start-deg", 0, "pathfinder_sweep: starting angle in degrees (CCW from +x)")
+	sweepStage := flag.String("sweep-stage", "", "pathfinder_sweep: optional pre-lap route refuel,launch,target (system ids)")
 	sweepLaunchCost := flag.Float64("sweep-launch-cost", 0, "pathfinder_sweep: estimated fuel per pathfinder launch (the first launch measures it)")
 	freightMaxPackages := flag.Int("freight-max-packages", 1, "Max concurrent freight contracts for the missions role (sub-project C multi-package trips; 1 = single-contract v1 behavior)")
 	consignSpec := flag.String("consign", "", "Standing consignment rules, comma-separated item:recipient:min[:keep] — hand allow-listed goods from this station's personal storage to a named hauler on each idle pass (e.g. adamantite_ore:salvager-2:50). Explicit allow-list only: gifting is irreversible.")
@@ -508,6 +509,7 @@ func main() {
 			dispatch.EnableFreight = *enableFreight
 			dispatch.FreightMaxPackages = *freightMaxPackages
 			dispatch.SweepRing, dispatch.SweepStartDeg, dispatch.SweepLaunchCost = *sweepRing, *sweepStartDeg, *sweepLaunchCost
+			dispatch.SweepStage = *sweepStage
 			dispatch.FreightBootstrap = *freightBootstrap
 			dispatch.SecondmentPath = *secondmentPath
 			dispatch.FleetName = *fleetName

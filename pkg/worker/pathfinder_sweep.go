@@ -39,6 +39,10 @@ func (d *WorkerDispatch) PathfinderSweep(ctx context.Context) error {
 		// estimate a ship would never burn its cells and would run dry.
 		return errors.New("pathfinder_sweep: sweep_launch_cost not configured")
 	}
+	stage, err := sweep.ParseStage(d.SweepStage)
+	if err != nil {
+		return fmt.Errorf("pathfinder_sweep: %w", err)
+	}
 	path := sweep.StatePath(d.agentsDir(), d.AgentID)
 	s, ok, err := sweep.Load(path)
 	if err != nil {
@@ -46,6 +50,9 @@ func (d *WorkerDispatch) PathfinderSweep(ctx context.Context) error {
 	}
 	if !ok {
 		s = sweep.NewState(d.SweepRing, d.SweepStartDeg, d.SweepLaunchCost)
+		if stage.Set() {
+			s.Phase = sweep.PhaseStage
+		}
 	}
 	if s.Phase == sweep.PhaseDone {
 		fmt.Fprintln(d.Out, "pathfinder_sweep: lap complete") //nolint:errcheck
@@ -88,6 +95,14 @@ func (d *WorkerDispatch) sweepDrift(ctx context.Context, s *sweep.State, path st
 				fmt.Fprintf(d.Out, "pathfinder_sweep: home drift missed %s (bearing %.1f, plotted %.1f); correcting\n", s.HomeSystem, l.TransitBearing, s.PlannedBearing) //nolint:errcheck
 				return d.sweepGoHome(ctx, s, path, x, y, false)
 			}
+		}
+		if s.Phase == sweep.PhaseStage && sweepHomeMissed(l, s) {
+			// A storm turned the staging drift, or it passed the target's
+			// (estimated) position without landing: give up on the target
+			// and start the lap from here.
+			fmt.Fprintf(d.Out, "pathfinder_sweep: staging drift missed its target (bearing %.1f, plotted %.1f); starting the lap\n", l.TransitBearing, s.PlannedBearing) //nolint:errcheck
+			s.Phase = sweep.PhaseLap
+			return d.sweepNextLeg(ctx, s, path, x, y)
 		}
 		if s.Phase == sweep.PhaseLap {
 			if bearingDiff(l.TransitBearing, s.PlannedBearing) > sweepStormTolerance {

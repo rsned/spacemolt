@@ -15,6 +15,7 @@ import (
 type Phase string
 
 const (
+	PhaseStage   Phase = "stage"   // pre-lap: refuel, lanes to the launch point, drift to the target
 	PhaseLap     Phase = "lap"     // following its ring
 	PhaseExplore Phase = "explore" // a drift landed it in a system: explore the cluster
 	PhaseHome    Phase = "home"    // lap over or fuel low: heading for an empire station
@@ -64,6 +65,9 @@ type State struct {
 	PendingMeasureSystem string  `json:"pending_measure_system,omitempty"`
 	PendingX             float64 `json:"pending_x,omitempty"`
 	PendingY             float64 `json:"pending_y,omitempty"`
+
+	// StageRefueled marks the staging refuel stop as done.
+	StageRefueled bool `json:"stage_refueled,omitempty"`
 
 	ArrivalToured bool `json:"arrival_toured"`
 	ExploreJumps  int  `json:"explore_jumps"`

@@ -40,6 +40,8 @@ func (d *WorkerDispatch) sweepInSystem(ctx context.Context, s *sweep.State, path
 	d.sweepWritePendingMeasure(ctx, s)
 
 	switch s.Phase {
+	case sweep.PhaseStage:
+		return d.sweepStageInSystem(ctx, s, path, sysID)
 	case sweep.PhaseHome:
 		return d.sweepHomeInSystem(ctx, s, path, sysID)
 	case sweep.PhaseLap:
@@ -125,7 +127,9 @@ func (d *WorkerDispatch) sweepArrival(ctx context.Context, s *sweep.State, sysID
 		fmt.Fprintf(d.Out, "pathfinder_sweep: %d repeater(s) recorded at %s\n", n, sysID) //nolint:errcheck
 	}
 	s.Drifted, s.ArrivalToured, s.ExploreJumps = false, false, 0
-	if s.Phase == sweep.PhaseLap {
+	if s.Phase == sweep.PhaseLap || s.Phase == sweep.PhaseStage {
+		// A staging landing explores like a lap landing; the lap then starts
+		// at the start angle, since no arc has been swept yet.
 		s.Phase = sweep.PhaseExplore
 	}
 	fmt.Fprintf(d.Out, "pathfinder_sweep: drift landed in %s (phase %s)\n", sysID, s.Phase) //nolint:errcheck

@@ -35,6 +35,8 @@ type WorkerSpec struct {
 	SweepRing       float64 `yaml:"sweep_ring,omitempty"`
 	SweepStartDeg   float64 `yaml:"sweep_start_deg,omitempty"`
 	SweepLaunchCost float64 `yaml:"sweep_launch_cost,omitempty"`
+	// SweepStage is the optional pre-lap route "refuel,launch,target".
+	SweepStage string `yaml:"sweep_stage,omitempty"`
 	// Consign forwards --consign, a standing instruction to hand named items
 	// from this station's personal storage to a named hauler as part of the
 	// ordinary idle pass -- no manual control and no interrupted routine.

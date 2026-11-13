@@ -17,4 +17,4 @@
 # mission-learn.
 workers:
   # Filled in at plan Task 9 step 4 (hull fitted, cells loaded):
-  # - { agent_id: explorer-N, role: pathfinder_sweep, station: "", sweep_ring: 7500, sweep_start_deg: 148, sweep_launch_cost: 23 }
+  # - { agent_id: explorer-N, role: pathfinder_sweep, station: "", sweep_ring: 7500, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }
