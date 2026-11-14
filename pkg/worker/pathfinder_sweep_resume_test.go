@@ -107,3 +107,51 @@ func TestSweepFullLapDoesNotResume(t *testing.T) {
 		t.Fatalf("phase %q jumps %v, want the finished lap to stay finished", got.Phase, c.jumps)
 	}
 }
+
+// laneStation is a lane-connected system with a public station.
+func laneStation(t *testing.T, kb knowledge.Base, id string, x, y float64, conns ...string) {
+	t.Helper()
+	placeSystem(t, kb, id, x, y, 1, 1, conns...)
+	ctx := context.Background()
+	if err := kb.RememberPOI(ctx, knowledge.POI{ID: id + "_station", SystemID: id, Type: "station"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := kb.RememberBase(ctx, knowledge.SpaceBase{ID: id + "_base", POIID: id + "_station", PublicAccess: true}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// explorer-5 on 2026-11-13 homed by lanes to Winterhold, one jump away,
+// twenty-five minutes after explorer-6 had found its desk dry. Lane homing
+// must skip a station on record as dry when one with fuel is reachable.
+func TestSweepHomeByLanesSkipsDryStation(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	placeSystem(t, kb, "gap", 0, 0, 1, 1, "winterhold", "relay")
+	laneStation(t, kb, "winterhold", 10, 0, "gap")
+	placeSystem(t, kb, "relay", 0, 10, 1, 1, "gap", "last_light")
+	laneStation(t, kb, "last_light", 0, 20, "relay")
+	mc, err := market.Open(market.Config{DBPath: filepath.Join(t.TempDir(), "m.db")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = mc.Close() })
+	ctx := context.Background()
+	at := time.Now().UTC().Format(time.RFC3339)
+	if err := mc.UpsertStationFuel(ctx, market.StationFuel{StationID: "last_light_base", FuelReserve: 5000, ReserveObservedAt: at, CapturedAt: at}); err != nil {
+		t.Fatal(err)
+	}
+	if err := mc.MarkDeskDry(ctx, "winterhold_base", "explorer-6", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	s := sweep.NewState(7650, 148, 45)
+	s.Phase, s.HomeSystem = sweep.PhaseHome, "gap"
+	c := inSystem("gap", 66)
+	d, _, seams := newArrivalDispatch(t, c, kb, s)
+	d.Market = mc
+	if err := d.PathfinderSweep(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(seams.navs) != 1 || seams.navs[0] != "last_light/" {
+		t.Fatalf("navs %v, want lanes to last_light (winterhold is dry)", seams.navs)
+	}
+}

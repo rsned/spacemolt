@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"github.com/rsned/spacemolt/pkg/galaxy"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/sweep"
@@ -101,4 +102,31 @@ func (d *WorkerDispatch) sweepFuelledFilter(ctx context.Context, also func(strin
 		}
 		return false
 	}
+}
+
+// sweepLaneCandidates is how many lane-nearest stations sweepLaneHome weighs
+// when looking for one whose desk has fuel.
+const sweepLaneCandidates = 10
+
+// sweepLaneHome is the lane-nearest station system to sysID, preferring one
+// whose desk was last seen with fuel; "" when no other system has a station.
+func (d *WorkerDispatch) sweepLaneHome(ctx context.Context, graph *galaxy.GalaxyGraph, sysID string) string {
+	near, err := galaxy.FindNearestStation(ctx, d.KB, graph, sysID, sweepLaneCandidates, smugglingUnlocked(d.Client.GetState()))
+	if err != nil {
+		return ""
+	}
+	first := ""
+	fuelled := d.sweepFuelledFilter(ctx, nil)
+	for _, n := range near {
+		if n.SystemID == sysID {
+			continue
+		}
+		if fuelled == nil || fuelled(n.SystemID) {
+			return n.SystemID
+		}
+		if first == "" {
+			first = n.SystemID
+		}
+	}
+	return first
 }

@@ -275,13 +275,13 @@ func (d *WorkerDispatch) sweepHomeInSystem(ctx context.Context, s *sweep.State, 
 	}
 	graph := &galaxy.GalaxyGraph{}
 	if err := graph.BuildFromDB(ctx, d.KB); err == nil {
-		if near, err := galaxy.FindNearestStation(ctx, d.KB, graph, sysID, 1, smugglingUnlocked(d.Client.GetState())); err == nil && len(near) > 0 && near[0].SystemID != sysID {
-			s.HomeSystem = near[0].SystemID
+		if home := d.sweepLaneHome(ctx, graph, sysID); home != "" {
+			s.HomeSystem = home
 			if err := sweep.Save(path, s); err != nil {
 				return err
 			}
-			fmt.Fprintf(d.Out, "pathfinder_sweep: home by lanes to %s\n", near[0].SystemID) //nolint:errcheck
-			return d.ensureHomeNav(ctx, near[0].SystemID, "")
+			fmt.Fprintf(d.Out, "pathfinder_sweep: home by lanes to %s\n", home) //nolint:errcheck
+			return d.ensureHomeNav(ctx, home, "")
 		}
 	}
 	if x, y := d.sweepPosition(ctx, s, sysID); x != 0 || y != 0 {
