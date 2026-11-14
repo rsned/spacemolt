@@ -31,6 +31,17 @@ func autopilot(client game.GameClient, ctx context.Context, parts []string, form
 		out = io.Discard
 	}
 
+	// Flag hazard systems on the route up front: a jump's landing POI is not
+	// known in advance (operator 2026-11-14). Advisory only.
+	if format == formatStyled {
+		if route, err := client.FindRoute(ctx, targetSystem); err == nil {
+			printRouteHazards(route)
+		}
+		if targetPOI != "" {
+			warnHazardAhead(client, targetPOI)
+		}
+	}
+
 	return worker.Autopilot(ctx, worker.AutopilotDeps{
 		Client: client,
 		Out:    out,

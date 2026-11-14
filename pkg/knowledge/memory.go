@@ -221,6 +221,8 @@ func (kb *MemoryKB) RememberPOI(ctx context.Context, poi POI) error {
 		RevealDifficulty: poi.RevealDifficulty,
 		ExpiresAt:        poi.ExpiresAt,
 		LastUpdatedTick:  poi.LastUpdatedTick,
+		HazardType:       poi.HazardType,
+		HazardSeverity:   poi.HazardSeverity,
 	}
 
 	return nil

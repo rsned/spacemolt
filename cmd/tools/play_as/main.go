@@ -493,6 +493,13 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			}
 			printPushEvent(resp, selfID)
 		})
+		// The server's hazard_warning push is the line (operator 2026-11-14):
+		// short visits are allowed, a dose means leave.
+		wsClient.SetOnPushEvent(func(resp protocol.Response) {
+			if resp.Type == protocol.TypeHazardWarning {
+				hazardAutoEscape(ctx, client)
+			}
+		})
 	}
 
 	// Scheduler: user-registered recurring commands (hourly/daily/weekly).
@@ -657,6 +664,27 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			default:
 				fmt.Printf("Unknown format %q. Use: raw, json, or styled\n", parts[1])
 			}
+			fmt.Println()
+			continue
+		}
+
+		// Handle set_hazard_escape: leave a POI on the server's hazard_warning
+		// push (default on). Off for a deliberate stay at a hazard POI.
+		if command == "set_hazard_escape" {
+			if len(parts) < 2 {
+				fmt.Printf("Hazard auto-escape is %s\n", enabledWord(hazardEscapeOn.Load()))
+				fmt.Println("Usage: set_hazard_escape <on|off>")
+				fmt.Println()
+				continue
+			}
+			enabled, perr := parseOnOff(parts[1])
+			if perr != nil {
+				fmt.Printf("set_hazard_escape: unrecognized value %q (use on/off)\n", parts[1])
+				fmt.Println()
+				continue
+			}
+			hazardEscapeOn.Store(enabled)
+			fmt.Printf("Hazard auto-escape %s\n", enabledWord(enabled))
 			fmt.Println()
 			continue
 		}
@@ -7271,11 +7299,14 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 				est.distance, est.speed, est.ticks, est.ticks*10, est.fuel)
 		}
 
+		warnHazardAhead(client, target)
+
 		// Server blocks until travel completes.
 		result, err := client.Travel(ctx, target)
 		if err != nil {
 			return err
 		}
+		defer warnHazardArrived(client, "poi", "travel", "_last")
 		// Compare server-reported arrival vs. our pre-travel estimate so
 		// we can spot drift in the estimator (distance/speed formula).
 		if est.valid && result != nil && result.ArrivalTick > 0 && result.StartTick > 0 {
@@ -7334,6 +7365,9 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 			return err
 		}
 		showLastResponse(client, format, cmd)
+		if res == nil || !res.Drifting {
+			warnHazardArrived(client, "jump", "poi", "_last")
+		}
 		if res != nil && res.Drifting {
 			// Pathfinder bearing: nothing to save until the drift lands. The
 			// server plots the intercept at engage time; get_system shows it.
@@ -8703,6 +8737,7 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 		for i, step := range route {
 			fmt.Printf("  %d. %s (%d jumps)\n", i+1, step.Name, step.Jumps)
 		}
+		printRouteHazards(route)
 		return nil
 
 	case "nearest":

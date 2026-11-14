@@ -903,3 +903,6 @@ func logUnhandledResponseType(resp protocol.Response) {
 		"Unhandled response type %q - add case to handleResponse() and constant to protocol/messages.go.\nFull payload: %s",
 		resp.Type, string(payloadJSON))
 }
+
+// AlertTag is alertTag for other packages (play_as hazard banners).
+func AlertTag(label string, styled bool) string { return alertTag(label, styled) }

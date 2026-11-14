@@ -197,3 +197,8 @@ func hazardGate(ctx context.Context, out io.Writer, st *game.State, now time.Tim
 	fmt.Fprintf(out, "☢️  hazard: escaped (%s)\n", why) //nolint:errcheck
 	return fmt.Errorf("%w: %s", ErrHazardEscape, why)
 }
+
+// HazardRefuge is hazardRefuge for play_as: the command steps that take the
+// ship off a dosing POI (dock here, travel+dock at a clean station, or travel
+// to the nearest clean POI). Nil when the system offers nowhere safe.
+func HazardRefuge(st *game.State) [][]string { return hazardRefuge(st) }
