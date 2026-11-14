@@ -151,7 +151,9 @@ type FactionScanPOIResponse struct {
 	// aggressive one attacks ships at its POI, so this is a go/no-go for
 	// sending anything smaller than a warship.
 	Leviathans []LeviathanContact `json:"leviathans,omitempty"`
-	Message    string             `json:"message"`
+	// Repeaters at the POI (openapi 2026-11-13). Omitted when none are here.
+	Repeaters []RepeaterInfo `json:"repeaters,omitempty"`
+	Message   string         `json:"message"`
 }
 
 // LeviathanContact is a leviathan turned up by a POI scan (v0.618). Hull damage
