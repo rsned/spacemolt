@@ -4767,13 +4767,15 @@ type nearbyCreature struct {
 // formatNearby formats a get_nearby response as a table.
 func formatNearby(raw []byte) string {
 	var resp struct {
-		POIID         string           `json:"poi_id"`
-		Count         int              `json:"count"`
-		PirateCount   int              `json:"pirate_count"`
-		CreatureCount int              `json:"creature_count"`
-		Nearby        []nearbyPlayer   `json:"nearby"`
-		Pirates       []nearbyPirate   `json:"pirates"`
-		Creatures     []nearbyCreature `json:"creatures"`
+		POIID         string                   `json:"poi_id"`
+		Count         int                      `json:"count"`
+		PirateCount   int                      `json:"pirate_count"`
+		CreatureCount int                      `json:"creature_count"`
+		Nearby        []nearbyPlayer           `json:"nearby"`
+		Pirates       []nearbyPirate           `json:"pirates"`
+		Creatures     []nearbyCreature         `json:"creatures"`
+		RepeaterCount int                      `json:"repeater_count"`
+		Repeaters     []serverapi.RepeaterInfo `json:"repeaters"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return ""
@@ -4795,8 +4797,29 @@ func formatNearby(raw []byte) string {
 	}
 
 	writeCreatureTable(&b, resp.CreatureCount, resp.Creatures)
+	writeRepeaterTable(&b, resp.RepeaterCount, resp.Repeaters)
 
 	return b.String()
+}
+
+// writeRepeaterTable lists the Frontier Repeaters at the POI. Emits nothing
+// when there are none.
+func writeRepeaterTable(b *strings.Builder, count int, reps []serverapi.RepeaterInfo) {
+	if count < len(reps) {
+		count = len(reps)
+	}
+	if count == 0 {
+		return
+	}
+	fmt.Fprintf(b, "\nRepeaters:  %d\n", count)
+	for _, r := range reps {
+		state := ""
+		if r.InBattle {
+			state = "  IN BATTLE"
+		}
+		fmt.Fprintf(b, "  %-18s %-8s hull %d/%d  shield %d/%d  %s%s\n",
+			r.Name, r.ShipClass, r.Hull, r.MaxHull, r.Shield, r.MaxShield, r.RepeaterID, state)
+	}
 }
 
 // writeCreatureTable renders the wildlife at this POI. The creature id is the

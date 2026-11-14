@@ -61,3 +61,28 @@ func TestFormatNearbyCreatureCountFallback(t *testing.T) {
 		t.Errorf("expected fallback to the slice length, got:\n%s", out)
 	}
 }
+
+// liveNearbyWithRepeaters is the tail of a real get_nearby reply at
+// pale_carbon_trace (2026-11-13), verbatim.
+const liveNearbyWithRepeaters = `{"count":0,"nearby":[],"pirate_count":0,"pirates":[],"poi_id":"pale_carbon_trace","prize_count":0,"prizes":[],"repeater_count":2,"repeaters":[{"hull":100,"in_battle":false,"max_hull":100,"max_shield":150,"name":"Repeater Sliver","repeater_id":"repeater_15a2125c00d7ebb47f74f3cbfa80848d","shield":150,"ship_class":"sliver"},{"hull":400,"in_battle":true,"max_hull":400,"max_shield":600,"name":"Repeater Pane","repeater_id":"repeater_5508d0c50bd80a1a38ff671e54e0bcb9","shield":600,"ship_class":"pane"}]}`
+
+// get_nearby dropped Frontier Repeaters, so a POI holding two rendered empty.
+func TestFormatNearbyRendersRepeaters(t *testing.T) {
+	out := formatNearby([]byte(liveNearbyWithRepeaters))
+	for _, want := range []string{
+		"Repeaters:  2",
+		"Repeater Sliver", "sliver", "100/100", "150/150", "repeater_15a2125c00d7ebb47f74f3cbfa80848d",
+		"Repeater Pane", "400/400", "600/600", "IN BATTLE",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}
+
+func TestFormatNearbyNoRepeatersNoHeading(t *testing.T) {
+	out := formatNearby([]byte(liveNearbyWithCreatures))
+	if strings.Contains(out, "Repeaters") {
+		t.Errorf("repeater heading printed with none:\n%s", out)
+	}
+}
