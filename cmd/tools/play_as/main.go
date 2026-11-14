@@ -6340,6 +6340,7 @@ type systemPOI struct {
 	HasBase  bool   `json:"has_base,omitempty"`
 	BaseID   string `json:"base_id,omitempty"`
 	BaseName string `json:"base_name,omitempty"`
+	BaseType string `json:"base_type,omitempty"` // v0.684.0: station, outpost or mobile_base
 	ParentID string `json:"parent_id,omitempty"` // v0.692.0: attached to this POI
 }
 
@@ -6412,24 +6413,25 @@ func formatSystem(raw []byte) string {
 	if len(sys.POIs) == 0 {
 		b.WriteString("  (none)\n")
 	} else {
-		nameW, idW, typeW := len("Name"), len("ID"), len("Type")
+		nameW, idW, typeW, baseW := len("Name"), len("ID"), len("Type"), len("Base")
 		for _, p := range sys.POIs {
 			nameW = max(nameW, len(p.Name))
 			idW = max(idW, len(p.ID))
 			typeW = max(typeW, len(p.Type))
+			baseW = max(baseW, len(p.BaseType))
 		}
 
-		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | Position\n",
-			nameW, "Name", idW, "ID", typeW, "Type")
-		b.WriteString(strings.Repeat("-", nameW+idW+typeW+18) + "\n")
+		fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | Position\n",
+			nameW, "Name", idW, "ID", typeW, "Type", baseW, "Base")
+		b.WriteString(strings.Repeat("-", nameW+idW+typeW+baseW+21) + "\n")
 
 		for _, p := range sys.POIs {
 			pos := fmt.Sprintf("(%.1f, %.1f)", p.Position.X, p.Position.Y)
 			if p.ParentID != "" {
 				pos += "  ↳ attached to " + p.ParentID
 			}
-			fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %s\n",
-				nameW, p.Name, idW, p.ID, typeW, p.Type, pos)
+			fmt.Fprintf(&b, "%-*s | %-*s | %-*s | %-*s | %s\n",
+				nameW, p.Name, idW, p.ID, typeW, p.Type, baseW, p.BaseType, pos)
 		}
 	}
 

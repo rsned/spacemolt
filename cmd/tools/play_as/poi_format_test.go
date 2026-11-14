@@ -104,3 +104,28 @@ func TestFormatSystemShowsPOIParent(t *testing.T) {
 		t.Errorf("missing parent in:\n%s", got)
 	}
 }
+
+// v0.684.0 base_type distinguishes a full station from a mobile base or
+// outpost that the POI type ("station") does not.
+func TestFormatSystemShowsBaseType(t *testing.T) {
+	raw := `{"system":{"id":"irlc","name":"Ironlight","pois":[` +
+		`{"base_id":"b1","base_name":"Ironlight Refuge","base_type":"station","has_base":true,"id":"c834","name":"Ironlight Refuge","position":{"x":-0.1,"y":0.4},"type":"station"},` +
+		`{"base_id":"irlc_civitas","base_name":"Civitas","base_type":"mobile_base","has_base":true,"id":"irlc_civitas","name":"Civitas","position":{"x":-0.7,"y":5},"type":"station"},` +
+		`{"id":"belt","name":"Rock Belt","position":{"x":3,"y":1},"type":"asteroid_belt"}]}}`
+	got := formatSystem([]byte(raw))
+	var civ, belt string
+	for _, l := range strings.Split(got, "\n") {
+		switch {
+		case strings.HasPrefix(l, "Civitas"):
+			civ = l
+		case strings.HasPrefix(l, "Rock Belt"):
+			belt = l
+		}
+	}
+	if !strings.Contains(got, "| Base") || !strings.Contains(civ, "mobile_base") {
+		t.Fatalf("no base type column / Civitas row %q in:\n%s", civ, got)
+	}
+	if strings.Contains(belt, "station") || strings.Contains(belt, "mobile_base") {
+		t.Errorf("belt row %q shows a base type", belt)
+	}
+}
