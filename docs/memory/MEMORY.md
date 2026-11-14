@@ -72,3 +72,4 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [Schedule due batch not cancellable](reference_schedule_due_batch_not_cancellable.md) — removing a task mid-batch does not stop it; one-off buys fire twice
 - ⭐ [Uncharted-system fragments (11-13)](reference_uncharted_system_fragments.md) — "Unknown source" hex on system chat; Fibonacci cipher; system history is per-SYSTEM so only push capture keeps them; sweep workers save to mbox
 - [Pathfinder frontier sweep (11-12)](project_pathfinder_frontier_sweep.md) — spec+plan approved; MERGED 11-13 + migration 75 applied; ops pending: 7 drives in CJ faction storage, buy hulls
+- [Intel Center L2 auto-sync (11-13)](reference_intel_center_autosync.md) — CJ intel auto-collects verified POI/system data from member reads; no ship sightings; sensor_dome not built
