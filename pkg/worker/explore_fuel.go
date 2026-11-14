@@ -104,12 +104,25 @@ func exploreFuelStop(ctx context.Context, deps ExploreDeps, out io.Writer, curre
 func exploreRefuelDocked(ctx context.Context, deps ExploreDeps, out io.Writer) error {
 	if err := deps.Client.Refuel(ctx); err != nil {
 		fmt.Fprintf(out, "explore: station refuel failed: %v\n", err) //nolint:errcheck
-		return nil
+	} else {
+		_ = deps.Client.GetStatus(ctx)
+		if s := deps.Client.GetState(); s != nil {
+			f, m := s.GetFuel()
+			fmt.Fprintf(out, "explore: refueled: %.0f/%.0f\n", f, m) //nolint:errcheck
+		}
 	}
-	_ = deps.Client.GetStatus(ctx)
-	if s := deps.Client.GetState(); s != nil {
-		f, m := s.GetFuel()
-		fmt.Fprintf(out, "explore: refueled: %.0f/%.0f\n", f, m) //nolint:errcheck
+	// Repair too: a frontier run meets hazards far from any station, and a
+	// hull left damaged from the last one is what the next one kills.
+	if s := deps.Client.GetState(); s != nil && s.Ship.MaxHull > 0 && s.Ship.Hull < s.Ship.MaxHull {
+		before := s.Ship.Hull
+		if err := deps.Client.Repair(ctx); err != nil {
+			fmt.Fprintf(out, "explore: station repair failed: %v\n", err) //nolint:errcheck
+			return nil
+		}
+		_ = deps.Client.GetStatus(ctx)
+		if s2 := deps.Client.GetState(); s2 != nil {
+			fmt.Fprintf(out, "explore: repaired: hull %v -> %v/%v\n", before, s2.Ship.Hull, s2.Ship.MaxHull) //nolint:errcheck
+		}
 	}
 	return nil
 }

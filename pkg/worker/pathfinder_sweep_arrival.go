@@ -69,6 +69,10 @@ func (d *WorkerDispatch) sweepInSystem(ctx context.Context, s *sweep.State, path
 		s.AddUnfinished(sysID)
 		return d.sweepRejoin(ctx, s, path, sysID)
 	}
+	if !s.ArrivalToured && !d.sweepLeaveHazardPOI(ctx, sysID, loc.Location.POIID) {
+		s.AddUnfinished(sysID)
+		return d.sweepRejoin(ctx, s, path, sysID)
+	}
 	if leave, why := hazardShouldLeave(st, time.Now()); leave {
 		fmt.Fprintf(d.Out, "pathfinder_sweep: hazard at %s (%s); leaving\n", sysID, why) //nolint:errcheck
 		s.AddUnfinished(sysID)
@@ -96,7 +100,16 @@ func (d *WorkerDispatch) sweepInSystem(ctx context.Context, s *sweep.State, path
 				return err
 			}
 			fmt.Fprintf(d.Out, "pathfinder_sweep: explore run step %d: %s -> %s\n", s.ExploreJumps, sysID, target) //nolint:errcheck
-			return d.sweepExploreStepFn()(ctx, deps)
+			err := d.sweepExploreStepFn()(ctx, deps)
+			if !sweepUnroutable(err) {
+				return err
+			}
+			// The target is in the KB but not on the server's lane map:
+			// retrying parks the ship on whatever POI it landed at
+			// (explorer-4, nine tries on a radiation POI). Give up here.
+			fmt.Fprintf(d.Out, "pathfinder_sweep: %s is unroutable from %s (%v); logged unfinished, rejoining\n", target, sysID, err) //nolint:errcheck
+			s.AddUnfinished(sysID)
+			return d.sweepRejoin(ctx, s, path, sysID)
 		}
 	} else {
 		fmt.Fprintf(d.Out, "pathfinder_sweep: explore run hit %d jumps at %s; logged unfinished\n", sweepExploreMaxJumps, sysID) //nolint:errcheck
@@ -231,6 +244,7 @@ func (d *WorkerDispatch) sweepRejoin(ctx context.Context, s *sweep.State, path, 
 	if !sweep.CanContinue(tank, cells, premium, s.LaunchCost) {
 		return d.sweepGoHome(ctx, s, path, x, y, true)
 	}
+	d.sweepRepairBeforeLaunch(ctx, sysID)
 	s.Phase = sweep.PhaseLap
 	if d.SweepRing > 0 && d.SweepRing != s.Ring {
 		// The fleet re-spaced the rings (sweep_ring changed): take the new
