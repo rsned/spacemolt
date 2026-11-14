@@ -19,6 +19,9 @@ type burnFake struct {
 	perJump  float64
 	at       string // current POI ("" = arrival point)
 	stations map[string]bool
+	// pendingTravel is how many Travel calls fail with the server's
+	// action_pending error before one goes through.
+	pendingTravel int
 }
 
 func (b *burnFake) Jump(ctx context.Context, sys string) (*game.JumpResult, error) {
@@ -35,6 +38,10 @@ func (b *burnFake) Jump(ctx context.Context, sys string) (*game.JumpResult, erro
 
 func (b *burnFake) Travel(ctx context.Context, poi string) (*game.TravelResult, error) {
 	b.calls = append(b.calls, "travel:"+poi)
+	if b.pendingTravel > 0 {
+		b.pendingTravel--
+		return nil, errors.New("action pending: another action () is in progress")
+	}
 	if b.state.Fuel < 1 {
 		return nil, errors.New("Insufficient fuel for travel")
 	}
@@ -109,6 +116,22 @@ func TestAutopilotStopsToRefuelWhenBelowReserve(t *testing.T) {
 	}
 	if b.state.Fuel < 3 {
 		t.Errorf("arrived with %.0f fuel, want a reserve left", b.state.Fuel)
+	}
+}
+
+// trucker-09 on 2026-11-14: the refuel stop's travel went out while the jump
+// into the system was still pending server-side, failed with action_pending,
+// and the ship flew on unrefuelled. The stop must wait for the pending action
+// to clear and try again.
+func TestRefuelStopWaitsOutPendingAction(t *testing.T) {
+	b, kb := routeFake(t, 15)
+	b.pendingTravel = 2
+	if err := Autopilot(context.Background(), AutopilotDeps{Client: b, Out: io.Discard, KB: kb, AvoidSystemsPath: t.TempDir() + "/none.json"}, "s5", "s5_market"); err != nil {
+		t.Fatalf("Autopilot: %v (calls %v)", err, b.calls)
+	}
+	i := slices.Index(b.calls, "travel:s3_stn")
+	if i < 0 || !slices.Contains(b.calls[i:], "refuel") {
+		t.Fatalf("calls %v, want the s3 stop to retry past action_pending and refuel", b.calls)
 	}
 }
 

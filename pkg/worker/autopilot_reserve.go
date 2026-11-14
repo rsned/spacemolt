@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -20,6 +21,28 @@ func routeReserve(fuelPerJump int, targetPOI string) int {
 		return 2 * fuelPerJump
 	}
 	return fuelPerJump
+}
+
+// pendingRetries bounds waitOutPending: a jump settles within a couple of
+// ticks, so five tick-long waits clear anything but a genuinely stuck action.
+const pendingRetries = 5
+
+// waitOutPending runs act, and while the server answers that another action
+// is still pending (the jump into this system has not finished settling),
+// waits a tick and tries again. Any other error, or the last pending one,
+// is returned.
+func waitOutPending(ctx context.Context, act func() error) error {
+	var err error
+	for range pendingRetries {
+		if err = act(); err == nil || !strings.Contains(err.Error(), "action pending") {
+			return err
+		}
+		settle(ctx, game.SleepTick)
+		if ctx.Err() != nil {
+			return err
+		}
+	}
+	return err
 }
 
 // refuelStopIfShort tops up at the station in systemID when the ship holds
@@ -45,16 +68,16 @@ func refuelStopIfShort(ctx context.Context, kb knowledge.Base, client game.GameC
 	}
 	fmt.Fprintf(out, "  Fuel %.0f is short of the %d the rest of the route needs; refuelling at %s\n", fuel, need, poi) //nolint:errcheck
 	if !st.IsDocked() {
-		if _, err := client.Travel(ctx, poi); err != nil {
+		if err := waitOutPending(ctx, func() error { _, err := client.Travel(ctx, poi); return err }); err != nil {
 			fmt.Fprintf(out, "  refuel stop: travel to %s failed: %v; flying on\n", poi, err) //nolint:errcheck
 			return
 		}
-		if err := client.Dock(ctx); err != nil {
+		if err := waitOutPending(ctx, func() error { return client.Dock(ctx) }); err != nil {
 			fmt.Fprintf(out, "  refuel stop: dock at %s failed: %v; flying on\n", poi, err) //nolint:errcheck
 			return
 		}
 	}
-	if err := client.Refuel(ctx); err != nil {
+	if err := waitOutPending(ctx, func() error { return client.Refuel(ctx) }); err != nil {
 		fmt.Fprintf(out, "  refuel stop: refuel at %s failed: %v; flying on\n", poi, err) //nolint:errcheck
 		return
 	}
