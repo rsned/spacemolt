@@ -21,3 +21,6 @@ charted galaxy may hide more (pathfinder drift captures within ~50-90 LY, so
 Design still open — void detection from KB system positions, path shape
 (straight chords vs. rings), and how the lap code is reused. Brainstorm with
 the user before building.
+
+**Shape idea (user, 11-14):** each agent gets one void zone and flies a
+back-and-forth square wave (lawnmower) through it, lanes ~100 LY apart.
