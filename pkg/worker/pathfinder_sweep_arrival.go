@@ -156,14 +156,14 @@ func (d *WorkerDispatch) sweepArrival(ctx context.Context, s *sweep.State, sysID
 			s.PendingMeasureSystem, s.PendingX, s.PendingY = sysID, s.LastX, s.LastY
 			s.PendingMeasureName = loc.Location.SystemName
 		}
-		if s.Phase == sweep.PhaseLap {
+		if s.Phase == sweep.PhaseLap && s.Mode != sweep.ModeVoid {
 			// Count the arc up to the landing.
 			if deg := unwrapNear(s.LastX, s.LastY, s.ProgressDeg); deg < s.ProgressDeg && deg >= s.TargetDeg-sweep.StepDeg {
 				sweep.Advance(s, deg)
 			}
 		}
 	}
-	if s.Phase == sweep.PhaseLap && sysID != "" {
+	if s.Phase == sweep.PhaseLap && s.Mode != sweep.ModeVoid && sysID != "" {
 		// A landing even with no reading since the last launch (captured on
 		// the tick after a replot): the rejoin must still step past it, or
 		// it aims at the current angle and drifts back in (explorer-5 at
@@ -246,6 +246,16 @@ func (d *WorkerDispatch) sweepRejoin(ctx context.Context, s *sweep.State, path, 
 	}
 	d.sweepRepairBeforeLaunch(ctx, sysID)
 	s.Phase = sweep.PhaseLap
+	if s.Mode == sweep.ModeVoid {
+		// Back to the zone's current waypoint: a landing or a storm leaves
+		// the leg unfinished, so it is flown again from here.
+		if s.Waypoint >= len(s.Waypoints) {
+			return sweep.Save(path, s)
+		}
+		wp := s.Waypoints[s.Waypoint]
+		s.TargetX, s.TargetY = wp.X, wp.Y
+		return d.sweepLaunch(ctx, s, path, sweep.BearingTo(x, y, wp.X, wp.Y))
+	}
 	if d.SweepRing > 0 && d.SweepRing != s.Ring {
 		// The fleet re-spaced the rings (sweep_ring changed): take the new
 		// ring on this departure; the leg out aims at it.

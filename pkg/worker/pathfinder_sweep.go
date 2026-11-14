@@ -35,6 +35,9 @@ const (
 //
 // Spec: docs/superpowers/specs/2026-11-12-pathfinder-frontier-sweep-design.md
 func (d *WorkerDispatch) PathfinderSweep(ctx context.Context) error {
+	if d.SweepMode == sweep.ModeVoid {
+		return d.voidSweep(ctx)
+	}
 	if d.SweepRing <= 0 {
 		return errors.New("pathfinder_sweep: sweep_ring not configured")
 	}
@@ -115,7 +118,11 @@ func (d *WorkerDispatch) sweepDrift(ctx context.Context, s *sweep.State, path st
 			s.Phase = sweep.PhaseLap
 			return d.sweepNextLeg(ctx, s, path, x, y)
 		}
-		if s.Phase == sweep.PhaseLap {
+		if s.Phase == sweep.PhaseLap && s.Mode == sweep.ModeVoid {
+			if handled, err := d.voidDriftStep(ctx, s, path, l, x, y); handled {
+				return err
+			}
+		} else if s.Phase == sweep.PhaseLap {
 			if bearingDiff(l.TransitBearing, s.PlannedBearing) > sweepStormTolerance {
 				s.Gaps = append(s.Gaps, sweep.Gap{FromDeg: s.ProgressDeg, ToDeg: s.TargetDeg, Reason: "storm"})
 				fmt.Fprintf(d.Out, "pathfinder_sweep: storm deflected the drift (bearing %.1f, plotted %.1f); gap %.1f°→%.1f° logged, re-aiming\n", //nolint:errcheck
