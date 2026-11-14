@@ -7415,19 +7415,9 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 			return fmt.Errorf("usage: battle <action> [--stance <stance>] [--target_id <id>] [--side_id <id>]")
 		}
 		action := parts[1]
-		payload := map[string]any{"action": action}
-		flags, err := parseFlagArgs(parts[2:], "stance", "target_id", "side_id")
+		payload, err := battlePayload(parts)
 		if err != nil {
 			return err
-		}
-		for k, v := range flags {
-			if k == "side_id" {
-				if n, ok := flagInt(v); ok {
-					payload[k] = n
-				}
-			} else {
-				payload[k] = v
-			}
 		}
 		// advance/retreat/engage are battle moves that resolve over a full
 		// game tick — gate the next command on a full tick so a loop issues
@@ -12002,4 +11992,50 @@ func runScript(client game.GameClient, ctx context.Context, arg string, format o
 		}
 	}
 	fmt.Printf("✓ script %s complete\n", path)
+}
+
+// battlePayload builds the battle message from `battle <action> [value]
+// [--stance s] [--target_id id] [--side_id n]`. A positional value fills the
+// action's own field (`battle stance fire`, `battle target <id>`); it used to
+// be dropped silently, so the server saw a stance with no stance.
+func battlePayload(parts []string) (map[string]any, error) {
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("usage: battle <action> [value] [--stance <stance>] [--target_id <id>] [--side_id <id>]")
+	}
+	action := parts[1]
+	payload := map[string]any{"action": action}
+	flags, err := parseFlagArgs(parts[2:], "stance", "target_id", "side_id")
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range flags {
+		if k == "side_id" {
+			if n, ok := flagInt(v); ok {
+				payload[k] = n
+			}
+		} else {
+			payload[k] = v
+		}
+	}
+	var positional []string
+	for i := 2; i < len(parts); i++ {
+		if strings.HasPrefix(parts[i], "--") {
+			if !strings.Contains(parts[i], "=") && i+1 < len(parts) && !strings.HasPrefix(parts[i+1], "--") {
+				i++ // skip the flag's value
+			}
+			continue
+		}
+		positional = append(positional, parts[i])
+	}
+	field := map[string]string{"stance": "stance", "target": "target_id"}[action]
+	switch {
+	case len(positional) > 1 || (len(positional) == 1 && field == ""):
+		return nil, fmt.Errorf("battle %s: unexpected argument(s) %v", action, positional)
+	case len(positional) == 1:
+		payload[field] = positional[0]
+	}
+	if action == "stance" && payload["stance"] == nil {
+		return nil, fmt.Errorf("usage: battle stance <fire|evade|brace|flee|board>")
+	}
+	return payload, nil
 }
