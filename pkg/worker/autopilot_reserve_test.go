@@ -1,0 +1,141 @@
+package worker
+
+import (
+	"context"
+	"errors"
+	"io"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+)
+
+// burnFake is fakeClient with a ship that burns perJump fuel on every jump,
+// docks only after travelling to a station POI, and refuels to full there.
+type burnFake struct {
+	*fakeClient
+	perJump  float64
+	at       string // current POI ("" = arrival point)
+	stations map[string]bool
+}
+
+func (b *burnFake) Jump(ctx context.Context, sys string) (*game.JumpResult, error) {
+	b.calls = append(b.calls, "jump:"+sys)
+	if b.state.Fuel < b.perJump {
+		return nil, errors.New("Insufficient fuel for jump")
+	}
+	b.state.Fuel -= b.perJump
+	b.state.Ship.Fuel = b.state.Fuel
+	b.state.Doc = false
+	b.at = ""
+	return &game.JumpResult{}, nil
+}
+
+func (b *burnFake) Travel(ctx context.Context, poi string) (*game.TravelResult, error) {
+	b.calls = append(b.calls, "travel:"+poi)
+	if b.state.Fuel < 1 {
+		return nil, errors.New("Insufficient fuel for travel")
+	}
+	b.state.Fuel--
+	b.state.Ship.Fuel = b.state.Fuel
+	b.at = poi
+	return &game.TravelResult{}, nil
+}
+
+func (b *burnFake) Dock(ctx context.Context) error {
+	b.calls = append(b.calls, "dock")
+	if !b.stations[b.at] {
+		return errors.New("No station at this location")
+	}
+	b.state.Doc = true
+	return nil
+}
+
+func (b *burnFake) Refuel(ctx context.Context) error {
+	b.calls = append(b.calls, "refuel")
+	if !b.state.Doc {
+		return errors.New("not docked")
+	}
+	b.state.Fuel = b.state.MaxFuel
+	b.state.Ship.Fuel = b.state.Fuel
+	return nil
+}
+
+// routeFake is a five-jump route at 3 fuel a jump (15 total) from a
+// station-less origin point, with a public station in the third system.
+func routeFake(t *testing.T, fuel float64) (*burnFake, knowledge.Base) {
+	t.Helper()
+	kb := knowledge.NewMemoryKB()
+	ctx := context.Background()
+	for _, id := range []string{"s0", "s1", "s2", "s3", "s4", "s5"} {
+		if err := kb.RememberSystem(ctx, knowledge.System{ID: id, Name: id}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := kb.RememberPOI(ctx, knowledge.POI{ID: "s3_stn", SystemID: "s3", Type: "station"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := kb.RememberBase(ctx, knowledge.SpaceBase{ID: "s3_base", POIID: "s3_stn", PublicAccess: true}); err != nil {
+		t.Fatal(err)
+	}
+	st := &game.State{Fuel: fuel, MaxFuel: 110}
+	st.Ship.Fuel, st.Ship.MaxFuel = fuel, 110
+	st.Player.Standings = map[string]game.EmpireStanding{"pirate_x": {Baseline: 10}}
+	f := &fakeClient{
+		state: st,
+		route: []game.RouteStep{{SystemID: "s0"}, {SystemID: "s1"}, {SystemID: "s2"}, {SystemID: "s3"}, {SystemID: "s4"}, {SystemID: "s5"}},
+		raw:   map[string][]byte{"_last": []byte(`{"fuel_per_jump":3,"estimated_fuel":15,"fuel_available":15}`)},
+	}
+	return &burnFake{fakeClient: f, perJump: 3, stations: map[string]bool{"s3_stn": true}}, kb
+}
+
+// trader-4 on 2026-11-13 re-planned a 16-jump route from a station-less POI
+// with exactly the 48 fuel it needed, arrived in The Anvil with 0 and could
+// not make the in-system hop to the Arsenal. A ship short of the reserve must
+// stop at a station on the way.
+func TestAutopilotStopsToRefuelWhenBelowReserve(t *testing.T) {
+	b, kb := routeFake(t, 15)
+	if err := Autopilot(context.Background(), AutopilotDeps{Client: b, Out: io.Discard, KB: kb, AvoidSystemsPath: t.TempDir() + "/none.json"}, "s5", "s5_market"); err != nil {
+		t.Fatalf("Autopilot: %v (calls %v)", err, b.calls)
+	}
+	i := slices.Index(b.calls, "travel:s3_stn")
+	if i < 0 || !slices.Contains(b.calls[i:], "refuel") {
+		t.Fatalf("calls %v, want a station stop and refuel at s3", b.calls)
+	}
+	if !slices.Contains(b.calls, "travel:s5_market") {
+		t.Errorf("calls %v, want the final hop to s5_market", b.calls)
+	}
+	if b.state.Fuel < 3 {
+		t.Errorf("arrived with %.0f fuel, want a reserve left", b.state.Fuel)
+	}
+}
+
+func TestAutopilotNoStopWithReserve(t *testing.T) {
+	b, kb := routeFake(t, 100)
+	if err := Autopilot(context.Background(), AutopilotDeps{Client: b, Out: io.Discard, KB: kb, AvoidSystemsPath: t.TempDir() + "/none.json"}, "s5", "s5_market"); err != nil {
+		t.Fatalf("Autopilot: %v", err)
+	}
+	for _, c := range b.calls {
+		if strings.HasPrefix(c, "travel:s3_stn") || c == "refuel" {
+			t.Fatalf("calls %v, want no refuel stop with fuel to spare", b.calls)
+		}
+	}
+}
+
+func TestRouteReserve(t *testing.T) {
+	for _, tc := range []struct {
+		perJump int
+		poi     string
+		want    int
+	}{
+		{3, "", 3},    // one spare jump
+		{3, "stn", 6}, // plus the in-system hop
+		{0, "stn", 0}, // unknown cost: no reserve
+	} {
+		if got := routeReserve(tc.perJump, tc.poi); got != tc.want {
+			t.Errorf("routeReserve(%d,%q) = %d, want %d", tc.perJump, tc.poi, got, tc.want)
+		}
+	}
+}

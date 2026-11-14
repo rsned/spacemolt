@@ -312,7 +312,16 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 	// this, a mobile worker carrying no fuel cells (e.g. a hauler) strands on jump 1.
 	// With FuelPriceAt configured this also defers a merely-optional top-off when the
 	// destination sells fuel cheaper.
-	fuelAvailable = ensureRouteFuel(ctx, client, out, estimatedFuel, fuelAvailable, deps.fuelTimingFor(targetPOI, fuelPerJump))
+	// The jump estimate leaves nothing for the final in-system hop: trader-4
+	// (2026-11-13) left with exactly the 48 fuel a 16-jump route needed and
+	// stranded in The Anvil one hop short of the Arsenal. Top up to the route
+	// plus a reserve, and stop on the way when the ship could not.
+	reserve := routeReserve(fuelPerJump, targetPOI)
+	needed := estimatedFuel
+	if needed > 0 {
+		needed += reserve
+	}
+	fuelAvailable = ensureRouteFuel(ctx, client, out, needed, fuelAvailable, deps.fuelTimingFor(targetPOI, fuelPerJump))
 	totalJumps := len(route)
 	fmt.Fprintf(out, "\n Route: %d jump(s) to %s\n", totalJumps, targetSystem) //nolint:errcheck
 	for i, step := range route {
@@ -342,7 +351,15 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 	fmt.Fprintf(out, "   Est. time: ~%d ticks (~%s)\n\n", estTotalTicks, FormatDuration(estTotalTicks*10)) //nolint:errcheck
 
 	startTime := time.Now()
+	stopped := map[string]bool{}
 	for i, step := range route {
+		here := origin
+		if i > 0 {
+			here = route[i-1].SystemID
+		}
+		if fuelPerJump > 0 {
+			refuelStopIfShort(ctx, deps.KB, client, out, here, fuelPerJump*(totalJumps-i)+reserve, len(strongholdRefs) == 0, stopped)
+		}
 		// Check fuel before each jump — use fuel cells if below 10%.
 		autopilotRefuelIfNeeded(ctx, client, out)
 
