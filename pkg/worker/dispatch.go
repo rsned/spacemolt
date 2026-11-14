@@ -62,8 +62,10 @@ type WorkerDispatch struct {
 	// pathfinder_sweep role (--sweep-ring etc.): the ring radius in LY, the
 	// starting angle in degrees, and the launch-cost estimate the first
 	// launch replaces with a measurement.
-	SweepRing       float64
-	SweepStartDeg   float64
+	SweepRing     float64
+	SweepStartDeg float64
+	// SweepSpanDeg ends a new lap after this many degrees; 0 is a full lap.
+	SweepSpanDeg    float64
 	SweepLaunchCost float64
 	// SweepStage is the optional pre-lap route "refuel,launch,target"
 	// (--sweep-stage); see sweep.ParseStage.
@@ -74,6 +76,9 @@ type WorkerDispatch struct {
 	// arrival tour and explore-run step; nil runs systemTour / Explore.
 	sweepTour        func(ctx context.Context, deps ExploreDeps) error
 	sweepExploreStep func(ctx context.Context, deps ExploreDeps) error
+	// sweepCapture is the test seam for the per-landing capture; nil runs
+	// sweepLandingCapture.
+	sweepCapture func(ctx context.Context, sysID string)
 	// Handoff is the shared stock-handoff queue (--handoff-queue). The haul
 	// role requests a consigned route's gift through it; nil leaves consigned
 	// routes unrunnable (they release before the hauler flies).

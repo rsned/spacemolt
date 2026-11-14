@@ -37,6 +37,7 @@ func (d *WorkerDispatch) sweepInSystem(ctx context.Context, s *sweep.State, path
 	if s.Drifted {
 		d.sweepArrival(ctx, s, sysID, loc)
 		d.sweepCollectChat(ctx, sysID)
+		d.sweepCaptureFn()(ctx, sysID)
 	}
 	d.sweepWritePendingMeasure(ctx, s)
 

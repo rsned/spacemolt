@@ -112,6 +112,7 @@ func newSweepDispatch(t *testing.T, c *sweepFakeClient, kb knowledge.Base, s *sw
 	d.AgentID = "explorer-3"
 	d.AgentsDir = t.TempDir()
 	d.SweepRing, d.SweepStartDeg, d.SweepLaunchCost = s.Ring, s.StartDeg, s.LaunchCost
+	d.sweepCapture = func(context.Context, string) {} // the fake has no get_system/get_poi
 	path := sweep.StatePath(d.AgentsDir, d.AgentID)
 	if err := sweep.Save(path, s); err != nil {
 		t.Fatal(err)

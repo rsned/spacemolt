@@ -46,7 +46,7 @@ func systemLoc(systemID string, repeaters int) []byte {
 
 // sweepSeams records tour / explore-step / navigation calls instead of
 // flying them.
-type sweepSeams struct{ tours, steps, navs []string }
+type sweepSeams struct{ tours, steps, navs, captures []string }
 
 func newArrivalDispatch(t *testing.T, c *arrivalFakeClient, kb knowledge.Base, s *sweep.State) (*WorkerDispatch, string, *sweepSeams) {
 	t.Helper()
@@ -60,6 +60,9 @@ func newArrivalDispatch(t *testing.T, c *arrivalFakeClient, kb knowledge.Base, s
 	d.sweepExploreStep = func(context.Context, ExploreDeps) error {
 		seams.steps = append(seams.steps, c.state.System.ID)
 		return nil
+	}
+	d.sweepCapture = func(_ context.Context, sysID string) {
+		seams.captures = append(seams.captures, sysID)
 	}
 	d.ensureHomeNav = func(_ context.Context, system, poi string) error {
 		seams.navs = append(seams.navs, system+"/"+poi)
@@ -277,5 +280,40 @@ func TestSweepHomeWaitsForTowWhenDry(t *testing.T) {
 	}
 	if len(c.jumps) != 0 || len(seams.navs) != 0 {
 		t.Errorf("jumps %v navs %v, want to sit and wait for the tow", c.jumps, seams.navs)
+	}
+}
+
+// Every landing saves what can be read there -- system, POI and nearby --
+// whatever the sweep then does with the system (operator 2026-11-14). The
+// repeater landing leaves without touring and still captures.
+func TestSweepLandingAlwaysCaptures(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	placeSystem(t, kb, "gloaming", -4170, -7769, 1, 1, "sallow")
+	s := sweep.NewState(7900, -120, 45)
+	s.ProgressDeg = -120
+	s.Drifted, s.LastX, s.LastY = true, -4170, -7769
+	c := inSystem("gloaming", 900)
+	c.locs = [][]byte{systemLoc("gloaming", 1)}
+	d, _, seams := newArrivalDispatch(t, c, kb, s)
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(seams.captures) != 1 || seams.captures[0] != "gloaming" {
+		t.Errorf("captures %v, want one at gloaming", seams.captures)
+	}
+}
+
+func TestSweepHomeLandingCaptures(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	addSweepStation(t, kb, "frontier", -3000, -3000)
+	s := sweep.NewState(7900, 148, 45)
+	s.Phase, s.HomeSystem, s.Drifted = sweep.PhaseHome, "frontier", true
+	c := inSystem("frontier", 300)
+	d, _, seams := newArrivalDispatch(t, c, kb, s)
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(seams.captures) != 1 {
+		t.Errorf("captures %v, want one on the home landing", seams.captures)
 	}
 }
