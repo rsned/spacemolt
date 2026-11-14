@@ -195,6 +195,7 @@ func TestStateClone_AllFieldsCopied(t *testing.T) {
 			Tick:          7,
 			At:            time.Unix(1700000000, 0),
 		},
+		ActiveHold: &ActiveHold{HolderID: "87d3", HolderName: "Federation Customs I", Source: "customs", StartTick: 2401224, At: time.Unix(1700000000, 0)},
 	}
 
 	clone := original.Clone()

@@ -1105,6 +1105,22 @@ type GiftReceived struct {
 	BaseID string `json:"base_id,omitempty"`
 }
 
+// HoldUpdate is the hold_update push: HolderName has put a hold on TargetName
+// (Source "customs" is a customs station's warp scrambler for an inspection).
+// While a hold is active the ship cannot jump, travel or dock. Event
+// "started" opens it; other events (assumed "ended"/"released") close or
+// update it, so every field is optional.
+type HoldUpdate struct {
+	Event      string `json:"event,omitempty"`
+	HolderID   string `json:"holder_id,omitempty"`
+	HolderName string `json:"holder_name,omitempty"`
+	Message    string `json:"message,omitempty"`
+	Source     string `json:"source,omitempty"`
+	StartTick  int64  `json:"start_tick,omitempty"`
+	TargetID   string `json:"target_id,omitempty"`
+	TargetName string `json:"target_name,omitempty"`
+}
+
 // FacilityReclaimed is the facility_reclaimed push: the station has taken
 // facilities back for unpaid rent. It is the terminal outcome of a
 // facility_rent_warning and cannot be reversed — each listed facility must be

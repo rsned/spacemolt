@@ -91,6 +91,11 @@ const (
 	// POI dosing the hull. Steady hazards repeat every tick the ship stays
 	// undocked there; an emptied hull is a lost ship.
 	TypeHazardWarning = "hazard_warning"
+	// TypeHoldUpdate is a hold on the ship (seen 2026-11-14: a customs
+	// station's warp scrambler for an inspection). While held the ship cannot
+	// jump, travel or dock. Event "started" opens it; an end/release event
+	// closes it.
+	TypeHoldUpdate = "hold_update"
 	// TypeFacilityReclaimed is the station taking a facility back for unpaid
 	// rent. It is the terminal outcome of TypeFacilityRentWarning and cannot be
 	// undone: the facility must be rebuilt and paid for from scratch.

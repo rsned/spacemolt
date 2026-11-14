@@ -535,6 +535,16 @@ var eventExpectedFields = map[string]map[string]bool{
 		"dose_pct": true,
 		"message":  true,
 	},
+	protocol.TypeHoldUpdate: {
+		"event":       true,
+		"holder_id":   true,
+		"holder_name": true,
+		"message":     true,
+		"source":      true,
+		"start_tick":  true,
+		"target_id":   true,
+		"target_name": true,
+	},
 	protocol.TypePirateWarning: {
 		"pirate_name": true,
 		"pirate_tier": true,

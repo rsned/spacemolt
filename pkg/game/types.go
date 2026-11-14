@@ -541,6 +541,11 @@ type State struct {
 	// lands. Workers compare its At against "now" to decide whether to leave.
 	LastHazardDose HazardDose
 
+	// ActiveHold is the hold on the ship from the latest hold_update push
+	// (e.g. a customs warp scrambler): the ship cannot jump, travel or dock
+	// while it is set. Nil when no hold is active.
+	ActiveHold *ActiveHold
+
 	// Battle system (from get_battle_status / battle responses)
 	InBattle    bool
 	BattleState *BattleState
@@ -717,6 +722,7 @@ func (s *State) Clone() *State {
 		PirateID:          s.PirateID,
 		LastDamage:        s.LastDamage,
 		LastHazardDose:    s.LastHazardDose.clone(),
+		ActiveHold:        s.ActiveHold.clone(),
 		LastBattleID:      s.LastBattleID,
 		SkillXP:           copyStringFloatMap(s.SkillXP),
 		SkillNextLevelXP:  copyStringFloatMap(s.SkillNextLevelXP),
