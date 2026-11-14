@@ -33,3 +33,26 @@ func TestSweepFlagsForwarded(t *testing.T) {
 		}
 	}
 }
+
+// sweep_mode: void (and its ledger path) reach the worker; unset adds nothing.
+func TestSweepModeFlagsPassedThrough(t *testing.T) {
+	spawn := DefaultSpawn("true", "", "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd, err := spawn(ctx, WorkerSpec{AgentID: "explorer-3", SweepMode: "void", SweepVoidRun: "x.json"}, "/tmp/does-not-matter.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = cmd.Wait()
+	if !hasArgPair(cmd.Args, "--sweep-mode", "void") || !hasArgPair(cmd.Args, "--sweep-void-run", "x.json") {
+		t.Errorf("args %v missing the void mode flags", cmd.Args)
+	}
+	cmd, err = spawn(ctx, WorkerSpec{AgentID: "plain"}, "/tmp/does-not-matter.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = cmd.Wait()
+	if hasArg(cmd.Args, "--sweep-mode") || hasArg(cmd.Args, "--sweep-void-run") {
+		t.Errorf("args %v must not contain void mode flags", cmd.Args)
+	}
+}
