@@ -51,3 +51,23 @@ func TestFormatLocationNoStarSightingsNoHeading(t *testing.T) {
 		t.Errorf("heading printed with no sightings:\n%s", out)
 	}
 }
+
+// A pathfinder drift reply (craftsman-1, 2026-11-13) still carries the
+// telescope's star_sightings; the drift view must print them too.
+const liveDriftWithStars = `{"message":"Current location","location":{
+"in_transit":true,"transit_type":"pathfinder","transit_bearing":245,
+"transit_ticks_elapsed":51,"transit_x":2771.07,"transit_y":-7382.19,
+"poi_id":"","system_id":"",
+"star_sightings":[
+{"bearing":5,"brightness":5,"temperature":6000},
+{"bearing":175,"brightness":4,"temperature":26000}]}}`
+
+func TestFormatLocationDriftRendersStarSightings(t *testing.T) {
+	out := formatGetLocation([]byte(liveDriftWithStars))
+	if !strings.Contains(out, "245") {
+		t.Errorf("drift header missing bearing:\n%s", out)
+	}
+	if !strings.Contains(out, "Star sightings: 2") || !strings.Contains(out, "26000 K") {
+		t.Fatalf("drift view dropped star sightings:\n%s", out)
+	}
+}

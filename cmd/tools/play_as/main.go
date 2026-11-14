@@ -1299,7 +1299,10 @@ func formatGetLocation(raw []byte) string {
 	}
 	l := resp.Location
 	if l.InTransit && l.TransitType == "pathfinder" {
-		return formatPathfinderDrift(l.TransitBearing, l.TransitTicksElapsed, l.TransitX, l.TransitY)
+		var b strings.Builder
+		b.WriteString(formatPathfinderDrift(l.TransitBearing, l.TransitTicksElapsed, l.TransitX, l.TransitY))
+		writeStarSightings(&b, l.Stars)
+		return b.String()
 	}
 	if l.POIID == "" && l.SystemID == "" {
 		return ""
