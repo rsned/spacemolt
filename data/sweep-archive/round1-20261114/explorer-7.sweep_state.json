@@ -1,0 +1,44 @@
+{
+  "ring": 7350,
+  "start_deg": 148,
+  "progress_deg": -222.30252032759353,
+  "swept_deg": 370.30252032759336,
+  "phase": "done",
+  "target_x": -3122.1886987793814,
+  "target_y": 5502.0605891074865,
+  "target_deg": -222.30252032759353,
+  "planned_bearing": 7.9,
+  "launch_cost": 45,
+  "launch_cost_measured": true,
+  "launches": 98,
+  "last_x": -3139.904122057015,
+  "last_y": 5564.697627622288,
+  "drifted": false,
+  "read_since_launch": true,
+  "last_read_tick": 2399645,
+  "refuel_tried_tick": 2397802,
+  "landed": false,
+  "pending_x": -3139.904122057015,
+  "pending_y": 5564.697627622288,
+  "stage_refueled": true,
+  "arrival_toured": false,
+  "explore_jumps": 0,
+  "gaps": [
+    {
+      "from_deg": -12.467971499369028,
+      "to_deg": -17.46797149936903,
+      "reason": "storm"
+    },
+    {
+      "from_deg": -44.485697275717925,
+      "to_deg": -49.485697275717925,
+      "reason": "storm"
+    }
+  ],
+  "unfinished": [
+    "anvil_reach",
+    "wandering_needle"
+  ],
+  "home_system": "gliese_581",
+  "updated_utc": "2026-11-14T06:32:35Z"
+}

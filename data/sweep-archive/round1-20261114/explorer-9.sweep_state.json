@@ -1,0 +1,32 @@
+{
+  "ring": 8150,
+  "start_deg": 148,
+  "progress_deg": -214.19610247525225,
+  "swept_deg": 362.19610247525225,
+  "phase": "done",
+  "target_x": -3995.39554394228,
+  "target_y": 2584.9302856091854,
+  "target_deg": -214.19610247525225,
+  "planned_bearing": 323.6,
+  "launch_cost": 35,
+  "launch_cost_measured": true,
+  "launches": 110,
+  "last_x": -5162.055588723408,
+  "last_y": 3478.9138467981875,
+  "drifted": false,
+  "read_since_launch": true,
+  "last_read_tick": 2399641,
+  "landed": false,
+  "pending_x": -5162.055588723408,
+  "pending_y": 3478.9138467981875,
+  "stage_refueled": true,
+  "arrival_toured": false,
+  "explore_jumps": 0,
+  "unfinished": [
+    "true_level",
+    "fossil_light",
+    "lantern_low"
+  ],
+  "home_system": "node_beta",
+  "updated_utc": "2026-11-14T06:38:14Z"
+}
