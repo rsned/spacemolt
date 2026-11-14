@@ -68,6 +68,7 @@ func refuelStopIfShort(ctx context.Context, kb knowledge.Base, client game.GameC
 	}
 	fmt.Fprintf(out, "  Fuel %.0f is short of the %d the rest of the route needs; refuelling at %s\n", fuel, need, poi) //nolint:errcheck
 	if !st.IsDocked() {
+		waitOutHold(ctx, out, client)
 		if err := waitOutPending(ctx, func() error { _, err := client.Travel(ctx, poi); return err }); err != nil {
 			fmt.Fprintf(out, "  refuel stop: travel to %s failed: %v; flying on\n", poi, err) //nolint:errcheck
 			return

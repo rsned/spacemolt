@@ -540,6 +540,7 @@ var eventExpectedFields = map[string]map[string]bool{
 		"holder_id":   true,
 		"holder_name": true,
 		"message":     true,
+		"reason":      true,
 		"source":      true,
 		"start_tick":  true,
 		"target_id":   true,

@@ -1115,6 +1115,8 @@ type HoldUpdate struct {
 	HolderID   string `json:"holder_id,omitempty"`
 	HolderName string `json:"holder_name,omitempty"`
 	Message    string `json:"message,omitempty"`
+	// Reason is on "ended" pushes, e.g. "scan_over".
+	Reason     string `json:"reason,omitempty"`
 	Source     string `json:"source,omitempty"`
 	StartTick  int64  `json:"start_tick,omitempty"`
 	TargetID   string `json:"target_id,omitempty"`

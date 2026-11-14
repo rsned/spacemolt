@@ -488,6 +488,12 @@ func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
 	if berr := battleGate(ctx, deps.Out, st, resolved, deps.Battle); berr != nil {
 		return berr
 	}
+	// A customs hold (warp scrambler) refuses jump/travel/dock until the
+	// inspection ends: wait it out instead of failing the move.
+	if deps.Client != nil && holdsMovement(resolved) {
+		waitOutHold(ctx, deps.Out, deps.Client)
+		st = deps.Client.GetState()
+	}
 	// Environmental hazards (v0.687.0): leave a POI that is dosing us, and
 	// refuse to fly into or mine at a known deadly one, before the command.
 	if gerr := hazardGate(ctx, deps.Out, st, time.Now(), resolved, deps.Runner.Run); gerr != nil {

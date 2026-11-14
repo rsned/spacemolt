@@ -128,6 +128,7 @@ func ensureRouteFuel(ctx context.Context, client game.GameClient, out io.Writer,
 		return fuelAvailable
 	}
 	if !state.IsDocked() {
+		waitOutHold(ctx, out, client)
 		if err := client.Dock(ctx); err != nil {
 			fmt.Fprintf(out, "  Fuel low and not at a station to refuel (%v); continuing\n", err) //nolint:errcheck
 			return fuelAvailable
@@ -371,6 +372,7 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 		}
 		fmt.Fprintf(out, "[Jump %d/%d] Jumping to %s...%s\n", i+1, totalJumps, step.Name, remaining) //nolint:errcheck
 
+		waitOutHold(ctx, out, client)
 		result, err := client.Jump(ctx, step.SystemID)
 		if err != nil {
 			// Insufficient fuel: try fuel cells and retry once.
@@ -439,6 +441,7 @@ func autopilotTravelToPOI(ctx context.Context, client game.GameClient, out io.Wr
 		return nil
 	}
 	fmt.Fprintf(out, "Traveling to POI: %s...\n", targetPOI) //nolint:errcheck
+	waitOutHold(ctx, out, client)
 	result, err := client.Travel(ctx, targetPOI)
 	if err != nil && isInsufficientFuelErr(err) && refuelInPlace(ctx, client, out) {
 		fmt.Fprintf(out, "  Refueled; retrying travel to %s...\n", targetPOI) //nolint:errcheck
@@ -494,6 +497,7 @@ func isInsufficientFuelErr(err error) bool {
 func refuelInPlace(ctx context.Context, client game.GameClient, out io.Writer) bool {
 	if state := client.GetState(); state != nil {
 		if !state.IsDocked() {
+			waitOutHold(ctx, out, client)
 			if err := client.Dock(ctx); err != nil {
 				fmt.Fprintf(out, "  Fuel low and cannot dock to refuel (%v)\n", err) //nolint:errcheck
 			}

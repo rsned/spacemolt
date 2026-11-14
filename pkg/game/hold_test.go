@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rsned/spacemolt/internal/protocol"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -87,6 +88,58 @@ func TestHoldUpdateStartedThenEnded(t *testing.T) {
 		if !strings.Contains(buf.String(), "[HOLD] customs hold "+ev) {
 			t.Errorf("event %q log = %q", ev, buf.String())
 		}
+	}
+}
+
+// Customs broadcasts holds on every ship at the POI (fleet logs 2026-11-13
+// show targets smt_boss and superroot, not ours). Only a hold whose target is
+// this player may set or clear State.ActiveHold; others are logged with the
+// target's name so the log still shows customs activity.
+func TestHoldUpdateOnAnotherShipIsNotOurs(t *testing.T) {
+	var buf bytes.Buffer
+	c := facilityEventClient(&buf)
+	c.state.Player.ID = "me"
+	c.handleResponse(protocol.Response{Type: protocol.TypeHoldUpdate, Payload: holdPayload(t, holdStartedJSON)})
+	if c.GetState().Held() {
+		t.Fatal("a hold on another ship marked us held")
+	}
+	if !strings.Contains(buf.String(), "on Arthur 'Artificer' Artis") {
+		t.Errorf("log %q should name the held ship", buf.String())
+	}
+
+	ours := holdPayload(t, holdStartedJSON)
+	ours["target_id"] = "me"
+	c.handleResponse(protocol.Response{Type: protocol.TypeHoldUpdate, Payload: ours})
+	if !c.GetState().Held() {
+		t.Fatal("our own hold not recorded")
+	}
+	c.handleResponse(protocol.Response{Type: protocol.TypeHoldUpdate, Payload: map[string]any{
+		"event": "ended", "reason": "scan_over", "source": "customs", "target_id": "someone-else",
+	}})
+	if !c.GetState().Held() {
+		t.Error("another ship's hold ending cleared ours")
+	}
+	c.handleResponse(protocol.Response{Type: protocol.TypeHoldUpdate, Payload: map[string]any{
+		"event": "ended", "reason": "scan_over", "source": "customs", "target_id": "me",
+	}})
+	if c.GetState().Held() {
+		t.Error("our hold's end did not clear it")
+	}
+}
+
+// Only 1 "ended" push appears against 74 "started" in the fleet logs, so a
+// hold must not pin the ship forever: past HoldStaleAfter it no longer counts.
+func TestHeldExpiresAfterStaleWindow(t *testing.T) {
+	start := time.Date(2026, 11, 14, 8, 0, 0, 0, time.UTC)
+	s := &State{ActiveHold: &ActiveHold{Source: "customs", At: start}}
+	if !s.HeldAt(start.Add(HoldStaleAfter - time.Second)) {
+		t.Error("hold inside the stale window not held")
+	}
+	if s.HeldAt(start.Add(HoldStaleAfter + time.Second)) {
+		t.Error("hold past the stale window still held")
+	}
+	if (&State{}).HeldAt(start) {
+		t.Error("no hold reported held")
 	}
 }
 
