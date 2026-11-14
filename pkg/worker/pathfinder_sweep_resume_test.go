@@ -63,7 +63,7 @@ func TestSweepResumesLapAfterRefuel(t *testing.T) {
 }
 
 func TestSweepDryDeskMovesToFuelledStation(t *testing.T) {
-	c, d, path := lapDoneAtLongshore(t, 67, errDryDesk)
+	c, d, path := lapDoneAtLongshore(t, 95, errDryDesk)
 	if err := d.PathfinderSweep(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -153,5 +153,20 @@ func TestSweepHomeByLanesSkipsDryStation(t *testing.T) {
 	}
 	if len(seams.navs) != 1 || seams.navs[0] != "last_light/" {
 		t.Fatalf("navs %v, want lanes to last_light (winterhold is dry)", seams.navs)
+	}
+}
+
+// explorer-8 on 2026-11-13 left dry Winterhold with 20 fuel on a 20-fuel
+// launch, landed in Last Light with nothing left for the hop to the station
+// and went fuel-dead. Leaving a dry desk needs two launches in hand, the same
+// rule sweepGoHome applies from inside a system.
+func TestSweepDryDeskOneLaunchStays(t *testing.T) {
+	c, d, path := lapDoneAtLongshore(t, 60, errDryDesk) // launch cost 45
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got, _, _ := sweep.Load(path)
+	if got.Phase != sweep.PhaseDone || len(c.jumps) != 0 {
+		t.Fatalf("phase %q jumps %v, want to stay docked with one launch of fuel", got.Phase, c.jumps)
 	}
 }

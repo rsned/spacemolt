@@ -49,7 +49,7 @@ func (d *WorkerDispatch) sweepAfterLap(ctx context.Context, s *sweep.State, path
 		fmt.Fprintf(d.Out, "pathfinder_sweep: fuel %.0f at %s; resuming the lap at %.1f° on ring %.0f\n", total, sysID, s.ProgressDeg, s.Ring) //nolint:errcheck
 		s.Phase, s.HomeSystem, s.Landed = sweep.PhaseLap, "", true
 		return d.sweepRejoin(ctx, s, path, sysID)
-	case dry && total >= s.LaunchCost:
+	case dry && total >= 2*s.LaunchCost: // one to move, one spare (as sweepGoHome)
 		x, y := d.sweepPosition(ctx, s, sysID)
 		if x == 0 && y == 0 {
 			return sweep.Save(path, s)
