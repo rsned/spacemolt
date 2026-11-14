@@ -20,8 +20,17 @@ type SystemPositionRecorder interface {
 	RecordMeasuredSystemPosition(ctx context.Context, systemID, name string, x, y float64) (bool, error)
 }
 
+// isOriginPlaceholder reports a (0,0) reading for any system but Sol: the
+// API's placeholder for an uncharted system, never a real position.
+func isOriginPlaceholder(systemID string, x, y float64) bool {
+	return x == 0 && y == 0 && systemID != "sol"
+}
+
 // RecordMeasuredSystemPosition implements SystemPositionRecorder.
 func (kb *SQLiteKB) RecordMeasuredSystemPosition(ctx context.Context, systemID, name string, x, y float64) (bool, error) {
+	if isOriginPlaceholder(systemID, x, y) {
+		return false, nil
+	}
 	var px, py float64
 	var source string
 	err := kb.db.QueryRowContext(ctx,
@@ -57,6 +66,9 @@ func (kb *SQLiteKB) RecordMeasuredSystemPosition(ctx context.Context, systemID, 
 // memory KB keeps no position source: an unknown system is created and only
 // a (0,0) placeholder is replaced.
 func (kb *MemoryKB) RecordMeasuredSystemPosition(ctx context.Context, systemID, name string, x, y float64) (bool, error) {
+	if isOriginPlaceholder(systemID, x, y) {
+		return false, nil
+	}
 	kb.mu.Lock()
 	s, ok := kb.systems[systemID]
 	if ok {

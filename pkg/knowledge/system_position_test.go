@@ -143,3 +143,61 @@ func TestSystemPositionSource(t *testing.T) {
 		t.Errorf("unknown source = %q, %v; want empty", src, err)
 	}
 }
+
+// Frontier systems report position 0,0 from the API. Once a row holds a real
+// position (measured by drift, fitted, triangulated), no later write may put
+// it back at 0,0: Sol is the only system at the origin.
+func TestNoWriterZeroesALearnedPosition(t *testing.T) {
+	ctx := context.Background()
+	learned := func(t *testing.T) *SQLiteKB {
+		t.Helper()
+		kb := newTestSQLiteKB(t)
+		if _, err := kb.RecordMeasuredSystemPosition(ctx, "elbow", "Elbow", 1976, -8405); err != nil {
+			t.Fatal(err)
+		}
+		return kb
+	}
+	for name, write := range map[string]func(*SQLiteKB) error{
+		"visit (get_system)": func(kb *SQLiteKB) error {
+			return kb.RememberSystem(ctx, System{ID: "elbow", Name: "Elbow", LastUpdatedTick: 2403000})
+		},
+		"map import": func(kb *SQLiteKB) error {
+			return kb.UpsertSystemFromMap(ctx, MapSystemData{ID: "elbow", Name: "Elbow"})
+		},
+		"zero measurement": func(kb *SQLiteKB) error {
+			_, err := kb.RecordMeasuredSystemPosition(ctx, "elbow", "Elbow", 0, 0)
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			kb := learned(t)
+			if err := write(kb); err != nil {
+				t.Fatal(err)
+			}
+			if x, y, src := storedPosition(t, kb, "elbow"); x != 1976 || y != -8405 || src != "measured" {
+				t.Fatalf("stored (%v,%v,%q), want (1976,-8405,measured)", x, y, src)
+			}
+		})
+	}
+}
+
+// A 0,0 reading for a system with no row yet must not invent one at the
+// origin through the measurement path.
+func TestZeroMeasurementCreatesNoOriginRow(t *testing.T) {
+	kb := newTestSQLiteKB(t)
+	wrote, err := kb.RecordMeasuredSystemPosition(context.Background(), "kettle", "Kettle", 0, 0)
+	if err != nil || wrote {
+		t.Fatalf("wrote=%v err=%v, want no write", wrote, err)
+	}
+}
+
+// Sol itself really is at 0,0 and the map import may say so.
+func TestMapImportKeepsSolAtOrigin(t *testing.T) {
+	kb := newTestSQLiteKB(t)
+	if err := kb.UpsertSystemFromMap(context.Background(), MapSystemData{ID: "sol", Name: "Sol"}); err != nil {
+		t.Fatal(err)
+	}
+	if x, y, _ := storedPosition(t, kb, "sol"); x != 0 || y != 0 {
+		t.Fatalf("sol at (%v,%v)", x, y)
+	}
+}

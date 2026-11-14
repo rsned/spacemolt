@@ -248,8 +248,11 @@ func (kb *SQLiteKB) UpsertSystemFromMap(ctx context.Context, data MapSystemData)
 		VALUES (?, ?, ?, ?, ?, ?, 0, 0)
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
-			position_x = excluded.position_x,
-			position_y = excluded.position_y,
+			-- (0,0) is the API placeholder for an uncharted frontier system,
+			-- not a position: Sol is the only system at the origin. Never let
+			-- it replace a stored (measured, fitted, triangulated) position.
+			position_x = CASE WHEN excluded.position_x = 0 AND excluded.position_y = 0 AND systems.id != 'sol' THEN systems.position_x ELSE excluded.position_x END,
+			position_y = CASE WHEN excluded.position_x = 0 AND excluded.position_y = 0 AND systems.id != 'sol' THEN systems.position_y ELSE excluded.position_y END,
 			empire = excluded.empire,
 			-- Sticky, matching RememberSystem: never let a source that lacks the
 			-- flag clear a known stronghold. MAX is NULL-safe.
