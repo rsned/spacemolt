@@ -62,6 +62,9 @@ type State struct {
 	// restarted after the landing holds a reading from far back along the
 	// drift (explorer-11 wrote Ash Pearl 160 LY short on 2026-11-13).
 	LastReadTick int64 `json:"last_read_tick,omitempty"`
+	// RefuelTriedTick is when a docked, lap-done ship last asked the desk for
+	// fuel; a dry desk is retried hourly, not every pass.
+	RefuelTriedTick int64 `json:"refuel_tried_tick,omitempty"`
 	// Landed marks a lap drift that stopped in a system: the rejoin then
 	// aims past the landing, so the ship does not land there again.
 	Landed bool `json:"landed"`

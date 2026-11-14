@@ -606,3 +606,23 @@ func (c *Collector) WriteSnapshot(ctx context.Context, snapshot MarketSnapshot) 
 		return nil
 	})
 }
+
+// StationsWithFuel is the set of station ids whose desk reserve was last
+// observed above zero. A pathfinder ship that docks at a dry desk cannot
+// refuel and has no lane to leave by, so the sweep heads for these.
+func (c *Collector) StationsWithFuel(ctx context.Context) (map[string]bool, error) {
+	rows, err := c.db.QueryContext(ctx, `SELECT station_id FROM station_fuel_prices WHERE fuel_reserve > 0`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close() //nolint:errcheck
+	out := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}

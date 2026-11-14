@@ -10,9 +10,10 @@ import (
 // NearestStationByDistance is the accessible station system closest to map
 // position (x,y) in a straight line: where a pathfinder ship ends its sweep.
 // Strongholds count only with includeStrongholds (the ship holds the pirate
-// unlock; without it a stronghold is a dead end). Systems with no coordinates ((0,0)) are skipped; ties go
+// unlock; without it a stronghold is a dead end). A non-nil accept further
+// narrows the candidates by system id. Systems with no coordinates ((0,0)) are skipped; ties go
 // to the smaller id. ok is false when there is no candidate.
-func NearestStationByDistance(ctx context.Context, kb knowledge.Base, x, y float64, includeStrongholds bool) (string, bool, error) {
+func NearestStationByDistance(ctx context.Context, kb knowledge.Base, x, y float64, includeStrongholds bool, accept func(systemID string) bool) (string, bool, error) {
 	ids, err := queryAccessibleStations(ctx, kb, includeStrongholds)
 	if err != nil {
 		return "", false, err
@@ -27,7 +28,7 @@ func NearestStationByDistance(ctx context.Context, kb knowledge.Base, x, y float
 	}
 	best, bestD := "", math.Inf(1)
 	for _, s := range systems {
-		if !want[s.ID] || (s.Position.X == 0 && s.Position.Y == 0) {
+		if !want[s.ID] || (s.Position.X == 0 && s.Position.Y == 0) || (accept != nil && !accept(s.ID)) {
 			continue
 		}
 		d := math.Hypot(s.Position.X-x, s.Position.Y-y)

@@ -59,9 +59,8 @@ func (d *WorkerDispatch) PathfinderSweep(ctx context.Context) error {
 		}
 	}
 	if s.Phase == sweep.PhaseDone {
-		fmt.Fprintln(d.Out, "pathfinder_sweep: lap complete") //nolint:errcheck
 		d.sweepCollectCells(ctx)
-		return nil
+		return d.sweepAfterLap(ctx, s, path)
 	}
 	loc, err := d.sweepLocation(ctx)
 	if err != nil {
@@ -174,7 +173,19 @@ func (d *WorkerDispatch) sweepGoHome(ctx context.Context, s *sweep.State, path s
 		return sweep.Save(path, s)
 	}
 	fmt.Fprintf(d.Out, "pathfinder_sweep: heading home (swept %.1f°, fuel %.0f total)\n", s.SweptDeg, total) //nolint:errcheck
-	id, ok, err := galaxy.NearestStationByDistance(ctx, d.KB, x, y, smugglingUnlocked(d.Client.GetState()))
+	return d.sweepHeadFor(ctx, s, path, x, y, "")
+}
+
+// sweepHeadFor launches toward the nearest station system, preferring one
+// whose desk was last seen with fuel and never the system it is leaving.
+func (d *WorkerDispatch) sweepHeadFor(ctx context.Context, s *sweep.State, path string, x, y float64, leaving string) error {
+	s.Phase = sweep.PhaseHome
+	unlocked := smugglingUnlocked(d.Client.GetState())
+	notLeaving := func(sys string) bool { return sys != leaving }
+	id, ok, err := galaxy.NearestStationByDistance(ctx, d.KB, x, y, unlocked, d.sweepFuelledFilter(ctx, notLeaving))
+	if err == nil && !ok {
+		id, ok, err = galaxy.NearestStationByDistance(ctx, d.KB, x, y, unlocked, notLeaving)
+	}
 	if err != nil || !ok {
 		_ = sweep.Save(path, s)
 		return fmt.Errorf("pathfinder_sweep: no station to head home to from (%.0f,%.0f): %v", x, y, err)

@@ -24,6 +24,9 @@ func (c *arrivalFakeClient) Dock(context.Context) error {
 
 func (c *arrivalFakeClient) Refuel(context.Context) error {
 	c.calls = append(c.calls, "refuel")
+	if c.refuelErr != nil {
+		return c.refuelErr
+	}
 	c.state.Ship.Fuel = c.state.Ship.MaxFuel
 	return nil
 }
@@ -250,12 +253,14 @@ func TestSweepHomeDocksAndFinishes(t *testing.T) {
 	if len(seams.navs) != 1 || seams.navs[0] != "frontier/frontier_station" {
 		t.Errorf("navs %v, want frontier/frontier_station", seams.navs)
 	}
-	n := len(c.calls)
+	// Refuelled at home, the next pass goes back out to the ring (operator
+	// 2026-11-13: restart from where it left off).
 	if err := d.PathfinderSweep(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if len(c.calls) != n {
-		t.Errorf("a done sweep still acted: %v", c.calls[n:])
+	got, _, _ = sweep.Load(path)
+	if got.Phase != sweep.PhaseLap || len(c.jumps) != 1 {
+		t.Errorf("phase %q jumps %v, want the lap resumed", got.Phase, c.jumps)
 	}
 }
 
