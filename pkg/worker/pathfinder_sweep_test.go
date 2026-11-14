@@ -30,6 +30,8 @@ type sweepFakeClient struct {
 	// but the cached state only catches up on GetShip.
 	lag         bool
 	pendingFuel float64
+	nearby      []string // get_nearby replies; see GetNearby
+	nearbyIdx   int
 }
 
 func (c *sweepFakeClient) GetState() *game.State { return c.state }

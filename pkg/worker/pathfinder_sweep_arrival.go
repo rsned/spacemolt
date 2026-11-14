@@ -51,7 +51,12 @@ func (d *WorkerDispatch) sweepInSystem(ctx context.Context, s *sweep.State, path
 		return d.sweepRejoin(ctx, s, path, sysID)
 	}
 
-	// PhaseExplore.
+	// PhaseExplore. A leviathan here first: the first command is the way out.
+	if lev := d.sweepLeviathanHere(ctx); lev != "" {
+		fmt.Fprintf(d.Out, "pathfinder_sweep: LEVIATHAN at %s (%s); leaving without touring\n", sysID, lev) //nolint:errcheck
+		s.AddUnfinished(sysID)
+		return d.sweepRejoin(ctx, s, path, sysID)
+	}
 	if d.sweepAPISystem(ctx, sysID) {
 		// Map coordinates mean old-galaxy ground, already charted: exploring
 		// from here would tour the whole lane-connected old map.
