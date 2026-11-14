@@ -45,8 +45,14 @@ func (d HazardDose) Recent(now time.Time) bool {
 	return !d.At.IsZero() && now.Sub(d.At) <= HazardDoseRecent
 }
 
-// formatHazardDose renders the operational log line for one dose.
+// formatHazardDose renders the operational log line for one dose, plain.
 func formatHazardDose(d HazardDose) string {
+	return formatHazardDoseStyled(d, false)
+}
+
+// formatHazardDoseStyled is formatHazardDose with the [HAZARD] tag styled
+// like [SERVER API CHANGE] when styled is true.
+func formatHazardDoseStyled(d HazardDose, styled bool) string {
 	kind, sev := "unknown", 0
 	if d.Hazard != nil {
 		kind, sev = d.Hazard.Type, d.Hazard.Severity
@@ -55,7 +61,7 @@ func formatHazardDose(d HazardDose) string {
 	if where == "" {
 		where = d.POIID
 	}
-	line := fmt.Sprintf("☢️  HAZARD DOSE: %s severity %d at %s — hull %d/%d (%.0f%%), dose %d%% of max",
+	line := alertTag("HAZARD", styled) + fmt.Sprintf("☢️  HAZARD DOSE: %s severity %d at %s — hull %d/%d (%.0f%%), dose %d%% of max",
 		kind, sev, where, d.Hull, d.MaxHull, d.HullFrac()*100, d.DosePct)
 	if d.Message != "" {
 		line += " — " + d.Message
@@ -81,5 +87,5 @@ func (c *Client) handleHazardWarning(payload map[string]any) {
 		c.state.Ship.MaxHull = float64(w.MaxHull)
 	}
 	c.mu.Unlock()
-	c.logEvent(formatHazardDose(d))
+	c.logEvent(formatHazardDoseStyled(d, stderrIsTTY()))
 }

@@ -21,12 +21,21 @@ import (
 var apiChangeLogger = log.New(log.Writer(), apiChangePrefix(), log.LstdFlags)
 
 func apiChangePrefix() string {
-	const plain = "[SERVER API CHANGE] "
-	if isatty.IsTerminal(os.Stderr.Fd()) {
+	return alertTag("SERVER API CHANGE", stderrIsTTY())
+}
+
+// stderrIsTTY reports whether stderr is a terminal (styled alerts on).
+func stderrIsTTY() bool { return isatty.IsTerminal(os.Stderr.Fd()) }
+
+// alertTag renders "[LABEL] ", in bold bright-yellow on red when styled so
+// it stands out against the surrounding log noise. Shared by every alert
+// that must not scroll past unseen: server API changes, hazard doses.
+func alertTag(label string, styled bool) string {
+	if styled {
 		// Bold (1) + bright yellow fg (93) + red bg (41); reset (0).
-		return "\x1b[1;93;41m[SERVER API CHANGE]\x1b[0m "
+		return "\x1b[1;93;41m[" + label + "]\x1b[0m "
 	}
-	return plain
+	return "[" + label + "] "
 }
 
 // loggedAPIChanges deduplicates warnings so each unique change is logged
