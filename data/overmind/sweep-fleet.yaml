@@ -17,20 +17,20 @@
 # mission-learn.
 workers:
   # Round 2 "bottom pass" (2026-11-14): the 148°→48° arc swept at 50 LY spacing in round 1,
-  # re-run at 150 LY spacing over 7200-8550 LY (option C); span 100° ends each lap at ~48°.
+  # re-run at 150 LY spacing over 7200-8550 LY (option C); span widened to a full 360° lap 2026-11-14 08:xx (user: double-check nothing was missed in or out of band).
   # Round-1 states archived in data/sweep-archive/round1-20261114/.
   # Round 1 (2026-11-13). Re-spaced 10:15 to 100 LY (capture radius ~100 LY per dev;
   # 50 LY rings shared captures): rings 1-3 moved in, ring 4 (7650) fixed, 5-10 out.
   # Workers adopt a changed sweep_ring on the rejoin after their next landing.
   # Rings by range: the Survey Vessel (fewest launches
   # per tank) takes the shortest lap, the Reserves (4,000-fuel tanks) the longest.
-  - { agent_id: explorer-7, role: pathfinder_sweep, station: "", sweep_ring: 7200, sweep_start_deg: 148, sweep_span_deg: 100, sweep_launch_cost: 45, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Survey Vessel
-  - { agent_id: explorer-2, role: pathfinder_sweep, station: "", sweep_ring: 7350, sweep_start_deg: 148, sweep_span_deg: 100, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  - { agent_id: explorer-4, role: pathfinder_sweep, station: "", sweep_ring: 7500, sweep_start_deg: 148, sweep_span_deg: 100, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  - { agent_id: explorer-5, role: pathfinder_sweep, station: "", sweep_ring: 7650, sweep_start_deg: 148, sweep_span_deg: 100, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  - { agent_id: explorer-6, role: pathfinder_sweep, station: "", sweep_ring: 7800, sweep_start_deg: 148, sweep_span_deg: 100, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  - { agent_id: explorer-8, role: pathfinder_sweep, station: "", sweep_ring: 7950, sweep_start_deg: 148, sweep_span_deg: 100, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  - { agent_id: explorer-12, role: pathfinder_sweep, station: "", sweep_ring: 8100, sweep_start_deg: 148, sweep_span_deg: 100, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  - { agent_id: explorer-1, role: pathfinder_sweep, station: "", sweep_ring: 8250, sweep_start_deg: 148, sweep_span_deg: 100, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
-  - { agent_id: explorer-9, role: pathfinder_sweep, station: "", sweep_ring: 8400, sweep_start_deg: 148, sweep_span_deg: 100, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
-  - { agent_id: explorer-11, role: pathfinder_sweep, station: "", sweep_ring: 8550, sweep_start_deg: 148, sweep_span_deg: 100, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
+  - { agent_id: explorer-7, role: pathfinder_sweep, station: "", sweep_ring: 7200, sweep_start_deg: 148, sweep_launch_cost: 45, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Survey Vessel
+  - { agent_id: explorer-2, role: pathfinder_sweep, station: "", sweep_ring: 7350, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
+  - { agent_id: explorer-4, role: pathfinder_sweep, station: "", sweep_ring: 7500, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
+  - { agent_id: explorer-5, role: pathfinder_sweep, station: "", sweep_ring: 7650, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
+  - { agent_id: explorer-6, role: pathfinder_sweep, station: "", sweep_ring: 7800, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
+  - { agent_id: explorer-8, role: pathfinder_sweep, station: "", sweep_ring: 7950, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
+  - { agent_id: explorer-12, role: pathfinder_sweep, station: "", sweep_ring: 8100, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
+  - { agent_id: explorer-1, role: pathfinder_sweep, station: "", sweep_ring: 8250, sweep_start_deg: 148, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
+  - { agent_id: explorer-9, role: pathfinder_sweep, station: "", sweep_ring: 8400, sweep_start_deg: 148, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
+  - { agent_id: explorer-11, role: pathfinder_sweep, station: "", sweep_ring: 8550, sweep_start_deg: 148, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
