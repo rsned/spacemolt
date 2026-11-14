@@ -176,7 +176,8 @@ func Lanes(z Zone, spacing float64) []Lane {
 		lo, hi = float64(x0)*g, float64(x1+1)*g
 	}
 	var lanes []Lane
-	for v := lo + spacing/2; v < hi; v += spacing {
+	// A zone thinner than spacing/2 across still gets one lane, down its middle.
+	for v := min(lo+spacing/2, (lo+hi)/2); v < hi; v += spacing {
 		a0, a1 := math.MaxInt, math.MinInt
 		for _, c := range z.Cells {
 			if math.Abs(across(c)-v) <= g/2 {

@@ -119,3 +119,10 @@ func TestWaypointsInterleaveLaneEnds(t *testing.T) {
 		}
 	}
 }
+
+func TestLanesGiveAThinZoneOneMiddleLane(t *testing.T) {
+	lanes := Lanes(Zone{ID: "V01", Grid: 50, Cells: [][2]int{{0, 0}, {1, 0}, {2, 0}, {3, 0}}}, 100)
+	if len(lanes) != 1 || lanes[0].AY != 25 {
+		t.Fatalf("lanes %+v, want one lane at y 25", lanes)
+	}
+}
