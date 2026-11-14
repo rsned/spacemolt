@@ -175,6 +175,9 @@ func (d *WorkerDispatch) sweepArrival(ctx context.Context, s *sweep.State, sysID
 	} else if n > 0 {
 		fmt.Fprintf(d.Out, "pathfinder_sweep: %d repeater(s) recorded at %s\n", n, sysID) //nolint:errcheck
 	}
+	if s.Mode == sweep.ModeVoid {
+		d.voidLanded(ctx, s, sysID)
+	}
 	s.Drifted, s.ArrivalToured, s.ExploreJumps = false, false, 0
 	if s.Phase == sweep.PhaseLap || s.Phase == sweep.PhaseStage {
 		// A staging landing explores like a lap landing; the lap then starts
@@ -249,12 +252,7 @@ func (d *WorkerDispatch) sweepRejoin(ctx context.Context, s *sweep.State, path, 
 	if s.Mode == sweep.ModeVoid {
 		// Back to the zone's current waypoint: a landing or a storm leaves
 		// the leg unfinished, so it is flown again from here.
-		if s.Waypoint >= len(s.Waypoints) {
-			return sweep.Save(path, s)
-		}
-		wp := s.Waypoints[s.Waypoint]
-		s.TargetX, s.TargetY = wp.X, wp.Y
-		return d.sweepLaunch(ctx, s, path, sweep.BearingTo(x, y, wp.X, wp.Y))
+		return d.voidRejoin(ctx, s, path, sysID, x, y)
 	}
 	if d.SweepRing > 0 && d.SweepRing != s.Ring {
 		// The fleet re-spaced the rings (sweep_ring changed): take the new

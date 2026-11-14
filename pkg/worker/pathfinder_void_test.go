@@ -316,3 +316,155 @@ func TestVoidLostLeaseDropsTheZone(t *testing.T) {
 		t.Fatalf("zone %q, want V01 dropped and V02 claimed", got.ZoneID)
 	}
 }
+
+// Review C1: a lease lost while adrift must not leave the ship drifting on
+// with nothing to aim at.
+func TestVoidLeaseLostAdriftClaimsAnotherAndReaims(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	addSweepStation(t, kb, "home", 0, 1000)
+	ledger := voidLedger(t, true)
+	s := voidState(t, ledger, 1)
+	s.Drifted, s.PlannedBearing = true, 0
+	r, _ := sweep.LoadVoidRun(ledger)
+	r.Zones[0].Claimant = "explorer-9"
+	if err := sweep.SaveVoidRun(ledger, r); err != nil {
+		t.Fatal(err)
+	}
+	c := inSystem("x", 900)
+	c.locs = [][]byte{driftLoc(1500, 0, 0)}
+	d, path, _ := voidDispatch(t, c, kb, s, ledger)
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := loadVoidState(t, path); got.ZoneID != "V02" {
+		t.Fatalf("zone %q, want V02 claimed mid-drift", got.ZoneID)
+	}
+	lastJump(t, c) // re-aimed
+}
+
+// Review I1: a landing caught inside the drift poll is recorded too.
+func TestVoidLandingCaughtMidDriftIsRecorded(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	placeSystem(t, kb, "hidden_one", 1500, 0, 1, 1)
+	ledger := voidLedger(t, false)
+	s := voidState(t, ledger, 1)
+	s.Drifted, s.PlannedBearing = true, 0
+	c := inSystem("hidden_one", 900)
+	c.locs = [][]byte{driftLoc(1400, 0, 0), systemLoc("hidden_one", 0)}
+	d, path, _ := voidDispatch(t, c, kb, s, ledger)
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := loadVoidState(t, path); !slices.Contains(got.ZoneFound, "hidden_one") {
+		t.Fatalf("zone found %v, want hidden_one", got.ZoneFound)
+	}
+}
+
+// Review I3: a landing far outside the zone (on the long drift in) is not
+// credited to it.
+func TestVoidFindOutsideTheZoneIsNotCounted(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	placeSystem(t, kb, "far_one", 5000, 5000, 1, 1)
+	ledger := voidLedger(t, false)
+	s := voidState(t, ledger, 0)
+	s.Drifted = true
+	c := inSystem("far_one", 900)
+	d, path, _ := voidDispatch(t, c, kb, s, ledger)
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := loadVoidState(t, path); len(got.ZoneFound) != 0 {
+		t.Fatalf("zone found %v, want nothing", got.ZoneFound)
+	}
+}
+
+// Review I2: a system sitting on the waypoint captures every relaunch at
+// it; the rejoin steps on to the next waypoint instead of looping.
+func TestVoidLandingOnTheWaypointStepsPastIt(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	placeSystem(t, kb, "on_wp", 1980, 0, 1, 1)
+	ledger := voidLedger(t, false)
+	s := voidState(t, ledger, 1)
+	s.Phase = sweep.PhaseExplore
+	s.ArrivalToured = true
+	c := inSystem("on_wp", 900)
+	d, path, _ := voidDispatch(t, c, kb, s, ledger)
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got := loadVoidState(t, path)
+	if got.Waypoint != 2 || len(got.Gaps) != 1 {
+		t.Fatalf("waypoint %d gaps %v, want 2 with a gap logged", got.Waypoint, got.Gaps)
+	}
+	if b := lastJump(t, c); b != round1(sweep.BearingTo(1980, 0, 2000, 100)) {
+		t.Errorf("rejoin on %.1f, want toward (2000,100)", b)
+	}
+}
+
+// Review I3: the next zone after a finished one is staged by lanes too.
+func TestVoidNextZoneIsStaged(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	addSweepStation(t, kb, "home", 0, 1000)
+	placeSystem(t, kb, "near_v02", 4900, 1500, 1, 1)
+	r := &sweep.VoidRun{Zones: []*sweep.VoidZone{
+		{Zone: sweep.Zone{ID: "V01", Area: 2e6}, Waypoints: slices.Clone(voidWave), Done: true, Next: 4},
+		{Zone: sweep.Zone{ID: "V02", Area: 1e6}, Waypoints: []sweep.Point{{X: 5000, Y: 1500}, {X: 5900, Y: 1500}}},
+	}}
+	ledger := filepath.Join(t.TempDir(), "void-run.json")
+	if err := sweep.SaveVoidRun(ledger, r); err != nil {
+		t.Fatal(err)
+	}
+	addSweepStation(t, kb, "v02_station", 5200, 1600)
+	s := sweep.NewVoidState(45)
+	s.LaunchCostMeasured, s.Phase = true, sweep.PhaseDone
+	c := inSystem("home", 1020)
+	c.state.Doc = true
+	d, _, _ := voidDispatch(t, c, kb, s, ledger)
+	seams := d.ensureHomeNav
+	var navs []string
+	d.ensureHomeNav = func(ctx context.Context, sys, poi string) error { navs = append(navs, sys); return seams(ctx, sys, poi) }
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(navs, "near_v02") || len(c.jumps) != 0 {
+		t.Fatalf("navs %v jumps %v, want lanes to near_v02 and no launch yet", navs, c.jumps)
+	}
+}
+
+// Review I4: done but undocked (play_as undocked it) goes back to a station
+// rather than holding the zone forever.
+func TestVoidDoneButUndockedDocksAgain(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	addSweepStation(t, kb, "home", 0, 1000)
+	ledger := voidLedger(t, false)
+	s := voidState(t, ledger, 2)
+	s.Phase = sweep.PhaseDone
+	c := inSystem("home", 900)
+	d, _, _ := voidDispatch(t, c, kb, s, ledger)
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(c.calls, "dock") {
+		t.Fatalf("calls %v, want a dock", c.calls)
+	}
+}
+
+// Review M1 (re-graded): switching a finished ring ship to void mode
+// refuels at its station before the first launch.
+func TestVoidFirstSwitchRefuelsBeforeLaunching(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	addSweepStation(t, kb, "home", 500, 0)
+	ledger := voidLedger(t, false)
+	ring := sweep.NewState(7500, 148, 45)
+	ring.Phase, ring.LaunchCostMeasured = sweep.PhaseDone, true
+	c := inSystem("home", 100)
+	c.state.Doc = true
+	d, _, _ := voidDispatch(t, c, kb, ring, ledger)
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	r, j := slices.Index(c.calls, "refuel"), slices.IndexFunc(c.calls, func(x string) bool { return strings.HasPrefix(x, "jump ") })
+	if r < 0 || (j >= 0 && j < r) {
+		t.Fatalf("calls %v, want a refuel before any launch", c.calls)
+	}
+}

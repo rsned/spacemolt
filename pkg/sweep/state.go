@@ -95,6 +95,9 @@ type State struct {
 	Waypoints []Point  `json:"waypoints,omitempty"`
 	Waypoint  int      `json:"waypoint,omitempty"`
 	ZoneFound []string `json:"zone_found,omitempty"`
+	// StagePending asks the next rejoin to fly by lanes to the known system
+	// nearest the zone first (set on every claim).
+	StagePending bool `json:"stage_pending,omitempty"`
 	UpdatedUTC string   `json:"updated_utc,omitempty"`
 }
 
