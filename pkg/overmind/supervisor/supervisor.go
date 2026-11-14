@@ -86,7 +86,7 @@ func SpawnWith(cfg SpawnConfig) SpawnFunc {
 		for _, f := range []struct {
 			flag string
 			v    float64
-		}{{"--sweep-ring", spec.SweepRing}, {"--sweep-start-deg", spec.SweepStartDeg}, {"--sweep-launch-cost", spec.SweepLaunchCost}} {
+		}{{"--sweep-ring", spec.SweepRing}, {"--sweep-start-deg", spec.SweepStartDeg}, {"--sweep-launch-cost", spec.SweepLaunchCost}, {"--sweep-span-deg", spec.SweepSpanDeg}} {
 			if f.v != 0 {
 				args = append(args, f.flag, strconv.FormatFloat(f.v, 'f', -1, 64))
 			}

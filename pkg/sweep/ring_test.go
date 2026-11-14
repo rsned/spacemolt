@@ -42,3 +42,26 @@ func TestAdvanceAcrossWrap(t *testing.T) {
 		t.Fatalf("lap not done after 72 steps (swept %v)", lap.SweptDeg)
 	}
 }
+
+// A partial pass (the bottom arc, 148° to 48°) ends at its span; a state
+// without one is a full lap (operator 2026-11-14).
+func TestLapDoneHonoursSpan(t *testing.T) {
+	s := NewState(7200, 148, 23)
+	s.SweptDeg = 99
+	s.SpanDeg = 100
+	if LapDone(s) {
+		t.Error("99° of a 100° span reported done")
+	}
+	s.SweptDeg = 100
+	if !LapDone(s) {
+		t.Error("100° of a 100° span not done")
+	}
+	s.SpanDeg = 0
+	if LapDone(s) {
+		t.Error("no span: 100° must not end a full lap")
+	}
+	s.SweptDeg = 360
+	if !LapDone(s) {
+		t.Error("no span: 360° must end the lap")
+	}
+}

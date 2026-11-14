@@ -32,8 +32,10 @@ type WorkerSpec struct {
 	// pathfinder_sweep role (--sweep-ring etc.): ring radius in LY, start
 	// angle in degrees, and the hull's launch-cost estimate. Zero = unset.
 	// Spec: docs/superpowers/specs/2026-11-12-pathfinder-frontier-sweep-design.md
-	SweepRing       float64 `yaml:"sweep_ring,omitempty"`
-	SweepStartDeg   float64 `yaml:"sweep_start_deg,omitempty"`
+	SweepRing     float64 `yaml:"sweep_ring,omitempty"`
+	SweepStartDeg float64 `yaml:"sweep_start_deg,omitempty"`
+	// SweepSpanDeg ends a lap after this many degrees (a partial pass); 0 is a full 360° lap.
+	SweepSpanDeg    float64 `yaml:"sweep_span_deg,omitempty"`
 	SweepLaunchCost float64 `yaml:"sweep_launch_cost,omitempty"`
 	// SweepStage is the optional pre-lap route "refuel,launch,target".
 	SweepStage string `yaml:"sweep_stage,omitempty"`

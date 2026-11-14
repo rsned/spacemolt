@@ -32,8 +32,10 @@ type Gap struct {
 // State is one ship's sweep, saved after every change so a restart, explore
 // run or GSA tow resumes at the saved ring angle.
 type State struct {
-	Ring        float64 `json:"ring"`
-	StartDeg    float64 `json:"start_deg"`
+	Ring     float64 `json:"ring"`
+	StartDeg float64 `json:"start_deg"`
+	// SpanDeg ends the lap after this many degrees swept (a partial pass); 0 is a full 360° lap.
+	SpanDeg     float64 `json:"span_deg,omitempty"`
 	ProgressDeg float64 `json:"progress_deg"` // unwrapped; only decreases
 	SweptDeg    float64 `json:"swept_deg"`
 	Phase       Phase   `json:"phase"`

@@ -54,6 +54,7 @@ func (d *WorkerDispatch) PathfinderSweep(ctx context.Context) error {
 	}
 	if !ok {
 		s = sweep.NewState(d.SweepRing, d.SweepStartDeg, d.SweepLaunchCost)
+		s.SpanDeg = d.SweepSpanDeg
 		if stage.Set() {
 			s.Phase = sweep.PhaseStage
 		}

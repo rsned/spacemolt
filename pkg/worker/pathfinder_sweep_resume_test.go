@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -168,5 +169,21 @@ func TestSweepDryDeskOneLaunchStays(t *testing.T) {
 	got, _, _ := sweep.Load(path)
 	if got.Phase != sweep.PhaseDone || len(c.jumps) != 0 {
 		t.Fatalf("phase %q jumps %v, want to stay docked with one launch of fuel", got.Phase, c.jumps)
+	}
+}
+
+func TestSweepNewStateTakesSpan(t *testing.T) {
+	c := inSystem("node_beta", 350)
+	kb := knowledge.NewMemoryKB()
+	addSweepStation(t, kb, "node_beta", -3000, 3000)
+	d, path, _ := newArrivalDispatch(t, c, kb, sweep.NewState(7200, 148, 23))
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	d.SweepSpanDeg = 100
+	_ = d.PathfinderSweep(context.Background())
+	got, ok, _ := sweep.Load(path)
+	if !ok || got.SpanDeg != 100 {
+		t.Fatalf("state %+v, want span 100 from the flag", got)
 	}
 }

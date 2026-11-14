@@ -24,4 +24,10 @@ func Advance(s *State, deg float64) {
 }
 
 // LapDone reports whether the ship has swept the full circle.
-func LapDone(s *State) bool { return s.SweptDeg >= 360 }
+func LapDone(s *State) bool {
+	span := s.SpanDeg
+	if span <= 0 {
+		span = 360
+	}
+	return s.SweptDeg >= span
+}
