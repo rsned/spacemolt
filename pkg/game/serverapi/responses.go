@@ -2590,7 +2590,9 @@ type ScanResponse struct {
 	NPCs              []ScanNPC          `json:"npcs,omitempty"`
 	Pirates           []ScanNPC          `json:"pirates,omitempty"`
 	Leviathans        []LeviathanContact `json:"leviathans,omitempty"`
-	Message           string             `json:"message,omitempty"`
+	// Repeaters at the scanned POI (openapi 2026-11-13). Omitted when none.
+	Repeaters []RepeaterInfo `json:"repeaters,omitempty"`
+	Message   string         `json:"message,omitempty"`
 }
 
 // JettisonResponse wraps the response from jettison command.
