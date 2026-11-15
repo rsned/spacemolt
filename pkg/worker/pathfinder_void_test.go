@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"errors"
 	"bytes"
 	"context"
 	"path/filepath"
@@ -466,5 +467,40 @@ func TestVoidFirstSwitchRefuelsBeforeLaunching(t *testing.T) {
 	r, j := slices.Index(c.calls, "refuel"), slices.IndexFunc(c.calls, func(x string) bool { return strings.HasPrefix(x, "jump ") })
 	if r < 0 || (j >= 0 && j < r) {
 		t.Fatalf("calls %v, want a refuel before any launch", c.calls)
+	}
+}
+
+// Rollout gap #4 (11-15, explorer-5): staging that hits "action pending"
+// waits it out and keeps lane-staging instead of launching from far away.
+func TestVoidStagingWaitsOutAPendingAction(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	addSweepStation(t, kb, "home", 0, 1000)
+	placeSystem(t, kb, "near_v02", 4900, 1500, 1, 1)
+	r := &sweep.VoidRun{Zones: []*sweep.VoidZone{
+		{Zone: sweep.Zone{ID: "V02", Area: 1e6}, Waypoints: []sweep.Point{{X: 5000, Y: 1500}, {X: 5900, Y: 1500}}},
+	}}
+	ledger := filepath.Join(t.TempDir(), "void-run.json")
+	if err := sweep.SaveVoidRun(ledger, r); err != nil {
+		t.Fatal(err)
+	}
+	addSweepStation(t, kb, "v02_station", 5200, 1600)
+	s := sweep.NewVoidState(45)
+	s.LaunchCostMeasured, s.Phase = true, sweep.PhaseDone
+	c := inSystem("home", 1020)
+	c.state.Doc = true
+	d, _, _ := voidDispatch(t, c, kb, s, ledger)
+	var navs []string
+	d.ensureHomeNav = func(_ context.Context, sys, _ string) error {
+		navs = append(navs, sys)
+		if len(navs) == 1 {
+			return errors.New("jump 5/9 to Atlas failed: action pending: another action () is in progress")
+		}
+		return nil
+	}
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(navs) != 2 || navs[1] != "near_v02" || len(c.jumps) != 0 {
+		t.Fatalf("navs %v jumps %v, want a second lane attempt to near_v02 and no launch", navs, c.jumps)
 	}
 }

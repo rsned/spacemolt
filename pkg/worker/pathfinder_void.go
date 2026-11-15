@@ -182,7 +182,10 @@ func (d *WorkerDispatch) voidStage(ctx context.Context, s *sweep.State, path, sy
 		return false, nil
 	}
 	fmt.Fprintf(d.Out, "void sweep: staging at %s (%.0f LY from %s's leg %d) by lanes\n", best, bestD, s.ZoneID, s.Waypoint) //nolint:errcheck
-	if err := d.ensureHomeNav(ctx, best, ""); err != nil {
+	// A lane jump that lands while the previous action is still settling
+	// answers "action pending"; wait it out rather than give up the staging
+	// and launch from far away (explorer-5, 11-15).
+	if err := waitOutPending(ctx, func() error { return d.ensureHomeNav(ctx, best, "") }); err != nil {
 		fmt.Fprintf(d.Out, "void sweep: staging at %s: %v; launching from here\n", best, err) //nolint:errcheck
 		return false, nil
 	}
