@@ -105,6 +105,17 @@ func (d *WorkerDispatch) sweepRepairBeforeLaunch(ctx context.Context, sysID stri
 	hull, maxHull := st.Ship.Hull, st.Ship.MaxHull
 	poi := d.sweepStationPOI(ctx, sysID)
 	if poi == "" {
+		if k := cargoQuantity(st, repairKitItem); k > 0 {
+			if err := d.Client.Repair(ctx); err != nil {
+				fmt.Fprintf(d.Out, "pathfinder_sweep: hull %v/%v, no station at %s, kit repair failed: %v; launching anyway\n", hull, maxHull, sysID, err) //nolint:errcheck
+				return
+			}
+			_ = d.Client.GetStatus(ctx)
+			if s2 := d.Client.GetState(); s2 != nil {
+				fmt.Fprintf(d.Out, "pathfinder_sweep: no station at %s; repaired from %.0f spare kit(s): hull %v -> %v/%v\n", sysID, k, hull, s2.Ship.Hull, s2.Ship.MaxHull) //nolint:errcheck
+			}
+			return
+		}
 		fmt.Fprintf(d.Out, "pathfinder_sweep: hull %v/%v and no station at %s; launching anyway\n", hull, maxHull, sysID) //nolint:errcheck
 		return
 	}

@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
+	"strings"
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
+	"github.com/rsned/spacemolt/pkg/game"
 )
 
 // Explore used to refuel only by accident: Autopilot's pre-route top-up docks
@@ -99,6 +102,24 @@ func exploreFuelStop(ctx context.Context, deps ExploreDeps, out io.Writer, curre
 	return false, nil
 }
 
+// repairKitItem restores repairKitHull hull per kit (item_consumable_effects)
+// when repaired from cargo: at a station without repair service, or in space.
+const (
+	repairKitItem = "repair_kit"
+	repairKitHull = 50
+)
+
+// cargoQuantity is how many of item the ship carries.
+func cargoQuantity(st *game.State, item string) float64 {
+	q := 0.0
+	for _, it := range st.Ship.Cargo {
+		if it.ItemID == item {
+			q += it.Quantity
+		}
+	}
+	return q
+}
+
 // exploreRefuelDocked buys a full tank at the station the ship is docked at.
 // A refusal is logged, not returned: the next pass retries.
 func exploreRefuelDocked(ctx context.Context, deps ExploreDeps, out io.Writer) error {
@@ -115,7 +136,19 @@ func exploreRefuelDocked(ctx context.Context, deps ExploreDeps, out io.Writer) e
 	// hull left damaged from the last one is what the next one kills.
 	if s := deps.Client.GetState(); s != nil && s.Ship.MaxHull > 0 && s.Ship.Hull < s.Ship.MaxHull {
 		before := s.Ship.Hull
-		if err := deps.Client.Repair(ctx); err != nil {
+		err := deps.Client.Repair(ctx)
+		if err != nil && strings.Contains(err.Error(), "no_repair_kits") {
+			// No repair service here (a player station without a repair
+			// yard): repair runs on kits from cargo, so buy what the damage needs.
+			n := math.Ceil(float64(s.Ship.MaxHull-s.Ship.Hull) / repairKitHull)
+			if berr := deps.Client.Buy(ctx, repairKitItem, n); berr != nil {
+				fmt.Fprintf(out, "explore: no repair service and no repair kits bought (%v)\n", berr) //nolint:errcheck
+				return nil
+			}
+			fmt.Fprintf(out, "explore: no repair service; bought %.0f repair kits\n", n) //nolint:errcheck
+			err = deps.Client.Repair(ctx)
+		}
+		if err != nil {
 			fmt.Fprintf(out, "explore: station repair failed: %v\n", err) //nolint:errcheck
 			return nil
 		}
