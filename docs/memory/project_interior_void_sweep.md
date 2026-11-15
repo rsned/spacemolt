@@ -56,3 +56,13 @@ repair_kit 48 prefer_own` at CJ (48 held 11-14 20:05).
 
 Open idea, not built: refuel fallback — on no_fuel_source at a station whose market
 sells fuel_cell, buy cells (same pattern as repair kits).
+
+**Rollout log 11-15 (local 09:17–09:24):** void-run.json generated (58 zones). Round-2 states archived
+in data/sweep-archive/round2-20261115/. sweep-fleet.yaml: sweep_mode void on 1,2,5,7,9,11,12; 4 and 8
+commented out as HELD (e5343bca). **Plan gap #1:** the plan only rebuilt bin/worker — bin/overmind (built
+11-14 08:02) predated the merge and never passed --sweep-mode, so the first restart flew RING staging.
+Rebuilt bin/overmind + restarted; workers now get --sweep-mode void. First claims: -2 V11, -12 V13,
+-9 V01, -11 V02, -5 V14. **Gap #2 (minor):** a worker restarted mid-jump reads a stale docked=true,
+claims, then sees itself undocked and goes "done but not docked" → lanes home → claims/stages from
+there (detour, keeps its zone). explorer-8 refuel by assist-frontier delegated to a background agent.
+Void map artifact (https://claude.ai/artifact/M3DFdEbXkHWTPEze3hWtcp) NOT yet republished.
