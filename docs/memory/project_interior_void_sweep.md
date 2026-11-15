@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: project
   originSessionId: 45e19edc-89f8-4358-bb3e-11324020d741
-  modified: 2026-11-14T20:39:39.724Z
+  modified: 2026-11-15T17:20:00Z
 ---
 
 User request 2026-11-14: once the explorers finish the current round (round 2,
@@ -30,3 +30,29 @@ plan docs/superpowers/plans/2026-11-14-interior-void-sweep.md; code MERGED to ma
 `sweep_mode: void` in sweep-fleet.yaml; ledger data/sweep/void-run.json via `bin/void-zones generate|status|map`
 (58 zones, 38.7M LY² at generation time). Plan Task 6 rollout PENDING the operator's go after round 2:
 generate ledger, archive round-2 sweep states, switch yaml, rebuild bin/worker, restart sweep overmind.
+
+## RESUME POINT 2026-11-15 ~17:20 (operator said GO for the ready ships)
+
+Round 2 finished 11-14 21:28 (laps: 1,2,5,7,8,9,11,12). Rollout in progress for the
+READY ships only: explorer-1, -2, -5, -9, -11, -12 (Node Beta, full fuel+hull) and
+explorer-7 (Gliese 581 / Korr Fortress, a stronghold — fueled). Goal of this first
+run (operator): shake out anything the plan overlooked.
+
+Held back:
+- **explorer-8** at Winterhold (player station, NO refuel/repair service; 19 fuel,
+  200/480 hull, 1.08M cr). Market sells fuel_cell @3000 (20 fuel each), no repair kits.
+  Operator: send **assist-frontier** (assist fleet, Capacity hull, 1500 fuel, docked
+  First Step) to Winterhold to refuel it; explorer-8 must UNDOCK for the transfer.
+  Nearest refuel+repair by lanes: Ramen's Rest @ last_light (4 jumps).
+- **explorer-6** quarantined fuel-dead at Turnback (frontier, ~-6310,-3944), rescue
+  record pending since 11-15 03:01, unclaimed (no lane route for assists).
+- **explorer-4** at Sol: operator still to decide re-equip vs drop from sweep.
+
+Shipped alongside (local commits, NOT pushed): b5322ade play_as pf_route (frontier
+Pathfinder planner), 4f039390 + 36789a9b repair kits (buy on no_repair_kits; keep 4
+spares from CJ faction storage; kit = 50 hull), b33d51f3 get_base life line labels.
+craftsman-3 (now officer, as are -4/-5) runs hourly `craft_stock assemble_repair_kit
+repair_kit 48 prefer_own` at CJ (48 held 11-14 20:05).
+
+Open idea, not built: refuel fallback — on no_fuel_source at a station whose market
+sells fuel_cell, buy cells (same pattern as repair kits).
