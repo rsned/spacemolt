@@ -62,7 +62,12 @@ func refuelStopIfShort(ctx context.Context, kb knowledge.Base, client game.GameC
 		return
 	}
 	tried[systemID] = true
-	poi := haulUsableStationPOI(ctx, kb, systemID, unlocked)
+	// Prefer a station known to sell fuel; fall back to any usable one when
+	// the KB has no service list for this system's stations.
+	poi := refuelStationPOI(ctx, kb, systemID, unlocked)
+	if poi == "" {
+		poi = haulUsableStationPOI(ctx, kb, systemID, unlocked)
+	}
 	if poi == "" {
 		return
 	}
@@ -87,4 +92,48 @@ func refuelStopIfShort(ctx context.Context, kb knowledge.Base, client game.GameC
 		f2, m2 := s.GetFuel()
 		fmt.Fprintf(out, "  Refueled at %s: %.0f/%.0f\n", poi, f2, m2) //nolint:errcheck
 	}
+}
+
+// routeFuelFeasible reports whether a route of len(refuelAt) jumps at perJump
+// fuel each can be flown starting with fuel in a tank of tank, when the ship
+// fills up wherever refuelAt[i] is true (the system it is in before jump i;
+// refuelAt[0] is the origin). Reaching the station is an in-system hop, so a
+// stop only counts when the ship arrives with at least perJump fuel left (the
+// same one-hop allowance routeReserve makes).
+func routeFuelFeasible(fuel, tank, perJump int, refuelAt []bool) bool {
+	for _, stop := range refuelAt {
+		if stop && fuel >= perJump {
+			fuel = tank
+		}
+		fuel -= perJump
+		if fuel < 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// refuelStationPOI is a station POI in systemID the ship may dock at whose
+// base is KNOWN to sell fuel (the "refuel" service). "" when there is none.
+func refuelStationPOI(ctx context.Context, kb knowledge.Base, systemID string, unlocked bool) string {
+	if kb == nil {
+		return ""
+	}
+	pois, err := kb.GetPOIs(ctx, systemID)
+	if err != nil {
+		return ""
+	}
+	for _, p := range pois {
+		if p.Type != "station" {
+			continue
+		}
+		base, berr := kb.GetBaseByPOI(ctx, p.ID)
+		if berr != nil || base == nil || base.IsOutpost() || (!base.PublicAccess && !unlocked) {
+			continue
+		}
+		if base.Services["refuel"] {
+			return p.ID
+		}
+	}
+	return ""
 }

@@ -162,3 +162,66 @@ func TestRouteReserve(t *testing.T) {
 		}
 	}
 }
+
+// longRouteFake: five jumps at 10 fuel (50 total) on a 40-fuel tank, with a
+// station in s3 whose services are svc. Only a stop at s3 makes it flyable.
+func longRouteFake(t *testing.T, svc map[string]bool) (*burnFake, knowledge.Base) {
+	t.Helper()
+	b, kb := routeFake(t, 40)
+	if err := kb.RememberBase(context.Background(), knowledge.SpaceBase{ID: "s3_base", POIID: "s3_stn", PublicAccess: true, Services: svc}); err != nil {
+		t.Fatal(err)
+	}
+	b.perJump = 10
+	b.state.MaxFuel, b.state.Ship.MaxFuel = 40, 40
+	b.raw["_last"] = []byte(`{"fuel_per_jump":10,"estimated_fuel":50,"fuel_available":40}`)
+	return b, kb
+}
+
+// trader-8 on 2026-11-15 looped on a sale whose route needed ~111 fuel on a
+// 110 tank: the departure gate compared the whole route to the tank and never
+// counted the refuel stations on the way. A route longer than one tank flies
+// when known refuel stations split it into legs the tank covers.
+func TestAutopilotDepartsWhenRefuelStationsSplitALongRoute(t *testing.T) {
+	b, kb := longRouteFake(t, map[string]bool{"refuel": true, "market": true})
+	if err := Autopilot(context.Background(), AutopilotDeps{Client: b, Out: io.Discard, KB: kb, AvoidSystemsPath: t.TempDir() + "/none.json"}, "s5", ""); err != nil {
+		t.Fatalf("Autopilot: %v (calls %v)", err, b.calls)
+	}
+	i := slices.Index(b.calls, "travel:s3_stn")
+	if i < 0 || !slices.Contains(b.calls[i:], "refuel") || !slices.Contains(b.calls, "jump:s5") {
+		t.Fatalf("calls %v, want a refuel stop at s3 and arrival in s5", b.calls)
+	}
+}
+
+// A station without the refuel service does not count as a stop.
+func TestAutopilotRefusesALongRouteWithoutRefuelService(t *testing.T) {
+	b, kb := longRouteFake(t, map[string]bool{"market": true})
+	err := Autopilot(context.Background(), AutopilotDeps{Client: b, Out: io.Discard, KB: kb, AvoidSystemsPath: t.TempDir() + "/none.json"}, "s5", "")
+	if !errors.Is(err, ErrInsufficientRouteFuel) {
+		t.Fatalf("want ErrInsufficientRouteFuel, got %v (calls %v)", err, b.calls)
+	}
+	if slices.ContainsFunc(b.calls, func(c string) bool { return strings.HasPrefix(c, "jump:") }) {
+		t.Fatalf("must not jump, calls=%v", b.calls)
+	}
+}
+
+func TestRouteFuelFeasible(t *testing.T) {
+	cases := []struct {
+		name                string
+		fuel, tank, perJump int
+		refuelAt            []bool
+		want                bool
+	}{
+		{"fits without stops", 50, 50, 10, []bool{false, false, false, false, false}, true},
+		{"no stations", 30, 30, 10, []bool{false, false, false, false, false}, false},
+		{"stop splits it", 40, 40, 10, []bool{false, false, false, true, false}, true},
+		{"arrives too dry to reach the station", 30, 30, 10, []bool{false, false, false, true, false}, false},
+		{"stop too late", 30, 30, 10, []bool{false, false, false, false, true}, false},
+		{"leg longer than the tank", 30, 30, 10, []bool{true, false, false, false, false}, false},
+		{"origin top-up covers it", 10, 50, 10, []bool{true, false, false, false, false}, true},
+	}
+	for _, c := range cases {
+		if got := routeFuelFeasible(c.fuel, c.tank, c.perJump, c.refuelAt); got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}

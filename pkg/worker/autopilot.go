@@ -340,6 +340,35 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 		// Live 2026-08-15: craftsman-1 printed this warning 56 fuel short and
 		// departed anyway, dying at westmark_star with 4/400; salvager-3 and
 		// engineer-1 stranded the same night the same way.
+		if estimatedFuel > fuelAvailable && fuelPerJump > 0 {
+			// More than the tank holds now (or ever): fly it anyway when known
+			// refuel stations on the way split it into legs the tank covers.
+			// refuelStopIfShort below makes those stops (trader-8, 11-15:
+			// ~111 fuel on a 110 tank, looping on the gate forever).
+			unlocked := len(strongholdRefs) == 0
+			refuelAt := make([]bool, totalJumps)
+			stops := 0
+			for i := range totalJumps {
+				here := origin
+				if i > 0 {
+					here = route[i-1].SystemID
+				}
+				if refuelStationPOI(ctx, deps.KB, here, unlocked) != "" {
+					refuelAt[i] = true
+					stops++
+				}
+			}
+			tank := fuelAvailable
+			if st := client.GetState(); st != nil {
+				if _, m := st.GetFuel(); int(m) > tank {
+					tank = int(m)
+				}
+			}
+			if stops > 0 && routeFuelFeasible(fuelAvailable, tank, fuelPerJump, refuelAt) {
+				fmt.Fprintf(out, "   Fuel short for the whole route; %d known refuel station(s) on the way cover it\n", stops) //nolint:errcheck
+				estimatedFuel = 0 // gate passed
+			}
+		}
 		if estimatedFuel > fuelAvailable {
 			fmt.Fprintf(out, "   NOT DEPARTING: route needs ~%d fuel, %d available (short %d)\n", //nolint:errcheck
 				estimatedFuel, fuelAvailable, estimatedFuel-fuelAvailable)
