@@ -60,13 +60,24 @@ func TestGenerateRefusesAnActiveRun(t *testing.T) {
 
 func TestRenderMapShowsFlownLanes(t *testing.T) {
 	r := sweep.NewVoidRun(sweep.ComputeZones(holey(), sweep.DefaultZoneOpts()), 100, now)
-	if got := renderMap(r, holey()); strings.Contains(got, `class="flown"`) {
+	if got := renderMap(r, holey(), nil); strings.Contains(got, `class="flown"`) {
 		t.Fatal("a run with nothing flown draws flown lanes")
 	}
 	r.Zones[0].Next = 2
 	r.Zones[0].Found = []string{"hidden_one"}
-	got := renderMap(r, holey())
+	got := renderMap(r, holey(), nil)
 	for _, want := range []string{`class="flown"`, "V01", "hidden_one", "<title>"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("map lacks %q", want)
+		}
+	}
+}
+
+func TestRenderMapMarksFoundSystems(t *testing.T) {
+	r := sweep.NewVoidRun(sweep.ComputeZones(holey(), sweep.DefaultZoneOpts()), 100, now)
+	r.Zones[0].Found = []string{"plain_sight"}
+	got := renderMap(r, holey(), []foundSys{{ID: "plain_sight", Name: "Plain Sight", X: 1149, Y: 1769}})
+	for _, want := range []string{`class="find"`, `cx="1149" cy="-1769"`, ">Plain Sight<", "<b>1</b> found"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("map lacks %q", want)
 		}

@@ -60,9 +60,33 @@ func run(cmd, kbPath, runPath, out string) error {
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(out, []byte(renderMap(r, pts)), 0o644)
+		finds, err := foundSystems(kbPath, r)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(out, []byte(renderMap(r, pts, finds)), 0o644)
 	}
 	return fmt.Errorf("unknown command %q", cmd)
+}
+
+// foundSystems places every system the run has found, from the KB.
+func foundSystems(kbPath string, r *sweep.VoidRun) ([]foundSys, error) {
+	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: kbPath, WAL: true})
+	if err != nil {
+		return nil, err
+	}
+	defer kb.Close() //nolint:errcheck
+	var out []foundSys
+	for _, z := range r.Zones {
+		for _, id := range z.Found {
+			s, gerr := kb.GetSystem(context.Background(), id)
+			if gerr != nil || s == nil {
+				continue // not in the KB yet: the table still lists it
+			}
+			out = append(out, foundSys{ID: id, Name: s.Name, X: s.Position.X, Y: s.Position.Y})
+		}
+	}
+	return out, nil
 }
 
 // systems is every KB system with a known position (Sol is the only system
