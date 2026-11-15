@@ -33,7 +33,7 @@ workers:
   # HELD 2026-11-15 (void rollout): - { agent_id: explorer-4, role: pathfinder_sweep, station: "", sweep_ring: 7500, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
   - { agent_id: explorer-5, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 7650, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
   - { agent_id: explorer-6, role: pathfinder_sweep, station: "", sweep_ring: 7800, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  # HELD 2026-11-15 (void rollout): - { agent_id: explorer-8, role: pathfinder_sweep, station: "", sweep_ring: 7950, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
+  - { agent_id: explorer-8, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 7950, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
   - { agent_id: explorer-12, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 8100, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
   - { agent_id: explorer-1, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 8250, sweep_start_deg: 148, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
   - { agent_id: explorer-9, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 8400, sweep_start_deg: 148, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
