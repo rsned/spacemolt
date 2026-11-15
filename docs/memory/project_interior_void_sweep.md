@@ -24,3 +24,9 @@ the user before building.
 
 **Shape idea (user, 11-14):** each agent gets one void zone and flies a
 back-and-forth square wave (lawnmower) through it, lanes ~100 LY apart.
+
+**Status 2026-11-14:** spec docs/superpowers/specs/2026-11-14-interior-void-sweep-design.md,
+plan docs/superpowers/plans/2026-11-14-interior-void-sweep.md; code MERGED to main (5cc37ac9, local).
+`sweep_mode: void` in sweep-fleet.yaml; ledger data/sweep/void-run.json via `bin/void-zones generate|status|map`
+(58 zones, 38.7M LY² at generation time). Plan Task 6 rollout PENDING the operator's go after round 2:
+generate ledger, archive round-2 sweep states, switch yaml, rebuild bin/worker, restart sweep overmind.
