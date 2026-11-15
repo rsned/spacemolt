@@ -148,3 +148,9 @@ func queryPOIsByType(ctx context.Context, kb knowledge.Base, poiType string) ([]
 	}
 	return result, nil
 }
+
+// AccessibleStationSystems returns the ids of systems holding a public,
+// non-outpost station; stronghold systems only when includeStrongholds.
+func AccessibleStationSystems(ctx context.Context, kb knowledge.Base, includeStrongholds bool) ([]string, error) {
+	return queryAccessibleStations(ctx, kb, includeStrongholds)
+}

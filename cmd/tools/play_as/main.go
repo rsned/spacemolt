@@ -9898,6 +9898,9 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 	case "show_system", "show-system":
 		return runShowSystem(ctx, parts[1:])
 
+	case "pf_route", "pf-route", "pathfinder_route":
+		return runPathfinderRoute(ctx, parts[1:])
+
 	case "demand":
 		if len(parts) >= 2 && parts[1] == "history" {
 			return runDemandHistory(ctx, parts[2:], format)
@@ -11039,6 +11042,7 @@ func printHelp() {
 	fmt.Println("  jump <system>             - Jump to another system")
 	fmt.Println("  find_route <system>       - Find route to system")
 	fmt.Println("  nearest <poi_type>        - Find nearest POIs by type (e.g., 'nearest station')")
+	fmt.Println("  pf_route <system> [from=<sys>] [--strongholds] - Pathfinder plan to a frontier system: nearest station/system to launch from, bearing, drift ticks (KB only)")
 	fmt.Println("  autopilot <system> [poi]  - Auto-navigate to system (and optional POI)")
 	fmt.Println("  plan_route [--return] <systems...>  - Optimal jump order to visit systems; prints autopilot cmds")
 	fmt.Println("  explore                   - Visit all POIs in current system (nearest-first)")
