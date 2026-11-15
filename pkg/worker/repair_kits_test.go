@@ -18,8 +18,27 @@ import (
 // repair works only from repair kits in cargo, 50 hull per kit.
 type kitFake struct {
 	safetyFake
-	sellsKits bool
+	sellsKits   bool
+	factionKits int // kits in faction storage here; -1 = no faction storage
+	withdrawn   int
 }
+
+func (c *kitFake) FactionWithdrawItems(_ context.Context, item string, q int) error {
+	c.calls = append(c.calls, fmt.Sprintf("faction_withdraw %s %d", item, q))
+	if c.factionKits < 0 {
+		return errors.New("no_faction_storage: your faction has no storage at this station")
+	}
+	n := min(q, c.factionKits)
+	if n == 0 {
+		return errors.New("insufficient_items")
+	}
+	c.factionKits -= n
+	c.withdrawn += n
+	c.state.Ship.Cargo = []game.CargoItem{{ItemID: item, Quantity: c.kits() + float64(n)}}
+	return nil
+}
+
+func (c *kitFake) GetCargo(context.Context) error { return nil }
 
 func (c *kitFake) kits() float64 {
 	for _, it := range c.state.Ship.Cargo {
@@ -58,7 +77,7 @@ func (c *kitFake) Buy(_ context.Context, item string, qty float64) error {
 // repair yard) at 200/480, its repair failed with no_repair_kits. It buys
 // the kits the damage needs on that market and repairs.
 func TestRefuelDockedBuysRepairKitsWhenStationHasNoRepair(t *testing.T) {
-	c := &kitFake{safetyFake: *newSafety("winterhold", 200, 480), sellsKits: true}
+	c := &kitFake{safetyFake: *newSafety("winterhold", 200, 480), sellsKits: true, factionKits: -1}
 	c.state.Doc = true
 	if err := exploreRefuelDocked(context.Background(), ExploreDeps{Client: c}, &bytes.Buffer{}); err != nil {
 		t.Fatal(err)
@@ -70,7 +89,7 @@ func TestRefuelDockedBuysRepairKitsWhenStationHasNoRepair(t *testing.T) {
 
 // With no kits on sale either, it says so and carries on.
 func TestRefuelDockedNoKitsForSale(t *testing.T) {
-	c := &kitFake{safetyFake: *newSafety("winterhold", 200, 480)}
+	c := &kitFake{safetyFake: *newSafety("winterhold", 200, 480), factionKits: -1}
 	c.state.Doc = true
 	out := &bytes.Buffer{}
 	if err := exploreRefuelDocked(context.Background(), ExploreDeps{Client: c}, out); err != nil {
@@ -86,7 +105,7 @@ func TestRefuelDockedNoKitsForSale(t *testing.T) {
 func TestSweepLowHullNoStationUsesSpareKits(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
 	placeSystem(t, kb, "far_shelf", -5000, 5600, 1, 1)
-	c := &kitFake{safetyFake: *newSafety("far_shelf", 150, 480)}
+	c := &kitFake{safetyFake: *newSafety("far_shelf", 150, 480), factionKits: -1}
 	c.state.Ship.Cargo = []game.CargoItem{{ItemID: repairKitItem, Quantity: 4}}
 	s := sweep.NewState(7500, 148, 45)
 	s.Phase, s.LaunchCostMeasured = sweep.PhaseLap, true
@@ -99,5 +118,40 @@ func TestSweepLowHullNoStationUsesSpareKits(t *testing.T) {
 	j := slices.IndexFunc(c.calls, func(x string) bool { return strings.HasPrefix(x, "jump ") })
 	if r < 0 || j < 0 || r > j || c.state.Ship.Hull != 350 {
 		t.Fatalf("calls %v hull %v, want a kit repair to 350 before the launch", c.calls, c.state.Ship.Hull)
+	}
+}
+
+// At CJ (faction storage, no repair yard) a damaged explorer repairs from
+// the faction's hand-crafted kits before buying any, then restocks spares.
+func TestRefuelDockedUsesFactionKitsThenKeepsSpares(t *testing.T) {
+	c := &kitFake{safetyFake: *newSafety("cloverfield", 380, 480), factionKits: 40}
+	c.state.Doc = true
+	if err := exploreRefuelDocked(context.Background(), ExploreDeps{Client: c}, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	if c.state.Ship.Hull != 480 || slices.ContainsFunc(c.calls, func(x string) bool { return strings.HasPrefix(x, "buy ") }) {
+		t.Fatalf("calls %v hull %v, want repaired from faction kits, nothing bought", c.calls, c.state.Ship.Hull)
+	}
+	if k := c.kits(); k != spareRepairKits {
+		t.Fatalf("calls %v: %v kits aboard after, want %d spares", c.calls, k, spareRepairKits)
+	}
+}
+
+// A full hull still tops spares up where faction storage has kits; away
+// from faction storage the attempt is harmless.
+func TestRefuelDockedRestocksSpareKits(t *testing.T) {
+	c := &kitFake{safetyFake: *newSafety("cloverfield", 480, 480), factionKits: 40}
+	c.state.Ship.Cargo = []game.CargoItem{{ItemID: repairKitItem, Quantity: 1}}
+	c.state.Doc = true
+	if err := exploreRefuelDocked(context.Background(), ExploreDeps{Client: c}, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(c.calls, "faction_withdraw repair_kit 3") || c.kits() != spareRepairKits {
+		t.Fatalf("calls %v kits %v, want 3 withdrawn to make %d", c.calls, c.kits(), spareRepairKits)
+	}
+	c2 := &kitFake{safetyFake: *newSafety("elsewhere", 480, 480), factionKits: -1}
+	c2.state.Doc = true
+	if err := exploreRefuelDocked(context.Background(), ExploreDeps{Client: c2}, &bytes.Buffer{}); err != nil {
+		t.Fatal(err)
 	}
 }

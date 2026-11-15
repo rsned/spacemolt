@@ -23,9 +23,13 @@ type tourFake struct {
 	calls     []string
 }
 
-func (f *tourFake) GetState() *game.State             { return f.st }
-func (f *tourFake) GetSystem(context.Context) error   { return nil }
-func (f *tourFake) GetStatus(context.Context) error   { return nil }
+func (f *tourFake) GetState() *game.State           { return f.st }
+func (f *tourFake) GetSystem(context.Context) error { return nil }
+func (f *tourFake) GetStatus(context.Context) error { return nil }
+func (f *tourFake) GetCargo(context.Context) error  { return nil }
+func (f *tourFake) FactionWithdrawItems(context.Context, string, int) error {
+	return errors.New("no_faction_storage")
+}
 func (f *tourFake) GetLocation(context.Context) error { return nil }
 func (f *tourFake) FindRoute(context.Context, string) ([]game.RouteStep, error) {
 	return f.route, nil

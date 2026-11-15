@@ -104,10 +104,32 @@ func exploreFuelStop(ctx context.Context, deps ExploreDeps, out io.Writer, curre
 
 // repairKitItem restores repairKitHull hull per kit (item_consumable_effects)
 // when repaired from cargo: at a station without repair service, or in space.
+// spareRepairKits is how many kits a ship keeps aboard for repairs in space,
+// restocked from faction storage (the CJ hand-craft crew keeps it filled).
 const (
-	repairKitItem = "repair_kit"
-	repairKitHull = 50
+	repairKitItem   = "repair_kit"
+	repairKitHull   = 50
+	spareRepairKits = 4
 )
+
+// withdrawRepairKits pulls up to n kits from faction storage at the docked
+// station into cargo. Away from faction storage it moves nothing, quietly.
+func withdrawRepairKits(ctx context.Context, client game.GameClient, n int, out io.Writer) int {
+	if n <= 0 {
+		return 0
+	}
+	before := cargoQuantity(client.GetState(), repairKitItem)
+	if err := client.FactionWithdrawItems(ctx, repairKitItem, n); err != nil {
+		return 0
+	}
+	settle(ctx, game.SleepTick)
+	_ = client.GetCargo(ctx)
+	got := int(cargoQuantity(client.GetState(), repairKitItem) - before)
+	if got > 0 {
+		fmt.Fprintf(out, "explore: took %d repair kit(s) from faction storage\n", got) //nolint:errcheck
+	}
+	return got
+}
 
 // cargoQuantity is how many of item the ship carries.
 func cargoQuantity(st *game.State, item string) float64 {
@@ -140,12 +162,18 @@ func exploreRefuelDocked(ctx context.Context, deps ExploreDeps, out io.Writer) e
 		if err != nil && strings.Contains(err.Error(), "no_repair_kits") {
 			// No repair service here (a player station without a repair
 			// yard): repair runs on kits from cargo, so buy what the damage needs.
-			n := math.Ceil(float64(s.Ship.MaxHull-s.Ship.Hull) / repairKitHull)
-			if berr := deps.Client.Buy(ctx, repairKitItem, n); berr != nil {
-				fmt.Fprintf(out, "explore: no repair service and no repair kits bought (%v)\n", berr) //nolint:errcheck
+			// Faction storage (CJ's hand-crafted kits) first, then the market.
+			n := int(math.Ceil(float64(s.Ship.MaxHull-s.Ship.Hull) / repairKitHull))
+			if rest := n - withdrawRepairKits(ctx, deps.Client, n, out); rest > 0 {
+				if berr := deps.Client.Buy(ctx, repairKitItem, float64(rest)); berr != nil {
+					fmt.Fprintf(out, "explore: no repair service and no repair kits bought (%v)\n", berr) //nolint:errcheck
+				} else {
+					fmt.Fprintf(out, "explore: no repair service; bought %d repair kits\n", rest) //nolint:errcheck
+				}
+			}
+			if cargoQuantity(deps.Client.GetState(), repairKitItem) == 0 {
 				return nil
 			}
-			fmt.Fprintf(out, "explore: no repair service; bought %.0f repair kits\n", n) //nolint:errcheck
 			err = deps.Client.Repair(ctx)
 		}
 		if err != nil {
@@ -156,6 +184,9 @@ func exploreRefuelDocked(ctx context.Context, deps ExploreDeps, out io.Writer) e
 		if s2 := deps.Client.GetState(); s2 != nil {
 			fmt.Fprintf(out, "explore: repaired: hull %v -> %v/%v\n", before, s2.Ship.Hull, s2.Ship.MaxHull) //nolint:errcheck
 		}
+	}
+	if s := deps.Client.GetState(); s != nil {
+		withdrawRepairKits(ctx, deps.Client, spareRepairKits-int(cargoQuantity(s, repairKitItem)), out)
 	}
 	return nil
 }

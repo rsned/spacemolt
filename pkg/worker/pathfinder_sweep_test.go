@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -49,6 +50,13 @@ func (c *sweepFakeClient) RawCommand(_ context.Context, command string, _ map[st
 }
 
 func (c *sweepFakeClient) GetRawJSON(key string) []byte { return c.raw[key] }
+
+// No faction storage wherever a sweep fake docks.
+func (c *sweepFakeClient) FactionWithdrawItems(context.Context, string, int) error {
+	return errors.New("no_faction_storage")
+}
+
+func (c *sweepFakeClient) GetCargo(context.Context) error { return nil }
 
 func (c *sweepFakeClient) Jump(_ context.Context, target string) (*game.JumpResult, error) {
 	b, err := strconv.ParseFloat(target, 64)
