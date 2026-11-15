@@ -113,6 +113,7 @@ var widePhaseCommands = map[string]bool{
 	"capture_facilities":         true,
 	"capture_faction":            true,
 	"capture_fuel":               true,
+	"capture_intel":              true,
 	"capture_profile":            true,
 	"capture_station_passengers": true,
 	"capture_storage":            true,

@@ -628,6 +628,71 @@ func migrations() []Migration {
 				return err
 			},
 		},
+		{
+			version: 76,
+			name:    "faction_intel",
+			// The faction intel pool (faction_query_intel), stored for any tool
+			// or agent to query: one row per system, POI, deposit and lane, as
+			// the faction last recorded them. A sync replaces a system's rows.
+			// POI hazards (v0.716.0) are also merged into pois.
+			sql: `
+				CREATE TABLE IF NOT EXISTS faction_intel_systems (
+					faction_id        TEXT NOT NULL,
+					system_id         TEXT NOT NULL,
+					name              TEXT NOT NULL DEFAULT '',
+					empire            TEXT NOT NULL DEFAULT '',
+					police_level      INTEGER NOT NULL DEFAULT 0,
+					description       TEXT NOT NULL DEFAULT '',
+					submitted_by      TEXT NOT NULL DEFAULT '',
+					submitter_name    TEXT NOT NULL DEFAULT '',
+					submitted_at_tick INTEGER NOT NULL DEFAULT 0,
+					auto_synced       INTEGER NOT NULL DEFAULT 0,
+					query_tick        INTEGER NOT NULL DEFAULT 0,
+					captured_utc      TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (faction_id, system_id)
+				);
+				CREATE TABLE IF NOT EXISTS faction_intel_pois (
+					faction_id      TEXT NOT NULL,
+					poi_id          TEXT NOT NULL,
+					system_id       TEXT NOT NULL,
+					name            TEXT NOT NULL DEFAULT '',
+					type            TEXT NOT NULL DEFAULT '',
+					class           TEXT NOT NULL DEFAULT '',
+					description     TEXT NOT NULL DEFAULT '',
+					base_id         TEXT NOT NULL DEFAULT '',
+					base_name       TEXT NOT NULL DEFAULT '',
+					deep_core       INTEGER NOT NULL DEFAULT 0,
+					hazard_type     TEXT NOT NULL DEFAULT '',
+					hazard_severity INTEGER NOT NULL DEFAULT 0,
+					position_x      REAL NOT NULL DEFAULT 0,
+					position_y      REAL NOT NULL DEFAULT 0,
+					read_at_tick    INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (faction_id, poi_id)
+				);
+				CREATE INDEX IF NOT EXISTS idx_faction_intel_pois_system ON faction_intel_pois(faction_id, system_id);
+				CREATE INDEX IF NOT EXISTS idx_faction_intel_pois_hazard ON faction_intel_pois(hazard_severity);
+				CREATE TABLE IF NOT EXISTS faction_intel_resources (
+					faction_id        TEXT NOT NULL,
+					poi_id            TEXT NOT NULL,
+					system_id         TEXT NOT NULL,
+					resource_id       TEXT NOT NULL,
+					richness          INTEGER NOT NULL DEFAULT 0,
+					remaining         INTEGER NOT NULL DEFAULT 0,
+					max_remaining     INTEGER NOT NULL DEFAULT 0,
+					depletion_percent REAL NOT NULL DEFAULT 0,
+					read_at_tick      INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (faction_id, poi_id, resource_id)
+				);
+				CREATE INDEX IF NOT EXISTS idx_faction_intel_resources_item ON faction_intel_resources(resource_id);
+				CREATE TABLE IF NOT EXISTS faction_intel_connections (
+					faction_id   TEXT NOT NULL,
+					system_id    TEXT NOT NULL,
+					to_system_id TEXT NOT NULL,
+					distance     INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (faction_id, system_id, to_system_id)
+				);
+			`,
+		},
 	}
 }
 

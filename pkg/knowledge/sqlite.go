@@ -494,7 +494,8 @@ func (kb *SQLiteKB) RememberPOI(ctx context.Context, poi POI) error {
 // GetPOIs retrieves all POIs in a system
 func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error) {
 	rows, err := kb.db.QueryContext(ctx, `
-		SELECT id, system_id, name, type, COALESCE(class, ''), description, position_x, position_y, hidden, reveal_difficulty, last_updated_tick, parent_id
+		SELECT id, system_id, name, type, COALESCE(class, ''), COALESCE(description, ''), position_x, position_y, hidden, reveal_difficulty, last_updated_tick, parent_id,
+			COALESCE(hazard_type, ''), COALESCE(hazard_severity, 0)
 		FROM pois
 		WHERE system_id = ?
 		ORDER BY name
@@ -522,6 +523,8 @@ func (kb *SQLiteKB) GetPOIs(ctx context.Context, systemID string) ([]POI, error)
 			&poi.RevealDifficulty,
 			&poi.LastUpdatedTick,
 			&poi.ParentID,
+			&poi.HazardType,
+			&poi.HazardSeverity,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan POI: %w", err)

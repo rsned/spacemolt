@@ -1,6 +1,9 @@
 package serverapi
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // ============================================================================
 // Server Response Wrappers
@@ -3690,13 +3693,76 @@ type FactionIntelStatusResponse struct {
 
 // FactionQueryIntelResponse — faction_query_intel
 type FactionQueryIntelResponse struct {
-	Message    string          `json:"message,omitempty"`
-	Count      int             `json:"count,omitempty"`
-	Entries    json.RawMessage `json:"entries,omitempty"`
-	IntelLevel int             `json:"intel_level,omitempty"`
-	Limit      int             `json:"limit,omitempty"`
-	Offset     int             `json:"offset,omitempty"`
-	Total      int             `json:"total,omitempty"`
+	Message     string          `json:"message,omitempty"`
+	Count       int             `json:"count,omitempty"`
+	Entries     json.RawMessage `json:"entries,omitempty"`
+	IntelLevel  int             `json:"intel_level,omitempty"`
+	Limit       int             `json:"limit,omitempty"`
+	Offset      int             `json:"offset,omitempty"`
+	Total       int             `json:"total,omitempty"`
+	CurrentTick int64           `json:"current_tick,omitempty"`
+	LiveSystems []string        `json:"live_systems,omitempty"`
+}
+
+// IntelEntries decodes the page's entries (schema IntelEntry, openapi 2026-11-15).
+func (r FactionQueryIntelResponse) IntelEntries() ([]IntelEntry, error) {
+	if len(r.Entries) == 0 {
+		return nil, nil
+	}
+	var out []IntelEntry
+	if err := json.Unmarshal(r.Entries, &out); err != nil {
+		return nil, fmt.Errorf("decode intel entries: %w", err)
+	}
+	return out, nil
+}
+
+// IntelEntry is one system in a faction's intel pool.
+type IntelEntry struct {
+	SystemID        string            `json:"system_id"`
+	Name            string            `json:"name"`
+	Empire          string            `json:"empire,omitempty"`
+	PoliceLevel     int               `json:"police_level"`
+	Description     string            `json:"description,omitempty"`
+	SubmittedBy     string            `json:"submitted_by"`
+	SubmitterName   string            `json:"submitter_name"`
+	SubmittedAtTick int64             `json:"submitted_at_tick"`
+	AutoSynced      bool              `json:"auto_synced,omitempty"`
+	Connections     []IntelConnection `json:"connections,omitempty"`
+	POIs            []IntelPOI        `json:"pois,omitempty"`
+}
+
+// IntelConnection is a lane out of an intel system.
+type IntelConnection struct {
+	SystemID string `json:"system_id"`
+	Name     string `json:"name,omitempty"`
+	Distance int    `json:"distance,omitempty"`
+}
+
+// IntelPOI is a POI as the faction last recorded it. Hazard (v0.716.0) is
+// omitted when the POI has none or the entry predates hazard recording.
+type IntelPOI struct {
+	ID          string          `json:"id"`
+	Type        string          `json:"type"`
+	Name        string          `json:"name"`
+	Position    Position        `json:"position"`
+	Class       string          `json:"class,omitempty"`
+	Description string          `json:"description,omitempty"`
+	BaseID      string          `json:"base_id,omitempty"`
+	BaseName    string          `json:"base_name,omitempty"`
+	DeepCore    bool            `json:"deep_core,omitempty"`
+	Hazard      *POIHazard      `json:"hazard,omitempty"`
+	ReadAtTick  int64           `json:"read_at_tick,omitempty"`
+	Resources   []IntelResource `json:"resources,omitempty"`
+}
+
+// IntelResource is a deposit at an intel POI as of its read_at_tick.
+type IntelResource struct {
+	ResourceID       string  `json:"resource_id"`
+	Richness         int     `json:"richness"`
+	Remaining        int     `json:"remaining"`
+	MaxRemaining     int     `json:"max_remaining,omitempty"`
+	DepletionPercent float64 `json:"depletion_percent,omitempty"`
+	RemainingDisplay string  `json:"remaining_display,omitempty"`
 }
 
 // FactionQueryTradeIntelResponse — faction_query_trade_intel

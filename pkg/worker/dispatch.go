@@ -289,7 +289,7 @@ var supported = map[string]bool{
 	"capture_storage": true, "capture_faction": true, "capture_cargo": true,
 	"capture_action_log": true, "capture_wildlife_attacks": true, "capture_tax": true,
 	"capture_citizenship": true, "capture_base": true, "pay_credit_requests": true,
-	"capture_facilities": true, "capture_station_passengers": true,
+	"capture_facilities": true, "capture_station_passengers": true, "capture_intel": true,
 	"get_status": true, "get_system": true, "get_cargo": true,
 	// get_system_agents stays in the vocabulary although it is deprecated and
 	// dispatches to nothing: Supports() must keep returning true so a stale
@@ -864,6 +864,19 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		// Also tracks applications, whose only measure of review latency is the
 		// pending-to-decided transition this pass observes.
 		return assets.CaptureCitizenship(ctx, d.Client, d.Assets, d.AgentID, time.Now())
+	case "capture_intel":
+		// Copies the faction Intel Center's pool (systems, POIs, deposits,
+		// lanes, hazards) into the shared KB so every tool can read it.
+		store, ok := d.KB.(knowledge.FactionIntelStore)
+		if !ok {
+			return nil
+		}
+		var factionID string
+		if st := d.Client.GetState(); st != nil {
+			factionID = st.Player.FactionID
+		}
+		_, err := captureFactionIntel(ctx, d.Client, store, factionID, d.Out)
+		return err
 	case "capture_wildlife_attacks":
 		// Mines finished battles for what the creatures in them were shooting
 		// with. Given a battle id it captures just that one; otherwise it drains

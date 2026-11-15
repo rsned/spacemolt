@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 17
--- Last Regenerated: 2026-11-13
+-- Migrations applied: 18
+-- Last Regenerated: 2026-11-15
 
 -- ============================================================================
 -- TABLES
@@ -225,6 +225,66 @@ CREATE TABLE faction_fuel_bunkers (
 					fuel_capacity INTEGER NOT NULL DEFAULT 0,
 					captured_utc  TEXT NOT NULL,
 					PRIMARY KEY (faction_id, base_id)
+				);
+
+
+CREATE TABLE faction_intel_connections (
+					faction_id   TEXT NOT NULL,
+					system_id    TEXT NOT NULL,
+					to_system_id TEXT NOT NULL,
+					distance     INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (faction_id, system_id, to_system_id)
+				);
+
+
+CREATE TABLE faction_intel_pois (
+					faction_id      TEXT NOT NULL,
+					poi_id          TEXT NOT NULL,
+					system_id       TEXT NOT NULL,
+					name            TEXT NOT NULL DEFAULT '',
+					type            TEXT NOT NULL DEFAULT '',
+					class           TEXT NOT NULL DEFAULT '',
+					description     TEXT NOT NULL DEFAULT '',
+					base_id         TEXT NOT NULL DEFAULT '',
+					base_name       TEXT NOT NULL DEFAULT '',
+					deep_core       INTEGER NOT NULL DEFAULT 0,
+					hazard_type     TEXT NOT NULL DEFAULT '',
+					hazard_severity INTEGER NOT NULL DEFAULT 0,
+					position_x      REAL NOT NULL DEFAULT 0,
+					position_y      REAL NOT NULL DEFAULT 0,
+					read_at_tick    INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (faction_id, poi_id)
+				);
+
+
+CREATE TABLE faction_intel_resources (
+					faction_id        TEXT NOT NULL,
+					poi_id            TEXT NOT NULL,
+					system_id         TEXT NOT NULL,
+					resource_id       TEXT NOT NULL,
+					richness          INTEGER NOT NULL DEFAULT 0,
+					remaining         INTEGER NOT NULL DEFAULT 0,
+					max_remaining     INTEGER NOT NULL DEFAULT 0,
+					depletion_percent REAL NOT NULL DEFAULT 0,
+					read_at_tick      INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (faction_id, poi_id, resource_id)
+				);
+
+
+CREATE TABLE faction_intel_systems (
+					faction_id        TEXT NOT NULL,
+					system_id         TEXT NOT NULL,
+					name              TEXT NOT NULL DEFAULT '',
+					empire            TEXT NOT NULL DEFAULT '',
+					police_level      INTEGER NOT NULL DEFAULT 0,
+					description       TEXT NOT NULL DEFAULT '',
+					submitted_by      TEXT NOT NULL DEFAULT '',
+					submitter_name    TEXT NOT NULL DEFAULT '',
+					submitted_at_tick INTEGER NOT NULL DEFAULT 0,
+					auto_synced       INTEGER NOT NULL DEFAULT 0,
+					query_tick        INTEGER NOT NULL DEFAULT 0,
+					captured_utc      TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (faction_id, system_id)
 				);
 
 
@@ -1288,6 +1348,12 @@ CREATE INDEX idx_danger_zones_level ON danger_zones(danger_level DESC);
 
 CREATE INDEX idx_experiences_agent_id ON experiences(agent_id, time DESC);
 
+CREATE INDEX idx_faction_intel_pois_hazard ON faction_intel_pois(hazard_severity);
+
+CREATE INDEX idx_faction_intel_pois_system ON faction_intel_pois(faction_id, system_id);
+
+CREATE INDEX idx_faction_intel_resources_item ON faction_intel_resources(resource_id);
+
 CREATE INDEX idx_hostile_loadouts_type ON hostile_loadouts(hostile_type);
 
 CREATE INDEX idx_hostile_sightings_id ON hostile_sightings(hostile_id);
@@ -1464,4 +1530,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (72, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (73, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (74, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (75, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (76, datetime('now'));
 
