@@ -66,3 +66,8 @@ Rebuilt bin/overmind + restarted; workers now get --sweep-mode void. First claim
 claims, then sees itself undocked and goes "done but not docked" → lanes home → claims/stages from
 there (detour, keeps its zone). explorer-8 refuel by assist-frontier delegated to a background agent.
 Void map artifact (https://claude.ai/artifact/M3DFdEbXkHWTPEze3hWtcp) NOT yet republished.
+
+**11-15 ~12:55:** Gap #4 FIXED (fbc937b6): staging now waits out "action pending" (waitOutPending) instead of
+launching from far away (explorer-5 hit it at jump 5/9 to Atlas). Live only after each sweep worker restarts.
+Gap #5 (open): staging can pick an AVOIDED system as its target (explorer-9 → Taygeta, "route enters an avoided
+system") and then launches from where it is; candidate selection should skip the avoid set.

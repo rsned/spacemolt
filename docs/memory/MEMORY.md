@@ -73,4 +73,5 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - ⭐ [Uncharted-system fragments (11-13)](reference_uncharted_system_fragments.md) — "Unknown source" hex on system chat; Fibonacci cipher; system history is per-SYSTEM so only push capture keeps them; sweep workers save to mbox
 - [Pathfinder frontier sweep (11-12)](project_pathfinder_frontier_sweep.md) — spec+plan approved; MERGED 11-13 + migration 75 applied; ops pending: 7 drives in CJ faction storage, buy hulls
 - ⭐🔴 [RESUME: interior void sweep rollout 11-15](project_interior_void_sweep.md) — round 2 done; void run started for ready ships (1,2,5,7,9,11,12); held: -8 Winterhold (assist-frontier refuel), -6 quarantined frontier, -4 undecided; 4 commits unpushed
+- [Faction intel → KB (11-15)](reference_faction_intel_tables.md) — faction_intel_* tables (mig 76), capture_intel twice_daily on craftsman-3; hazards merged into pois
 - [Intel Center L2 auto-sync (11-13)](reference_intel_center_autosync.md) — CJ intel auto-collects verified POI/system data from member reads; no ship sightings; sensor_dome not built
