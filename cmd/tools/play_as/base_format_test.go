@@ -31,7 +31,7 @@ func TestFormatBase_CJSections(t *testing.T) {
 		"Hull", "85,000 / 85,000", "armor 60",
 		"Shield", "12,000 / 12,000", "1 layer",
 		"30 dps", "reach 1", "point_defense_battery L1",
-		"battery none", "12 / 10 (120%)",
+		"battery none", "Life      supply 12 / demand 10 (120%)",
 		"21,293 / 55,000 (39%)", "fuel 39% < 40%",
 		"7,638 cr lifetime", "leisure 2",
 	} {

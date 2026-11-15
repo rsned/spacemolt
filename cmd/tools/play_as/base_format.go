@@ -151,7 +151,7 @@ func formatBase(raw, facilityRaw []byte) string {
 	}
 	fmt.Fprintf(&b, "  Power     %s draw %s / %s · battery %s%s\n", barOf(st.Bars, "power", zones[stationstate.Core].Severity),
 		commaInt(snap.PowerDraw), commaInt(snap.PowerSupply), battery, why(stationstate.Core, ""))
-	fmt.Fprintf(&b, "  Life      %s / %s (%s)%s\n", commaInt(snap.LifeSupportSupply), commaInt(snap.LifeSupportDemand),
+	fmt.Fprintf(&b, "  Life      supply %s / demand %s (%s)%s\n", commaInt(snap.LifeSupportSupply), commaInt(snap.LifeSupportDemand),
 		barPctText(st.Bars, "life"), why(stationstate.Life, ""))
 	fmt.Fprintf(&b, "  Fuel      %s %s / %s (%s)%s\n", barOf(st.Bars, "fuel", zones[stationstate.Fuel].Severity),
 		commaInt(snap.FuelReserve), commaInt(snap.FuelCapacity), barPctText(st.Bars, "fuel"), why(stationstate.Fuel, ""))
