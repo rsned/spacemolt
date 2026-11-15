@@ -70,6 +70,10 @@ type WorkerDispatch struct {
 	// SweepStage is the optional pre-lap route "refuel,launch,target"
 	// (--sweep-stage); see sweep.ParseStage.
 	SweepStage string
+	// SweepMode "void" runs the interior void sweep; SweepVoidRun is its
+	// shared zone ledger.
+	SweepMode    string
+	SweepVoidRun string
 	// AvoidSystemsPath overrides DefaultAvoidSystemsPath (tests).
 	AvoidSystemsPath string
 	// sweepTour and sweepExploreStep are test seams for the sweep's

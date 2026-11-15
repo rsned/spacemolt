@@ -39,6 +39,11 @@ type WorkerSpec struct {
 	SweepLaunchCost float64 `yaml:"sweep_launch_cost,omitempty"`
 	// SweepStage is the optional pre-lap route "refuel,launch,target".
 	SweepStage string `yaml:"sweep_stage,omitempty"`
+	// SweepMode "void" flies the interior void sweep instead of a ring lap;
+	// SweepVoidRun is its shared ledger (default data/sweep/void-run.json).
+	// Spec: docs/superpowers/specs/2026-11-14-interior-void-sweep-design.md
+	SweepMode    string `yaml:"sweep_mode,omitempty"`
+	SweepVoidRun string `yaml:"sweep_void_run,omitempty"`
 	// Consign forwards --consign, a standing instruction to hand named items
 	// from this station's personal storage to a named hauler as part of the
 	// ordinary idle pass -- no manual control and no interrupted routine.

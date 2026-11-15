@@ -90,6 +90,8 @@ func main() {
 	sweepRing := flag.Float64("sweep-ring", 0, "pathfinder_sweep: ring radius in LY from the galaxy centre")
 	sweepStartDeg := flag.Float64("sweep-start-deg", 0, "pathfinder_sweep: starting angle in degrees (CCW from +x)")
 	sweepSpanDeg := flag.Float64("sweep-span-deg", 0, "pathfinder_sweep: end the lap after this many degrees swept (0 = full 360° lap)")
+	sweepMode := flag.String("sweep-mode", "", "pathfinder_sweep: \"void\" flies the interior void sweep instead of a ring lap")
+	sweepVoidRun := flag.String("sweep-void-run", "data/sweep/void-run.json", "pathfinder_sweep void mode: shared zone ledger")
 	sweepStage := flag.String("sweep-stage", "", "pathfinder_sweep: optional pre-lap route refuel,launch,target (system ids)")
 	sweepLaunchCost := flag.Float64("sweep-launch-cost", 0, "pathfinder_sweep: estimated fuel per pathfinder launch (the first launch measures it)")
 	freightMaxPackages := flag.Int("freight-max-packages", 1, "Max concurrent freight contracts for the missions role (sub-project C multi-package trips; 1 = single-contract v1 behavior)")
@@ -516,6 +518,7 @@ func main() {
 			dispatch.SweepRing, dispatch.SweepStartDeg, dispatch.SweepLaunchCost = *sweepRing, *sweepStartDeg, *sweepLaunchCost
 			dispatch.SweepSpanDeg = *sweepSpanDeg
 			dispatch.SweepStage = *sweepStage
+			dispatch.SweepMode, dispatch.SweepVoidRun = *sweepMode, *sweepVoidRun
 			if *role == "pathfinder_sweep" {
 				if closeMbox := wireSweepMbox(client, dispatch, *agentID, logger); closeMbox != nil {
 					defer closeMbox()

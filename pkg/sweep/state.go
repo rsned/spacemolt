@@ -86,6 +86,18 @@ type State struct {
 	Gaps       []Gap    `json:"gaps,omitempty"`
 	Unfinished []string `json:"unfinished,omitempty"` // systems left with unexplored connections
 	HomeSystem string   `json:"home_system,omitempty"`
+
+	// Interior void sweep (Mode ModeVoid): the claimed zone, its square
+	// wave, the index of the waypoint being flown to, and the hidden
+	// systems found in it. Ring fields are unused in this mode.
+	Mode      string   `json:"mode,omitempty"`
+	ZoneID    string   `json:"zone_id,omitempty"`
+	Waypoints []Point  `json:"waypoints,omitempty"`
+	Waypoint  int      `json:"waypoint,omitempty"`
+	ZoneFound []string `json:"zone_found,omitempty"`
+	// StagePending asks the next rejoin to fly by lanes to the known system
+	// nearest the zone first (set on every claim).
+	StagePending bool `json:"stage_pending,omitempty"`
 	UpdatedUTC string   `json:"updated_utc,omitempty"`
 }
 
@@ -93,6 +105,14 @@ type State struct {
 // launch cost that the first launch replaces with a measurement.
 func NewState(ring, startDeg, launchCostEstimate float64) *State {
 	return &State{Ring: ring, StartDeg: startDeg, ProgressDeg: startDeg, Phase: PhaseLap, LaunchCost: launchCostEstimate}
+}
+
+// ModeVoid marks a State flying the interior void sweep.
+const ModeVoid = "void"
+
+// NewVoidState starts an interior void sweep with no zone yet.
+func NewVoidState(launchCostEstimate float64) *State {
+	return &State{Mode: ModeVoid, Phase: PhaseLap, LaunchCost: launchCostEstimate}
 }
 
 // AddUnfinished records a system left with unvisited connections, once.

@@ -94,6 +94,12 @@ func SpawnWith(cfg SpawnConfig) SpawnFunc {
 		if spec.SweepStage != "" {
 			args = append(args, "--sweep-stage", spec.SweepStage)
 		}
+		if spec.SweepMode != "" {
+			args = append(args, "--sweep-mode", spec.SweepMode)
+		}
+		if spec.SweepVoidRun != "" {
+			args = append(args, "--sweep-void-run", spec.SweepVoidRun)
+		}
 		if spec.DisableFreightBootstrap {
 			args = append(args, "--freight-bootstrap=false")
 		}
