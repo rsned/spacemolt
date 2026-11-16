@@ -248,12 +248,7 @@ func Shuttle(ctx context.Context, deps ShuttleDeps) error {
 	}
 	graph := navigation.JumpGraphFromConnections(conns)
 	nameToID := buildNameToID(systems)
-	strongholdByID := make(map[string]bool, len(systems))
-	for _, s := range systems {
-		if s.IsStronghold {
-			strongholdByID[s.ID] = true
-		}
-	}
+	strongholdByID := shuttleBlockedStrongholds(deps.Client.GetState(), systems)
 
 	ranked := rankShuttleDestinations(resp.Waiting, current, graph, nameToID, strongholdByID, maxJumps, out, deps.Access)
 	if len(ranked) == 0 {
@@ -305,12 +300,7 @@ func deliverAboardPassengers(ctx context.Context, deps ShuttleDeps, out io.Write
 	}
 	graph := navigation.JumpGraphFromConnections(conns)
 	nameToID := buildNameToID(systems)
-	strongholdByID := make(map[string]bool, len(systems))
-	for _, s := range systems {
-		if s.IsStronghold {
-			strongholdByID[s.ID] = true
-		}
-	}
+	strongholdByID := shuttleBlockedStrongholds(deps.Client.GetState(), systems)
 
 	target, urgentTicks, routable := mostUrgentAboardDestination(resp.Passengers, current, graph, nameToID, strongholdByID, maxJumps, deps.Access)
 	if !routable {
@@ -873,4 +863,22 @@ func shuttleDeliver(ctx context.Context, deps ShuttleDeps, out io.Writer, c shut
 	}
 	fmt.Fprintf(out, "shuttle: delivered to %s; ready for next run\n", c.sysName) //nolint:errcheck
 	return nil
+}
+
+// shuttleBlockedStrongholds is the set of stronghold systems the shuttle must
+// not deliver to: every stronghold for a locked agent, none for one holding
+// the pirate unlock (johnny_cab was given it to take the high-paying
+// stronghold fares). The autopilot's own stronghold gate makes the same call
+// for the route itself.
+func shuttleBlockedStrongholds(st *game.State, systems []knowledge.System) map[string]bool {
+	blocked := make(map[string]bool, len(systems))
+	if smugglingUnlocked(st) {
+		return blocked
+	}
+	for _, s := range systems {
+		if s.IsStronghold {
+			blocked[s.ID] = true
+		}
+	}
+	return blocked
 }
