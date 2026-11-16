@@ -13,6 +13,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"maps"
 	"math"
@@ -531,6 +532,12 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 				// Ctrl-C during a block continuation discards the block.
 				fmt.Println("^C (block discarded)")
 				continue
+			}
+			if inputEnded(err) {
+				// Piped input is exhausted: end the session rather than spin
+				// on EOF until an outer timeout kills it.
+				fmt.Println("Goodbye!")
+				return
 			}
 			fmt.Printf("Error reading input: %v\n", err)
 			continue
@@ -12105,4 +12112,10 @@ func battlePayload(parts []string) (map[string]any, error) {
 		return nil, fmt.Errorf("usage: battle stance <fire|evade|brace|flee|board>")
 	}
 	return payload, nil
+}
+
+// inputEnded reports whether a read error means the input is exhausted (piped
+// stdin at EOF), which ends the session.
+func inputEnded(err error) bool {
+	return errors.Is(err, io.EOF)
 }
