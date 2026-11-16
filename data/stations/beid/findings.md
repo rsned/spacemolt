@@ -272,3 +272,27 @@ Operator: nobody has mined ironpeak in a while (iron/copper untouched). Ironpeak
 
 ## Site decision 2026-11-15 ~20:00 local (operator)
 - Station #2 at **beid** (deuterium sheet + gas cloud + iron/copper); **outpost at ironpeak** (adjacent) so drones automine both systems nonstop. Spec and plan updated.
+
+## Haul session 1 (2026-11-16, craftsman-2 "Arbitrage", 379 cargo)
+
+- **Faction storage is free at our own station; no lockbox build (measured 08:20Z).**
+  `facility faction_build faction_lockbox` at beid returned
+  `build_failed: Faction storage is already included free at your own station — no separate build needed here`.
+  No credits or materials were taken (cargo and treasury unchanged). `faction_list` still shows no
+  faction facilities, but `faction_deposit_items` worked right away. This matches CJ, which also came
+  with built-in faction storage. So we never found out whether a build draws materials from cargo.
+  The server's facility help text says builds take "materials from cargo/storage", and faction_build takes
+  "Credits/materials from faction treasury then your wallet" (doc-quoted).
+- **Circuit boards (measured):** CJ had none. Bought 50 at First Step Memorial Station (first_step, 2
+  jumps past beid via markeb) at 665 each, 33,250 total, from craftsman-2's personal wallet. The 3,148
+  in stock there make it the nearest board source. They are in beid storage now, unused.
+- **Moved CJ → beid:** steel_plate **2,982** (329 + 7 × 379) in 8 trips. The priority list put steel first, up to
+  ~6,000, so the session's 8 round-trip cap went entirely to steel; nothing else was hauled.
+  CJ steel 24,577 → 21,683, which includes CJ's own production in the meantime.
+- **Beid faction storage at end (08:55Z):** steel_plate 2,982, circuit_board 50.
+- **Route/costs (measured):** CJ↔beid via driftwood, 2 jumps of 22 fuel each. A round trip incl. dock/undock
+  takes about 4.5 min. Refuel at CJ comes from the faction bunker, **0 credits**. Refuel at First Step:
+  89 fuel for 712 cr. There were no hostiles on any leg.
+- **Quirk:** each dock at beid logs `This station does not have a market` from play_as's automatic market
+  capture. It is harmless.
+- **Spend:** 33,250 (boards) + 712 (fuel) = 33,962 credits from craftsman-2. Nothing came from the treasury.

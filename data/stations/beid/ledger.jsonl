@@ -1,2 +1,12 @@
 {"observed_utc":"2026-11-16T05:18:20Z","agent_id":"craftsman-2","category":"transfer","item":"credits","qty":10000000,"credits":10000000,"note":"funding: the_banker gift to craftsman-2, deposited to CRFT treasury 3297720 to 13297720"}
 {"observed_utc": "2026-11-16T08:00:33Z", "agent_id": "craftsman-2", "category": "founding", "item": "credits", "qty": -5000000, "credits": -5000000, "note": "build station in beid (operator, manual): base b7ecd9b1ce7c2689d73d4f15f30dd134, poi 4650c48e3b6787e6cbeb69ebb3c61933, public_access false"}
+{"observed_utc":"2026-11-16T08:16:40Z","agent_id":"craftsman-2","category":"purchase","item":"circuit_board","qty":50,"note":"bought at First Step Memorial Station 665 each = 33250 credits (craftsman-2 personal) for faction_lockbox"}
+{"observed_utc":"2026-11-16T08:21:15Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":329,"note":"trip1 CJ-\u003ebeid"}
+{"observed_utc":"2026-11-16T08:21:15Z","agent_id":"craftsman-2","category":"haul-in","item":"circuit_board","qty":50,"note":"trip1 bought First Step, deposited beid"}
+{"observed_utc":"2026-11-16T08:26:06Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"trip2 CJ to beid"}
+{"observed_utc":"2026-11-16T08:32:00Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"trip3 CJ to beid"}
+{"observed_utc":"2026-11-16T08:36:13Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"trip4 CJ to beid"}
+{"observed_utc":"2026-11-16T08:40:25Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"trip5 CJ to beid"}
+{"observed_utc":"2026-11-16T08:44:36Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"trip6 CJ to beid"}
+{"observed_utc":"2026-11-16T08:48:44Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"trip7 CJ to beid"}
+{"observed_utc":"2026-11-16T08:52:52Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"trip8 CJ to beid"}
