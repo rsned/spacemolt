@@ -60,10 +60,11 @@ The outpost sections are deferred.
 Failure modes the spec implies that no step can unit-test. Each one is a check
 inside the task that owns it.
 
-1. **Faction storage is per station.**
-   - If CJ's faction storage cannot be reached from station #2, inputs held at
-     CJ need hauling.
-   - Task 1 measures this. Task 5 hauls if needed.
+1. **Faction storage is per station** (operator-confirmed 2026-11-16).
+   - Every input held at CJ has to be hauled to station #2 (Task 5 Step 3,
+     Task 7 Step 2).
+   - Plan those hauls in the budget, and keep enough stock at CJ for its own
+     upkeep.
 2. **The founding fee drains the treasury below the floor.**
    - Check the treasury the moment before `build_base`. The fee comes out of
      the treasury first.
@@ -108,10 +109,10 @@ inside the task that owns it.
     `capture_intel`) or a scout pass with `get_poi`.
   - Read ironpeak, beid, castor and markeb.
   - Record richness and remaining for each.
-- [ ] **Step 4: is faction storage per station?**
-  - Check CJ findings.md for an answer.
-  - If none is recorded, ask the operator to confirm from the game docs.
-  - The result decides whether Task 5 hauls inputs from CJ.
+- [ ] **Step 4: list the inputs to move.** Faction storage is per station
+  (operator, 2026-11-16). List which inputs for the base sequence, defenses and
+  both lines must be hauled from CJ, and how much CJ must keep for its own
+  upkeep.
 - [ ] **Step 5: treasury now.**
   - Read the CRFT treasury from the `faction_info` treasury field.
   - The founding fee is not known until Task 4's `get_base_cost`. CJ's was 5M.
@@ -215,8 +216,8 @@ All play_as work uses
   - Each build: plan, operator approval, upkeep stocked, build,
     `station_snapshot`, then a findings entry (cost, build time, change in the
     maintenance bill).
-- [ ] **Step 3:** If Task 1 found faction storage is per station, haul the
-  inputs CJ holds (steel plate, etc.):
+- [ ] **Step 3:** Haul the inputs CJ holds (steel plate, etc.); faction
+  storage is per station:
   - a resident at CJ runs `faction_pull` to move them into its personal storage;
   - `deliver ITEM QTY <CJ base> <station2 base> craftsman-2` carries them over;
   - craftsman-2 runs `faction_deposit_all`.
