@@ -4,7 +4,7 @@
 # (market.db stations.station_id) for the plans Runner roster to assign work.
 # craftsman-1 is reserved for the operator's own interactive play_as session.
 workers:
-  - { agent_id: craftsman-2, role: craftsman, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-01 hand-craft crew at Conjunction Junction (was grand_exchange)             # haven
+  # 2026-11-16 station #2 lead (beid) — OUT of the craft fleet: - { agent_id: craftsman-2, role: craftsman, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-01 hand-craft crew at Conjunction Junction (was grand_exchange)             # haven
   - { agent_id: craftsman-3, role: craftsman, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-01 hand-craft crew at Conjunction Junction (was sol_central)                # sol
   - { agent_id: craftsman-4, role: craftsman, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-01 hand-craft crew at Conjunction Junction (was alpha_centauri_colonial_station)  # alpha_centauri
   - { agent_id: craftsman-5, role: craftsman, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-01 hand-craft crew at Conjunction Junction (was the_core)                   # nexus_prime

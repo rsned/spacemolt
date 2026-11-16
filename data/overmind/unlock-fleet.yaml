@@ -420,7 +420,7 @@ workers:
   # running in NO fleet (reference_secondment_overrides_are_removed_sets).
   - { agent_id: craftsman-9, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 1 jump, CRFT
   - { agent_id: craftsman-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }  # 1 jump, CRFT
-  - { agent_id: craftsman-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 13 jumps, CRFT
+  # 2026-11-16 station #2 lead (beid) — OUT of the unlock fleet: - { agent_id: craftsman-2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 13 jumps, CRFT
   - { agent_id: craftsman-3, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 15 jumps, CRFT
   - { agent_id: craftsman-7, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 30 jumps, CRFT
   - { agent_id: craftsman-8, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }   # 30 jumps, CRFT
