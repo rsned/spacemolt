@@ -123,7 +123,7 @@ func TestHaulFuelBuyReserveIgnoresAFreePickup(t *testing.T) {
 		return 6 // uncaptured -> galaxy median
 	}
 	hf := haulFuel{perJump: 3, priceOf: price}
-	if got := hf.buyReserve(50, "grand_exchange_station"); got != 900 { // 50*3*6
+	if got := hf.buyReserve(50, "grand_exchange_station", 0); got != 900 { // 50*3*6
 		t.Errorf("free pickup: want 900, got %v", got)
 	}
 	dear := haulFuel{perJump: 3, priceOf: func(s string) float64 {
@@ -132,7 +132,7 @@ func TestHaulFuelBuyReserveIgnoresAFreePickup(t *testing.T) {
 		}
 		return 6
 	}}
-	if got := dear.buyReserve(4, "pricey"); got != 120 { // 4*3*10
+	if got := dear.buyReserve(4, "pricey", 0); got != 120 { // 4*3*10
 		t.Errorf("dear pickup: want 120, got %v", got)
 	}
 }
@@ -152,5 +152,21 @@ func TestHaulJumpsBetweenRoutesAroundAvoided(t *testing.T) {
 	hf.avoid = map[string]bool{"x": true, "d2": true}
 	if j, ok := hf.haulJumpsBetween("a", "b"); !ok || j != 2 {
 		t.Errorf("no detour: got %d %v, want 2 true", j, ok)
+	}
+}
+
+// trucker-06, 2026-11-15 21:29: a Korr Fortress sale whose distance did not
+// resolve reserved nothing; it bought with all 176k and could not refill. With
+// no distance, or a short one, the buy still keeps one full tank of fuel money.
+func TestHaulFuelBuyReserveKeepsAFullTank(t *testing.T) {
+	hf := haulFuel{perJump: 5, priceOf: func(string) float64 { return 10 }}
+	if got := hf.buyReserve(0, "x", 110); got != 1100 { // unknown distance -> 110*10
+		t.Errorf("no distance: want 1100, got %v", got)
+	}
+	if got := hf.buyReserve(2, "x", 110); got != 1100 { // 10 fuel trip < tank
+		t.Errorf("short trip: want 1100, got %v", got)
+	}
+	if got := hf.buyReserve(30, "x", 110); got != 1500 { // 150 fuel trip > tank
+		t.Errorf("long trip: want 1500, got %v", got)
 	}
 }

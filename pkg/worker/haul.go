@@ -1412,12 +1412,14 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 		fmt.Fprintf(out, "haul: opp %d ask ladder fetch failed: %v; pricing on best ask\n", opp.ID, aerr) //nolint:errcheck
 		asks = nil
 	}
-	haulLegCost := 0.0
+	haulJumps := 0
 	if buySys != "" && sellSys != "" { // sellSys is live-resolved for moving stations
 		if hj, ok := fuel.haulJumpsBetween(buySys, sellSys); ok {
-			haulLegCost = fuel.buyReserve(hj, opp.FromStationID)
+			haulJumps = hj
 		}
 	}
+	// Always reserve at least a full tank, even when the distance is unknown.
+	haulLegCost := fuel.buyReserve(haulJumps, opp.FromStationID, state.Ship.MaxFuel)
 	qty, liveAsk, sellBid, pass, reason := haulGate(opp, prices, cargoFree, state.Ship.CargoCapacity, state.GetCredits(), haulLegCost, asks)
 	if !pass {
 		// A missing live ask means the SOURCE book is gone — invalidate it so no other

@@ -85,15 +85,19 @@ func (hf haulFuel) legCost(jumps int, pickupStation string) float64 {
 }
 
 // buyReserve is the credits a buy must leave unspent to fuel a `jumps`-jump
-// delivery. Unlike legCost it never trusts a cheap pickup for the whole trip: a
-// free pump fills one tank, and every refuel after it is paid somewhere else
-// (trucker-06, 11-15: a Grand Exchange buy reserved 0 and spent all 100k). It
-// prices at the dearer of the pickup and the galaxy rate.
-func (hf haulFuel) buyReserve(jumps int, pickupStation string) float64 {
-	if hf.perJump <= 0 || jumps <= 0 {
-		return 0
+// delivery on a ship with a `tank`-unit tank. Unlike legCost it never trusts a
+// cheap pickup for the whole trip: a free pump fills one tank, and every refuel
+// after it is paid somewhere else (trucker-06, 11-15: a Grand Exchange buy
+// reserved 0 and spent all 100k). It prices at the dearer of the pickup and the
+// galaxy rate, and never keeps less than one full tank: an unresolved distance
+// (jumps 0) reserved nothing and stranded trucker-06 again at Unknown Edge.
+func (hf haulFuel) buyReserve(jumps int, pickupStation string, tank float64) float64 {
+	if hf.priceOf == nil {
+		return 0 // no price source: gross-only fallback, as legCost
 	}
-	return float64(jumps*hf.perJump) * max(hf.priceOf(pickupStation), hf.priceOf(""))
+	price := max(hf.priceOf(pickupStation), hf.priceOf(""))
+	units := max(float64(max(jumps, 0)*max(hf.perJump, 0)), tank)
+	return units * price
 }
 
 // haulJumpsBetween returns the jump count between two system ids. ok is false when
