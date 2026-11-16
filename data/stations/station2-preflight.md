@@ -222,3 +222,4 @@ Line cycle labor (5–13 cr per run) and the S2 upkeep inputs come from stock, n
 
 ## Gate update 2026-11-15 ~19:10 local
 - craftsman-2 (Samuel 'Smith' Sterling) promoted member -> **officer** by the operator via craft_boss (`faction_promote`). Unknown #1 resolved.
+- Defenses (operator): **skip the L3 gun** at launch — shield, armor module, L2 gun, L1 gun only; L3 later from revenue. Budget drops ~2.0M -> ~11.26M vs 12.30M available (~1.04M slack if the founding fee is <=5M).
