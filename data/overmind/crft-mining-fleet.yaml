@@ -48,3 +48,21 @@ workers:
   - { agent_id: trader-7, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-10 seconded from haul (haul-overrides): hauls capped drone-bot ice (marketbot_019, Zosma) + trade_crystal (marketbot_haven, Grand Exchange) to Conjunction Junction, gifting miningbot_0000
   - { agent_id: trader-2, role: resident, station: abd3b90fdfb39304f5996c8bfaf7645d }   # 2026-10-26 Hex Wellspring (Zosma) -> Conjunction Junction: trader-2 is YSMT, so it GIFTS to miningbot_0000 (CRFT resident there), which deposits to faction storage
   - { agent_id: explorer-3, role: resident, station: ironhearth_station }   # 2026-10-29 dedicated platinum hauler Ironhearth -> Conjunction Junction (29 jumps, Compendium 925 hold / 350 tank). Own faction, so it GIFTS to miningbot_0000, which deposits to faction storage for the platinum control-node crafts
+  # 2026-11-16 station #2 account (operator): miningbots+truckers CRFT members, marketbot_home2 Data Bots; no pirate unlock; resident pins fly them home via ensure_home (Autopilot stronghold gate) and park docked.
+  - { agent_id: marketbot_home2, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
+  - { agent_id: miningbot_0100, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
+  - { agent_id: miningbot_0101, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
+  - { agent_id: miningbot_0102, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
+  - { agent_id: miningbot_0103, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
+  - { agent_id: miningbot_0104, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
+  - { agent_id: miningbot_0105, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
+  - { agent_id: miningbot_0106, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
+  - { agent_id: miningbot_0107, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
+  - { agent_id: miningbot_0108, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
+  - { agent_id: miningbot_0109, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
+  - { agent_id: trucker-10, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
+  - { agent_id: trucker-11, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
+  - { agent_id: trucker-12, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
+  - { agent_id: trucker-13, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
+  - { agent_id: trucker-14, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
+  - { agent_id: trucker-15, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
