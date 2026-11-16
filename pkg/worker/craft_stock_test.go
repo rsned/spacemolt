@@ -106,3 +106,19 @@ func TestCraftStockUnreadableQueueCraftsNothing(t *testing.T) {
 		t.Fatalf("crafted %v, want none", f.crafted)
 	}
 }
+
+// The order is capped at what the inputs in faction storage cover: CJ's
+// carbon furnace had carbon for 333 circuit boards against a 2,000 target, and
+// an uncapped order is refused outright (operator, 2026-11-16).
+// 1,000 copper_ore / 4 per run = 250 runs x 2 = 500 wiring.
+func TestCraftStockCapsAtStoredInputs(t *testing.T) {
+	d, f, out := newCraftStock(t, 1200, emptyQueue)
+	f.raw["faction_storage"] = []byte(`{"base_id":"` + stockBase + `","items":[` +
+		`{"item_id":"copper_wiring","quantity":1200},{"item_id":"copper_ore","quantity":1000}]}`)
+	if err := d.CraftStock(context.Background(), "process_copper_wiring", "copper_wiring", 5000, "prefer_own"); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.crafted) != 1 || f.crafted[0] != 500 {
+		t.Fatalf("crafted %v, want [500]; out %q", f.crafted, out.String())
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // CraftStock keeps ITEM in the docked station's faction storage at TARGET by
@@ -65,6 +66,14 @@ func (d *WorkerDispatch) CraftStock(ctx context.Context, recipeID, itemID string
 		fmt.Fprintf(d.Out, "craft_stock %s: %d held + %d queued >= target %d; nothing to craft\n", itemID, held, queued, target) //nolint:errcheck
 		return nil
 	}
+	// Cap the order at what the faction-storage inputs cover: an order the
+	// inputs cannot fill is refused whole (CJ's carbon furnace, 11-16). A
+	// cover of 0 still tries: inputs may come from the crafter's own storage,
+	// and craftShrinking halves on "not enough materials".
+	if cover := storedInputCover(recipe.Inputs, stored, perRun); cover > 0 && cover < want {
+		fmt.Fprintf(d.Out, "craft_stock %s: stored inputs cover %d of the %d short\n", itemID, cover, want) //nolint:errcheck
+		want = cover
+	}
 	fmt.Fprintf(d.Out, "craft_stock %s: %d held + %d queued < target %d; crafting %d\n", itemID, held, queued, target, want) //nolint:errcheck
 	return d.craftShrinking(ctx, recipeID, want, preset)
 }
@@ -87,4 +96,25 @@ func queuedOutput(raw []byte, recipeName, base string, perRun int) (int, error) 
 		}
 	}
 	return runs * perRun, nil
+}
+
+// storedInputCover is how many output items the inputs held in stored can
+// make: whole runs of the scarcest input, times perRun. A recipe with no
+// inputs covers nothing (0 = no cap).
+func storedInputCover(inputs []knowledge.RecipeIngredient, stored map[string]int, perRun int) int {
+	runs := -1
+	for _, in := range inputs {
+		if in.Quantity <= 0 {
+			continue
+		}
+		r := stored[in.ItemID] / in.Quantity
+		if runs < 0 || r < runs {
+			runs = r
+		}
+	}
+	if runs < 0 {
+		return 0
+	}
+
+	return runs * perRun
 }
