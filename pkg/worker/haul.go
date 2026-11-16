@@ -873,7 +873,7 @@ func Haul(ctx context.Context, deps HaulDeps) error {
 	}
 	fuelPerJump := haulFuelPerJump(ctx, deps.Client, probeTarget)
 	priceOf := buildPriceOf(ctx, deps.FuelPrices)
-	fuel := haulFuel{perJump: fuelPerJump, priceOf: priceOf, graph: graph}
+	fuel := haulFuel{perJump: fuelPerJump, priceOf: priceOf, graph: graph, avoid: hazards}
 
 	// Resume before claiming anything new: if this agent already holds a claim (its
 	// process restarted mid-haul, leaving the in-memory active opp behind but the claim
@@ -1415,7 +1415,7 @@ func runClaimedHaul(ctx context.Context, deps HaulDeps, out io.Writer, opp marke
 	haulLegCost := 0.0
 	if buySys != "" && sellSys != "" { // sellSys is live-resolved for moving stations
 		if hj, ok := fuel.haulJumpsBetween(buySys, sellSys); ok {
-			haulLegCost = fuel.legCost(hj, opp.FromStationID)
+			haulLegCost = fuel.buyReserve(hj, opp.FromStationID)
 		}
 	}
 	qty, liveAsk, sellBid, pass, reason := haulGate(opp, prices, cargoFree, state.Ship.CargoCapacity, state.GetCredits(), haulLegCost, asks)

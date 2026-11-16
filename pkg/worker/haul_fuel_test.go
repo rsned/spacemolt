@@ -3,6 +3,8 @@ package worker
 import (
 	"context"
 	"testing"
+
+	"github.com/rsned/spacemolt/pkg/navigation"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -106,5 +108,49 @@ func TestHaulFuelPerJumpServerThenFallback(t *testing.T) {
 	none := &fakeClient{state: &game.State{}, raw: map[string][]byte{}}
 	if got := haulFuelPerJump(ctx, none, "b"); got != 0 {
 		t.Errorf("no data: want 0, got %d", got)
+	}
+}
+
+// trucker-06, 2026-11-15: bought at Grand Exchange (a free pump), so the buy's
+// fuel reserve priced the whole 50-jump delivery at 0 and spent all 100k on
+// cargo; every station after the first tank charged and it sat at 4 credits.
+// The reserve prices the trip at the dearer of the pickup and the galaxy rate.
+func TestHaulFuelBuyReserveIgnoresAFreePickup(t *testing.T) {
+	price := func(s string) float64 {
+		if s == "grand_exchange_station" {
+			return 0
+		}
+		return 6 // uncaptured -> galaxy median
+	}
+	hf := haulFuel{perJump: 3, priceOf: price}
+	if got := hf.buyReserve(50, "grand_exchange_station"); got != 900 { // 50*3*6
+		t.Errorf("free pickup: want 900, got %v", got)
+	}
+	dear := haulFuel{perJump: 3, priceOf: func(s string) float64 {
+		if s == "pricey" {
+			return 10
+		}
+		return 6
+	}}
+	if got := dear.buyReserve(4, "pricey"); got != 120 { // 4*3*10
+		t.Errorf("dear pickup: want 120, got %v", got)
+	}
+}
+
+// The autopilot flies around avoided systems, so the buy reserve must size the
+// detour, not the straight line (trucker-06: ~12 jumps on the map, ~50 flown).
+func TestHaulJumpsBetweenRoutesAroundAvoided(t *testing.T) {
+	g := navigation.JumpGraph{
+		"a": {"x", "d1"}, "x": {"a", "b"}, "b": {"x", "d3"},
+		"d1": {"a", "d2"}, "d2": {"d1", "d3"}, "d3": {"d2", "b"},
+	}
+	hf := haulFuel{graph: g, avoid: map[string]bool{"x": true}}
+	if j, ok := hf.haulJumpsBetween("a", "b"); !ok || j != 4 {
+		t.Errorf("detour: got %d %v, want 4 true", j, ok)
+	}
+	// No way around: fall back to the straight count rather than none.
+	hf.avoid = map[string]bool{"x": true, "d2": true}
+	if j, ok := hf.haulJumpsBetween("a", "b"); !ok || j != 2 {
+		t.Errorf("no detour: got %d %v, want 2 true", j, ok)
 	}
 }

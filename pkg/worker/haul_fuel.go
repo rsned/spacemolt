@@ -70,6 +70,9 @@ type haulFuel struct {
 	perJump int
 	priceOf func(stationID string) float64
 	graph   navigation.JumpGraph
+	// avoid is the pass's hazard set (system ids and names). Leg distances
+	// route around it the way the autopilot flies, when a way around exists.
+	avoid map[string]bool
 }
 
 // legCost is the fuel credit cost of traveling `jumps` jumps, refueling at
@@ -81,11 +84,28 @@ func (hf haulFuel) legCost(jumps int, pickupStation string) float64 {
 	return float64(jumps*hf.perJump) * hf.priceOf(pickupStation)
 }
 
+// buyReserve is the credits a buy must leave unspent to fuel a `jumps`-jump
+// delivery. Unlike legCost it never trusts a cheap pickup for the whole trip: a
+// free pump fills one tank, and every refuel after it is paid somewhere else
+// (trucker-06, 11-15: a Grand Exchange buy reserved 0 and spent all 100k). It
+// prices at the dearer of the pickup and the galaxy rate.
+func (hf haulFuel) buyReserve(jumps int, pickupStation string) float64 {
+	if hf.perJump <= 0 || jumps <= 0 {
+		return 0
+	}
+	return float64(jumps*hf.perJump) * max(hf.priceOf(pickupStation), hf.priceOf(""))
+}
+
 // haulJumpsBetween returns the jump count between two system ids. ok is false when
 // either id is empty or the target is unreachable.
 func (hf haulFuel) haulJumpsBetween(fromSys, toSys string) (int, bool) {
 	if fromSys == "" || toSys == "" {
 		return 0, false
+	}
+	if len(hf.avoid) > 0 {
+		if p := navigation.ShortestPath(hf.graph, fromSys, toSys, hf.avoid); p != nil {
+			return len(p) - 1, true
+		}
 	}
 	d := navigation.BFSJumps(hf.graph, fromSys, []string{toSys})
 	j, ok := d[toSys]
