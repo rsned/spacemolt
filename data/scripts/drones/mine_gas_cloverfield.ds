@@ -1,0 +1,18 @@
+// mine gas cloverfield - marketbot_home @ Conjunction Junction
+// Rendered from mine_gas.ds 2026-11-15 (operator: move CJ's drones off the
+// mined-out belt onto cloverfield_gas_plume). Station POI for Conjunction Junction.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("862e07fa76571d0a76cab3cbaf4046e7")
+    DEPOSIT
+  ELSE
+    MOVE "862e07fa76571d0a76cab3cbaf4046e7"
+  END
+ELSE
+  IF at("cloverfield_gas_plume")
+    MINE
+  ELSE
+    MOVE "cloverfield_gas_plume"
+  END
+END

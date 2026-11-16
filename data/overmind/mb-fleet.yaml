@@ -210,7 +210,7 @@ workers:
   # so a non-member dock works. outerrim account -> spawns at the Outer Rim
   # capital. Pinned by POI id (base id is c976fa7df53c87f9616165d7d411b41a).
   # No market facility yet, so update_market captures nothing until one exists.
-  - { agent_id: marketbot_home, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Conjunction Junction (cloverfield) - CRFT home
+  - { agent_id: marketbot_home, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7, shopkeep: ["iron_ore:2:1:50000:25000", "copper_ore:2:1:50000:25000", "carbon_ore:1:1:50000:25000"] }  # Conjunction Junction (cloverfield) - CRFT home. 2026-11-15 drones re-scripted to cloverfield_gas_plume (mine_gas_cloverfield.ds): belt mined out
 
   # Hive Sulafat, the player station in sulafat (joined 2026-10-29). Pinned by
   # POI id, like marketbot_home above.
