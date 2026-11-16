@@ -53,15 +53,6 @@ func refuelStopIfShort(ctx context.Context, kb knowledge.Base, client game.GameC
 	if kb == nil || systemID == "" || tried[systemID] {
 		return
 	}
-	st := client.GetState()
-	if st == nil {
-		return
-	}
-	fuel, maxFuel := st.GetFuel()
-	if fuel >= float64(need) || fuel >= maxFuel {
-		return
-	}
-	tried[systemID] = true
 	// Prefer a station known to sell fuel; fall back to any usable one when
 	// the KB has no service list for this system's stations.
 	poi := refuelStationPOI(ctx, kb, systemID, unlocked)
@@ -71,6 +62,19 @@ func refuelStopIfShort(ctx context.Context, kb knowledge.Base, client game.GameC
 	if poi == "" {
 		return
 	}
+	// Jump arrivals do not refresh the cached fuel, so re-read it here, where
+	// a stop is possible (trader-8, 11-15: every check read its departure 89
+	// and it flew a 34-jump route past five refuel stations to 5/110).
+	_ = client.GetStatus(ctx)
+	st := client.GetState()
+	if st == nil {
+		return
+	}
+	fuel, maxFuel := st.GetFuel()
+	if fuel >= float64(need) || fuel >= maxFuel {
+		return
+	}
+	tried[systemID] = true
 	fmt.Fprintf(out, "  Fuel %.0f is short of the %d the rest of the route needs; refuelling at %s\n", fuel, need, poi) //nolint:errcheck
 	if !st.IsDocked() {
 		waitOutHold(ctx, out, client)

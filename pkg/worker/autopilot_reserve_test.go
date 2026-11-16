@@ -225,3 +225,58 @@ func TestRouteFuelFeasible(t *testing.T) {
 		}
 	}
 }
+
+// staleBurnFake is burnFake against the real client's cache: a jump burns fuel
+// server-side but never touches the cached reading; only GetStatus (or a
+// refuel reply) publishes it.
+type staleBurnFake struct {
+	*burnFake
+	server float64
+}
+
+func (s *staleBurnFake) Jump(ctx context.Context, sys string) (*game.JumpResult, error) {
+	s.calls = append(s.calls, "jump:"+sys)
+	if s.server < s.perJump {
+		return nil, errors.New("Insufficient fuel for jump")
+	}
+	s.server -= s.perJump
+	s.state.Doc = false
+	s.at = ""
+	return &game.JumpResult{}, nil
+}
+
+func (s *staleBurnFake) Refuel(ctx context.Context) error {
+	if err := s.burnFake.Refuel(ctx); err != nil {
+		return err
+	}
+	s.server = s.state.Fuel
+	return nil
+}
+
+func (s *staleBurnFake) Travel(ctx context.Context, poi string) (*game.TravelResult, error) {
+	r, err := s.burnFake.Travel(ctx, poi)
+	if err == nil {
+		s.server--
+	}
+	return r, err
+}
+
+func (s *staleBurnFake) GetStatus(ctx context.Context) error {
+	s.calls = append(s.calls, "get_status")
+	s.state.Fuel, s.state.Ship.Fuel = s.server, s.server
+	return nil
+}
+
+// trader-8, 2026-11-15 18:42: departed a 34-jump route on 89 fuel counting on
+// refuel stations, but jump arrivals never refresh the cached fuel, so every
+// stop check read the departure 89 and it flew past them all to 5/110.
+func TestAutopilotRefuelStopReadsFreshFuel(t *testing.T) {
+	b, kb := longRouteFake(t, map[string]bool{"refuel": true, "market": true})
+	s := &staleBurnFake{burnFake: b, server: b.state.Fuel}
+	if err := Autopilot(context.Background(), AutopilotDeps{Client: s, Out: io.Discard, KB: kb, AvoidSystemsPath: t.TempDir() + "/none.json"}, "s5", ""); err != nil {
+		t.Fatalf("Autopilot: %v (calls %v)", err, s.calls)
+	}
+	if i := slices.Index(s.calls, "travel:s3_stn"); i < 0 || !slices.Contains(s.calls[i:], "refuel") {
+		t.Fatalf("calls %v, want a refuel stop at s3", s.calls)
+	}
+}
