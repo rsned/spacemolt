@@ -115,3 +115,39 @@ func TestFlowsFromEvent(t *testing.T) {
 		t.Errorf("cargo craft must not touch storage, got %+v", got)
 	}
 }
+
+// A non-drone agent keeps one history snapshot a day: captures inside the gap
+// still refresh current storage but add no history row.
+func TestReplaceStorageEveryThrottlesHistory(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	base := func(q float64) []StorageBase {
+		return []StorageBase{{BaseID: "cj", Items: []StorageItem{{ItemID: "iron_ore", Quantity: q}}}}
+	}
+	for h, q := range []float64{10, 20, 30} { // +0h, +1h, +2h: only the first is kept
+		if err := st.ReplaceStorageEvery(ctx, "p1", base(q), rateT0.Add(time.Duration(h)*time.Hour), 23*time.Hour); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.ReplaceStorageEvery(ctx, "p1", base(40), rateT0.Add(24*time.Hour), 23*time.Hour); err != nil {
+		t.Fatal(err)
+	}
+	snaps, err := st.LoadStorageHistory(ctx, rateT0.Add(-time.Hour), []string{"p1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snaps) != 2 || snaps[0].Items[BaseItem{"cj", "iron_ore"}] != 10 || snaps[1].Items[BaseItem{"cj", "iron_ore"}] != 40 {
+		t.Fatalf("want history at +0h (10) and +24h (40), got %+v", snaps)
+	}
+}
+
+func TestStorageHistoryEvery(t *testing.T) {
+	for agent, want := range map[string]time.Duration{
+		"marketbot_gold_run": 0, "marketbot_home2": 0,
+		"miningbot_0001": StorageHistoryDaily, "trucker-10": StorageHistoryDaily,
+	} {
+		if got := StorageHistoryEvery(agent); got != want {
+			t.Errorf("StorageHistoryEvery(%q) = %v, want %v", agent, got, want)
+		}
+	}
+}

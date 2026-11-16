@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -16,7 +17,39 @@ import (
 // "empty because the calls failed" lives in CaptureStorage, which only ever
 // hands this function a set it actually managed to observe.
 func (s *Store) ReplaceStorage(ctx context.Context, playerID string, bases []StorageBase, now time.Time) error {
+	return s.ReplaceStorageEvery(ctx, playerID, bases, now, 0)
+}
+
+// StorageHistoryDaily is the history spacing for agents whose storage moves
+// slowly (everyone but the drone-hosting marketbots): one snapshot a day.
+const StorageHistoryDaily = 23 * time.Hour
+
+// StorageHistoryEvery is the minimum spacing of storage history snapshots for
+// an agent. Marketbots host the station drones, whose mining rates
+// cmd/tools/drone-rates measures, so every capture is kept; other agents fill
+// storage slowly and keep one a day.
+func StorageHistoryEvery(agentID string) time.Duration {
+	if strings.HasPrefix(agentID, "marketbot") {
+		return 0
+	}
+
+	return StorageHistoryDaily
+}
+
+// ReplaceStorageEvery is ReplaceStorage that appends to storage history only
+// when the player's last history snapshot is at least historyEvery old (0 =
+// every capture). Current storage is replaced either way.
+func (s *Store) ReplaceStorageEvery(ctx context.Context, playerID string, bases []StorageBase, now time.Time, historyEvery time.Duration) error {
 	ts := rfc3339(now)
+	keepHistory := true
+	if historyEvery > 0 {
+		var last sql.NullString
+		if err := s.db.QueryRowContext(ctx,
+			`SELECT MAX(captured_at) FROM storage_history_snapshots WHERE player_id = ?`, playerID).Scan(&last); err != nil {
+			return fmt.Errorf("assets: last storage snapshot %s: %w", playerID, err)
+		}
+		keepHistory = !last.Valid || now.Sub(parseCapturedAt(last.String)) >= historyEvery
+	}
 
 	// One transaction covers both tables: a crash between them would leave
 	// orphaned item rows pointing at a base row that no longer exists.
@@ -27,10 +60,12 @@ func (s *Store) ReplaceStorage(ctx context.Context, playerID string, bases []Sto
 		}
 		// History is append-only (storage_rates.go reads it); the snapshot row
 		// marks this pass so an absent item reads as 0, not unknown.
-		if _, err := tx.ExecContext(ctx,
-			`INSERT OR REPLACE INTO storage_history_snapshots (player_id, captured_at) VALUES (?,?)`,
-			playerID, ts); err != nil {
-			return fmt.Errorf("assets: insert storage snapshot %s: %w", playerID, err)
+		if keepHistory {
+			if _, err := tx.ExecContext(ctx,
+				`INSERT OR REPLACE INTO storage_history_snapshots (player_id, captured_at) VALUES (?,?)`,
+				playerID, ts); err != nil {
+				return fmt.Errorf("assets: insert storage snapshot %s: %w", playerID, err)
+			}
 		}
 		for _, b := range bases {
 			if _, err := tx.ExecContext(ctx,
@@ -46,6 +81,9 @@ func (s *Store) ReplaceStorage(ctx context.Context, playerID string, bases []Sto
 					playerID, b.BaseID, it.ItemID, it.Name, it.Quantity, it.Size, ts); err != nil {
 					return fmt.Errorf("assets: insert storage item %s/%s/%s: %w",
 						playerID, b.BaseID, it.ItemID, err)
+				}
+				if !keepHistory {
+					continue
 				}
 				if _, err := tx.ExecContext(ctx, `
 					INSERT INTO storage_history (player_id, base_id, item_id, quantity, captured_at)

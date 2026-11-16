@@ -150,7 +150,7 @@ func CaptureStorage(ctx context.Context, client game.GameClient, st *Store, agen
 		}
 	}
 
-	return st.ReplaceStorage(ctx, playerID, final, now)
+	return st.ReplaceStorageEvery(ctx, playerID, final, now, StorageHistoryEvery(agentID))
 }
 
 // storageFetch is one decoded view_storage response.
