@@ -2,6 +2,12 @@
 
 Date: 2026-11-15. Status: draft for operator review.
 
+**Scope update (operator, 2026-11-15):** the radioactive outpost and its mining
+squad are **deferred to a later task**. This design now builds station #2 only.
+The outpost sections stay as recorded context for that later task. Until then,
+station #2's radioactive inputs come from stock already held and from market
+buys.
+
 ## Intent
 
 CRFT has two station cores and one outpost kit left. This design covers one
@@ -264,8 +270,9 @@ All 8–10 jumps from CJ and exposed: 6–8 jumps from algol, shield 0.
 - **Final outpost site (operator).** Choose after a fresh read of the radioactive
   belts within 2 hops, from faction intel or a scout pass. Favor the hub with the
   most remaining radioactive ore within 1–2 hops.
-- **Station #2 lead agent (operator).** Who founds it, receives the 10M, and holds
-  officer rank for faction-storage crafting.
+- **Station #2 lead agent: craftsman-2 (operator, 2026-11-15).** craftsman-2
+  founds the station and is the officer in charge of it. It needs ManageBases
+  permission and officer rank, so confirm both before founding.
 - **Facility build order and per-build approvals.**
   - Start with the CJ base sequence.
   - Then the lead_shielding lines, which use common ore already held and have
