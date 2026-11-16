@@ -1,4 +1,24 @@
-# Station #2 pre-flight (Task 1, read-only)
+# Beid station: findings
+
+## Production lines
+
+(lead_shielding and plasma_injector lines; filled in as they are built.)
+
+## Founding
+
+## Build log
+
+## Maintenance (per facility, per cycle)
+
+## Power & life support
+
+## Defense
+
+## Costs we paid
+
+## Pre-flight (moved from data/stations/station2-preflight.md)
+
+### Station #2 pre-flight (Task 1, read-only)
 
 Written 2026-11-16 ~01:30Z from DB captures, the catalog and the live stations API only. No
 play_as, no logins, nothing changed in game. Plan: `docs/superpowers/plans/2026-11-16-station-two.md`.
