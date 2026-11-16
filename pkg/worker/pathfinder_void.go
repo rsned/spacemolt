@@ -30,6 +30,13 @@ const (
 	// voidStationReach is how close (LY) a station must be to a zone's
 	// next waypoint for an explorer to take the zone on.
 	voidStationReach = 2500.0
+	// voidBigTankLaunches is the tank size, in launches, at which a ship
+	// may use voidBigTankReach instead: it can fly a zone and still make
+	// the longer run back to a station (explorer-9/-11 carry ~97).
+	voidBigTankLaunches = 60.0
+	// voidBigTankReach is the station reach for a big-tank ship: enough
+	// for the western zones, 2,658-3,466 LY from a full station.
+	voidBigTankReach = 4000.0
 	// voidCaptureSkip: a ship in a system this close to its waypoint steps
 	// on to the next one, since every relaunch at it would be captured
 	// straight back (about the capture radius).
@@ -130,6 +137,7 @@ func (d *WorkerDispatch) voidClaim(ctx context.Context, s *sweep.State, path str
 		perTank = maxTank / s.LaunchCost
 	}
 	unlocked := smugglingUnlocked(st)
+	reach := voidReach(perTank)
 	reachable := func(z *sweep.VoidZone) bool {
 		if z.Next >= len(z.Waypoints) {
 			return false
@@ -140,7 +148,7 @@ func (d *WorkerDispatch) voidClaim(ctx context.Context, s *sweep.State, path str
 			return false
 		}
 		sys, err := d.KB.GetSystem(ctx, id)
-		return err == nil && sys != nil && math.Hypot(sys.Position.X-wp.X, sys.Position.Y-wp.Y) <= voidStationReach
+		return err == nil && sys != nil && math.Hypot(sys.Position.X-wp.X, sys.Position.Y-wp.Y) <= reach
 	}
 	z, err := sweep.ClaimZone(d.voidLedger(), d.AgentID, perTank, reachable, time.Now())
 	if err != nil {
@@ -380,4 +388,14 @@ func (d *WorkerDispatch) voidLeg(ctx context.Context, s *sweep.State, path strin
 	wp := s.Waypoints[s.Waypoint]
 	s.TargetX, s.TargetY = wp.X, wp.Y
 	return d.sweepLaunch(ctx, s, path, sweep.BearingTo(x, y, wp.X, wp.Y))
+}
+
+// voidReach is how far (LY) a full station may be from a zone's next waypoint
+// for a ship whose tank holds perTank launches to take the zone.
+func voidReach(perTank float64) float64 {
+	if perTank >= voidBigTankLaunches {
+		return voidBigTankReach
+	}
+
+	return voidStationReach
 }

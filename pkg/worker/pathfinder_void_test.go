@@ -614,3 +614,22 @@ func TestVoidStageCandidatesSkipLanelessAndAvoided(t *testing.T) {
 		t.Fatalf("candidates %v, want %v", ids, want)
 	}
 }
+
+// A ship whose tank holds many launches may take zones farther from a full
+// station: the western zones (V12, V26, V28, V30, V32) sit 2,658-3,466 LY from
+// one, past the 2,500 LY reach, while explorer-9/-11 carry ~97 launches.
+func TestVoidReachGrowsWithTheTank(t *testing.T) {
+	for _, c := range []struct {
+		perTank, want float64
+	}{
+		{0, voidStationReach},
+		{350.0 / 23, voidStationReach},  // stock pathfinder tank
+		{1020.0 / 45, voidStationReach}, // explorer-7
+		{voidBigTankLaunches, voidBigTankReach},
+		{4000.0 / 41, voidBigTankReach}, // explorer-9, explorer-11
+	} {
+		if got := voidReach(c.perTank); got != c.want {
+			t.Errorf("voidReach(%.1f) = %v, want %v", c.perTank, got, c.want)
+		}
+	}
+}
