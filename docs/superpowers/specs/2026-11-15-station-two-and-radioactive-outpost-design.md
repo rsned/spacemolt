@@ -263,13 +263,23 @@ All 8–10 jumps from CJ and exposed: 6–8 jumps from algol, shield 0.
 
 ## Left to the builder (and the operator where marked)
 
-- **Final site for station #2 (operator).** Recommendation: ironpeak first,
-  beid as backup.
-  - Confirm both with `get_base_cost` while in the system.
-  - Re-scan their belts and markeb's before choosing.
-- **Final outpost site (operator).** Choose after a fresh read of the radioactive
-  belts within 2 hops, from faction intel or a scout pass. Favor the hub with the
-  most remaining radioactive ore within 1–2 hops.
+- **Site for station #2: BEID (operator, 2026-11-15, after fresh scans).**
+  - Beid and ironpeak are adjacent; both are 2 jumps from CJ and 1 from markeb.
+  - Beid has the deep_deuterium_ice_sheet (deuterium_ice 2,000, r30; hidden,
+    reveal 90), which feeds deuterium -> liquid_tritium -> fusion_fuel_rod with
+    our thorium stock; the beid_vapor_fields gas cloud (plasma_gas 701, xenon
+    702, argon/hydrogen/neon ~1.6k each, mostly drained) for the plasma line; and
+    iron 63k / copper 100k.
+  - The deuterium sheet is small (~333 deuterium, ~13 liquid_tritium) unless it
+    regenerates. Its hidden status may keep drones off it.
+  - Confirm with `get_base_cost` in beid before founding.
+- **Outpost at IRONPEAK (operator, 2026-11-15).** One of craftsman-1's two
+  outpost kits. Ironpeak is untouched: iron 100k (r64), copper 100k (r44) on
+  ironpeak_belt, quantum_fragments 663 (weak superposition), exotic_matter 800
+  (hidden strange_matter_node). Purpose (operator): drone automining nonstop in
+  BOTH systems: station #2 hosts drones in beid, a host docked at the ironpeak
+  outpost runs drones there. Outposts have no defenses, so that host is exposed;
+  it flees on hostiles. Ironpeak has no radioactives; those come from stock.
 - **Station #2 lead agent: craftsman-2 (operator, 2026-11-15).** craftsman-2
   founds the station and is the officer in charge of it. It needs ManageBases
   permission and officer rank, so confirm both before founding.

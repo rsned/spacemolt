@@ -39,8 +39,10 @@ The outpost sections are deferred.
   recycler both starved.
 - **Lead agent: craftsman-2.** It founds the station and is its officer in
   charge. It needs ManageBases permission and Officer rank.
-- **Site:** lawless, with no station already there. Recommended: **ironpeak**,
-  with **beid** as backup. Eligibility is confirmed in game with `get_base_cost`.
+- **Site:** **beid** (operator, 2026-11-15), with an **outpost at ironpeak** next
+  door for nonstop drone mining in both systems (see spec). Eligibility is
+  confirmed in game with `get_base_cost`. The outpost is no longer deferred: it
+  follows the station's base sequence and needs its own short task list.
 - **Never route through strongholds** without the pirate unlock. Stronghold
   sales go only through unlocked haulers.
 - **Live fleet actions need the operator's yes.** This covers restarts, yaml

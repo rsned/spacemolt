@@ -239,3 +239,6 @@ Line cycle labor (5–13 cr per run) and the S2 upkeep inputs come from stock, n
 | markeb_quantum_eddy | quantum_fragments | 17 | 1,016 / 1,016 |
 
 Operator: nobody has mined ironpeak in a while (iron/copper untouched). Ironpeak has NO radioactives in system — those come from stored stock (thorium 13.5k, uranium 4.6k, polonium 4.5k, lead 17.4k) or other sites. beid_belt still unread.
+
+## Site decision 2026-11-15 ~20:00 local (operator)
+- Station #2 at **beid** (deuterium sheet + gas cloud + iron/copper); **outpost at ironpeak** (adjacent) so drones automine both systems nonstop. Spec and plan updated.
