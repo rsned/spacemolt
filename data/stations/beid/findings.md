@@ -345,3 +345,11 @@ service until a crafting facility exists. The operator had tried `facility facti
 h2_fuel_combustor` just before. The **faction_workshop** (500k + 800 steel + 400 circuit_board) is
 the planned crafting facility; its 400 boards are being made at CJ from 1,900 carbon hauled from
 void_gate by trucker-10.
+
+**Confirmed 15:38 local (tick 2423215):** naming the facility does not help.
+`craft manufacture_fuel_basic 1000 --facility_id 314606ec971cb3027d757f28cc9a2d44` (the H2 Fuel
+Combustor) is refused with the same `no_service`. A production facility cannot run until the
+station has a crafting service, which comes from a **faction_workshop** (or crafting_workshop: same
+500k + 800 steel + 400 boards; extra sunspindle upkeep). This matches the player-reported build
+order in CJ's findings (locker bay → faction workshop → atmospheric recycler). **The workshop is
+the blocker for all crafting at beid, fuel included.**
