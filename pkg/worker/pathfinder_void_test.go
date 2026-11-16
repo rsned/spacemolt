@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"fmt"
 	"errors"
 	"bytes"
 	"context"
@@ -502,5 +503,79 @@ func TestVoidStagingWaitsOutAPendingAction(t *testing.T) {
 	}
 	if len(navs) != 2 || navs[1] != "near_v02" || len(c.jumps) != 0 {
 		t.Fatalf("navs %v jumps %v, want a second lane attempt to near_v02 and no launch", navs, c.jumps)
+	}
+}
+
+// Rollout gap #5 (11-15): explorer-9 picked Taygeta (avoided) and explorer-8
+// picked Turnback (frontier, no lanes) as staging points, failed to route and
+// launched from far away. Staging tries the next-nearest system instead.
+func TestVoidStagingSkipsUnroutableSystems(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	addSweepStation(t, kb, "home", 0, 1000)
+	placeSystem(t, kb, "turnback", 4950, 1500, 1, 1)
+	placeSystem(t, kb, "taygeta", 4900, 1500, 1, 1)
+	placeSystem(t, kb, "near_v02", 4800, 1500, 1, 1)
+	r := &sweep.VoidRun{Zones: []*sweep.VoidZone{
+		{Zone: sweep.Zone{ID: "V02", Area: 1e6}, Waypoints: []sweep.Point{{X: 5000, Y: 1500}, {X: 5900, Y: 1500}}},
+	}}
+	ledger := filepath.Join(t.TempDir(), "void-run.json")
+	if err := sweep.SaveVoidRun(ledger, r); err != nil {
+		t.Fatal(err)
+	}
+	addSweepStation(t, kb, "v02_station", 5200, 1600)
+	s := sweep.NewVoidState(45)
+	s.LaunchCostMeasured, s.Phase = true, sweep.PhaseDone
+	c := inSystem("home", 1020)
+	c.state.Doc = true
+	d, _, _ := voidDispatch(t, c, kb, s, ledger)
+	var navs []string
+	d.ensureHomeNav = func(_ context.Context, sys, _ string) error {
+		navs = append(navs, sys)
+		switch sys {
+		case "turnback":
+			return errors.New("find_route failed: no route found: No route found to target system")
+		case "taygeta":
+			return fmt.Errorf("%w: destination Taygeta", ErrRouteThroughAvoided)
+		}
+		return nil
+	}
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"turnback", "taygeta", "near_v02"}; !slices.Equal(navs, want) || len(c.jumps) != 0 {
+		t.Fatalf("navs %v jumps %v, want %v and no launch yet", navs, c.jumps, want)
+	}
+}
+
+// When no staging system can be reached, the ship launches from where it is
+// instead of reporting a move it never made.
+func TestVoidStagingLaunchesWhenNothingIsRoutable(t *testing.T) {
+	kb := knowledge.NewMemoryKB()
+	addSweepStation(t, kb, "home", 0, 1000)
+	placeSystem(t, kb, "turnback", 4950, 1500, 1, 1)
+	r := &sweep.VoidRun{Zones: []*sweep.VoidZone{
+		{Zone: sweep.Zone{ID: "V02", Area: 1e6}, Waypoints: []sweep.Point{{X: 5000, Y: 1500}, {X: 5900, Y: 1500}}},
+	}}
+	ledger := filepath.Join(t.TempDir(), "void-run.json")
+	if err := sweep.SaveVoidRun(ledger, r); err != nil {
+		t.Fatal(err)
+	}
+	addSweepStation(t, kb, "v02_station", 5200, 1600)
+	s := sweep.NewVoidState(45)
+	s.LaunchCostMeasured, s.Phase = true, sweep.PhaseDone
+	c := inSystem("home", 1020)
+	c.state.Doc = true
+	d, _, _ := voidDispatch(t, c, kb, s, ledger)
+	d.ensureHomeNav = func(_ context.Context, sys, _ string) error {
+		if sys == "home" {
+			return nil
+		}
+		return errors.New("no route found")
+	}
+	if err := d.PathfinderSweep(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(c.jumps) == 0 {
+		t.Fatalf("calls %v, want a launch from home after every staging system failed", c.calls)
 	}
 }

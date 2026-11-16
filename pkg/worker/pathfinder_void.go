@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -155,6 +156,10 @@ func (d *WorkerDispatch) voidClaim(ctx context.Context, s *sweep.State, path str
 	return true, sweep.Save(path, s)
 }
 
+// voidStageTries bounds how many staging systems voidStage tries, nearest
+// first, before launching from where the ship is.
+const voidStageTries = 4
+
 // voidStage flies by jump lanes to the known system nearest the zone's next
 // waypoint, when that is not the system the ship is in, so the launch into
 // the zone is short. True when it moved (the next pass launches from there).
@@ -169,27 +174,42 @@ func (d *WorkerDispatch) voidStage(ctx context.Context, s *sweep.State, path, sy
 		return false, nil //nolint:nilerr // staging is optional; launch from here
 	}
 	unlocked := smugglingUnlocked(d.Client.GetState())
-	best, bestD := "", math.Inf(1)
+	type cand struct {
+		id string
+		d  float64
+	}
+	var cands []cand
 	for _, sys := range systems {
 		if (sys.Position.X == 0 && sys.Position.Y == 0 && sys.ID != "sol") || (sys.IsStronghold && !unlocked) {
 			continue
 		}
-		if dd := math.Hypot(sys.Position.X-wp.X, sys.Position.Y-wp.Y); dd < bestD {
-			best, bestD = sys.ID, dd
+		cands = append(cands, cand{sys.ID, math.Hypot(sys.Position.X-wp.X, sys.Position.Y-wp.Y)})
+	}
+	slices.SortFunc(cands, func(a, b cand) int { return cmp.Compare(a.d, b.d) })
+	// The nearest system is not always reachable by lanes: a frontier system
+	// has none (explorer-8 → Turnback) and an avoided one is refused
+	// (explorer-9 → Taygeta). Try the next-nearest few before giving up.
+	for i, c := range cands {
+		if i >= voidStageTries || c.id == sysID {
+			return false, nil
 		}
-	}
-	if best == "" || best == sysID {
+		fmt.Fprintf(d.Out, "void sweep: staging at %s (%.0f LY from %s's leg %d) by lanes\n", c.id, c.d, s.ZoneID, s.Waypoint) //nolint:errcheck
+		// A lane jump that lands while the previous action is still settling
+		// answers "action pending"; wait it out rather than give up the staging
+		// and launch from far away (explorer-5, 11-15).
+		err := waitOutPending(ctx, func() error { return d.ensureHomeNav(ctx, c.id, "") })
+		if err == nil {
+			return true, sweep.Save(path, s)
+		}
+		if errors.Is(err, ErrRouteThroughAvoided) || strings.Contains(strings.ToLower(err.Error()), "no route") {
+			fmt.Fprintf(d.Out, "void sweep: staging at %s: %v; trying the next nearest\n", c.id, err) //nolint:errcheck
+			continue
+		}
+		fmt.Fprintf(d.Out, "void sweep: staging at %s: %v; launching from here\n", c.id, err) //nolint:errcheck
 		return false, nil
 	}
-	fmt.Fprintf(d.Out, "void sweep: staging at %s (%.0f LY from %s's leg %d) by lanes\n", best, bestD, s.ZoneID, s.Waypoint) //nolint:errcheck
-	// A lane jump that lands while the previous action is still settling
-	// answers "action pending"; wait it out rather than give up the staging
-	// and launch from far away (explorer-5, 11-15).
-	if err := waitOutPending(ctx, func() error { return d.ensureHomeNav(ctx, best, "") }); err != nil {
-		fmt.Fprintf(d.Out, "void sweep: staging at %s: %v; launching from here\n", best, err) //nolint:errcheck
-		return false, nil
-	}
-	return true, sweep.Save(path, s)
+	fmt.Fprintln(d.Out, "void sweep: no staging system reachable by lanes; launching from here") //nolint:errcheck
+	return false, nil
 }
 
 // voidLanded credits a landing to the zone when the system is hidden (not
