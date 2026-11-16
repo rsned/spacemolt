@@ -60,9 +60,10 @@ workers:
   - { agent_id: miningbot_0107, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
   - { agent_id: miningbot_0108, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
   - { agent_id: miningbot_0109, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }   # 2026-11-16 station #2 account (operator): home = station #2 (beid)
-  - { agent_id: trucker-10, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
-  - { agent_id: trucker-11, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
-  - { agent_id: trucker-12, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
-  - { agent_id: trucker-13, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
-  - { agent_id: trucker-14, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
-  - { agent_id: trucker-15, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
+  - { agent_id: craftsman-2, role: resident, station: 4650c48e3b6787e6cbeb69ebb3c61933 }  # 2026-11-16 station #2 lead at beid: receives marketbot_home2's drone gifts; faction_deposit_all moves them into beid storage
+  # MOVED to haul-fleet 2026-11-16 (operator): - { agent_id: trucker-10, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
+  # MOVED to haul-fleet 2026-11-16 (operator): - { agent_id: trucker-11, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
+  # MOVED to haul-fleet 2026-11-16 (operator): - { agent_id: trucker-12, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
+  # MOVED to haul-fleet 2026-11-16 (operator): - { agent_id: trucker-13, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
+  # MOVED to haul-fleet 2026-11-16 (operator): - { agent_id: trucker-14, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending
+  # MOVED to haul-fleet 2026-11-16 (operator): - { agent_id: trucker-15, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }   # 2026-11-16 station #2 account (operator): home = Conjunction Junction; congregation re-hull pending

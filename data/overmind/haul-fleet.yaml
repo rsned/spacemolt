@@ -33,6 +33,12 @@ workers:
   - { agent_id: trucker-07, role: hauler, station: "" }
   - { agent_id: trucker-08, role: hauler, station: "" }
   - { agent_id: trucker-09, role: hauler, station: "" }
+  - { agent_id: trucker-10, role: hauler, station: "" }  # 2026-11-16 congregation, CRFT, NO pirate unlock (haul avoids strongholds per agent)
+  - { agent_id: trucker-11, role: hauler, station: "" }  # 2026-11-16 congregation, CRFT, NO pirate unlock (haul avoids strongholds per agent)
+  - { agent_id: trucker-12, role: hauler, station: "" }  # 2026-11-16 congregation, CRFT, NO pirate unlock (haul avoids strongholds per agent)
+  - { agent_id: trucker-13, role: hauler, station: "" }  # 2026-11-16 congregation, CRFT, NO pirate unlock (haul avoids strongholds per agent)
+  - { agent_id: trucker-14, role: hauler, station: "" }  # 2026-11-16 congregation, CRFT, NO pirate unlock (haul avoids strongholds per agent)
+  - { agent_id: trucker-15, role: hauler, station: "" }  # 2026-11-16 congregation, CRFT, NO pirate unlock (haul avoids strongholds per agent)
   # === CANARY 2026-08-12: stronghold arbitrage ===================
   # explorer-1 already HOLDS the pirate unlock (smuggling 19, baseline 10) and
   # flies a Floor Price: 420 cargo at 1 fuel/jump. strongholdRefsFor keeps
