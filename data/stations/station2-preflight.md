@@ -219,3 +219,6 @@ Line cycle labor (5–13 cr per run) and the S2 upkeep inputs come from stock, n
 | 4 | Power source for S2 (not in the plan) | Operator choice: stellar_collector_grid 900k (2 circuit_board/cycle), or bunker_fed_reactor 500k (55 tank fuel/cycle) |
 | 5 | Gun ammo load; whether upgrades consume materials | At build time: `facility types --facility_type heavy_defense_battery` (and station_defense_turret) |
 | 6 | CJ is short of circuit_board (0) and fuel_cell (36) **now** | Restock CJ from personal storage before taking any for S2 |
+
+## Gate update 2026-11-15 ~19:10 local
+- craftsman-2 (Samuel 'Smith' Sterling) promoted member -> **officer** by the operator via craft_boss (`faction_promote`). Unknown #1 resolved.
