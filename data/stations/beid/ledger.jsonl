@@ -10,3 +10,37 @@
 {"observed_utc":"2026-11-16T08:44:36Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"trip6 CJ to beid"}
 {"observed_utc":"2026-11-16T08:48:44Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"trip7 CJ to beid"}
 {"observed_utc":"2026-11-16T08:52:52Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"trip8 CJ to beid"}
+{"observed_utc":"2026-11-16T09:13:42Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"session2 trip9 CJ to beid"}
+{"observed_utc":"2026-11-16T09:17:53Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"session2 trip10 CJ to beid"}
+{"observed_utc":"2026-11-16T09:22:02Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"session2 trip11 CJ to beid"}
+{"observed_utc":"2026-11-16T09:26:15Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"session2 trip12 CJ to beid"}
+{"observed_utc":"2026-11-16T09:30:22Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"session2 trip13 CJ to beid"}
+{"observed_utc":"2026-11-16T09:34:33Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"session2 trip14 CJ to beid"}
+{"observed_utc":"2026-11-16T09:38:44Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"session2 trip15 CJ to beid"}
+{"observed_utc":"2026-11-16T09:43:14Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":365,"note":"session2 trip16 CJ to beid"}
+{"observed_utc":"2026-11-16T09:43:14Z","agent_id":"craftsman-2","category":"haul-in","item":"copper_piping","qty":14,"note":"session2 trip16 CJ to beid"}
+{"observed_utc":"2026-11-16T09:47:23Z","agent_id":"craftsman-2","category":"haul-in","item":"copper_piping","qty":379,"note":"session2 trip17 CJ to beid"}
+{"observed_utc":"2026-11-16T09:51:35Z","agent_id":"craftsman-2","category":"haul-in","item":"copper_piping","qty":379,"note":"session2 trip18 CJ to beid"}
+{"observed_utc":"2026-11-16T09:56:02Z","agent_id":"craftsman-2","category":"haul-in","item":"copper_piping","qty":228,"note":"session2 trip19 CJ to beid"}
+{"observed_utc":"2026-11-16T09:56:02Z","agent_id":"craftsman-2","category":"haul-in","item":"control_node","qty":151,"note":"session2 trip19 CJ to beid"}
+{"observed_utc":"2026-11-16T10:00:33Z","agent_id":"craftsman-2","category":"haul-in","item":"control_node","qty":349,"note":"session2 trip20 CJ to beid"}
+{"observed_utc":"2026-11-16T10:00:33Z","agent_id":"craftsman-2","category":"haul-in","item":"power_cell","qty":15,"note":"session2 trip20 CJ to beid"}
+{"observed_utc":"2026-11-16T10:04:43Z","agent_id":"craftsman-2","category":"haul-in","item":"power_cell","qty":189,"note":"session2 trip21 CJ to beid"}
+{"observed_utc":"2026-11-16T10:09:23Z","agent_id":"craftsman-2","category":"haul-in","item":"power_cell","qty":96,"note":"session2 trip22 CJ to beid"}
+{"observed_utc":"2026-11-16T10:09:23Z","agent_id":"craftsman-2","category":"haul-in","item":"coolant_fluid","qty":187,"note":"session2 trip22 CJ to beid"}
+{"observed_utc":"2026-11-16T10:13:52Z","agent_id":"craftsman-2","category":"haul-in","item":"coolant_fluid","qty":213,"note":"session2 trip23 CJ to beid"}
+{"observed_utc":"2026-11-16T10:13:52Z","agent_id":"craftsman-2","category":"haul-in","item":"oxygen_gas","qty":166,"note":"session2 trip23 CJ to beid"}
+{"observed_utc":"2026-11-16T10:18:44Z","agent_id":"craftsman-2","category":"haul-in","item":"oxygen_gas","qty":34,"note":"session2 trip24 CJ to beid"}
+{"observed_utc":"2026-11-16T10:18:44Z","agent_id":"craftsman-2","category":"haul-in","item":"water_ice","qty":300,"note":"session2 trip24 CJ to beid"}
+{"observed_utc":"2026-11-16T10:18:45Z","agent_id":"craftsman-2","category":"haul-in","item":"liquid_hydrogen","qty":45,"note":"session2 trip24 CJ to beid"}
+{"observed_utc":"2026-11-16T10:22:53Z","agent_id":"craftsman-2","category":"haul-in","item":"liquid_hydrogen","qty":379,"note":"session2 trip25 CJ to beid"}
+{"observed_utc":"2026-11-16T10:27:23Z","agent_id":"craftsman-2","category":"haul-in","item":"liquid_hydrogen","qty":76,"note":"session2 trip26 CJ to beid"}
+{"observed_utc":"2026-11-16T10:27:23Z","agent_id":"craftsman-2","category":"haul-in","item":"armor_plate","qty":151,"note":"session2 trip26 CJ to beid"}
+{"observed_utc":"2026-11-16T10:31:34Z","agent_id":"craftsman-2","category":"haul-in","item":"armor_plate","qty":49,"note":"session2 trip27 CJ to beid"}
+{"observed_utc":"2026-11-16T10:35:45Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"session2 trip28 CJ to beid"}
+{"observed_utc":"2026-11-16T10:42:51Z","agent_id":"craftsman-2","category":"haul-in","item":"circuit_board","qty":264,"note":"session2 trip29 CJ to beid"}
+{"observed_utc":"2026-11-16T10:42:51Z","agent_id":"craftsman-2","category":"haul-in","item":"fuel_cell","qty":55,"note":"session2 trip29 CJ to beid"}
+{"observed_utc":"2026-11-16T10:42:51Z","agent_id":"craftsman-2","category":"haul-in","item":"water_recycler","qty":13,"note":"session2 trip29 CJ to beid"}
+{"observed_utc":"2026-11-16T10:42:52Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":34,"note":"session2 trip29 CJ to beid"}
+{"observed_utc":"2026-11-16T10:48:27Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":379,"note":"session2 trip30 CJ to beid"}
+{"observed_utc":"2026-11-16T10:52:33Z","agent_id":"craftsman-2","category":"haul-in","item":"steel_plate","qty":208,"note":"session2 trip31 CJ to beid"}

@@ -296,3 +296,26 @@ Operator: nobody has mined ironpeak in a while (iron/copper untouched). Ironpeak
 - **Quirk:** each dock at beid logs `This station does not have a market` from play_as's automatic market
   capture. It is harmless.
 - **Spend:** 33,250 (boards) + 712 (fuel) = 33,962 credits from craftsman-2. Nothing came from the treasury.
+
+## Haul session 2 (2026-11-16 09:08–10:53Z, craftsman-2, 23 round trips CJ → beid)
+
+- **Delivered (ledger `haul-in ... session2`):** steel_plate 4,018; copper_piping 1,000; control_node 500;
+  power_cell 300; coolant_fluid 400; oxygen_gas 200; water_ice 300; liquid_hydrogen 500; armor_plate 200;
+  circuit_board 264 (all of CJ's stock); fuel_cell 55 (CJ held 155, so 100 stayed for upkeep); water_recycler 13 (all of CJ's).
+  Over sessions 1 and 2 that makes **7,000 steel_plate** delivered, which meets the operator's raised target.
+- **Mixed holds worked:** several items withdrawn and deposited per trip. Size-2 items (power_cell, armor_plate)
+  were packed by cargo space.
+- **CJ after (last withdraw replies, measured):** steel 12,164; copper_piping 12,445; control_node 6,680;
+  power_cell 1,200; coolant ~2,488; oxygen 1,787; water_ice ~344,600; liquid_hydrogen ~121,200; armor_plate 982;
+  circuit_board 3; fuel_cell 104; water_recycler 0. Every keep-floor held.
+  CJ steel dropped faster than we hauled (~1.5k used by others during the session).
+- **Beid faction storage at end (snapshot 10:55Z):** steel_plate 7,840, circuit_board 1,109, liquid_hydrogen 1,225,
+  copper_piping 1,000, control_node 500, power_cell 300, coolant_fluid 400, oxygen_gas 200, water_ice 300,
+  armor_plate 200, fuel_cell 55, water_recycler 13. Steel and LH2 are above what we hauled because other members
+  deposited at beid too.
+- **Locker Bay (operator-built) is up and short on maintenance:** `facility list` shows it active with
+  `maintenance_level 0.4`, `maintenance_satisfied: false`. Its upkeep inputs need stocking at beid.
+- **Costs:** 0 credits. Every refuel was from the CJ faction bunker (100 fuel per trip, free).
+- **Gotcha (ours):** the shared scratchpad script was overwritten mid-session by another agent. One beid leg
+  did not run, and the loop's anomaly check stopped cleanly with the cargo still aboard. Keep per-task scripts
+  in their own directory.
