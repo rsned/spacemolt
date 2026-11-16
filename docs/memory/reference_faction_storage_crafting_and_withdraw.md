@@ -28,3 +28,5 @@ Related: [[project_consignment_haul_relay]] · [[reference_handoff_gifts_from_st
 docs/superpowers/specs/2026-10-24-contraband-production-pipeline-design.md
 
 **Bulk gifts skip cargo (operator reminder 2026-10-30):** `send_gift <user> <item> <qty> --source=storage` moves any quantity in one pass (50,000 carbon went at once). Do NOT batch through a small hold. For faction stock, `faction_withdraw_items <item> <qty>` defaults to cargo but accepts `--target=<scope>`; try `--target=storage` first, then gift `--source=storage` (scope value unverified as of 10-30).
+
+**Faction storage is PER STATION (operator, 2026-11-16):** each station or outpost has its own faction storage. Goods held at CJ are not visible at station #2 and must be hauled (faction_pull → deliver → faction_deposit_all).

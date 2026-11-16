@@ -39,7 +39,7 @@
 - [Pathfinder drive sourcing (11-13)](reference_pathfinder_drive_sourcing.md) — buy from Solarian station managers ~276k (daily price); building needs 18 facilities, thorium gone; buy deferred
 - [Never `time.Sleep` in pkg/worker](reference_race_test_cost_sqlite_migrations.md) — use the `settle(ctx,d)` seam
 
-- [Faction-storage crafting needs Officer rank; faction_withdraw lands in cargo](reference_faction_storage_crafting_and_withdraw.md) — live 10-24; craft falls back to CRFT storage, output goes there too
+- [Faction-storage crafting needs Officer rank; faction_withdraw lands in cargo](reference_faction_storage_crafting_and_withdraw.md) — live 10-24; craft falls back to CRFT storage, output goes there too; storage is PER STATION
 
 - ⭐🟢✅ [Pipeline worker verbs SHIPPED 10-24](reference_pipeline_worker_verbs_and_flags.md) — mine_qty_at/pipeline_miner, Lawless gate, shopkeep, faction_pull; yaml fields pipeline/shopkeep/faction_pull; smoke in progress
 
@@ -73,5 +73,6 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - ⭐ [Uncharted-system fragments (11-13)](reference_uncharted_system_fragments.md) — "Unknown source" hex on system chat; Fibonacci cipher; system history is per-SYSTEM so only push capture keeps them; sweep workers save to mbox
 - [Pathfinder frontier sweep (11-12)](project_pathfinder_frontier_sweep.md) — spec+plan approved; MERGED 11-13 + migration 75 applied; ops pending: 7 drives in CJ faction storage, buy hulls
 - ⭐🔴 [RESUME: interior void sweep rollout 11-15](project_interior_void_sweep.md) — round 2 done; void run started for ready ships (1,2,5,7,9,11,12); held: -8 Winterhold (assist-frontier refuel), -6 quarantined frontier, -4 undecided; 4 commits unpushed
+- [Drones mine radioactives (11-15)](reference_drones_mine_radioactive.md) — no special gear; but no-station rad mining = miningbots w/ rad_harvester + lead_lined_cargo from an outpost, flee on hostiles
 - [Faction intel → KB (11-15)](reference_faction_intel_tables.md) — faction_intel_* tables (mig 76), capture_intel twice_daily on craftsman-3; hazards merged into pois
 - [Intel Center L2 auto-sync (11-13)](reference_intel_center_autosync.md) — CJ intel auto-collects verified POI/system data from member reads; no ship sightings; sensor_dome not built
