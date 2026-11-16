@@ -224,3 +224,18 @@ Line cycle labor (5–13 cr per run) and the S2 upkeep inputs come from stock, n
 - craftsman-2 (Samuel 'Smith' Sterling) promoted member -> **officer** by the operator via craft_boss (`faction_promote`). Unknown #1 resolved.
 - Defenses (operator): **skip the L3 gun** at launch — shield, armor module, L2 gun, L1 gun only; L3 later from revenue. Budget drops ~2.0M -> ~11.26M vs 12.30M available (~1.04M slack if the founding fee is <=5M).
 - Power (operator): **stellar_collector_grid** (~0.9M, catalog L1) — easier to bootstrap with circuit boards than a fuel-burning reactor. Budget stays ~11.26M vs 12.30M available. Note: CJ holds 0 circuit_board now; the grid's boards come from personal storage (craftsman-1 et al., ~2,060 held).
+
+## Fresh belt reads 2026-11-15 ~19:50 local (operator, flying craftsman-1; KB poi_resources ticks 2416037-2416099)
+| POI | resource | richness | remaining / max |
+|---|---|---|---|
+| ironpeak_belt | iron_ore | 64 | 99,999 / 100,000 |
+| ironpeak_belt | copper_ore | 44 | 100,000 / 100,000 |
+| ironpeak_belt | gold_ore | 36 | 439 / 25,000 (nearly mined out) |
+| ironpeak_weak_superposition | iron_ore / copper_ore | 20 / 23 | 100k / 100k each |
+| ironpeak_weak_superposition | quantum_fragments | 11 | 663 / 663 |
+| strange_matter_node (hidden) | exotic_matter | 18 | 800 / 800 |
+| markeb_belt | lead_ore / uranium_ore / radium_ore | 16 / 15 / 6 | 107 / 0 / 531 (mined out) |
+| markeb_belt | aluminum / carbon | 62 / 51 | 1 / 3 (mined out) |
+| markeb_quantum_eddy | quantum_fragments | 17 | 1,016 / 1,016 |
+
+Operator: nobody has mined ironpeak in a while (iron/copper untouched). Ironpeak has NO radioactives in system — those come from stored stock (thorium 13.5k, uranium 4.6k, polonium 4.5k, lead 17.4k) or other sites. beid_belt still unread.
