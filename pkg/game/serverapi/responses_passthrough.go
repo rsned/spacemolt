@@ -274,14 +274,18 @@ type StationConfigResponse struct {
 // auto_docked / auto_undocked flags report.
 //   - dismantle_outpost
 type DismantleOutpostResponse struct {
-	BaseID       string `json:"base_id"`
-	Name         string `json:"name"`
-	KitItem      string `json:"kit_item"`
-	KitRefunded  bool   `json:"kit_refunded"`
-	FeeRefunded  int    `json:"fee_refunded"`
-	Hint         string `json:"hint"`
-	AutoDocked   bool   `json:"auto_docked,omitempty"`
-	AutoUndocked bool   `json:"auto_undocked,omitempty"`
+	BaseID      string `json:"base_id"`
+	Name        string `json:"name"`
+	KitItem     string `json:"kit_item"`
+	KitRefunded bool   `json:"kit_refunded"`
+	FeeRefunded int    `json:"fee_refunded"`
+	// ItemsReturned is what the dismantle put in cargo, item id -> quantity:
+	// one outpost_kit for an outpost, or one lane_anchor per fully built end
+	// of a jump gate (empty when a gate had no built end).
+	ItemsReturned map[string]int `json:"items_returned,omitempty"`
+	Hint          string         `json:"hint"`
+	AutoDocked    bool           `json:"auto_docked,omitempty"`
+	AutoUndocked  bool           `json:"auto_undocked,omitempty"`
 }
 
 // LoginLinkResponse is returned by login_link, which starts a browser-based
