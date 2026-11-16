@@ -319,3 +319,29 @@ Operator: nobody has mined ironpeak in a while (iron/copper untouched). Ironpeak
 - **Gotcha (ours):** the shared scratchpad script was overwritten mid-session by another agent. One beid leg
   did not run, and the loop's anomaly check stopped cleanly with the cargo still aboard. Keep per-task scripts
   in their own directory.
+
+## Facilities and upkeep (2026-11-16, afternoon)
+
+- **Built and active:** Locker Bay, Stellar Collector Grid (power 20), Atmospheric Recycler.
+  **Refueling Dock** placed by craftsman-2 at tick 2422300 (`under_construction: true`, rent 0,
+  750 corporation_management XP). The build was accepted with only ~400 fuel_cell in storage,
+  not the 2,000 listed as build materials.
+- **Upkeep per cycle (catalog `maintenance_inputs`; a cycle measured ~3,000 ticks at CJ, ~3/day):**
+  locker_bay 1 steel_plate + 1 flex_polymer · stellar_collector_grid 2 circuit_board ·
+  atmospheric_recycler 1 sunspindle + 3 water_ice + 1 purified_water + 2 oxygen_gas +
+  1 catalytic_scrubber_cartridge · refueling_dock 2 fuel_cell + 1 liquid_hydrogen ·
+  faction_workshop (not built yet) 1 circuit_board + 1 focused_crystal.
+- **Supply runs (craftsman-2, CJ → beid):** 300 flex_polymer (locker bay); then 100 sunspindle,
+  100 purified_water, 95 catalytic_scrubber_cartridge, 50 focused_crystal. The recycler had none
+  of its three sunspindle/water/scrubber inputs before this.
+- **No fuel market at beid:** `refuel` there fails `no_fuel_source` even with credits. Bring fuel
+  cells or leave with a full tank from CJ.
+
+## No crafting service yet (2026-11-16 14:26 local, tick 2422785, craftsman-1)
+
+`craft manufacture_fuel_basic 1000` at beid was refused:
+`no_service: This station does not offer crafting service.` A new player station has no crafting
+service until a crafting facility exists. The operator had tried `facility faction_build
+h2_fuel_combustor` just before. The **faction_workshop** (500k + 800 steel + 400 circuit_board) is
+the planned crafting facility; its 400 boards are being made at CJ from 1,900 carbon hauled from
+void_gate by trucker-10.
