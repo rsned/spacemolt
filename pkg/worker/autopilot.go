@@ -366,7 +366,7 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 			}
 			if stops > 0 && routeFuelFeasible(fuelAvailable, tank, fuelPerJump, refuelAt) {
 				fmt.Fprintf(out, "   Fuel short for the whole route; %d known refuel station(s) on the way cover it\n", stops) //nolint:errcheck
-				estimatedFuel = 0 // gate passed
+				estimatedFuel = 0                                                                                              // gate passed
 			}
 		}
 		if estimatedFuel > fuelAvailable {

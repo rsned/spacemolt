@@ -1,10 +1,10 @@
 package worker
 
 import (
-	"fmt"
-	"errors"
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -424,7 +424,10 @@ func TestVoidNextZoneIsStaged(t *testing.T) {
 	d, _, _ := voidDispatch(t, c, kb, s, ledger)
 	seams := d.ensureHomeNav
 	var navs []string
-	d.ensureHomeNav = func(ctx context.Context, sys, poi string) error { navs = append(navs, sys); return seams(ctx, sys, poi) }
+	d.ensureHomeNav = func(ctx context.Context, sys, poi string) error {
+		navs = append(navs, sys)
+		return seams(ctx, sys, poi)
+	}
 	if err := d.PathfinderSweep(context.Background()); err != nil {
 		t.Fatal(err)
 	}

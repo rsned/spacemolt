@@ -171,7 +171,7 @@ func (d *WorkerDispatch) voidStage(ctx context.Context, s *sweep.State, path, sy
 	systems, err := d.KB.GetSystems(ctx)
 	if err != nil {
 		fmt.Fprintf(d.Out, "void sweep: staging: %v; launching from here\n", err) //nolint:errcheck
-		return false, nil //nolint:nilerr // staging is optional; launch from here
+		return false, nil                                                         //nolint:nilerr // staging is optional; launch from here
 	}
 	unlocked := smugglingUnlocked(d.Client.GetState())
 	type cand struct {
