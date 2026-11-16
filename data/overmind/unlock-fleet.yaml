@@ -521,3 +521,21 @@ workers:
   - { agent_id: johhnycab, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: johnny_ca, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
   - { agent_id: johnnycab, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  # 2026-11-16 new station #2 (beid) accounts (operator): pirate unlock first, then to station #2 fleets.
+  - { agent_id: marketbot_home2, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0100, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0101, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0102, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0103, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0104, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0105, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0106, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0107, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0108, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: miningbot_0109, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-10, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-11, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-12, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-13, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-14, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
+  - { agent_id: trucker-15, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery, exploration] }
