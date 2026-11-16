@@ -11,6 +11,6 @@ workers:
   # registrations, no password held — Clerk-only credentials, player_id only).
   # Each ran market_participation_buying for the 1,000-earned gift unlock.
   # Starter Cobbles at the Outer Rim mobile capital; passenger cabins to be gifted.
-  - { agent_id: johhnycab, role: shuttle, station: "" }
+  - { agent_id: johhnycab, role: shuttle, station: "" }   # 2026-11-16 refit: consortium + first_class_passenger_suite + grand_dining_hall (was a bare Cobble after its 11-12 loss)
   - { agent_id: johnny_ca, role: shuttle, station: "" }
   - { agent_id: johnnycab, role: shuttle, station: "" }
