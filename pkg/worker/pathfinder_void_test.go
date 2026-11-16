@@ -407,7 +407,7 @@ func TestVoidLandingOnTheWaypointStepsPastIt(t *testing.T) {
 func TestVoidNextZoneIsStaged(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
 	addSweepStation(t, kb, "home", 0, 1000)
-	placeSystem(t, kb, "near_v02", 4900, 1500, 1, 1)
+	placeSystem(t, kb, "near_v02", 4900, 1500, 1, 1, "home")
 	r := &sweep.VoidRun{Zones: []*sweep.VoidZone{
 		{Zone: sweep.Zone{ID: "V01", Area: 2e6}, Waypoints: slices.Clone(voidWave), Done: true, Next: 4},
 		{Zone: sweep.Zone{ID: "V02", Area: 1e6}, Waypoints: []sweep.Point{{X: 5000, Y: 1500}, {X: 5900, Y: 1500}}},
@@ -479,7 +479,7 @@ func TestVoidFirstSwitchRefuelsBeforeLaunching(t *testing.T) {
 func TestVoidStagingWaitsOutAPendingAction(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
 	addSweepStation(t, kb, "home", 0, 1000)
-	placeSystem(t, kb, "near_v02", 4900, 1500, 1, 1)
+	placeSystem(t, kb, "near_v02", 4900, 1500, 1, 1, "home")
 	r := &sweep.VoidRun{Zones: []*sweep.VoidZone{
 		{Zone: sweep.Zone{ID: "V02", Area: 1e6}, Waypoints: []sweep.Point{{X: 5000, Y: 1500}, {X: 5900, Y: 1500}}},
 	}}
@@ -515,9 +515,9 @@ func TestVoidStagingWaitsOutAPendingAction(t *testing.T) {
 func TestVoidStagingSkipsUnroutableSystems(t *testing.T) {
 	kb := knowledge.NewMemoryKB()
 	addSweepStation(t, kb, "home", 0, 1000)
-	placeSystem(t, kb, "turnback", 4950, 1500, 1, 1)
-	placeSystem(t, kb, "taygeta", 4900, 1500, 1, 1)
-	placeSystem(t, kb, "near_v02", 4800, 1500, 1, 1)
+	placeSystem(t, kb, "turnback", 4950, 1500, 1, 1, "home")
+	placeSystem(t, kb, "taygeta", 4900, 1500, 1, 1, "home")
+	placeSystem(t, kb, "near_v02", 4800, 1500, 1, 1, "home")
 	r := &sweep.VoidRun{Zones: []*sweep.VoidZone{
 		{Zone: sweep.Zone{ID: "V02", Area: 1e6}, Waypoints: []sweep.Point{{X: 5000, Y: 1500}, {X: 5900, Y: 1500}}},
 	}}
@@ -580,5 +580,33 @@ func TestVoidStagingLaunchesWhenNothingIsRoutable(t *testing.T) {
 	}
 	if len(c.jumps) == 0 {
 		t.Fatalf("calls %v, want a launch from home after every staging system failed", c.calls)
+	}
+}
+
+// Staging picks only systems the lanes can reach: slow_clock (no jump lanes,
+// pathfinder only; explorer-5 11-16) and an avoided system (explorer-9 ->
+// Taygeta, 11-15) are skipped, as is a stronghold without the unlock.
+// Nearest first among the rest.
+func TestVoidStageCandidatesSkipLanelessAndAvoided(t *testing.T) {
+	sys := func(id string, x float64) knowledge.System {
+		s := knowledge.System{ID: id}
+		s.Position.X, s.Position.Y = x, 1
+		return s
+	}
+	hold := sys("hold", 2)
+	hold.IsStronghold = true
+	systems := []knowledge.System{sys("slow_clock", 1), hold, sys("taygeta", 3), sys("near", 4), sys("far", 9)}
+	conns := []knowledge.Connection{
+		{FromSystem: "hold", ToSystem: "near"}, {FromSystem: "taygeta", ToSystem: "near"},
+		{FromSystem: "near", ToSystem: "far"},
+	}
+	avoid := map[string]string{"taygeta": "leviathan"}
+	got := voidStageCandidates(systems, conns, avoid, false, 0, 1)
+	var ids []string
+	for _, c := range got {
+		ids = append(ids, c.id)
+	}
+	if want := []string{"near", "far"}; !slices.Equal(ids, want) {
+		t.Fatalf("candidates %v, want %v", ids, want)
 	}
 }

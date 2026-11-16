@@ -12,6 +12,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/sweep"
 )
 
@@ -173,19 +174,13 @@ func (d *WorkerDispatch) voidStage(ctx context.Context, s *sweep.State, path, sy
 		fmt.Fprintf(d.Out, "void sweep: staging: %v; launching from here\n", err) //nolint:errcheck
 		return false, nil                                                         //nolint:nilerr // staging is optional; launch from here
 	}
-	unlocked := smugglingUnlocked(d.Client.GetState())
-	type cand struct {
-		id string
-		d  float64
+	conns, err := d.KB.GetConnections(ctx)
+	if err != nil {
+		fmt.Fprintf(d.Out, "void sweep: staging: %v; launching from here\n", err) //nolint:errcheck
+		return false, nil                                                         //nolint:nilerr // staging is optional; launch from here
 	}
-	var cands []cand
-	for _, sys := range systems {
-		if (sys.Position.X == 0 && sys.Position.Y == 0 && sys.ID != "sol") || (sys.IsStronghold && !unlocked) {
-			continue
-		}
-		cands = append(cands, cand{sys.ID, math.Hypot(sys.Position.X-wp.X, sys.Position.Y-wp.Y)})
-	}
-	slices.SortFunc(cands, func(a, b cand) int { return cmp.Compare(a.d, b.d) })
+	cands := voidStageCandidates(systems, conns, loadAvoidSystems(d.AvoidSystemsPath),
+		smugglingUnlocked(d.Client.GetState()), wp.X, wp.Y)
 	// The nearest system is not always reachable by lanes: a frontier system
 	// has none (explorer-8 → Turnback) and an avoided one is refused
 	// (explorer-9 → Taygeta). Try the next-nearest few before giving up.
@@ -193,7 +188,7 @@ func (d *WorkerDispatch) voidStage(ctx context.Context, s *sweep.State, path, sy
 		if i >= voidStageTries || c.id == sysID {
 			return false, nil
 		}
-		fmt.Fprintf(d.Out, "void sweep: staging at %s (%.0f LY from %s's leg %d) by lanes\n", c.id, c.d, s.ZoneID, s.Waypoint) //nolint:errcheck
+		fmt.Fprintf(d.Out, "void sweep: staging at %s (%.0f LY from %s's leg %d) by lanes\n", c.id, c.dist, s.ZoneID, s.Waypoint) //nolint:errcheck
 		// A lane jump that lands while the previous action is still settling
 		// answers "action pending"; wait it out rather than give up the staging
 		// and launch from far away (explorer-5, 11-15).
@@ -210,6 +205,37 @@ func (d *WorkerDispatch) voidStage(ctx context.Context, s *sweep.State, path, sy
 	}
 	fmt.Fprintln(d.Out, "void sweep: no staging system reachable by lanes; launching from here") //nolint:errcheck
 	return false, nil
+}
+
+// voidStageCand is a staging system and its distance from the waypoint.
+type voidStageCand struct {
+	id   string
+	dist float64
+}
+
+// voidStageCandidates lists the systems voidStage may stage at, nearest to
+// (x, y) first. It skips systems with no position, strongholds without the
+// unlock, systems on the avoid list (explorer-9 -> Taygeta, 11-15), and
+// systems with no jump lanes, which only a pathfinder reaches and find_route
+// never will (explorer-5 -> slow_clock, 11-16).
+func voidStageCandidates(systems []knowledge.System, conns []knowledge.Connection, avoid map[string]string, unlocked bool, x, y float64) []voidStageCand {
+	laned := make(map[string]bool, 2*len(conns))
+	for _, c := range conns {
+		laned[c.FromSystem], laned[c.ToSystem] = true, true
+	}
+	var out []voidStageCand
+	for _, sys := range systems {
+		if (sys.Position.X == 0 && sys.Position.Y == 0 && sys.ID != "sol") || (sys.IsStronghold && !unlocked) || !laned[sys.ID] {
+			continue
+		}
+		if _, ok := avoid[strings.ToLower(sys.ID)]; ok {
+			continue
+		}
+		out = append(out, voidStageCand{sys.ID, math.Hypot(sys.Position.X-x, sys.Position.Y-y)})
+	}
+	slices.SortFunc(out, func(a, b voidStageCand) int { return cmp.Compare(a.dist, b.dist) })
+
+	return out
 }
 
 // voidLanded credits a landing to the zone when the system is hidden (not
