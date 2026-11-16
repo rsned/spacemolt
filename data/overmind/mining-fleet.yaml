@@ -25,7 +25,7 @@ workers:
   # Not miner-named, but same profile: mining 12 on starter hulls. Moved here
   # rather than parked idle — an idle agent still pays property tax on its ship
   # and drains toward the 0-credit bounty spiral.
-  - { agent_id: overmind, role: miner, station: "" }
+  # - { agent_id: overmind, role: miner, station: "" }  # RETIRED 2026-11-16 (operator): HD 20794 run loses money (iron 3 cr vs ~250 fuel per trip), five rescues in 36 h, 5,000 rescue debt
   - { agent_id: prophet-2, role: miner, station: "" }
 
   # mining skill 0, but starter ships ship WITH a mining laser, so the loop runs.
