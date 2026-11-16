@@ -271,7 +271,11 @@ All 8–10 jumps from CJ and exposed: 6–8 jumps from algol, shield 0.
     702, argon/hydrogen/neon ~1.6k each, mostly drained) for the plasma line; and
     iron 63k / copper 100k.
   - The deuterium sheet is small (~333 deuterium, ~13 liquid_tritium) unless it
-    regenerates. Its hidden status may keep drones off it.
+    regenerates. Hidden POIs can only be mined by factions that have revealed
+    them (operator), so it is effectively a CRFT-only reserve: craftsman-1 (CRFT)
+    reads it, and it shows full (2,000/2,000). The same holds for ironpeak's
+    hidden strange_matter_node (exotic_matter 800/800). Whether CRFT drones can
+    mine a revealed hidden POI is still to confirm in game.
   - Confirm with `get_base_cost` in beid before founding.
 - **Outpost at IRONPEAK (operator, 2026-11-15).** One of craftsman-1's two
   outpost kits. Ironpeak is untouched: iron 100k (r64), copper 100k (r44) on
