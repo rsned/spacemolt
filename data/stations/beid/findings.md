@@ -352,4 +352,6 @@ Combustor) is refused with the same `no_service`. A production facility cannot r
 station has a crafting service, which comes from a **faction_workshop** (or crafting_workshop: same
 500k + 800 steel + 400 boards; extra sunspindle upkeep). This matches the player-reported build
 order in CJ's findings (locker bay → faction workshop → atmospheric recycler). **The workshop is
-the blocker for all crafting at beid, fuel included.**
+the blocker for all crafting at beid, fuel included.** Operator: the workshop is basically required
+for anything beyond the core services (storage, power, life support). Build it right after the
+locker bay at the next station.
