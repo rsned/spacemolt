@@ -25,6 +25,13 @@ func (s *Store) ReplaceStorage(ctx context.Context, playerID string, bases []Sto
 			`DELETE FROM agent_storage_items WHERE player_id = ?`, playerID); err != nil {
 			return fmt.Errorf("assets: clear storage items for %s: %w", playerID, err)
 		}
+		// History is append-only (storage_rates.go reads it); the snapshot row
+		// marks this pass so an absent item reads as 0, not unknown.
+		if _, err := tx.ExecContext(ctx,
+			`INSERT OR REPLACE INTO storage_history_snapshots (player_id, captured_at) VALUES (?,?)`,
+			playerID, ts); err != nil {
+			return fmt.Errorf("assets: insert storage snapshot %s: %w", playerID, err)
+		}
 		for _, b := range bases {
 			if _, err := tx.ExecContext(ctx,
 				`INSERT INTO agent_storage (player_id, base_id, credits, captured_at) VALUES (?,?,?,?)`,
@@ -38,6 +45,15 @@ func (s *Store) ReplaceStorage(ctx context.Context, playerID string, bases []Sto
 					VALUES (?,?,?,?,?,?,?)`,
 					playerID, b.BaseID, it.ItemID, it.Name, it.Quantity, it.Size, ts); err != nil {
 					return fmt.Errorf("assets: insert storage item %s/%s/%s: %w",
+						playerID, b.BaseID, it.ItemID, err)
+				}
+				if _, err := tx.ExecContext(ctx, `
+					INSERT INTO storage_history (player_id, base_id, item_id, quantity, captured_at)
+					VALUES (?,?,?,?,?)
+					ON CONFLICT (player_id, base_id, item_id, captured_at)
+					DO UPDATE SET quantity = excluded.quantity`,
+					playerID, b.BaseID, it.ItemID, it.Quantity, ts); err != nil {
+					return fmt.Errorf("assets: insert storage history %s/%s/%s: %w",
 						playerID, b.BaseID, it.ItemID, err)
 				}
 			}

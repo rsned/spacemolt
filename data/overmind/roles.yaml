@@ -25,7 +25,7 @@ roles:
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
       - { every: hourly, command: "capture_profile" }
-      - { every: daily, command: "capture_storage" }
+      - { every: twice_daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
       - { every: daily, command: "capture_citizenship" }
@@ -44,7 +44,7 @@ roles:
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
       - { every: hourly, command: "capture_profile" }
-      - { every: daily, command: "capture_storage" }
+      - { every: twice_daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
       - { every: daily, command: "capture_citizenship" }
@@ -58,7 +58,7 @@ roles:
       - { every: hourly, command: "facilities" }
       - { every: hourly, command: "capture_fuel" }
       - { every: hourly, command: "capture_profile" }
-      - { every: daily, command: "capture_storage" }
+      - { every: twice_daily, command: "capture_storage" }
       - { every: daily, command: "capture_faction" }
       - { every: daily, command: "capture_tax" }
       - { every: daily, command: "capture_citizenship" }

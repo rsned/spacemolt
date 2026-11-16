@@ -192,6 +192,26 @@ CREATE TABLE IF NOT EXISTS agent_storage_items (
 );
 CREATE INDEX IF NOT EXISTS idx_agent_storage_items_item ON agent_storage_items(item_id);
 
+-- Storage history: every capture_storage pass appends its full picture, so
+-- holdings can be diffed over time (drone mining rates per station; see
+-- cmd/tools/drone-rates). One storage_history_snapshots row per pass marks
+-- that the agent was observed at captured_at, so an item ABSENT from that pass
+-- reads as 0 rather than unknown. Append-only; quantity is REAL as above.
+CREATE TABLE IF NOT EXISTS storage_history_snapshots (
+    player_id   TEXT NOT NULL,
+    captured_at TEXT NOT NULL,
+    PRIMARY KEY (player_id, captured_at)
+);
+CREATE TABLE IF NOT EXISTS storage_history (
+    player_id   TEXT NOT NULL,
+    base_id     TEXT NOT NULL,
+    item_id     TEXT NOT NULL,
+    quantity    REAL NOT NULL DEFAULT 0,
+    captured_at TEXT NOT NULL,
+    PRIMARY KEY (player_id, base_id, item_id, captured_at)
+);
+CREATE INDEX IF NOT EXISTS idx_storage_history_time ON storage_history(captured_at);
+
 -- Faction assets get their OWN tables rather than a holder_type discriminator
 -- on the agent ones: player_id and faction_id are different id spaces, faction
 -- storage carries fuel-bunker columns agents do not have, and no reader can
