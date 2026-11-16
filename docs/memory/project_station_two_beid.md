@@ -1,6 +1,6 @@
 ---
 name: project-station-two-beid
-description: "CRFT station #2 in beid (founded 11-16, base b7ecd9b1…, POI 4650c48e…); lead craftsman-2; record set data/stations/beid; pending setup steps"
+description: "CRFT station #2 in beid (founded 11-16, base b7ecd9b1…, POI 4650c48e…); lead craftsman-2; record set data/stations/beid; grid placed, craftsman-2 resident, no fuel market"
 metadata:
   node_type: memory
   type: project
@@ -27,9 +27,12 @@ play_as `--record-dir data/stations/beid`. Lead: **craftsman-2** (CRFT officer).
   marketbot_home2's bay + 5 drones come from craftsman-1's stock at frontier_station
   (operator gifts them).
 
-**PENDING (operator said yes, 11-16):** when haul sessions end, put craftsman-2
-back in a fleet pinned to beid with a scheduled faction_deposit_all, so
-marketbot_home2 (DB) gifts drone output to craftsman-2 who deposits into beid
-storage (mirrors marketbot_home -> miningbot_0000 at CJ). Show the yaml first.
+**DONE 11-16:** craftsman-2 is a crft-mining resident pinned to beid with a
+half_hourly faction_deposit_all (marketbot_home2 gifts drone output to it).
+stellar_collector_grid placed 11-16 (900k; operator brought the boards).
+300 flex_polymer hauled from CJ for locker_bay upkeep (it fell to 40% maint).
+beid has NO fuel market yet: refuel there fails; craftsman-2 stays docked.
+trucker-10..15 (congregations) joined the haul fleet; no pirate unlock, and
+haul gates strongholds per agent.
 
 Related: [[project_cloverfield_home_station]] [[reference_congregation_is_outerrim_exclusive]]
