@@ -6,6 +6,16 @@
 
 ## Founding
 
+- **2026-11-16 (measured, operator's reply):** station founded in **beid**.
+  - `base_id` **b7ecd9b1ce7c2689d73d4f15f30dd134**; it anchored at its own new
+    POI **4650c48e3b6787e6cbeb69ebb3c61933** (not an existing POI), and the
+    founding ship is docked there.
+  - `fee_paid` **5,000,000** (same as CJ). `public_access: false`. Name "station"
+    (rename later).
+  - Server hint: next is `facility faction_build` for **Faction Storage**, then
+    power, life support and services; keep faction storage stocked with each
+    facility's maintenance inputs or they go offline.
+  - Treasury after: ~8.3M (13,297,720 - 5,000,000).
 ## Build log
 
 ## Maintenance (per facility, per cycle)

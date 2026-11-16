@@ -1,1 +1,2 @@
 {"observed_utc":"2026-11-16T05:18:20Z","agent_id":"craftsman-2","category":"transfer","item":"credits","qty":10000000,"credits":10000000,"note":"funding: the_banker gift to craftsman-2, deposited to CRFT treasury 3297720 to 13297720"}
+{"observed_utc": "2026-11-16T08:00:33Z", "agent_id": "craftsman-2", "category": "founding", "item": "credits", "qty": -5000000, "credits": -5000000, "note": "build station in beid (operator, manual): base b7ecd9b1ce7c2689d73d4f15f30dd134, poi 4650c48e3b6787e6cbeb69ebb3c61933, public_access false"}
