@@ -298,3 +298,22 @@ func TestExecuteLoopTokenErrorPropagatesThroughNestedLoop(t *testing.T) {
 		t.Fatalf("expected *TokenError to propagate out of nested loop, got %v", err)
 	}
 }
+
+// A mine that needs a harvester the ship lacks ends the loop at once, and the
+// script goes on (positive exit): overmind's jump into HD 20794 lands at the gas
+// plume, the travel to the forge vein failed, and `loop -f 100 mine` then
+// tried 100 times with no gas harvester (11-16, five rescues in 36 h).
+func TestExecuteLoop_UnminableHereEndsLoop(t *testing.T) {
+	for _, msg := range []string{
+		"You need a gas harvester module to collect resources here.",
+		"You need an ice harvester module to collect resources here.",
+	} {
+		calls := 0
+		err := ExecuteLoop(context.Background(), io.Discard, 100, true,
+			[]Statement{{Raw: "mine", Tokens: []string{"mine"}}}, 0,
+			func([]string) error { calls++; return errors.New(msg) })
+		if err != nil || calls != 1 {
+			t.Errorf("%q: err %v after %d calls, want nil after 1", msg, err, calls)
+		}
+	}
+}

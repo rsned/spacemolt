@@ -90,6 +90,15 @@ func ExecuteLoop(
 					fmt.Fprintf(out, "%s☢️  %v → aborting loop after %d/%d iterations\n", indent, err, i+1, count) //nolint:errcheck
 					return err
 				}
+				// A mine that can never succeed at this POI (the site needs a
+				// gas/ice harvester the ship lacks) ends the loop at once as
+				// a positive exit, so the script goes on to its station instead of
+				// burning 100 refusals in place (overmind at the HD 20794 gas
+				// plume, 11-16: five rescues in 36 h).
+				if isUnminableHere(err) {
+					fmt.Fprintf(out, "%s⛏️  %v → wrong gear for this site, exiting loop\n", indent, err) //nolint:errcheck
+					return nil
+				}
 				var tokErr *TokenError
 				if errors.As(err, &tokErr) {
 					fmt.Fprintf(out, "%s❌ %v → aborting loop\n", indent, tokErr) //nolint:errcheck
@@ -145,4 +154,12 @@ func ExecuteLoop(
 		return nil
 	}
 	return firstErr
+}
+
+// isUnminableHere matches the server refusal that no retry at this POI can
+// clear: the site needs a harvester module the ship lacks. "Nothing to mine
+// here" and "Resources depleted" are NOT here: a dry belt regenerates, and -f
+// deliberately keeps (paced) attempts going against it.
+func isUnminableHere(err error) bool {
+	return strings.Contains(strings.ToLower(err.Error()), "harvester module to collect")
 }
