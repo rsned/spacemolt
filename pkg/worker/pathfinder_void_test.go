@@ -583,8 +583,8 @@ func TestVoidStagingLaunchesWhenNothingIsRoutable(t *testing.T) {
 	}
 }
 
-// Staging picks only systems the lanes can reach: slow_clock (no jump lanes,
-// pathfinder only; explorer-5 11-16) and an avoided system (explorer-9 ->
+// Staging picks only systems the lanes can reach from here: slow_clock and
+// bristle (a hidden island, lanes only to each other; explorer-5/-8 11-16) and an avoided system (explorer-9 ->
 // Taygeta, 11-15) are skipped, as is a stronghold without the unlock.
 // Nearest first among the rest.
 func TestVoidStageCandidatesSkipLanelessAndAvoided(t *testing.T) {
@@ -597,11 +597,15 @@ func TestVoidStageCandidatesSkipLanelessAndAvoided(t *testing.T) {
 	hold.IsStronghold = true
 	systems := []knowledge.System{sys("slow_clock", 1), hold, sys("taygeta", 3), sys("near", 4), sys("far", 9)}
 	conns := []knowledge.Connection{
+		{FromSystem: "here", ToSystem: "near"},
 		{FromSystem: "hold", ToSystem: "near"}, {FromSystem: "taygeta", ToSystem: "near"},
 		{FromSystem: "near", ToSystem: "far"},
+		// A hidden island: lanes, but none to the charted map (explorer-8, 11-16).
+		{FromSystem: "slow_clock", ToSystem: "bristle"},
 	}
+	systems = append(systems, sys("bristle", 1.5))
 	avoid := map[string]string{"taygeta": "leviathan"}
-	got := voidStageCandidates(systems, conns, avoid, false, 0, 1)
+	got := voidStageCandidates(systems, conns, avoid, false, "here", 0, 1)
 	var ids []string
 	for _, c := range got {
 		ids = append(ids, c.id)

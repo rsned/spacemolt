@@ -180,7 +180,7 @@ func (d *WorkerDispatch) voidStage(ctx context.Context, s *sweep.State, path, sy
 		return false, nil                                                         //nolint:nilerr // staging is optional; launch from here
 	}
 	cands := voidStageCandidates(systems, conns, loadAvoidSystems(d.AvoidSystemsPath),
-		smugglingUnlocked(d.Client.GetState()), wp.X, wp.Y)
+		smugglingUnlocked(d.Client.GetState()), sysID, wp.X, wp.Y)
 	// The nearest system is not always reachable by lanes: a frontier system
 	// has none (explorer-8 → Turnback) and an avoided one is refused
 	// (explorer-9 → Taygeta). Try the next-nearest few before giving up.
@@ -216,13 +216,11 @@ type voidStageCand struct {
 // voidStageCandidates lists the systems voidStage may stage at, nearest to
 // (x, y) first. It skips systems with no position, strongholds without the
 // unlock, systems on the avoid list (explorer-9 -> Taygeta, 11-15), and
-// systems with no jump lanes, which only a pathfinder reaches and find_route
-// never will (explorer-5 -> slow_clock, 11-16).
-func voidStageCandidates(systems []knowledge.System, conns []knowledge.Connection, avoid map[string]string, unlocked bool, x, y float64) []voidStageCand {
-	laned := make(map[string]bool, 2*len(conns))
-	for _, c := range conns {
-		laned[c.FromSystem], laned[c.ToSystem] = true, true
-	}
+// systems the lanes cannot reach from `from`: a hidden system has no lanes,
+// or lanes only to other hidden systems (slow_clock-bristle-far_wick), so only
+// a pathfinder gets there and find_route never will (explorer-5/-8, 11-16).
+func voidStageCandidates(systems []knowledge.System, conns []knowledge.Connection, avoid map[string]string, unlocked bool, from string, x, y float64) []voidStageCand {
+	laned := laneReachable(conns, from)
 	var out []voidStageCand
 	for _, sys := range systems {
 		if (sys.Position.X == 0 && sys.Position.Y == 0 && sys.ID != "sol") || (sys.IsStronghold && !unlocked) || !laned[sys.ID] {
@@ -236,6 +234,30 @@ func voidStageCandidates(systems []knowledge.System, conns []knowledge.Connectio
 	slices.SortFunc(out, func(a, b voidStageCand) int { return cmp.Compare(a.dist, b.dist) })
 
 	return out
+}
+
+// laneReachable is every system reachable from `from` by jump lanes, taken
+// as two-way (one-way links only add reach), including `from` itself.
+func laneReachable(conns []knowledge.Connection, from string) map[string]bool {
+	adj := make(map[string][]string, len(conns))
+	for _, c := range conns {
+		adj[c.FromSystem] = append(adj[c.FromSystem], c.ToSystem)
+		adj[c.ToSystem] = append(adj[c.ToSystem], c.FromSystem)
+	}
+	seen := map[string]bool{from: true}
+	queue := []string{from}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		for _, nb := range adj[cur] {
+			if !seen[nb] {
+				seen[nb] = true
+				queue = append(queue, nb)
+			}
+		}
+	}
+
+	return seen
 }
 
 // voidLanded credits a landing to the zone when the system is hidden (not
