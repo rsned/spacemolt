@@ -655,7 +655,7 @@ func main() {
 				}
 				if len(factionPullItems) > 0 {
 					deps.FactionPull = func(c context.Context) {
-						_, perr := worker.FactionPull(c, wc, factionPullItems, logOut)
+						_, perr := worker.FactionPull(c, wc, worker.SizeFactionPullRules(c, kb, factionPullItems), logOut)
 						outLog.Record("behaviour:faction_pull", "faction_pull", perr, time.Now())
 						if perr != nil {
 							logger.Printf("faction_pull: %v", perr)

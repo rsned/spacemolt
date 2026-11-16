@@ -246,3 +246,17 @@ func TestParseFactionPullKeep(t *testing.T) {
 		}
 	}
 }
+
+// Live 2026-11-15: lead_shielding is 2 cargo units each, so sizing the withdraw
+// by unit count asked for 175 units (350 space) in a 175-space hold and the
+// server refused every pass.
+func TestFactionPullSizesWithdrawByUnitSize(t *testing.T) {
+	fc := newFactionPullFake(50, factionReply)
+	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "pirate_moonshine", Size: 2}}, &bytes.Buffer{})
+	if err != nil || moved != 25 {
+		t.Fatalf("moved=%d err=%v, want 25 nil", moved, err)
+	}
+	if fc.withdrawn["pirate_moonshine"] != 25 {
+		t.Errorf("withdrawn=%v, want 25", fc.withdrawn)
+	}
+}

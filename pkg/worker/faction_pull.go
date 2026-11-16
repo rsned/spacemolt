@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // FactionPullRule is one --faction-pull entry. Keep units stay in faction
@@ -17,6 +18,9 @@ import (
 type FactionPullRule struct {
 	Item string
 	Keep int
+	// Size is the item's per-unit cargo footprint; 0 means 1. The withdraw
+	// lands in cargo, so a 2-unit item fits half as many per trip.
+	Size float64
 }
 
 // FactionPull moves allow-listed finished product from the crafter's faction
@@ -69,7 +73,8 @@ func FactionPull(ctx context.Context, client game.GameClient, rules []FactionPul
 		if free <= 0 {
 			return moved, nil
 		}
-		qty := min(held[item]-rule.Keep, free)
+		perUnit := max(rule.Size, 1)
+		qty := min(held[item]-rule.Keep, int(float64(free)/perUnit))
 		if qty <= 0 {
 			continue
 		}
@@ -135,4 +140,14 @@ func ParseFactionPull(s string) ([]FactionPullRule, error) {
 	}
 
 	return out, nil
+}
+
+// SizeFactionPullRules returns rules with each Size filled from the catalog, so
+// FactionPull bounds a withdraw by cargo space rather than by unit count.
+func SizeFactionPullRules(ctx context.Context, kb knowledge.Base, rules []FactionPullRule) []FactionPullRule {
+	out := slices.Clone(rules)
+	for i := range out {
+		out[i].Size = itemUnitSize(ctx, kb, out[i].Item)
+	}
+	return out
 }
