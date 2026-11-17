@@ -234,6 +234,17 @@ type HuntDeps struct {
 	// in dispatch to WorkerDispatch.CaptureWildlifeAttacks). Called after every
 	// engagement whatever its outcome; nil in tests = skip.
 	CaptureAttacks func(ctx context.Context, battleID string) error
+	// HomeStation is the hunter's base station (yaml `station`, a base or POI
+	// id). Docked there, a pass banks its spare parts (hunt_surplus.go);
+	// empty = bank only at Conjunction Junction.
+	HomeStation string
+	// GiftTo is the agent id of the collector hauler that banked parts are
+	// gifted to at HomeStation (resolved to its username for send_gift).
+	// Empty = bank only, never gift.
+	GiftTo string
+	// usernameFor resolves an agent id to its in-game username (nil ->
+	// UsernameFor under AgentsDir); a test seam.
+	usernameFor func(agentID string) (string, error)
 }
 
 // huntWildlifeOnly resolves the wildlife-only interlock: unset means on.
@@ -368,6 +379,9 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	if !deps.boardGate.shouldPoll(station, huntNow(deps)) {
 		fmt.Fprintf(out, "hunt[%s]: board at %s unchanged and nothing admissible last pass; not re-reading for up to %v\n", //nolint:errcheck
 			who, station, game.SleepMissionBoardPoll)
+		// The gate only arms on a pass that held no mission, so there is no
+		// need item to keep: bank everything spare while docked.
+		huntBankAtDock(ctx, deps, out, who, nil)
 		return nil
 	}
 
@@ -379,6 +393,13 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// Step 2: continue a mission this agent already holds, or accept a new one
 	// off the board.
 	job, ok, dry := huntSelectJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
+	// Still docked: bank spare parts here (at the base or CJ only), keeping
+	// the active need's item aboard.
+	var keep map[string]int
+	if ok && job.need != nil {
+		keep = map[string]int{job.need.ItemID: job.need.Quantity}
+	}
+	huntBankAtDock(ctx, deps, out, who, keep)
 	if ok {
 		// Found work, so the agent is not idle -- keep reading every pass, or
 		// huntResumeJob would stop finding the mission it is holding.
@@ -568,7 +589,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	}
 
 	if job.home {
-		// Parts stay in the hold; banking them at home is a later step.
+		// Parts ride home in the hold; the next pass docked at CJ banks them.
 		fmt.Fprintf(out, "hunt[%s]: home grounds pass done: %d kill(s)\n", who, kills) //nolint:errcheck
 		return nil
 	}
