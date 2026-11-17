@@ -473,7 +473,6 @@ func TestHuntNeedHuntsOnlyItsSpecies(t *testing.T) {
 	kb := huntNeedKBFixture(t)
 	f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{creatures: []huntCreature{
 		{id: "tortoise", species: "slag_tortoise", hull: 10}, // smaller, would be picked first
-		{id: "eel", species: "belt_grazer", role: "predator"},
 		{id: "g1"}, {id: "g2"}, {id: "g3"},
 	}})
 	var log strings.Builder
@@ -482,7 +481,7 @@ func TestHuntNeedHuntsOnlyItsSpecies(t *testing.T) {
 	}
 	for _, c := range f.calls {
 		if c == "hunt:tortoise" || c == "hunt:eel" {
-			t.Fatalf("engaged %s: only the need's species, and never a predator; calls %v", c, f.calls)
+			t.Fatalf("engaged %s: only the need's species; calls %v", c, f.calls)
 		}
 	}
 	if f.huntCalls == 0 {

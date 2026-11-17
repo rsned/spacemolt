@@ -250,8 +250,11 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 			species = "belt_grazer"
 		}
 		role := c.role
-		if role == "" {
+		switch role {
+		case "":
 			role = "grazer"
+		case huntNoRole:
+			role = "" // the wire sent no role at all
 		}
 		hull := c.hull
 		if hull == 0 {
@@ -700,6 +703,9 @@ func (f *huntFake) SalvageWreck(ctx context.Context, wreckID string) error {
 	return nil
 }
 
+// huntNoRole in a huntCreature fixture means get_nearby reported no role.
+const huntNoRole = "-"
+
 func huntGrazers(ids ...string) []huntCreature {
 	out := make([]huntCreature, 0, len(ids))
 	for _, id := range ids {
@@ -1125,8 +1131,10 @@ func TestHuntRefusesToEngageAPredator(t *testing.T) {
 	if called(c, "hunt:eel") {
 		t.Fatalf("engaged a predator: %v", c.calls)
 	}
-	if !called(c, "hunt:jelly") {
-		t.Errorf("want the grazer engaged, calls: %v", c.calls)
+	// A predator at the ground means the hunter leaves it: not even the
+	// grazer beside it is hunted.
+	if called(c, "hunt:jelly") {
+		t.Errorf("hunted beside a predator, calls: %v", c.calls)
 	}
 	if !strings.Contains(log.String(), `role "predator" is not huntable wildlife`) {
 		t.Errorf("must log the refusal with the role named, got:\n%s", log.String())

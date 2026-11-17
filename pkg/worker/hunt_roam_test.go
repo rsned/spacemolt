@@ -253,7 +253,7 @@ func TestHuntDryPassGoesHomeWhenStationsAreTried(t *testing.T) {
 func TestHuntDryPassAtHomeHuntsHomeGrounds(t *testing.T) {
 	t.Parallel()
 	f := huntRoamFake(t, huntFakeOpts{
-		creatures: []huntCreature{{id: "eel", species: "tempest_eel", role: "predator", hull: 280}, {id: "c1"}, {id: "c2", species: "patina_grazer"}},
+		creatures: []huntCreature{{id: "c1"}, {id: "c2", species: "patina_grazer"}},
 		startPOI:  huntHomePOI,
 	})
 	f.state.System.ID = huntHomeSystem
@@ -276,7 +276,7 @@ func TestHuntDryPassAtHomeHuntsHomeGrounds(t *testing.T) {
 		t.Errorf("home hunt went to a Lawless system other than cloverfield; calls %v", f.calls)
 	}
 	if f.huntCalls != 2 || slices.Contains(f.calls, "hunt:eel") {
-		t.Errorf("hunt calls = %d (%v), want the two grazers and never the predator\nlog:\n%s", f.huntCalls, f.calls, log.String())
+		t.Errorf("hunt calls = %d (%v), want the two grazers\nlog:\n%s", f.huntCalls, f.calls, log.String())
 	}
 	if called(f, "accept_mission") || called(f, "complete_mission") {
 		t.Errorf("home hunting takes no mission; calls %v", f.calls)

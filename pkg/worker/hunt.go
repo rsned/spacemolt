@@ -868,6 +868,10 @@ func huntBoardJob(ctx context.Context, deps HuntDeps, out io.Writer, who string,
 // mission that keeps being retried.
 func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, wildlifeOnly bool) ([]serverapi.NearbyCreature, bool) {
 	var tried []string
+	// Creature work leaves any ground a predator (or a creature of unknown
+	// role) is at; predatorAt is that ground while the ship is still on it.
+	guarded := job.home || job.need != nil || wildlifeOnly
+	predatorAt := ""
 	for range huntMaxGrounds {
 		var poi string
 		var err error
@@ -904,6 +908,20 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		// hunt is still one the field guide wants scanned.
 		huntScanUnknown(ctx, deps, out, nearby.Creatures)
 
+		// Spec: "If a predator is present when the hunter arrives at a ground,
+		// it leaves that ground." Not just "never engages it": hunting the
+		// grazers beside a predator keeps the ship in its reach for a whole
+		// pass. Treated like an empty ground -- tried, and the sweep moves on.
+		if guarded {
+			if p, found := huntPredatorPresent(nearby.Creatures); found {
+				fmt.Fprintf(out, "hunt[%s]: PREDATOR PRESENT at %s: %s (%s) role %q is not huntable wildlife; leaving this ground\n", //nolint:errcheck
+					who, poi, p.CreatureID, p.Species, p.Role)
+				predatorAt = poi
+				continue
+			}
+		}
+		predatorAt = ""
+
 		var quarry []serverapi.NearbyCreature
 		switch {
 		case job.home:
@@ -937,7 +955,34 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		}
 	}
 	fmt.Fprintf(out, "hunt: no quarry found across %d ground(s) %v; %s held for next pass\n", len(tried), tried, job.boardID) //nolint:errcheck
+	huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
 	return nil, false
+}
+
+// huntPredatorPresent returns the first creature whose role is not quarry
+// (huntQuarryRoles): a predator, or a role that is unknown or missing.
+func huntPredatorPresent(creatures []serverapi.NearbyCreature) (serverapi.NearbyCreature, bool) {
+	for _, c := range creatures {
+		if !huntQuarryRoles[c.Role] {
+			return c, true
+		}
+	}
+	return serverapi.NearbyCreature{}, false
+}
+
+// huntLeavePredatorGround moves a ship that is still standing on a predator
+// ground (the sweep found nowhere else to go) to the nearest station, rather
+// than leaving it parked there until the next pass.
+func huntLeavePredatorGround(ctx context.Context, deps HuntDeps, out io.Writer, who, predatorAt string) {
+	st := deps.Client.GetState()
+	if predatorAt == "" || st == nil || st.CurrentPOI != predatorAt {
+		return
+	}
+	fmt.Fprintf(out, "hunt[%s]: leaving predator ground %s for the nearest station\n", who, predatorAt) //nolint:errcheck
+	if err := huntRecoverToStation(ctx, deps, out, st.System.ID); err != nil {
+		fmt.Fprintf(out, "hunt[%s]: leaving %s failed: %v\n", who, predatorAt, err) //nolint:errcheck
+		huntEscapeBattle(ctx, deps, out, who, "leaving a predator ground", err)
+	}
 }
 
 // huntObjectiveTarget returns the first kill_creature objective's target id and
