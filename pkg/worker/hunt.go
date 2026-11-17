@@ -471,7 +471,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		}
 		attempts++
 
-		outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID)
+		outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID, wildlifeOnly)
 
 		// The carcass is the kill receipt: a wreck whose victim_id is the
 		// creature we just engaged is the only evidence this pass has that
@@ -1127,6 +1127,15 @@ func huntPickQuarry(creatures []serverapi.NearbyCreature) (serverapi.NearbyCreat
 type huntPolicy struct {
 	fleeAtHull   float64
 	wildlifeOnly bool
+	// creature turns on the trend break-off (huntWornDown) on top of the
+	// fleeAtHull floor. Bounty and other combat fights leave it false and keep
+	// the single-threshold policy.
+	creature bool
+	// startSelf / startEnemy are the own and lowest-enemy hull percentages on
+	// the first tick where both were reported (non-zero); 0 means not yet
+	// recorded, and the trend is never judged until both are.
+	startSelf  int
+	startEnemy int
 	// outcome is set once, when the policy decides to break off; the resolved
 	// case never sets it (the loop just ends).
 	outcome huntOutcome
@@ -1195,6 +1204,22 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 	// longer a participant, which ends the loop anyway.
 	if v.Self.HullPct > 0 && float64(v.Self.HullPct)/100 < p.fleeAtHull {
 		return p.breakOff(huntFled, fmt.Sprintf("hull %d%% below flee threshold %.0f%%", v.Self.HullPct, p.fleeAtHull*100))
+	}
+
+	// Creature fights add a trend judgement above the floor: a hunter worn to
+	// half hull by a creature that is not being worn down as fast is losing
+	// the trade, so it retreats; one trading at least evenly fights on to the
+	// floor to finish the kill. Hull 0 is "not reported", as above.
+	if p.creature {
+		self, enemy := v.Self.HullPct, huntLowestEnemyHull(v)
+		if self > 0 && enemy > 0 {
+			if p.startSelf == 0 {
+				p.startSelf, p.startEnemy = self, enemy
+			} else if huntWornDown(p.startSelf, self, p.startEnemy, enemy) {
+				return p.breakOff(huntFled, fmt.Sprintf("worn down: hull %d%%->%d%% while the creature only %d%%->%d%%",
+					p.startSelf, self, p.startEnemy, enemy))
+			}
+		}
 	}
 
 	if p.ticks > huntMaxBattleTicks {
@@ -1291,6 +1316,18 @@ func (p *huntPolicy) breakOff(o huntOutcome, reason string) spar.Action {
 	return spar.Action{Kind: spar.ActionBattle, BattleAction: "stance", Payload: map[string]any{"stance": huntStanceFlee}}
 }
 
+// huntWornDownHull is the own hull percentage at or below which a creature
+// fight that is going the wrong way is abandoned.
+const huntWornDownHull = 50
+
+// huntWornDown reports whether a creature fight should be abandoned on its
+// trend: own hull is at or below 50%, the creature has lost a smaller share of
+// its hull than the hunter has, and the creature is itself still above 50%.
+// All four arguments are hull percentages.
+func huntWornDown(startSelf, self, startEnemy, enemy int) bool {
+	return self <= huntWornDownHull && startEnemy-enemy < startSelf-self && enemy > huntWornDownHull
+}
+
 // huntLowestEnemyHull returns the lowest living enemy hull percentage, or -1
 // when the view holds no enemies.
 func huntLowestEnemyHull(v spar.View) int {
@@ -1312,7 +1349,10 @@ func huntLowestEnemyHull(v spar.View) int {
 // per-species combat cost this pass can measure for free: the fight length is
 // counted by the policy loop, whereas damage dealt and taken live on the
 // battle_ended push, which nothing stores in State yet.
-func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull float64, creatureID string) (huntOutcome, int) {
+//
+// creature turns on the trend break-off for creature fights (huntWornDown);
+// bounty and other combat fights pass false and keep today's policy.
+func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull float64, creatureID string, creature bool) (huntOutcome, int) {
 	selfID := ""
 	if st := deps.Client.GetState(); st != nil {
 		selfID = st.Player.ID
@@ -1321,7 +1361,7 @@ func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull flo
 		fmt.Fprintf(out, "hunt: own player id unknown; cannot drive the fight vs %s\n", creatureID) //nolint:errcheck
 		return huntBattleError, 0
 	}
-	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: huntWildlifeOnly(deps)}
+	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: huntWildlifeOnly(deps), creature: creature}
 	if err := spar.RunPolicyLoop(ctx, deps.Client, selfID, p, deps.tickSleep); err != nil {
 		fmt.Fprintf(out, "hunt: fight vs %s ended on error after %d tick(s): %v\n", creatureID, p.ticks, err) //nolint:errcheck
 		return huntBattleError, p.ticks
