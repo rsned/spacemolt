@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -40,6 +41,9 @@ const (
 	// huntNeedSightingLimit bounds the sightings read per species.
 	huntNeedSightingLimit = 500
 )
+
+// errHuntNoNeedGround: no policed ground for the need within its radius.
+var errHuntNoNeedGround = errors.New("no policed ground")
 
 // huntNeedKB is the optional wildlife half of the KB that Station Need work
 // needs. These methods live on *knowledge.SQLiteKB, not on knowledge.Base; a
@@ -421,6 +425,8 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 	if !accepted {
 		return huntJob{}, false, false
 	}
+	// The need keeps the radius it was taken at; failed searches widen it.
+	huntSetNeedDry(deps, out, activeID, roam.DryPasses)
 	fmt.Fprintf(out, "hunt[%s]: accepted need %s (%s): %d %s from %s at %s/%s for %s, %d cr\n", //nolint:errcheck
 		who, e.MissionID, e.Title, chosen.Quantity, chosen.ItemID, strings.Join(chosen.Species, "/"),
 		chosen.GroundSystem, chosen.GroundPOI, chosen.TargetBaseID, chosen.Reward)
@@ -478,8 +484,9 @@ func huntResumeNeed(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		boardID = m.MissionID
 	}
 	n.MissionID = boardID
-	// A resumed need was taken in an earlier pass; search at today's radius.
-	n.Radius = huntNeedRadius(huntLoadRoam(deps, out).DryPasses)
+	// A resumed need searches at its OWN radius, widened by every pass whose
+	// ground search for it failed (huntNeedSearchFailed).
+	n.Radius = huntNeedRadius(huntNeedDry(deps, out, m.MissionID))
 	fmt.Fprintf(out, "hunt[%s]: resuming need %s (%s): %d %s for %s\n", who, boardID, m.Title, n.Quantity, n.ItemID, n.TargetBaseID) //nolint:errcheck
 	return huntJob{
 		boardID: boardID, activeID: m.MissionID, title: m.Title,
@@ -507,7 +514,7 @@ func huntTravelToNeedGround(ctx context.Context, deps HuntDeps, out io.Writer, n
 	}
 	sys, poi, why := huntNeedGround(ctx, deps.KB, nk, need, jumps, radius, exclude, huntNow(deps))
 	if poi == "" {
-		return "", fmt.Errorf("no policed ground within %d jump(s) where %s is sighted", radius, strings.Join(need.Species, "/"))
+		return "", fmt.Errorf("%w within %d jump(s) where %s is sighted", errHuntNoNeedGround, radius, strings.Join(need.Species, "/"))
 	}
 	if state.CurrentPOI == poi && !state.Doc {
 		return poi, nil

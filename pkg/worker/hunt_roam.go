@@ -29,10 +29,18 @@ const huntRoamFile = "hunt_roam.json"
 // a pass finds a job. Visited is the systems whose boards this hunter has
 // already found dry since its last job (huntNextMove skips them); it resets
 // with DryPasses when a job is found.
+//
+// NeedDry is per held Station Need (keyed by active mission id): the dry
+// count its own ground radius is computed from (huntNeedRadius). It starts at
+// the board's DryPasses when the need is accepted and grows by one on every
+// pass whose ground search for that need finds nothing, so a held need whose
+// ground is depleted widens its search instead of retrying radius 6 until it
+// expires. Entries for missions no longer active are pruned.
 type huntRoam struct {
-	DryPasses  int      `json:"dry_passes"`
-	Visited    []string `json:"visited,omitempty"`
-	UpdatedUTC string   `json:"updated_utc,omitempty"`
+	DryPasses  int            `json:"dry_passes"`
+	Visited    []string       `json:"visited,omitempty"`
+	NeedDry    map[string]int `json:"need_dry,omitempty"`
+	UpdatedUTC string         `json:"updated_utc,omitempty"`
 }
 
 // huntRoamPath is <agentsDir>/<agentID>/hunt_roam.json, agentsDir defaulting
@@ -237,7 +245,61 @@ func huntRoamFoundJob(deps HuntDeps, out io.Writer) {
 	if err == nil && r.DryPasses == 0 && len(r.Visited) == 0 {
 		return
 	}
-	huntSaveRoam(deps, out, huntRoam{})
+	// Held needs keep their own radius.
+	huntSaveRoam(deps, out, huntRoam{NeedDry: r.NeedDry})
+}
+
+// huntNeedDry is the dry count held need activeID searches at (0 when none
+// is recorded: the starting radius).
+func huntNeedDry(deps HuntDeps, out io.Writer, activeID string) int {
+	return huntLoadRoam(deps, out).NeedDry[activeID]
+}
+
+// huntSetNeedDry records the dry count for held need activeID.
+func huntSetNeedDry(deps HuntDeps, out io.Writer, activeID string, n int) {
+	if deps.AgentID == "" || activeID == "" {
+		return
+	}
+	r := huntLoadRoam(deps, out)
+	if r.NeedDry == nil {
+		r.NeedDry = map[string]int{}
+	}
+	if v, ok := r.NeedDry[activeID]; ok && v == n {
+		return
+	}
+	r.NeedDry[activeID] = n
+	huntSaveRoam(deps, out, r)
+}
+
+// huntPruneNeedDry drops per-need radius records for missions no longer in
+// the active list.
+func huntPruneNeedDry(deps HuntDeps, out io.Writer, active []string) {
+	if deps.AgentID == "" {
+		return
+	}
+	r := huntLoadRoam(deps, out)
+	pruned := false
+	for id := range r.NeedDry {
+		if !slices.Contains(active, id) {
+			delete(r.NeedDry, id)
+			pruned = true
+		}
+	}
+	if pruned {
+		huntSaveRoam(deps, out, r)
+	}
+}
+
+// huntNeedSearchFailed widens a need's own ground radius after a pass whose
+// ground search for it came up empty. Nothing is abandoned.
+func huntNeedSearchFailed(deps HuntDeps, out io.Writer, who string, job huntJob) {
+	if job.need == nil {
+		return
+	}
+	dry := huntNeedDry(deps, out, job.activeID) + 1
+	huntSetNeedDry(deps, out, job.activeID, dry)
+	fmt.Fprintf(out, "hunt[%s]: no ground for %s this pass; its search radius is now %d jump(s) (was %d)\n", //nolint:errcheck
+		who, job.boardID, huntNeedRadius(dry), job.need.Radius)
 }
 
 // huntRoamAfterDry makes this dry pass's one move. It marks the current system

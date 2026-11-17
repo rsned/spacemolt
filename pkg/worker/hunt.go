@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -420,8 +421,12 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		// Found work, so the agent is not idle -- keep reading every pass, or
 		// huntResumeJob would stop finding the mission it is holding.
 		deps.boardGate.record(station, huntNow(deps), false)
-		// Found work: the Station Need radius and the roam list start over.
-		huntRoamFoundJob(deps, out)
+		// Found NEW work: the Station Need radius and the roam list start
+		// over. A resumed job does not reset them: a held need that cannot
+		// find a ground must keep widening (huntNeedSearchFailed).
+		if !job.resumed {
+			huntRoamFoundJob(deps, out)
+		}
 	} else {
 		// Dry: nothing to resume, nothing admissible. Arm the backoff.
 		deps.boardGate.record(station, huntNow(deps), true)
@@ -760,6 +765,11 @@ func huntResumeJob(ctx context.Context, deps HuntDeps, out io.Writer, who string
 		fmt.Fprintf(out, "hunt: parse active missions: %v; cannot resume this pass\n", err) //nolint:errcheck
 		return huntJob{}, false
 	}
+	active := make([]string, 0, len(resp.Missions))
+	for _, m := range resp.Missions {
+		active = append(active, m.MissionID)
+	}
+	huntPruneNeedDry(deps, out, active)
 	for _, m := range resp.Missions {
 		o, ok := huntKillObjective(m)
 		if !ok {
@@ -898,6 +908,9 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 				break // the sweep ran out of grounds; report it as a sweep
 			}
 			fmt.Fprintf(out, "hunt: reaching a wildlife POI: %v; %s held for next pass\n", err, job.boardID) //nolint:errcheck
+			if errors.Is(err, errHuntNoNeedGround) {
+				huntNeedSearchFailed(deps, out, who, job)
+			}
 			return nil, false
 		}
 		tried = append(tried, poi)
@@ -962,6 +975,7 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		}
 	}
 	fmt.Fprintf(out, "hunt: no quarry found across %d ground(s) %v; %s held for next pass\n", len(tried), tried, job.boardID) //nolint:errcheck
+	huntNeedSearchFailed(deps, out, who, job)
 	huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
 	return nil, false
 }
