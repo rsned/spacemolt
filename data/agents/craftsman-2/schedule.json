@@ -82,5 +82,23 @@
     "frequency": "ten_minutely",
     "command": "get_nearby",
     "created_at": "2026-11-16T18:50:41.93589003Z"
+  },
+  {
+    "id": 22,
+    "frequency": "hourly",
+    "command": "craft manufacture_fuel_basic 2000",
+    "created_at": "2026-11-17T20:07:42Z"
+  },
+  {
+    "id": 23,
+    "frequency": "hourly",
+    "command": "capture_base",
+    "created_at": "2026-11-17T22:11:17Z"
+  },
+  {
+    "id": 24,
+    "frequency": "hourly",
+    "command": "capture_facilities",
+    "created_at": "2026-11-17T22:11:17Z"
   }
 ]

@@ -1,5 +1,6 @@
-// Command station-console serves the Conjunction Junction hologram console:
-// station status JSON from the shared assets DB, plus the 3D model files.
+// Command station-console serves the station hologram console for our
+// stations (consoleStations): status JSON from the shared assets DB, plus the
+// 3D model files. The page switches stations with ?station=<base id>.
 //
 //	station-console --addr :8094
 package main
@@ -20,8 +21,11 @@ func main() {
 	addr := flag.String("addr", ":8094", "listen address")
 	dbPath := flag.String("db", "data/assets.db", "assets database")
 	models := flag.String("models", "~/spacemolt/kb/data/mesh_bakeoff/out-stations", "directory of station model folders")
-	base := flag.String("base", "c976fa7df53c87f9616165d7d411b41a", "station base id")
+	base := flag.String("base", "c976fa7df53c87f9616165d7d411b41a", "default station base id (one of consoleStations)")
 	flag.Parse()
+	if _, ok := findStation(*base); !ok {
+		log.Fatalf("--base %s is not a console station", *base)
+	}
 
 	cfg := assets.DefaultConfig()
 	cfg.DBPath = *dbPath

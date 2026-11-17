@@ -96,7 +96,10 @@ const FALLBACK_MAP = {
   ],
   labels: {},
 };
-const MODEL_KEY = 'cj-console-model';
+// Per-station model choice; CJ's key predates the station rail, so keep it.
+const modelKey = stationId => (stationId === CJ_ID ? 'cj-console-model' : `console-model:${stationId}`);
+const STATION_KEY = 'console-station';
+const CJ_ID = 'c976fa7df53c87f9616165d7d411b41a';
 const STATE_EVERY = 60_000;
 const HISTORY_EVERY = 600_000;
 const TREND_HOURS = 48;
@@ -492,7 +495,9 @@ function renderHeader() {
   const word = $('word');
   word.textContent = state.Word || 'NO DATA';
   word.style.color = state.Overall === 'ok' ? 'var(--good)' : severityColor(state.Overall);
-  $('station').textContent = (state.station || 'Conjunction Junction').toUpperCase();
+  $('station').textContent = (state.station || current?.name || '—').toUpperCase();
+  $('system').textContent = (state.system || current?.system || '—').toUpperCase();
+  document.title = `${state.station || current?.name || 'Station'} · console`;
   const at = state.CapturedAt ? new Date(state.CapturedAt) : null;
   const hasReading = state.Overall !== 'nodata' && at && at.getFullYear() > 1;
   const mins = hasReading ? (Date.now() - at) / 60000 : 0;
@@ -650,79 +655,180 @@ async function getJSON(url) {
   return res.json();
 }
 
-async function pollState() {
+// ---- stations ---------------------------------------------------------------
+
+let stations = []; // [{id, name, system, model, default}] from /api/stations
+let current = null; // the station on screen
+let models = []; // [{id, label, default}] from /api/models
+const cardState = {}; // station id -> last /api/state reading, for the rail lights
+
+const q = id => `station=${encodeURIComponent(id)}`;
+
+function stored(key) {
   try {
-    state = await getJSON('/api/state');
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function remember(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage blocked: the choice just lasts for this visit.
+  }
+}
+
+const hasModel = id => models.some(m => m.id === id);
+/** modelFor is a station's hologram model: remembered choice, else its default. */
+const modelFor = st => [stored(modelKey(st.id)), st.model, models.find(m => m.default)?.id, models[0]?.id].find(id => id && hasModel(id));
+const artURL = id => `/models/${encodeURIComponent(id)}/keyed.png`;
+
+function renderRail() {
+  const box = $('cards');
+  box.replaceChildren();
+  for (const st of stations) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'card';
+    b.setAttribute('aria-current', String(st.id === current?.id));
+    b.title = `Show ${st.name}`;
+    const art = document.createElement('div');
+    art.className = 'art';
+    const img = document.createElement('img');
+    img.alt = '';
+    img.src = artURL(modelFor(st) || st.model);
+    img.onerror = () => (img.style.visibility = 'hidden');
+    art.append(img);
+    const nm = document.createElement('span');
+    nm.className = 'nm';
+    nm.textContent = st.name;
+    const sy = document.createElement('span');
+    sy.className = 'sy';
+    const sys = document.createElement('span');
+    sys.textContent = st.system.toUpperCase();
+    const light = document.createElement('span');
+    light.className = 'st';
+    const r = cardState[st.id];
+    light.textContent = r ? r.Word || 'NO DATA' : '…';
+    light.style.color = !r ? 'var(--nodata)' : r.Overall === 'ok' ? 'var(--good)' : severityColor(r.Overall);
+    sy.append(sys, light);
+    b.append(art, nm, sy);
+    b.onclick = () => selectStation(st.id);
+    box.append(b);
+  }
+}
+
+async function pollRail() {
+  await Promise.all(stations.map(async st => {
+    try {
+      cardState[st.id] = await getJSON(`/api/state?${q(st.id)}`);
+    } catch (err) {
+      console.warn('rail state', st.id, err);
+    }
+  }));
+  renderRail();
+}
+
+function fillModelPicker() {
+  const sel = $('switch');
+  sel.replaceChildren();
+  for (const m of models) sel.add(new Option(m.label, m.id));
+  sel.onchange = () => {
+    remember(modelKey(current.id), sel.value);
+    showModel(sel.value);
+    renderRail();
+  };
+}
+
+function showModel(id) {
+  if (!id) return;
+  $('switch').value = id;
+  loadModel(id);
+}
+
+/** selectStation switches every view to a station: header, popups, hologram, URL. */
+async function selectStation(id, { modelOverride } = {}) {
+  const st = stations.find(s => s.id === id);
+  if (!st) return;
+  const changed = st.id !== current?.id;
+  current = st;
+  remember(STATION_KEY, st.id);
+  const url = new URL(location.href);
+  if (st.default) url.searchParams.delete('station');
+  else url.searchParams.set('station', st.id);
+  window.history.replaceState(null, '', url);
+  if (changed) {
+    state = cardState[st.id] || null;
+    history = [];
+    openZone = null;
+    renderPopup();
+  }
+  showModel(modelOverride && hasModel(modelOverride) ? modelOverride : modelFor(st));
+  renderRail();
+  await Promise.all([pollState(), pollHistory()]);
+}
+
+// ---- data -----------------------------------------------------------------
+
+async function pollState() {
+  if (!current) return;
+  const want = current.id;
+  let got;
+  try {
+    got = await getJSON(`/api/state?${q(want)}`);
     $('link').hidden = true;
   } catch (err) {
     $('link').hidden = false;
     console.warn('state', err);
     return;
   }
+  if (want !== current.id) return; // switched while in flight
+  state = got;
+  cardState[want] = got;
   renderHeader();
   renderTagText();
   rebuildShells();
   renderPopup();
+  renderRail();
 }
 
 async function pollHistory() {
+  if (!current) return;
+  const want = current.id;
+  let got;
   try {
-    history = await getJSON(`/api/history?hours=${TREND_HOURS}`);
+    got = await getJSON(`/api/history?hours=${TREND_HOURS}&${q(want)}`);
   } catch (err) {
     console.warn('history', err);
     return;
   }
+  if (want !== current.id) return;
+  history = got;
   renderPopup();
 }
 
-function storedModel() {
+async function init(params) {
   try {
-    return localStorage.getItem(MODEL_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function rememberModel(id) {
-  try {
-    localStorage.setItem(MODEL_KEY, id);
-  } catch {
-    // Storage blocked: the choice just lasts for this visit.
-  }
-}
-
-async function initSwitcher(params) {
-  let models = [];
-  try {
-    models = await getJSON('/api/models');
+    [stations, models] = await Promise.all([getJSON('/api/stations'), getJSON('/api/models')]);
   } catch (err) {
-    showMsg('MODEL LIST UNAVAILABLE');
-    console.error('models', err);
+    showMsg('STATION LIST UNAVAILABLE');
+    console.error('init', err);
     return;
   }
-  const sel = $('switch');
-  for (const m of models) sel.add(new Option(m.label, m.id));
-  const has = id => models.some(m => m.id === id);
-  const pick = [params.get('model'), storedModel(), models.find(m => m.default)?.id, models[0]?.id].find(id => id && has(id));
-  const choose = id => {
-    sel.value = id;
-    $('art').src = `/models/${encodeURIComponent(id)}/keyed.png`;
-    loadModel(id);
-  };
-  sel.onchange = () => {
-    rememberModel(sel.value);
-    choose(sel.value);
-  };
-  if (pick) choose(pick);
+  fillModelPicker();
+  const has = id => stations.some(s => s.id === id);
+  const pick = [params.get('station'), stored(STATION_KEY), stations.find(s => s.default)?.id, stations[0]?.id].find(id => id && has(id));
+  await selectStation(pick, { modelOverride: params.get('model') });
+  pollRail();
 }
-
-$('art').onerror = e => (e.target.style.visibility = 'hidden');
-$('art').onload = e => (e.target.style.visibility = '');
 
 const params = new URLSearchParams(location.search);
 frame();
-await Promise.all([pollState(), pollHistory(), initSwitcher(params)]);
+await init(params);
 if (params.get('zone')) openPopup(params.get('zone'));
 setInterval(pollState, STATE_EVERY);
+setInterval(pollRail, STATE_EVERY);
 setInterval(pollHistory, HISTORY_EVERY);
 setInterval(() => state && renderHeader(), 30_000);

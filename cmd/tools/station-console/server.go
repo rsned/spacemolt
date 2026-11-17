@@ -18,7 +18,6 @@ import (
 var webFS embed.FS
 
 const (
-	stationName  = "Conjunction Junction"
 	defaultHours = 48
 	maxHours     = 168
 )
@@ -26,7 +25,7 @@ const (
 // server answers the console's JSON and model-file requests.
 type server struct {
 	store     *assets.Store
-	baseID    string
+	baseID    string // the station shown when a request names none
 	modelsDir string
 	now       func() time.Time
 }
@@ -36,6 +35,8 @@ type server struct {
 type stateResponse struct {
 	stationstate.Status
 	Station        string                    `json:"station"`
+	StationID      string                    `json:"station_id"`
+	System         string                    `json:"system"`
 	Passengers     *assets.PassengerSnapshot `json:"passengers"`
 	TourismPerHour *float64                  `json:"tourism_per_hour"`
 	Base           assets.BaseSnapshot       `json:"base"`
@@ -51,6 +52,7 @@ func (s *server) routes() http.Handler {
 		http.ServeFileFS(w, r, web, "index.html")
 	})
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServerFS(web)))
+	mux.HandleFunc("GET /api/stations", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, consoleStations) })
 	mux.HandleFunc("GET /api/state", s.handleState)
 	mux.HandleFunc("GET /api/history", s.handleHistory)
 	mux.HandleFunc("GET /api/models", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, stationModels) })
@@ -82,15 +84,35 @@ func writeJSON(w http.ResponseWriter, v any) {
 	}
 }
 
+// station resolves a request's ?station= (absent = the default). An unknown id
+// writes a 404 and reports false.
+func (s *server) station(w http.ResponseWriter, r *http.Request) (consoleStation, bool) {
+	id := r.URL.Query().Get("station")
+	if id == "" {
+		id = s.baseID
+	}
+	st, ok := findStation(id)
+	if !ok {
+		http.NotFound(w, r)
+	}
+	return st, ok
+}
+
 func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
-	reading, ok, err := s.store.LatestStation(r.Context(), s.baseID)
+	st, found := s.station(w, r)
+	if !found {
+		return
+	}
+	reading, ok, err := s.store.LatestStation(r.Context(), st.ID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, stateResponse{
 		Status:         stationstate.Evaluate(reading, ok, s.now()),
-		Station:        stationName,
+		Station:        st.Name,
+		StationID:      st.ID,
+		System:         st.System,
 		Passengers:     reading.Passengers,
 		TourismPerHour: reading.TourismPerHour,
 		Base:           reading.Base,
@@ -98,6 +120,10 @@ func (s *server) handleState(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handleHistory(w http.ResponseWriter, r *http.Request) {
+	st, found := s.station(w, r)
+	if !found {
+		return
+	}
 	hours := defaultHours
 	if v := r.URL.Query().Get("hours"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -107,7 +133,7 @@ func (s *server) handleHistory(w http.ResponseWriter, r *http.Request) {
 		}
 		hours = max(1, min(n, maxHours))
 	}
-	pts, err := s.store.StationHistory(r.Context(), s.baseID, s.now().Add(-time.Duration(hours)*time.Hour))
+	pts, err := s.store.StationHistory(r.Context(), st.ID, s.now().Add(-time.Duration(hours)*time.Hour))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
