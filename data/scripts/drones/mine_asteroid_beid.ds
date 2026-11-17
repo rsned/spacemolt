@@ -1,0 +1,18 @@
+// mine asteroid beid - marketbot_home2 @ Jim Bob's Backwater Shack (CRFT station #2)
+// Rendered from mine_asteroid.ds 2026-11-17. Station is the POI id for the shack;
+// resource beid_belt (iron_ore r54, copper_ore r28).
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("4650c48e3b6787e6cbeb69ebb3c61933")
+    DEPOSIT
+  ELSE
+    MOVE "4650c48e3b6787e6cbeb69ebb3c61933"
+  END
+ELSE
+  IF at("beid_belt")
+    MINE
+  ELSE
+    MOVE "beid_belt"
+  END
+END
