@@ -367,3 +367,10 @@ atmospheric_recycler, refueling_dock and locker_bay **active**; faction_workshop
   furnace. miningbot_0000's hourly power-cell top-up (target 1,500) was using ~210 boards an hour
   and was paused for the run.
 - craftsman-2's ship (Arbitrage) holds **379** circuit boards, so a 400-board build needs two trips.
+
+## Reinforced Plating placed 2026-11-17 13:02 local (tick 2430882) — measured
+- Placed by **craftsman-4** (CRFT officer, not the lead): any officer can `facility faction_build` here.
+- Build: 700,000 credits from beid's faction treasury (5.09M -> 4.39M), 2,000 steel_plate, 240 armor_plate
+  (catalog 11-16; 200 armor_plate hauled from CJ first). Facility id 98843aa1fface6e30a9757b4b3a497cd,
+  rent 0/cycle, status under construction (catalog build_time 180). Upkeep: 1 armor_plate/cycle.
+- Shield projector deferred: needs 200 superconductor, none in any faction storage.
