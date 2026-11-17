@@ -98,3 +98,26 @@ func TestHuntAdmissibleNeedCapsDifficultyAt2(t *testing.T) {
 		t.Error("difficulty 3 should be refused")
 	}
 }
+
+func TestHuntParseNeedKeepsEveryNameDespiteParens(t *testing.T) {
+	e := loadNeedFixture(t)
+	e.Description = "Dropped by: Belt-Grazer (in belts), Crusher-Mantis (anywhere)."
+	byName := map[string]string{"belt-grazer": "belt_grazer", "crusher-mantis": "crusher_mantis"}
+	n, ok := huntParseNeed(e, byName, nil)
+	if !ok || !slices.Equal(n.Species, []string{"belt_grazer", "crusher_mantis"}) {
+		t.Fatalf("need = %+v ok=%v", n, ok)
+	}
+	roles := map[string]string{"belt_grazer": "grazer", "crusher_mantis": "predator"}
+	if adm, reason := huntAdmissibleNeed(n, 1, func(s string) string { return roles[s] }); adm {
+		t.Errorf("predator on the line must be refused, reason=%q", reason)
+	}
+}
+
+func TestHuntParseNeedRefusesPartiallyResolvedList(t *testing.T) {
+	e := loadNeedFixture(t)
+	e.Description = "Dropped by: Belt-Grazer or Unknown-Thing."
+	dropsOf := func(string) []string { return []string{"belt_grazer"} }
+	if _, ok := huntParseNeed(e, map[string]string{"belt-grazer": "belt_grazer"}, dropsOf); ok {
+		t.Error("an unresolved name must refuse the need, not fall back or admit a partial list")
+	}
+}

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -51,8 +52,12 @@ func huntParseNeed(e serverapi.MissionBoardEntry, speciesByName map[string]strin
 		n.Reward = e.Rewards.Credits
 	}
 
-	n.Species = huntDroppedBySpecies(e.Description, speciesByName)
-	if len(n.Species) == 0 && dropsOf != nil {
+	species, found, ok := huntDroppedBySpecies(e.Description, speciesByName)
+	if found && !ok {
+		return huntNeed{}, false
+	}
+	n.Species = species
+	if !found && dropsOf != nil {
 		n.Species = dropsOf(o.ItemID)
 	}
 	if len(n.Species) == 0 {
@@ -61,15 +66,18 @@ func huntParseNeed(e serverapi.MissionBoardEntry, speciesByName map[string]strin
 	return n, true
 }
 
+var huntParenGroup = regexp.MustCompile(`\([^)]*\)`)
+
 // huntDroppedBySpecies resolves the creature names on a "Dropped by:" line.
-// Names that do not resolve are skipped, never guessed.
-func huntDroppedBySpecies(desc string, speciesByName map[string]string) []string {
+// ok is false when the marker is absent or ANY name fails to resolve: a
+// partial list could hide a predator, so refuse rather than guess.
+func huntDroppedBySpecies(desc string, speciesByName map[string]string) (species []string, found bool, ok bool) {
 	_, rest, found := strings.Cut(desc, huntDroppedByMarker)
 	if !found {
-		return nil
+		return nil, false, true
 	}
 	line, _, _ := strings.Cut(rest, "\n")
-	line, _, _ = strings.Cut(line, "(")
+	line = huntParenGroup.ReplaceAllString(line, "")
 	line = strings.TrimRight(strings.TrimSpace(line), ".")
 	line = strings.NewReplacer(" or ", ",", " and ", ",").Replace(line)
 
@@ -84,11 +92,14 @@ func huntDroppedBySpecies(desc string, speciesByName map[string]string) []string
 			// The board hyphenates ("Frost-Moth"); the guide may not.
 			sp, ok = speciesByName[knowledge.NormalizeCreatureName(strings.ReplaceAll(name, "-", " "))]
 		}
-		if ok && !huntContains(out, sp) {
+		if !ok {
+			return nil, true, false
+		}
+		if !huntContains(out, sp) {
 			out = append(out, sp)
 		}
 	}
-	return out
+	return out, true, len(out) > 0
 }
 
 func huntContains(s []string, v string) bool {
