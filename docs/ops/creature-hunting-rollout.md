@@ -6,16 +6,23 @@ and does the following.
 ## Operator decisions before rollout
 
 1. Home hunting at Cloverfield. Cloverfield is Lawless (police 0). The code
-   waives the Lawless worker gate for cloverfield in home mode only. That also
-   waives the belt rule that belts never relax to Lawless
-   (`TestHuntBeltRuleDoesNotRelaxToLawless`), so hunters may hunt cloverfield's
-   belts. Risk: pirate exposure at home. Options: accept it, or have hunters
-   just dock at CJ when dry (needs a code change).
+   waives the Lawless worker gate for cloverfield in home mode only
+   (`huntHomeLawlessWaiver`, which only admits cloverfield into
+   `huntHomeGrounds`). Home mode does not go through the belt rule: it picks
+   POIs with `huntLocalWildlifePOI`, which has no police or belt-station checks
+   (those live in `huntFindGround`/`huntGroundIn`, which home mode never calls;
+   `TestHuntBeltRuleDoesNotRelaxToLawless` covers that non-home path). Real
+   scope: in home mode hunters may hunt EVERY wildlife POI type at cloverfield
+   (asteroid_belt, gas_cloud, ice_field, nebula; e.g. the gas cloud
+   clover_cloud) plus wildlife POIs in empire-policed systems within 3 jumps.
+   Quarry is still grazer/scavenger only, and known high-severity hazard POIs
+   are skipped. Risk: pirate exposure at home. Options: accept it, or have
+   hunters just dock at CJ when dry (needs a code change).
 2. Confirm a live `get_missions` at Conjunction Junction returns a readable
    (even empty) board. If the read fails, home hunting never triggers and the
    hunter idles at CJ. Check with a hunter docked at CJ:
-   `go run ./cmd/tools/play_as <hunter-agent-id> get_missions`
-   (adjust to the play_as invocation you normally use).
+   run `go run ./cmd/tools/play_as <hunter-agent-id>`, then type
+   `get_missions` in the REPL.
 
 ## Decide
 
