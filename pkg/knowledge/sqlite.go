@@ -312,11 +312,48 @@ func (kb *SQLiteKB) UpsertSystemFromMap(ctx context.Context, data MapSystemData)
 		}
 	}
 
+	// Gates: the map is authoritative for them too. Replace this system's set
+	// so a dismantled gate goes and an offline one is marked offline.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM system_gates WHERE from_system = ?`, data.ID); err != nil {
+		return fmt.Errorf("failed to clear gates for %s: %w", data.ID, err)
+	}
+	for _, g := range data.Gates {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO system_gates (from_system, to_system, online, last_updated_tick)
+			VALUES (?, ?, ?, ?)
+			ON CONFLICT(from_system, to_system) DO UPDATE SET
+				online = excluded.online, last_updated_tick = excluded.last_updated_tick
+		`, data.ID, g.To, g.Online, data.LastUpdatedTick); err != nil {
+			return fmt.Errorf("failed to store gate %s -> %s: %w", data.ID, g.To, err)
+		}
+	}
+
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
+}
+
+// SystemGates returns every stored jump gate, ordered by from/to system.
+func (kb *SQLiteKB) SystemGates(ctx context.Context) ([]SystemGate, error) {
+	rows, err := kb.db.QueryContext(ctx, `
+		SELECT from_system, to_system, online, last_updated_tick
+		  FROM system_gates ORDER BY from_system, to_system`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query gates: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []SystemGate
+	for rows.Next() {
+		var g SystemGate
+		if err := rows.Scan(&g.From, &g.To, &g.Online, &g.LastUpdatedTick); err != nil {
+			return nil, fmt.Errorf("failed to scan gate: %w", err)
+		}
+		out = append(out, g)
+	}
+
+	return out, rows.Err()
 }
 
 // GetSystem retrieves a system by ID

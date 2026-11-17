@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 18
--- Last Regenerated: 2026-11-15
+-- Migrations applied: 19
+-- Last Regenerated: 2026-11-17
 
 -- ============================================================================
 -- TABLES
@@ -1141,6 +1141,15 @@ CREATE TABLE storage_snapshots (
 );
 
 
+CREATE TABLE system_gates (
+					from_system       TEXT NOT NULL,
+					to_system         TEXT NOT NULL,
+					online            INTEGER NOT NULL DEFAULT 0,
+					last_updated_tick INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (from_system, to_system)
+				);
+
+
 CREATE TABLE systems (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
@@ -1531,4 +1540,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (73, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (74, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (75, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (76, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (77, datetime('now'));
 

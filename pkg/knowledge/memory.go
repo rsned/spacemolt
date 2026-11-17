@@ -435,6 +435,24 @@ type MapSystemData struct {
 	// writes carry an age. The map payload has no tick of its own — the
 	// importer supplies the current one.
 	LastUpdatedTick int64
+	// Gates are the player-built jump gates from this system (get_map
+	// gate_connections, v0.720.0). An online gate is also in Connections.
+	Gates []MapGate
+}
+
+// MapGate is one player-built jump gate from a map system.
+type MapGate struct {
+	To     string
+	Online bool
+}
+
+// SystemGate is a stored jump gate (system_gates): From -> To, whether it was
+// online at the last map import, and that import's tick.
+type SystemGate struct {
+	From            string
+	To              string
+	Online          bool
+	LastUpdatedTick int64
 }
 
 // POI represents knowledge about a Point of Interest

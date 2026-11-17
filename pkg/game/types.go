@@ -831,6 +831,11 @@ type RouteStep struct {
 	SystemID string `json:"system_id"`
 	Name     string `json:"name"`
 	Jumps    int    `json:"jumps"`
+	// ViaGate is true when the hop INTO this step crosses a player-built jump
+	// gate (v0.720.0); it is flown with a normal jump. GateToll is the credits
+	// the gate charges for that hop (omitted when free).
+	ViaGate  bool `json:"via_gate,omitempty"`
+	GateToll int  `json:"gate_toll,omitempty"`
 }
 
 // MarketListing represents a single market listing (NPC or player exchange order).

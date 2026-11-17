@@ -27,6 +27,11 @@ type MapSystem struct {
 	Visited      bool     `json:"visited"`
 	VisitedAt    string   `json:"visited_at"`
 	IsStronghold bool     `json:"is_stronghold,omitempty"`
+	// GateConnections are player-built jump gates (v0.720.0).
+	GateConnections []struct {
+		SystemID string `json:"system_id"`
+		Online   bool   `json:"online"`
+	} `json:"gate_connections,omitempty"`
 }
 
 // Position represents 2D coordinates
@@ -72,7 +77,12 @@ func main() {
 	// It does NOT provide: police_level, description — so we must not overwrite those.
 	systemCount := 0
 	connectionCount := 0
+	gateCount := 0
 	for _, sysData := range response.Systems {
+		gates := make([]knowledge.MapGate, 0, len(sysData.GateConnections))
+		for _, g := range sysData.GateConnections {
+			gates = append(gates, knowledge.MapGate{To: g.SystemID, Online: g.Online})
+		}
 		if err := kb.UpsertSystemFromMap(ctx, knowledge.MapSystemData{
 			ID:           sysData.SystemID,
 			Name:         sysData.Name,
@@ -81,6 +91,7 @@ func main() {
 			PositionY:    sysData.Position.Y,
 			IsStronghold: sysData.IsStronghold,
 			Connections:  sysData.Connections,
+			Gates:        gates,
 		}); err != nil {
 			log.Printf("Warning: failed to save system %s: %v", sysData.SystemID, err)
 			continue
@@ -88,11 +99,13 @@ func main() {
 
 		systemCount++
 		connectionCount += len(sysData.Connections)
+		gateCount += len(gates)
 	}
 
 	fmt.Printf("✓ Successfully imported map data:\n")
 	fmt.Printf("  Systems: %d\n", systemCount)
 	fmt.Printf("  Connections: %d\n", connectionCount)
+	fmt.Printf("  Jump gates: %d\n", gateCount)
 
 	// Close the knowledge base
 	if err := kb.Close(); err != nil {

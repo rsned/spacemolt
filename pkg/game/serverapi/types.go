@@ -466,6 +466,16 @@ type MapSystem struct {
 	Visited      bool     `json:"visited"`
 	VisitedAt    string   `json:"visited_at"`
 	Empire       string   `json:"empire,omitempty"`
+	// GateConnections lists player-built jump gates from this system
+	// (v0.720.0). An online gate is also listed in Connections.
+	GateConnections []MapGateLink `json:"gate_connections,omitempty"`
+}
+
+// MapGateLink is one player-built jump gate from a map system (v0.720.0).
+// Online false means the owners have not paid its upkeep: nobody can cross.
+type MapGateLink struct {
+	SystemID string `json:"system_id"`
+	Online   bool   `json:"online"`
 }
 
 // MarketListing represents a single market listing.
@@ -973,6 +983,11 @@ type RouteStep struct {
 	SystemID string `json:"system_id"`
 	Name     string `json:"name"`
 	Jumps    int    `json:"jumps"`
+	// ViaGate is true when the hop INTO this step crosses a player-built jump
+	// gate (v0.720.0); it is flown with a normal jump. GateToll is the credits
+	// the gate charges for that hop (omitted when free).
+	ViaGate  bool `json:"via_gate,omitempty"`
+	GateToll int  `json:"gate_toll,omitempty"`
 }
 
 // SystemSearchResult represents a system from search_systems.

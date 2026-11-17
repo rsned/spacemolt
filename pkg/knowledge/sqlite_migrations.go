@@ -693,6 +693,23 @@ func migrations() []Migration {
 				);
 			`,
 		},
+		{
+			version: 77,
+			name:    "system_gates",
+			// Player-built jump gates (v0.720.0 get_map gate_connections), one
+			// row per gate end as the last map import saw it. Kept apart from
+			// connections: an online gate is also listed there, but a gate can
+			// go offline (unpaid upkeep) or be dismantled, and it charges a toll.
+			sql: `
+				CREATE TABLE IF NOT EXISTS system_gates (
+					from_system       TEXT NOT NULL,
+					to_system         TEXT NOT NULL,
+					online            INTEGER NOT NULL DEFAULT 0,
+					last_updated_tick INTEGER NOT NULL DEFAULT 0,
+					PRIMARY KEY (from_system, to_system)
+				);
+			`,
+		},
 	}
 }
 
