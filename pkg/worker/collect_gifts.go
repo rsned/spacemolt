@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -40,9 +41,10 @@ type CollectDeps struct {
 // view_storage index form (item_count per location) is not used: it counts
 // every item the collector holds anywhere, not just parts at hunter bases.
 //
-// Any non-reserved cargo already aboard -- a run whose CJ leg failed -- is
-// delivered first, before collecting more. Fuel, repair and ammo stock is
-// never collected or gifted (huntBankIsReserved).
+// Only recorded creature drops are counted, collected and gifted
+// (huntGiftableParts); consumables and anything else stay put. Parts already
+// aboard -- a run whose CJ leg failed -- are delivered first, before
+// collecting more. Each withdrawal is clamped to the hold's free space.
 func CollectGifts(ctx context.Context, deps CollectDeps, stations []string) error {
 	if len(stations) == 0 {
 		return errors.New("collect_gifts: want STATION..., got none")
@@ -68,20 +70,21 @@ func CollectGifts(ctx context.Context, deps CollectDeps, stations []string) erro
 	}
 
 	best, bestUnits := "", 0
-	var bestHeld map[string]int
+	var bestHeld, bestSize map[string]int
 	for _, station := range stations {
 		if err := deps.Client.ViewStorageAt(ctx, station); err != nil {
 			fmt.Fprintf(out, "collect_gifts: view_storage %s: %v; skipping\n", station, err) //nolint:errcheck
 			continue
 		}
-		held, ok := consignHeld(deps.Client.GetRawJSON("storage"))
+		raw := deps.Client.GetRawJSON("storage")
+		held, ok := consignHeld(raw)
 		if !ok {
 			fmt.Fprintf(out, "collect_gifts: view_storage %s: no storage frame; skipping\n", station) //nolint:errcheck
 			continue
 		}
-		parts, units := huntBankableParts(ctx, deps.KB, held, nil)
+		parts, units := huntGiftableParts(ctx, deps.KB, held, nil)
 		if units > bestUnits {
-			best, bestUnits = station, units
+			best, bestUnits, bestSize = station, units, collectItemSizes(raw)
 			bestHeld = make(map[string]int, len(parts))
 			for _, id := range parts {
 				bestHeld[id] = held[id]
@@ -104,10 +107,20 @@ func CollectGifts(ctx context.Context, deps CollectDeps, stations []string) erro
 	sort.Strings(ids)
 	took := 0
 	for _, id := range ids {
-		// The server refuses what the hold cannot take; the rest waits for
-		// the next run.
-		if err := deps.Client.WithdrawItems(ctx, id, float64(bestHeld[id])); err != nil {
-			fmt.Fprintf(out, "collect_gifts: withdraw %d %s: %v\n", bestHeld[id], id, err) //nolint:errcheck
+		// withdraw_items needs cargo space and refuses a stack the hold
+		// cannot take whole, so each withdrawal is clamped to the free space
+		// read fresh before it. What does not fit waits for the next run.
+		qty := bestHeld[id]
+		if free, known := collectFreeCargo(ctx, deps); known {
+			size := max(bestSize[id], 1)
+			qty = min(qty, free/size)
+		}
+		if qty <= 0 {
+			fmt.Fprintf(out, "collect_gifts: hold full; leaving the rest at %s for the next run\n", best) //nolint:errcheck
+			break
+		}
+		if err := deps.Client.WithdrawItems(ctx, id, float64(qty)); err != nil {
+			fmt.Fprintf(out, "collect_gifts: withdraw %d %s: %v\n", qty, id, err) //nolint:errcheck
 			continue
 		}
 		took++
@@ -116,6 +129,35 @@ func CollectGifts(ctx context.Context, deps CollectDeps, stations []string) erro
 		return fmt.Errorf("collect_gifts: withdrew nothing at %s", best)
 	}
 	return collectDeliver(ctx, deps, out)
+}
+
+// collectFreeCargo re-reads the hold and returns its free space; known is
+// false when the hold's capacity is not known.
+func collectFreeCargo(ctx context.Context, deps CollectDeps) (free int, known bool) {
+	_ = deps.Client.GetCargo(ctx) // a failed read leaves the cached hold
+	st := deps.Client.GetState()
+	if st == nil || st.Ship.CargoCapacity <= 0 {
+		return 0, false
+	}
+	return max(int(st.Ship.CargoCapacity-st.Ship.CargoUsed), 0), true
+}
+
+// collectItemSizes returns item -> per-unit size from a view_storage frame.
+func collectItemSizes(raw []byte) map[string]int {
+	var resp struct {
+		Items []struct {
+			ItemID string `json:"item_id"`
+			Size   int    `json:"size"`
+		} `json:"items"`
+	}
+	if json.Unmarshal(raw, &resp) != nil {
+		return nil
+	}
+	sizes := make(map[string]int, len(resp.Items))
+	for _, it := range resp.Items {
+		sizes[it.ItemID] = it.Size
+	}
+	return sizes
 }
 
 // collectCargoParts returns the non-reserved cargo aboard.
@@ -129,7 +171,7 @@ func collectCargoParts(ctx context.Context, deps CollectDeps) []game.CargoItem {
 	}
 	var parts []game.CargoItem
 	for _, c := range st.Ship.Cargo {
-		if int(c.Quantity) > 0 && !huntBankIsReserved(ctx, deps.KB, c.ItemID) {
+		if int(c.Quantity) > 0 && !huntBankIsReserved(ctx, deps.KB, c.ItemID) && huntIsCreatureDrop(ctx, deps.KB, c.ItemID) {
 			parts = append(parts, c)
 		}
 	}

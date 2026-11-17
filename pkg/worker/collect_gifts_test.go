@@ -2,10 +2,10 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game"
-	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
 // collectFake is the collector's storage at several stations, read remotely
@@ -42,23 +42,44 @@ func (f *collectFake) FindRoute(_ context.Context, target string) ([]game.RouteS
 	return []game.RouteStep{{SystemID: "start"}, {SystemID: "sys_of_" + target}}, nil
 }
 
+// WithdrawItems moves units from storage at the current station into cargo.
+// Like the server, it refuses a withdrawal the hold cannot take whole.
 func (f *collectFake) WithdrawItems(_ context.Context, id string, qty float64) error {
+	sh := &f.state.Ship
+	if sh.CargoCapacity > 0 && sh.CargoUsed+qty > sh.CargoCapacity {
+		return errors.New("not enough cargo space")
+	}
 	if f.withdrawn == nil {
 		f.withdrawn = map[string]int{}
 	}
 	f.withdrawn[id] += int(qty)
-	f.state.Ship.Cargo = append(f.state.Ship.Cargo, game.CargoItem{ItemID: id, Quantity: qty})
+	if st := f.storage[f.state.CurrentPOI]; st != nil {
+		st[id] -= int(qty)
+	}
+	sh.Cargo = append(sh.Cargo, game.CargoItem{ItemID: id, Quantity: qty})
+	sh.CargoUsed += qty
 	return nil
 }
 
+// SendGift from cargo empties that cargo line.
 func (f *collectFake) SendGift(_ context.Context, p map[string]any) error {
 	f.gifts = append(f.gifts, p)
+	sh := &f.state.Ship
+	kept := sh.Cargo[:0]
+	for _, c := range sh.Cargo {
+		if c.ItemID == p["item_id"] {
+			sh.CargoUsed -= c.Quantity
+			continue
+		}
+		kept = append(kept, c)
+	}
+	sh.Cargo = kept
 	return nil
 }
 
-func collectDeps(f *collectFake) CollectDeps {
+func collectDeps(t *testing.T, f *collectFake) CollectDeps {
 	return CollectDeps{
-		Client: f, KB: knowledge.NewMemoryKB(),
+		Client: f, KB: newDropsKB(t),
 		usernameFor: func(id string) (string, error) { return "user:" + id, nil },
 		nav: func(_ context.Context, system, poi string) error {
 			f.navs = append(f.navs, system+"/"+poi)
@@ -73,12 +94,12 @@ func TestCollectGiftsPicksFullestStation(t *testing.T) {
 	f := &collectFake{
 		state: &game.State{Doc: true, CurrentPOI: "somewhere"},
 		storage: map[string]map[string]int{
-			"st_a": {"drifter_hide": 20},
+			"st_a": {"drifter_hide": 20, "iron_ore": 500},
 			"st_b": {"drifter_hide": 40, "grazer_horn": 30, "fuel_cell": 100},
 			"st_c": {"grazer_horn": 55},
 		},
 	}
-	if err := CollectGifts(context.Background(), collectDeps(f), []string{"st_a", "st_b", "st_c"}); err != nil {
+	if err := CollectGifts(context.Background(), collectDeps(t, f), []string{"st_a", "st_b", "st_c"}); err != nil {
 		t.Fatalf("CollectGifts: %v", err)
 	}
 	wantNavs := []string{"sys_of_st_b/st_b", haulDumpSystem + "/" + haulDumpPOI}
@@ -107,7 +128,7 @@ func TestCollectGiftsSkipsBelowMinimum(t *testing.T) {
 			"st_b": {"grazer_horn": 10},
 		},
 	}
-	if err := CollectGifts(context.Background(), collectDeps(f), []string{"st_a", "st_b"}); err != nil {
+	if err := CollectGifts(context.Background(), collectDeps(t, f), []string{"st_a", "st_b"}); err != nil {
 		t.Fatalf("CollectGifts: %v", err)
 	}
 	if len(f.navs) != 0 || len(f.withdrawn) != 0 || len(f.gifts) != 0 {
@@ -122,7 +143,7 @@ func TestCollectGiftsDeliversCargoFirst(t *testing.T) {
 	st := &game.State{Doc: true, CurrentPOI: "st_b"}
 	st.Ship.Cargo = []game.CargoItem{{ItemID: "drifter_hide", Quantity: 40}, {ItemID: "fuel_cell", Quantity: 3}}
 	f := &collectFake{state: st, storage: map[string]map[string]int{"st_a": {"grazer_horn": 90}}}
-	if err := CollectGifts(context.Background(), collectDeps(f), []string{"st_a"}); err != nil {
+	if err := CollectGifts(context.Background(), collectDeps(t, f), []string{"st_a"}); err != nil {
 		t.Fatalf("CollectGifts: %v", err)
 	}
 	if len(f.navs) != 1 || f.navs[0] != haulDumpSystem+"/"+haulDumpPOI {
@@ -145,5 +166,34 @@ func TestCollectGiftsIsAWorkerCommand(t *testing.T) {
 	d := NewWorkerDispatch(&collectFake{state: &game.State{}}, nil, nil, nil)
 	if err := d.Run(context.Background(), []string{"collect_gifts"}); err == nil {
 		t.Error("collect_gifts with no stations should error")
+	}
+}
+
+// A stack larger than the hold is withdrawn in part, clamped to free space,
+// delivered, and the rest is collected on the next run.
+func TestCollectGiftsClampsToFreeCargo(t *testing.T) {
+	t.Parallel()
+	st := &game.State{Doc: true, CurrentPOI: "somewhere"}
+	st.Ship.CargoCapacity, st.Ship.CargoUsed = 50, 10
+	st.Ship.Cargo = []game.CargoItem{{ItemID: "fuel_cell", Quantity: 10}}
+	f := &collectFake{state: st, storage: map[string]map[string]int{"st_a": {"grazer_horn": 100}}}
+	deps := collectDeps(t, f)
+	if err := CollectGifts(context.Background(), deps, []string{"st_a"}); err != nil {
+		t.Fatalf("CollectGifts run 1: %v", err)
+	}
+	if f.withdrawn["grazer_horn"] != 40 {
+		t.Errorf("run 1 withdrew %d grazer_horn, want 40 (the free space)", f.withdrawn["grazer_horn"])
+	}
+	if len(f.gifts) != 1 || f.gifts[0]["quantity"] != 40 {
+		t.Fatalf("run 1 gifts = %v, want 40 grazer_horn delivered", f.gifts)
+	}
+	if got := f.storage["st_a"]["grazer_horn"]; got != 60 {
+		t.Fatalf("storage after run 1 = %d, want 60 left", got)
+	}
+	if err := CollectGifts(context.Background(), deps, []string{"st_a"}); err != nil {
+		t.Fatalf("CollectGifts run 2: %v", err)
+	}
+	if f.withdrawn["grazer_horn"] != 80 || len(f.gifts) != 2 {
+		t.Errorf("after run 2: withdrew %d, gifts %v; want 80 total over two deliveries", f.withdrawn["grazer_horn"], f.gifts)
 	}
 }

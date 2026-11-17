@@ -379,8 +379,8 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	if !deps.boardGate.shouldPoll(station, huntNow(deps)) {
 		fmt.Fprintf(out, "hunt[%s]: board at %s unchanged and nothing admissible last pass; not re-reading for up to %v\n", //nolint:errcheck
 			who, station, game.SleepMissionBoardPoll)
-		// The gate only arms on a pass that held no mission, so there is no
-		// need item to keep: bank everything spare while docked.
+		// Bank while docked; held missions' items (last active_missions
+		// read, no new query) stay aboard.
 		huntBankAtDock(ctx, deps, out, who, nil)
 		return nil
 	}
@@ -394,7 +394,8 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// off the board.
 	job, ok, dry := huntSelectJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
 	// Still docked: bank spare parts here (at the base or CJ only), keeping
-	// the active need's item aboard.
+	// every held mission's items aboard -- the selected need's and any held
+	// need this pass declined to resume.
 	var keep map[string]int
 	if ok && job.need != nil {
 		keep = map[string]int{job.need.ItemID: job.need.Quantity}

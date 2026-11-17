@@ -2,12 +2,14 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"sort"
 
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
@@ -28,8 +30,9 @@ const (
 )
 
 // huntBankReserved are the operational consumables a hunter never banks: fuel
-// and repair stock it burns itself. Ammunition is matched by catalog category
-// (huntBankReservedCategories) because its ids follow no pattern.
+// and repair stock it burns itself. The rest -- ammunition, premium fuel
+// cells, hull patches, sealants, shield charges -- is matched by catalog
+// category (huntBankReservedCategories), because their ids follow no pattern.
 var huntBankReserved = map[string]bool{
 	"fuel":                true,
 	"repair_kit":          true,
@@ -38,11 +41,11 @@ var huntBankReserved = map[string]bool{
 }
 
 // huntBankReservedCategories are catalog categories that are never banked.
-var huntBankReservedCategories = map[string]bool{"ammo": true, "fuel": true}
+var huntBankReservedCategories = map[string]bool{"ammo": true, "fuel": true, "consumable": true}
 
 // huntBankIsReserved reports whether itemID is a consumable the ship keeps:
 // the haul-leftovers reserved list, huntBankReserved, or an ammo/fuel catalog
-// item. An item the catalog does not know is bankable.
+// or consumable catalog item. An item the catalog does not know is bankable.
 func huntBankIsReserved(ctx context.Context, kb knowledge.Base, itemID string) bool {
 	if haulReservedCargo[itemID] || huntBankReserved[itemID] {
 		return true
@@ -127,7 +130,7 @@ func huntBankSurplus(ctx context.Context, deps HuntDeps, out io.Writer, keep map
 	if !ok {
 		return errors.Join(append(failed, errors.New("view_storage: no storage frame"))...)
 	}
-	parts, total := huntBankableParts(ctx, deps.KB, held, keep)
+	parts, total := huntGiftableParts(ctx, deps.KB, held, keep)
 	if total < huntGiftBatch {
 		if total > 0 {
 			fmt.Fprintf(out, "hunt: %d part(s) banked at %s; gifting at %d\n", total, where, huntGiftBatch) //nolint:errcheck
@@ -159,13 +162,33 @@ func huntBankSurplus(ctx context.Context, deps HuntDeps, out io.Writer, keep map
 	return errors.Join(failed...)
 }
 
-// huntBankableParts lists, sorted, the stored items that count as banked
-// parts -- not reserved, not the active need -- and their total units.
-func huntBankableParts(ctx context.Context, kb knowledge.Base, held map[string]int, keep map[string]int) ([]string, int) {
+// huntCreatureDropKB is the KB query that says which species drop an item
+// (wildlife_kill_drops); it lives on *knowledge.SQLiteKB.
+type huntCreatureDropKB interface {
+	SpeciesDroppingItem(ctx context.Context, itemID string) ([]string, error)
+}
+
+// huntIsCreatureDrop reports whether the KB records itemID as a creature drop.
+// A KB without the query, or a failed read, says no: an item with no recorded
+// creature source is never gifted.
+func huntIsCreatureDrop(ctx context.Context, kb knowledge.Base, itemID string) bool {
+	dk, ok := kb.(huntCreatureDropKB)
+	if !ok {
+		return false
+	}
+	sp, err := dk.SpeciesDroppingItem(ctx, itemID)
+	return err == nil && len(sp) > 0
+}
+
+// huntGiftableParts lists, sorted, the stored items that may be gifted --
+// recorded creature drops that are neither reserved nor kept for a held
+// mission -- and their total units. Anything else banked (old ore, modules)
+// stays in storage.
+func huntGiftableParts(ctx context.Context, kb knowledge.Base, held map[string]int, keep map[string]int) ([]string, int) {
 	var parts []string
 	total := 0
 	for id, q := range held {
-		if q <= 0 || keep[id] > 0 || huntBankIsReserved(ctx, kb, id) {
+		if q <= 0 || keep[id] > 0 || huntBankIsReserved(ctx, kb, id) || !huntIsCreatureDrop(ctx, kb, id) {
 			continue
 		}
 		parts = append(parts, id)
@@ -175,9 +198,50 @@ func huntBankableParts(ctx context.Context, kb knowledge.Base, held map[string]i
 	return parts, total
 }
 
+// huntHeldMissionKeep returns item -> units for every unfinished item
+// objective of the held missions in an active_missions frame, so banking
+// never strips the parts a held mission needs -- including a Station Need the
+// pass declined to resume. ok is false when the frame cannot be read; with no
+// frame at all there is nothing held to protect.
+func huntHeldMissionKeep(raw []byte) (keep map[string]int, ok bool) {
+	if len(raw) == 0 {
+		return nil, true
+	}
+	var resp serverapi.GetActiveMissionsResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, false
+	}
+	for _, m := range resp.Missions {
+		for _, o := range m.Objectives {
+			if o.ItemID == "" || o.Completed {
+				continue
+			}
+			if keep == nil {
+				keep = map[string]int{}
+			}
+			keep[o.ItemID] += max(o.Required, 1)
+		}
+	}
+	return keep, true
+}
+
 // huntBankAtDock is the pass's banking step: a failure is logged and the pass
 // goes on.
-func huntBankAtDock(ctx context.Context, deps HuntDeps, out io.Writer, who string, keep map[string]int) {
+//
+// keep starts from every held mission's item objectives in the last
+// active_missions read (no new query), plus any extra the caller names.
+func huntBankAtDock(ctx context.Context, deps HuntDeps, out io.Writer, who string, extra map[string]int) {
+	keep, ok := huntHeldMissionKeep(deps.Client.GetRawJSON("active_missions"))
+	if !ok {
+		fmt.Fprintf(out, "hunt[%s]: banking skipped: held missions unreadable\n", who) //nolint:errcheck
+		return
+	}
+	for id, q := range extra {
+		if keep == nil {
+			keep = map[string]int{}
+		}
+		keep[id] = max(keep[id], q)
+	}
 	if err := huntBankSurplus(ctx, deps, out, keep); err != nil {
 		fmt.Fprintf(out, "hunt[%s]: banking: %v; hunting on\n", who, err) //nolint:errcheck
 	}
