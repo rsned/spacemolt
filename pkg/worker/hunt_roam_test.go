@@ -306,3 +306,43 @@ func TestHuntFoundJobClearsVisited(t *testing.T) {
 		t.Errorf("after a found job: %+v, want dry passes 0 and nothing visited", r)
 	}
 }
+
+// A dock repair can fail and is swallowed, so a dry pass on a damaged hull
+// must neither roam nor start home hunting; the hunter stays docked.
+func TestHuntDryPassHeldForRepair(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name   string
+		atHome bool
+	}{
+		{"roam move", false},
+		{"home hunt", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			opts := huntFakeOpts{creatures: huntGrazers("c1"), shipHullFrac: 0.5}
+			if tc.atHome {
+				opts.startPOI = huntHomePOI
+			}
+			f := huntRoamFake(t, opts)
+			var log strings.Builder
+			deps := huntDeps(f, &log)
+			deps.KB = huntRoamKB(t, !tc.atHome)
+			if tc.atHome {
+				f.state.System.ID = huntHomeSystem
+				if err := saveHuntRoam(huntRoamPath(deps.AgentsDir, deps.AgentID), huntRoam{Visited: []string{"test_system"}}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := Hunt(context.Background(), deps); err != nil {
+				t.Fatal(err)
+			}
+			if called(f, "undock") || called(f, "find_route") || called(f, "travel:") || f.huntCalls != 0 {
+				t.Errorf("damaged hull moved or hunted; calls %v\nlog:\n%s", f.calls, log.String())
+			}
+			if !strings.Contains(log.String(), "held for repair") {
+				t.Errorf("no held-for-repair line; log:\n%s", log.String())
+			}
+		})
+	}
+}

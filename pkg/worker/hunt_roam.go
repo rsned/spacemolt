@@ -247,10 +247,23 @@ func huntRoamFoundJob(deps HuntDeps, out io.Writer) {
 // grounds this pass instead of moving.
 //
 // Every route goes through Autopilot, so the stronghold gate applies to all of
-// them; a move that fails is logged and retried on a later dry pass.
+// them; a move that fails is logged and retried on a later dry pass. Below
+// huntRepairAtHull nothing happens at all ("held for repair").
 func huntRoamAfterDry(ctx context.Context, deps HuntDeps, out io.Writer, who string) (homeHunt bool) {
+	// Neither a move nor home hunting starts on a damaged hull: the dock
+	// repair can fail and is swallowed, so re-read and gate here. The hunter
+	// stays docked and the next pass repairs first.
+	if err := deps.Client.GetStatus(ctx); err != nil {
+		fmt.Fprintf(out, "hunt[%s]: dry board; get_status: %v; staying put\n", who, err) //nolint:errcheck
+		return false
+	}
 	st := deps.Client.GetState()
-	if st == nil || st.System.ID == "" || deps.KB == nil {
+	if frac, repaired := huntHullRepaired(st); !repaired {
+		fmt.Fprintf(out, "hunt[%s]: dry board but hull %.0f%% below %.0f%%; roaming held for repair\n", //nolint:errcheck
+			who, frac*100, huntRepairAtHull*100)
+		return false
+	}
+	if st.System.ID == "" || deps.KB == nil {
 		return false
 	}
 	current := st.System.ID

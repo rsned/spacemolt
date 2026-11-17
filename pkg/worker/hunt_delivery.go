@@ -542,11 +542,7 @@ func huntDeliverNeed(ctx context.Context, deps HuntDeps, out io.Writer, who stri
 		return
 	}
 	st := deps.Client.GetState()
-	if st == nil || st.Ship.MaxHull <= 0 || st.Ship.Hull/st.Ship.MaxHull < huntRepairAtHull {
-		frac := 0.0
-		if st != nil && st.Ship.MaxHull > 0 {
-			frac = st.Ship.Hull / st.Ship.MaxHull
-		}
+	if frac, repaired := huntHullRepaired(st); !repaired {
 		fmt.Fprintf(out, "hunt[%s]: %s parts aboard but hull %.0f%% below %.0f%%; delivery waits for repair, held for next pass\n", //nolint:errcheck
 			who, job.boardID, frac*100, huntRepairAtHull*100)
 		return
