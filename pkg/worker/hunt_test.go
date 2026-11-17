@@ -552,6 +552,7 @@ func (f *huntFake) Hunt(ctx context.Context, creatureID string) error {
 	f.huntCalls++
 	f.calls = append(f.calls, "hunt:"+creatureID)
 	f.quarryID = creatureID
+	f.state.LastBattleID = "battle-" + creatureID
 
 	var resp serverapi.GetBattleStatusResponse
 	if err := json.Unmarshal([]byte(huntRealBattleStatusReply), &resp); err != nil {

@@ -534,6 +534,9 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			AgentsDir:   d.AgentsDir,
 			SetActivity: d.setActivity,
 			boardGate:   d.huntBoard,
+			CaptureAttacks: func(ctx context.Context, battleID string) error {
+				return d.CaptureWildlifeAttacks(ctx, []string{battleID})
+			},
 		})
 	case "shuttle":
 		return Shuttle(ctx, ShuttleDeps{

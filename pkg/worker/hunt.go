@@ -230,6 +230,10 @@ type HuntDeps struct {
 	// per worker process; nil means "always poll", which is what every caller
 	// that does not thread one through gets.
 	boardGate *huntBoardGate
+	// CaptureAttacks files the wildlife attacks of one finished battle (wired
+	// in dispatch to WorkerDispatch.CaptureWildlifeAttacks). Called after every
+	// engagement whatever its outcome; nil in tests = skip.
+	CaptureAttacks func(ctx context.Context, battleID string) error
 }
 
 // huntWildlifeOnly resolves the wildlife-only interlock: unset means on.
@@ -472,6 +476,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		attempts++
 
 		outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID, wildlifeOnly)
+		huntCaptureAttacks(ctx, deps, out)
 
 		// The carcass is the kill receipt: a wreck whose victim_id is the
 		// creature we just engaged is the only evidence this pass has that
@@ -743,6 +748,9 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 			fmt.Fprintf(out, "hunt: %v\n", err) //nolint:errcheck
 			return nil, false
 		}
+		// Once per arrival, before the admissibility gate: a species we will not
+		// hunt is still one the field guide wants scanned.
+		huntScanUnknown(ctx, deps, out, nearby.Creatures)
 
 		if quarry := huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out); len(quarry) > 0 {
 			return quarry, true
