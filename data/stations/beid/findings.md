@@ -355,3 +355,15 @@ order in CJ's findings (locker bay → faction workshop → atmospheric recycler
 the blocker for all crafting at beid, fuel included.** Operator: the workshop is basically required
 for anything beyond the core services (storage, power, life support). Build it right after the
 locker bay at the next station.
+
+## Faction workshop placed (2026-11-16 16:53 local, craftsman-2)
+
+`facility faction_build faction_workshop` accepted after 480 circuit boards were carried from CJ
+(9 already at beid). Facility list at 16:53: h2_fuel_combustor, stellar_collector_grid,
+atmospheric_recycler, refueling_dock and locker_bay **active**; faction_workshop
+**under_construction**. Crafting (fuel included) should work once it is active.
+
+- Boards came from 3,800 carbon hauled from void_gate (two 1,900 runs) through CJ's carbon arc
+  furnace. miningbot_0000's hourly power-cell top-up (target 1,500) was using ~210 boards an hour
+  and was paused for the run.
+- craftsman-2's ship (Arbitrage) holds **379** circuit boards, so a 400-board build needs two trips.
