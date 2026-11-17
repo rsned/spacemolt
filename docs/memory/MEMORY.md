@@ -77,4 +77,3 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [Drones mine radioactives (11-15)](reference_drones_mine_radioactive.md) — no special gear; but no-station rad mining = miningbots w/ rad_harvester + lead_lined_cargo from an outpost, flee on hostiles
 - [Faction intel → KB (11-15)](reference_faction_intel_tables.md) — faction_intel_* tables (mig 76), capture_intel twice_daily on craftsman-3; hazards merged into pois
 - [Intel Center L2 auto-sync (11-13)](reference_intel_center_autosync.md) — CJ intel auto-collects verified POI/system data from member reads; no ship sightings; sensor_dome not built
-- [Hunt fleet = legacy mining hulls (11-16)](reference_hunt_fleet_is_miners.md) — Prospector/Drillship, gunnery ~1; idle on difficulty-2 bounties over cap 1

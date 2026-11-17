@@ -17,6 +17,8 @@ metadata:
 - [Battle replay viewer](reference_battle_replay_viewer.md) — spacemolt.com/battles/<id>; don't scrape it
 - [Scan bracket = THREAT flag, not role](reference_creature_scan_bracket_threat_flag.md) — FIXED `35ae5f4b`
 - [Belt-Grazer grounds](reference_belt_grazer_hunting_grounds.md) — kochab/ironpeak, NOT khambalia
+- ⭐ [Wildlife never swarms](reference_wildlife_no_swarm_aggro.md) — only the creature under attack fights back; size fights per target
+- [Hunt fleet = legacy mining hulls](reference_hunt_fleet_is_miners.md) — moving to gauntlets 11-16; gunnery ~1
 - ⭐🔴 [get_nearby on arrival reads EMPTY](reference_wildlife_arrival_race.md) — 18% false-negative; hunt fleet rejected good grounds. Fixed `238f73a7`; table is `wildlife_surveys`
 - [Combat roadmap](project_combat_roadmap.md) — entered via wildlife/First Hunt, not PvP; the spar testbed exists but is dormant
 - [Spar testbed](project_spar_testbed.md) — cmd/tools/spar + pkg/spar, controlled PvP harness; BUILT, dormant
