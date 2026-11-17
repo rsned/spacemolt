@@ -265,6 +265,22 @@ func (c *Client) CommissionQuote(ctx context.Context, shipClass string) error {
 	return err
 }
 
+// CommissionQuotePayload sends commission_quote with a caller-built payload
+// (ship_class plus the optional bare_hull and source_missing_materials), the
+// quote-side twin of CommissionShipPayload.
+func (c *Client) CommissionQuotePayload(ctx context.Context, payload map[string]any) error {
+	msg := protocol.Message{
+		Type:      "commission_quote",
+		Payload:   payload,
+		Timestamp: time.Now().UnixMilli(),
+	}
+	h, err := c.Submit(ctx, msg, WithAckOnly(), WithTimeout(SleepMedium))
+	if err == nil {
+		_, err = c.await(ctx, h)
+	}
+	return err
+}
+
 // CommissionShip commissions a ship to be built at the current shipyard.
 func (c *Client) CommissionShip(ctx context.Context, shipClass string, provideMaterials bool) error {
 	msg := protocol.Message{

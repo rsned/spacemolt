@@ -1482,6 +1482,11 @@ func (m *MCPGameClient) CommissionQuote(ctx context.Context, shipClass string) e
 	return err
 }
 
+func (m *MCPGameClient) CommissionQuotePayload(ctx context.Context, payload map[string]any) error {
+	_, err := m.callTool(ctx, "commission_quote", payload)
+	return err
+}
+
 func (m *MCPGameClient) CommissionStatus(ctx context.Context, baseID string) error {
 	payload := map[string]any{}
 	if baseID != "" {

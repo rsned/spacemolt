@@ -91,6 +91,7 @@ type GameClient interface {
 	ClaimInsurance(ctx context.Context) error
 	ListShipForSale(ctx context.Context, shipID string, price float64) error
 	CommissionQuote(ctx context.Context, shipClass string) error
+	CommissionQuotePayload(ctx context.Context, payload map[string]any) error
 	CommissionStatus(ctx context.Context, baseID string) error
 	CancelCommission(ctx context.Context, commissionID string) error
 	CommissionShip(ctx context.Context, shipClass string, provideMaterials bool) error

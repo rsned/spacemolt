@@ -583,7 +583,10 @@ func (m *mockGameClient) BuyListedShip(ctx context.Context, listingID string) er
 func (m *mockGameClient) ListShipForSale(ctx context.Context, shipID string, price float64) error {
 	return nil
 }
-func (m *mockGameClient) CommissionQuote(ctx context.Context, shipClass string) error     { return nil }
+func (m *mockGameClient) CommissionQuote(ctx context.Context, shipClass string) error { return nil }
+func (m *mockGameClient) CommissionQuotePayload(ctx context.Context, payload map[string]any) error {
+	return nil
+}
 func (m *mockGameClient) CommissionStatus(ctx context.Context, baseID string) error       { return nil }
 func (m *mockGameClient) CancelCommission(ctx context.Context, commissionID string) error { return nil }
 func (m *mockGameClient) CommissionShipPayload(ctx context.Context, payload map[string]any) error {

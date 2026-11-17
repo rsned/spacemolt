@@ -7837,11 +7837,12 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "commission_quote":
-		if len(parts) < 2 {
-			return fmt.Errorf("usage: commission_quote <ship-class>")
+		payload, err := commissionQuotePayload(parts)
+		if err != nil {
+			return err
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.CommissionQuote(ctx, parts[1])
+			return client.CommissionQuotePayload(ctx, payload)
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "commission_status":
@@ -10519,22 +10520,38 @@ var commissionShipBoolFlags = []string{"provide_materials", "fund_from_faction",
 // build (fund_from_faction, required at the faction's own station) could not be
 // requested.
 func commissionShipPayload(parts []string) (map[string]any, error) {
+	return commissionPayload(parts, "usage: commission_ship <ship-class> [--fund_from_faction true] [--provide_materials true] [--source_missing_materials true] [--bare_hull true]")
+}
+
+// commissionQuotePayload builds a commission_quote payload: commission_quote
+// <ship-class> [--bare_hull] [--source_missing_materials]. Same flag parsing as
+// commission_ship, so a quote and the order it previews take the same options.
+func commissionQuotePayload(parts []string) (map[string]any, error) {
+	return commissionPayload(parts, "usage: commission_quote <ship-class> [--bare_hull true] [--source_missing_materials true]")
+}
+
+// commissionPayload parses <cmd> <ship-class> [--flag value | --flag=value |
+// --flag] into a payload. A flag with no value (last token, or followed by
+// another flag) is boolean true.
+func commissionPayload(parts []string, usage string) (map[string]any, error) {
 	payload := map[string]any{}
 	for i := 1; i < len(parts); i++ {
 		arg := parts[i]
 		if key, ok := strings.CutPrefix(arg, "--"); ok {
 			if k, v, ok2 := strings.Cut(key, "="); ok2 {
 				payload[k] = v
-			} else if i+1 < len(parts) {
+			} else if i+1 < len(parts) && !strings.HasPrefix(parts[i+1], "--") {
 				i++
 				payload[key] = parts[i]
+			} else {
+				payload[key] = "true"
 			}
 		} else if payload["ship_class"] == nil {
 			payload["ship_class"] = strings.ToLower(arg)
 		}
 	}
 	if _, ok := payload["ship_class"].(string); !ok {
-		return nil, fmt.Errorf("usage: commission_ship <ship-class> [--fund_from_faction true] [--provide_materials true] [--source_missing_materials true] [--bare_hull true]")
+		return nil, errors.New(usage)
 	}
 	for _, k := range commissionShipBoolFlags {
 		if v, ok := payload[k]; ok {
