@@ -468,6 +468,9 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		}
 		quarry = slices.Delete(quarry, idx, idx+1)
 
+		// LastBattleID is never cleared, so a fight that learns no id of its own
+		// would re-capture the previous one; remember what was there before.
+		idBefore := huntBattleID(deps)
 		if err := deps.Client.Hunt(ctx, c.CreatureID); err != nil {
 			fmt.Fprintf(out, "hunt: engage %s failed: %v\n", c.CreatureID, err) //nolint:errcheck
 			attempts++
@@ -476,7 +479,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		attempts++
 
 		outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID, wildlifeOnly)
-		huntCaptureAttacks(ctx, deps, out)
+		huntCaptureAttacks(ctx, deps, out, idBefore)
 
 		// The carcass is the kill receipt: a wreck whose victim_id is the
 		// creature we just engaged is the only evidence this pass has that

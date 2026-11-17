@@ -66,7 +66,7 @@ func TestHuntSkipsAttackCaptureWithoutABattleID(t *testing.T) {
 	deps := huntDeps(c, io.Discard)
 	deps.CaptureAttacks = func(context.Context, string) error { called = true; return nil }
 	c.state.LastBattleID = ""
-	huntCaptureAttacks(context.Background(), deps, io.Discard)
+	huntCaptureAttacks(context.Background(), deps, io.Discard, "")
 	if called {
 		t.Error("CaptureAttacks called with no battle id")
 	}
@@ -114,5 +114,29 @@ func TestHuntScansUnknownOnArrival(t *testing.T) {
 	}
 	if len(c.scanned) != 1 {
 		t.Errorf("scans = %v, want exactly one for the arrival (not one per fight)", c.scanned)
+	}
+}
+
+// A second engagement that learns no battle id must not re-capture the first.
+func TestHuntDoesNotRecaptureAStaleBattleID(t *testing.T) {
+	c := newHuntFake(t, huntFakeOpts{
+		board:         []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 2}},
+		creatures:     huntGrazers("c1", "c2"),
+		noNewBattleID: true,
+	})
+	var got []string
+	deps := huntDeps(c, io.Discard)
+	deps.CaptureAttacks = func(_ context.Context, id string) error {
+		got = append(got, id)
+		return nil
+	}
+	if err := Hunt(context.Background(), deps); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if c.huntCalls != 2 {
+		t.Fatalf("hunt calls = %d, want 2", c.huntCalls)
+	}
+	if !slices.Equal(got, []string{"battle-c1"}) {
+		t.Errorf("captures = %v, want only [battle-c1]", got)
 	}
 }

@@ -124,6 +124,8 @@ type huntFakeOpts struct {
 	// battleHullPct is our own hull percentage the battle picture reports
 	// during the FIRST fight. 0 means full hull throughout.
 	battleHullPct int
+	// noNewBattleID: only the first engagement learns a battle id.
+	noNewBattleID bool
 	// shieldStart overrides the fixture ship's current shield (0 -> a full
 	// bar). shieldRecharge overrides the ship's reported per-tick recovery,
 	// which is also what the fake actually recovers per get_status — the point
@@ -552,7 +554,9 @@ func (f *huntFake) Hunt(ctx context.Context, creatureID string) error {
 	f.huntCalls++
 	f.calls = append(f.calls, "hunt:"+creatureID)
 	f.quarryID = creatureID
-	f.state.LastBattleID = "battle-" + creatureID
+	if !f.opts.noNewBattleID || f.huntCalls == 1 {
+		f.state.LastBattleID = "battle-" + creatureID
+	}
 
 	var resp serverapi.GetBattleStatusResponse
 	if err := json.Unmarshal([]byte(huntRealBattleStatusReply), &resp); err != nil {
