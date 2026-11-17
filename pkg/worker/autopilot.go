@@ -376,6 +376,22 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 				ErrInsufficientRouteFuel, targetSystem, estimatedFuel, fuelAvailable)
 		}
 	}
+	// Jump-gate tolls (v0.720.0): find_route now plans through open player
+	// gates and the toll is charged on the jump itself. Checked after the fuel
+	// top-up so the credits are what is left to pay with. A detour from the KB
+	// map carries no gate data (gate edges are not in the KB yet).
+	if toll, hops := routeGateTolls(route); len(hops) > 0 {
+		credits := 0
+		if st := client.GetState(); st != nil {
+			credits = int(st.Credits)
+		}
+		fmt.Fprintf(out, "   Gate hop(s): %s; tolls %d cr, %d credits\n", strings.Join(hops, ", "), toll, credits) //nolint:errcheck
+		if toll > credits {
+			fmt.Fprintf(out, "   NOT DEPARTING: gate tolls %d cr, %d credits (short %d)\n", toll, credits, toll-credits) //nolint:errcheck
+			return fmt.Errorf("%w: route to %s needs %d cr in tolls, %d credits", ErrGateTollUnaffordable, targetSystem, toll, credits)
+		}
+	}
+
 	// Each jump ~2 ticks travel + ~1 tick update overhead.
 	estTotalTicks := totalJumps * 3
 	fmt.Fprintf(out, "   Est. time: ~%d ticks (~%s)\n\n", estTotalTicks, FormatDuration(estTotalTicks*10)) //nolint:errcheck
@@ -400,6 +416,9 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 			remaining = fmt.Sprintf(" | ETA %s", FormatDuration(int(left.Seconds())))
 		}
 		fmt.Fprintf(out, "[Jump %d/%d] Jumping to %s...%s\n", i+1, totalJumps, step.Name, remaining) //nolint:errcheck
+		if step.ViaGate {
+			fmt.Fprintf(out, "   gate toll: jumping to %s through a jump gate (%s)\n", cmp.Or(step.Name, step.SystemID), gateFee(step)) //nolint:errcheck
+		}
 
 		waitOutHold(ctx, out, client)
 		result, err := client.Jump(ctx, step.SystemID)
