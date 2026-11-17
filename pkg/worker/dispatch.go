@@ -49,6 +49,7 @@ type WorkerDispatch struct {
 	Out             io.Writer
 	AgentID         string // claim owner for opportunity-claiming roles (e.g. hauler)
 	Station         string // home base id: pins the assist and missionrunner roles
+	GiftTo          string // hunt: collector agent id banked parts are gifted to (empty = bank only)
 	Role            string // --role; fit_drones keeps the harvester a role depends on
 	// TourRecipientSystem is a test seam for deliver_tour's location check.
 	// Nil reads the fleet status files.
@@ -539,6 +540,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			},
 			// The hunter's base: docked there, a pass banks its spare parts.
 			HomeStation: d.Station,
+			GiftTo:      d.GiftTo,
 		})
 	case "collect_gifts":
 		// collect_gifts STATION... : the hunter base stations to collect from.

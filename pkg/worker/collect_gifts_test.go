@@ -197,3 +197,16 @@ func TestCollectGiftsClampsToFreeCargo(t *testing.T) {
 		t.Errorf("after run 2: withdrew %d, gifts %v; want 80 total over two deliveries", f.withdrawn["grazer_horn"], f.gifts)
 	}
 }
+
+// A schedule line "collect_gifts A B" hands both station ids to the command.
+func TestCollectGiftsTaskArgsReachTheCommand(t *testing.T) {
+	t.Parallel()
+	f := &collectFake{state: &game.State{}, storage: map[string]map[string]int{}}
+	d := NewWorkerDispatch(f, nil, nil, nil)
+	if err := d.Run(context.Background(), []string{"collect_gifts", "poi_a", "poi_b"}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if f.viewing != "poi_b" {
+		t.Errorf("last station viewed = %q, want poi_b (both args scanned in order)", f.viewing)
+	}
+}

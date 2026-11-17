@@ -72,6 +72,10 @@ type WorkerSpec struct {
 	// from faction storage to personal storage on the idle pass. Each entry is
 	// item[:keep]; keep units stay in faction storage.
 	FactionPull []string `yaml:"faction_pull,omitempty"`
+	// GiftTo forwards --gift-to: the collector hauler's agent id a hunter
+	// gifts its banked creature parts to at its base station. Empty keeps
+	// the hunter banking only.
+	GiftTo string `yaml:"gift_to,omitempty"`
 	// Pipeline forwards --pipeline "item,system,poi,to,recipient": the pinned
 	// mine-and-hand-off route of a pipeline_miner worker.
 	Pipeline string `yaml:"pipeline,omitempty"`

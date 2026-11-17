@@ -96,6 +96,7 @@ func main() {
 	sweepLaunchCost := flag.Float64("sweep-launch-cost", 0, "pathfinder_sweep: estimated fuel per pathfinder launch (the first launch measures it)")
 	freightMaxPackages := flag.Int("freight-max-packages", 1, "Max concurrent freight contracts for the missions role (sub-project C multi-package trips; 1 = single-contract v1 behavior)")
 	consignSpec := flag.String("consign", "", "Standing consignment rules, comma-separated item:recipient:min[:keep] — hand allow-listed goods from this station's personal storage to a named hauler on each idle pass (e.g. adamantite_ore:salvager-2:50). Explicit allow-list only: gifting is irreversible.")
+	giftTo := flag.String("gift-to", "", "Collector hauler agent id (hunt role): banked creature parts are gifted to it at the home station (empty = bank only)")
 	pipelineSpec := flag.String("pipeline", "", "Pinned pipeline route item,system,poi,to,recipient — the pipeline_miner role mines item at poi in system and hands the whole item line plus any other line the trip grew (never energy_crystal or fuel_cell) to recipient at to on each idle pass.")
 	consignOfferSpec := flag.String("consign-offer", "", "Consignment offers, comma-separated item[:keep] — advertise allow-listed goods in this station's personal storage to the hauler fleet as consigned routes; the claiming hauler is gifted them via the handoff queue (needs --handoff-queue). Explicit allow-list only: gifting is irreversible.")
 	factionPullSpec := flag.String("faction-pull", "", "Items, comma-separated item[:keep] — each idle pass, move these from faction storage, leaving keep units there, into personal storage (bounded by free hold) so consign/shopkeep can see them. Explicit ids only; energy_crystal is refused.")
@@ -505,6 +506,7 @@ func main() {
 			dispatch.ConsignOffered = worker.ConsignOfferItems(consignOffers)
 			dispatch.AgentID = *agentID
 			dispatch.Station = *station
+			dispatch.GiftTo = *giftTo
 			dispatch.Role = *role
 			dispatch.Assets = assetStore
 			dispatch.CreditQueue = creditQueue
