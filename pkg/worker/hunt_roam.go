@@ -293,6 +293,7 @@ func huntRoamAfterDry(ctx context.Context, deps HuntDeps, out io.Writer, who str
 			who, current, kind, target, poi, huntJumpsTo(graph, current, target))
 		if err := huntFlyTo(ctx, deps, out, target, poi); err != nil {
 			fmt.Fprintf(out, "hunt[%s]: roam to %s failed: %v; retry next dry pass\n", who, target, err) //nolint:errcheck
+			huntEscapeBattle(ctx, deps, out, who, "roaming", err)
 		}
 		return false
 	case huntMoveHome:
@@ -305,6 +306,7 @@ func huntRoamAfterDry(ctx context.Context, deps HuntDeps, out io.Writer, who str
 			who, huntJumpsTo(graph, current, huntHomeSystem))
 		if err := huntFlyTo(ctx, deps, out, huntHomeSystem, huntHomePOI); err != nil {
 			fmt.Fprintf(out, "hunt[%s]: going home failed: %v; retry next dry pass\n", who, err) //nolint:errcheck
+			huntEscapeBattle(ctx, deps, out, who, "going home", err)
 		}
 		return false
 	default:

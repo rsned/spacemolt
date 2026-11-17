@@ -557,10 +557,12 @@ func huntDeliverNeed(ctx context.Context, deps HuntDeps, out io.Writer, who stri
 		fmt.Fprintf(out, "hunt[%s]: delivering %d %s to %s/%s\n", who, need.Quantity, need.ItemID, need.SystemID, need.TargetBaseID) //nolint:errcheck
 		if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, need.SystemID, need.TargetBaseID); err != nil {
 			fmt.Fprintf(out, "hunt: transit to %s: %v; %s held for next pass\n", need.TargetBaseID, err, job.boardID) //nolint:errcheck
+			huntEscapeBattle(ctx, deps, out, who, "on the delivery leg", err)
 			return
 		}
 		if err := deps.Client.Dock(ctx); err != nil {
 			fmt.Fprintf(out, "hunt: dock at %s: %v; %s held for next pass\n", need.TargetBaseID, err, job.boardID) //nolint:errcheck
+			huntEscapeBattle(ctx, deps, out, who, "docking to deliver", err)
 			return
 		}
 	}

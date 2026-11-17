@@ -322,9 +322,10 @@ func main() {
 	}
 	st := client.GetState()
 
-	// v0.721.0: a non-combat ship should open any fight it is pulled into at
-	// flee (auto opens an armed ship at fire). Hunt is exempt (nil client).
-	if serr := worker.EnsureDefaultStanceFlee(ctx, logOut, &st.Ship, worker.BattleGateClient(*role, client)); serr != nil {
+	// v0.721.0: every ship should open any fight it is pulled into at flee
+	// (auto opens an armed ship at fire). Hunt too: default_stance covers only
+	// fights the ship did not start; a hunter's own engagements open at fire.
+	if serr := worker.EnsureDefaultStanceFlee(ctx, logOut, &st.Ship, worker.DefaultStanceClient(*role, client)); serr != nil {
 		logger.Printf("warning: %v", serr)
 	}
 

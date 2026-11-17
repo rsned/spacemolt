@@ -230,6 +230,9 @@ type huntPassBankFake struct{ bankFake }
 
 func (f *huntPassBankFake) IsConnected() bool               { return true }
 func (f *huntPassBankFake) GetStatus(context.Context) error { return nil }
+func (f *huntPassBankFake) Battle(context.Context, string, map[string]any) error {
+	return nil
+}
 
 // The pass banks at its docked point even when the board gate skips the
 // mission queries: a hunter back home from the grounds is exactly the one

@@ -344,15 +344,30 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		fmt.Fprintln(out, "hunt: current position unknown; skipping") //nolint:errcheck
 		return nil
 	}
+	// Fights the hunter did not start open at flee. The hunt role is exempt
+	// from the standing battle gate, so this and huntEscapeBattle are what
+	// get it out of an ambush; its own engagements open at fire regardless.
+	if err := ensureDefaultStanceFlee(ctx, out, &state.Ship, deps.Client); err != nil {
+		fmt.Fprintf(out, "hunt[%s]: %v\n", who, err) //nolint:errcheck
+	}
+	if huntEscapeBattle(ctx, deps, out, who, "at pass start", nil) {
+		return nil
+	}
 	needRecovery := state.CurrentPOI == ""
 	if !needRecovery && !state.Doc {
 		if err := deps.Client.Dock(ctx); err != nil {
+			if huntEscapeBattle(ctx, deps, out, who, "while docking", err) {
+				return nil
+			}
 			fmt.Fprintf(out, "hunt: dock failed: %v; recovering to a station\n", err) //nolint:errcheck
 			needRecovery = true
 		}
 	}
 	if needRecovery {
 		if err := huntRecoverToStation(ctx, deps, out, state.System.ID); err != nil {
+			if huntEscapeBattle(ctx, deps, out, who, "relocating to a station", err) {
+				return nil
+			}
 			fmt.Fprintf(out, "hunt: reposition failed: %v; retry next pass\n", err) //nolint:errcheck
 		}
 		return nil // re-read the board fresh at the new station next pass
@@ -516,6 +531,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		if st != nil && st.InBattle {
 			fmt.Fprintf(out, "hunt: still a participant in an unresolved battle after %d/%d kill(s); %s held for next pass\n", //nolint:errcheck
 				kills, target, job.boardID)
+			huntEscapeBattle(ctx, deps, out, who, "between engagements", nil)
 			return nil
 		}
 
@@ -568,6 +584,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 			return nil
 		case huntBattleError:
 			fmt.Fprintf(out, "hunt: ending pass after a battle error at %d/%d kill(s); %s held for next pass\n", kills, target, job.boardID) //nolint:errcheck
+			huntEscapeBattle(ctx, deps, out, who, "after a battle error", nil)
 			return nil
 		case huntResolved, huntGaveUp:
 		}
@@ -863,6 +880,9 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 			poi, err = huntTravelToWildlifePOI(ctx, deps, out, job.required, tried)
 		}
 		if err != nil {
+			if huntEscapeBattle(ctx, deps, out, who, "on the way to a ground", err) {
+				return nil, false
+			}
 			if len(tried) > 0 {
 				break // the sweep ran out of grounds; report it as a sweep
 			}
@@ -877,6 +897,7 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		nearby, err := huntNearbyCreatures(ctx, deps, out, poi)
 		if err != nil {
 			fmt.Fprintf(out, "hunt: %v\n", err) //nolint:errcheck
+			huntEscapeBattle(ctx, deps, out, who, "reading the ground", err)
 			return nil, false
 		}
 		// Once per arrival, before the admissibility gate: a species we will not

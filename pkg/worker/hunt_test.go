@@ -654,10 +654,17 @@ func (f *huntFake) Battle(ctx context.Context, action string, payload map[string
 			}
 		}
 	case "target":
-		f.self().TargetID, _ = payload["target_id"].(string)
+		if s := f.self(); s != nil {
+			s.TargetID, _ = payload["target_id"].(string)
+		}
 	case "stance":
-		f.self().Stance, _ = payload["stance"].(string)
-		if f.self().Stance == "flee" {
+		stance, _ := payload["stance"].(string)
+		// A flee sent outside any simulated fight (a battle the pass did not
+		// start) has no battle picture to update.
+		if s := f.self(); s != nil {
+			s.Stance = stance
+		}
+		if stance == "flee" {
 			f.fled = true
 			f.fleeing = true
 		}
@@ -797,7 +804,9 @@ func TestHuntFleesBelowHullThreshold(t *testing.T) {
 	}
 	// The abort must dominate: nothing that closes the range may be issued in
 	// a fight it has already decided to escape.
-	if len(c.battleActions) == 0 || c.battleActions[0] != "stance:flee" {
+	// The pass-start default_stance is not a fight action; skip it.
+	fight := slices.DeleteFunc(slices.Clone(c.battleActions), func(a string) bool { return strings.HasPrefix(a, "default_stance:") })
+	if len(fight) == 0 || fight[0] != "stance:flee" {
 		t.Errorf("first battle action = %v, want stance:flee before anything that closes the range", c.battleActions)
 	}
 	if countAction(c, "advance") != 0 {
