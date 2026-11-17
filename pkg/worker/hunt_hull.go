@@ -86,7 +86,7 @@ func huntReadyToLeave(ctx context.Context, deps HuntDeps, out io.Writer, who str
 	fmt.Fprintf(out, "hunt[%s]: hull %.0f%% below %.0f%% and %s has no repair; going to repair at %s/%s\n", //nolint:errcheck
 		who, frac*100, huntRepairAtHull*100, st.CurrentPOI, sys, poi)
 	publishActivity(deps.SetActivity, "Hunt · going to repair")
-	if err := huntFlyTo(ctx, deps, out, sys, poi); err != nil {
+	if err := huntFlyTo(ctx, deps, out, false, sys, poi); err != nil {
 		fmt.Fprintf(out, "hunt[%s]: repair leg to %s failed: %v; retry next pass\n", who, poi, err) //nolint:errcheck
 		huntEscapeBattle(ctx, deps, out, who, "on the way to repair", err)
 	}

@@ -888,7 +888,7 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		case job.need != nil:
 			poi, err = huntTravelToNeedGround(ctx, deps, out, *job.need, tried)
 		default:
-			poi, err = huntTravelToWildlifePOI(ctx, deps, out, job.required, tried)
+			poi, err = huntTravelToWildlifePOI(ctx, deps, out, job.required, tried, wildlifeOnly)
 		}
 		if err != nil {
 			if huntEscapeBattle(ctx, deps, out, who, "on the way to a ground", err) {
@@ -1713,7 +1713,12 @@ func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, c server
 // huntTravelToWildlifePOI moves the pass from the station board out to a POI
 // that can hold wildlife (huntWildlifePOITypes), preferring one in the current
 // system and otherwise routing to the nearest system that has one.
-func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, required string, exclude []string) (string, error) {
+//
+// policed is creature work (the wildlife-only interlock): grounds and routes
+// are empire-policed only -- no relaxed unpoliced ground, no local POI in an
+// unpoliced system, and the leg is flown on a policed route (huntAutopilot).
+// Off, the opt-out keeps today's behaviour.
+func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, required string, exclude []string, policed bool) (string, error) {
 	if deps.KB == nil {
 		return "", fmt.Errorf("no knowledge base configured")
 	}
@@ -1727,7 +1732,7 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 	if poiType, scoped := huntSpeciesPOIType[required]; scoped {
 		// The mission names its quarry, so the ground is determined: search
 		// only where that species lives, under the rules for that ground.
-		destSystem, destPOI, why = huntFindGround(ctx, deps.KB, current, poiType, exclude)
+		destSystem, destPOI, why = huntFindGround(ctx, deps.KB, current, poiType, exclude, policed)
 		if destPOI == "" {
 			return "", fmt.Errorf("no %s reachable from %s that suits %s", poiType, current, required)
 		}
@@ -1735,10 +1740,12 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 		// Unscoped: any wildlife POI will do, nearest and least-worked first,
 		// and the system we are already in is free.
 		destSystem = current
-		destPOI, why = huntLocalWildlifePOI(ctx, deps.KB, current, exclude)
+		if !policed || huntPolicedSystem(ctx, deps.KB, current) {
+			destPOI, why = huntLocalWildlifePOI(ctx, deps.KB, current, exclude)
+		}
 		if destPOI == "" {
 			for _, t := range huntWildlifePOITypes {
-				sys, poi, reason := huntFindGround(ctx, deps.KB, current, t, exclude)
+				sys, poi, reason := huntFindGround(ctx, deps.KB, current, t, exclude, policed)
 				if poi != "" {
 					destSystem, destPOI, why = sys, poi, reason
 					break
@@ -1758,7 +1765,14 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 		}
 	}
 	fmt.Fprintf(out, "hunt: heading to %s/%s (%s) to find wildlife\n", destSystem, destPOI, why) //nolint:errcheck
-	if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, destSystem, destPOI); err != nil {
+	ap := AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}
+	if policed {
+		var err error
+		if ap, err = huntAutopilot(ctx, deps, out, false); err != nil {
+			return "", err
+		}
+	}
+	if err := Autopilot(ctx, ap, destSystem, destPOI); err != nil {
 		return "", fmt.Errorf("transit to %s: %w", destPOI, err)
 	}
 	return destPOI, nil
@@ -1908,8 +1922,9 @@ func huntResourceTotals(p knowledge.POI) (remaining, richness float64) {
 //
 // The policed requirement is relaxed on a second pass for non-belt grounds, so
 // a nebula hunt is not left with nowhere to go. It is NEVER relaxed for belts:
-// there, policed and station-less are the rule itself.
-func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string, exclude []string) (systemID, poiID, why string) {
+// there, policed and station-less are the rule itself -- and never when
+// policedOnly (creature work: empire-policed grounds only).
+func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string, exclude []string, policedOnly bool) (systemID, poiID, why string) {
 	graph := &galaxy.GalaxyGraph{}
 	if err := graph.BuildFromDB(ctx, kb); err != nil {
 		return "", "", ""
@@ -1945,7 +1960,7 @@ func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string
 				}
 			}
 		}
-		if poiType == huntPOITypeBelt {
+		if poiType == huntPOITypeBelt || policedOnly {
 			break
 		}
 	}

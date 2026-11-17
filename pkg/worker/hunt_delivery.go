@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
 // Station Need deliveries: a station asks for creature parts, the hunter takes
@@ -81,8 +81,9 @@ func huntPickNeed(needs []huntNeed, jumpsTo func(systemID string) int, radius in
 		if jg < 0 || jg > radius {
 			continue
 		}
+		// The delivery target is a leg too: bounded by the same radius.
 		jt := jumpsTo(n.SystemID)
-		if jt < 0 {
+		if jt < 0 || jt > radius {
 			continue
 		}
 		score := float64(n.Reward) / float64(jg+jt+1)
@@ -264,19 +265,31 @@ func huntPOIHazardous(ctx context.Context, kb knowledge.Base, systemID, poiID st
 	return i >= 0 && pois[i].HazardSeverity >= hazardAvoidSeverity
 }
 
-// huntJumpsFrom returns a hop counter over the KB galaxy from `from`, or nil
-// when the graph cannot be built.
+// huntJumpsFrom returns a hop counter from `from` over the policed jump graph
+// (huntPolicedGraph: the routes a hunter may actually fly), or nil when the
+// KB map cannot be read. A system reachable only through Lawless space is
+// unreachable (-1).
 func huntJumpsFrom(ctx context.Context, kb knowledge.Base, from string) func(string) int {
-	graph := &galaxy.GalaxyGraph{}
-	if err := graph.BuildFromDB(ctx, kb); err != nil {
+	systems, err := kb.GetSystems(ctx)
+	if err != nil {
 		return nil
 	}
+	conns, err := kb.GetConnections(ctx)
+	if err != nil {
+		return nil
+	}
+	graph := huntPolicedGraph(conns, systems, from, false)
+	ids := make([]string, 0, len(systems))
+	for _, s := range systems {
+		ids = append(ids, s.ID)
+	}
+	dist := navigation.BFSJumps(graph, from, ids)
 	return func(to string) int {
-		r, err := graph.FindPath(from, to, false)
-		if err != nil {
+		d, ok := dist[to]
+		if !ok || d >= navigation.RouteInf {
 			return -1
 		}
-		return r.Hops
+		return d
 	}
 }
 
@@ -505,7 +518,7 @@ func huntTravelToNeedGround(ctx context.Context, deps HuntDeps, out io.Writer, n
 		}
 	}
 	fmt.Fprintf(out, "hunt: heading to %s/%s (%s) for %s\n", sys, poi, why, need.ItemID) //nolint:errcheck
-	if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, sys, poi); err != nil {
+	if err := huntFlyPoliced(ctx, deps, out, false, sys, poi); err != nil {
 		return "", fmt.Errorf("transit to %s: %w", poi, err)
 	}
 	return poi, nil
@@ -555,7 +568,7 @@ func huntDeliverNeed(ctx context.Context, deps HuntDeps, out io.Writer, who stri
 			}
 		}
 		fmt.Fprintf(out, "hunt[%s]: delivering %d %s to %s/%s\n", who, need.Quantity, need.ItemID, need.SystemID, need.TargetBaseID) //nolint:errcheck
-		if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, need.SystemID, need.TargetBaseID); err != nil {
+		if err := huntFlyPoliced(ctx, deps, out, false, need.SystemID, need.TargetBaseID); err != nil {
 			fmt.Fprintf(out, "hunt: transit to %s: %v; %s held for next pass\n", need.TargetBaseID, err, job.boardID) //nolint:errcheck
 			huntEscapeBattle(ctx, deps, out, who, "on the delivery leg", err)
 			return

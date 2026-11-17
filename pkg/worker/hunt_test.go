@@ -1815,7 +1815,7 @@ func TestHuntBeltRuleClausesAreEachLoadBearing(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			kb := beltRuleKB(t, tc.police, tc.station, tc.resource)
-			_, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil)
+			_, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false)
 			if poi != tc.want {
 				t.Fatalf("chose %q (%s), want %q", poi, why, tc.want)
 			}
@@ -1828,13 +1828,17 @@ func TestHuntBeltRuleClausesAreEachLoadBearing(t *testing.T) {
 func TestHuntBeltRuleDoesNotRelaxToLawless(t *testing.T) {
 	ctx := context.Background()
 	kb := beltRuleKB(t, 0, false, huntBeltResource)
-	if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil); poi != "" {
+	if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false); poi != "" {
 		t.Fatalf("chose %q (%s) in a lawless system; a hunt there risks a hull that cannot be replaced", poi, why)
 	}
 	// A nebula hunt is different: nowhere policed must not mean nowhere at all.
 	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "candidate_nebula", SystemID: "candidate", Type: "nebula"})
-	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula", nil); poi != "candidate_nebula" {
+	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula", nil, false); poi != "candidate_nebula" {
 		t.Errorf("a non-belt ground must relax to unpoliced rather than strand the pass, chose %q", poi)
+	}
+	// ...except for creature work, whose grounds are empire-policed only.
+	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula", nil, true); poi != "" {
+		t.Errorf("policedOnly relaxed to an unpoliced nebula %q", poi)
 	}
 }
 
@@ -1847,7 +1851,7 @@ func TestHuntBeltRulePrefersTheFullerBelt(t *testing.T) {
 		Resources: []game.POIResource{{ResourceID: huntBeltResource, Richness: 32, Remaining: 100000}},
 	})
 	for i := range 25 {
-		if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil); poi != "candidate_richer" {
+		if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false); poi != "candidate_richer" {
 			t.Fatalf("draw %d: chose %q (%s), want candidate_richer — 100,000 iron beats 30,000", i, poi, why)
 		}
 	}
@@ -1871,7 +1875,7 @@ func TestHuntFliesToTheGroundItsSpeciesLivesOn(t *testing.T) {
 		if !ok {
 			t.Fatalf("%s has no ground mapped", species)
 		}
-		if _, poi, why := huntFindGround(ctx, kb, "test_system", poiType, nil); poi != want {
+		if _, poi, why := huntFindGround(ctx, kb, "test_system", poiType, nil, false); poi != want {
 			t.Errorf("%s: chose %q (%s), want %q", species, poi, why, want)
 		}
 	}

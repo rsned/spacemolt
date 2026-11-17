@@ -277,7 +277,9 @@ func huntRoamAfterDry(ctx context.Context, deps HuntDeps, out io.Writer, who str
 		fmt.Fprintf(out, "hunt[%s]: dry board; connections unavailable: %v; staying put\n", who, err) //nolint:errcheck
 		return false
 	}
-	graph := navigation.JumpGraphFromConnections(conns)
+	// Distances on the routes a hunter may fly: policed, plus the final hop
+	// into cloverfield for the home check (never through it).
+	graph := huntPolicedGraph(conns, systems, current, true)
 
 	roam := huntLoadRoam(deps, out)
 	roam.Visited = huntAddVisited(roam.Visited, current)
@@ -291,7 +293,7 @@ func huntRoamAfterDry(ctx context.Context, deps HuntDeps, out io.Writer, who str
 		poi, _ := missionBoardStationPOI(ctx, deps.KB, target)
 		fmt.Fprintf(out, "hunt[%s]: board at %s dry; trying the %s board at %s/%s (%d jump(s))\n", //nolint:errcheck
 			who, current, kind, target, poi, huntJumpsTo(graph, current, target))
-		if err := huntFlyTo(ctx, deps, out, target, poi); err != nil {
+		if err := huntFlyTo(ctx, deps, out, false, target, poi); err != nil {
 			fmt.Fprintf(out, "hunt[%s]: roam to %s failed: %v; retry next dry pass\n", who, target, err) //nolint:errcheck
 			huntEscapeBattle(ctx, deps, out, who, "roaming", err)
 		}
@@ -304,7 +306,7 @@ func huntRoamAfterDry(ctx context.Context, deps HuntDeps, out io.Writer, who str
 		}
 		fmt.Fprintf(out, "hunt[%s]: boards nearby are dry; going home to Conjunction Junction (%d jump(s))\n", //nolint:errcheck
 			who, huntJumpsTo(graph, current, huntHomeSystem))
-		if err := huntFlyTo(ctx, deps, out, huntHomeSystem, huntHomePOI); err != nil {
+		if err := huntFlyTo(ctx, deps, out, true, huntHomeSystem, huntHomePOI); err != nil {
 			fmt.Fprintf(out, "hunt[%s]: going home failed: %v; retry next dry pass\n", who, err) //nolint:errcheck
 			huntEscapeBattle(ctx, deps, out, who, "going home", err)
 		}
@@ -320,15 +322,16 @@ func huntRoamAfterDry(ctx context.Context, deps HuntDeps, out io.Writer, who str
 }
 
 // huntFlyTo undocks if needed, autopilots to systemID (and poiID when known)
-// and docks there. With no poiID it stops in the system; the next pass's
-// station recovery finds a dock.
-func huntFlyTo(ctx context.Context, deps HuntDeps, out io.Writer, systemID, poiID string) error {
+// on a policed route (home: the cloverfield waiver, huntAutopilot) and docks
+// there. With no poiID it stops in the system; the next pass's station
+// recovery finds a dock.
+func huntFlyTo(ctx context.Context, deps HuntDeps, out io.Writer, home bool, systemID, poiID string) error {
 	if st := deps.Client.GetState(); st != nil && st.Doc {
 		if err := deps.Client.Undock(ctx); err != nil {
 			return fmt.Errorf("undock: %w", err)
 		}
 	}
-	if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, systemID, poiID); err != nil {
+	if err := huntFlyPoliced(ctx, deps, out, home, systemID, poiID); err != nil {
 		return fmt.Errorf("transit: %w", err)
 	}
 	if poiID == "" {
@@ -388,7 +391,8 @@ func huntTravelToHomeGround(ctx context.Context, deps HuntDeps, out io.Writer, e
 	if err != nil {
 		return "", fmt.Errorf("connections: %w", err)
 	}
-	graph := navigation.JumpGraphFromConnections(conns)
+	// Home grounds are counted out from cloverfield over policed jumps.
+	graph := huntPolicedGraph(conns, systems, huntHomeSystem, true)
 	for _, sys := range huntHomeGrounds(graph, systems) {
 		skip := slices.Clone(exclude)
 		for {
@@ -409,7 +413,7 @@ func huntTravelToHomeGround(ctx context.Context, deps HuntDeps, out io.Writer, e
 					return "", fmt.Errorf("undock: %w", err)
 				}
 			}
-			if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, sys, poi); err != nil {
+			if err := huntFlyPoliced(ctx, deps, out, true, sys, poi); err != nil {
 				return "", fmt.Errorf("transit to %s: %w", poi, err)
 			}
 			return poi, nil
