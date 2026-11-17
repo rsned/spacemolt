@@ -1,0 +1,31 @@
+{
+ "description": "The cryo-winder at Confederacy Central Command coils frost-moth superfluid helium into the cores of Control Nodes, and the winding head waits on its feed. Frost-moths cross the ice fields and keep vials only while helium ice feeds them.\n\nDropped by: Frost-Moth (only where it still feeds on Helium Ice).\n\nThe station's Superfluid Winder uses it.",
+ "dialog": {
+  "offer": "The winder's technician logs a need for 10 of Superfluid Vial, sealed and kept cold in transit. Superfluid finds the smallest gap in a container, and the technician finds the cause."
+ },
+ "difficulty": 2,
+ "expires_in_ticks": 3390,
+ "issuing_base": "Confederacy Central Command",
+ "issuing_base_id": "confederacy_central_command",
+ "issuing_system_id": "sol",
+ "issuing_system_name": "Sol",
+ "mission_id": "creature_confederacy_central_command_superfluid_vial~ce8c4548f3d212ab6a934b74e9b4721c",
+ "objectives": [
+  {
+   "description": "Deliver 10 Superfluid Vial to Confederacy Central Command",
+   "item_id": "superfluid_vial",
+   "quantity": 10,
+   "system_id": "sol",
+   "system_name": "Sol",
+   "target_base_id": "confederacy_central_command",
+   "target_base_name": "Confederacy Central Command",
+   "type": "deliver_item"
+  }
+ ],
+ "rewards": {
+  "credits": 7118,
+  "piloting_xp": 20
+ },
+ "title": "Station Need: Superfluid Vial",
+ "type": "delivery"
+}
