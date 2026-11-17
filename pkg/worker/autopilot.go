@@ -187,6 +187,12 @@ type AutopilotDeps struct {
 	// A route through an avoided system is replaced by a detour planned on the
 	// KB map; with no detour the route is refused. Tests point it elsewhere.
 	AvoidSystemsPath string
+	// ExtraAvoid adds systems (id -> reason) to the avoid list for THIS route
+	// only, under the same rules: a route through one is replaced by a KB
+	// detour that enters none of them, and with no detour, or an avoided
+	// destination, the trip is refused. The hunt fleet passes every Lawless
+	// system here (empire-policed routes only). nil adds nothing.
+	ExtraAvoid map[string]string
 }
 
 // fuelTimingFor resolves the endpoint fuel prices for a route into a refuel-timing
@@ -278,7 +284,16 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 	// enter. No detour, or an avoided destination, refuses the trip and leaves
 	// the ship where it is.
 	detoured := false
-	if avoid := loadAvoidSystems(deps.AvoidSystemsPath); len(avoid) > 0 {
+	avoid := loadAvoidSystems(deps.AvoidSystemsPath)
+	if len(deps.ExtraAvoid) > 0 {
+		merged := make(map[string]string, len(avoid)+len(deps.ExtraAvoid))
+		maps.Copy(merged, avoid)
+		for id, why := range deps.ExtraAvoid {
+			merged[strings.ToLower(id)] = why
+		}
+		avoid = merged
+	}
+	if len(avoid) > 0 {
 		if hits := avoidedOnRoute(route, avoid); len(hits) > 0 {
 			dest := route[len(route)-1]
 			if stepAvoided(dest, avoid) {

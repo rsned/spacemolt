@@ -87,6 +87,26 @@ func huntBattleID(deps HuntDeps) string {
 	return st.LastBattleID
 }
 
+// huntCaptureAttacks files the wildlife attacks of the battle just fought, for
+// every outcome: a fight we fled or gave up on is as informative as a kill. The
+// battle id comes from client state and must differ from idBefore (the id held
+// before the engagement), since state never clears it; with no new id there is
+// nothing to fetch, so the call is skipped rather than made with a stale or
+// empty one. Failure is logged
+// only — capture must never stall a hunt.
+func huntCaptureAttacks(ctx context.Context, deps HuntDeps, out io.Writer, idBefore string) {
+	if deps.CaptureAttacks == nil {
+		return
+	}
+	id := huntBattleID(deps)
+	if id == "" || id == idBefore {
+		return // none known, or left over from an earlier fight
+	}
+	if err := deps.CaptureAttacks(ctx, id); err != nil {
+		fmt.Fprintf(out, "hunt: capture attacks for battle %s: %v\n", id, err) //nolint:errcheck
+	}
+}
+
 // huntWhere reads the current system id and game tick out of client state,
 // tolerating a nil state.
 func huntWhere(deps HuntDeps) (systemID string, tick int64) {

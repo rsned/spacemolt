@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
@@ -230,6 +231,21 @@ type HuntDeps struct {
 	// per worker process; nil means "always poll", which is what every caller
 	// that does not thread one through gets.
 	boardGate *huntBoardGate
+	// CaptureAttacks files the wildlife attacks of one finished battle (wired
+	// in dispatch to WorkerDispatch.CaptureWildlifeAttacks). Called after every
+	// engagement whatever its outcome; nil in tests = skip.
+	CaptureAttacks func(ctx context.Context, battleID string) error
+	// HomeStation is the hunter's base station (yaml `station`, a base or POI
+	// id). Docked there, a pass banks its spare parts (hunt_surplus.go);
+	// empty = bank only at Conjunction Junction.
+	HomeStation string
+	// GiftTo is the agent id of the collector hauler that banked parts are
+	// gifted to at HomeStation (resolved to its username for send_gift).
+	// Empty = bank only, never gift.
+	GiftTo string
+	// usernameFor resolves an agent id to its in-game username (nil ->
+	// UsernameFor under AgentsDir); a test seam.
+	usernameFor func(agentID string) (string, error)
 }
 
 // huntWildlifeOnly resolves the wildlife-only interlock: unset means on.
@@ -329,15 +345,30 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		fmt.Fprintln(out, "hunt: current position unknown; skipping") //nolint:errcheck
 		return nil
 	}
+	// Fights the hunter did not start open at flee. The hunt role is exempt
+	// from the standing battle gate, so this and huntEscapeBattle are what
+	// get it out of an ambush; its own engagements open at fire regardless.
+	if err := ensureDefaultStanceFlee(ctx, out, &state.Ship, deps.Client); err != nil {
+		fmt.Fprintf(out, "hunt[%s]: %v\n", who, err) //nolint:errcheck
+	}
+	if huntEscapeBattle(ctx, deps, out, who, "at pass start", nil) {
+		return nil
+	}
 	needRecovery := state.CurrentPOI == ""
 	if !needRecovery && !state.Doc {
 		if err := deps.Client.Dock(ctx); err != nil {
+			if huntEscapeBattle(ctx, deps, out, who, "while docking", err) {
+				return nil
+			}
 			fmt.Fprintf(out, "hunt: dock failed: %v; recovering to a station\n", err) //nolint:errcheck
 			needRecovery = true
 		}
 	}
 	if needRecovery {
 		if err := huntRecoverToStation(ctx, deps, out, state.System.ID); err != nil {
+			if huntEscapeBattle(ctx, deps, out, who, "relocating to a station", err) {
+				return nil
+			}
 			fmt.Fprintf(out, "hunt: reposition failed: %v; retry next pass\n", err) //nolint:errcheck
 		}
 		return nil // re-read the board fresh at the new station next pass
@@ -364,6 +395,9 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	if !deps.boardGate.shouldPoll(station, huntNow(deps)) {
 		fmt.Fprintf(out, "hunt[%s]: board at %s unchanged and nothing admissible last pass; not re-reading for up to %v\n", //nolint:errcheck
 			who, station, game.SleepMissionBoardPoll)
+		// Bank while docked; held missions' items (last active_missions
+		// read, no new query) stay aboard.
+		huntBankAtDock(ctx, deps, out, who, nil)
 		return nil
 	}
 
@@ -374,16 +408,50 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 
 	// Step 2: continue a mission this agent already holds, or accept a new one
 	// off the board.
-	job, ok := huntSelectJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
-	if !ok {
+	job, ok, dry := huntSelectJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
+	// Still docked: bank spare parts here (at the base or CJ only), keeping
+	// every held mission's items aboard -- the selected need's and any held
+	// need this pass declined to resume.
+	var keep map[string]int
+	if ok && job.need != nil {
+		keep = map[string]int{job.need.ItemID: job.need.Quantity}
+	}
+	huntBankAtDock(ctx, deps, out, who, keep)
+	if ok {
+		// Found work, so the agent is not idle -- keep reading every pass, or
+		// huntResumeJob would stop finding the mission it is holding.
+		deps.boardGate.record(station, huntNow(deps), false)
+		// Found NEW work: the Station Need radius and the roam list start
+		// over. A resumed job does not reset them: a held need that cannot
+		// find a ground must keep widening (huntNeedSearchFailed).
+		if !job.resumed {
+			huntRoamFoundJob(deps, out)
+		}
+	} else {
 		// Dry: nothing to resume, nothing admissible. Arm the backoff.
 		deps.boardGate.record(station, huntNow(deps), true)
-		return nil
+		// A genuinely dry board makes this pass's one roaming move; only a
+		// hunter already docked at home goes on to hunt this pass.
+		if !dry || !huntRoamAfterDry(ctx, deps, out, who) {
+			return nil
+		}
+		job = huntJob{boardID: "home grounds", title: "home grounds", home: true}
 	}
-	// Found work, so the agent is not idle -- keep reading every pass, or
-	// huntResumeJob would stop finding the mission it is holding.
-	deps.boardGate.record(station, huntNow(deps), false)
-	publishActivity(deps.SetActivity, huntActivityLabel(job))
+	if job.need != nil || job.home {
+		// Creature work is never done with the interlock off: the role check
+		// on quarry and the in-fight predator guard both apply, whatever the
+		// worker was configured with.
+		on := true
+		deps.WildlifeOnly = &on
+		wildlifeOnly = true
+		if job.home {
+			publishActivity(deps.SetActivity, "Hunt home grounds")
+		} else {
+			publishActivity(deps.SetActivity, huntNeedActivityLabel(job, huntNeedHeld(deps.Client.GetState(), *job.need)))
+		}
+	} else {
+		publishActivity(deps.SetActivity, huntActivityLabel(job))
+	}
 
 	// Whatever ends the pass — the objective met, the cap, a flee, an error —
 	// report what the server counted, once. Deferred rather than repeated at
@@ -392,7 +460,8 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	kills, attempts := 0, 0
 	reported := false
 	report := func() {
-		if reported {
+		// A need's progress is the hold, and home hunting has no mission.
+		if reported || job.need != nil || job.home {
 			return
 		}
 		reported = true
@@ -402,6 +471,20 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 
 	target := job.target
 
+	// A need whose parts are already aboard (a resumed delivery that broke
+	// off on the way) goes straight to the target base.
+	if job.need != nil && huntReadHeld(ctx, deps, out, *job.need) >= job.need.Quantity {
+		huntDeliverNeed(ctx, deps, out, who, job)
+		return nil
+	}
+
+	// Creature work never flies out to a ground on a hull below the repair
+	// bar: the dock repair above is best-effort, so gate on the hull itself.
+	// Bounty/combat work under the opt-out keeps today's behaviour.
+	if (job.need != nil || job.home || wildlifeOnly) && !huntReadyToLeave(ctx, deps, out, who) {
+		return nil
+	}
+
 	// Steps 4-5: travel out to a hunting ground and read what is there. The
 	// board is at a station and the quarry is not; without this leg the pass
 	// reads "no creatures at this POI" at a station forever.
@@ -410,10 +493,12 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		return nil
 	}
 
-	// Steps 6-7: hunt until the objective is met, the engagement cap is hit,
+	// Steps 6-7: hunt until the objective is met (kills for a kill mission,
+	// the hold's count of the part for a need), the engagement cap is hit,
 	// the pool of huntable creatures runs out, or the hull drops below the
 	// flee threshold.
-	for kills < target && attempts < huntMaxEngagements {
+	needMet := false
+	for (job.need != nil || job.home || kills < target) && attempts < huntMaxEngagements {
 		// The between-engagement hull gate. It reads a value that only
 		// get_status refreshes: parseBattleStatusData populates BattleState
 		// and InBattle but never Ship.Hull, so without this free query the
@@ -424,6 +509,15 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 			return nil
 		}
 		st := deps.Client.GetState()
+		// A need's progress is the hold, re-read before every engagement.
+		if job.need != nil {
+			held := huntReadHeld(ctx, deps, out, *job.need)
+			publishActivity(deps.SetActivity, huntNeedActivityLabel(job, held))
+			if held >= job.need.Quantity {
+				needMet = true
+				break
+			}
+		}
 		if st != nil && st.Ship.MaxHull > 0 && st.Ship.Hull/st.Ship.MaxHull < fleeAtHull {
 			frac := st.Ship.Hull / st.Ship.MaxHull
 			fmt.Fprintf(out, "hunt[%s]: hull %.0f%% below flee threshold %.0f%% after %d/%d kill(s); breaking off\n", //nolint:errcheck
@@ -449,6 +543,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		if st != nil && st.InBattle {
 			fmt.Fprintf(out, "hunt: still a participant in an unresolved battle after %d/%d kill(s); %s held for next pass\n", //nolint:errcheck
 				kills, target, job.boardID)
+			huntEscapeBattle(ctx, deps, out, who, "between engagements", nil)
 			return nil
 		}
 
@@ -464,6 +559,9 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		}
 		quarry = slices.Delete(quarry, idx, idx+1)
 
+		// LastBattleID is never cleared, so a fight that learns no id of its own
+		// would re-capture the previous one; remember what was there before.
+		idBefore := huntBattleID(deps)
 		if err := deps.Client.Hunt(ctx, c.CreatureID); err != nil {
 			fmt.Fprintf(out, "hunt: engage %s failed: %v\n", c.CreatureID, err) //nolint:errcheck
 			attempts++
@@ -471,7 +569,8 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		}
 		attempts++
 
-		outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID)
+		outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID, wildlifeOnly || job.need != nil)
+		huntCaptureAttacks(ctx, deps, out, idBefore)
 
 		// The carcass is the kill receipt: a wreck whose victim_id is the
 		// creature we just engaged is the only evidence this pass has that
@@ -479,7 +578,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		// ENDED proves nothing, since a battle ends when the quarry escapes
 		// too.
 		if outcome != huntFled {
-			if huntLootCarcass(ctx, deps, out, c, fightTicks) {
+			if huntLootCarcass(ctx, deps, out, c, fightTicks, job.need) {
 				kills++
 				fmt.Fprintf(out, "hunt[%s]: %s down (%d/%d)\n", who, c.CreatureID, kills, target) //nolint:errcheck
 			} else {
@@ -497,9 +596,32 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 			return nil
 		case huntBattleError:
 			fmt.Fprintf(out, "hunt: ending pass after a battle error at %d/%d kill(s); %s held for next pass\n", kills, target, job.boardID) //nolint:errcheck
+			huntEscapeBattle(ctx, deps, out, who, "after a battle error", nil)
 			return nil
 		case huntResolved, huntGaveUp:
 		}
+	}
+
+	if job.need != nil {
+		// The cap ended the loop before the top-of-loop read; read once more.
+		held := job.need.Quantity
+		if !needMet {
+			held = huntReadHeld(ctx, deps, out, *job.need)
+		}
+		if held < job.need.Quantity {
+			fmt.Fprintf(out, "hunt: %s holds %d/%d %s after %d kill(s); held for next pass\n", //nolint:errcheck
+				job.boardID, held, job.need.Quantity, job.need.ItemID, kills)
+			return nil
+		}
+		// Step 8 for a need: fly the parts to the target base and complete.
+		huntDeliverNeed(ctx, deps, out, who, job)
+		return nil
+	}
+
+	if job.home {
+		// Parts ride home in the hold; the next pass docked at CJ banks them.
+		fmt.Fprintf(out, "hunt[%s]: home grounds pass done: %d kill(s)\n", who, kills) //nolint:errcheck
+		return nil
 	}
 
 	if kills < target {
@@ -540,6 +662,13 @@ type huntJob struct {
 	baseline int // kills the server had already counted when this pass started
 	required string
 	resumed  bool
+	// need is the Station Need delivery this job works, nil for kill
+	// missions. A need job hunts only need.Species, stops when the hold has
+	// need.Quantity of need.ItemID, and completes at need.TargetBaseID.
+	need *huntNeed
+	// home is mission-less home hunting (huntRoamAfterDry): grazer/scavenger
+	// quarry on the home grounds until the engagement cap or the pool runs out.
+	home bool
 }
 
 // huntJobName is what to call this mission on a status line: its title, or the
@@ -591,11 +720,24 @@ func huntBreakOffLabel(job huntJob, kills int) string {
 // board; idling" while every worker still looked healthy. Missions solves this
 // the same way and for the same reason (mission.go's missionResume, run before
 // anything is accepted).
-func huntSelectJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, maxDifficulty int, wildlifeOnly bool, earned map[string]string) (huntJob, bool) {
-	if job, ok := huntResumeJob(ctx, deps, out, who, wildlifeOnly); ok {
-		return job, true
+//
+// dry is true when the board was read and nothing on it, kill mission or
+// Station Need, was workable (huntNeedJob's dry search) -- the signal for the
+// roaming move.
+func huntSelectJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, maxDifficulty int, wildlifeOnly bool, earned map[string]string) (job huntJob, ok, dry bool) {
+	if job, ok = huntResumeJob(ctx, deps, out, who, wildlifeOnly); ok {
+		return job, true, false
 	}
-	return huntBoardJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
+	board, read := huntReadBoard(ctx, deps, out)
+	if !read {
+		return huntJob{}, false, false
+	}
+	if job, ok = huntBoardJob(ctx, deps, out, who, board, maxDifficulty, wildlifeOnly, earned); ok {
+		return job, true, false
+	}
+	// Station Needs come after the chain and kill missions, and only for a
+	// hull that takes creature work (checked inside).
+	return huntNeedJob(ctx, deps, out, who, board)
 }
 
 // huntResumeJob returns an already-accepted hunt mission to continue.
@@ -623,9 +765,22 @@ func huntResumeJob(ctx context.Context, deps HuntDeps, out io.Writer, who string
 		fmt.Fprintf(out, "hunt: parse active missions: %v; cannot resume this pass\n", err) //nolint:errcheck
 		return huntJob{}, false
 	}
+	active := make([]string, 0, len(resp.Missions))
+	for _, m := range resp.Missions {
+		active = append(active, m.MissionID)
+	}
+	huntPruneNeedDry(deps, out, active)
 	for _, m := range resp.Missions {
 		o, ok := huntKillObjective(m)
-		if !ok || o.Completed {
+		if !ok {
+			// Not a kill mission; a held Station Need is rebuilt and
+			// re-admitted, anything else is not ours.
+			if job, ok := huntResumeNeed(ctx, deps, out, who, m); ok {
+				return job, true
+			}
+			continue
+		}
+		if o.Completed {
 			continue
 		}
 		boardID := m.TemplateID
@@ -651,23 +806,29 @@ func huntResumeJob(ctx context.Context, deps HuntDeps, out io.Writer, who string
 	return huntJob{}, false
 }
 
-// huntBoardJob reads the station board and accepts the first admissible entry,
-// logging every refusal with its reason.
-func huntBoardJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, maxDifficulty int, wildlifeOnly bool, earned map[string]string) (huntJob, bool) {
+// huntReadBoard reads and parses the station's mission board, once per pass:
+// the kill-mission and Station Need stages both choose from it.
+func huntReadBoard(ctx context.Context, deps HuntDeps, out io.Writer) (serverapi.GetMissionsResponse, bool) {
+	var board serverapi.GetMissionsResponse
 	if err := deps.Client.GetMissions(ctx); err != nil {
 		fmt.Fprintf(out, "hunt: get_missions: %v\n", err) //nolint:errcheck
-		return huntJob{}, false
+		return board, false
 	}
 	raw := deps.Client.GetRawJSON("missions")
 	if len(raw) == 0 {
 		fmt.Fprintln(out, "hunt: get_missions returned no data") //nolint:errcheck
-		return huntJob{}, false
+		return board, false
 	}
-	var board serverapi.GetMissionsResponse
 	if err := json.Unmarshal(raw, &board); err != nil {
 		fmt.Fprintf(out, "hunt: parse board: %v\n", err) //nolint:errcheck
-		return huntJob{}, false
+		return board, false
 	}
+	return board, true
+}
+
+// huntBoardJob accepts the first admissible kill mission on the board,
+// logging every refusal with its reason.
+func huntBoardJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, board serverapi.GetMissionsResponse, maxDifficulty int, wildlifeOnly bool, earned map[string]string) (huntJob, bool) {
 	var chosen *serverapi.MissionBoardEntry
 	for i := range board.Missions {
 		e := board.Missions[i]
@@ -724,13 +885,32 @@ func huntBoardJob(ctx context.Context, deps HuntDeps, out io.Writer, who string,
 // mission that keeps being retried.
 func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, wildlifeOnly bool) ([]serverapi.NearbyCreature, bool) {
 	var tried []string
+	// Creature work leaves any ground a predator (or a creature of unknown
+	// role) is at; predatorAt is that ground while the ship is still on it.
+	guarded := job.home || job.need != nil || wildlifeOnly
+	predatorAt := ""
 	for range huntMaxGrounds {
-		poi, err := huntTravelToWildlifePOI(ctx, deps, out, job.required, tried)
+		var poi string
+		var err error
+		switch {
+		case job.home:
+			poi, err = huntTravelToHomeGround(ctx, deps, out, tried)
+		case job.need != nil:
+			poi, err = huntTravelToNeedGround(ctx, deps, out, *job.need, tried)
+		default:
+			poi, err = huntTravelToWildlifePOI(ctx, deps, out, job.required, tried, wildlifeOnly)
+		}
 		if err != nil {
+			if huntEscapeBattle(ctx, deps, out, who, "on the way to a ground", err) {
+				return nil, false
+			}
 			if len(tried) > 0 {
 				break // the sweep ran out of grounds; report it as a sweep
 			}
 			fmt.Fprintf(out, "hunt: reaching a wildlife POI: %v; %s held for next pass\n", err, job.boardID) //nolint:errcheck
+			if errors.Is(err, errHuntNoNeedGround) {
+				huntNeedSearchFailed(deps, out, who, job)
+			}
 			return nil, false
 		}
 		tried = append(tried, poi)
@@ -741,10 +921,38 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		nearby, err := huntNearbyCreatures(ctx, deps, out, poi)
 		if err != nil {
 			fmt.Fprintf(out, "hunt: %v\n", err) //nolint:errcheck
+			huntEscapeBattle(ctx, deps, out, who, "reading the ground", err)
 			return nil, false
 		}
+		// Once per arrival, before the admissibility gate: a species we will not
+		// hunt is still one the field guide wants scanned.
+		huntScanUnknown(ctx, deps, out, nearby.Creatures)
 
-		if quarry := huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out); len(quarry) > 0 {
+		// Spec: "If a predator is present when the hunter arrives at a ground,
+		// it leaves that ground." Not just "never engages it": hunting the
+		// grazers beside a predator keeps the ship in its reach for a whole
+		// pass. Treated like an empty ground -- tried, and the sweep moves on.
+		if guarded {
+			if p, found := huntPredatorPresent(nearby.Creatures); found {
+				fmt.Fprintf(out, "hunt[%s]: PREDATOR PRESENT at %s: %s (%s) role %q is not huntable wildlife; leaving this ground\n", //nolint:errcheck
+					who, poi, p.CreatureID, p.Species, p.Role)
+				predatorAt = poi
+				continue
+			}
+		}
+		predatorAt = ""
+
+		var quarry []serverapi.NearbyCreature
+		switch {
+		case job.home:
+			// Any grazer or scavenger: the role check is the no-predator rule.
+			quarry = huntAdmissibleQuarry(nearby.Creatures, true, "", out)
+		case job.need != nil:
+			quarry = huntNeedQuarry(nearby.Creatures, job.need.Species, out)
+		default:
+			quarry = huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out)
+		}
+		if len(quarry) > 0 {
 			return quarry, true
 		}
 		// Standing in the wrong place is its own outcome, and the one an
@@ -756,6 +964,9 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		switch {
 		case len(nearby.Creatures) == 0:
 			fmt.Fprintf(out, "hunt: no creatures at %s; trying another ground\n", poi) //nolint:errcheck
+		case job.need != nil:
+			fmt.Fprintf(out, "hunt[%s]: WRONG POI: %s needs %s and %s holds %s; no engagement attempted\n", //nolint:errcheck
+				who, job.boardID, strings.Join(job.need.Species, "/"), poi, huntSpeciesSeen(nearby.Creatures))
 		case job.required != "":
 			fmt.Fprintf(out, "hunt[%s]: WRONG POI: %s needs %q and %s holds %s; no engagement attempted\n", //nolint:errcheck
 				who, job.boardID, job.required, poi, huntSpeciesSeen(nearby.Creatures))
@@ -764,7 +975,35 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		}
 	}
 	fmt.Fprintf(out, "hunt: no quarry found across %d ground(s) %v; %s held for next pass\n", len(tried), tried, job.boardID) //nolint:errcheck
+	huntNeedSearchFailed(deps, out, who, job)
+	huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
 	return nil, false
+}
+
+// huntPredatorPresent returns the first creature whose role is not quarry
+// (huntQuarryRoles): a predator, or a role that is unknown or missing.
+func huntPredatorPresent(creatures []serverapi.NearbyCreature) (serverapi.NearbyCreature, bool) {
+	for _, c := range creatures {
+		if !huntQuarryRoles[c.Role] {
+			return c, true
+		}
+	}
+	return serverapi.NearbyCreature{}, false
+}
+
+// huntLeavePredatorGround moves a ship that is still standing on a predator
+// ground (the sweep found nowhere else to go) to the nearest station, rather
+// than leaving it parked there until the next pass.
+func huntLeavePredatorGround(ctx context.Context, deps HuntDeps, out io.Writer, who, predatorAt string) {
+	st := deps.Client.GetState()
+	if predatorAt == "" || st == nil || st.CurrentPOI != predatorAt {
+		return
+	}
+	fmt.Fprintf(out, "hunt[%s]: leaving predator ground %s for the nearest station\n", who, predatorAt) //nolint:errcheck
+	if err := huntRecoverToStation(ctx, deps, out, st.System.ID); err != nil {
+		fmt.Fprintf(out, "hunt[%s]: leaving %s failed: %v\n", who, predatorAt, err) //nolint:errcheck
+		huntEscapeBattle(ctx, deps, out, who, "leaving a predator ground", err)
+	}
 }
 
 // huntObjectiveTarget returns the first kill_creature objective's target id and
@@ -1127,6 +1366,15 @@ func huntPickQuarry(creatures []serverapi.NearbyCreature) (serverapi.NearbyCreat
 type huntPolicy struct {
 	fleeAtHull   float64
 	wildlifeOnly bool
+	// creature turns on the trend break-off (huntWornDown) on top of the
+	// fleeAtHull floor. Bounty and other combat fights leave it false and keep
+	// the single-threshold policy.
+	creature bool
+	// startSelf / startEnemy are the own and lowest-enemy hull percentages on
+	// the first tick where both were reported (non-zero); 0 means not yet
+	// recorded, and the trend is never judged until both are.
+	startSelf  int
+	startEnemy int
 	// outcome is set once, when the policy decides to break off; the resolved
 	// case never sets it (the loop just ends).
 	outcome huntOutcome
@@ -1195,6 +1443,22 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 	// longer a participant, which ends the loop anyway.
 	if v.Self.HullPct > 0 && float64(v.Self.HullPct)/100 < p.fleeAtHull {
 		return p.breakOff(huntFled, fmt.Sprintf("hull %d%% below flee threshold %.0f%%", v.Self.HullPct, p.fleeAtHull*100))
+	}
+
+	// Creature fights add a trend judgement above the floor: a hunter worn to
+	// half hull by a creature that is not being worn down as fast is losing
+	// the trade, so it retreats; one trading at least evenly fights on to the
+	// floor to finish the kill. Hull 0 is "not reported", as above.
+	if p.creature {
+		self, enemy := v.Self.HullPct, huntLowestEnemyHull(v)
+		if self > 0 && enemy > 0 {
+			if p.startSelf == 0 {
+				p.startSelf, p.startEnemy = self, enemy
+			} else if huntWornDown(p.startSelf, self, p.startEnemy, enemy) {
+				return p.breakOff(huntFled, fmt.Sprintf("worn down: hull %d%%->%d%% while the creature only %d%%->%d%%",
+					p.startSelf, self, p.startEnemy, enemy))
+			}
+		}
 	}
 
 	if p.ticks > huntMaxBattleTicks {
@@ -1291,6 +1555,19 @@ func (p *huntPolicy) breakOff(o huntOutcome, reason string) spar.Action {
 	return spar.Action{Kind: spar.ActionBattle, BattleAction: "stance", Payload: map[string]any{"stance": huntStanceFlee}}
 }
 
+// huntWornDownHull is the own hull percentage at or below which a creature
+// fight that is going the wrong way is abandoned.
+const huntWornDownHull = 50
+
+// huntWornDown reports whether a creature fight should be abandoned on its
+// trend: own hull is at or below 50% and the creature has lost a smaller share
+// of its hull than the hunter has. The creature's own hull level does not
+// exempt the retreat: a wounded creature that is barely being scratched is
+// still winning the trade. All four arguments are hull percentages.
+func huntWornDown(startSelf, self, startEnemy, enemy int) bool {
+	return self <= huntWornDownHull && startEnemy-enemy < startSelf-self
+}
+
 // huntLowestEnemyHull returns the lowest living enemy hull percentage, or -1
 // when the view holds no enemies.
 func huntLowestEnemyHull(v spar.View) int {
@@ -1312,7 +1589,10 @@ func huntLowestEnemyHull(v spar.View) int {
 // per-species combat cost this pass can measure for free: the fight length is
 // counted by the policy loop, whereas damage dealt and taken live on the
 // battle_ended push, which nothing stores in State yet.
-func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull float64, creatureID string) (huntOutcome, int) {
+//
+// creature turns on the trend break-off for creature fights (huntWornDown);
+// bounty and other combat fights pass false and keep today's policy.
+func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull float64, creatureID string, creature bool) (huntOutcome, int) {
 	selfID := ""
 	if st := deps.Client.GetState(); st != nil {
 		selfID = st.Player.ID
@@ -1321,7 +1601,7 @@ func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull flo
 		fmt.Fprintf(out, "hunt: own player id unknown; cannot drive the fight vs %s\n", creatureID) //nolint:errcheck
 		return huntBattleError, 0
 	}
-	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: huntWildlifeOnly(deps)}
+	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: huntWildlifeOnly(deps), creature: creature}
 	if err := spar.RunPolicyLoop(ctx, deps.Client, selfID, p, deps.tickSleep); err != nil {
 		fmt.Fprintf(out, "hunt: fight vs %s ended on error after %d tick(s): %v\n", creatureID, p.ticks, err) //nolint:errcheck
 		return huntBattleError, p.ticks
@@ -1346,7 +1626,11 @@ func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull flo
 // its own species — a creature wreck carries victim_name but an EMPTY ship_class
 // — so the species recorded against the kill has to be the one get_nearby
 // reported at engage time.
-func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, c serverapi.NearbyCreature, fightTicks int) bool {
+//
+// need, when set, is the Station Need the pass works: its item is looted first,
+// and other items only into hold space the rest of the need does not still
+// require, so surplus loot never pushes the mission part out.
+func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, c serverapi.NearbyCreature, fightTicks int, need *huntNeed) bool {
 	creatureID := c.CreatureID
 	if err := deps.Client.GetWrecks(ctx); err != nil {
 		fmt.Fprintf(out, "hunt: get_wrecks after %s: %v\n", creatureID, err) //nolint:errcheck
@@ -1381,14 +1665,39 @@ func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, c server
 	// The hold is the only limit that matters here. Never jettison to make
 	// room: a hunt's cargo is worth less than whatever is already aboard was
 	// worth carrying.
-	free := 0.0
-	if st := deps.Client.GetState(); st != nil {
+	free, reserve := 0.0, 0.0
+	st := deps.Client.GetState()
+	if st != nil {
 		free = st.Ship.CargoCapacity - st.Ship.CargoUsed
 	}
+	items := w.Cargo
+	if need != nil {
+		reserve = max(0, float64(need.Quantity)-cargoQty(st, need.ItemID))
+		// The mission part first, everything else after in carcass order.
+		items = make([]serverapi.CargoItem, 0, len(w.Cargo))
+		for _, it := range w.Cargo {
+			if it.ItemID == need.ItemID {
+				items = append(items, it)
+			}
+		}
+		for _, it := range w.Cargo {
+			if it.ItemID != need.ItemID {
+				items = append(items, it)
+			}
+		}
+	}
 	looted := 0.0
-	for _, item := range w.Cargo {
-		qty := min(item.Quantity, free-looted)
+	for _, item := range items {
+		room := free - looted
+		if need != nil && item.ItemID != need.ItemID {
+			room -= reserve
+		}
+		qty := min(item.Quantity, room)
 		if qty <= 0 {
+			if need != nil && item.ItemID != need.ItemID && free-looted > 0 {
+				fmt.Fprintf(out, "hunt: keeping hold space for %s; leaving %.0f %s on carcass %s\n", need.ItemID, item.Quantity, item.ItemID, w.ID) //nolint:errcheck
+				continue
+			}
 			fmt.Fprintf(out, "hunt: hold full; leaving %.0f %s on carcass %s\n", item.Quantity, item.ItemID, w.ID) //nolint:errcheck
 			break
 		}
@@ -1397,6 +1706,9 @@ func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, c server
 			continue
 		}
 		looted += qty
+		if need != nil && item.ItemID == need.ItemID {
+			reserve = max(0, reserve-qty)
+		}
 		fmt.Fprintf(out, "hunt: looted %.0f %s from carcass %s\n", qty, item.ItemID, w.ID) //nolint:errcheck
 	}
 	// Salvage is the fallback for cargo the hold cannot take, and it consumes
@@ -1415,7 +1727,12 @@ func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, c server
 // huntTravelToWildlifePOI moves the pass from the station board out to a POI
 // that can hold wildlife (huntWildlifePOITypes), preferring one in the current
 // system and otherwise routing to the nearest system that has one.
-func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, required string, exclude []string) (string, error) {
+//
+// policed is creature work (the wildlife-only interlock): grounds and routes
+// are empire-policed only -- no relaxed unpoliced ground, no local POI in an
+// unpoliced system, and the leg is flown on a policed route (huntAutopilot).
+// Off, the opt-out keeps today's behaviour.
+func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, required string, exclude []string, policed bool) (string, error) {
 	if deps.KB == nil {
 		return "", fmt.Errorf("no knowledge base configured")
 	}
@@ -1429,7 +1746,7 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 	if poiType, scoped := huntSpeciesPOIType[required]; scoped {
 		// The mission names its quarry, so the ground is determined: search
 		// only where that species lives, under the rules for that ground.
-		destSystem, destPOI, why = huntFindGround(ctx, deps.KB, current, poiType, exclude)
+		destSystem, destPOI, why = huntFindGround(ctx, deps.KB, current, poiType, exclude, policed)
 		if destPOI == "" {
 			return "", fmt.Errorf("no %s reachable from %s that suits %s", poiType, current, required)
 		}
@@ -1437,10 +1754,12 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 		// Unscoped: any wildlife POI will do, nearest and least-worked first,
 		// and the system we are already in is free.
 		destSystem = current
-		destPOI, why = huntLocalWildlifePOI(ctx, deps.KB, current, exclude)
+		if !policed || huntPolicedSystem(ctx, deps.KB, current) {
+			destPOI, why = huntLocalWildlifePOI(ctx, deps.KB, current, exclude)
+		}
 		if destPOI == "" {
 			for _, t := range huntWildlifePOITypes {
-				sys, poi, reason := huntFindGround(ctx, deps.KB, current, t, exclude)
+				sys, poi, reason := huntFindGround(ctx, deps.KB, current, t, exclude, policed)
 				if poi != "" {
 					destSystem, destPOI, why = sys, poi, reason
 					break
@@ -1460,7 +1779,14 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 		}
 	}
 	fmt.Fprintf(out, "hunt: heading to %s/%s (%s) to find wildlife\n", destSystem, destPOI, why) //nolint:errcheck
-	if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, destSystem, destPOI); err != nil {
+	ap := AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}
+	if policed {
+		var err error
+		if ap, err = huntAutopilot(ctx, deps, out, false); err != nil {
+			return "", err
+		}
+	}
+	if err := Autopilot(ctx, ap, destSystem, destPOI); err != nil {
 		return "", fmt.Errorf("transit to %s: %w", destPOI, err)
 	}
 	return destPOI, nil
@@ -1610,8 +1936,9 @@ func huntResourceTotals(p knowledge.POI) (remaining, richness float64) {
 //
 // The policed requirement is relaxed on a second pass for non-belt grounds, so
 // a nebula hunt is not left with nowhere to go. It is NEVER relaxed for belts:
-// there, policed and station-less are the rule itself.
-func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string, exclude []string) (systemID, poiID, why string) {
+// there, policed and station-less are the rule itself -- and never when
+// policedOnly (creature work: empire-policed grounds only).
+func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string, exclude []string, policedOnly bool) (systemID, poiID, why string) {
 	graph := &galaxy.GalaxyGraph{}
 	if err := graph.BuildFromDB(ctx, kb); err != nil {
 		return "", "", ""
@@ -1647,7 +1974,7 @@ func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string
 				}
 			}
 		}
-		if poiType == huntPOITypeBelt {
+		if poiType == huntPOITypeBelt || policedOnly {
 			break
 		}
 	}

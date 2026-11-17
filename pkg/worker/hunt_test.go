@@ -124,6 +124,8 @@ type huntFakeOpts struct {
 	// battleHullPct is our own hull percentage the battle picture reports
 	// during the FIRST fight. 0 means full hull throughout.
 	battleHullPct int
+	// noNewBattleID: only the first engagement learns a battle id.
+	noNewBattleID bool
 	// shieldStart overrides the fixture ship's current shield (0 -> a full
 	// bar). shieldRecharge overrides the ship's reported per-tick recovery,
 	// which is also what the fake actually recovers per get_status — the point
@@ -191,9 +193,9 @@ type huntFake struct {
 	actives  []serverapi.ActiveMission
 	accepted bool
 
-	// repairErr is what the station answers a repair with. The fake never
-	// heals: these tests assert on the CALL, since the executor logs and
-	// continues either way and takes no decision from the outcome.
+	// repairErr is what the station answers a repair with. A repair that
+	// succeeds restores the hull; a failed one leaves it where it was, and
+	// creature work then holds for repair rather than flying out damaged.
 	repairErr error
 
 	// agentsDir is a per-test temp directory standing in for data/agents, so
@@ -248,8 +250,11 @@ func newHuntFake(t *testing.T, opts huntFakeOpts) *huntFake {
 			species = "belt_grazer"
 		}
 		role := c.role
-		if role == "" {
+		switch role {
+		case "":
 			role = "grazer"
+		case huntNoRole:
+			role = "" // the wire sent no role at all
 		}
 		hull := c.hull
 		if hull == 0 {
@@ -508,6 +513,9 @@ func (f *huntFake) Repair(ctx context.Context) error {
 		f.calls = append(f.calls, "repair_failed")
 		return f.repairErr
 	}
+	// A repair that lands restores the hull, as the station does.
+	f.opts.shipHullFrac = 0
+	f.state.Ship.Hull = f.state.Ship.MaxHull
 	return f.fakeClient.Repair(ctx)
 }
 
@@ -552,6 +560,9 @@ func (f *huntFake) Hunt(ctx context.Context, creatureID string) error {
 	f.huntCalls++
 	f.calls = append(f.calls, "hunt:"+creatureID)
 	f.quarryID = creatureID
+	if !f.opts.noNewBattleID || f.huntCalls == 1 {
+		f.state.LastBattleID = "battle-" + creatureID
+	}
 
 	var resp serverapi.GetBattleStatusResponse
 	if err := json.Unmarshal([]byte(huntRealBattleStatusReply), &resp); err != nil {
@@ -649,10 +660,17 @@ func (f *huntFake) Battle(ctx context.Context, action string, payload map[string
 			}
 		}
 	case "target":
-		f.self().TargetID, _ = payload["target_id"].(string)
+		if s := f.self(); s != nil {
+			s.TargetID, _ = payload["target_id"].(string)
+		}
 	case "stance":
-		f.self().Stance, _ = payload["stance"].(string)
-		if f.self().Stance == "flee" {
+		stance, _ := payload["stance"].(string)
+		// A flee sent outside any simulated fight (a battle the pass did not
+		// start) has no battle picture to update.
+		if s := f.self(); s != nil {
+			s.Stance = stance
+		}
+		if stance == "flee" {
 			f.fled = true
 			f.fleeing = true
 		}
@@ -687,6 +705,20 @@ func (f *huntFake) SalvageWreck(ctx context.Context, wreckID string) error {
 	f.calls = append(f.calls, "salvage:"+wreckID)
 	return nil
 }
+
+// huntWoundAtGround makes get_status report hull at frac once the ship is at
+// the hunting ground: it left the dock repaired and arrived wounded, which is
+// what the between-engagement gate exists for.
+func huntWoundAtGround(f *huntFake, frac float64) {
+	f.onGetStatus = func() {
+		if f.state.CurrentPOI == "pollux_outer_belt" {
+			f.state.Ship.Hull = frac * f.state.Ship.MaxHull
+		}
+	}
+}
+
+// huntNoRole in a huntCreature fixture means get_nearby reported no role.
+const huntNoRole = "-"
 
 func huntGrazers(ids ...string) []huntCreature {
 	out := make([]huntCreature, 0, len(ids))
@@ -792,7 +824,9 @@ func TestHuntFleesBelowHullThreshold(t *testing.T) {
 	}
 	// The abort must dominate: nothing that closes the range may be issued in
 	// a fight it has already decided to escape.
-	if len(c.battleActions) == 0 || c.battleActions[0] != "stance:flee" {
+	// The pass-start default_stance is not a fight action; skip it.
+	fight := slices.DeleteFunc(slices.Clone(c.battleActions), func(a string) bool { return strings.HasPrefix(a, "default_stance:") })
+	if len(fight) == 0 || fight[0] != "stance:flee" {
 		t.Errorf("first battle action = %v, want stance:flee before anything that closes the range", c.battleActions)
 	}
 	if countAction(c, "advance") != 0 {
@@ -804,10 +838,11 @@ func TestHuntFleesBelowHullThreshold(t *testing.T) {
 // refreshes; a worker that started the pass already wounded never engages.
 func TestHuntBreaksOffBeforeFirstEngagement(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
-		board:        []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 3}},
-		creatures:    huntGrazers("c1", "c2"),
-		shipHullFrac: 0.1,
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 3}},
+		creatures: huntGrazers("c1", "c2"),
 	})
+	// Left the dock repaired (the repair gate), wounded on arrival.
+	huntWoundAtGround(c, 0.1)
 	var log strings.Builder
 	deps := huntDeps(c, &log)
 	deps.FleeAtHull = 0.3
@@ -1111,8 +1146,10 @@ func TestHuntRefusesToEngageAPredator(t *testing.T) {
 	if called(c, "hunt:eel") {
 		t.Fatalf("engaged a predator: %v", c.calls)
 	}
-	if !called(c, "hunt:jelly") {
-		t.Errorf("want the grazer engaged, calls: %v", c.calls)
+	// A predator at the ground means the hunter leaves it: not even the
+	// grazer beside it is hunted.
+	if called(c, "hunt:jelly") {
+		t.Errorf("hunted beside a predator, calls: %v", c.calls)
 	}
 	if !strings.Contains(log.String(), `role "predator" is not huntable wildlife`) {
 		t.Errorf("must log the refusal with the role named, got:\n%s", log.String())
@@ -1604,24 +1641,38 @@ func TestHuntDoesNotRepairAFullHull(t *testing.T) {
 	}
 }
 
-// A repair that fails is not a reason to throw away a pass that can still
-// hunt: no funds and no repair service are both ordinary.
+// A failed repair: creature work holds rather than fly out damaged (the
+// repair gate, huntReadyToLeave), while a bounty/combat pass under the
+// wildlife-only opt-out keeps today's behaviour and hunts on.
 func TestHuntHuntsOnWhenTheRepairFails(t *testing.T) {
-	c := newHuntFake(t, huntFakeOpts{
-		board:        []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
-		creatures:    huntGrazers("c1"),
-		shipHullFrac: huntRepairAtHull - 0.1,
-	})
-	c.repairErr = errors.New("insufficient credits")
-	var log strings.Builder
-	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
-		t.Fatalf("Hunt: %v", err)
-	}
-	if c.huntCalls != 1 {
-		t.Errorf("hunt calls = %d, want 1 — a failed repair must not end the pass", c.huntCalls)
-	}
-	if !strings.Contains(log.String(), "insufficient credits") {
-		t.Errorf("must log why the repair failed, got:\n%s", log.String())
+	for _, tc := range []struct {
+		name      string
+		wildlife  bool
+		wantHunts int
+	}{
+		{"creature work holds", true, 0},
+		{"opt-out hunts on", false, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newHuntFake(t, huntFakeOpts{
+				board:        []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+				creatures:    huntGrazers("c1"),
+				shipHullFrac: huntRepairAtHull - 0.1,
+			})
+			c.repairErr = errors.New("insufficient credits")
+			var log strings.Builder
+			deps := huntDeps(c, &log)
+			deps.WildlifeOnly = huntBool(tc.wildlife)
+			if err := Hunt(context.Background(), deps); err != nil {
+				t.Fatalf("Hunt: %v", err)
+			}
+			if c.huntCalls != tc.wantHunts {
+				t.Errorf("hunt calls = %d, want %d\n%s", c.huntCalls, tc.wantHunts, log.String())
+			}
+			if !strings.Contains(log.String(), "insufficient credits") {
+				t.Errorf("must log why the repair failed, got:\n%s", log.String())
+			}
+		})
 	}
 }
 
@@ -1764,7 +1815,7 @@ func TestHuntBeltRuleClausesAreEachLoadBearing(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			kb := beltRuleKB(t, tc.police, tc.station, tc.resource)
-			_, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil)
+			_, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false)
 			if poi != tc.want {
 				t.Fatalf("chose %q (%s), want %q", poi, why, tc.want)
 			}
@@ -1777,13 +1828,17 @@ func TestHuntBeltRuleClausesAreEachLoadBearing(t *testing.T) {
 func TestHuntBeltRuleDoesNotRelaxToLawless(t *testing.T) {
 	ctx := context.Background()
 	kb := beltRuleKB(t, 0, false, huntBeltResource)
-	if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil); poi != "" {
+	if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false); poi != "" {
 		t.Fatalf("chose %q (%s) in a lawless system; a hunt there risks a hull that cannot be replaced", poi, why)
 	}
 	// A nebula hunt is different: nowhere policed must not mean nowhere at all.
 	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "candidate_nebula", SystemID: "candidate", Type: "nebula"})
-	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula", nil); poi != "candidate_nebula" {
+	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula", nil, false); poi != "candidate_nebula" {
 		t.Errorf("a non-belt ground must relax to unpoliced rather than strand the pass, chose %q", poi)
+	}
+	// ...except for creature work, whose grounds are empire-policed only.
+	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula", nil, true); poi != "" {
+		t.Errorf("policedOnly relaxed to an unpoliced nebula %q", poi)
 	}
 }
 
@@ -1796,7 +1851,7 @@ func TestHuntBeltRulePrefersTheFullerBelt(t *testing.T) {
 		Resources: []game.POIResource{{ResourceID: huntBeltResource, Richness: 32, Remaining: 100000}},
 	})
 	for i := range 25 {
-		if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil); poi != "candidate_richer" {
+		if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false); poi != "candidate_richer" {
 			t.Fatalf("draw %d: chose %q (%s), want candidate_richer — 100,000 iron beats 30,000", i, poi, why)
 		}
 	}
@@ -1820,7 +1875,7 @@ func TestHuntFliesToTheGroundItsSpeciesLivesOn(t *testing.T) {
 		if !ok {
 			t.Fatalf("%s has no ground mapped", species)
 		}
-		if _, poi, why := huntFindGround(ctx, kb, "test_system", poiType, nil); poi != want {
+		if _, poi, why := huntFindGround(ctx, kb, "test_system", poiType, nil, false); poi != want {
 			t.Errorf("%s: chose %q (%s), want %q", species, poi, why, want)
 		}
 	}

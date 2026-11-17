@@ -115,6 +115,9 @@ func SpawnWith(cfg SpawnConfig) SpawnFunc {
 		if len(spec.FactionPull) > 0 {
 			args = append(args, "--faction-pull", strings.Join(spec.FactionPull, ","))
 		}
+		if spec.GiftTo != "" {
+			args = append(args, "--gift-to", spec.GiftTo)
+		}
 		if spec.Pipeline != "" {
 			args = append(args, "--pipeline", spec.Pipeline)
 		}

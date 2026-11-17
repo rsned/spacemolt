@@ -145,10 +145,10 @@ func TestDispatchHuntIsSupportedAndDispatchable(t *testing.T) {
 // breaks off before engaging, and must say so.
 func TestHuntPublishesTheBreakOffBeforeTheFirstEngagement(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
-		board:        []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 3}},
-		creatures:    huntGrazers("c1", "c2"),
-		shipHullFrac: 0.1,
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 3}},
+		creatures: huntGrazers("c1", "c2"),
 	})
+	huntWoundAtGround(c, 0.1)
 	var log strings.Builder
 	deps := huntDeps(c, &log)
 	deps.FleeAtHull = 0.3

@@ -30,9 +30,9 @@ func TestEnsureDefaultStanceFleeSkips(t *testing.T) {
 	if err := ensureDefaultStanceFlee(context.Background(), io.Discard, &game.Ship{DefaultStance: "flee"}, f); err != nil || len(f.calls) != 0 {
 		t.Errorf("already flee: err %v, calls %v; want nothing sent", err, f.calls)
 	}
-	// hunt: BattleGateClient returns nil, so nothing is sent.
-	if err := ensureDefaultStanceFlee(context.Background(), io.Discard, &game.Ship{}, BattleGateClient("hunt", f)); err != nil || len(f.calls) != 0 {
-		t.Errorf("hunt role: err %v, calls %v; want nothing sent", err, f.calls)
+	// A nil client (the caller opted out) sends nothing.
+	if err := ensureDefaultStanceFlee(context.Background(), io.Discard, &game.Ship{}, nil); err != nil || len(f.calls) != 0 {
+		t.Errorf("nil client: err %v, calls %v; want nothing sent", err, f.calls)
 	}
 }
 

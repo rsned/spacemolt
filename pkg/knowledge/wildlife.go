@@ -518,3 +518,32 @@ func boolInt(b bool) int {
 
 	return 0
 }
+
+// SpeciesDroppingItem returns every species a kill record shows dropping
+// itemID, most-frequent first. It is the reverse of GetWildlifeDropRates and
+// backs Station Need missions whose description names no source creature.
+func (kb *SQLiteKB) SpeciesDroppingItem(ctx context.Context, itemID string) ([]string, error) {
+	rows, err := kb.db.QueryContext(ctx, `
+		SELECT k.species
+		FROM wildlife_kill_drops d
+		JOIN wildlife_kills k
+		  ON k.creature_id = d.creature_id AND k.game_tick = d.game_tick
+		WHERE d.item_id = ? AND k.species <> ''
+		GROUP BY k.species
+		ORDER BY COUNT(*) DESC, k.species
+	`, itemID)
+	if err != nil {
+		return nil, fmt.Errorf("query species dropping %s: %w", itemID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return nil, fmt.Errorf("scan species dropping %s: %w", itemID, err)
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}

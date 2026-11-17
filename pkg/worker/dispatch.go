@@ -49,6 +49,7 @@ type WorkerDispatch struct {
 	Out             io.Writer
 	AgentID         string // claim owner for opportunity-claiming roles (e.g. hauler)
 	Station         string // home base id: pins the assist and missionrunner roles
+	GiftTo          string // hunt: collector agent id banked parts are gifted to (empty = bank only)
 	Role            string // --role; fit_drones keeps the harvester a role depends on
 	// TourRecipientSystem is a test seam for deliver_tour's location check.
 	// Nil reads the fleet status files.
@@ -280,7 +281,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true, "ensure_home": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
-	"hunt": true, "pathfinder_sweep": true,
+	"hunt": true, "pathfinder_sweep": true, "collect_gifts": true,
 	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "deliver_tour": true, "buy_directed": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "fit_check": true, "refit_trip": true, "launch_drones": true,
 	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "faction_deposit_all": true, "faction_restock": true, "faction_withdraw": true, "announce": true, "capture_craft_queue": true, "sell_all": true, "sell_ore": true, "craft_stock": true,
@@ -534,7 +535,16 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			AgentsDir:   d.AgentsDir,
 			SetActivity: d.setActivity,
 			boardGate:   d.huntBoard,
+			CaptureAttacks: func(ctx context.Context, battleID string) error {
+				return d.CaptureWildlifeAttacks(ctx, []string{battleID})
+			},
+			// The hunter's base: docked there, a pass banks its spare parts.
+			HomeStation: d.Station,
+			GiftTo:      d.GiftTo,
 		})
+	case "collect_gifts":
+		// collect_gifts STATION... : the hunter base stations to collect from.
+		return CollectGifts(ctx, CollectDeps{Client: d.Client, KB: d.KB, Out: d.Out, AgentsDir: d.AgentsDir}, args)
 	case "shuttle":
 		return Shuttle(ctx, ShuttleDeps{
 			Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID, Treasury: d.treasury, State: d.shuttle,

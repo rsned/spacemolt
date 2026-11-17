@@ -64,7 +64,7 @@ func TestHuntFindGroundLooksPastDisqualifiedBelts(t *testing.T) {
 	})
 	_ = kb.RememberSystem(ctx, home)
 
-	sys, poi, why := huntFindGround(ctx, kb, "home", huntPOITypeBelt, nil)
+	sys, poi, why := huntFindGround(ctx, kb, "home", huntPOITypeBelt, nil, false)
 	if poi != "good_belt" {
 		t.Fatalf("poi = %q (system %q, why %q), want good_belt — %d disqualified belts "+
 			"nearer than it must not exhaust the search limit of %d",
@@ -103,7 +103,7 @@ func TestHuntFindGroundStillPrefersNearestQualifying(t *testing.T) {
 		Resources: []game.POIResource{{ResourceID: huntBeltResource, Richness: 99, Remaining: 999999}},
 	})
 
-	if _, poi, why := huntFindGround(ctx, kb, "home", huntPOITypeBelt, nil); poi != "near_belt" {
+	if _, poi, why := huntFindGround(ctx, kb, "home", huntPOITypeBelt, nil, false); poi != "near_belt" {
 		t.Errorf("poi = %q (why %q), want near_belt — nearest qualifying, not richest", poi, why)
 	}
 }

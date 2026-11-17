@@ -337,3 +337,30 @@ func TestRecordWildlifeSightings_AppendsAndKeepsSource(t *testing.T) {
 		t.Errorf("survey row = %+v, want the estimate/abundance/bloom preserved", *survey)
 	}
 }
+
+func TestSpeciesDroppingItem(t *testing.T) {
+	kb := newTestKB(t)
+	ctx := context.Background()
+
+	for _, k := range []WildlifeKill{
+		{CreatureID: "c1", GameTick: 1, Species: "crusher_mantis", Role: "grazer", CarcassRead: true,
+			Drops: []WildlifeDrop{{ItemID: "mantis_claw", Quantity: 2}}},
+		{CreatureID: "c2", GameTick: 2, Species: "drift_ray", Role: "grazer", CarcassRead: true,
+			Drops: []WildlifeDrop{{ItemID: "crystallized_biogas", Quantity: 1}}},
+	} {
+		if err := kb.RecordWildlifeKill(ctx, k); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := kb.SpeciesDroppingItem(ctx, "mantis_claw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "crusher_mantis" {
+		t.Errorf("species = %v, want [crusher_mantis]", got)
+	}
+	if none, err := kb.SpeciesDroppingItem(ctx, "unknown_item"); err != nil || len(none) != 0 {
+		t.Errorf("unknown item = %v, %v; want empty", none, err)
+	}
+}
