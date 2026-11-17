@@ -17,5 +17,9 @@ Operator, 2026-11-08 (discussing Axiomata, the favoured T4 combat hull):
   solarian_legacy_alloy 10, solarian_logic_matrix 6) plus capital_ship_frame 13, sensor_array 140,
   shield_emitter 140, targeting_computer 10, navigation_core 22 and more.
 
+**Axiomata can only be commissioned at SOLARIAN stations** (operator, 11-17), and the requester needs
+the Piloting level for the tier. craftsman-1 qualifies (bare-hull quote 11-17: 864,777 provide-materials
+vs 6.21M cash; full BoM vol 2,328; only 2 station_reactor_core in the fleet, at cargo_lanes_freight_depot).
+
 Distinct from building at our own station, which needs a license (T4 = 20M) and a shipyard of the
 right tier; see [[reference_congregation_is_outerrim_exclusive]].
