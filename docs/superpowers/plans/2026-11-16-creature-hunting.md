@@ -159,14 +159,27 @@ pass keeps its shape: dock → board → job → ground → fights → complete.
   `need.Species`; the loop stops when cargo holds `need.Quantity` of `need.ItemID` (read from
   state cargo after each loot); then autopilot to `need.SystemID`, `travel need.TargetBaseID`,
   `dock`, `CompleteMission(activeID)`.
-- Produces: `func huntPickNeed(needs []huntNeed, jumpsTo func(systemID string) int) (huntNeed, bool)`
-  — best `Reward / (jumpsTo(ground)+jumpsTo(target)+1)`, only grounds within `huntNearbyJumps = 6`.
+- Produces: `func huntPickNeed(needs []huntNeed, jumpsTo func(systemID string) int, radius int) (huntNeed, bool)`
+  — best `Reward / (jumpsTo(ground)+jumpsTo(target)+1)`, only grounds within `radius` jumps.
+- **Adaptive reach (operator, 11-16):** many empire systems may already be depleted of wildlife,
+  so 6 jumps is a starting radius, not a limit. `huntNearbyJumps = 6` is the base; reuse
+  `desertRadius(idlePasses, base)` (haul_desert.go) so each pass that finds no qualifying ground
+  widens the radius, and a found job resets it (count kept in `huntRoam`, Task 7).
+- **Learn depletion as they go:** every ground visit already writes a coverage row
+  (`RecordWildlifeCoverage`, via `huntCaptureWildlife`). Ground choice ranks candidate POIs by
+  their latest looks (`LatestWildlifeLooks`): skip a POI whose last N=2 looks found none of
+  `need.Species` within the last 6 hours (`huntDepletedFor = 6h`), prefer POIs with a recent
+  sighting of the species, and treat never-looked POIs as worth one look. Empty looks expire, so a
+  regenerated ground comes back into play.
 - Order in `huntSelectJob`: resume → chain/combat board job (today) → Station Need (only when
   `huntCreatureWorkHull` is true).
 - Ground for a need: existing `huntFindGround` filtered to POIs where `GetWildlifeSightings`
   saw one of `need.Species`, empire-policed systems only (`requirePoliced=true`).
 
-- [ ] **Step 1:** Tests: `TestHuntPickNeedPrefersRewardPerJump`; `TestHuntPickNeedSkipsBeyondSixJumps`;
+- [ ] **Step 1:** Tests: `TestHuntPickNeedPrefersRewardPerJump`; `TestHuntPickNeedSkipsBeyondRadius`;
+  `TestHuntNeedRadiusWidensWhenDry` (two dry passes → radius > 6; a found job resets to 6);
+  `TestHuntGroundSkipsDepletedPOI` (2 empty looks for the species in the last 6h → skipped;
+  same looks 7h old → eligible again); `TestHuntGroundTriesUnlookedPOI`;
   `TestHuntDeliveryStopsAtQuantityAndDelivers` (fake: 3 kills × 4 caustic_sac → stops at 10+,
   calls travel/dock/complete at `target_base_id`, not the accepting station);
   `TestHuntDeliveryMissionPartWinsHoldSpace` (Review Focus 3: loot of other items never pushes
