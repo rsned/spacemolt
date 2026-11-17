@@ -1321,11 +1321,12 @@ func (p *huntPolicy) breakOff(o huntOutcome, reason string) spar.Action {
 const huntWornDownHull = 50
 
 // huntWornDown reports whether a creature fight should be abandoned on its
-// trend: own hull is at or below 50%, the creature has lost a smaller share of
-// its hull than the hunter has, and the creature is itself still above 50%.
-// All four arguments are hull percentages.
+// trend: own hull is at or below 50% and the creature has lost a smaller share
+// of its hull than the hunter has. The creature's own hull level does not
+// exempt the retreat: a wounded creature that is barely being scratched is
+// still winning the trade. All four arguments are hull percentages.
 func huntWornDown(startSelf, self, startEnemy, enemy int) bool {
-	return self <= huntWornDownHull && startEnemy-enemy < startSelf-self && enemy > huntWornDownHull
+	return self <= huntWornDownHull && startEnemy-enemy < startSelf-self
 }
 
 // huntLowestEnemyHull returns the lowest living enemy hull percentage, or -1

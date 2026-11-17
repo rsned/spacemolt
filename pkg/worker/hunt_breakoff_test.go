@@ -29,6 +29,14 @@ func TestHuntWornDownFightsOnWhenTradeIsEven(t *testing.T) {
 	}
 }
 
+// A creature already at or below 50% does not exempt the retreat: the hunter
+// losing 64 points while the creature loses 2 is still the wrong trade.
+func TestHuntWornDownRetreatsAgainstWoundedCreature(t *testing.T) {
+	if !huntWornDown(100, 36, 52, 50) {
+		t.Error("hunter 100->36, creature 52->50: want a retreat")
+	}
+}
+
 // Above 50% own hull the trend never forces a retreat, however lopsided.
 func TestHuntWornDownHoldsAboveHalfHull(t *testing.T) {
 	if huntWornDown(100, 51, 100, 100) {
