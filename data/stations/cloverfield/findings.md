@@ -519,3 +519,25 @@ fleet's entire scrubber stock. Stop-gaps:
   200 circuit_board; build 100 ticks). Upkeep 1 steel_plate + 1 fuel_cell per cycle (~86 each/day);
   CJ held 988 fuel_cell (~11 days) — needs a fuel_cell source before then. Also built today:
   2nd atmospheric_recycler (life support 12 → 24 when done), scrubber_cartridge_assembly_line.
+- 2026-11-12 ~11:45 PST · **measured** (operator get_base + hourly capture_base) · `tourism_revenue`
+  **372,457**. Daily gains from base_snapshots (UTC days): 11-10 +97,022 · 11-11 +108,164 ·
+  11-12 +89,882 in the first ~20 h (~4,500 cr/h, on pace for ~110k). Up from ~2,900 cr/h on
+  11-09. Rec lounge upkeep is ~8–9k/day, so tourism nets about 100k/day.
+
+## Build session 2026-11-12 (miningbot_0000, headless play_as)
+
+- 2026-11-12 · **measured** · **Rebuild from packages = `facility faction_build <type> --package_ids @data/facility-packages/<type>.json`**
+  (a JSON array of `package:<hash>` ids). Do NOT unpack first: `craft unpack_package` escrows each package
+  into a Station Workshop job that queues behind every other hand-craft (ETA ~1,240 ticks today), and
+  `faction_build` without `--package_ids` reports "0 in packages" even with the packages in faction storage.
+  `craft cancel --job_ids=...` returns escrowed packages to faction storage intact.
+- 2026-11-12 · **measured** · The build fee is charged again on a package rebuild (as on 10-28's Iron
+  Refinery, −89,000). Today: Intel Terminal 150k + Fiber Draw Tower 127k + Polymer Extruder 110k, plus the
+  Heavy Defense Battery upgrade 1.4M — treasury 9,562,147 → 7,787,952.
+- 2026-11-12 · **measured** · `facility upgrade --facility_id 876aa450… --facility_type heavy_defense_battery`
+  replaced the L2 Station Defense Turret with **Heavy Defense Battery L3 cde7a6cec4f3f8b677527d1b873d7d84**
+  (under construction). get_base during construction: weapon_dps 177 → 150, reach 2 → 1.
+- 2026-11-12 · **measured** · CJ's hand-craft queue is ONE Station Workshop queue per orderer
+  (98 jobs, purify_argon / build_targeting_computer / frag rounds / platinum wire…), so large hand-crafts
+  delay everything else miningbot_0000 orders. The H2 Fuel Combustor had 30 queued fuel jobs with the
+  tank at 100% (hourly `manufacture_fuel_basic 2000` piles up).
