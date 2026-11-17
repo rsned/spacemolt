@@ -387,7 +387,19 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// Found work, so the agent is not idle -- keep reading every pass, or
 	// huntResumeJob would stop finding the mission it is holding.
 	deps.boardGate.record(station, huntNow(deps), false)
-	publishActivity(deps.SetActivity, huntActivityLabel(job))
+	// Found work: the Station Need search radius starts over.
+	huntSetDryPasses(deps, out, 0)
+	if job.need != nil {
+		// Creature work is never done with the interlock off: the role check
+		// on quarry and the in-fight predator guard both apply, whatever the
+		// worker was configured with.
+		on := true
+		deps.WildlifeOnly = &on
+		wildlifeOnly = true
+		publishActivity(deps.SetActivity, huntNeedActivityLabel(job, huntNeedHeld(deps.Client.GetState(), *job.need)))
+	} else {
+		publishActivity(deps.SetActivity, huntActivityLabel(job))
+	}
 
 	// Whatever ends the pass — the objective met, the cap, a flee, an error —
 	// report what the server counted, once. Deferred rather than repeated at
@@ -396,7 +408,8 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	kills, attempts := 0, 0
 	reported := false
 	report := func() {
-		if reported {
+		// A need's progress is the hold, not a kill counter.
+		if reported || job.need != nil {
 			return
 		}
 		reported = true
@@ -406,6 +419,13 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 
 	target := job.target
 
+	// A need whose parts are already aboard (a resumed delivery that broke
+	// off on the way) goes straight to the target base.
+	if job.need != nil && huntReadHeld(ctx, deps, out, *job.need) >= job.need.Quantity {
+		huntDeliverNeed(ctx, deps, out, who, job)
+		return nil
+	}
+
 	// Steps 4-5: travel out to a hunting ground and read what is there. The
 	// board is at a station and the quarry is not; without this leg the pass
 	// reads "no creatures at this POI" at a station forever.
@@ -414,10 +434,12 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		return nil
 	}
 
-	// Steps 6-7: hunt until the objective is met, the engagement cap is hit,
+	// Steps 6-7: hunt until the objective is met (kills for a kill mission,
+	// the hold's count of the part for a need), the engagement cap is hit,
 	// the pool of huntable creatures runs out, or the hull drops below the
 	// flee threshold.
-	for kills < target && attempts < huntMaxEngagements {
+	needMet := false
+	for (job.need != nil || kills < target) && attempts < huntMaxEngagements {
 		// The between-engagement hull gate. It reads a value that only
 		// get_status refreshes: parseBattleStatusData populates BattleState
 		// and InBattle but never Ship.Hull, so without this free query the
@@ -428,6 +450,15 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 			return nil
 		}
 		st := deps.Client.GetState()
+		// A need's progress is the hold, re-read before every engagement.
+		if job.need != nil {
+			held := huntReadHeld(ctx, deps, out, *job.need)
+			publishActivity(deps.SetActivity, huntNeedActivityLabel(job, held))
+			if held >= job.need.Quantity {
+				needMet = true
+				break
+			}
+		}
 		if st != nil && st.Ship.MaxHull > 0 && st.Ship.Hull/st.Ship.MaxHull < fleeAtHull {
 			frac := st.Ship.Hull / st.Ship.MaxHull
 			fmt.Fprintf(out, "hunt[%s]: hull %.0f%% below flee threshold %.0f%% after %d/%d kill(s); breaking off\n", //nolint:errcheck
@@ -478,7 +509,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		}
 		attempts++
 
-		outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID, wildlifeOnly)
+		outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID, wildlifeOnly || job.need != nil)
 		huntCaptureAttacks(ctx, deps, out, idBefore)
 
 		// The carcass is the kill receipt: a wreck whose victim_id is the
@@ -487,7 +518,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		// ENDED proves nothing, since a battle ends when the quarry escapes
 		// too.
 		if outcome != huntFled {
-			if huntLootCarcass(ctx, deps, out, c, fightTicks) {
+			if huntLootCarcass(ctx, deps, out, c, fightTicks, job.need) {
 				kills++
 				fmt.Fprintf(out, "hunt[%s]: %s down (%d/%d)\n", who, c.CreatureID, kills, target) //nolint:errcheck
 			} else {
@@ -508,6 +539,22 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 			return nil
 		case huntResolved, huntGaveUp:
 		}
+	}
+
+	if job.need != nil {
+		// The cap ended the loop before the top-of-loop read; read once more.
+		held := job.need.Quantity
+		if !needMet {
+			held = huntReadHeld(ctx, deps, out, *job.need)
+		}
+		if held < job.need.Quantity {
+			fmt.Fprintf(out, "hunt: %s holds %d/%d %s after %d kill(s); held for next pass\n", //nolint:errcheck
+				job.boardID, held, job.need.Quantity, job.need.ItemID, kills)
+			return nil
+		}
+		// Step 8 for a need: fly the parts to the target base and complete.
+		huntDeliverNeed(ctx, deps, out, who, job)
+		return nil
 	}
 
 	if kills < target {
@@ -548,6 +595,10 @@ type huntJob struct {
 	baseline int // kills the server had already counted when this pass started
 	required string
 	resumed  bool
+	// need is the Station Need delivery this job works, nil for kill
+	// missions. A need job hunts only need.Species, stops when the hold has
+	// need.Quantity of need.ItemID, and completes at need.TargetBaseID.
+	need *huntNeed
 }
 
 // huntJobName is what to call this mission on a status line: its title, or the
@@ -603,7 +654,16 @@ func huntSelectJob(ctx context.Context, deps HuntDeps, out io.Writer, who string
 	if job, ok := huntResumeJob(ctx, deps, out, who, wildlifeOnly); ok {
 		return job, true
 	}
-	return huntBoardJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
+	board, ok := huntReadBoard(ctx, deps, out)
+	if !ok {
+		return huntJob{}, false
+	}
+	if job, ok := huntBoardJob(ctx, deps, out, who, board, maxDifficulty, wildlifeOnly, earned); ok {
+		return job, true
+	}
+	// Station Needs come after the chain and kill missions, and only for a
+	// hull that takes creature work (checked inside).
+	return huntNeedJob(ctx, deps, out, who, board)
 }
 
 // huntResumeJob returns an already-accepted hunt mission to continue.
@@ -633,7 +693,15 @@ func huntResumeJob(ctx context.Context, deps HuntDeps, out io.Writer, who string
 	}
 	for _, m := range resp.Missions {
 		o, ok := huntKillObjective(m)
-		if !ok || o.Completed {
+		if !ok {
+			// Not a kill mission; a held Station Need is rebuilt and
+			// re-admitted, anything else is not ours.
+			if job, ok := huntResumeNeed(ctx, deps, out, who, m); ok {
+				return job, true
+			}
+			continue
+		}
+		if o.Completed {
 			continue
 		}
 		boardID := m.TemplateID
@@ -659,23 +727,29 @@ func huntResumeJob(ctx context.Context, deps HuntDeps, out io.Writer, who string
 	return huntJob{}, false
 }
 
-// huntBoardJob reads the station board and accepts the first admissible entry,
-// logging every refusal with its reason.
-func huntBoardJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, maxDifficulty int, wildlifeOnly bool, earned map[string]string) (huntJob, bool) {
+// huntReadBoard reads and parses the station's mission board, once per pass:
+// the kill-mission and Station Need stages both choose from it.
+func huntReadBoard(ctx context.Context, deps HuntDeps, out io.Writer) (serverapi.GetMissionsResponse, bool) {
+	var board serverapi.GetMissionsResponse
 	if err := deps.Client.GetMissions(ctx); err != nil {
 		fmt.Fprintf(out, "hunt: get_missions: %v\n", err) //nolint:errcheck
-		return huntJob{}, false
+		return board, false
 	}
 	raw := deps.Client.GetRawJSON("missions")
 	if len(raw) == 0 {
 		fmt.Fprintln(out, "hunt: get_missions returned no data") //nolint:errcheck
-		return huntJob{}, false
+		return board, false
 	}
-	var board serverapi.GetMissionsResponse
 	if err := json.Unmarshal(raw, &board); err != nil {
 		fmt.Fprintf(out, "hunt: parse board: %v\n", err) //nolint:errcheck
-		return huntJob{}, false
+		return board, false
 	}
+	return board, true
+}
+
+// huntBoardJob accepts the first admissible kill mission on the board,
+// logging every refusal with its reason.
+func huntBoardJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, board serverapi.GetMissionsResponse, maxDifficulty int, wildlifeOnly bool, earned map[string]string) (huntJob, bool) {
 	var chosen *serverapi.MissionBoardEntry
 	for i := range board.Missions {
 		e := board.Missions[i]
@@ -733,7 +807,13 @@ func huntBoardJob(ctx context.Context, deps HuntDeps, out io.Writer, who string,
 func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, wildlifeOnly bool) ([]serverapi.NearbyCreature, bool) {
 	var tried []string
 	for range huntMaxGrounds {
-		poi, err := huntTravelToWildlifePOI(ctx, deps, out, job.required, tried)
+		var poi string
+		var err error
+		if job.need != nil {
+			poi, err = huntTravelToNeedGround(ctx, deps, out, *job.need, tried)
+		} else {
+			poi, err = huntTravelToWildlifePOI(ctx, deps, out, job.required, tried)
+		}
 		if err != nil {
 			if len(tried) > 0 {
 				break // the sweep ran out of grounds; report it as a sweep
@@ -755,7 +835,13 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		// hunt is still one the field guide wants scanned.
 		huntScanUnknown(ctx, deps, out, nearby.Creatures)
 
-		if quarry := huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out); len(quarry) > 0 {
+		var quarry []serverapi.NearbyCreature
+		if job.need != nil {
+			quarry = huntNeedQuarry(nearby.Creatures, job.need.Species, out)
+		} else {
+			quarry = huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out)
+		}
+		if len(quarry) > 0 {
 			return quarry, true
 		}
 		// Standing in the wrong place is its own outcome, and the one an
@@ -767,6 +853,9 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		switch {
 		case len(nearby.Creatures) == 0:
 			fmt.Fprintf(out, "hunt: no creatures at %s; trying another ground\n", poi) //nolint:errcheck
+		case job.need != nil:
+			fmt.Fprintf(out, "hunt[%s]: WRONG POI: %s needs %s and %s holds %s; no engagement attempted\n", //nolint:errcheck
+				who, job.boardID, strings.Join(job.need.Species, "/"), poi, huntSpeciesSeen(nearby.Creatures))
 		case job.required != "":
 			fmt.Fprintf(out, "hunt[%s]: WRONG POI: %s needs %q and %s holds %s; no engagement attempted\n", //nolint:errcheck
 				who, job.boardID, job.required, poi, huntSpeciesSeen(nearby.Creatures))
@@ -1398,7 +1487,11 @@ func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull flo
 // its own species — a creature wreck carries victim_name but an EMPTY ship_class
 // — so the species recorded against the kill has to be the one get_nearby
 // reported at engage time.
-func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, c serverapi.NearbyCreature, fightTicks int) bool {
+//
+// need, when set, is the Station Need the pass works: its item is looted first,
+// and other items only into hold space the rest of the need does not still
+// require, so surplus loot never pushes the mission part out.
+func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, c serverapi.NearbyCreature, fightTicks int, need *huntNeed) bool {
 	creatureID := c.CreatureID
 	if err := deps.Client.GetWrecks(ctx); err != nil {
 		fmt.Fprintf(out, "hunt: get_wrecks after %s: %v\n", creatureID, err) //nolint:errcheck
@@ -1433,14 +1526,39 @@ func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, c server
 	// The hold is the only limit that matters here. Never jettison to make
 	// room: a hunt's cargo is worth less than whatever is already aboard was
 	// worth carrying.
-	free := 0.0
-	if st := deps.Client.GetState(); st != nil {
+	free, reserve := 0.0, 0.0
+	st := deps.Client.GetState()
+	if st != nil {
 		free = st.Ship.CargoCapacity - st.Ship.CargoUsed
 	}
+	items := w.Cargo
+	if need != nil {
+		reserve = max(0, float64(need.Quantity)-cargoQty(st, need.ItemID))
+		// The mission part first, everything else after in carcass order.
+		items = make([]serverapi.CargoItem, 0, len(w.Cargo))
+		for _, it := range w.Cargo {
+			if it.ItemID == need.ItemID {
+				items = append(items, it)
+			}
+		}
+		for _, it := range w.Cargo {
+			if it.ItemID != need.ItemID {
+				items = append(items, it)
+			}
+		}
+	}
 	looted := 0.0
-	for _, item := range w.Cargo {
-		qty := min(item.Quantity, free-looted)
+	for _, item := range items {
+		room := free - looted
+		if need != nil && item.ItemID != need.ItemID {
+			room -= reserve
+		}
+		qty := min(item.Quantity, room)
 		if qty <= 0 {
+			if need != nil && item.ItemID != need.ItemID && free-looted > 0 {
+				fmt.Fprintf(out, "hunt: keeping hold space for %s; leaving %.0f %s on carcass %s\n", need.ItemID, item.Quantity, item.ItemID, w.ID) //nolint:errcheck
+				continue
+			}
 			fmt.Fprintf(out, "hunt: hold full; leaving %.0f %s on carcass %s\n", item.Quantity, item.ItemID, w.ID) //nolint:errcheck
 			break
 		}
@@ -1449,6 +1567,9 @@ func huntLootCarcass(ctx context.Context, deps HuntDeps, out io.Writer, c server
 			continue
 		}
 		looted += qty
+		if need != nil && item.ItemID == need.ItemID {
+			reserve = max(0, reserve-qty)
+		}
 		fmt.Fprintf(out, "hunt: looted %.0f %s from carcass %s\n", qty, item.ItemID, w.ID) //nolint:errcheck
 	}
 	// Salvage is the fallback for cargo the hold cannot take, and it consumes

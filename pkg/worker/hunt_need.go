@@ -25,6 +25,12 @@ type huntNeed struct {
 	SystemID     string
 	Species      []string // species ids that drop ItemID
 	Reward       int
+
+	// Filled in after parsing: the board entry it came from, and the hunting
+	// ground huntNeedGround chose for it (empty when none was found).
+	MissionID    string
+	GroundSystem string
+	GroundPOI    string
 }
 
 // huntParseNeed reads a Station Need from a board entry. It accepts only a
