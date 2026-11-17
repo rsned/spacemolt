@@ -598,7 +598,8 @@ func TestHuntDeliveryWaitsForRepair(t *testing.T) {
 	kb := huntNeedKBFixture(t)
 	// 36% hull: above the 35% flee floor, so the pass hunts, but well below
 	// the repair threshold the delivery leg requires.
-	f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{shipHullFrac: 0.36, creatures: huntGrazers("c1", "c2", "c3", "c4")})
+	f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{creatures: huntGrazers("c1", "c2", "c3", "c4")})
+	huntWoundAtGround(f.huntFake, 0.36) // left repaired, worn down at the ground
 	var log strings.Builder
 	deps := huntNeedDeps(f, kb, &log)
 	if err := Hunt(context.Background(), deps); err != nil {
@@ -616,7 +617,7 @@ func TestHuntDeliveryWaitsForRepair(t *testing.T) {
 
 	// Next pass: repaired. The held need resumes with its parts aboard and
 	// delivers without hunting again.
-	f.opts.shipHullFrac = 0
+	f.onGetStatus = nil
 	f.state.Ship.Hull = f.state.Ship.MaxHull
 	hunts := f.huntCalls
 	if err := Hunt(context.Background(), deps); err != nil {

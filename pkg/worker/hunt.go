@@ -473,6 +473,13 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		return nil
 	}
 
+	// Creature work never flies out to a ground on a hull below the repair
+	// bar: the dock repair above is best-effort, so gate on the hull itself.
+	// Bounty/combat work under the opt-out keeps today's behaviour.
+	if (job.need != nil || job.home || wildlifeOnly) && !huntReadyToLeave(ctx, deps, out, who) {
+		return nil
+	}
+
 	// Steps 4-5: travel out to a hunting ground and read what is there. The
 	// board is at a station and the quarry is not; without this leg the pass
 	// reads "no creatures at this POI" at a station forever.

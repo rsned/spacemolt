@@ -193,9 +193,9 @@ type huntFake struct {
 	actives  []serverapi.ActiveMission
 	accepted bool
 
-	// repairErr is what the station answers a repair with. The fake never
-	// heals: these tests assert on the CALL, since the executor logs and
-	// continues either way and takes no decision from the outcome.
+	// repairErr is what the station answers a repair with. A repair that
+	// succeeds restores the hull; a failed one leaves it where it was, and
+	// creature work then holds for repair rather than flying out damaged.
 	repairErr error
 
 	// agentsDir is a per-test temp directory standing in for data/agents, so
@@ -513,6 +513,9 @@ func (f *huntFake) Repair(ctx context.Context) error {
 		f.calls = append(f.calls, "repair_failed")
 		return f.repairErr
 	}
+	// A repair that lands restores the hull, as the station does.
+	f.opts.shipHullFrac = 0
+	f.state.Ship.Hull = f.state.Ship.MaxHull
 	return f.fakeClient.Repair(ctx)
 }
 
@@ -703,6 +706,17 @@ func (f *huntFake) SalvageWreck(ctx context.Context, wreckID string) error {
 	return nil
 }
 
+// huntWoundAtGround makes get_status report hull at frac once the ship is at
+// the hunting ground: it left the dock repaired and arrived wounded, which is
+// what the between-engagement gate exists for.
+func huntWoundAtGround(f *huntFake, frac float64) {
+	f.onGetStatus = func() {
+		if f.state.CurrentPOI == "pollux_outer_belt" {
+			f.state.Ship.Hull = frac * f.state.Ship.MaxHull
+		}
+	}
+}
+
 // huntNoRole in a huntCreature fixture means get_nearby reported no role.
 const huntNoRole = "-"
 
@@ -824,10 +838,11 @@ func TestHuntFleesBelowHullThreshold(t *testing.T) {
 // refreshes; a worker that started the pass already wounded never engages.
 func TestHuntBreaksOffBeforeFirstEngagement(t *testing.T) {
 	c := newHuntFake(t, huntFakeOpts{
-		board:        []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 3}},
-		creatures:    huntGrazers("c1", "c2"),
-		shipHullFrac: 0.1,
+		board:     []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 3}},
+		creatures: huntGrazers("c1", "c2"),
 	})
+	// Left the dock repaired (the repair gate), wounded on arrival.
+	huntWoundAtGround(c, 0.1)
 	var log strings.Builder
 	deps := huntDeps(c, &log)
 	deps.FleeAtHull = 0.3
@@ -1626,24 +1641,38 @@ func TestHuntDoesNotRepairAFullHull(t *testing.T) {
 	}
 }
 
-// A repair that fails is not a reason to throw away a pass that can still
-// hunt: no funds and no repair service are both ordinary.
+// A failed repair: creature work holds rather than fly out damaged (the
+// repair gate, huntReadyToLeave), while a bounty/combat pass under the
+// wildlife-only opt-out keeps today's behaviour and hunts on.
 func TestHuntHuntsOnWhenTheRepairFails(t *testing.T) {
-	c := newHuntFake(t, huntFakeOpts{
-		board:        []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
-		creatures:    huntGrazers("c1"),
-		shipHullFrac: huntRepairAtHull - 0.1,
-	})
-	c.repairErr = errors.New("insufficient credits")
-	var log strings.Builder
-	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
-		t.Fatalf("Hunt: %v", err)
-	}
-	if c.huntCalls != 1 {
-		t.Errorf("hunt calls = %d, want 1 — a failed repair must not end the pass", c.huntCalls)
-	}
-	if !strings.Contains(log.String(), "insufficient credits") {
-		t.Errorf("must log why the repair failed, got:\n%s", log.String())
+	for _, tc := range []struct {
+		name      string
+		wildlife  bool
+		wantHunts int
+	}{
+		{"creature work holds", true, 0},
+		{"opt-out hunts on", false, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newHuntFake(t, huntFakeOpts{
+				board:        []boardMission{{id: "first_hunt_belt_grazers", difficulty: 1, quantity: 1}},
+				creatures:    huntGrazers("c1"),
+				shipHullFrac: huntRepairAtHull - 0.1,
+			})
+			c.repairErr = errors.New("insufficient credits")
+			var log strings.Builder
+			deps := huntDeps(c, &log)
+			deps.WildlifeOnly = huntBool(tc.wildlife)
+			if err := Hunt(context.Background(), deps); err != nil {
+				t.Fatalf("Hunt: %v", err)
+			}
+			if c.huntCalls != tc.wantHunts {
+				t.Errorf("hunt calls = %d, want %d\n%s", c.huntCalls, tc.wantHunts, log.String())
+			}
+			if !strings.Contains(log.String(), "insufficient credits") {
+				t.Errorf("must log why the repair failed, got:\n%s", log.String())
+			}
+		})
 	}
 }
 

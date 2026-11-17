@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -325,6 +326,7 @@ func TestHuntDryPassHeldForRepair(t *testing.T) {
 				opts.startPOI = huntHomePOI
 			}
 			f := huntRoamFake(t, opts)
+			f.repairErr = errors.New("insufficient credits") // the hull stays damaged
 			var log strings.Builder
 			deps := huntDeps(f, &log)
 			deps.KB = huntRoamKB(t, !tc.atHome)
