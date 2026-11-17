@@ -378,25 +378,35 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 
 	// Step 2: continue a mission this agent already holds, or accept a new one
 	// off the board.
-	job, ok := huntSelectJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
-	if !ok {
+	job, ok, dry := huntSelectJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
+	if ok {
+		// Found work, so the agent is not idle -- keep reading every pass, or
+		// huntResumeJob would stop finding the mission it is holding.
+		deps.boardGate.record(station, huntNow(deps), false)
+		// Found work: the Station Need radius and the roam list start over.
+		huntRoamFoundJob(deps, out)
+	} else {
 		// Dry: nothing to resume, nothing admissible. Arm the backoff.
 		deps.boardGate.record(station, huntNow(deps), true)
-		return nil
+		// A genuinely dry board makes this pass's one roaming move; only a
+		// hunter already docked at home goes on to hunt this pass.
+		if !dry || !huntRoamAfterDry(ctx, deps, out, who) {
+			return nil
+		}
+		job = huntJob{boardID: "home grounds", title: "home grounds", home: true}
 	}
-	// Found work, so the agent is not idle -- keep reading every pass, or
-	// huntResumeJob would stop finding the mission it is holding.
-	deps.boardGate.record(station, huntNow(deps), false)
-	// Found work: the Station Need search radius starts over.
-	huntSetDryPasses(deps, out, 0)
-	if job.need != nil {
+	if job.need != nil || job.home {
 		// Creature work is never done with the interlock off: the role check
 		// on quarry and the in-fight predator guard both apply, whatever the
 		// worker was configured with.
 		on := true
 		deps.WildlifeOnly = &on
 		wildlifeOnly = true
-		publishActivity(deps.SetActivity, huntNeedActivityLabel(job, huntNeedHeld(deps.Client.GetState(), *job.need)))
+		if job.home {
+			publishActivity(deps.SetActivity, "Hunt home grounds")
+		} else {
+			publishActivity(deps.SetActivity, huntNeedActivityLabel(job, huntNeedHeld(deps.Client.GetState(), *job.need)))
+		}
 	} else {
 		publishActivity(deps.SetActivity, huntActivityLabel(job))
 	}
@@ -408,8 +418,8 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	kills, attempts := 0, 0
 	reported := false
 	report := func() {
-		// A need's progress is the hold, not a kill counter.
-		if reported || job.need != nil {
+		// A need's progress is the hold, and home hunting has no mission.
+		if reported || job.need != nil || job.home {
 			return
 		}
 		reported = true
@@ -439,7 +449,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// the pool of huntable creatures runs out, or the hull drops below the
 	// flee threshold.
 	needMet := false
-	for (job.need != nil || kills < target) && attempts < huntMaxEngagements {
+	for (job.need != nil || job.home || kills < target) && attempts < huntMaxEngagements {
 		// The between-engagement hull gate. It reads a value that only
 		// get_status refreshes: parseBattleStatusData populates BattleState
 		// and InBattle but never Ship.Hull, so without this free query the
@@ -557,6 +567,12 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		return nil
 	}
 
+	if job.home {
+		// Parts stay in the hold; banking them at home is a later step.
+		fmt.Fprintf(out, "hunt[%s]: home grounds pass done: %d kill(s)\n", who, kills) //nolint:errcheck
+		return nil
+	}
+
 	if kills < target {
 		fmt.Fprintf(out, "hunt: %s at %d/%d kill(s); held for next pass\n", job.boardID, kills, target) //nolint:errcheck
 		return nil
@@ -599,6 +615,9 @@ type huntJob struct {
 	// missions. A need job hunts only need.Species, stops when the hold has
 	// need.Quantity of need.ItemID, and completes at need.TargetBaseID.
 	need *huntNeed
+	// home is mission-less home hunting (huntRoamAfterDry): grazer/scavenger
+	// quarry on the home grounds until the engagement cap or the pool runs out.
+	home bool
 }
 
 // huntJobName is what to call this mission on a status line: its title, or the
@@ -650,16 +669,20 @@ func huntBreakOffLabel(job huntJob, kills int) string {
 // board; idling" while every worker still looked healthy. Missions solves this
 // the same way and for the same reason (mission.go's missionResume, run before
 // anything is accepted).
-func huntSelectJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, maxDifficulty int, wildlifeOnly bool, earned map[string]string) (huntJob, bool) {
-	if job, ok := huntResumeJob(ctx, deps, out, who, wildlifeOnly); ok {
-		return job, true
+//
+// dry is true when the board was read and nothing on it, kill mission or
+// Station Need, was workable (huntNeedJob's dry search) -- the signal for the
+// roaming move.
+func huntSelectJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, maxDifficulty int, wildlifeOnly bool, earned map[string]string) (job huntJob, ok, dry bool) {
+	if job, ok = huntResumeJob(ctx, deps, out, who, wildlifeOnly); ok {
+		return job, true, false
 	}
-	board, ok := huntReadBoard(ctx, deps, out)
-	if !ok {
-		return huntJob{}, false
+	board, read := huntReadBoard(ctx, deps, out)
+	if !read {
+		return huntJob{}, false, false
 	}
-	if job, ok := huntBoardJob(ctx, deps, out, who, board, maxDifficulty, wildlifeOnly, earned); ok {
-		return job, true
+	if job, ok = huntBoardJob(ctx, deps, out, who, board, maxDifficulty, wildlifeOnly, earned); ok {
+		return job, true, false
 	}
 	// Station Needs come after the chain and kill missions, and only for a
 	// hull that takes creature work (checked inside).
@@ -809,9 +832,12 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 	for range huntMaxGrounds {
 		var poi string
 		var err error
-		if job.need != nil {
+		switch {
+		case job.home:
+			poi, err = huntTravelToHomeGround(ctx, deps, out, tried)
+		case job.need != nil:
 			poi, err = huntTravelToNeedGround(ctx, deps, out, *job.need, tried)
-		} else {
+		default:
 			poi, err = huntTravelToWildlifePOI(ctx, deps, out, job.required, tried)
 		}
 		if err != nil {
@@ -836,9 +862,13 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		huntScanUnknown(ctx, deps, out, nearby.Creatures)
 
 		var quarry []serverapi.NearbyCreature
-		if job.need != nil {
+		switch {
+		case job.home:
+			// Any grazer or scavenger: the role check is the no-predator rule.
+			quarry = huntAdmissibleQuarry(nearby.Creatures, true, "", out)
+		case job.need != nil:
 			quarry = huntNeedQuarry(nearby.Creatures, job.need.Species, out)
-		} else {
+		default:
 			quarry = huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out)
 		}
 		if len(quarry) > 0 {

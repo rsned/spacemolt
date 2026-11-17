@@ -330,30 +330,31 @@ func huntReadHeld(ctx context.Context, deps HuntDeps, out io.Writer, need huntNe
 
 // huntNeedJob takes the best nearby Station Need off the board. It runs only
 // for a T2+ combat hull, and counts a pass that finds nothing as dry so the
-// next search looks further out.
-func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, board serverapi.GetMissionsResponse) (huntJob, bool) {
+// next search looks further out. dry is true only for that genuinely dry
+// search (no Station Need with a ground in radius), never for a failure.
+func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, board serverapi.GetMissionsResponse) (job huntJob, ok, dry bool) {
 	st := deps.Client.GetState()
 	if st == nil {
-		return huntJob{}, false
+		return huntJob{}, false, false
 	}
 	if !huntCreatureWorkHull(ctx, deps.KB, st.Ship.ClassID) {
 		fmt.Fprintf(out, "hunt[%s]: hull %q does not take creature work; no Station Needs\n", who, st.Ship.ClassID) //nolint:errcheck
-		return huntJob{}, false
+		return huntJob{}, false, false
 	}
 	nk, ok := deps.KB.(huntNeedKB)
 	if !ok {
 		fmt.Fprintf(out, "hunt[%s]: knowledge base has no wildlife data; no Station Needs\n", who) //nolint:errcheck
-		return huntJob{}, false
+		return huntJob{}, false, false
 	}
 	lk, err := huntLoadNeedLookups(ctx, nk)
 	if err != nil {
 		fmt.Fprintf(out, "hunt[%s]: %v; no Station Needs this pass\n", who, err) //nolint:errcheck
-		return huntJob{}, false
+		return huntJob{}, false, false
 	}
 	jumps := huntJumpsFrom(ctx, deps.KB, st.System.ID)
 	if jumps == nil {
 		fmt.Fprintf(out, "hunt[%s]: galaxy graph unavailable; no Station Needs this pass\n", who) //nolint:errcheck
-		return huntJob{}, false
+		return huntJob{}, false, false
 	}
 	roam := huntLoadRoam(deps, out)
 	radius := huntNeedRadius(roam.DryPasses)
@@ -400,12 +401,12 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 	if !ok {
 		huntSetDryPasses(deps, out, roam.DryPasses+1)
 		fmt.Fprintf(out, "hunt[%s]: no Station Need with a ground within %d jump(s) (dry pass %d)\n", who, radius, roam.DryPasses+1) //nolint:errcheck
-		return huntJob{}, false
+		return huntJob{}, false, true
 	}
 	e := entries[chosen.MissionID]
-	activeID, _, ok := huntAcceptMission(ctx, deps, out, e)
-	if !ok {
-		return huntJob{}, false
+	activeID, _, accepted := huntAcceptMission(ctx, deps, out, e)
+	if !accepted {
+		return huntJob{}, false, false
 	}
 	fmt.Fprintf(out, "hunt[%s]: accepted need %s (%s): %d %s from %s at %s/%s for %s, %d cr\n", //nolint:errcheck
 		who, e.MissionID, e.Title, chosen.Quantity, chosen.ItemID, strings.Join(chosen.Species, "/"),
@@ -413,7 +414,7 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 	return huntJob{
 		boardID: e.MissionID, activeID: activeID, title: e.Title,
 		target: chosen.Quantity, need: &chosen,
-	}, true
+	}, true, false
 }
 
 // huntResumeNeed rebuilds a held Station Need from the active mission and
