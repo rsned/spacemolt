@@ -221,42 +221,46 @@ type Player struct {
 
 // Ship represents the player's ship with all stats, modules, and cargo.
 type Ship struct {
-	ID                       string       `json:"id"`
-	OwnerID                  string       `json:"owner_id"`
-	ClassID                  string       `json:"class_id"`
-	Name                     string       `json:"name"`
-	Hull                     float64      `json:"hull"`
-	MaxHull                  float64      `json:"max_hull"`
-	Shield                   float64      `json:"shield"`
-	MaxShield                float64      `json:"max_shield"`
-	ShieldRecharge           float64      `json:"shield_recharge"`
-	Armor                    float64      `json:"armor"`
-	Speed                    float64      `json:"speed"`
-	Fuel                     float64      `json:"fuel"`
-	MaxFuel                  float64      `json:"max_fuel"`
-	CargoUsed                float64      `json:"cargo_used"`
-	CargoCapacity            float64      `json:"cargo_capacity"`
-	CPUUsed                  float64      `json:"cpu_used"`
-	CPUCapacity              float64      `json:"cpu_capacity"`
-	PowerUsed                float64      `json:"power_used"`
-	PowerCapacity            float64      `json:"power_capacity"`
-	WeaponSlots              int          `json:"weapon_slots"`
-	DefenseSlots             int          `json:"defense_slots"`
-	UtilitySlots             int          `json:"utility_slots"`
-	Modules                  []string     `json:"modules"`
-	Cargo                    []CargoItem  `json:"cargo"`
-	ActiveBuffs              []ActiveBuff `json:"active_buffs,omitempty"`
-	DamagePenalty            float64      `json:"damage_penalty,omitempty"`
-	SpeedPenalty             float64      `json:"speed_penalty,omitempty"`
-	GasCargoEfficiency       int          `json:"gas_cargo_efficiency,omitempty"`
-	IceCargoEfficiency       int          `json:"ice_cargo_efficiency,omitempty"`
-	OreCargoEfficiency       int          `json:"ore_cargo_efficiency,omitempty"`
-	CustomName               string       `json:"custom_name,omitempty"`
-	LoadedOnCarrierID        string       `json:"loaded_on_carrier_id,omitempty"`
-	DisruptionTicksRemaining int          `json:"disruption_ticks_remaining,omitempty"`
-	DockedAtBase             string       `json:"docked_at_base,omitempty"`
-	LastProcessTick          int64        `json:"last_process_tick,omitempty"`
-	CreatedAt                string       `json:"created_at,omitempty"`
+	ID             string       `json:"id"`
+	OwnerID        string       `json:"owner_id"`
+	ClassID        string       `json:"class_id"`
+	Name           string       `json:"name"`
+	Hull           float64      `json:"hull"`
+	MaxHull        float64      `json:"max_hull"`
+	Shield         float64      `json:"shield"`
+	MaxShield      float64      `json:"max_shield"`
+	ShieldRecharge float64      `json:"shield_recharge"`
+	Armor          float64      `json:"armor"`
+	Speed          float64      `json:"speed"`
+	Fuel           float64      `json:"fuel"`
+	MaxFuel        float64      `json:"max_fuel"`
+	CargoUsed      float64      `json:"cargo_used"`
+	CargoCapacity  float64      `json:"cargo_capacity"`
+	CPUUsed        float64      `json:"cpu_used"`
+	CPUCapacity    float64      `json:"cpu_capacity"`
+	PowerUsed      float64      `json:"power_used"`
+	PowerCapacity  float64      `json:"power_capacity"`
+	WeaponSlots    int          `json:"weapon_slots"`
+	DefenseSlots   int          `json:"defense_slots"`
+	UtilitySlots   int          `json:"utility_slots"`
+	Modules        []string     `json:"modules"`
+	Cargo          []CargoItem  `json:"cargo"`
+	ActiveBuffs    []ActiveBuff `json:"active_buffs,omitempty"`
+	DamagePenalty  float64      `json:"damage_penalty,omitempty"`
+	// DefaultStance is the stance the ship opens at in a fight it did not start
+	// (battle action=default_stance, v0.721.0). Empty means auto: fire with a
+	// weapon or remote repairer, else flee.
+	DefaultStance            string  `json:"default_stance,omitempty"`
+	SpeedPenalty             float64 `json:"speed_penalty,omitempty"`
+	GasCargoEfficiency       int     `json:"gas_cargo_efficiency,omitempty"`
+	IceCargoEfficiency       int     `json:"ice_cargo_efficiency,omitempty"`
+	OreCargoEfficiency       int     `json:"ore_cargo_efficiency,omitempty"`
+	CustomName               string  `json:"custom_name,omitempty"`
+	LoadedOnCarrierID        string  `json:"loaded_on_carrier_id,omitempty"`
+	DisruptionTicksRemaining int     `json:"disruption_ticks_remaining,omitempty"`
+	DockedAtBase             string  `json:"docked_at_base,omitempty"`
+	LastProcessTick          int64   `json:"last_process_tick,omitempty"`
+	CreatedAt                string  `json:"created_at,omitempty"`
 
 	// Personnel (server v0.572.0). Personnel is nil when the server has
 	// personnel mechanics disabled; CrewCapacity/MarineCapacity are the

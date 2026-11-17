@@ -244,6 +244,7 @@ func ShipFromAPI(ext serverapi.Ship) Ship {
 		Cargo:                    cargo,
 		ActiveBuffs:              activeBuffs,
 		DamagePenalty:            ext.DamagePenalty,
+		DefaultStance:            ext.DefaultStance,
 		SpeedPenalty:             ext.SpeedPenalty,
 		DisruptionTicksRemaining: ext.DisruptionTicksRemaining,
 		DockedAtBase:             ext.DockedAtBase,

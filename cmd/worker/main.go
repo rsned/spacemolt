@@ -321,6 +321,12 @@ func main() {
 	}
 	st := client.GetState()
 
+	// v0.721.0: a non-combat ship should open any fight it is pulled into at
+	// flee (auto opens an armed ship at fire). Hunt is exempt (nil client).
+	if serr := worker.EnsureDefaultStanceFlee(ctx, logOut, &st.Ship, worker.BattleGateClient(*role, client)); serr != nil {
+		logger.Printf("warning: %v", serr)
+	}
+
 	live := buildKnownState(st, int(st.CurrentTick))
 
 	// ── Step 6: Reconcile saved vs live state ────────────────────────────────

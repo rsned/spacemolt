@@ -335,3 +335,9 @@ func TestUnmarshalPayloadKey(t *testing.T) {
 		t.Error("unmarshalPayloadKey returned true for non-existent key")
 	}
 }
+
+func TestShipFromAPICarriesDefaultStance(t *testing.T) {
+	if got := ShipFromAPI(serverapi.Ship{DefaultStance: "flee"}).DefaultStance; got != "flee" {
+		t.Errorf("DefaultStance = %q, want flee", got)
+	}
+}
