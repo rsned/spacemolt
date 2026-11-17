@@ -84,3 +84,20 @@ func TestHuntScanUnknownScansOnlyUnscannedSpecies(t *testing.T) {
 		t.Errorf("filed = %v, want [frost_moth]", kb.filed)
 	}
 }
+
+// A cached scan reply for a DIFFERENT creature (a stale frame) is never filed:
+// it would put one species' name and danger under another's id, and display
+// names feed "Dropped by:" resolution.
+func TestHuntScanUnknownIgnoresAStaleReply(t *testing.T) {
+	c := &scanFakeClient{reply: []byte(`{"command":"scan","result":{"target_id":"crt_eel9","success":true,` +
+		`"username":"Tempest-Eel [predator — deadly, aggressive]","revealed_info":["danger"],"hull":280}}`)}
+	kb := &scanFakeKB{unscanned: []string{"frost_moth"}}
+	deps := HuntDeps{Client: c, KB: kb}
+
+	huntScanUnknown(context.Background(), deps, io.Discard, []serverapi.NearbyCreature{
+		{CreatureID: "crt_moth1", Species: "frost_moth"},
+	})
+	if len(kb.filed) != 0 {
+		t.Errorf("filed %v from a reply for crt_eel9 while scanning crt_moth1", kb.filed)
+	}
+}

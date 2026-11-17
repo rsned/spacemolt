@@ -57,6 +57,13 @@ func huntScanUnknown(ctx context.Context, deps HuntDeps, out io.Writer, creature
 		if len(raw) == 0 || json.Unmarshal(unwrapActionResult(raw), &resp) != nil || !resp.Success {
 			continue
 		}
+		// The raw store keeps the LAST scan reply; one for another target is a
+		// stale frame, and filing it would put one species' name and danger
+		// under another's id (display names feed "Dropped by:" resolution).
+		if resp.TargetID != id {
+			_, _ = fmt.Fprintf(out, "  scan of %s (%s): reply is for %q; not recorded\n", id, sp, resp.TargetID)
+			continue
+		}
 		s := knowledge.ParseCreatureScan(resp.Username, resp.RevealedInfo, resp.Hull, resp.Description)
 		if err := knowledge.CaptureWildlifeScan(ctx, deps.KB, sp, s, huntNow(deps)); err != nil {
 			_, _ = fmt.Fprintf(out, "  scan of %s not recorded: %v\n", sp, err)
