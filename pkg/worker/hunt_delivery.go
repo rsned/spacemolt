@@ -573,21 +573,32 @@ func huntDeliverNeed(ctx context.Context, deps HuntDeps, out io.Writer, who stri
 			who, job.boardID, frac*100, huntRepairAtHull*100)
 		return
 	}
-	if st.CurrentPOI != need.TargetBaseID || !st.Doc {
+	// Station ids are dual-named (POI id != base id at every capital): the
+	// mission names the base, the ship's position is the station POI. Resolve
+	// it as mission.go does, so a hunter docked at the target does not
+	// undock and re-dock, and the leg travels to a POI id.
+	targetPOI := need.TargetBaseID
+	if deps.KB != nil {
+		if base, err := deps.KB.GetBase(ctx, need.TargetBaseID); err == nil && base != nil && base.POIID != "" {
+			targetPOI = base.POIID
+		}
+	}
+	atTarget := st.Doc && (st.CurrentPOI == targetPOI || st.CurrentPOI == need.TargetBaseID)
+	if !atTarget {
 		if st.Doc {
 			if err := deps.Client.Undock(ctx); err != nil {
 				fmt.Fprintf(out, "hunt: undock to deliver %s: %v; held for next pass\n", job.boardID, err) //nolint:errcheck
 				return
 			}
 		}
-		fmt.Fprintf(out, "hunt[%s]: delivering %d %s to %s/%s\n", who, need.Quantity, need.ItemID, need.SystemID, need.TargetBaseID) //nolint:errcheck
-		if err := huntFlyPoliced(ctx, deps, out, false, need.SystemID, need.TargetBaseID); err != nil {
-			fmt.Fprintf(out, "hunt: transit to %s: %v; %s held for next pass\n", need.TargetBaseID, err, job.boardID) //nolint:errcheck
+		fmt.Fprintf(out, "hunt[%s]: delivering %d %s to %s/%s\n", who, need.Quantity, need.ItemID, need.SystemID, targetPOI) //nolint:errcheck
+		if err := huntFlyPoliced(ctx, deps, out, false, need.SystemID, targetPOI); err != nil {
+			fmt.Fprintf(out, "hunt: transit to %s: %v; %s held for next pass\n", targetPOI, err, job.boardID) //nolint:errcheck
 			huntEscapeBattle(ctx, deps, out, who, "on the delivery leg", err)
 			return
 		}
-		if err := deps.Client.Dock(ctx); err != nil {
-			fmt.Fprintf(out, "hunt: dock at %s: %v; %s held for next pass\n", need.TargetBaseID, err, job.boardID) //nolint:errcheck
+		if err := dockIdempotent(ctx, deps.Client); err != nil {
+			fmt.Fprintf(out, "hunt: dock at %s: %v; %s held for next pass\n", targetPOI, err, job.boardID) //nolint:errcheck
 			huntEscapeBattle(ctx, deps, out, who, "docking to deliver", err)
 			return
 		}

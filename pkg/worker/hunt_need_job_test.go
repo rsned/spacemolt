@@ -106,3 +106,47 @@ func TestHuntResumedNeedHeldWhenDeliveryUnpoliced(t *testing.T) {
 		t.Errorf("the hold must be logged, got:\n%s", log.String())
 	}
 }
+
+// Station ids are dual-named: the mission names the BASE id, the ship's
+// position is the station POI id. Docked at the target under its POI id, the
+// hunter completes in place -- no undock, no travel, no re-dock.
+func TestHuntDeliveryResolvesTheBaseToItsPOI(t *testing.T) {
+	kb := huntNeedKBFixture(t)
+	ctx := context.Background()
+	if err := kb.RememberPOI(ctx, knowledge.POI{ID: "levy_poi", SystemID: "levy", Type: "station"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := kb.RememberBase(ctx, knowledge.SpaceBase{ID: "levy_base", POIID: "levy_poi", PublicAccess: true}); err != nil {
+		t.Fatal(err)
+	}
+	f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{
+		heldAtStart:    true,
+		activeMissions: []serverapi.ActiveMission{huntCausticActive(2)},
+		startPOI:       "levy_poi",
+	})
+	f.state.System.ID = "levy"
+	f.state.Ship.Cargo = []game.CargoItem{{ItemID: "caustic_sac", Quantity: 10}}
+	var log strings.Builder
+	if err := Hunt(ctx, huntNeedDeps(f, kb, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if called(f.huntFake, "undock") || called(f.huntFake, "travel:") {
+		t.Fatalf("left the target station it was docked at; calls %v\n%s", f.calls, log.String())
+	}
+	if !called(f.huntFake, "complete:hex-caustic") {
+		t.Fatalf("want the need completed in place; calls %v\n%s", f.calls, log.String())
+	}
+
+	// Elsewhere, the leg flies to the station POI, not the base id.
+	g := newHuntNeedFake(t, "gauntlet", huntFakeOpts{
+		heldAtStart:    true,
+		activeMissions: []serverapi.ActiveMission{huntCausticActive(2)},
+	})
+	g.state.Ship.Cargo = []game.CargoItem{{ItemID: "caustic_sac", Quantity: 10}}
+	if err := Hunt(ctx, huntNeedDeps(g, kb, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !called(g.huntFake, "travel:levy_poi") || !called(g.huntFake, "complete:hex-caustic") {
+		t.Fatalf("want travel to levy_poi then complete; calls %v\n%s", g.calls, log.String())
+	}
+}
