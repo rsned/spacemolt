@@ -8,7 +8,7 @@
 - ⭐🔴 [CONTRABAND PIPELINE RESUME POINT 10-25](project_contraband_pipeline_resume.md) — plans 1+2+3 done & merged (main 06cd562b); moonshine line LIVE; dashboard on :8093; day-one metrics from /api/line/moonshine.json ~10-25 19:00
 - ⭐🟢✅ [Line dashboard :8093 v2 (11-01): lines DERIVED](reference_line_dashboard.md) — from schedules/fleets/KB/asks; line-overrides.yaml only; why from task-outcomes.json; grouped by station
 - ⭐🟢 [Cloverfield home station "Conjunction Junction" (founded 10-25)](project_cloverfield_home_station.md) — CRFT station, record set data/stations/cloverfield, --record-dir/station_snapshot/ledger, 1M floor/1M buy cap, approve every build; ships with 500k faction storage but 0 power/life support
-- ⭐🟢 [Station #2 in beid (founded 11-16)](project_station_two_beid.md) — lead craftsman-2; storage free; 17 new accounts; craftsman-2 resident (deposit_all); grid building; trucker-10..15 hauling
+- ⭐🟢 [Station #2 in beid (founded 11-16)](project_station_two_beid.md) — lead craftsman-2; grid/dock/H2 combustor active; faction_workshop building (needed for ANY crafting); trucker-10..15 hauling
 - [Status board](project_status_board.md) — **READ FIRST.** The ≤15 live items, dated and linked. Roll old ones to the archive; never grow it.
 - [Standing rules](feedback_standing_rules.md) — never `git add -A` with dirty data/*.json · haul `--stagger 10s` · unpushed? `git log origin/main..HEAD` · after memory edits: `make memory-sync` + commit docs/memory · NEVER edit an applied migration
 - ⭐🔴 [NO stronghold routing without pirate unlock](feedback_stronghold_routing_requires_pirate_unlock.md) — per-agent rule; strongholds are dead ends; 8 of 24 losses incl. assist-sol's tanker

@@ -1,6 +1,6 @@
 ---
 name: project-station-two-beid
-description: "CRFT station #2 in beid (founded 11-16, base b7ecd9b1…, POI 4650c48e…); lead craftsman-2; record set data/stations/beid; grid placed, craftsman-2 resident, no fuel market"
+description: "CRFT station #2 in beid (founded 11-16, base b7ecd9b1…, POI 4650c48e…); lead craftsman-2; record set data/stations/beid; grid/dock/combustor active, workshop building 11-16, craftsman-2 resident"
 metadata:
   node_type: memory
   type: project
@@ -34,5 +34,10 @@ stellar_collector_grid placed 11-16 (900k; operator brought the boards).
 beid has NO fuel market yet: refuel there fails; craftsman-2 stays docked.
 trucker-10..15 (congregations) joined the haul fleet; no pirate unlock, and
 haul gates strongholds per agent.
+
+**11-16 evening:** refueling_dock and h2_fuel_combustor ACTIVE; **faction_workshop placed**
+(under construction 16:53 local). Without the workshop the station refuses ALL crafting with
+`no_service`, even on a named production facility: build it right after the locker bay at any new
+station. Upkeep supplies stocked (sunspindle, purified water, scrubbers, focused crystal).
 
 Related: [[project_cloverfield_home_station]] [[reference_congregation_is_outerrim_exclusive]]
