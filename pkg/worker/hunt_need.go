@@ -31,6 +31,9 @@ type huntNeed struct {
 	MissionID    string
 	GroundSystem string
 	GroundPOI    string
+	// Radius is the ground search radius (jumps) the need was taken at; every
+	// re-pick of its ground stays within it.
+	Radius int
 }
 
 // huntParseNeed reads a Station Need from a board entry. It accepts only a

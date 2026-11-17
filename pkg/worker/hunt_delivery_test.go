@@ -282,7 +282,7 @@ func huntGround(t *testing.T, kb *huntNeedFakeKB) (string, string) {
 	t.Helper()
 	need := huntNeed{ItemID: "caustic_sac", Species: []string{"belt_grazer"}}
 	hops := map[string]int{"pollux": 1, "levy": 2, "test_system": 0}
-	sys, poi, why := huntNeedGround(context.Background(), kb, kb, need, func(s string) int { return hops[s] }, nil, huntNeedTestNow)
+	sys, poi, why := huntNeedGround(context.Background(), kb, kb, need, func(s string) int { return hops[s] }, huntNearbyJumps, nil, huntNeedTestNow)
 	return sys + "/" + poi, why
 }
 
@@ -525,5 +525,108 @@ func TestHuntResumedNeedDeliversWhenAlreadyHeld(t *testing.T) {
 	}
 	if f.huntCalls != 0 || !called(f.huntFake, "travel:levy_base") || !called(f.huntFake, "complete:hex-caustic") {
 		t.Fatalf("a resumed need with the parts aboard must deliver without hunting; calls %v\nlog:\n%s", f.calls, log.String())
+	}
+}
+
+func TestHuntGroundRadiusBoundsTheChoice(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	kb := huntGroundKB(t) // pollux_outer_belt: sighted 10h ago, never looked at
+	// A far ground with a fresh sighting, which outranks the near one by class.
+	if err := kb.RememberSystem(ctx, knowledge.System{ID: "faraway", Name: "Faraway", PoliceLevel: 80, LastVisitedTick: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := kb.RememberPOI(ctx, knowledge.POI{ID: "faraway_belt", SystemID: "faraway", Type: "asteroid_belt"}); err != nil {
+		t.Fatal(err)
+	}
+	kb.sightings = append(kb.sightings, knowledge.WildlifeSighting{
+		Species: "belt_grazer", SystemID: "faraway", POIID: "faraway_belt",
+		Source: knowledge.WildlifeSourceNearby, ObservedUTC: huntAgo(time.Hour),
+	})
+	need := huntNeed{ItemID: "caustic_sac", Species: []string{"belt_grazer"}}
+	hops := func(s string) int { return map[string]int{"pollux": 3, "faraway": 20}[s] }
+
+	_, poi, why := huntNeedGround(ctx, kb, kb, need, hops, 6, nil, huntNeedTestNow)
+	if poi != "pollux_outer_belt" {
+		t.Fatalf("radius 6: got %q (%s), want the near unlooked pollux_outer_belt, not the 20-jump sighted one", poi, why)
+	}
+	// Re-pick after excluding the near ground: nothing within the radius.
+	if _, poi, _ := huntNeedGround(ctx, kb, kb, need, hops, 6, []string{"pollux_outer_belt"}, huntNeedTestNow); poi != "" {
+		t.Fatalf("re-pick after exclude returned %q, beyond the radius", poi)
+	}
+	// With a radius that reaches it, the fresher far ground wins on class.
+	if _, poi, _ := huntNeedGround(ctx, kb, kb, need, hops, 24, nil, huntNeedTestNow); poi != "faraway_belt" {
+		t.Fatalf("radius 24: got %q, want faraway_belt", poi)
+	}
+}
+
+func TestHuntTravelToNeedGroundKeepsTheJobRadius(t *testing.T) {
+	t.Parallel()
+	kb := huntGroundKB(t) // pollux_outer_belt is 1 jump from test_system
+	// A second, fresher ground 2 jumps out at levy.
+	if err := kb.RememberPOI(context.Background(), knowledge.POI{ID: "levy_ice", SystemID: "levy", Type: "ice_field"}); err != nil {
+		t.Fatal(err)
+	}
+	kb.sightings = append(kb.sightings, knowledge.WildlifeSighting{
+		Species: "belt_grazer", SystemID: "levy", POIID: "levy_ice",
+		Source: knowledge.WildlifeSourceNearby, ObservedUTC: huntAgo(time.Hour),
+	})
+	f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{})
+	var log strings.Builder
+	deps := huntNeedDeps(f, kb, &log)
+	need := huntNeed{ItemID: "caustic_sac", Species: []string{"belt_grazer"}}
+
+	need.Radius = 1
+	if poi, err := huntTravelToNeedGround(context.Background(), deps, &log, need, nil); err != nil || poi != "pollux_outer_belt" {
+		t.Fatalf("radius 1: got %q err %v, want pollux_outer_belt", poi, err)
+	}
+	f.state.CurrentPOI, f.state.Doc = "haven_station", true
+	need.Radius = 0 // unset falls back to huntNearbyJumps, which reaches the fresher levy_ice
+	if poi, err := huntTravelToNeedGround(context.Background(), deps, &log, need, nil); err != nil || poi != "levy_ice" {
+		t.Fatalf("radius unset: got %q err %v", poi, err)
+	}
+	// After excluding it, levy_ice (2 jumps) is beyond the job's radius of 1:
+	// the re-pick refuses rather than flying further out.
+	f.state.CurrentPOI, f.state.Doc = "haven_station", true
+	need.Radius = 1
+	if poi, err := huntTravelToNeedGround(context.Background(), deps, &log, need, []string{"pollux_outer_belt"}); err == nil {
+		t.Fatalf("re-pick after exclude flew to %q", poi)
+	}
+}
+
+func TestHuntDeliveryWaitsForRepair(t *testing.T) {
+	t.Parallel()
+	kb := huntNeedKBFixture(t)
+	// 36% hull: above the 35% flee floor, so the pass hunts, but well below
+	// the repair threshold the delivery leg requires.
+	f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{shipHullFrac: 0.36, creatures: huntGrazers("c1", "c2", "c3", "c4")})
+	var log strings.Builder
+	deps := huntNeedDeps(f, kb, &log)
+	if err := Hunt(context.Background(), deps); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if got := cargoQty(f.state, "caustic_sac"); got < 10 {
+		t.Fatalf("parts not gathered (%.0f aboard); log:\n%s", got, log.String())
+	}
+	if called(f.huntFake, "travel:levy_base") || called(f.huntFake, "complete:") {
+		t.Fatalf("delivered on a damaged hull: calls %v", f.calls)
+	}
+	if !strings.Contains(log.String(), "delivery waits for repair") {
+		t.Errorf("the wait must be logged, got:\n%s", log.String())
+	}
+
+	// Next pass: repaired. The held need resumes with its parts aboard and
+	// delivers without hunting again.
+	f.opts.shipHullFrac = 0
+	f.state.Ship.Hull = f.state.Ship.MaxHull
+	hunts := f.huntCalls
+	if err := Hunt(context.Background(), deps); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if f.huntCalls != hunts {
+		t.Errorf("resumed pass hunted again (%d -> %d)", hunts, f.huntCalls)
+	}
+	if !called(f.huntFake, "travel:levy_base") || !called(f.huntFake, "complete:hex-caustic") {
+		t.Fatalf("repaired pass must deliver; calls %v\nlog:\n%s", f.calls, log.String())
 	}
 }

@@ -175,10 +175,11 @@ var huntGroundClassNames = [...]string{"recently sighted", "never looked at", "s
 
 // huntNeedGround picks the hunting ground for a need: a POI where one of
 // need.Species has been sighted, in an empire-policed system (never relaxed
-// for need work), not a known high-severity hazard, and not hunted out. Best
-// class first (huntClassifyGround), then fewest jumps from `from`. hops returns
-// a negative number for an unreachable system.
-func huntNeedGround(ctx context.Context, kb knowledge.Base, nk huntNeedKB, need huntNeed, hops func(systemID string) int, exclude []string, now time.Time) (systemID, poiID, why string) {
+// for need work), not a known high-severity hazard, not hunted out, and
+// within radius jumps. Grounds beyond the radius are dropped BEFORE ranking, so
+// a far one can never hide a near one. Best class first (huntClassifyGround),
+// then fewest jumps. hops returns a negative number for an unreachable system.
+func huntNeedGround(ctx context.Context, kb knowledge.Base, nk huntNeedKB, need huntNeed, hops func(systemID string) int, radius int, exclude []string, now time.Time) (systemID, poiID, why string) {
 	type cand struct {
 		system, poi string
 		sightings   []knowledge.WildlifeSighting
@@ -223,7 +224,7 @@ func huntNeedGround(ctx context.Context, kb knowledge.Base, nk huntNeedKB, need 
 			continue
 		}
 		h := hops(c.system)
-		if h < 0 {
+		if h < 0 || h > radius {
 			continue
 		}
 		looks, err := nk.GetWildlifeCoverage(ctx, c.system, c.poi, huntDepletedLooks)
@@ -385,9 +386,10 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 			continue
 		}
 		n.MissionID = e.MissionID
-		n.GroundSystem, n.GroundPOI, _ = huntNeedGround(ctx, deps.KB, nk, n, jumps, nil, huntNow(deps))
+		n.Radius = radius
+		n.GroundSystem, n.GroundPOI, _ = huntNeedGround(ctx, deps.KB, nk, n, jumps, radius, nil, huntNow(deps))
 		if n.GroundPOI == "" {
-			fmt.Fprintf(out, "hunt: skip need %s (%s): no policed ground where %s is sighted\n", e.MissionID, e.Title, strings.Join(n.Species, "/")) //nolint:errcheck
+			fmt.Fprintf(out, "hunt: skip need %s (%s): no policed ground within %d jump(s) where %s is sighted\n", e.MissionID, e.Title, radius, strings.Join(n.Species, "/")) //nolint:errcheck
 			continue
 		}
 		needs = append(needs, n)
@@ -462,6 +464,8 @@ func huntResumeNeed(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		boardID = m.MissionID
 	}
 	n.MissionID = boardID
+	// A resumed need was taken in an earlier pass; search at today's radius.
+	n.Radius = huntNeedRadius(huntLoadRoam(deps, out).DryPasses)
 	fmt.Fprintf(out, "hunt[%s]: resuming need %s (%s): %d %s for %s\n", who, boardID, m.Title, n.Quantity, n.ItemID, n.TargetBaseID) //nolint:errcheck
 	return huntJob{
 		boardID: boardID, activeID: m.MissionID, title: m.Title,
@@ -483,9 +487,13 @@ func huntTravelToNeedGround(ctx context.Context, deps HuntDeps, out io.Writer, n
 	if jumps == nil {
 		return "", fmt.Errorf("galaxy graph unavailable")
 	}
-	sys, poi, why := huntNeedGround(ctx, deps.KB, nk, need, jumps, exclude, huntNow(deps))
+	radius := need.Radius
+	if radius <= 0 {
+		radius = huntNearbyJumps
+	}
+	sys, poi, why := huntNeedGround(ctx, deps.KB, nk, need, jumps, radius, exclude, huntNow(deps))
 	if poi == "" {
-		return "", fmt.Errorf("no policed ground where %s is sighted", strings.Join(need.Species, "/"))
+		return "", fmt.Errorf("no policed ground within %d jump(s) where %s is sighted", radius, strings.Join(need.Species, "/"))
 	}
 	if state.CurrentPOI == poi && !state.Doc {
 		return poi, nil
@@ -522,11 +530,28 @@ func huntNeedQuarry(creatures []serverapi.NearbyCreature, species []string, out 
 // huntDeliverNeed flies the parts to the mission's target base, docks and
 // completes. Any failure holds the mission for the next pass, which resumes
 // it and, holding the quantity already, comes straight back here.
+//
+// The delivery leg is flown only on a repaired hull (huntRepairAtHull): parts
+// gathered at a damaged hull wait aboard, the next pass docks and repairs
+// first (huntRepairAtDock), resumes the need, and delivers from there.
 func huntDeliverNeed(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob) {
 	need := job.need
+	if err := deps.Client.GetStatus(ctx); err != nil {
+		fmt.Fprintf(out, "hunt: get_status before delivering %s: %v; held for next pass\n", job.boardID, err) //nolint:errcheck
+		return
+	}
 	st := deps.Client.GetState()
-	if st == nil || st.CurrentPOI != need.TargetBaseID || !st.Doc {
-		if st != nil && st.Doc {
+	if st == nil || st.Ship.MaxHull <= 0 || st.Ship.Hull/st.Ship.MaxHull < huntRepairAtHull {
+		frac := 0.0
+		if st != nil && st.Ship.MaxHull > 0 {
+			frac = st.Ship.Hull / st.Ship.MaxHull
+		}
+		fmt.Fprintf(out, "hunt[%s]: %s parts aboard but hull %.0f%% below %.0f%%; delivery waits for repair, held for next pass\n", //nolint:errcheck
+			who, job.boardID, frac*100, huntRepairAtHull*100)
+		return
+	}
+	if st.CurrentPOI != need.TargetBaseID || !st.Doc {
+		if st.Doc {
 			if err := deps.Client.Undock(ctx); err != nil {
 				fmt.Fprintf(out, "hunt: undock to deliver %s: %v; held for next pass\n", job.boardID, err) //nolint:errcheck
 				return
