@@ -479,6 +479,12 @@ func huntResumeNeed(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		fmt.Fprintf(out, "hunt[%s]: holding need %s (%s), not resuming: no delivery base named\n", who, m.MissionID, m.Title) //nolint:errcheck
 		return huntJob{}, false
 	}
+	// The accept-time guard, re-checked: policing can change, and a held
+	// need must not be delivered into Lawless space.
+	if !huntPolicedSystem(ctx, deps.KB, n.SystemID) {
+		fmt.Fprintf(out, "hunt[%s]: holding need %s (%s), not resuming: delivery system %s is not empire-policed\n", who, m.MissionID, m.Title, n.SystemID) //nolint:errcheck
+		return huntJob{}, false
+	}
 	boardID := m.TemplateID
 	if boardID == "" {
 		boardID = m.MissionID

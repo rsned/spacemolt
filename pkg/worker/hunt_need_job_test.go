@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
@@ -73,5 +75,34 @@ func TestHuntNeedDroppedByAPredatorIsNeverAccepted(t *testing.T) {
 	}
 	if !strings.Contains(log.String(), "species tempest_eel has role predator") {
 		t.Errorf("the refusal must be logged, got:\n%s", log.String())
+	}
+}
+
+// A held need whose delivery system is (now) Lawless is held, not resumed:
+// neither hunted for nor delivered.
+func TestHuntResumedNeedHeldWhenDeliveryUnpoliced(t *testing.T) {
+	kb := huntNeedKBFixture(t)
+	if err := kb.RememberSystem(context.Background(), knowledge.System{
+		ID: "levy", Name: "Levy", PoliceLevel: 0, LastVisitedTick: 1,
+		Connections: []knowledge.SystemConnection{{SystemID: "pollux"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{
+		heldAtStart:    true,
+		activeMissions: []serverapi.ActiveMission{huntCausticActive(2)},
+		creatures:      huntGrazers("c1"),
+	})
+	f.raw["missions"] = boardJSON(t)
+	f.state.Ship.Cargo = []game.CargoItem{{ItemID: "caustic_sac", Quantity: 10}}
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntNeedDeps(f, kb, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if called(f.huntFake, "travel:") || called(f.huntFake, "complete:") || f.huntCalls != 0 || called(f.huntFake, "abandon") {
+		t.Fatalf("a held need delivering into Lawless space must be held untouched; calls %v\n%s", f.calls, log.String())
+	}
+	if !strings.Contains(log.String(), "holding need hex-caustic") {
+		t.Errorf("the hold must be logged, got:\n%s", log.String())
 	}
 }
