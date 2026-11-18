@@ -264,6 +264,40 @@ func TestSystemStopsWhenOutOfFuel(t *testing.T) {
 }
 
 // A station is docked at, captured and refuelled; other POIs get the POI update.
+// With SkipOutposts an outpost is visited and captured like any POI, never
+// docked at: outposts refuse outsiders.
+func TestTourSkipOutpostsDoesNotDock(t *testing.T) {
+	outpost := poi("camp", "station", 1)
+	outpost.HasBase, outpost.BaseType = true, game.BaseTypeOutpost
+	c := newFakeClient(poi("star", "star", 0), outpost)
+	d, _ := testDeps(c)
+	d.HasScanner = func(*game.State) bool { return false }
+	updated := 0
+	d.UpdatePOI = func(context.Context) error { updated++; return nil }
+
+	res, err := System(context.Background(), d, Options{SkipOutposts: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.count("dock") != 0 || updated != 2 || !res.POIs[1].Visited {
+		t.Errorf("docks=%d POI updates=%d result=%+v; want no dock, both POIs captured", c.count("dock"), updated, res.POIs)
+	}
+}
+
+// A full tank is not refuelled.
+func TestStationStopSkipsRefuelOnAFullTank(t *testing.T) {
+	c := newFakeClient(poi("star", "star", 0), poi("depot", "station", 1))
+	c.state.Fuel, c.state.MaxFuel = 500, 500
+	d, _ := testDeps(c)
+	d.HasScanner = func(*game.State) bool { return false }
+	if _, err := System(context.Background(), d, Options{RefuelAtStations: true}); err != nil {
+		t.Fatal(err)
+	}
+	if c.count("dock") != 1 || c.count("refuel") != 0 {
+		t.Errorf("calls %v, want a dock and no refuel", c.calls)
+	}
+}
+
 func TestSystemStationStop(t *testing.T) {
 	c := newFakeClient(poi("star", "star", 0), poi("depot", "station", 1))
 	d, _ := testDeps(c)

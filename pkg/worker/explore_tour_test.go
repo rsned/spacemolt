@@ -21,6 +21,43 @@ type tourFake struct {
 	route     []game.RouteStep
 	travelErr map[string]error
 	calls     []string
+	surveyErr error
+	// poiReplies are get_poi replies by POI id; last is the latest raw reply.
+	poiReplies map[string]string
+	last       []byte
+}
+
+func (f *tourFake) SurveySystem(context.Context) error {
+	f.calls = append(f.calls, "survey")
+	f.last = []byte(`{"system_id":"a","survey_power":40,"newly_revealed":[],"already_revealed":[]}`)
+	return f.surveyErr
+}
+func (f *tourFake) GetShip(context.Context) error   { return nil }
+func (f *tourFake) GetNearby(context.Context) error { f.last = []byte(`{}`); return nil }
+func (f *tourFake) GetPOI(context.Context) error {
+	f.last = []byte(`{}`)
+	if r, ok := f.poiReplies[f.st.CurrentPOI]; ok {
+		f.last = []byte(r)
+	}
+	return nil
+}
+func (f *tourFake) RawCommand(_ context.Context, command string, _ map[string]any) error {
+	if command == "interact_poi" {
+		f.calls = append(f.calls, "interact "+f.st.CurrentPOI)
+		f.last = []byte(`{"message":"The archive opens.","data_copied":true}`)
+	}
+	return nil
+}
+func (f *tourFake) GetRawJSON(key string) []byte {
+	if key == "_last" {
+		return f.last
+	}
+	return nil
+}
+func (f *tourFake) Undock(context.Context) error {
+	f.calls = append(f.calls, "undock "+f.st.CurrentPOI)
+	f.st.Doc = false
+	return nil
 }
 
 func (f *tourFake) GetState() *game.State           { return f.st }
@@ -97,12 +134,14 @@ func TestSystemTourDocksAndRefuelsAtStations(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
+		"survey", // first, so the POIs it reveals are in the route
 		"travel belt",
 		"travel outpost", // visited and captured, never docked: outposts refuse outsiders
 		"travel veil",    // a charted hidden POI (wormhole mouth) is toured, never entered
 		"travel far_station",
 		"dock far_station",
 		"refuel far_station",
+		"undock far_station",
 	}
 	if !slices.Equal(f.calls, want) {
 		t.Errorf("calls =\n  %v\nwant\n  %v", f.calls, want)
@@ -120,6 +159,47 @@ func TestSystemTourSkipsRefuelWhenFull(t *testing.T) {
 	}
 	if slices.Contains(f.calls, "refuel far_station") {
 		t.Errorf("refueled a full tank: %v", f.calls)
+	}
+}
+
+// A relic on the route is interacted with, once, and the reply recorded.
+func TestSystemTourInteractsWithRelic(t *testing.T) {
+	st := tourSystem()
+	st.System.POIs = []game.POI{{ID: "star", Type: "sun"}, {ID: "belt", Type: "asteroid_belt", Position: game.Position{X: 2}},
+		{ID: "vault", Type: "relic", Name: "Vault", Position: game.Position{X: 2.5}}}
+	f := &tourFake{st: st, poiReplies: map[string]string{
+		"vault": `{"poi":{"id":"vault","type":"relic"},"interaction":{"message":"A sealed archive hums.","command":"interact_poi"}}`,
+	}}
+	kb := knowledge.NewMemoryKB()
+
+	if err := systemTour(context.Background(), ExploreDeps{Client: f, KB: kb, AgentID: "explorer-3"}, nil); err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, c := range f.calls {
+		if c == "interact vault" {
+			n++
+		} else if strings.HasPrefix(c, "interact ") {
+			t.Errorf("interacted with a POI that is no relic: %s", c)
+		}
+	}
+	if n != 1 {
+		t.Errorf("calls = %v, want exactly one interact at the relic", f.calls)
+	}
+	rows, err := kb.RelicInteractions(context.Background())
+	if err != nil || len(rows) != 1 || rows[0].POIID != "vault" || rows[0].AgentID != "explorer-3" || rows[0].Outcome != knowledge.RelicDataCopied {
+		t.Errorf("recorded %+v (err %v), want one data_copied row for vault", rows, err)
+	}
+}
+
+// A ship with no survey gear still tours: the server's refusal is not fatal.
+func TestSystemTourGoesOnWhenTheSurveyIsRefused(t *testing.T) {
+	f := &tourFake{st: tourSystem(), surveyErr: errors.New("no survey scanner installed")}
+	if err := systemTour(context.Background(), ExploreDeps{Client: f}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(f.calls, "travel far_station") {
+		t.Errorf("calls = %v, want the tour to run without a survey", f.calls)
 	}
 }
 

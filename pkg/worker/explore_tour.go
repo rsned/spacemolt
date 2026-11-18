@@ -7,6 +7,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/rsned/spacemolt/pkg/explore"
 	"github.com/rsned/spacemolt/pkg/game"
 )
 
@@ -47,106 +48,43 @@ func planTourRoute(pois []game.POI, startPOI string) []game.POI {
 	return route
 }
 
-// tourSkipReason reports why the tour must not visit p, or "" to visit it:
-// a hazard that doses at moderate severity or worse is not worth a capture.
-// Hidden POIs are NOT skipped: get_system lists only the ones this pilot has
-// charted, and those (wormhole mouths, deep-core deposits) are travelable.
-func tourSkipReason(p game.POI) string {
-	if p.Hazard.Damaging() && p.Hazard.Severity >= hazardLeaveSeverity {
-		return fmt.Sprintf("%s hazard severity %d", p.Hazard.Type, p.Hazard.Severity)
-	}
-
-	return ""
-}
-
-// tourStation reports whether p is a station the explorer can dock at:
-// outposts refuse outsiders.
-func tourStation(p game.POI) bool {
-	return p.HasBase && p.BaseType != game.BaseTypeOutpost
-}
-
-// systemTour visits every POI of the current system. Best-effort: a failed
-// hop or capture is logged and the tour moves on; it stops early only when the
-// ship is out of fuel for in-system travel or ctx ends. It returns nil except
-// for ctx cancellation.
+// systemTour explores the current system through the shared pkg/explore:
+// survey first (so the POIs it reveals are in the route), then every POI in
+// nearest-neighbour order, each one captured, every station docked at,
+// captured and refuelled, and every relic interacted with once. POIs with a
+// hazard of moderate severity or worse are skipped, and outposts are visited
+// but not docked at. Best-effort: a failed hop or capture is logged and the
+// tour moves on. It returns nil except for ctx cancellation.
 func systemTour(ctx context.Context, deps ExploreDeps, out io.Writer) error {
 	if out == nil {
 		out = io.Discard
 	}
+	deps.Out = out
 	if err := deps.Client.GetSystem(ctx); err != nil {
 		fmt.Fprintf(out, "explore: tour skipped: get_system: %v\n", err) //nolint:errcheck
 		return nil
 	}
 	state := deps.Client.GetState()
-	if state == nil || len(state.System.POIs) == 0 {
+	if state == nil {
 		return nil
 	}
-	route := planTourRoute(state.System.POIs, state.CurrentPOI)
-	reportWormholes(ctx, deps, out, state.System, route)
-	fmt.Fprintf(out, "explore: touring %d POI(s) in %s\n", len(route), nonEmpty(state.System.Name, state.System.ID)) //nolint:errcheck
+	// A system listing no POIs is still surveyed: all of them may be hidden.
+	reportWormholes(ctx, deps, out, state.System, planTourRoute(state.System.POIs, state.CurrentPOI))
 
-	for _, p := range route {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if why := tourSkipReason(p); why != "" {
-			fmt.Fprintf(out, "explore: skipping %s (%s)\n", nonEmpty(p.Name, p.ID), why) //nolint:errcheck
-			continue
-		}
-		if err := autopilotTravelToPOI(ctx, deps.Client, out, p.ID); err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			fmt.Fprintf(out, "explore: %v\n", err) //nolint:errcheck
-			if isInsufficientFuelErr(err) {
-				fmt.Fprintln(out, "explore: tour stopped: out of fuel for in-system travel") //nolint:errcheck
-				return nil
-			}
-			continue
-		}
-		if err := KBUpdatePOI(ctx, deps.Client, deps.KB, deps.AgentID); err != nil {
-			fmt.Fprintf(out, "explore: capture %s: %v\n", nonEmpty(p.Name, p.ID), err) //nolint:errcheck
-		}
-		if tourStation(p) {
-			exploreStationStop(ctx, deps, out, p)
-		}
+	res, err := explore.System(ctx, workerExploreDeps(deps), explore.Options{
+		RefuelAtStations: true, Relics: true, SkipHazardSeverity: hazardLeaveSeverity, SkipOutposts: true,
+	})
+	if ctx.Err() != nil {
+		return ctx.Err()
 	}
-
+	if err != nil {
+		fmt.Fprintf(out, "explore: tour of %s ended: %v\n", nonEmpty(state.System.Name, state.System.ID), err) //nolint:errcheck
+		return nil
+	}
+	if res.Stopped != "" {
+		fmt.Fprintf(out, "explore: tour stopped at %s: %s\n", res.StoppedAt, res.Stopped) //nolint:errcheck
+	}
 	return nil
-}
-
-// exploreStationStop docks at the station the ship is at, captures the
-// station (base, market, shipyard, facilities, missions) and fills the tank.
-// A refused dock (a faction-only or stronghold station) just moves the tour on.
-func exploreStationStop(ctx context.Context, deps ExploreDeps, out io.Writer, p game.POI) {
-	if err := dockIdempotent(ctx, deps.Client); err != nil {
-		fmt.Fprintf(out, "explore: dock at %s refused: %v\n", nonEmpty(p.Name, p.ID), err) //nolint:errcheck
-		return
-	}
-	name := nonEmpty(p.Name, p.ID)
-	if err := KBUpdateStation(ctx, deps.Client, deps.KB, deps.Market, "worker"); err != nil {
-		fmt.Fprintf(out, "explore: station capture at %s: %v\n", name, err) //nolint:errcheck
-	}
-	if err := KBUpdateFacilities(ctx, deps.Client, deps.KB); err != nil {
-		fmt.Fprintf(out, "explore: facilities capture at %s: %v\n", name, err) //nolint:errcheck
-	}
-	if err := KBUpdateMissions(ctx, deps.Client, deps.KB); err != nil {
-		fmt.Fprintf(out, "explore: missions capture at %s: %v\n", name, err) //nolint:errcheck
-	}
-	if s := deps.Client.GetState(); s != nil {
-		if f, m := s.GetFuel(); m > 0 && f >= m {
-			return
-		}
-	}
-	if err := deps.Client.Refuel(ctx); err != nil {
-		fmt.Fprintf(out, "explore: refuel at %s failed: %v\n", name, err) //nolint:errcheck
-		return
-	}
-	_ = deps.Client.GetStatus(ctx)
-	if s := deps.Client.GetState(); s != nil {
-		f, m := s.GetFuel()
-		fmt.Fprintf(out, "explore: refueled at %s: %.0f/%.0f\n", name, f, m) //nolint:errcheck
-	}
 }
 
 // Wormhole POI types.

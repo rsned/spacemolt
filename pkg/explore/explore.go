@@ -101,6 +101,9 @@ type Options struct {
 	// SkipHazardSeverity skips POIs whose damaging hazard is at or above this
 	// severity, unless EnterHazards; 0 skips none.
 	SkipHazardSeverity int
+	// SkipOutposts visits and captures an outpost without docking: outposts
+	// refuse outsiders.
+	SkipOutposts bool
 }
 
 // poiTypeStation is the POI type the tour docks at.
@@ -323,7 +326,8 @@ func (t *tour) visit(ctx context.Context, i int) (stop bool, err error) {
 		return true, nil
 	}
 
-	if poi.Type == poiTypeStation {
+	outpost := poi.HasBase && poi.BaseType == game.BaseTypeOutpost
+	if poi.Type == poiTypeStation && (!o.SkipOutposts || !outpost) {
 		stationStop(ctx, d, o, poi)
 	} else if d.UpdatePOI != nil {
 		if err := d.UpdatePOI(ctx); err != nil {
@@ -365,7 +369,12 @@ func stationStop(ctx context.Context, d Deps, o Options, poi game.POI) {
 			d.Report.Printf("  (update_all failed: %v)\n", err)
 		}
 	}
-	if o.RefuelAtStations {
+	full := false
+	if st := d.Client.GetState(); st != nil {
+		f, m := st.GetFuel()
+		full = m > 0 && f >= m
+	}
+	if o.RefuelAtStations && !full {
 		d.Report.Printf("  Refueling...\n")
 		// Tank-full is an expected "error" here, not worth surfacing.
 		if err := d.Client.Refuel(ctx); err != nil && !tankFull(err) {
