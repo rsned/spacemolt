@@ -108,6 +108,29 @@ func (f *fitFake) FactionWithdrawItems(_ context.Context, item string, n int) er
 	return nil
 }
 
+func (f *fitFake) WithdrawItems(_ context.Context, item string, n float64) error {
+	f.calls = append(f.calls, fmt.Sprintf("own-withdraw %v %s", n, item))
+	return nil
+}
+
+// A ship with no faction-storage permission draws staged gear from its own
+// station storage instead.
+func TestApplyFrontierFitFallsBackToOwnStorage(t *testing.T) {
+	refused := errors.New("no_permission: You need 'manage treasury' permission")
+	f := &fitFake{withdrawErr: map[string]error{sweep.FitScanner: refused, explore.KitItem: refused, "fuel_cell": refused}}
+	if err := applyFrontierFit(context.Background(), f, func() {}, fitTestPlan(), 0, 20); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"own-withdraw 2 " + sweep.FitScanner, "own-withdraw 10 " + explore.KitItem, "own-withdraw 20 fuel_cell"} {
+		if !slices.Contains(f.calls, want) {
+			t.Errorf("calls %v, want %q", f.calls, want)
+		}
+	}
+	if f.calls[0] != "own-withdraw 2 "+sweep.FitScanner {
+		t.Errorf("calls %v, want the scanners drawn before anything is removed", f.calls)
+	}
+}
+
 func fitTestPlan() sweep.FitPlan {
 	return sweep.FitPlan{OK: true,
 		Remove: []sweep.FitModule{{ID: "m1", TypeID: "mining_laser_i", Name: "Mining Laser I"}},

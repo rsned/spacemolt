@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -191,6 +191,22 @@ type fitClient interface {
 	InstallMod(ctx context.Context, moduleID string) error
 	FactionDepositItems(ctx context.Context, itemID string, quantity int) error
 	FactionWithdrawItems(ctx context.Context, itemID string, quantity int) error
+	WithdrawItems(ctx context.Context, itemID string, quantity float64) error
+}
+
+// drawGear takes n of item from faction storage, or, for a ship without the
+// permission, from its own storage at this station (where an officer's gift
+// of the gear lands).
+func drawGear(ctx context.Context, client fitClient, item string, n int) error {
+	err := client.FactionWithdrawItems(ctx, item, n)
+	if err == nil || !strings.Contains(err.Error(), "no_permission") {
+		return err
+	}
+	fmt.Printf("  (no faction-storage permission; drawing %d %s from this ship's own storage)\n", n, item)
+	if oerr := client.WithdrawItems(ctx, item, float64(n)); oerr != nil {
+		return fmt.Errorf("faction storage: %w; own storage: %w", err, oerr)
+	}
+	return nil
 }
 
 // applyFrontierFit performs a plan at the docked station: removed modules go
@@ -201,8 +217,8 @@ type fitClient interface {
 func applyFrontierFit(ctx context.Context, client fitClient, pause func(), plan sweep.FitPlan, kits, fuelCells int) error {
 	n := len(plan.Add)
 	if n > 0 {
-		if err := client.FactionWithdrawItems(ctx, sweep.FitScanner, n); err != nil {
-			return fmt.Errorf("withdraw %d %s from faction storage (nothing was removed from the ship): %w", n, sweep.FitScanner, err)
+		if err := drawGear(ctx, client, sweep.FitScanner, n); err != nil {
+			return fmt.Errorf("withdraw %d %s (nothing was removed from the ship): %w", n, sweep.FitScanner, err)
 		}
 		pause()
 	}
@@ -230,7 +246,7 @@ func applyFrontierFit(ctx context.Context, client fitClient, pause func(), plan 
 		if n <= 0 {
 			return
 		}
-		if err := client.FactionWithdrawItems(ctx, item, n); err != nil {
+		if err := drawGear(ctx, client, item, n); err != nil {
 			short = append(short, fmt.Errorf("could not withdraw %d %s: %w", n, item, err))
 			return
 		}
