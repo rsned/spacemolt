@@ -232,22 +232,23 @@ func withFrontierRun(path string, fn func(r *FrontierRun) (bool, error)) error {
 
 // ClaimCluster claims for agent every unfinished system lane-connected to
 // systemID, and returns them breadth first from systemID. Finished systems
-// are crossed but not returned; incomplete ones are neither crossed nor
-// returned. ok is false, and nothing is claimed, when any of them is claimed
-// by another agent. A ship that already holds the cluster gets it back.
+// are crossed but not returned; incomplete ones, and systems another agent
+// has claimed, are neither crossed nor returned: when a lane turns out to
+// join two ships' clusters each keeps its own. ok is false, and nothing is
+// claimed, only when systemID itself is another agent's claim. A ship that
+// already holds the cluster gets it back.
 func ClaimCluster(path, agent, systemID string, now time.Time) (ids []string, ok bool, err error) {
 	err = withFrontierRun(path, func(r *FrontierRun) (bool, error) {
 		if r.Systems[systemID] == nil {
 			return false, fmt.Errorf("frontier run: %s is not in the ledger", systemID)
 		}
-		reached := r.reach(systemID, func(s *FrontierSystem) bool { return s.Status != FrontierIncomplete })
+		others := func(s *FrontierSystem) bool { return s.Status == FrontierClaimed && s.Claimant != agent }
+		if others(r.Systems[systemID]) {
+			return false, nil
+		}
+		reached := r.reach(systemID, func(s *FrontierSystem) bool { return s.Status != FrontierIncomplete && !others(s) })
 		for _, id := range reached {
-			s := r.Systems[id]
-			switch {
-			case s.Status == FrontierClaimed && s.Claimant != agent:
-				ids = nil
-				return false, nil
-			case s.Status == FrontierTodo || s.Status == FrontierClaimed:
+			if s := r.Systems[id]; s.Status == FrontierTodo || s.Status == FrontierClaimed {
 				ids = append(ids, id)
 			}
 		}
@@ -287,7 +288,7 @@ func AddSystem(path string, in FrontierInput, laneTo, agent string, now time.Tim
 
 // FinishSystem records the outcome of agent's work on a system: s carries the
 // ID, the Status (done or incomplete) and the counts. It is refused when the
-// system is claimed by another agent.
+// system is claimed, or was already finished, by another agent.
 func FinishSystem(path, agent string, s FrontierSystem, now time.Time) error {
 	if s.Status != FrontierDone && s.Status != FrontierIncomplete {
 		return fmt.Errorf("frontier run: finish %s with status %q", s.ID, s.Status)
@@ -297,8 +298,8 @@ func FinishSystem(path, agent string, s FrontierSystem, now time.Time) error {
 		if cur == nil {
 			return false, fmt.Errorf("frontier run: %s is not in the ledger", s.ID)
 		}
-		if cur.Status == FrontierClaimed && cur.Claimant != agent {
-			return false, fmt.Errorf("frontier run: %s is claimed by %s, not %s", s.ID, cur.Claimant, agent)
+		if cur.Status != FrontierTodo && cur.Claimant != "" && cur.Claimant != agent {
+			return false, fmt.Errorf("frontier run: %s is %s by %s, not %s", s.ID, cur.Status, cur.Claimant, agent)
 		}
 		cur.Status, cur.Claimant, cur.UpdatedUTC = s.Status, agent, now.UTC()
 		cur.SurveyPower, cur.POIsSeen, cur.POIsVisited, cur.Relics = s.SurveyPower, s.POIsSeen, s.POIsVisited, s.Relics
@@ -349,6 +350,31 @@ func StartFrontierTarget(path, wedge string) (*FrontierSystem, error) {
 	err := withFrontierRun(path, func(r *FrontierRun) (bool, error) {
 		got = r.nearestTodo(func(s *FrontierSystem) bool { return s.Wedge == wedge },
 			func(s *FrontierSystem) float64 { return math.Hypot(s.X, s.Y) })
+		return false, nil
+	})
+	return got, err
+}
+
+// OwnClaim is the system agent has claimed and not finished that lies nearest
+// (x, y); ties go to the smaller id. Nil when it holds none. A ship returns
+// to its own claims before taking new ground, so none is left orphaned.
+func OwnClaim(path, agent string, x, y float64) (*FrontierSystem, error) {
+	var got *FrontierSystem
+	err := withFrontierRun(path, func(r *FrontierRun) (bool, error) {
+		var best *FrontierSystem
+		for _, id := range slices.Sorted(maps.Keys(r.Systems)) {
+			s := r.Systems[id]
+			if s.Status != FrontierClaimed || s.Claimant != agent {
+				continue
+			}
+			if best == nil || math.Hypot(s.X-x, s.Y-y) < math.Hypot(best.X-x, best.Y-y) {
+				best = s
+			}
+		}
+		if best != nil {
+			cp := *best
+			got = &cp
+		}
 		return false, nil
 	})
 	return got, err

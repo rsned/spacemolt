@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -160,8 +161,9 @@ func cmdFrontierFit(ctx context.Context, client game.GameClient, args []string) 
 	if st := client.GetState(); st == nil || !st.IsDocked() {
 		return fmt.Errorf("frontier_fit apply: dock at the station holding the scanners first")
 	}
-	if err = applyFrontierFit(ctx, client, plan, kits, fuelCells); err != nil {
-		return err
+	supplyErr := applyFrontierFit(ctx, client, func() { time.Sleep(game.SleepTick) }, plan, kits, fuelCells)
+	if supplyErr != nil && !strings.Contains(supplyErr.Error(), "supplies are short") {
+		return supplyErr
 	}
 
 	invalidateSurveyScannerCache()
@@ -176,50 +178,69 @@ func cmdFrontierFit(ctx context.Context, client game.GameClient, args []string) 
 	if !check.OK || len(check.Add) > 0 || len(check.Remove) > 0 {
 		return fmt.Errorf("frontier_fit: the ship is not at the frontier fit after applying:\n%s", formatFrontierFit(globalAgentID, check))
 	}
+	if supplyErr != nil {
+		return supplyErr
+	}
 	fmt.Println("  fit verified: pathfinder drive + 2 survey scanners. Undock and run `survey_system` to read the power (want 90).")
 	return nil
 }
 
+// fitClient is what applying a fit needs from the game client.
+type fitClient interface {
+	UninstallMod(ctx context.Context, moduleID string) error
+	InstallMod(ctx context.Context, moduleID string) error
+	FactionDepositItems(ctx context.Context, itemID string, quantity int) error
+	FactionWithdrawItems(ctx context.Context, itemID string, quantity int) error
+}
+
 // applyFrontierFit performs a plan at the docked station: removed modules go
 // to faction storage, scanners, repair kits and fuel cells come out of it.
-func applyFrontierFit(ctx context.Context, client game.GameClient, plan sweep.FitPlan, kits, fuelCells int) error {
+// The scanners are drawn first, so a station that cannot supply them leaves
+// the ship as it was. A kit or fuel-cell shortfall is returned as an error
+// after the modules are fitted. pause waits one tick between commands.
+func applyFrontierFit(ctx context.Context, client fitClient, pause func(), plan sweep.FitPlan, kits, fuelCells int) error {
+	n := len(plan.Add)
+	if n > 0 {
+		if err := client.FactionWithdrawItems(ctx, sweep.FitScanner, n); err != nil {
+			return fmt.Errorf("withdraw %d %s from faction storage (nothing was removed from the ship): %w", n, sweep.FitScanner, err)
+		}
+		pause()
+	}
 	for _, m := range plan.Remove {
 		if err := client.UninstallMod(ctx, m.ID); err != nil {
 			return fmt.Errorf("uninstall %s: %w", m.Name, err)
 		}
-		time.Sleep(game.SleepTick)
+		pause()
 		fmt.Printf("  removed %s\n", m.Name)
 		if err := client.FactionDepositItems(ctx, m.TypeID, 1); err != nil {
 			fmt.Printf("  (could not deposit %s to faction storage, left in cargo: %v)\n", m.TypeID, err)
 		} else {
-			time.Sleep(game.SleepTick)
+			pause()
 		}
 	}
-	if n := len(plan.Add); n > 0 {
-		if err := client.FactionWithdrawItems(ctx, sweep.FitScanner, n); err != nil {
-			return fmt.Errorf("withdraw %d %s from faction storage: %w", n, sweep.FitScanner, err)
+	for range n {
+		if err := client.InstallMod(ctx, sweep.FitScanner); err != nil {
+			return fmt.Errorf("install %s: %w", sweep.FitScanner, err)
 		}
-		time.Sleep(game.SleepTick)
-		for range n {
-			if err := client.InstallMod(ctx, sweep.FitScanner); err != nil {
-				return fmt.Errorf("install %s: %w", sweep.FitScanner, err)
-			}
-			time.Sleep(game.SleepTick)
-			fmt.Printf("  fitted %s\n", sweep.FitScanner)
-		}
+		pause()
+		fmt.Printf("  fitted %s\n", sweep.FitScanner)
 	}
+	var short []error
 	withdraw := func(item string, n int) {
 		if n <= 0 {
 			return
 		}
 		if err := client.FactionWithdrawItems(ctx, item, n); err != nil {
-			fmt.Printf("  (could not withdraw %d %s: %v)\n", n, item, err)
+			short = append(short, fmt.Errorf("could not withdraw %d %s: %w", n, item, err))
 			return
 		}
-		time.Sleep(game.SleepTick)
+		pause()
 		fmt.Printf("  loaded %d %s\n", n, item)
 	}
 	withdraw(explore.KitItem, frontierFitKits-kits)
 	withdraw("fuel_cell", fuelCells)
+	if err := errors.Join(short...); err != nil {
+		return fmt.Errorf("frontier_fit: modules are fitted but supplies are short: %w", err)
+	}
 	return nil
 }

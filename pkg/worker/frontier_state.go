@@ -54,6 +54,15 @@ type frontierState struct {
 	LastY           float64 `json:"last_y,omitempty"`
 	LastReadTick    int64   `json:"last_read_tick,omitempty"`
 
+	// StopSystem and Stops count the station detours a system's tour has
+	// forced (hull at the floor, tank empty): the second ends it incomplete.
+	StopSystem string `json:"stop_system,omitempty"`
+	Stops      int    `json:"stops,omitempty"`
+	// TrySystem and Tries count a system's failed tours: the third ends it
+	// incomplete.
+	TrySystem string `json:"try_system,omitempty"`
+	Tries     int    `json:"tries,omitempty"`
+
 	// Distress is set once a tow has been asked for, cleared at a station.
 	Distress   bool      `json:"distress,omitempty"`
 	UpdatedUTC time.Time `json:"updated_utc"`

@@ -268,14 +268,21 @@ func (t *tour) visit(ctx context.Context, i int) (stop bool, err error) {
 		return false, nil
 	}
 	// The hull floor. A station is exempt: docking is how a hull gets repaired.
+	// A damaging POI needs its dose on top, so the visit does not itself take
+	// the hull under the floor.
 	if o.HullFloor > 0 && poi.Type != poiTypeStation {
-		frac, _ := readHull(ctx, d)
-		if frac <= o.HullFloor {
-			t.leaveHazard(ctx)
-			frac, _ = repairToFloor(ctx, d, o.HullFloor)
+		need, why := o.HullFloor, ""
+		if damaging(poi) {
+			need += float64(poi.Hazard.DosePct()) / 100
+			why = fmt.Sprintf(", %s costs %d%% a dose", poi.Hazard.Type, poi.Hazard.DosePct())
 		}
-		if frac <= o.HullFloor {
-			t.skip(i, "hull "+hullPct(frac))
+		frac, _ := readHull(ctx, d)
+		if frac <= need {
+			t.leaveHazard(ctx)
+			frac, _ = repairToFloor(ctx, d, need)
+		}
+		if frac <= need {
+			t.skip(i, "hull "+hullPct(frac)+why)
 			t.floorSkipped = append(t.floorSkipped, i)
 			return false, nil
 		}

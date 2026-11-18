@@ -30,6 +30,10 @@ const (
 	// frontierMaxLaunches is how many pathfinder launches at one target may
 	// fail to arrive before it is marked unreachable.
 	frontierMaxLaunches = 2
+	// frontierMaxTries is how many failed tours of one system end it
+	// incomplete; frontierMaxStops how many station detours its tour may force.
+	frontierMaxTries = 3
+	frontierMaxStops = 1
 	// frontierLaunchCostEstimate stands in until the first launch is measured
 	// and the fleet yaml gives no sweep_launch_cost (a Reserve's cost).
 	frontierLaunchCostEstimate = 45
@@ -144,7 +148,27 @@ func (f *frontierPass) verify(ctx context.Context, sysID string) error {
 		f.halt = true
 		return nil
 	}
-	t, err := sweep.StartFrontierTarget(f.run, f.d.FrontierWedge)
+	// Read the survey power before leaving the station: a ship that cannot
+	// survey at 90 would only find that out a pathfinder launch away.
+	power, err := f.d.frontierSurveyFn()(ctx)
+	if err == nil && power < frontierMinPower {
+		err = fmt.Errorf("survey power %d is under %d", power, frontierMinPower)
+	}
+	if err != nil {
+		f.logf("not starting: pre-flight survey: %v", err)
+		if st := f.d.Client.GetState(); st != nil && !st.Doc && f.d.sweepStationPOI(ctx, sysID) != "" {
+			if derr := dockIdempotent(ctx, f.d.Client); derr != nil {
+				f.logf("dock: %v", derr)
+			}
+		}
+		f.halt = true
+		return nil
+	}
+	x, y, _ := f.position(ctx, sysID)
+	t, err := sweep.OwnClaim(f.run, f.d.AgentID, x, y)
+	if err == nil && t == nil {
+		t, err = sweep.StartFrontierTarget(f.run, f.d.FrontierWedge)
+	}
 	if err != nil {
 		return err
 	}
@@ -213,7 +237,27 @@ func (f *frontierPass) toRefuel(resume, why string) {
 
 // nav flies by jump lanes, waiting out a still-settling previous action.
 func (f *frontierPass) nav(ctx context.Context, system, poi string) error {
-	return waitOutPending(ctx, func() error { return f.d.ensureHomeNav(ctx, system, poi) })
+	avoid := f.hostileSystems(system)
+	return waitOutPending(ctx, func() error { return f.d.frontierNavFn()(ctx, system, poi, avoid) })
+}
+
+// hostileSystems is every system the ledger marks hostile (a leviathan, a
+// repeater, a battle), for lane routes to go round; dest is never in it.
+func (f *frontierPass) hostileSystems(dest string) map[string]string {
+	run, err := sweep.LoadFrontierRun(f.run)
+	if err != nil {
+		return nil
+	}
+	var out map[string]string
+	for id, ls := range run.Systems {
+		if id != dest && ls.Status == sweep.FrontierIncomplete && strings.HasPrefix(ls.Reason, "hostile") {
+			if out == nil {
+				out = map[string]string{}
+			}
+			out[id] = "frontier run: " + ls.Reason
+		}
+	}
+	return out
 }
 
 // noRoute reports a lane route the server or the avoid list refuses.
@@ -225,12 +269,42 @@ func noRoute(err error) bool {
 	return errors.Is(err, ErrRouteThroughAvoided) || strings.Contains(low, "no route") || sweepUnroutable(err)
 }
 
+// navRefused reports a lane trip autopilot will refuse again on every pass:
+// no route, or a route it will not fly (fuel, a stronghold, a toll).
+func navRefused(err error) bool {
+	return noRoute(err) || errors.Is(err, ErrInsufficientRouteFuel) ||
+		errors.Is(err, ErrRouteThroughStronghold) || errors.Is(err, ErrGateTollUnaffordable)
+}
+
+// targetGone reports a target that is no longer this ship's to fly to:
+// finished, written off, or claimed by another ship since it was picked.
+func (f *frontierPass) targetGone() bool {
+	run, err := sweep.LoadFrontierRun(f.run)
+	if err != nil {
+		return false
+	}
+	t := run.Systems[f.s.Target]
+	if t == nil {
+		return false
+	}
+	gone := t.Status == sweep.FrontierDone || t.Status == sweep.FrontierIncomplete ||
+		(t.Status == sweep.FrontierClaimed && t.Claimant != f.d.AgentID)
+	if gone {
+		f.logf("target %s is now %s (%s); picking another", t.ID, t.Status, t.Claimant)
+	}
+	return gone
+}
+
 // stage flies by lanes to the lane-reachable system nearest the target, so
 // the pathfinder launch is short; a target the lanes reach is flown to.
 func (f *frontierPass) stage(ctx context.Context, sysID string) error {
 	if sysID == f.s.Target {
 		f.s.Phase = frontierWork
 		return nil
+	}
+	if f.targetGone() {
+		f.s.Phase = frontierNext
+		return f.next(ctx, sysID)
 	}
 	if !f.fuelOK() {
 		f.toRefuel(f.s.Target, "fuel is under three launches before staging")
@@ -265,9 +339,10 @@ func (f *frontierPass) stage(ctx context.Context, sysID string) error {
 			f.d.markProgress()
 			return nil
 		}
-		if !noRoute(err) {
+		if !navRefused(err) {
 			return fmt.Errorf("frontier_explore: staging at %s: %w", c.id, err)
 		}
+		// Staging is optional: with no usable lane trip the launch is from here.
 		f.logf("staging at %s: %v; trying the next nearest", c.id, err)
 	}
 	f.s.Phase = frontierLaunch
@@ -280,6 +355,10 @@ func (f *frontierPass) launchAtTarget(ctx context.Context, sysID string) error {
 	if sysID == f.s.Target {
 		f.s.Phase = frontierWork
 		return nil
+	}
+	if f.targetGone() {
+		f.s.Phase = frontierNext
+		return f.next(ctx, sysID)
 	}
 	if f.s.Launches >= frontierMaxLaunches {
 		f.unreachable()
@@ -294,9 +373,12 @@ func (f *frontierPass) launchAtTarget(ctx context.Context, sysID string) error {
 	if !ok {
 		return fmt.Errorf("frontier_explore: position of %s unknown; cannot plot a bearing to %s", sysID, f.s.Target)
 	}
+	f.logf("launch %d at %s from %s", f.s.Launches+1, f.s.Target, sysID)
+	if err := f.launch(ctx, x, y, f.s.TargetX, f.s.TargetY); err != nil {
+		return err // a refused jump is not a launch at the target
+	}
 	f.s.Launches++
-	f.logf("launch %d at %s from %s", f.s.Launches, f.s.Target, sysID)
-	return f.launch(ctx, x, y, f.s.TargetX, f.s.TargetY)
+	return nil
 }
 
 // unreachable marks the target incomplete on the ledger.
@@ -404,13 +486,16 @@ func (f *frontierPass) missed(ctx context.Context, x, y, bearing float64) error 
 	}
 	if s.Launches < frontierMaxLaunches && f.fuelOK() {
 		s.Phase = frontierLaunch
+		f.logf("launch %d at %s from the drift", s.Launches+1, s.Target)
+		if err := f.launch(ctx, x, y, s.TargetX, s.TargetY); err != nil {
+			return err
+		}
 		s.Launches++
-		f.logf("launch %d at %s from the drift", s.Launches, s.Target)
-		return f.launch(ctx, x, y, s.TargetX, s.TargetY)
+		return nil
 	}
 	if s.Launches >= frontierMaxLaunches {
 		f.unreachable()
-		t, err := sweep.NextFrontierTarget(f.run, f.d.FrontierWedge, x, y)
+		t, err := f.pickTarget(x, y)
 		if err != nil {
 			return err
 		}
@@ -421,9 +506,13 @@ func (f *frontierPass) missed(ctx context.Context, x, y, bearing float64) error 
 		}
 		f.setTarget(t)
 		if f.fuelOK() {
-			s.Phase, s.Launches = frontierLaunch, 1
+			s.Phase = frontierLaunch
 			f.logf("next target %s; launch 1 from the drift", t.ID)
-			return f.launch(ctx, x, y, t.X, t.Y)
+			if err := f.launch(ctx, x, y, t.X, t.Y); err != nil {
+				return err
+			}
+			s.Launches = 1
+			return nil
 		}
 	}
 	f.toRefuel(s.Target, "fuel is under three launches adrift")
@@ -525,9 +614,33 @@ func (f *frontierPass) work(ctx context.Context, sysID string, loc serverapi.Loc
 	if err != nil {
 		return err
 	}
-	if !slices.Contains(s.Cluster, sysID) {
+	// The ledger is the record: a restart between its write and the state's
+	// must not tour a system twice.
+	sync := func() {
+		for _, id := range s.Cluster {
+			if ls := run.Systems[id]; ls != nil && (ls.Status == sweep.FrontierDone || ls.Status == sweep.FrontierIncomplete) {
+				f.markDone(id)
+			}
+		}
+	}
+	pending := func() string {
+		for _, id := range s.Cluster {
+			if !slices.Contains(s.Done, id) {
+				return id
+			}
+		}
+		return ""
+	}
+	sync()
+	// Outside the cluster with part of it unfinished (a lane trip cut short,
+	// a restart mid-hop): go back to it rather than claim where the ship is.
+	if !slices.Contains(s.Cluster, sysID) && pending() == "" {
 		cur := run.Systems[sysID]
 		switch {
+		case cur == nil && d.frontierChartedFn()(ctx, sysID):
+			f.logf("%s is charted ground; nothing to explore here", sysID)
+			s.Phase = frontierNext
+			return nil
 		case cur == nil:
 			in := sweep.FrontierInput{ID: sysID, Name: loc.Location.SystemName}
 			in.X, in.Y, _ = f.position(ctx, sysID)
@@ -544,7 +657,7 @@ func (f *frontierPass) work(ctx context.Context, sysID string, loc serverapi.Loc
 			return cerr
 		}
 		if !ok {
-			f.logf("the cluster of %s is claimed by another ship; leaving it", sysID)
+			f.logf("%s is claimed by another ship; leaving it", sysID)
 			s.Phase = frontierNext
 			return nil
 		}
@@ -553,24 +666,12 @@ func (f *frontierPass) work(ctx context.Context, sysID string, loc serverapi.Loc
 		if run, err = sweep.LoadFrontierRun(f.run); err != nil {
 			return err
 		}
+		sync()
 	}
-	// The ledger is the record: a restart between its write and the state's
-	// must not tour a system twice.
-	for _, id := range s.Cluster {
-		if ls := run.Systems[id]; ls != nil && (ls.Status == sweep.FrontierDone || ls.Status == sweep.FrontierIncomplete) {
-			f.markDone(id)
-		}
-	}
-	if !slices.Contains(s.Done, sysID) {
+	if slices.Contains(s.Cluster, sysID) && !slices.Contains(s.Done, sysID) {
 		return f.tour(ctx, sysID, loc)
 	}
-	next := ""
-	for _, id := range s.Cluster {
-		if !slices.Contains(s.Done, id) {
-			next = id
-			break
-		}
-	}
+	next := pending()
 	if next == "" {
 		f.logf("cluster finished: %d system(s)", len(s.Cluster))
 		s.Cluster, s.Done = nil, nil
@@ -583,14 +684,17 @@ func (f *frontierPass) work(ctx context.Context, sysID string, loc serverapi.Loc
 	}
 	f.logf("lanes to %s (%d of %d in the cluster done)", next, len(s.Done), len(s.Cluster))
 	err = f.nav(ctx, next, "")
-	if noRoute(err) {
+	switch {
+	case err == nil:
+		d.markProgress()
+	case errors.Is(err, ErrInsufficientRouteFuel):
+		f.toRefuel(next, fmt.Sprintf("the lane trip to %s was refused for fuel (%v)", next, err))
+		return nil
+	case navRefused(err):
 		f.logf("%s is unroutable from %s (%v); marked incomplete", next, sysID, err)
 		f.finish(sweep.FrontierSystem{ID: next, Status: sweep.FrontierIncomplete, Reason: "unreachable by lane"})
 		f.markDone(next)
 		return nil
-	}
-	if err == nil {
-		d.markProgress()
 	}
 	return err
 }
@@ -625,9 +729,21 @@ func (f *frontierPass) tour(ctx context.Context, sysID string, loc serverapi.Loc
 		hostile(fmt.Sprintf("%d repeater(s)", n))
 		return nil
 	}
+	s := f.s
 	res, err := d.frontierTourFn()(ctx)
 	if err != nil {
-		return fmt.Errorf("frontier_explore: explore %s: %w", sysID, err)
+		if s.TrySystem != sysID {
+			s.TrySystem, s.Tries = sysID, 0
+		}
+		s.Tries++
+		if s.Tries < frontierMaxTries {
+			return fmt.Errorf("frontier_explore: explore %s (try %d of %d): %w", sysID, s.Tries, frontierMaxTries, err)
+		}
+		f.logf("%s could not be explored in %d tries (%v); marked incomplete", sysID, s.Tries, err)
+		f.finish(sweep.FrontierSystem{ID: sysID, Status: sweep.FrontierIncomplete, Reason: fmt.Sprintf("tour failed %d times: %v", s.Tries, err)})
+		f.markDone(sysID)
+		s.TrySystem, s.Tries = "", 0
+		return nil
 	}
 	d.markProgress()
 	visited := 0
@@ -654,12 +770,23 @@ func (f *frontierPass) tour(ctx context.Context, sysID string, loc serverapi.Loc
 		d.frontierHalt = fmt.Sprintf("survey power %d at %s is under %d", res.SurveyPower, sysID, frontierMinPower)
 		f.logf("STOPPED: %s; %s is not marked done. Check the scanners, then restart the worker.", d.frontierHalt, sysID)
 		return nil
-	case res.Stopped == explore.StoppedHull:
-		f.toRefuel(sysID, fmt.Sprintf("hull is at the %d%% floor with no repair kits at %s", int(frontierHullFloor*100), sysID))
-		return nil
-	case res.Stopped == explore.StoppedFuel:
-		f.toRefuel(sysID, "out of fuel for in-system travel at "+sysID)
-		return nil
+	case res.Stopped == explore.StoppedHull || res.Stopped == explore.StoppedFuel:
+		what := map[string]string{
+			explore.StoppedHull: fmt.Sprintf("hull at the %d%% floor with no repair kits", int(frontierHullFloor*100)),
+			explore.StoppedFuel: "out of fuel for in-system travel",
+		}[res.Stopped]
+		if s.StopSystem != sysID {
+			s.StopSystem, s.Stops = sysID, 0
+		}
+		if s.Stops < frontierMaxStops {
+			// One station stop per system: the tour starts over on return.
+			s.Stops++
+			f.toRefuel(sysID, what+" at "+sysID)
+			return nil
+		}
+		// It stopped again after a station stop: this system costs more than
+		// a full hull or tank. Record what was reached and move on.
+		out.Status, out.Reason = sweep.FrontierIncomplete, fmt.Sprintf("%s again after a station stop; %d POI(s) not visited", what, len(out.Skipped))
 	case len(out.Skipped) > 0:
 		out.Status, out.Reason = sweep.FrontierIncomplete, fmt.Sprintf("%d POI(s) not visited: %s", len(out.Skipped), strings.Join(why, "; "))
 	default:
@@ -667,6 +794,7 @@ func (f *frontierPass) tour(ctx context.Context, sysID string, loc serverapi.Loc
 	}
 	f.finish(out)
 	f.markDone(sysID)
+	s.StopSystem, s.Stops, s.TrySystem, s.Tries = "", 0, "", 0
 	f.logf("%s %s: survey power %d, %d/%d POIs, %d relic(s)%s", sysID, out.Status, out.SurveyPower, visited, len(res.POIs), res.Relics,
 		map[bool]string{true: " — " + out.Reason, false: ""}[out.Reason != ""])
 	f.discoverLanes(ctx, sysID)
@@ -727,6 +855,14 @@ func (f *frontierPass) refuel(ctx context.Context, sysID string) error {
 	}
 	withdrawRepairKits(ctx, d.Client, frontierKits-int(cargoQuantity(d.Client.GetState(), repairKitItem)), d.Out)
 	s.Distress = false
+	if st := d.Client.GetState(); st != nil && st.Ship.MaxHull > 0 && float64(st.Ship.Hull) <= frontierHullFloor*float64(st.Ship.MaxHull) {
+		// Going back out at the floor only repeats the stop. Docked is safe:
+		// hold here and try the repair again next pass.
+		f.logf("hull %v/%v is still at the %d%% floor after the station at %s; holding here until it is repaired",
+			st.Ship.Hull, st.Ship.MaxHull, int(frontierHullFloor*100), sysID)
+		f.halt = true
+		return nil
+	}
 	if !f.fuelOK() {
 		// A dry desk: try the next station by lanes before waiting here.
 		f.logf("the station at %s left the tank under three launches", sysID)
@@ -776,7 +912,7 @@ func (f *frontierPass) toStation(ctx context.Context, sysID string) error {
 				d.markProgress()
 				return nil
 			}
-			if !noRoute(err) {
+			if !navRefused(err) {
 				return err
 			}
 			f.logf("no lane route to %s (%v)", to, err)
@@ -795,7 +931,7 @@ func (f *frontierPass) toStation(ctx context.Context, sysID string) error {
 // left there, then anywhere. With nothing left it goes home.
 func (f *frontierPass) next(ctx context.Context, sysID string) error {
 	x, y, _ := f.position(ctx, sysID)
-	t, err := sweep.NextFrontierTarget(f.run, f.d.FrontierWedge, x, y)
+	t, err := f.pickTarget(x, y)
 	if err != nil {
 		return err
 	}
@@ -808,6 +944,16 @@ func (f *frontierPass) next(ctx context.Context, sysID string) error {
 	f.setTarget(t)
 	f.logf("next target %s (wedge %s, %.0f LY away)", t.ID, t.Wedge, math.Hypot(t.X-x, t.Y-y))
 	return nil
+}
+
+// pickTarget is the ship's own nearest unfinished claim, so none is left
+// orphaned, else the nearest todo system (its wedge first).
+func (f *frontierPass) pickTarget(x, y float64) (*sweep.FrontierSystem, error) {
+	t, err := sweep.OwnClaim(f.run, f.d.AgentID, x, y)
+	if err != nil || t != nil {
+		return t, err
+	}
+	return sweep.NextFrontierTarget(f.run, f.d.FrontierWedge, x, y)
 }
 
 // home returns to Conjunction Junction and ends the run. A ship that cannot
@@ -833,7 +979,7 @@ func (f *frontierPass) home(ctx context.Context, sysID string) error {
 		d.markProgress()
 		return nil
 	}
-	if !noRoute(err) {
+	if !navRefused(err) {
 		return err
 	}
 	if poi := d.sweepStationPOI(ctx, sysID); poi != "" {
@@ -860,8 +1006,46 @@ func (d *WorkerDispatch) frontierTourFn() func(context.Context) (explore.Result,
 		if sr.Power < frontierMinPower {
 			return explore.Result{SurveyPower: sr.Power, Revealed: sr.Revealed}, nil
 		}
-		return explore.Tour(ctx, deps, explore.Options{RefuelAtStations: true, EnterHazards: true,
+		res, err := explore.Tour(ctx, deps, explore.Options{RefuelAtStations: true, EnterHazards: true,
 			HullFloor: frontierHullFloor, Relics: true}, sr)
+		if err != nil && strings.Contains(err.Error(), "no POIs in system") {
+			// Surveyed at full power and nothing there: explored, with no POIs.
+			return res, nil
+		}
+		return res, err
+	}
+}
+
+// frontierSurveyFn reads the survey power where the ship is, undocking first
+// (a docked ship cannot survey). The caller docks again.
+func (d *WorkerDispatch) frontierSurveyFn() func(context.Context) (int, error) {
+	if d.frontierSurvey != nil {
+		return d.frontierSurvey
+	}
+	return func(ctx context.Context) (int, error) {
+		if st := d.Client.GetState(); st != nil && (st.Doc || st.Ship.DockedAtBase != "") {
+			if err := d.Client.Undock(ctx); err != nil {
+				return 0, fmt.Errorf("undock: %w", err)
+			}
+			settle(ctx, game.SleepUndock)
+		}
+		sr := explore.Survey(ctx, workerExploreDeps(ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID}))
+		if !sr.Ran {
+			return 0, fmt.Errorf("survey did not run: %s", sr.Problem)
+		}
+		return sr.Power, nil
+	}
+}
+
+// frontierNavFn flies by jump lanes, refusing routes through the systems in
+// avoid (on top of the operator's avoid file).
+func (d *WorkerDispatch) frontierNavFn() func(ctx context.Context, system, poi string, avoid map[string]string) error {
+	if d.frontierNav != nil {
+		return d.frontierNav
+	}
+	return func(ctx context.Context, system, poi string, avoid map[string]string) error {
+		return Autopilot(ctx, AutopilotDeps{Client: d.Client, Out: d.Out, KB: d.KB,
+			AvoidSystemsPath: d.AvoidSystemsPath, ExtraAvoid: avoid}, system, poi)
 	}
 }
 

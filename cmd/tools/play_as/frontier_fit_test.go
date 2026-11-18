@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/rsned/spacemolt/pkg/explore"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/sweep"
 )
@@ -72,5 +76,70 @@ func TestFormatFrontierFit(t *testing.T) {
 	bad := sweep.FitPlan{Why: "no pathfinder_drive fitted"}
 	if got := formatFrontierFit("explorer-4", bad); !strings.Contains(got, "CANNOT FIT: no pathfinder_drive fitted") {
 		t.Errorf("a failed plan printed as:\n%s", got)
+	}
+}
+
+// fitFake records the apply calls; withdrawErr fails withdrawals of that item.
+type fitFake struct {
+	calls       []string
+	withdrawErr map[string]error
+}
+
+func (f *fitFake) UninstallMod(_ context.Context, id string) error {
+	f.calls = append(f.calls, "uninstall "+id)
+	return nil
+}
+
+func (f *fitFake) InstallMod(_ context.Context, id string) error {
+	f.calls = append(f.calls, "install "+id)
+	return nil
+}
+
+func (f *fitFake) FactionDepositItems(_ context.Context, item string, _ int) error {
+	f.calls = append(f.calls, "deposit "+item)
+	return nil
+}
+
+func (f *fitFake) FactionWithdrawItems(_ context.Context, item string, n int) error {
+	if err := f.withdrawErr[item]; err != nil {
+		return err
+	}
+	f.calls = append(f.calls, fmt.Sprintf("withdraw %d %s", n, item))
+	return nil
+}
+
+func fitTestPlan() sweep.FitPlan {
+	return sweep.FitPlan{OK: true,
+		Remove: []sweep.FitModule{{ID: "m1", TypeID: "mining_laser_i", Name: "Mining Laser I"}},
+		Add:    []string{sweep.FitScanner, sweep.FitScanner}}
+}
+
+// With no scanners to draw, nothing is stripped from the ship.
+func TestApplyFrontierFitWithdrawsScannersBeforeStripping(t *testing.T) {
+	f := &fitFake{withdrawErr: map[string]error{sweep.FitScanner: errors.New("not enough in storage")}}
+	if err := applyFrontierFit(context.Background(), f, func() {}, fitTestPlan(), 10, 0); err == nil {
+		t.Fatal("no error when the scanners could not be withdrawn")
+	}
+	if len(f.calls) != 0 {
+		t.Errorf("calls %v, want the ship untouched", f.calls)
+	}
+	f = &fitFake{}
+	if err := applyFrontierFit(context.Background(), f, func() {}, fitTestPlan(), 10, 0); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.calls) == 0 || f.calls[0] != "withdraw 2 "+sweep.FitScanner {
+		t.Errorf("calls %v, want the scanner withdrawal first", f.calls)
+	}
+}
+
+// A kit or fuel-cell shortfall is an error, not a footnote.
+func TestApplyFrontierFitReportsSupplyShortfall(t *testing.T) {
+	f := &fitFake{withdrawErr: map[string]error{explore.KitItem: errors.New("not enough in storage")}}
+	err := applyFrontierFit(context.Background(), f, func() {}, fitTestPlan(), 4, 0)
+	if err == nil || !strings.Contains(err.Error(), explore.KitItem) {
+		t.Errorf("err = %v, want the repair kit shortfall", err)
+	}
+	if !slices.Contains(f.calls, "install "+sweep.FitScanner) {
+		t.Errorf("calls %v, want the scanners still fitted", f.calls)
 	}
 }

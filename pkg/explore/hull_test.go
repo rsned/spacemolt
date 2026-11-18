@@ -3,6 +3,7 @@ package explore
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -159,6 +160,37 @@ func TestEnterHazardLeavesAfterOneDose(t *testing.T) {
 	// The hazard was the last POI of the route, so the ship must move off it.
 	if got, want := c.travels(), []string{"scar", "star"}; !slices.Equal(got, want) {
 		t.Errorf("travelled %v, want %v (leave the hazard)", got, want)
+	}
+}
+
+// A hazard is entered only with hull to spare for its dose above the floor:
+// 62% hull does not go into a 25%-a-dose POI at a 50% floor.
+func TestHazardNotEnteredWithoutHullForItsDose(t *testing.T) {
+	c, d, _ := hullFixture(300, 0, poi("star", "star", 0), hazardous(poi("rift", "anomaly", 1), serverapi.HazardRadiation, 4))
+	res, err := System(context.Background(), d, Options{EnterHazards: true, HullFloor: 0.5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := result(t, res, "rift"); p.Visited || !strings.Contains(p.Skipped, "25%") {
+		t.Errorf("rift: %+v, want it skipped for the dose it would cost", p)
+	}
+	if len(c.travels()) != 0 || res.Stopped != StoppedHull {
+		t.Errorf("travelled %v, stopped %q; want no travel and a hull stop", c.travels(), res.Stopped)
+	}
+}
+
+// Kits bring the hull up to what the hazard needs before it is entered.
+func TestHazardEnteredAfterKitsCoverItsDose(t *testing.T) {
+	c, d, _ := hullFixture(300, 3, poi("star", "star", 0), hazardous(poi("rift", "anomaly", 1), serverapi.HazardRadiation, 4))
+	res, err := System(context.Background(), d, Options{EnterHazards: true, HullFloor: 0.5})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result(t, res, "rift").Visited {
+		t.Errorf("rift not visited: %+v", res.POIs)
+	}
+	if c.count("repair") != 2 {
+		t.Errorf("repairs %d, want 2 kits (300 -> 400 of 480, over 75%%)", c.count("repair"))
 	}
 }
 

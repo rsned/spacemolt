@@ -87,6 +87,10 @@ type WorkerDispatch struct {
 	// role's per-system exploration and its charted-ground check.
 	frontierTour    func(ctx context.Context) (explore.Result, error)
 	frontierCharted func(ctx context.Context, systemID string) bool
+	// frontierSurvey (the pre-flight survey power reading) and frontierNav
+	// (lane travel, with the run's extra systems to avoid) are seams too.
+	frontierSurvey func(ctx context.Context) (int, error)
+	frontierNav    func(ctx context.Context, system, poi string, avoid map[string]string) error
 	// frontierHalt is why the frontier role stopped for the operator (survey
 	// power under 90); it lasts until the worker restarts.
 	frontierHalt string

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -23,15 +24,17 @@ var frontierNow = time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
 // frontierFake is a ship that launches, drifts and lands where the test says.
 type frontierFake struct {
 	arrivalFakeClient
-	lands    []string // where each launch ends; "" is a drift a storm turns away
-	pending  string
-	adrift   bool
-	bearing  float64
-	polls    int
-	from     [2]float64 // drift reading on the way to a landing
-	miss     [2]float64 // drift reading of a launch that does not land
-	stances  []string
-	distress []string
+	lands     []string // where each launch ends; "" is a drift a storm turns away
+	pending   string
+	adrift    bool
+	bearing   float64
+	polls     int
+	from      [2]float64 // drift reading on the way to a landing
+	miss      [2]float64 // drift reading of a launch that does not land
+	stances   []string
+	distress  []string
+	jumpErr   error // the next Jump fails with this, once
+	repairErr error
 }
 
 func (c *frontierFake) RawCommand(_ context.Context, command string, _ map[string]any) error {
@@ -59,6 +62,10 @@ func (c *frontierFake) Jump(_ context.Context, target string) (*game.JumpResult,
 	if err != nil {
 		return nil, fmt.Errorf("fake: non-numeric jump %q", target)
 	}
+	if err := c.jumpErr; err != nil {
+		c.jumpErr = nil
+		return nil, err
+	}
 	c.calls = append(c.calls, "jump "+target)
 	c.jumps = append(c.jumps, b)
 	c.state.Ship.Fuel -= c.launchCost
@@ -76,6 +83,9 @@ func (c *frontierFake) Battle(_ context.Context, action string, payload map[stri
 
 func (c *frontierFake) Repair(context.Context) error {
 	c.calls = append(c.calls, "repair")
+	if c.repairErr != nil {
+		return c.repairErr
+	}
 	c.state.Ship.Hull = c.state.Ship.MaxHull
 	return nil
 }
@@ -111,6 +121,10 @@ type frontierRig struct {
 	lanes   map[string][]string
 	charted map[string]bool
 	navErr  map[string]error
+	tourErr map[string]error
+	avoid   map[string]string // the avoid list of the latest lane trip
+	power   int               // what the pre-flight survey reads
+	surveys int
 }
 
 // newFrontierRig puts explorer-3 in sysID with 1000 fuel, two scanners and
@@ -128,7 +142,7 @@ func newFrontierRig(t *testing.T, sysID string, systems []sweep.FrontierInput, l
 	laneStation(t, kb, huntHomeSystem, 100, 0)
 
 	r := &frontierRig{t: t, c: c, kb: kb, results: map[string]explore.Result{}, lanes: map[string][]string{},
-		charted: map[string]bool{huntHomeSystem: true}, navErr: map[string]error{}}
+		charted: map[string]bool{huntHomeSystem: true}, navErr: map[string]error{}, tourErr: map[string]error{}, power: 90}
 	r.run = filepath.Join(t.TempDir(), "frontier-run.json")
 	if err := sweep.SaveFrontierRun(r.run, sweep.NewFrontierRun(systems, lanes, frontierNow)); err != nil {
 		t.Fatal(err)
@@ -149,6 +163,9 @@ func (r *frontierRig) dispatch(agentsDir string) *WorkerDispatch {
 	d.frontierTour = func(context.Context) (explore.Result, error) {
 		id := r.c.state.System.ID
 		r.tours = append(r.tours, id)
+		if err := r.tourErr[id]; err != nil {
+			return explore.Result{}, err
+		}
 		r.c.state.System.Connections = nil
 		for _, l := range r.lanes[id] {
 			r.c.state.System.Connections = append(r.c.state.System.Connections, game.ConnectionInfo{SystemID: l, Name: l})
@@ -158,8 +175,13 @@ func (r *frontierRig) dispatch(agentsDir string) *WorkerDispatch {
 		}
 		return explore.Result{SystemID: id, SurveyPower: 90, POIs: []explore.POIResult{{ID: id + "_star", Visited: true}}}, nil
 	}
-	d.ensureHomeNav = func(_ context.Context, system, poi string) error {
+	d.frontierSurvey = func(context.Context) (int, error) {
+		r.surveys++
+		return r.power, nil
+	}
+	d.frontierNav = func(_ context.Context, system, poi string, avoid map[string]string) error {
 		r.navs = append(r.navs, system+"/"+poi)
+		r.avoid = avoid
 		if err := r.navErr[system]; err != nil {
 			return err
 		}
@@ -561,5 +583,213 @@ func TestFrontierNeedsAWedge(t *testing.T) {
 	r.d.FrontierWedge = "ENE"
 	if err := r.d.FrontierExplore(context.Background()); err == nil || !strings.Contains(err.Error(), "ENE") {
 		t.Errorf("err %v, want the bad wedge named", err)
+	}
+}
+
+// C1: a lane into another ship's cluster must not lose the systems this ship
+// found on the same pass.
+func TestFrontierLaneIntoAnotherShipsClusterKeepsOwnFinds(t *testing.T) {
+	r := newFrontierRig(t, "a", []sweep.FrontierInput{{ID: "a", X: 400, Y: 0}, {ID: "p", X: 430, Y: 0}}, nil)
+	if _, ok, err := sweep.ClaimCluster(r.run, "explorer-9", "p", frontierNow); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	r.setState(&frontierState{Phase: frontierWork, Target: "a", LaunchCost: 45})
+	r.lanes["a"] = []string{"p", "n"}
+	r.pass()
+	if s := r.state(); !slices.Equal(s.Cluster, []string{"a", "n"}) {
+		t.Errorf("cluster %v, want [a n]: n is ours, p is explorer-9's", s.Cluster)
+	}
+	if p := r.ledger("p"); p.Claimant != "explorer-9" {
+		t.Errorf("p claimant %q", p.Claimant)
+	}
+	r.pass()
+	if !slices.Equal(r.navs, []string{"n/"}) {
+		t.Errorf("lane travel %v, want n", r.navs)
+	}
+}
+
+// C2: the second hull stop in one system ends it as incomplete rather than
+// sending the ship round the station loop again.
+func TestFrontierSecondHullStopMarksIncomplete(t *testing.T) {
+	r := newFrontierRig(t, "a", []sweep.FrontierInput{{ID: "a", X: 400, Y: 0}}, nil)
+	r.setState(&frontierState{Phase: frontierWork, Target: "a", LaunchCost: 45, StopSystem: "a", Stops: 1})
+	r.results["a"] = explore.Result{SystemID: "a", SurveyPower: 90, Stopped: explore.StoppedHull,
+		POIs: []explore.POIResult{{ID: "a_star", Visited: true}, {ID: "a_rift", Skipped: "hull 48%"}}}
+	r.pass()
+	got := r.ledger("a")
+	if got.Status != sweep.FrontierIncomplete || !slices.Equal(got.Skipped, []string{"a_rift"}) || !strings.Contains(got.Reason, "hull") {
+		t.Errorf("a = %+v, want incomplete with a_rift skipped for the hull", got)
+	}
+	if s := r.state(); s.Phase == frontierRefuel {
+		t.Errorf("phase %q: a second detour for the same system", s.Phase)
+	}
+}
+
+// C2: a station that cannot repair the hull does not send the ship back out.
+func TestFrontierRefuelHoldsWhileHullUnderFloor(t *testing.T) {
+	sys, lanes := eastPair()
+	r := newFrontierRig(t, huntHomeSystem, sys, lanes)
+	r.c.state.Ship.Hull, r.c.state.Ship.MaxHull = 40, 100
+	r.c.repairErr = errors.New("repair service unavailable")
+	r.setState(&frontierState{Phase: frontierRefuel, Target: "a", ResumeAt: "a", LaunchCost: 45})
+	r.pass()
+	if s := r.state(); s.Phase != frontierRefuel || s.ResumeAt != "a" {
+		t.Errorf("state %+v, want the ship held at the station", s)
+	}
+	if !r.c.state.Doc || len(r.c.jumps) != 0 || !strings.Contains(r.out.String(), "hull") {
+		t.Errorf("docked %v jumps %v log:\n%s", r.c.state.Doc, r.c.jumps, r.out)
+	}
+}
+
+// I1: a jump the server refused is not a launch at the target.
+func TestFrontierFailedJumpIsNotALaunch(t *testing.T) {
+	r := newFrontierRig(t, huntHomeSystem, []sweep.FrontierInput{{ID: "a", X: 400, Y: 0}}, nil)
+	r.setState(&frontierState{Phase: frontierLaunch, Target: "a", TargetX: 400, LaunchCost: 45})
+	for range 3 {
+		r.c.jumpErr = errors.New("action pending")
+		if err := r.d.FrontierExplore(context.Background()); err == nil {
+			t.Fatal("a refused jump returned no error")
+		}
+	}
+	if s := r.state(); s.Launches != 0 {
+		t.Errorf("launches %d after three refused jumps, want 0", s.Launches)
+	}
+	if got := r.ledger("a"); got.Status != sweep.FrontierTodo {
+		t.Errorf("a = %q, want still todo", got.Status)
+	}
+}
+
+// I2: a lane route refused for fuel while staging falls back to launching
+// from where the ship is.
+func TestFrontierStageRefusalLaunchesFromHere(t *testing.T) {
+	r := newFrontierRig(t, huntHomeSystem, []sweep.FrontierInput{{ID: "a", X: 400, Y: 0}}, nil)
+	laneStation(t, r.kb, huntHomeSystem, 100, 0, "near")
+	placeSystem(t, r.kb, "near", 300, 0, 1, 1, huntHomeSystem)
+	r.navErr["near"] = fmt.Errorf("%w: 3 jumps", ErrInsufficientRouteFuel)
+	r.setState(&frontierState{Phase: frontierStage, Target: "a", TargetX: 400, LaunchCost: 45})
+	r.pass()
+	if len(r.c.jumps) != 1 {
+		t.Errorf("launches %v, want one from here after the refused lane trip\n%s", r.c.jumps, r.out)
+	}
+}
+
+// I2: a cluster lane jump refused for fuel is a refuel detour, not a stall.
+func TestFrontierLaneFuelRefusalDetours(t *testing.T) {
+	sys, lanes := eastPair()
+	r := newFrontierRig(t, "a", sys, lanes)
+	r.setState(&frontierState{Phase: frontierWork, Target: "a", LaunchCost: 45})
+	r.pass()
+	r.navErr["b"] = fmt.Errorf("%w: 1 jump", ErrInsufficientRouteFuel)
+	r.pass()
+	if s := r.state(); s.Phase != frontierRefuel || s.ResumeAt != "b" {
+		t.Errorf("state %+v, want refuel with ResumeAt b", s)
+	}
+}
+
+// I3: a system whose tour keeps failing is given up as incomplete.
+func TestFrontierTourErrorGivesUpAfterThreeTries(t *testing.T) {
+	sys, lanes := eastPair()
+	r := newFrontierRig(t, "a", sys, lanes)
+	r.setState(&frontierState{Phase: frontierWork, Target: "a", LaunchCost: 45})
+	r.tourErr["a"] = errors.New("explore interrupted at POI 2/5")
+	for i := range 3 {
+		err := r.d.FrontierExplore(context.Background())
+		if i < 2 && err == nil {
+			t.Fatalf("try %d: the tour error was swallowed", i+1)
+		}
+	}
+	got := r.ledger("a")
+	if got.Status != sweep.FrontierIncomplete || !strings.Contains(got.Reason, "explore interrupted") {
+		t.Errorf("a = %q / %q, want incomplete with the error", got.Status, got.Reason)
+	}
+	r.pass()
+	if !slices.Equal(r.navs, []string{"b/"}) {
+		t.Errorf("lane travel %v, want the ship to move on to b", r.navs)
+	}
+}
+
+// I4: a ship goes back to its own unfinished claims before new ground.
+func TestFrontierNextReturnsToOwnClaim(t *testing.T) {
+	sys, lanes := eastPair()
+	sys = append(sys, sweep.FrontierInput{ID: "z", X: 150, Y: 0})
+	r := newFrontierRig(t, huntHomeSystem, sys, lanes)
+	if _, ok, err := sweep.ClaimCluster(r.run, "explorer-3", "a", frontierNow); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	r.setState(&frontierState{Phase: frontierNext, LaunchCost: 45})
+	r.pass()
+	if s := r.state(); s.Target != "a" {
+		t.Errorf("target %q, want its own claim a (z is nearer but new)", s.Target)
+	}
+}
+
+// I4: outside its cluster (an interrupted lane trip), the ship goes back to
+// it instead of claiming where it stands.
+func TestFrontierOutsideClusterGoesBackToIt(t *testing.T) {
+	sys, lanes := eastPair()
+	r := newFrontierRig(t, "midway", sys, lanes)
+	if _, ok, err := sweep.ClaimCluster(r.run, "explorer-3", "a", frontierNow); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	r.setState(&frontierState{Phase: frontierWork, Target: "a", Cluster: []string{"a", "b"}, LaunchCost: 45})
+	r.pass()
+	if len(r.tours) != 0 || !slices.Equal(r.navs, []string{"a/"}) || r.ledger("midway") != nil {
+		t.Errorf("tours %v navs %v ledger midway %+v; want a lane trip back to a", r.tours, r.navs, r.ledger("midway"))
+	}
+}
+
+func TestFrontierChartedSystemIsNotWorked(t *testing.T) {
+	sys, lanes := eastPair()
+	r := newFrontierRig(t, huntHomeSystem, sys, lanes)
+	r.setState(&frontierState{Phase: frontierWork, Target: "a", LaunchCost: 45})
+	r.pass()
+	if len(r.tours) != 0 || r.ledger(huntHomeSystem) != nil {
+		t.Errorf("tours %v, ledger %+v: charted ground was worked", r.tours, r.ledger(huntHomeSystem))
+	}
+}
+
+// I5: a target another ship took while this one was on its way is dropped.
+func TestFrontierRetargetsWhenTargetTaken(t *testing.T) {
+	sys, lanes := eastPair()
+	sys = append(sys, sweep.FrontierInput{ID: "z", X: 900, Y: 0})
+	r := newFrontierRig(t, huntHomeSystem, sys, lanes)
+	if _, ok, err := sweep.ClaimCluster(r.run, "explorer-9", "a", frontierNow); err != nil || !ok {
+		t.Fatal(ok, err)
+	}
+	r.setState(&frontierState{Phase: frontierLaunch, Target: "a", TargetX: 400, LaunchCost: 45})
+	r.pass()
+	if s := r.state(); s.Target != "z" || len(r.c.jumps) != 0 {
+		t.Errorf("target %q jumps %v, want z and no launch at explorer-9's a", s.Target, r.c.jumps)
+	}
+}
+
+// I7: lane trips route around systems the ledger marks hostile.
+func TestFrontierRoutesAvoidHostileSystems(t *testing.T) {
+	sys, lanes := eastPair()
+	sys = append(sys, sweep.FrontierInput{ID: "h", X: 410, Y: 30, Lethal: "leviathan at h_core"},
+		sweep.FrontierInput{ID: "u", X: 500, Y: 0})
+	r := newFrontierRig(t, "a", sys, lanes)
+	if err := sweep.FinishSystem(r.run, "explorer-9", sweep.FrontierSystem{ID: "u", Status: sweep.FrontierIncomplete, Reason: "unreachable"}, frontierNow); err != nil {
+		t.Fatal(err)
+	}
+	r.setState(&frontierState{Phase: frontierWork, Target: "a", LaunchCost: 45})
+	r.pass()
+	r.pass()
+	if _, ok := r.avoid["h"]; !ok || len(r.avoid) != 1 {
+		t.Errorf("avoid list %v, want only the hostile system h", r.avoid)
+	}
+}
+
+// I8: the survey power is read before the ship leaves the station.
+func TestFrontierVerifySurveysBeforeLeaving(t *testing.T) {
+	sys, lanes := eastPair()
+	r := newFrontierRig(t, huntHomeSystem, sys, lanes)
+	r.power = 60
+	r.pass()
+	if s := r.state(); s.Phase != frontierVerify {
+		t.Errorf("phase %q, want it held at verify", s.Phase)
+	}
+	if r.surveys != 1 || !r.c.state.Doc || len(r.c.jumps) != 0 || !strings.Contains(r.out.String(), "survey power 60") {
+		t.Errorf("surveys %d docked %v jumps %v log:\n%s", r.surveys, r.c.state.Doc, r.c.jumps, r.out)
 	}
 }
