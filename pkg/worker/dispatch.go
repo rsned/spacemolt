@@ -14,6 +14,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/assets"
 	"github.com/rsned/spacemolt/pkg/creditreq"
+	"github.com/rsned/spacemolt/pkg/explore"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/handoff"
@@ -77,6 +78,18 @@ type WorkerDispatch struct {
 	SweepVoidRun string
 	// AvoidSystemsPath overrides DefaultAvoidSystemsPath (tests).
 	AvoidSystemsPath string
+	// FrontierWedge is the frontier_explore role's compass direction (E, NE,
+	// N, NW, W, SW, S, SE); FrontierRun is the shared ledger, empty for
+	// DefaultFrontierRun. Launch cost comes from SweepLaunchCost.
+	FrontierWedge string
+	FrontierRun   string
+	// frontierTour and frontierCharted are test seams for the frontier
+	// role's per-system exploration and its charted-ground check.
+	frontierTour    func(ctx context.Context) (explore.Result, error)
+	frontierCharted func(ctx context.Context, systemID string) bool
+	// frontierHalt is why the frontier role stopped for the operator (survey
+	// power under 90); it lasts until the worker restarts.
+	frontierHalt string
 	// sweepTour and sweepExploreStep are test seams for the sweep's
 	// arrival tour and explore-run step; nil runs systemTour / Explore.
 	sweepTour        func(ctx context.Context, deps ExploreDeps) error
@@ -281,7 +294,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true, "ensure_home": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
-	"hunt": true, "pathfinder_sweep": true, "collect_gifts": true,
+	"hunt": true, "pathfinder_sweep": true, "frontier_explore": true, "collect_gifts": true,
 	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "deliver_tour": true, "buy_directed": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "fit_check": true, "refit_trip": true, "launch_drones": true,
 	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "faction_deposit_all": true, "faction_restock": true, "faction_withdraw": true, "announce": true, "capture_craft_queue": true, "sell_all": true, "sell_ore": true, "craft_stock": true,
@@ -471,6 +484,8 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		}, args[0], poi)
 	case "pathfinder_sweep":
 		return d.PathfinderSweep(ctx)
+	case "frontier_explore":
+		return d.FrontierExplore(ctx)
 	case "explore":
 		return Explore(ctx, ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID, Market: d.Market})
 	case "haul":

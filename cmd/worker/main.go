@@ -93,6 +93,8 @@ func main() {
 	sweepMode := flag.String("sweep-mode", "", "pathfinder_sweep: \"void\" flies the interior void sweep instead of a ring lap")
 	sweepVoidRun := flag.String("sweep-void-run", "data/sweep/void-run.json", "pathfinder_sweep void mode: shared zone ledger")
 	sweepStage := flag.String("sweep-stage", "", "pathfinder_sweep: optional pre-lap route refuel,launch,target (system ids)")
+	frontierWedge := flag.String("frontier-wedge", "", "frontier_explore: compass direction to work (E, NE, N, NW, W, SW, S, SE)")
+	frontierRun := flag.String("frontier-run", worker.DefaultFrontierRun, "frontier_explore: shared frontier ledger")
 	sweepLaunchCost := flag.Float64("sweep-launch-cost", 0, "pathfinder_sweep: estimated fuel per pathfinder launch (the first launch measures it)")
 	freightMaxPackages := flag.Int("freight-max-packages", 1, "Max concurrent freight contracts for the missions role (sub-project C multi-package trips; 1 = single-contract v1 behavior)")
 	consignSpec := flag.String("consign", "", "Standing consignment rules, comma-separated item:recipient:min[:keep] — hand allow-listed goods from this station's personal storage to a named hauler on each idle pass (e.g. adamantite_ore:salvager-2:50). Explicit allow-list only: gifting is irreversible.")
@@ -528,7 +530,8 @@ func main() {
 			dispatch.SweepSpanDeg = *sweepSpanDeg
 			dispatch.SweepStage = *sweepStage
 			dispatch.SweepMode, dispatch.SweepVoidRun = *sweepMode, *sweepVoidRun
-			if *role == "pathfinder_sweep" {
+			dispatch.FrontierWedge, dispatch.FrontierRun = *frontierWedge, *frontierRun
+			if *role == "pathfinder_sweep" || *role == "frontier_explore" {
 				if closeMbox := wireSweepMbox(client, dispatch, *agentID, logger); closeMbox != nil {
 					defer closeMbox()
 				}

@@ -86,6 +86,20 @@ roles:
       - { every: daily, command: "capture_tax" }
       - { every: daily, command: "capture_citizenship" }
     idle: pathfinder_sweep
+  # Frontier full explore (2026-11-18): one compass wedge per ship; fly to the
+  # nearest unexplored frontier system, claim its lane-connected cluster and
+  # explore every system of it (survey power 90, every POI, relics). Per-worker
+  # frontier_wedge / sweep_launch_cost come from sweep-fleet.yaml; the shared
+  # ledger is data/sweep/frontier-run.json (bin/frontier-run status).
+  # Spec: docs/superpowers/specs/2026-11-18-frontier-full-explore-design.md
+  frontier_explore:
+    schedule:
+      - { every: hourly, command: "capture_profile" }
+      - { every: daily, command: "capture_storage" }
+      - { every: daily, command: "capture_faction" }
+      - { every: daily, command: "capture_tax" }
+      - { every: daily, command: "capture_citizenship" }
+    idle: frontier_explore
   # The asset captures are the only schedule a miner carries: everything else a
   # miner does is idle-loop work, but the ledger is meant to cover every agent,
   # and a role with no schedule block is invisible to it.

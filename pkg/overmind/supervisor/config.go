@@ -44,6 +44,12 @@ type WorkerSpec struct {
 	// Spec: docs/superpowers/specs/2026-11-14-interior-void-sweep-design.md
 	SweepMode    string `yaml:"sweep_mode,omitempty"`
 	SweepVoidRun string `yaml:"sweep_void_run,omitempty"`
+	// FrontierWedge is the frontier_explore role's compass direction (E, NE,
+	// N, NW, W, SW, S, SE); FrontierRun its shared ledger (default
+	// data/sweep/frontier-run.json). sweep_launch_cost applies to it too.
+	// Spec: docs/superpowers/specs/2026-11-18-frontier-full-explore-design.md
+	FrontierWedge string `yaml:"frontier_wedge,omitempty"`
+	FrontierRun   string `yaml:"frontier_run,omitempty"`
 	// Consign forwards --consign, a standing instruction to hand named items
 	// from this station's personal storage to a named hauler as part of the
 	// ordinary idle pass -- no manual control and no interrupted routine.

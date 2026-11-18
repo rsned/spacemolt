@@ -100,6 +100,12 @@ func SpawnWith(cfg SpawnConfig) SpawnFunc {
 		if spec.SweepVoidRun != "" {
 			args = append(args, "--sweep-void-run", spec.SweepVoidRun)
 		}
+		if spec.FrontierWedge != "" {
+			args = append(args, "--frontier-wedge", spec.FrontierWedge)
+		}
+		if spec.FrontierRun != "" {
+			args = append(args, "--frontier-run", spec.FrontierRun)
+		}
 		if spec.DisableFreightBootstrap {
 			args = append(args, "--freight-bootstrap=false")
 		}

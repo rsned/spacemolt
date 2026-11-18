@@ -56,3 +56,26 @@ func TestSweepModeFlagsPassedThrough(t *testing.T) {
 		t.Errorf("args %v must not contain void mode flags", cmd.Args)
 	}
 }
+
+// frontier_wedge (and the ledger path) reach the worker; unset adds nothing.
+func TestFrontierFlagsPassedThrough(t *testing.T) {
+	spawn := DefaultSpawn("true", "", "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd, err := spawn(ctx, WorkerSpec{AgentID: "explorer-1", FrontierWedge: "NE", FrontierRun: "f.json"}, "/tmp/does-not-matter.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = cmd.Wait()
+	if !hasArgPair(cmd.Args, "--frontier-wedge", "NE") || !hasArgPair(cmd.Args, "--frontier-run", "f.json") {
+		t.Errorf("args %v missing the frontier flags", cmd.Args)
+	}
+	cmd, err = spawn(ctx, WorkerSpec{AgentID: "plain"}, "/tmp/does-not-matter.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = cmd.Wait()
+	if hasArg(cmd.Args, "--frontier-wedge") || hasArg(cmd.Args, "--frontier-run") {
+		t.Errorf("args %v must not contain frontier flags", cmd.Args)
+	}
+}
