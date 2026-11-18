@@ -162,6 +162,16 @@ func (r *FrontierRun) reach(from string, pass func(*FrontierSystem) bool) []stri
 	return queue
 }
 
+// Active reports whether any system has been claimed or worked.
+func (r *FrontierRun) Active() bool {
+	for _, s := range r.Systems {
+		if s.Claimant != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // LoadFrontierRun reads a run ledger.
 func LoadFrontierRun(path string) (*FrontierRun, error) {
 	data, err := os.ReadFile(path)

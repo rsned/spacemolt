@@ -33,5 +33,6 @@ mkdir -p bin
 go build -ldflags "$LDFLAGS" -o bin/overmind ./cmd/overmind
 go build -ldflags "$LDFLAGS" -o bin/worker ./cmd/worker
 go build -ldflags "$LDFLAGS" -o bin/overmind-dashboard ./cmd/overmind-dashboard
+go build -ldflags "$LDFLAGS" -o bin/frontier-run ./cmd/tools/frontier-run
 
-echo "built bin/overmind bin/worker bin/overmind-dashboard @ $DESC (codeDirty=$CODEDIRTY)"
+echo "built bin/overmind bin/worker bin/overmind-dashboard bin/frontier-run @ $DESC (codeDirty=$CODEDIRTY)"

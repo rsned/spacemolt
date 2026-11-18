@@ -8669,6 +8669,10 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 		// Link to the KB fitting viewer for the hull we are flying.
 		return showFitting(ctx, client)
 
+	case "frontier_fit":
+		// Plan (and with "apply", perform) the frontier-run fit.
+		return cmdFrontierFit(ctx, client, parts[1:])
+
 	case "skills", "get_skills":
 		return simpleCommand(client, client.GetSkills, ctx, 2*time.Second, cmd, format)
 
@@ -11160,6 +11164,7 @@ func printHelp() {
 	fmt.Println("\n=== QUERIES ===")
 	fmt.Println("  status, system, ship      - Get current status/system/ship")
 	fmt.Println("  show_fitting, fitting     - Link to the KB fitting viewer for the current ship")
+	fmt.Println("  frontier_fit [apply] [fuel_cells=N] - Plan (or apply) the frontier-run fit: drive + 2 survey scanners + 10 repair kits")
 	fmt.Println("  skills, poi, base         - Get skills/POI/base info")
 	fmt.Println("  map, nearby, version      - Get map/nearby/version")
 	fmt.Println("  state                     - Show state summary")
