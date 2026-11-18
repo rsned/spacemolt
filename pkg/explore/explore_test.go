@@ -56,6 +56,7 @@ func (c *fakeClient) GetStatus(context.Context) error {
 	c.calls = append(c.calls, "get_status")
 	return nil
 }
+func (c *fakeClient) GetCargo(context.Context) error { return nil }
 func (c *fakeClient) GetNearby(context.Context) error {
 	c.calls = append(c.calls, "get_nearby")
 	return nil

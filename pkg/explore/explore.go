@@ -98,7 +98,13 @@ type Options struct {
 	EnterHazards     bool    // visit hazardous POIs for one dose instead of skipping them
 	HullFloor        float64 // skip POIs while hull/max is at or below this; 0 disables
 	Relics           bool    // run interact_poi at relic POIs
+	// SkipHazardSeverity skips POIs whose damaging hazard is at or above this
+	// severity, unless EnterHazards; 0 skips none.
+	SkipHazardSeverity int
 }
+
+// poiTypeStation is the POI type the tour docks at.
+const poiTypeStation = "station"
 
 // Why a tour ended early (Result.Stopped).
 const (
@@ -182,83 +188,161 @@ func Tour(ctx context.Context, d Deps, o Options, sr SurveyResult) (Result, erro
 	}
 
 	startTime := time.Now()
-	for i, poi := range route {
-		if err := ctx.Err(); err != nil {
-			return res, err
-		}
-		if st := d.Client.GetState(); st != nil && st.InBattle {
-			d.Report.Printf("  In a battle — stopping the tour at %s\n", poi.Name)
-			res.Stopped, res.StoppedAt = StoppedBattle, poi.ID
-			return res, nil
-		}
-
-		if i == 0 && poi.ID == state.CurrentPOI {
-			d.Report.Printf("[%d/%d] Already at %s\n", i+1, len(route), poi.Name)
-		} else {
-			d.Report.Printf("[%d/%d] Traveling to %s (%s)...\n", i+1, len(route), poi.Name, poi.Type)
-			canceled, err := d.Travel(ctx, poi.ID)
-			if err != nil {
-				d.Report.Printf("  Travel failed: %v\n", err)
-				res.POIs[i].Skipped = "travel failed: " + err.Error()
-				if insufficientFuel(err) {
-					d.Report.Printf("  Out of fuel for in-system travel — stopping the tour\n")
-					res.Stopped, res.StoppedAt = StoppedFuel, poi.ID
-					markUnvisited(res.POIs[i+1:], "tour stopped: fuel")
-					return res, nil
-				}
-				// Back off a full tick before the next attempt — a fast retry
-				// loop here triggers server rate-limiting when Travel returns
-				// prematurely on a state-flag desync.
-				d.Settle(ctx, game.SleepTick)
-				continue
-			}
-			if canceled {
-				d.Report.Printf("  Travel interrupted!\n")
-				return res, fmt.Errorf("explore interrupted at POI %d/%d", i+1, len(route))
-			}
-			if raw := d.Client.GetRawJSON("_last"); raw != nil {
-				d.Report.Raw(RawExplore, raw)
-			}
-		}
-
-		// Now at this POI: capture other players here, then the wildlife the
-		// same reply lists. This is the only headcount that names a POI —
-		// survey_system's census is system-wide — so it ties a species to a
-		// habitat.
-		Sightings(ctx, d, d.Client.GetNearby, "get_nearby")
-		unscanned := WildlifeAtPOI(ctx, d, poi.ID, poi.Type)
-		// Halt BEFORE the POI's dock/update work: creatures drift or despawn,
-		// so the moment of sighting is the moment to hand control back.
-		if o.StopOnUnscanned && len(unscanned) > 0 {
-			res.Stopped, res.StoppedAt, res.Unscanned = StoppedUnscanned, poi.ID, unscanned
-			return res, nil
-		}
-
-		if poi.Type == "station" {
-			stationStop(ctx, d, o, poi)
-		} else if d.UpdatePOI != nil {
-			if err := d.UpdatePOI(ctx); err != nil {
-				d.Report.Printf("  (update_poi failed: %v)\n", err)
-			}
-		}
-		res.POIs[i].Visited = true
-		if o.Relics && relicStep(ctx, d, poi) {
-			res.Relics++
-		}
-
-		// Second wildlife reading, now that the POI's work has put real time
-		// between the two samples.
-		unscanned = WildlifeSecondLook(ctx, d, poi.ID, poi.Type)
-		if o.StopOnUnscanned && len(unscanned) > 0 {
-			res.Stopped, res.StoppedAt, res.Unscanned = StoppedUnscanned, poi.ID, unscanned
-			return res, nil
-		}
+	t := &tour{d: d, o: o, route: route, res: &res}
+	if st := d.Client.GetState(); st != nil {
+		t.doseSeen = st.LastHazardDose.At
+	}
+	stop, err := t.run(ctx)
+	if err != nil {
+		return res, err
+	}
+	if stop {
+		return res, nil
 	}
 
 	_ = d.Client.GetStatus(ctx)
 	d.Report.Printf("\nExploration of %s complete: %d POIs in %s\n",
 		state.System.Name, len(route), formatDuration(int(time.Since(startTime).Seconds())))
 	return res, nil
+}
+
+// run visits the route, retries the POIs skipped at the hull floor once, and
+// leaves the ship off any hazard. stop means Result.Stopped says why the tour
+// ended early.
+func (t *tour) run(ctx context.Context) (stop bool, err error) {
+	for i := range t.route {
+		if stop, err = t.visit(ctx, i); stop || err != nil {
+			break
+		}
+	}
+	if err == nil && !stop && len(t.floorSkipped) > 0 {
+		// One more try: a station stop on the way may have repaired the hull.
+		retry := t.floorSkipped
+		t.floorSkipped = nil
+		for _, i := range retry {
+			t.res.POIs[i].Skipped = ""
+			if stop, err = t.visit(ctx, i); stop || err != nil {
+				break
+			}
+		}
+	}
+	if err != nil {
+		return false, err
+	}
+	if t.res.Stopped != StoppedBattle {
+		t.leaveHazard(ctx)
+		t.topUpAfterDose(ctx)
+	}
+	if !stop && len(t.floorSkipped) > 0 {
+		t.d.Report.Printf("  Hull at the floor and nothing left to repair with — %d POI(s) not visited\n", len(t.floorSkipped))
+		t.res.Stopped, t.res.StoppedAt = StoppedHull, t.route[t.floorSkipped[0]].ID
+		return true, nil
+	}
+	return stop, nil
+}
+
+// skip records and logs a POI the tour will not visit.
+func (t *tour) skip(i int, why string) {
+	t.res.POIs[i].Skipped = why
+	t.d.Report.Printf("  skipped %s: %s\n", t.route[i].Name, why)
+}
+
+// visit travels to route[i] and captures it, unless a rule skips it.
+func (t *tour) visit(ctx context.Context, i int) (stop bool, err error) {
+	d, o, poi, res := t.d, t.o, t.route[i], t.res
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	st := d.Client.GetState()
+	if st != nil && st.InBattle {
+		d.Report.Printf("  In a battle — stopping the tour at %s\n", poi.Name)
+		res.Stopped, res.StoppedAt = StoppedBattle, poi.ID
+		return true, nil
+	}
+
+	if damaging(poi) && !o.EnterHazards && o.SkipHazardSeverity > 0 && poi.Hazard.Severity >= o.SkipHazardSeverity {
+		t.skip(i, fmt.Sprintf("%s hazard severity %d", poi.Hazard.Type, poi.Hazard.Severity))
+		return false, nil
+	}
+	// The hull floor. A station is exempt: docking is how a hull gets repaired.
+	if o.HullFloor > 0 && poi.Type != poiTypeStation {
+		frac, _ := readHull(ctx, d)
+		if frac <= o.HullFloor {
+			t.leaveHazard(ctx)
+			frac, _ = repairToFloor(ctx, d, o.HullFloor)
+		}
+		if frac <= o.HullFloor {
+			t.skip(i, "hull "+hullPct(frac))
+			t.floorSkipped = append(t.floorSkipped, i)
+			return false, nil
+		}
+	}
+
+	if st != nil && st.CurrentPOI == poi.ID {
+		d.Report.Printf("[%d/%d] Already at %s\n", i+1, len(t.route), poi.Name)
+	} else {
+		d.Report.Printf("[%d/%d] Traveling to %s (%s)...\n", i+1, len(t.route), poi.Name, poi.Type)
+		canceled, err := d.Travel(ctx, poi.ID)
+		if err != nil {
+			d.Report.Printf("  Travel failed: %v\n", err)
+			res.POIs[i].Skipped = "travel failed: " + err.Error()
+			if insufficientFuel(err) {
+				d.Report.Printf("  Out of fuel for in-system travel — stopping the tour\n")
+				res.Stopped, res.StoppedAt = StoppedFuel, poi.ID
+				markUnvisited(res.POIs, "tour stopped: fuel")
+				return true, nil
+			}
+			// Back off a full tick before the next attempt — a fast retry
+			// loop here triggers server rate-limiting when Travel returns
+			// prematurely on a state-flag desync.
+			d.Settle(ctx, game.SleepTick)
+			return false, nil
+		}
+		if canceled {
+			d.Report.Printf("  Travel interrupted!\n")
+			return false, fmt.Errorf("explore interrupted at POI %d/%d", i+1, len(t.route))
+		}
+		if raw := d.Client.GetRawJSON("_last"); raw != nil {
+			d.Report.Raw(RawExplore, raw)
+		}
+	}
+	if !damaging(poi) {
+		t.topUpAfterDose(ctx)
+	}
+
+	// Now at this POI: capture other players here, then the wildlife the same
+	// reply lists. This is the only headcount that names a POI —
+	// survey_system's census is system-wide — so it ties a species to a
+	// habitat.
+	Sightings(ctx, d, d.Client.GetNearby, "get_nearby")
+	unscanned := WildlifeAtPOI(ctx, d, poi.ID, poi.Type)
+	// Halt BEFORE the POI's dock/update work: creatures drift or despawn, so
+	// the moment of sighting is the moment to hand control back.
+	if o.StopOnUnscanned && len(unscanned) > 0 {
+		res.Stopped, res.StoppedAt, res.Unscanned = StoppedUnscanned, poi.ID, unscanned
+		return true, nil
+	}
+
+	if poi.Type == poiTypeStation {
+		stationStop(ctx, d, o, poi)
+	} else if d.UpdatePOI != nil {
+		if err := d.UpdatePOI(ctx); err != nil {
+			d.Report.Printf("  (update_poi failed: %v)\n", err)
+		}
+	}
+	res.POIs[i].Visited = true
+	if o.Relics && relicStep(ctx, d, poi) {
+		res.Relics++
+	}
+
+	// Second wildlife reading, now that the POI's work has put real time
+	// between the two samples.
+	unscanned = WildlifeSecondLook(ctx, d, poi.ID, poi.Type)
+	if o.StopOnUnscanned && len(unscanned) > 0 {
+		res.Stopped, res.StoppedAt, res.Unscanned = StoppedUnscanned, poi.ID, unscanned
+		return true, nil
+	}
+	return false, nil
 }
 
 // stationStop docks at the station the ship is at, runs the full capture,
@@ -321,7 +405,7 @@ func reportRoute(d Deps, state *game.State, route []game.POI) {
 		totalTicks += ticks
 
 		marker := ""
-		if poi.Type == "station" {
+		if poi.Type == poiTypeStation {
 			marker = " *"
 		}
 		d.Report.Printf("  %-3d %-28s %-16s %9.1f %9d%s\n",
