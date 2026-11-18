@@ -95,6 +95,7 @@ func exploreSystem(client game.GameClient, ctx context.Context, refuelAtStations
 	res, err := explore.Tour(ctx, d, explore.Options{
 		RefuelAtStations: refuelAtStations,
 		StopOnUnscanned:  stopOnUnscanned,
+		Relics:           true,
 	}, sr)
 	rep.flush(explore.RawExplore, "Explore response")
 	if err != nil {

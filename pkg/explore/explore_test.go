@@ -119,7 +119,7 @@ func (c *fakeClient) Refuel(context.Context) error {
 
 func (c *fakeClient) GetPOI(context.Context) error {
 	c.calls = append(c.calls, "get_poi")
-	c.raw["poi"] = []byte(c.poiReplies[c.state.CurrentPOI])
+	c.raw["_last"] = []byte(c.poiReplies[c.state.CurrentPOI])
 	return nil
 }
 

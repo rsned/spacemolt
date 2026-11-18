@@ -242,6 +242,9 @@ func Tour(ctx context.Context, d Deps, o Options, sr SurveyResult) (Result, erro
 			}
 		}
 		res.POIs[i].Visited = true
+		if o.Relics && relicStep(ctx, d, poi) {
+			res.Relics++
+		}
 
 		// Second wildlife reading, now that the POI's work has put real time
 		// between the two samples.
