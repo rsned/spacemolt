@@ -9983,7 +9983,7 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 	case "plan_route", "plan-route":
 		return planRoute(client, ctx, parts, format)
 	case "explore":
-		return explore(client, ctx, format)
+		return exploreCmd(client, ctx, format)
 	case "auto_explore", "auto-explore":
 		return autoExplore(client, ctx, parts, format)
 	case "find_arbitrage", "find-arbitrage":

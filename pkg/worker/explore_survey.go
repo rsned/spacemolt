@@ -8,6 +8,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/rsned/spacemolt/pkg/explore"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -92,34 +93,5 @@ func SurveyHere(ctx context.Context, client game.GameClient, kb knowledge.Base, 
 // POI already revealed to us. SurveyedPOI carries no hidden field, but needing
 // a survey to see it is exactly what hidden means.
 func SurveyPOIsToKB(resp serverapi.SurveySystemResponse, agentID string, tick int64) []knowledge.POI {
-	revealed := make([]serverapi.RevealedPOI, 0, len(resp.NewlyRevealed)+len(resp.AlreadyRevealed))
-	revealed = append(revealed, resp.NewlyRevealed...)
-	revealed = append(revealed, resp.AlreadyRevealed...)
-
-	out := make([]knowledge.POI, 0, len(revealed))
-	for _, r := range revealed {
-		kbPOI := knowledge.POI{
-			ID:              r.ID,
-			SystemID:        resp.SystemID,
-			Name:            r.Name,
-			Type:            r.Type,
-			Description:     r.Description,
-			Hidden:          true,
-			LastUpdatedTick: tick,
-			DetectedBy:      agentID,
-		}
-		if r.Hazard != nil {
-			kbPOI.HazardType, kbPOI.HazardSeverity = r.Hazard.Type, r.Hazard.Severity
-		}
-		for _, res := range r.Resources {
-			kbPOI.Resources = append(kbPOI.Resources, game.POIResource{
-				ResourceID:   res.ResourceID,
-				Richness:     res.Richness,
-				Remaining:    res.Remaining,
-				MaxRemaining: res.MaxRemaining,
-			})
-		}
-		out = append(out, kbPOI)
-	}
-	return out
+	return explore.SurveyPOIsToKB(resp, agentID, tick)
 }

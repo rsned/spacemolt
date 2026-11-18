@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/rsned/spacemolt/pkg/explore"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
@@ -118,36 +119,5 @@ type wildlifeObservationRecorder interface {
 func captureCreatureObservations(ctx context.Context, kb knowledge.Base,
 	creatures []serverapi.NearbyCreature, systemID, poiID, agentID string, tick int64,
 ) error {
-	if kb == nil || len(creatures) == 0 {
-		return nil
-	}
-	rec, ok := kb.(wildlifeObservationRecorder)
-	if !ok {
-		return nil
-	}
-
-	now := time.Now().UTC().Format(time.RFC3339)
-	rows := make([]knowledge.WildlifeObservation, 0, len(creatures))
-	for _, c := range creatures {
-		if c.CreatureID == "" {
-			continue
-		}
-		rows = append(rows, knowledge.WildlifeObservation{
-			CreatureID:  c.CreatureID,
-			GameTick:    tick,
-			ObservedUTC: now,
-			Species:     c.Species,
-			Name:        c.Name,
-			Role:        c.Role,
-			Hull:        c.Hull,
-			MaxHull:     c.MaxHull,
-			InCombat:    c.InCombat,
-			Branded:     c.Branded,
-			SystemID:    systemID,
-			POIID:       poiID,
-			AgentID:     agentID,
-		})
-	}
-
-	return rec.RecordWildlifeObservations(ctx, rows)
+	return explore.CaptureCreatureObservations(ctx, kb, creatures, systemID, poiID, agentID, tick)
 }

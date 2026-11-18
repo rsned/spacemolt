@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
+	"github.com/rsned/spacemolt/pkg/explore"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
@@ -35,22 +35,5 @@ func (h *unscannedHalt) Error() string {
 // sorted for stable output. Best-effort: a nil or non-wildlife KB, or a KB
 // error, yields nothing — detection must never break an exploration pass.
 func detectUnscanned(ctx context.Context, kb knowledge.Base, creatures []serverapi.NearbyCreature) []string {
-	if kb == nil || len(creatures) == 0 {
-		return nil
-	}
-	ids := make([]string, 0, len(creatures))
-	seen := make(map[string]bool, len(creatures))
-	for _, c := range creatures {
-		if c.Species == "" || seen[c.Species] {
-			continue
-		}
-		seen[c.Species] = true
-		ids = append(ids, c.Species)
-	}
-	unscanned, err := knowledge.UnscannedSpecies(ctx, kb, ids)
-	if err != nil || len(unscanned) == 0 {
-		return nil
-	}
-	slices.Sort(unscanned)
-	return unscanned
+	return explore.DetectUnscanned(ctx, kb, creatures)
 }
