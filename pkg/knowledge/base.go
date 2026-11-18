@@ -55,6 +55,10 @@ type Base interface {
 	GetOptimalRoute(ctx context.Context, fromSystem, toSystem string) (*ConnectionMetrics, error)
 	FindCheapestRoute(ctx context.Context, fromSystem, toSystem string, maxHops int) ([]string, float64, error)
 
+	// Relic POIs: every interact_poi attempt and what came back
+	RecordRelicInteraction(ctx context.Context, r RelicInteraction) error
+	RelicInteractions(ctx context.Context) ([]RelicInteraction, error)
+
 	// Anomaly detection
 	RecordAnomaly(ctx context.Context, anomaly Anomaly) error
 	GetActiveAnomalies(ctx context.Context, systemID string) ([]Anomaly, error)

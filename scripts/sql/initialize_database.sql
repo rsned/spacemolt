@@ -11,8 +11,8 @@
 --
 --   sqlite3 spacemolt-knowledge.db < scripts/sql/initialize_database.sql
 --
--- Migrations applied: 19
--- Last Regenerated: 2026-11-17
+-- Migrations applied: 20
+-- Last Regenerated: 2026-11-18
 
 -- ============================================================================
 -- TABLES
@@ -856,6 +856,23 @@ CREATE TABLE "recipes" (
 				);
 
 
+CREATE TABLE relic_interactions (
+					poi_id       TEXT NOT NULL,
+					system_id    TEXT NOT NULL DEFAULT '',
+					agent_id     TEXT NOT NULL,
+					tick         INTEGER NOT NULL DEFAULT 0,
+					outcome      TEXT NOT NULL,
+					prompt       TEXT NOT NULL DEFAULT '',
+					message      TEXT NOT NULL DEFAULT '',
+					data_copied  INTEGER NOT NULL DEFAULT 0,
+					items_json   TEXT NOT NULL DEFAULT '',
+					mission_json TEXT NOT NULL DEFAULT '',
+					error        TEXT NOT NULL DEFAULT '',
+					observed_utc TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (poi_id, agent_id, tick)
+				);
+
+
 CREATE TABLE resource_history (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	poi_id TEXT NOT NULL,
@@ -1412,6 +1429,8 @@ CREATE INDEX idx_public_facilities_recipe ON public_facilities(recipe_id);
 
 CREATE INDEX idx_recipes_category ON recipes(category);
 
+CREATE INDEX idx_relic_interactions_outcome ON relic_interactions(outcome);
+
 CREATE INDEX idx_resource_history_poi_resource ON resource_history(poi_id, resource_id, game_tick DESC);
 
 CREATE INDEX idx_resource_history_tick ON resource_history(game_tick DESC);
@@ -1541,4 +1560,5 @@ INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (74, dateti
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (75, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (76, datetime('now'));
 INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (77, datetime('now'));
+INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (78, datetime('now'));
 

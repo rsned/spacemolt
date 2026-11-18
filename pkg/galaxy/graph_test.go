@@ -194,6 +194,14 @@ func (m *mockKB) FindCheapestRoute(ctx context.Context, fromSystem, toSystem str
 	return nil, 0, nil
 }
 
+func (m *mockKB) RecordRelicInteraction(context.Context, knowledge.RelicInteraction) error {
+	return nil
+}
+
+func (m *mockKB) RelicInteractions(context.Context) ([]knowledge.RelicInteraction, error) {
+	return nil, nil
+}
+
 func (m *mockKB) RecordAnomaly(ctx context.Context, anomaly knowledge.Anomaly) error {
 	return nil
 }

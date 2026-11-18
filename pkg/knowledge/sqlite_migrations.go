@@ -710,6 +710,30 @@ func migrations() []Migration {
 				);
 			`,
 		},
+		{
+			version: 78,
+			name:    "relic_interactions",
+			// One row per interact_poi attempt at a relic POI, per agent: what
+			// the POI prompted, what the server answered, and what came back.
+			sql: `
+				CREATE TABLE IF NOT EXISTS relic_interactions (
+					poi_id       TEXT NOT NULL,
+					system_id    TEXT NOT NULL DEFAULT '',
+					agent_id     TEXT NOT NULL,
+					tick         INTEGER NOT NULL DEFAULT 0,
+					outcome      TEXT NOT NULL,
+					prompt       TEXT NOT NULL DEFAULT '',
+					message      TEXT NOT NULL DEFAULT '',
+					data_copied  INTEGER NOT NULL DEFAULT 0,
+					items_json   TEXT NOT NULL DEFAULT '',
+					mission_json TEXT NOT NULL DEFAULT '',
+					error        TEXT NOT NULL DEFAULT '',
+					observed_utc TEXT NOT NULL DEFAULT '',
+					PRIMARY KEY (poi_id, agent_id, tick)
+				);
+				CREATE INDEX IF NOT EXISTS idx_relic_interactions_outcome ON relic_interactions(outcome);
+			`,
+		},
 	}
 }
 

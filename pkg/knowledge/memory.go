@@ -22,6 +22,8 @@ type MemoryKB struct {
 	agents       map[string]*AgentInfo
 	shipListings []ShipListings
 
+	relicInteractions []RelicInteraction
+
 	// Catalog data
 	items       map[string]CatalogItem
 	shipClasses map[string]ShipClassDef
