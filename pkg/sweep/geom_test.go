@@ -39,3 +39,21 @@ func TestReachedWhenPassed(t *testing.T) {
 		t.Error("a target 10 LY behind along the bearing should count as reached")
 	}
 }
+
+func TestInterrupts(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		px, py float64
+		want   bool
+	}{
+		{"on the line, short of the target", 500, 20, true},
+		{"beside the line, outside the margin", 500, 150, false},
+		{"behind the origin", -50, 0, false},
+		{"beyond the target", 900, 0, false},
+		{"just inside the margin", 300, -99, true},
+	} {
+		if got := Interrupts(0, 0, 700, 0, tc.px, tc.py, 100); got != tc.want {
+			t.Errorf("%s: Interrupts = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

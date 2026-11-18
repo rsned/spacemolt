@@ -828,3 +828,31 @@ func TestFrontierCapturesNearerTheTargetDoNotCountAgainstIt(t *testing.T) {
 		t.Errorf("a = %q / %q, want it not written off", got.Status, got.Reason)
 	}
 }
+
+// Staging prefers a system whose line to the target no charted system
+// interrupts over a nearer one whose drift would be captured on the way.
+func TestFrontierStagesWhereTheLineIsClear(t *testing.T) {
+	r := newFrontierRig(t, huntHomeSystem, []sweep.FrontierInput{{ID: "a", X: 700, Y: 0}}, nil)
+	laneStation(t, r.kb, huntHomeSystem, 100, 0, "near", "side")
+	placeSystem(t, r.kb, "near", 300, 0, 1, 1, huntHomeSystem)
+	placeSystem(t, r.kb, "side", 300, 300, 1, 1, huntHomeSystem)
+	placeSystem(t, r.kb, "wall", 500, -20, 1, 1) // charted, on the line from near
+	r.setState(&frontierState{Phase: frontierStage, Target: "a", TargetX: 700, LaunchCost: 45})
+	r.pass()
+	if !slices.Equal(r.navs, []string{"side/"}) {
+		t.Errorf("lane travel %v, want staging at side\n%s", r.navs, r.out)
+	}
+}
+
+// With no clear line anywhere near, staging is still at the nearest system.
+func TestFrontierStagesNearestWhenNoLineIsClear(t *testing.T) {
+	r := newFrontierRig(t, huntHomeSystem, []sweep.FrontierInput{{ID: "a", X: 700, Y: 0}}, nil)
+	laneStation(t, r.kb, huntHomeSystem, 100, 0, "near")
+	placeSystem(t, r.kb, "near", 300, 0, 1, 1, huntHomeSystem)
+	placeSystem(t, r.kb, "wall", 500, -20, 1, 1)
+	r.setState(&frontierState{Phase: frontierStage, Target: "a", TargetX: 700, LaunchCost: 45})
+	r.pass()
+	if !slices.Equal(r.navs, []string{"near/"}) {
+		t.Errorf("lane travel %v, want staging at near\n%s", r.navs, r.out)
+	}
+}

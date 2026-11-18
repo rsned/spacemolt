@@ -55,3 +55,19 @@ func Reached(x, y, tx, ty, bearing float64) bool {
 	rad := bearing * math.Pi / 180
 	return dx*math.Cos(rad)+dy*math.Sin(rad) <= 0
 }
+
+// Interrupts reports whether a system at (px, py) captures a drift launched
+// from (ox, oy) straight at (tx, ty): it lies ahead of the origin, short of
+// the target, and within margin of the line (the KB's jump pages use the
+// same test with a 100 LY margin).
+func Interrupts(ox, oy, tx, ty, px, py, margin float64) bool {
+	dx, dy := tx-ox, ty-oy
+	d := math.Hypot(dx, dy)
+	if d == 0 {
+		return false
+	}
+	rx, ry := px-ox, py-oy
+	proj := (rx*dx + ry*dy) / d
+	perp := math.Abs(rx*dy-ry*dx) / d
+	return proj > 0 && proj < d && perp < margin
+}

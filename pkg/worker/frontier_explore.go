@@ -34,6 +34,11 @@ const (
 	// than the one before it for the earlier launches not to count: a drift
 	// captured by charted ground on the way is progress, not a failure.
 	frontierProgressLY = 50.0
+	// frontierCaptureLY is how near a drift's line a system captures it.
+	frontierCaptureLY = 100.0
+	// frontierStageLook is how many of the nearest staging systems are
+	// checked for a clear line to the target.
+	frontierStageLook = 12
 	// frontierMaxTries is how many failed tours of one system end it
 	// incomplete; frontierMaxStops how many station detours its tour may force.
 	frontierMaxTries = 3
@@ -328,6 +333,7 @@ func (f *frontierPass) stage(ctx context.Context, sysID string) error {
 	}
 	cands := voidStageCandidates(systems, conns, loadAvoidSystems(f.d.AvoidSystemsPath),
 		smugglingUnlocked(f.d.Client.GetState()), sysID, f.s.TargetX, f.s.TargetY)
+	cands = f.clearStages(cands, systems, run)
 	tries := 0
 	for _, c := range cands {
 		if c.id == sysID || tries >= voidStageTries {
@@ -351,6 +357,44 @@ func (f *frontierPass) stage(ctx context.Context, sysID string) error {
 	}
 	f.s.Phase = frontierLaunch
 	return f.launchAtTarget(ctx, sysID)
+}
+
+// clearStages moves, among the frontierStageLook nearest candidates, those
+// whose straight line to the target is clear ahead of those whose drift a
+// charted or finished system would capture on the way. Order is otherwise
+// kept: nearest first. Unexplored frontier systems do not count as in the
+// way, since landing in one is work, not a detour.
+func (f *frontierPass) clearStages(cands []voidStageCand, systems []knowledge.System, run *sweep.FrontierRun) []voidStageCand {
+	pos := make(map[string]game.Position, len(systems))
+	var walls []knowledge.System
+	for _, sys := range systems {
+		if sys.Position.X == 0 && sys.Position.Y == 0 {
+			continue
+		}
+		pos[sys.ID] = sys.Position
+		if ls := run.Systems[sys.ID]; sys.ID != f.s.Target && (ls == nil || ls.Status == sweep.FrontierDone || ls.Status == sweep.FrontierIncomplete) {
+			walls = append(walls, sys)
+		}
+	}
+	blocked := func(c voidStageCand) bool {
+		o := pos[c.id]
+		return slices.ContainsFunc(walls, func(w knowledge.System) bool {
+			return w.ID != c.id && sweep.Interrupts(o.X, o.Y, f.s.TargetX, f.s.TargetY, w.Position.X, w.Position.Y, frontierCaptureLY)
+		})
+	}
+	n := min(len(cands), frontierStageLook)
+	var clear, rest []voidStageCand
+	for _, c := range cands[:n] {
+		if blocked(c) {
+			rest = append(rest, c)
+		} else {
+			clear = append(clear, c)
+		}
+	}
+	if len(clear) > 0 && len(rest) > 0 && clear[0].id != cands[0].id {
+		f.logf("the line from %s to %s is interrupted; %s has a clear one", cands[0].id, f.s.Target, clear[0].id)
+	}
+	return slices.Concat(clear, rest, cands[n:])
 }
 
 // launchAtTarget launches at the target's ledger position, giving up on a
