@@ -52,3 +52,8 @@
 {"observed_utc":"2026-11-17T22:03:07Z","agent_id":"craftsman-4","category":"haul-in","item":"steel_plate","qty":400,"note":"craftsman-4 CJ to beid for shield_projector"}
 {"observed_utc":"2026-11-17T22:09:15Z","agent_id":"craftsman-4","category":"haul-in","item":"power_cell","qty":200,"note":"craftsman-4 CJ to beid for shield_projector"}
 {"observed_utc":"2026-11-17T22:15:28Z","agent_id":"craftsman-4","category":"haul-in","item":"power_cell","qty":100,"note":"craftsman-4 CJ to beid for shield_projector"}
+{"observed_utc":"2026-11-18T00:47:29Z","agent_id":"craftsman-2","category":"build","item":"credits","qty":-900000,"credits":-900000,"note":"shield_projector L1 (facility b96187c4)"}
+{"observed_utc":"2026-11-18T00:47:29Z","agent_id":"craftsman-2","category":"build","item":"steel_plate","qty":-1200,"note":"shield_projector"}
+{"observed_utc":"2026-11-18T00:47:29Z","agent_id":"craftsman-2","category":"build","item":"superconductor","qty":-200,"note":"shield_projector"}
+{"observed_utc":"2026-11-18T00:47:29Z","agent_id":"craftsman-2","category":"build","item":"power_cell","qty":-300,"note":"shield_projector"}
+{"observed_utc":"2026-11-18T00:47:29Z","agent_id":"craftsman-2","category":"haul-in","item":"superconductor","qty":319,"note":"operator delivery for shield_projector"}

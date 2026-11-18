@@ -374,3 +374,10 @@ atmospheric_recycler, refueling_dock and locker_bay **active**; faction_workshop
   (catalog 11-16; 200 armor_plate hauled from CJ first). Facility id 98843aa1fface6e30a9757b4b3a497cd,
   rent 0/cycle, status under construction (catalog build_time 180). Upkeep: 1 armor_plate/cycle.
 - Shield projector deferred: needs 200 superconductor, none in any faction storage.
+
+## Shield Projector placed 2026-11-17
+
+- craftsman-2 built `shield_projector` L1 (facility b96187c49802b4a7d85e4e2dfb2905d9), under construction.
+- Cost: 900,000 cr + 1,200 steel_plate + 200 superconductor + 300 power_cell. Treasury 4.43M → 3.53M.
+- Superconductor (319) delivered by the operator; 119 left in storage. Steel 256 and power_cell 300 left.
+- Power: grid 20, shield 10 + combustor 1 → 9 spare.
