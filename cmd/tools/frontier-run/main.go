@@ -36,7 +36,7 @@ func main() {
 	reserves := flag.String("reserves", "", "assign: the ships among them with the longest range (they take the remotest directions)")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: frontier-run [flags] generate|status|assign|relics") //nolint:errcheck
+		fmt.Fprintln(os.Stderr, "usage: frontier-run [flags] generate|status|assign|relics|retry") //nolint:errcheck
 		os.Exit(2)
 	}
 	if err := run(flag.Arg(0), *kbPath, *runPath, split(*ships), split(*reserves)); err != nil {
@@ -57,8 +57,16 @@ func split(csv string) []string {
 
 func run(cmd, kbPath, runPath string, ships, reserves []string) error {
 	ctx := context.Background()
-	if cmd == "status" {
+	switch cmd {
+	case "status":
 		return status(os.Stdout, runPath)
+	case "retry":
+		ids, err := sweep.ReopenUnreachable(runPath, time.Now())
+		if err != nil {
+			return err
+		}
+		fmt.Printf("reopened %d unreachable system(s): %s\n", len(ids), strings.Join(ids, ", "))
+		return nil
 	}
 	kb, err := knowledge.NewSQLiteKB(knowledge.Config{DBPath: kbPath, WAL: true})
 	if err != nil {

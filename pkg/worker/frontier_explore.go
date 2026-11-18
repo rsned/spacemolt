@@ -30,6 +30,10 @@ const (
 	// frontierMaxLaunches is how many pathfinder launches at one target may
 	// fail to arrive before it is marked unreachable.
 	frontierMaxLaunches = 2
+	// frontierProgressLY is how much nearer the target a launch must start
+	// than the one before it for the earlier launches not to count: a drift
+	// captured by charted ground on the way is progress, not a failure.
+	frontierProgressLY = 50.0
 	// frontierMaxTries is how many failed tours of one system end it
 	// incomplete; frontierMaxStops how many station detours its tour may force.
 	frontierMaxTries = 3
@@ -215,7 +219,7 @@ func (f *frontierPass) fitProblem(ctx context.Context) string {
 // setTarget aims the ship at a ledger system and starts its staging.
 func (f *frontierPass) setTarget(t *sweep.FrontierSystem) {
 	f.s.Target, f.s.TargetX, f.s.TargetY = t.ID, t.X, t.Y
-	f.s.Launches = 0
+	f.s.Launches, f.s.LaunchDist = 0, 0
 	f.s.Phase = frontierStage
 }
 
@@ -360,6 +364,10 @@ func (f *frontierPass) launchAtTarget(ctx context.Context, sysID string) error {
 		f.s.Phase = frontierNext
 		return f.next(ctx, sysID)
 	}
+	x, y, ok := f.position(ctx, sysID)
+	if ok {
+		f.nearer(x, y)
+	}
 	if f.s.Launches >= frontierMaxLaunches {
 		f.unreachable()
 		f.s.Phase = frontierNext
@@ -369,7 +377,6 @@ func (f *frontierPass) launchAtTarget(ctx context.Context, sysID string) error {
 		f.toRefuel(f.s.Target, "fuel is under three launches")
 		return nil
 	}
-	x, y, ok := f.position(ctx, sysID)
 	if !ok {
 		return fmt.Errorf("frontier_explore: position of %s unknown; cannot plot a bearing to %s", sysID, f.s.Target)
 	}
@@ -377,8 +384,27 @@ func (f *frontierPass) launchAtTarget(ctx context.Context, sysID string) error {
 	if err := f.launch(ctx, x, y, f.s.TargetX, f.s.TargetY); err != nil {
 		return err // a refused jump is not a launch at the target
 	}
-	f.s.Launches++
+	f.launched(x, y)
 	return nil
+}
+
+// nearer forgets the launches made at the target so far when (x, y), where
+// the next would start, is well inside where the last one started.
+func (f *frontierPass) nearer(x, y float64) {
+	s := f.s
+	if s.Launches == 0 || s.LaunchDist <= 0 {
+		return
+	}
+	if d := math.Hypot(s.TargetX-x, s.TargetY-y); d < s.LaunchDist-frontierProgressLY {
+		f.logf("%.0f LY from %s, down from %.0f; its launch count starts again", d, s.Target, s.LaunchDist)
+		s.Launches = 0
+	}
+}
+
+// launched counts a launch at the target that started from (x, y).
+func (f *frontierPass) launched(x, y float64) {
+	f.s.Launches++
+	f.s.LaunchDist = math.Hypot(f.s.TargetX-x, f.s.TargetY-y)
 }
 
 // unreachable marks the target incomplete on the ledger.
@@ -484,13 +510,14 @@ func (f *frontierPass) missed(ctx context.Context, x, y, bearing float64) error 
 	if s.Phase == frontierRefuel || s.Phase == frontierHome {
 		return f.headForStation(ctx, x, y, "")
 	}
+	f.nearer(x, y)
 	if s.Launches < frontierMaxLaunches && f.fuelOK() {
 		s.Phase = frontierLaunch
 		f.logf("launch %d at %s from the drift", s.Launches+1, s.Target)
 		if err := f.launch(ctx, x, y, s.TargetX, s.TargetY); err != nil {
 			return err
 		}
-		s.Launches++
+		f.launched(x, y)
 		return nil
 	}
 	if s.Launches >= frontierMaxLaunches {
@@ -511,7 +538,7 @@ func (f *frontierPass) missed(ctx context.Context, x, y, bearing float64) error 
 			if err := f.launch(ctx, x, y, t.X, t.Y); err != nil {
 				return err
 			}
-			s.Launches = 1
+			f.launched(x, y)
 			return nil
 		}
 	}
@@ -598,7 +625,7 @@ func (f *frontierPass) landed(ctx context.Context, sysID string, loc serverapi.L
 			f.logf("ledger: add %s: %v", sysID, err)
 		}
 		f.logf("captured by %s on the way to %s; exploring it first", sysID, s.Target)
-		s.Target, s.TargetX, s.TargetY, s.Launches = sysID, in.X, in.Y, 0
+		s.Target, s.TargetX, s.TargetY, s.Launches, s.LaunchDist = sysID, in.X, in.Y, 0, 0
 		s.Cluster, s.Done = nil, nil
 		s.Phase = frontierWork
 	}
@@ -636,6 +663,14 @@ func (f *frontierPass) work(ctx context.Context, sysID string, loc serverapi.Loc
 	// a restart mid-hop): go back to it rather than claim where the ship is.
 	if !slices.Contains(s.Cluster, sysID) && pending() == "" {
 		cur := run.Systems[sysID]
+		// Written off as unreachable, yet the ship is in it: explore it.
+		if cur != nil && cur.Status == sweep.FrontierIncomplete && strings.HasPrefix(cur.Reason, "unreachable") {
+			if _, err = sweep.ReopenUnreachable(f.run, time.Now(), sysID); err != nil {
+				return err
+			}
+			f.logf("%s was marked %s, but the ship is in it; exploring it", sysID, cur.Reason)
+			cur.Status = sweep.FrontierTodo
+		}
 		switch {
 		case cur == nil && d.frontierChartedFn()(ctx, sysID):
 			f.logf("%s is charted ground; nothing to explore here", sysID)

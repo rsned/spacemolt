@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -306,6 +307,27 @@ func FinishSystem(path, agent string, s FrontierSystem, now time.Time) error {
 		cur.Skipped, cur.Reason = s.Skipped, s.Reason
 		return true, nil
 	})
+}
+
+// ReopenUnreachable puts systems written off as unreachable (by drift or by
+// lane) back to todo: the given ids, or every such system when none is given.
+// It returns the ids it reopened, sorted. Other incomplete systems are left.
+func ReopenUnreachable(path string, now time.Time, ids ...string) (reopened []string, err error) {
+	err = withFrontierRun(path, func(r *FrontierRun) (bool, error) {
+		for id, s := range r.Systems {
+			if len(ids) > 0 && !slices.Contains(ids, id) {
+				continue
+			}
+			if s.Status != FrontierIncomplete || !strings.HasPrefix(s.Reason, "unreachable") {
+				continue
+			}
+			s.Status, s.Claimant, s.Reason, s.UpdatedUTC = FrontierTodo, "", "", now.UTC()
+			reopened = append(reopened, id)
+		}
+		slices.Sort(reopened)
+		return len(reopened) > 0, nil
+	})
+	return reopened, err
 }
 
 // nearestTodo picks, among the todo systems keep accepts, the one with the

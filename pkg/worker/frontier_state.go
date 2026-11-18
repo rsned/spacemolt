@@ -37,6 +37,9 @@ type frontierState struct {
 	// Launches counts pathfinder launches at Target; two that do not arrive
 	// mark it unreachable.
 	Launches int `json:"launches,omitempty"`
+	// LaunchDist is how far from Target the last launch at it started: a
+	// launch from well inside that is progress and starts the count again.
+	LaunchDist float64 `json:"launch_dist,omitempty"`
 	// ResumeAt is the system to return to after a refuel or repair stop.
 	ResumeAt string `json:"resume_at,omitempty"`
 

@@ -1,8 +1,10 @@
 package sweep
 
 import (
+	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 )
 
 // Two ships hold two clusters; one finds a lane into the other's. Each keeps
@@ -96,5 +98,40 @@ func TestOwnClaim(t *testing.T) {
 	}
 	if got, _ := OwnClaim(path, "explorer-2", 125, 0); got != nil {
 		t.Errorf("explorer-2 got explorer-1's claim %s", got.ID)
+	}
+}
+
+// Systems written off as unreachable go back to todo; other incompletes stay.
+func TestReopenUnreachable(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run.json")
+	now := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
+	in := []FrontierInput{{ID: "a", X: 400}, {ID: "b", X: 500}, {ID: "c", X: 600}, {ID: "d", X: 700}}
+	if err := SaveFrontierRun(path, NewFrontierRun(in, nil, now)); err != nil {
+		t.Fatal(err)
+	}
+	for id, reason := range map[string]string{"a": "unreachable", "b": "unreachable by lane", "c": "hostile: leviathan"} {
+		if err := FinishSystem(path, "explorer-1", FrontierSystem{ID: id, Status: FrontierIncomplete, Reason: reason}, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := ReopenUnreachable(path, now, "a")
+	if err != nil || !slices.Equal(got, []string{"a"}) {
+		t.Fatalf("reopen a = %v, %v", got, err)
+	}
+	got, err = ReopenUnreachable(path, now)
+	if err != nil || !slices.Equal(got, []string{"b"}) {
+		t.Fatalf("reopen all = %v, %v, want only b left to reopen", got, err)
+	}
+	run, err := LoadFrontierRun(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"a", "b", "d"} {
+		if s := run.Systems[id]; s.Status != FrontierTodo || s.Claimant != "" || s.Reason != "" {
+			t.Errorf("%s = %+v, want a clean todo", id, s)
+		}
+	}
+	if s := run.Systems["c"]; s.Status != FrontierIncomplete {
+		t.Errorf("c = %q, want the hostile system left incomplete", s.Status)
 	}
 }

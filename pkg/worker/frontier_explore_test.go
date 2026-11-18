@@ -793,3 +793,38 @@ func TestFrontierVerifySurveysBeforeLeaving(t *testing.T) {
 		t.Errorf("surveys %d docked %v jumps %v log:\n%s", r.surveys, r.c.state.Doc, r.c.jumps, r.out)
 	}
 }
+
+// A ship that finds itself in a system the ledger wrote off as unreachable
+// explores it: being there is the proof it can be reached.
+func TestFrontierExploresUnreachableSystemItLandsIn(t *testing.T) {
+	r := newFrontierRig(t, "a", []sweep.FrontierInput{{ID: "a", X: 400, Y: 0}}, nil)
+	if err := sweep.FinishSystem(r.run, "explorer-9", sweep.FrontierSystem{ID: "a", Status: sweep.FrontierIncomplete, Reason: "unreachable"}, frontierNow); err != nil {
+		t.Fatal(err)
+	}
+	r.setState(&frontierState{Phase: frontierWork, Target: "a", TargetX: 400, LaunchCost: 45})
+	r.pass()
+	if !slices.Equal(r.tours, []string{"a"}) {
+		t.Fatalf("tours %v, want a toured\n%s", r.tours, r.out)
+	}
+	if got := r.ledger("a"); got.Status != sweep.FrontierDone || got.Claimant != "explorer-3" {
+		t.Errorf("a = %q by %q, want done by explorer-3", got.Status, got.Claimant)
+	}
+}
+
+// Captures by charted ground on the way do not use up the launch cap while
+// each one leaves the ship nearer the target.
+func TestFrontierCapturesNearerTheTargetDoNotCountAgainstIt(t *testing.T) {
+	r := newFrontierRig(t, huntHomeSystem, []sweep.FrontierInput{{ID: "a", X: 400, Y: 0}}, nil)
+	placeSystem(t, r.kb, "old_one", 200, 0, 1, 1)
+	placeSystem(t, r.kb, "old_two", 300, 0, 1, 1)
+	r.charted["old_one"], r.charted["old_two"] = true, true
+	r.setState(&frontierState{Phase: frontierLaunch, Target: "a", TargetX: 400, LaunchCost: 45})
+	r.c.lands = []string{"old_one", "old_two", "a"}
+	r.passUntil(frontierWork, 8)
+	if len(r.c.jumps) != 3 {
+		t.Errorf("launches %v, want three", r.c.jumps)
+	}
+	if got := r.ledger("a"); got.Status == sweep.FrontierIncomplete {
+		t.Errorf("a = %q / %q, want it not written off", got.Status, got.Reason)
+	}
+}
