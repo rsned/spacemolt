@@ -279,26 +279,19 @@ func TestFreightRemoteHigherTierTakesProbationaryRun(t *testing.T) {
 	}
 }
 
-// Having flown to an origin for a probationary run, the local pass there must
-// let the carrier accept it; other stations keep the fence.
-func TestFreightCandidateFenceLiftedAtChasedOrigin(t *testing.T) {
-	board := `{"shipments":[{"eligible":true,"contract":{"id":"prob800","origin_base_id":"near_base","destination_base_id":"sol_central","base_reward":800,"route_hops":2,"service_level":"standard","risk_band":"probationary"}}],"total":1}`
-	now := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
-	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
+// A remote probationary run clears a carrier past probation at a net of 100.
+func TestFreightRemoteProbationaryCargoFloor(t *testing.T) {
+	for reward, want := range map[int64]bool{300: true, 99: false} {
+		run := remoteListing("prob", "near_base", "dest_a", reward, 2)
+		run.Contract.RiskBand = carrierTierProbationary
+		f := remoteClient(t, run)
+		f.raw["shipping_profile"] = []byte(licensedProfile)
+		in := remoteTestInputs(map[string]string{"near_base": "sol:1", "dest_a": "tau:3"})
+		deps := MissionDeps{Client: f, State: &missionRunState{}, FreightBootstrap: true}
 
-	for _, tc := range []struct {
-		chased string
-		want   bool
-	}{{"near_base", true}, {"other_base", false}} {
-		deps := freightGateDeps(t, licensedProfile, board)
-		deps.State = &missionRunState{}
-		deps.FreightBootstrap = true
-		deps.Now = func() time.Time { return now }
-		deps.State.noteRemoteChase(tc.chased, now.Add(-5*time.Minute))
-
-		cand, skip := freightCandidate(context.Background(), deps, in, io.Discard)
-		if (cand != nil) != tc.want {
-			t.Fatalf("chased %s: accepted=%v, want %v (%s)", tc.chased, cand != nil, tc.want, skip)
+		got, reason := freightRemoteCandidate(context.Background(), deps, in, io.Discard)
+		if (got != nil) != want {
+			t.Fatalf("reward %d: chased=%v, want %v (%s)", reward, got != nil, want, reason)
 		}
 	}
 }

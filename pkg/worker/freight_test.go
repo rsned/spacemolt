@@ -2206,28 +2206,29 @@ func TestCarrierTierAboveProbationary(t *testing.T) {
 	}
 }
 
-func TestFreightBandExcluded(t *testing.T) {
+// A carrier past probation takes probationary-band cargo at a low positive
+// floor; every other pairing keeps the carrier's own floor.
+func TestFreightListingFloor(t *testing.T) {
 	cases := []struct {
 		name         string
+		carrierFloor float64
 		carrierTier  string
 		contractBand string
-		bootstrap    bool
-		want         bool
+		want         float64
 	}{
-		{"probationary carrier is never fenced from probationary cargo", "probationary", "probationary", true, false},
-		{"licensed carrier is fenced from probationary cargo", "licensed", "probationary", true, true},
-		{"trusted carrier is fenced from probationary cargo", "trusted", "probationary", true, true},
-		{"licensed carrier keeps its own-tier cargo", "licensed", "licensed", true, false},
-		{"bootstrap off disables the fence", "licensed", "probationary", false, false},
-		{"unknown carrier tier is never fenced", "", "probationary", true, false},
-		{"empty contract band is never fenced", "licensed", "", true, false},
-		{"unpriced contract band is never fenced", "licensed", "unpriced", true, false},
+		{"licensed carrier, probationary cargo", freightMinNet, "licensed", "probationary", freightProbationaryCargoFloor},
+		{"prime carrier, probationary cargo", freightMinNet, "prime", "probationary", freightProbationaryCargoFloor},
+		{"licensed carrier, own-tier cargo", freightMinNet, "licensed", "licensed", freightMinNet},
+		{"probationary carrier keeps its bootstrap floor", freightProbationFloor, "probationary", "probationary", freightProbationFloor},
+		{"probationary carrier with a spent budget keeps the normal floor", freightMinNet, "probationary", "probationary", freightMinNet},
+		{"unknown tier keeps the normal floor", freightMinNet, "", "probationary", freightMinNet},
+		{"empty band keeps the normal floor", freightMinNet, "licensed", "", freightMinNet},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := freightBandExcluded(tc.carrierTier, tc.contractBand, tc.bootstrap); got != tc.want {
-				t.Fatalf("freightBandExcluded(%q, %q, %v) = %v, want %v",
-					tc.carrierTier, tc.contractBand, tc.bootstrap, got, tc.want)
+			if got := freightListingFloor(tc.carrierFloor, tc.carrierTier, tc.contractBand); got != tc.want {
+				t.Fatalf("freightListingFloor(%v, %q, %q) = %v, want %v",
+					tc.carrierFloor, tc.carrierTier, tc.contractBand, got, tc.want)
 			}
 		})
 	}
@@ -2385,92 +2386,45 @@ func TestFreightAcceptAccruesBootstrapLoss(t *testing.T) {
 	}
 }
 
-// fenceBoard: two eligible contracts. The probationary-band one has the higher
-// net (reward 800, no fuel -> net 800); the licensed-band one is lower (600).
-// Without the fence selectFreightCand picks prob800; the fence flips it.
-const fenceBoard = `{"shipments":[` +
+// bandBoard: two eligible contracts, the probationary-band one paying more.
+const bandBoard = `{"shipments":[` +
 	`{"eligible":true,"contract":{"id":"prob800","destination_base_id":"sol_central","base_reward":800,"route_hops":2,"service_level":"standard","risk_band":"probationary"}},` +
 	`{"eligible":true,"contract":{"id":"lic600","destination_base_id":"sol_central","base_reward":600,"route_hops":2,"service_level":"standard","risk_band":"licensed"}}` +
 	`],"total":2}`
 
-// An above-probationary carrier skips the (higher-net) probationary cargo and
-// takes its own-tier licensed cargo instead; the skip is logged.
-func TestFreightCandidateFencesProbationaryForAdvancedCarrier(t *testing.T) {
-	profile := `{"profile":{"active_contracts":0},"progression":{"current_tier":"licensed"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
-	deps := freightGateDeps(t, profile, fenceBoard)
-	deps.State = &missionRunState{}
-	deps.FreightBootstrap = true
-	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
-	var log strings.Builder
+const licensedCarrier = `{"profile":{"active_contracts":0},"progression":{"current_tier":"licensed"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
 
-	cand, skip := freightCandidate(context.Background(), deps, in, &log)
-	if cand == nil {
-		t.Fatalf("a licensed carrier must still take licensed cargo, got skip %q", skip)
-	}
-	if cand.Contract.ID != "lic600" {
-		t.Fatalf("want the licensed contract lic600 (probationary fenced), got %q", cand.Contract.ID)
-	}
-	if !strings.Contains(log.String(), "prob800") || !strings.Contains(log.String(), "reserved for climbing carriers") {
-		t.Fatalf("the fence must log why prob800 was skipped, got %q", log.String())
-	}
+func probOnlyBoard(reward int) string {
+	return fmt.Sprintf(`{"shipments":[{"eligible":true,"contract":{"id":"prob","destination_base_id":"sol_central","base_reward":%d,"route_hops":2,"service_level":"standard","risk_band":"probationary"}}],"total":1}`, reward)
 }
 
-// A probationary carrier is never fenced: it takes the highest-net probationary
-// contract as before, and nothing is logged as reserved.
-func TestFreightCandidateProbationaryCarrierNotFenced(t *testing.T) {
-	profile := `{"profile":{"active_contracts":0},"progression":{"current_tier":"probationary"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
-	deps := freightGateDeps(t, profile, fenceBoard)
-	deps.State = &missionRunState{}
-	deps.FreightBootstrap = true
-	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
-	var log strings.Builder
-
-	cand, skip := freightCandidate(context.Background(), deps, in, &log)
-	if cand == nil {
-		t.Fatalf("a probationary carrier must take probationary cargo, got skip %q", skip)
-	}
-	if cand.Contract.ID != "prob800" {
-		t.Fatalf("want the highest-net probationary contract prob800, got %q", cand.Contract.ID)
-	}
-	if strings.Contains(log.String(), "reserved for climbing carriers") {
-		t.Fatalf("a probationary carrier must never fence itself, log was %q", log.String())
-	}
-}
-
-// Bootstrap off disables the fence entirely: even an advanced carrier takes the
-// highest-net contract regardless of band.
-func TestFreightCandidateFenceOffWhenBootstrapDisabled(t *testing.T) {
-	profile := `{"profile":{"active_contracts":0},"progression":{"current_tier":"licensed"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
-	deps := freightGateDeps(t, profile, fenceBoard)
-	deps.State = &missionRunState{}
-	deps.FreightBootstrap = false
-	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
-
-	cand, skip := freightCandidate(context.Background(), deps, in, io.Discard)
-	if cand == nil {
-		t.Fatalf("bootstrap off must not fence, got skip %q", skip)
-	}
-	if cand.Contract.ID != "prob800" {
-		t.Fatalf("bootstrap off: want the highest-net contract prob800, got %q", cand.Contract.ID)
-	}
-}
-
-// An above-probationary carrier at a station whose only eligible cargo is
-// probationary-band fences everything and falls through (nil candidate).
-func TestFreightCandidateAdvancedCarrierProbationaryOnlyBoardFallsThrough(t *testing.T) {
-	profile := `{"profile":{"active_contracts":0},"progression":{"current_tier":"licensed"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
-	board := `{"shipments":[{"eligible":true,"contract":{"id":"prob800","destination_base_id":"sol_central","base_reward":800,"route_hops":2,"service_level":"standard","risk_band":"probationary"}}],"total":1}`
-	deps := freightGateDeps(t, profile, board)
+// Probationary cargo is no longer kept for climbing carriers: a carrier past
+// probation takes the best run on the board whatever its band.
+func TestFreightCandidateAdvancedCarrierTakesProbationaryCargo(t *testing.T) {
+	deps := freightGateDeps(t, licensedCarrier, bandBoard)
 	deps.State = &missionRunState{}
 	deps.FreightBootstrap = true
 	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
 
 	cand, skip := freightCandidate(context.Background(), deps, in, io.Discard)
-	if cand != nil {
-		t.Fatalf("all cargo fenced must yield no candidate, got %q", cand.Contract.ID)
+	if cand == nil || cand.Contract.ID != "prob800" {
+		t.Fatalf("want the higher-net probationary run prob800, got %+v (%s)", cand, skip)
 	}
-	if !strings.Contains(skip, "no freight cleared the gate") {
-		t.Fatalf("want the board-emptied skip reason, got %q", skip)
+}
+
+// Probationary cargo pays little, so a carrier past probation takes it at a
+// net of 100 rather than its usual 500; below that it still passes.
+func TestFreightCandidateProbationaryCargoFloor(t *testing.T) {
+	for reward, want := range map[int]bool{300: true, 100: true, 99: false} {
+		deps := freightGateDeps(t, licensedCarrier, probOnlyBoard(reward))
+		deps.State = &missionRunState{}
+		deps.FreightBootstrap = true
+		in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
+
+		cand, skip := freightCandidate(context.Background(), deps, in, io.Discard)
+		if (cand != nil) != want {
+			t.Fatalf("reward %d: accepted=%v, want %v (%s)", reward, cand != nil, want, skip)
+		}
 	}
 }
 

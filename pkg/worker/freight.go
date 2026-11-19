@@ -52,6 +52,10 @@ const (
 	// ~4x-paying licensed tier. Aggressive-profile value; tunable.
 	freightProbationFloor = -400.0
 
+	// freightProbationaryCargoFloor is the net floor a carrier past probation
+	// applies to probationary-band cargo (operator-set, 2026-11-18).
+	freightProbationaryCargoFloor = 100.0
+
 	// freightProbationBudget caps cumulative bootstrap LOSSES per worker
 	// (positive-net accepts are free). Once spent, the floor reverts to 500
 	// until the server flips the tier. Aggressive-profile value; tunable.
@@ -131,21 +135,22 @@ func (s *missionRunState) logTierIfChanged(out io.Writer, p serverapi.CarrierTie
 }
 
 // carrierTierAboveProbationary reports whether a KNOWN tier outranks
-// probationary. An empty/unknown tier returns false: never fence a carrier that
+// probationary. An empty/unknown tier returns false: never treat as advanced a carrier that
 // might itself be probationary (that would starve it of the hauls it needs).
 func carrierTierAboveProbationary(tier string) bool {
 	return tier != "" && tier != carrierTierProbationary
 }
 
-// freightBandExcluded reports whether to skip a board listing to reserve
-// probationary-band cargo for carriers still climbing out of the probationary
-// tier. Gated on the bootstrap switch (the fleet-wide "help the probationary
-// climb" policy): with bootstrap off, selection is unchanged. Pure — the caller
-// supplies the live carrier tier, the contract's required band, and the toggle.
-func freightBandExcluded(carrierTier, contractBand string, bootstrapEnabled bool) bool {
-	return bootstrapEnabled &&
-		contractBand == carrierTierProbationary &&
-		carrierTierAboveProbationary(carrierTier)
+// freightListingFloor is the net floor one listing must clear. Probationary-
+// band cargo pays in the hundreds, so a carrier past probation takes it at
+// freightProbationaryCargoFloor rather than its own floor: it fills time that
+// would otherwise be idle. A probationary or unknown-tier carrier keeps its
+// own floor (see effectiveFreightFloor), as does every other band.
+func freightListingFloor(carrierFloor float64, carrierTier, contractBand string) float64 {
+	if contractBand == carrierTierProbationary && carrierTierAboveProbationary(carrierTier) {
+		return min(carrierFloor, freightProbationaryCargoFloor)
+	}
+	return carrierFloor
 }
 
 // buildFreightCand derives economics for one listing given the chain we
@@ -310,15 +315,6 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 
 	cands := make([]freightCand, 0, len(board.Shipments))
 	for _, l := range board.Shipments {
-		// The fence is a local rule: a run this ship flew here for (see
-		// freightChaseRemote) sat untaken on the remote board, so it is not
-		// being kept from a climbing carrier.
-		if freightBandExcluded(prof.Progression.CurrentTier, l.Contract.RiskBand, deps.FreightBootstrap) &&
-			!deps.State.remoteChasedRecently(l.Contract.OriginBaseID, missionNow(deps)) {
-			fmt.Fprintf(out, "freight: skip %s: probationary cargo reserved for climbing carriers (carrier tier %s)\n", //nolint:errcheck
-				l.Contract.ID, prof.Progression.CurrentTier)
-			continue
-		}
 		if !prof.Capacity.LiabilityUnlimited && prof.Capacity.AggregateLiabilityLimit > 0 &&
 			l.Contract.ReservedExposure > prof.Capacity.RemainingAggregateLiability {
 			fmt.Fprintf(out, "freight: skip %s: exposure %d over remaining liability %d\n", l.Contract.ID, l.Contract.ReservedExposure, prof.Capacity.RemainingAggregateLiability) //nolint:errcheck
@@ -333,7 +329,8 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 			}
 			hops = h
 		}
-		c, reason := buildFreightCand(l, hops, in.Held, in.NowTick, in.FuelCostFor, floor)
+		c, reason := buildFreightCand(l, hops, in.Held, in.NowTick, in.FuelCostFor,
+			freightListingFloor(floor, prof.Progression.CurrentTier, l.Contract.RiskBand))
 		if reason != "" {
 			// Logged at every rejection on purpose: the net distribution here is
 			// the only evidence for whether freightMinNet is set sanely against

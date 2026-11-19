@@ -195,7 +195,7 @@ func freightRemoteCandidate(ctx context.Context, deps MissionDeps, in freightRem
 			fuel = in.FuelCostFor(origin.hops + c.RouteHops)
 		}
 		net := float64(c.BaseReward) - fuel
-		if net < floor {
+		if net < freightListingFloor(floor, prof.Progression.CurrentTier, c.RiskBand) {
 			passed["below the net floor"]++
 			continue
 		}
