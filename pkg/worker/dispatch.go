@@ -745,10 +745,10 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 					args[2], strings.Join(game.CraftRoutingPresets, ", "))
 			}
 
-			return d.craftShrinking(ctx, args[0], qty, args[2])
+			return d.craftHeld(ctx, args[0], qty, args[2])
 		}
 
-		return d.craftShrinking(ctx, args[0], qty, "")
+		return d.craftHeld(ctx, args[0], qty, "")
 	case "craft_stock":
 		// craft_stock RECIPE ITEM TARGET [PRESET]: top ITEM in faction storage
 		// up to TARGET (held + queued output count toward it).
