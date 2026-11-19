@@ -246,3 +246,24 @@ func TestKitUsedAfterDoseWhenMissingAKit(t *testing.T) {
 		}
 	}
 }
+
+// NoEnterSeverity outranks EnterHazards: a 25%-a-dose POI is never entered,
+// whatever the hull, and is not a hull stop either.
+func TestHazardAtNoEnterSeverityIsNeverEntered(t *testing.T) {
+	c, d, _ := hullFixture(480, 3, poi("star", "star", 0),
+		hazardous(poi("scar", "planet", 1), serverapi.HazardRadiation, 3),
+		hazardous(poi("maw", "anomaly", 2), serverapi.HazardRadiation, 4))
+	res, err := System(context.Background(), d, Options{EnterHazards: true, HullFloor: 0.5, NoEnterSeverity: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := result(t, res, "maw"); p.Visited || !strings.Contains(p.Skipped, "severity 4") {
+		t.Errorf("maw: %+v, want it skipped for its severity", p)
+	}
+	if !result(t, res, "scar").Visited {
+		t.Error("scar (severity 3) must still be entered")
+	}
+	if slices.Contains(c.travels(), "maw") || res.Stopped != "" {
+		t.Errorf("travelled %v, stopped %q; want no trip to maw and no stop", c.travels(), res.Stopped)
+	}
+}

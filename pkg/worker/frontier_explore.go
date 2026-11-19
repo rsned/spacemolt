@@ -27,6 +27,9 @@ const (
 	frontierKits = 10
 	// frontierHullFloor is the hull fraction below which a ship enters no POI.
 	frontierHullFloor = 0.5
+	// frontierNoEnterSeverity is the hazard severity a tour never enters:
+	// 25% of hull a dose, which killed explorer-6 and explorer-9 (2026-11-18).
+	frontierNoEnterSeverity = 4
 	// frontierMaxLaunches is how many pathfinder launches at one target may
 	// fail to arrive before it is marked unreachable.
 	frontierMaxLaunches = 2
@@ -808,6 +811,15 @@ func (f *frontierPass) tour(ctx context.Context, sysID string, loc serverapi.Loc
 		hostile(fmt.Sprintf("%d repeater(s)", n))
 		return nil
 	}
+	// Nor from a damaging POI: a lane can end on one, and the survey takes
+	// ticks the hull pays for (explorer-6 and explorer-9, 2026-11-18).
+	if !d.sweepLeaveHazardPOI(ctx, sysID, loc.Location.POIID) {
+		const stuck = "the arrival POI doses the hull and there is no way off it"
+		f.logf("HAZARD at %s (%s); not touring, marked incomplete", sysID, stuck)
+		f.finish(sweep.FrontierSystem{ID: sysID, Status: sweep.FrontierIncomplete, Reason: "hazard: " + stuck})
+		f.markDone(sysID)
+		return nil
+	}
 	s := f.s
 	res, err := d.frontierTourFn()(ctx)
 	if err != nil {
@@ -1085,7 +1097,7 @@ func (d *WorkerDispatch) frontierTourFn() func(context.Context) (explore.Result,
 		if sr.Power < frontierMinPower {
 			return explore.Result{SurveyPower: sr.Power, Revealed: sr.Revealed}, nil
 		}
-		res, err := explore.Tour(ctx, deps, explore.Options{RefuelAtStations: true, EnterHazards: true,
+		res, err := explore.Tour(ctx, deps, explore.Options{RefuelAtStations: true, EnterHazards: true, NoEnterSeverity: frontierNoEnterSeverity,
 			HullFloor: frontierHullFloor, Relics: true}, sr)
 		if err != nil && strings.Contains(err.Error(), "no POIs in system") {
 			// Surveyed at full power and nothing there: explored, with no POIs.

@@ -101,6 +101,10 @@ type Options struct {
 	// SkipHazardSeverity skips POIs whose damaging hazard is at or above this
 	// severity, unless EnterHazards; 0 skips none.
 	SkipHazardSeverity int
+	// NoEnterSeverity never enters a POI whose damaging hazard is at or above
+	// this severity, EnterHazards or not; 0 disables. A 25%-a-dose POI kills in
+	// four ticks, and a visit is rarely over in one.
+	NoEnterSeverity int
 	// SkipOutposts visits and captures an outpost without docking: outposts
 	// refuse outsiders.
 	SkipOutposts bool
@@ -263,6 +267,10 @@ func (t *tour) visit(ctx context.Context, i int) (stop bool, err error) {
 		return true, nil
 	}
 
+	if damaging(poi) && o.NoEnterSeverity > 0 && poi.Hazard.Severity >= o.NoEnterSeverity {
+		t.skip(i, fmt.Sprintf("%s hazard severity %d (%d%% a dose)", poi.Hazard.Type, poi.Hazard.Severity, poi.Hazard.DosePct()))
+		return false, nil
+	}
 	if damaging(poi) && !o.EnterHazards && o.SkipHazardSeverity > 0 && poi.Hazard.Severity >= o.SkipHazardSeverity {
 		t.skip(i, fmt.Sprintf("%s hazard severity %d", poi.Hazard.Type, poi.Hazard.Severity))
 		return false, nil

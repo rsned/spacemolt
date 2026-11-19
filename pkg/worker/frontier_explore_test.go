@@ -15,6 +15,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/explore"
 	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/sweep"
 )
@@ -855,4 +856,55 @@ func TestFrontierStagesNearestWhenNoLineIsClear(t *testing.T) {
 	if !slices.Equal(r.navs, []string{"near/"}) {
 		t.Errorf("lane travel %v, want staging at near\n%s", r.navs, r.out)
 	}
+}
+
+// lethalArrival puts the ship, undocked, on a 25%-a-dose POI of system a,
+// with the other POIs given.
+func lethalArrival(r *frontierRig, others ...game.POI) {
+	maw := game.POI{ID: "a_maw", Name: "Maw", Hazard: &serverapi.POIHazard{Type: serverapi.HazardTidalShear, Severity: 4}}
+	r.c.state.System.POIs = append([]game.POI{maw}, others...)
+	r.c.state.CurrentPOI = "a_maw"
+}
+
+// explorer-6 and explorer-9 died surveying from the black hole a lane dropped
+// them on: three doses of 25% while the survey ran. The ship moves off a
+// damaging arrival POI before anything else.
+func TestFrontierLeavesAHazardousArrivalPOIBeforeTheTour(t *testing.T) {
+	r := newFrontierRig(t, "a", []sweep.FrontierInput{{ID: "a", X: 400, Y: 0}}, nil)
+	r.setState(&frontierState{Phase: frontierWork, Target: "a", LaunchCost: 45})
+	lethalArrival(r, game.POI{ID: "a_belt", Name: "Belt", Position: game.Position{X: 1}})
+	travelledBeforeTour := false
+	tour := r.d.frontierTour
+	r.d.frontierTour = func(ctx context.Context) (explore.Result, error) {
+		travelledBeforeTour = slices.Contains(r.c.calls, "travel:a_belt")
+		return tour(ctx)
+	}
+	r.pass()
+	if !travelledBeforeTour {
+		t.Errorf("calls %v; want travel to a_belt before the tour", r.c.calls)
+	}
+	if len(r.tours) != 1 {
+		t.Errorf("tours %v, want a toured from the safe POI", r.tours)
+	}
+}
+
+// With nowhere safe to go the system is not surveyed from a lethal POI: it is
+// marked incomplete and the ship moves on.
+func TestFrontierLethalArrivalWithNoRefugeIsNotToured(t *testing.T) {
+	r := newFrontierRig(t, "a", []sweep.FrontierInput{{ID: "a", X: 400, Y: 0}}, nil)
+	r.setState(&frontierState{Phase: frontierWork, Target: "a", LaunchCost: 45})
+	lethalArrival(r)
+	r.pass()
+	if len(r.tours) != 0 {
+		t.Error("toured from a lethal POI with no refuge")
+	}
+	if got := r.ledger("a"); got.Status != sweep.FrontierIncomplete || !strings.Contains(got.Reason, "hazard") {
+		t.Errorf("a = %q / %q, want incomplete for the hazard", got.Status, got.Reason)
+	}
+}
+
+func (c *frontierFake) Travel(_ context.Context, poi string) (*game.TravelResult, error) {
+	c.calls = append(c.calls, "travel:"+poi)
+	c.state.CurrentPOI = poi
+	return &game.TravelResult{}, nil
 }
