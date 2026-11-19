@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -80,10 +83,7 @@ func (s *missionRunState) remoteChasedRecently(origin string, now time.Time) boo
 // freightRemoteCandidate reads every charted board and returns the run that
 // pays most per jump flown, or nil and why not. Like freightCandidate, a
 // failure is only ever "nothing to chase".
-func freightRemoteCandidate(ctx context.Context, deps MissionDeps, in freightRemoteInputs, out io.Writer) (*freightRemote, string) {
-	if out == nil {
-		out = io.Discard
-	}
+func freightRemoteCandidate(ctx context.Context, deps MissionDeps, in freightRemoteInputs, _ io.Writer) (*freightRemote, string) {
 	if freightPackagesFit(in.CargoFree) < 1 {
 		return nil, fmt.Sprintf("hold has %.0f free, a package needs %.0f", in.CargoFree, freightPackageFootprint)
 	}
@@ -141,45 +141,57 @@ func freightRemoteCandidate(ctx context.Context, deps MissionDeps, in freightRem
 	}
 
 	var best *freightRemote
+	// Why each run was passed over, tallied: a line per run would be eighty
+	// lines a scan.
+	passed := map[string]int{}
 	for _, l := range listings {
 		c := l.Contract
-		skip := func(why string) {
-			fmt.Fprintf(out, "freight: remote skip %s at %s: %s\n", c.ID, c.OriginBaseID, why) //nolint:errcheck
-		}
 		if !l.Eligible {
-			continue // the server's own filter; not worth a line each
+			passed["not eligible"]++
+			continue
 		}
 		if freightBandExcluded(prof.Progression.CurrentTier, c.RiskBand, deps.FreightBootstrap) {
+			passed["reserved for probationary carriers"]++
 			continue
 		}
 		if !prof.Capacity.LiabilityUnlimited && prof.Capacity.AggregateLiabilityLimit > 0 &&
 			c.ReservedExposure > prof.Capacity.RemainingAggregateLiability {
+			passed["over the liability limit"]++
 			continue
 		}
 		if c.RouteHops <= 0 || c.DestinationBaseID == "" {
+			passed["no route length given"]++
 			continue
 		}
 		if deps.State.remoteChasedRecently(c.OriginBaseID, in.Now) {
-			skip("origin already flown to this window")
+			passed["origin already flown to this window"]++
 			continue
 		}
 		origin := locate(c.OriginBaseID)
-		if !origin.ok || origin.hops == 0 {
-			continue // unroutable, or this dock, which the local pass judged
+		if !origin.ok {
+			// Unroutable, or this dock: the router returns no route to the
+			// station we are standing in, and the local pass judged its board.
+			passed["origin here or unroutable"]++
+			continue
+		}
+		if origin.hops == 0 {
+			passed["origin here or unroutable"]++
+			continue
 		}
 		if origin.hops > freightRemoteMaxEmptyHops {
+			passed[fmt.Sprintf("origin over %d jumps away", freightRemoteMaxEmptyHops)]++
 			continue
 		}
 		if in.Strongholds[origin.system] {
-			skip("origin is a pirate stronghold")
+			passed["origin is a pirate stronghold"]++
 			continue
 		}
 		if l.DeadlineTicks > 0 && float64(c.RouteHops)*freightTicksPerHop*freightDeadlineSlack > float64(l.DeadlineTicks) {
-			skip(fmt.Sprintf("%d hops will not make a %d-tick deadline", c.RouteHops, l.DeadlineTicks))
+			passed["deadline too tight"]++
 			continue
 		}
 		if freightExpiresBefore(c.ListingExpiresAt, in.Now, origin.hops) {
-			skip("listing expires before we could arrive")
+			passed["listing expires before arrival"]++
 			continue
 		}
 		fuel := 0.0
@@ -188,6 +200,7 @@ func freightRemoteCandidate(ctx context.Context, deps MissionDeps, in freightRem
 		}
 		net := float64(c.BaseReward) - fuel
 		if net < floor {
+			passed["below the net floor"]++
 			continue
 		}
 		perJump := net / float64(origin.hops+c.RouteHops)
@@ -198,11 +211,11 @@ func freightRemoteCandidate(ctx context.Context, deps MissionDeps, in freightRem
 		// a run that would become the best needs one.
 		dest := locate(c.DestinationBaseID)
 		if !dest.ok {
-			skip("no route to its destination " + c.DestinationBaseID)
+			passed["destination unroutable"]++
 			continue
 		}
 		if in.Strongholds[dest.system] {
-			skip("destination " + c.DestinationBaseID + " is a pirate stronghold")
+			passed["destination is a pirate stronghold"]++
 			continue
 		}
 		best = &freightRemote{
@@ -211,7 +224,11 @@ func freightRemoteCandidate(ctx context.Context, deps MissionDeps, in freightRem
 		}
 	}
 	if best == nil {
-		return nil, fmt.Sprintf("none of %d remote run(s) is worth the flight", len(listings))
+		why := make([]string, 0, len(passed))
+		for _, reason := range slices.Sorted(maps.Keys(passed)) {
+			why = append(why, fmt.Sprintf("%d %s", passed[reason], reason))
+		}
+		return nil, fmt.Sprintf("none of %d remote run(s) is worth the flight: %s", len(listings), strings.Join(why, ", "))
 	}
 	return best, ""
 }
@@ -278,7 +295,9 @@ func freightChaseRemote(ctx context.Context, deps MissionDeps, strongholds map[s
 	}
 	run, why := freightRemoteCandidate(ctx, deps, in, out)
 	if run == nil {
-		fmt.Fprintf(out, "freight: no remote run to chase (%s)\n", why) //nolint:errcheck
+		if deps.State.shouldLogSkip("freight-remote", why) {
+			fmt.Fprintf(out, "freight: no remote run to chase (%s)\n", why) //nolint:errcheck
+		}
 		return false
 	}
 	fmt.Fprintf(out, "freight: nothing here; flying %d jump(s) to %s for %s (%d-jump run, net %.0f)\n", //nolint:errcheck

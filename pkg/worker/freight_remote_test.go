@@ -227,3 +227,36 @@ func TestMissionFreightOrDryPinnedWorkerDoesNotChase(t *testing.T) {
 		t.Fatalf("a pinned worker scanned the remote boards: %v", f.shippingCalls)
 	}
 }
+
+// When nothing is worth the flight the reason says what ruled the board out,
+// so one log line shows whether the cap, the floor or the tier is the limit.
+func TestFreightRemoteSaysWhyNothingWasWorthIt(t *testing.T) {
+	f := remoteClient(t,
+		remoteListing("too_far", "edge_base", "dest_a", 90000, 2),
+		remoteListing("too_far_2", "edge_base", "dest_a", 90000, 2),
+		remoteListing("cheap", "near_base", "dest_a", 100, 2),
+	)
+	in := remoteTestInputs(map[string]string{"near_base": "sol:1", "dest_a": "tau:3", "edge_base": "rim:9"})
+
+	_, reason := freightRemoteCandidate(context.Background(), MissionDeps{Client: f, State: &missionRunState{}}, in, io.Discard)
+	for _, want := range []string{"2 origin over 8 jumps away", "1 below the net floor"} {
+		if !strings.Contains(reason, want) {
+			t.Errorf("reason %q does not say %q", reason, want)
+		}
+	}
+}
+
+// A dry worker repeats the pass every few seconds; the same reason for not
+// chasing is logged once, not every time.
+func TestFreightChaseRemoteLogsAReasonOnce(t *testing.T) {
+	f := remoteClient(t)
+	f.state = missionState(true, 5000, 60) // 40 free: no room for a package
+	deps := MissionDeps{Client: f, State: &missionRunState{}, EnableFreight: true, AgentID: "engineer-2"}
+	var out bytes.Buffer
+	for range 3 {
+		freightChaseRemote(context.Background(), deps, nil, nil, &out)
+	}
+	if n := strings.Count(out.String(), "no remote run to chase"); n != 1 {
+		t.Fatalf("want the reason logged once, got %d:\n%s", n, out.String())
+	}
+}
