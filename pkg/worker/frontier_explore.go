@@ -855,6 +855,10 @@ func (f *frontierPass) tour(ctx context.Context, sysID string, loc serverapi.Loc
 		}
 		f.logf("HOSTILE at %s (battle); fleeing, marked incomplete", sysID)
 		out.Status, out.Reason = sweep.FrontierIncomplete, "hostile: battle"
+	case res.SurveyPower < frontierMinPower && f.scanSuppressed(ctx, sysID) != "":
+		// The hazard here is what lowered the reading, not the scanners.
+		out.Status, out.Reason = sweep.FrontierIncomplete,
+			fmt.Sprintf("survey power %d under %s; not toured", res.SurveyPower, f.scanSuppressed(ctx, sysID))
 	case res.SurveyPower < frontierMinPower:
 		// A scanner is offline or missing: nothing surveyed from here on
 		// would count, so stop until the operator looks.
@@ -890,6 +894,21 @@ func (f *frontierPass) tour(ctx context.Context, sysID string, loc serverapi.Loc
 		map[bool]string{true: " — " + out.Reason, false: ""}[out.Reason != ""])
 	f.discoverLanes(ctx, sysID)
 	return nil
+}
+
+// scanSuppressed names the hazard lowering scan power at the POI the ship is
+// at ("ion_storm at Last Barge"), or "" when there is none.
+func (f *frontierPass) scanSuppressed(ctx context.Context, sysID string) string {
+	st := f.d.Client.GetState()
+	if st == nil {
+		return ""
+	}
+	v := f.d.sweepHazardView(ctx, st, sysID)
+	here := systemPOI(v, v.CurrentPOI)
+	if here == nil || !here.Hazard.LowersScan() {
+		return ""
+	}
+	return here.Hazard.Type + " at " + nonEmpty(here.Name, here.ID)
 }
 
 // discoverLanes adds the frontier systems this system's lanes lead to. Lanes

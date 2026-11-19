@@ -908,3 +908,26 @@ func (c *frontierFake) Travel(_ context.Context, poi string) (*game.TravelResult
 	c.state.CurrentPOI = poi
 	return &game.TravelResult{}, nil
 }
+
+// explorer-1 sat in Flare Vector for six hours: every POI there is an ion
+// storm, which lowers scan power, and the role read 61 as a dead scanner. Low
+// power under such a hazard is the system's doing: record it and move on.
+func TestFrontierLowPowerUnderAnIonStormIsNotAHalt(t *testing.T) {
+	sys, lanes := eastPair()
+	r := newFrontierRig(t, "a", sys, lanes)
+	r.setState(&frontierState{Phase: frontierWork, Target: "a", LaunchCost: 45})
+	r.c.state.System.POIs = []game.POI{{ID: "a_barge", Name: "Barge", Hazard: &serverapi.POIHazard{Type: serverapi.HazardIonStorm, Severity: 3}}}
+	r.c.state.CurrentPOI = "a_barge"
+	r.results["a"] = explore.Result{SystemID: "a", SurveyPower: 61}
+	r.pass()
+	if r.d.frontierHalt != "" {
+		t.Errorf("halted (%s); an ion storm is not a broken scanner", r.d.frontierHalt)
+	}
+	if got := r.ledger("a"); got.Status != sweep.FrontierIncomplete || !strings.Contains(got.Reason, "ion_storm") || got.SurveyPower != 61 {
+		t.Errorf("a = %q / %q / power %d, want incomplete for the ion storm", got.Status, got.Reason, got.SurveyPower)
+	}
+	r.pass()
+	if !slices.Equal(r.navs, []string{"b/"}) {
+		t.Errorf("lane travel %v, want the ship to move on to b", r.navs)
+	}
+}

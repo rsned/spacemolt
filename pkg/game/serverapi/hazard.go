@@ -58,6 +58,19 @@ func (h *POIHazard) Steady() bool {
 	return false
 }
 
+// LowersScan reports whether the hazard lowers the scan power of a ship at
+// the POI.
+func (h *POIHazard) LowersScan() bool {
+	if h == nil {
+		return false
+	}
+	switch h.Type {
+	case HazardIonStorm, HazardScarDust, HazardChargedSeam:
+		return true
+	}
+	return false
+}
+
 // DosesOnMining reports whether each mining action at the POI takes a dose.
 func (h *POIHazard) DosesOnMining() bool {
 	if h == nil {
