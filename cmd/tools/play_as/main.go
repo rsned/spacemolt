@@ -7474,7 +7474,10 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 		}, ctx, game.SleepTick*3, cmd, format)
 
 	case "cloak":
-		enable := len(parts) >= 2 && (parts[1] == "on" || parts[1] == "true" || parts[1] == "1")
+		enable, err := cloakEnable(parts)
+		if err != nil {
+			return err
+		}
 		return simpleCommand(client, func(ctx context.Context) error {
 			return client.Cloak(ctx, enable)
 		}, ctx, 2*time.Second, cmd, format)
@@ -11088,7 +11091,7 @@ func printHelp() {
 	fmt.Println("\n=== MINING & COMBAT ===")
 	fmt.Println("  mine, scan, survey        - Mining and scanning operations")
 	fmt.Println("  attack <target-id>        - Attack a target")
-	fmt.Println("  cloak [on|off]           - Toggle cloaking device")
+	fmt.Println("  cloak on|off             - Engage or drop the cloak (also --enable true|false)")
 	fmt.Println("  generator [off]          - Link docked ship's field generator to station power (off: unlink)")
 
 	fmt.Println("\n=== COMMERCE ===")
