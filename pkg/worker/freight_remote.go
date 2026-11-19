@@ -150,10 +150,6 @@ func freightRemoteCandidate(ctx context.Context, deps MissionDeps, in freightRem
 			passed["not eligible"]++
 			continue
 		}
-		if freightBandExcluded(prof.Progression.CurrentTier, c.RiskBand, deps.FreightBootstrap) {
-			passed["reserved for probationary carriers"]++
-			continue
-		}
 		if !prof.Capacity.LiabilityUnlimited && prof.Capacity.AggregateLiabilityLimit > 0 &&
 			c.ReservedExposure > prof.Capacity.RemainingAggregateLiability {
 			passed["over the liability limit"]++

@@ -310,7 +310,11 @@ func freightCandidate(ctx context.Context, deps MissionDeps, in freightInputs, o
 
 	cands := make([]freightCand, 0, len(board.Shipments))
 	for _, l := range board.Shipments {
-		if freightBandExcluded(prof.Progression.CurrentTier, l.Contract.RiskBand, deps.FreightBootstrap) {
+		// The fence is a local rule: a run this ship flew here for (see
+		// freightChaseRemote) sat untaken on the remote board, so it is not
+		// being kept from a climbing carrier.
+		if freightBandExcluded(prof.Progression.CurrentTier, l.Contract.RiskBand, deps.FreightBootstrap) &&
+			!deps.State.remoteChasedRecently(l.Contract.OriginBaseID, missionNow(deps)) {
 			fmt.Fprintf(out, "freight: skip %s: probationary cargo reserved for climbing carriers (carrier tier %s)\n", //nolint:errcheck
 				l.Contract.ID, prof.Progression.CurrentTier)
 			continue

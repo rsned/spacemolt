@@ -260,3 +260,45 @@ func TestFreightChaseRemoteLogsAReasonOnce(t *testing.T) {
 		t.Fatalf("want the reason logged once, got %d:\n%s", n, out.String())
 	}
 }
+
+const licensedProfile = `{"profile":{"active_contracts":0},"progression":{"current_tier":"licensed"},"capacity":{"active_contracts_unlimited":true,"liability_unlimited":true}}`
+
+// The fence that keeps probationary cargo for climbing carriers is a local
+// rule. A remote probationary run nobody has taken is fair game for any tier.
+func TestFreightRemoteHigherTierTakesProbationaryRun(t *testing.T) {
+	run := remoteListing("prob", "near_base", "dest_a", 9000, 2)
+	run.Contract.RiskBand = carrierTierProbationary
+	f := remoteClient(t, run)
+	f.raw["shipping_profile"] = []byte(licensedProfile)
+	in := remoteTestInputs(map[string]string{"near_base": "sol:1", "dest_a": "tau:3"})
+	deps := MissionDeps{Client: f, State: &missionRunState{}, FreightBootstrap: true}
+
+	got, reason := freightRemoteCandidate(context.Background(), deps, in, io.Discard)
+	if got == nil || got.ContractID != "prob" {
+		t.Fatalf("want the remote probationary run, got %+v (%s)", got, reason)
+	}
+}
+
+// Having flown to an origin for a probationary run, the local pass there must
+// let the carrier accept it; other stations keep the fence.
+func TestFreightCandidateFenceLiftedAtChasedOrigin(t *testing.T) {
+	board := `{"shipments":[{"eligible":true,"contract":{"id":"prob800","origin_base_id":"near_base","destination_base_id":"sol_central","base_reward":800,"route_hops":2,"service_level":"standard","risk_band":"probationary"}}],"total":1}`
+	now := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
+	in := freightInputs{CargoFree: 500, FuelCostFor: noFuel, NowTick: 0}
+
+	for _, tc := range []struct {
+		chased string
+		want   bool
+	}{{"near_base", true}, {"other_base", false}} {
+		deps := freightGateDeps(t, licensedProfile, board)
+		deps.State = &missionRunState{}
+		deps.FreightBootstrap = true
+		deps.Now = func() time.Time { return now }
+		deps.State.noteRemoteChase(tc.chased, now.Add(-5*time.Minute))
+
+		cand, skip := freightCandidate(context.Background(), deps, in, io.Discard)
+		if (cand != nil) != tc.want {
+			t.Fatalf("chased %s: accepted=%v, want %v (%s)", tc.chased, cand != nil, tc.want, skip)
+		}
+	}
+}
