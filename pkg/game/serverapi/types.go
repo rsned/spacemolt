@@ -537,25 +537,28 @@ type BaseCombat struct {
 type Base struct {
 	// Gate (v0.687.0) is present only when this outpost is one end of a
 	// player-built jump gate.
-	Gate              *BaseGate       `json:"gate,omitempty"`
-	ID                string          `json:"id"`
-	Name              string          `json:"name"`
-	Description       string          `json:"description,omitempty"`
-	Type              string          `json:"type"`
-	OwnerID           string          `json:"owner_id"`
-	OwnerName         string          `json:"owner_name,omitempty"`
-	FactionID         string          `json:"faction_id,omitempty"`
-	Empire            string          `json:"empire,omitempty"`
-	POIID             string          `json:"poi_id"`
-	SystemID          string          `json:"system_id"`
-	Services          map[string]bool `json:"services"`
-	PublicAccess      bool            `json:"public_access"`
-	DefenseLevel      int             `json:"defense_level"`
-	HasDrones         bool            `json:"has_drones,omitempty"`
-	Health            int             `json:"health,omitempty"`
-	MaxHealth         int             `json:"max_health,omitempty"`
-	Facilities        []string        `json:"facilities,omitempty"`
-	PirateRepRequired int             `json:"pirate_rep_required,omitempty"`
+	Gate *BaseGate `json:"gate,omitempty"`
+	// AllowAllyFacilities (v0.724.0): allied factions' pilots may build
+	// facilities rent-free at this player station.
+	AllowAllyFacilities bool            `json:"allow_ally_facilities,omitempty"`
+	ID                  string          `json:"id"`
+	Name                string          `json:"name"`
+	Description         string          `json:"description,omitempty"`
+	Type                string          `json:"type"`
+	OwnerID             string          `json:"owner_id"`
+	OwnerName           string          `json:"owner_name,omitempty"`
+	FactionID           string          `json:"faction_id,omitempty"`
+	Empire              string          `json:"empire,omitempty"`
+	POIID               string          `json:"poi_id"`
+	SystemID            string          `json:"system_id"`
+	Services            map[string]bool `json:"services"`
+	PublicAccess        bool            `json:"public_access"`
+	DefenseLevel        int             `json:"defense_level"`
+	HasDrones           bool            `json:"has_drones,omitempty"`
+	Health              int             `json:"health,omitempty"`
+	MaxHealth           int             `json:"max_health,omitempty"`
+	Facilities          []string        `json:"facilities,omitempty"`
+	PirateRepRequired   int             `json:"pirate_rep_required,omitempty"`
 	// AutoBuyFuel reports whether a player station automatically buys fuel
 	// from docked pilots at live scarcity-based prices. Off by default.
 	AutoBuyFuel bool `json:"auto_buy_fuel,omitempty"`

@@ -35,3 +35,23 @@ func TestStoreRawJSONShippingKeysByAction(t *testing.T) {
 		t.Fatalf("shipping_profile not stored")
 	}
 }
+
+// TestStoreRawJSONShippingListAll: v0.724.0's action=list_all (every charted
+// station's board) is keyed apart from the docked board, so a worker reading
+// both in one pass cannot mistake one for the other.
+func TestStoreRawJSONShippingListAll(t *testing.T) {
+	c := &Client{
+		latestRawJSON: map[string][]byte{},
+		debugLogger:   log.New(io.Discard, "", 0),
+	}
+	c.storeRawJSON(protocol.Response{
+		Type:    protocol.TypeOK,
+		Payload: map[string]any{"action": "list_all", "total": float64(2)},
+	})
+	if raw := c.GetRawJSON("shipping_list_all"); len(raw) == 0 {
+		t.Fatalf("shipping_list_all not stored")
+	}
+	if raw := c.GetRawJSON("shipping_list"); len(raw) != 0 {
+		t.Fatalf("list_all reply leaked into shipping_list")
+	}
+}

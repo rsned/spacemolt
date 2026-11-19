@@ -7729,7 +7729,7 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 	// from here.
 	case "shipping":
 		if len(parts) < 2 {
-			return fmt.Errorf("usage: shipping <accept|deliver|quote|post|profile|list|get|track|pay_debt> [args]\n" +
+			return fmt.Errorf("usage: shipping <accept|deliver|quote|post|profile|list|list_all|get|track|pay_debt> [args]\n" +
 				"  shipping accept <shipment-id> [--carrier player|faction]\n" +
 				"      the package lands in your STORAGE AT ORIGIN, not your hold:\n" +
 				"      withdraw_items it before you fly, or you arrive empty\n" +
@@ -7745,7 +7745,9 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 				"                (omit both recipient flags and it comes back to YOU)\n" +
 				"      the package must already be sealed: craft pack_package (--file=<json>)\n" +
 				"  shipping profile              carrier tier, capacity, outstanding debt\n" +
-				"  shipping list [sort]          contracts posted at this station\n" +
+				"  shipping list [sort] [--include_ineligible true]   contracts posted at this station\n" +
+				"  shipping list_all [sort] [--filter_origin BASE] [--include_ineligible true]\n" +
+				"      contracts at every station you have charted; accept one at its origin\n" +
 				"  shipping get <shipment-id>    one contract in detail\n" +
 				"  shipping track <shipment-id> [limit]\n" +
 				"  shipping pay_debt [amount]    omit amount to settle the full balance")
@@ -7767,13 +7769,12 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 			}, ctx, game.SleepTick*2, cmd, format)
 		case "profile":
 			return simpleCommand(client, client.ShippingProfile, ctx, 3*time.Second, cmd, format)
-		case "list":
-			sort := ""
-			if len(parts) > 2 {
-				sort = parts[2]
-			}
+		case "list", "list_all":
+			// The board reads; list_all (v0.724.0) covers every charted
+			// station. Kept in shipping_board.go for the same reason as the
+			// shipper side: the payload shaping is unit-testable there.
 			return simpleCommand(client, func(ctx context.Context) error {
-				return client.ShippingList(ctx, sort)
+				return boardCommand(ctx, client, parts)
 			}, ctx, 3*time.Second, cmd, format)
 		case "get":
 			if len(parts) < 3 {

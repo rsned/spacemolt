@@ -380,9 +380,10 @@ var actionResponseTypes = map[string]reflect.Type{
 	// verbs. Shipping MUTATIONS (accept/deliver/return/cancel/post/pay_debt)
 	// arrive as tick-deferred action_result frames, which this monitor does
 	// not field-check, so only the synchronous reads are registered.
-	"get":     reflect.TypeOf(serverapi.ShippingContractResponse{}),
-	"profile": reflect.TypeOf(serverapi.ShippingProfileResponse{}),
-	"track":   reflect.TypeOf(serverapi.ShippingTrackResponse{}),
+	"get":      reflect.TypeOf(serverapi.ShippingContractResponse{}),
+	"list_all": reflect.TypeOf(serverapi.ShippingListResponse{}),
+	"profile":  reflect.TypeOf(serverapi.ShippingProfileResponse{}),
+	"track":    reflect.TypeOf(serverapi.ShippingTrackResponse{}),
 }
 
 // actionExtraResponseTypes lists ADDITIONAL response structs for actions whose

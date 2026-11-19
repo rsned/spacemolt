@@ -414,6 +414,11 @@ func (f *fakeClient) ShippingList(ctx context.Context, sort string) error {
 	f.shippingCalls = append(f.shippingCalls, "list")
 	return f.shippingErr["list"]
 }
+func (f *fakeClient) Shipping(ctx context.Context, action string, payload map[string]any) error {
+	f.calls = append(f.calls, "shipping_"+action)
+	f.shippingCalls = append(f.shippingCalls, action)
+	return f.shippingErr[action]
+}
 func (f *fakeClient) ShippingProfile(ctx context.Context) error {
 	f.calls = append(f.calls, "shipping_profile")
 	f.shippingCalls = append(f.shippingCalls, "profile")

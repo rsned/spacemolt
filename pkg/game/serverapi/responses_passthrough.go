@@ -233,17 +233,20 @@ type NotificationChannel struct {
 //   - station
 type StationConfigResponse struct {
 	// Gate (v0.687.0): this base's jump-gate end, when it is one. Full status.
-	Gate                    *GateStatus `json:"gate,omitempty"`
-	Action                  string      `json:"action"`
-	BaseID                  string      `json:"base_id"`
-	Name                    string      `json:"name"`
-	Description             string      `json:"description,omitempty"`
-	PublicAccess            bool        `json:"public_access"`
-	AllowOutsiderFacilities bool        `json:"allow_outsider_facilities"`
-	AutoBuyFuel             bool        `json:"auto_buy_fuel"`
-	AllowedFactions         []string    `json:"allowed_factions,omitempty"`
-	AllowedPlayers          []string    `json:"allowed_players,omitempty"`
-	BannedPlayers           []string    `json:"banned_players,omitempty"`
+	Gate *GateStatus `json:"gate,omitempty"`
+	// BuildAccess (v0.724.0): who may build their own facilities here —
+	// public, allies or faction.
+	BuildAccess             string   `json:"build_access,omitempty"`
+	Action                  string   `json:"action"`
+	BaseID                  string   `json:"base_id"`
+	Name                    string   `json:"name"`
+	Description             string   `json:"description,omitempty"`
+	PublicAccess            bool     `json:"public_access"`
+	AllowOutsiderFacilities bool     `json:"allow_outsider_facilities"`
+	AutoBuyFuel             bool     `json:"auto_buy_fuel"`
+	AllowedFactions         []string `json:"allowed_factions,omitempty"`
+	AllowedPlayers          []string `json:"allowed_players,omitempty"`
+	BannedPlayers           []string `json:"banned_players,omitempty"`
 	// PlayerUsernames (v0.686.0) maps allowed/banned player ids to usernames;
 	// an id with no key belongs to a deleted account.
 	PlayerUsernames    map[string]string `json:"player_usernames,omitempty"`

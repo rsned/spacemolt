@@ -155,6 +155,9 @@ func buildFreightCand(l serverapi.ShippingListing, hops int, held []chainStop, n
 	if !l.Eligible {
 		reason := l.Reason
 		if reason == "" {
+			reason = l.IneligibleReason
+		}
+		if reason == "" {
 			reason = "server marked ineligible"
 		}
 		return freightCand{}, reason
@@ -528,12 +531,18 @@ func missionTakeFreight(ctx context.Context, deps MissionDeps, cand *freightCand
 // A stuck return (live undischarged contract) parks the pass instead of falling
 // into missionDryPass, whose reposition logic would fly the worker away from the
 // contract it still owes.
-func missionFreightOrDry(ctx context.Context, deps MissionDeps, cand *freightCand, held []chainStop, hopsTo func(string) (int, bool), fuelModel func() func(int) float64, out io.Writer) error {
+//
+// With nothing to take here, a freight worker looks at every other charted
+// board (freightChaseRemote) before the pass counts as dry.
+func missionFreightOrDry(ctx context.Context, deps MissionDeps, cand *freightCand, held []chainStop, hopsTo func(string) (int, bool), fuelModel func() func(int) float64, strongholds map[string]bool, out io.Writer) error {
 	step, ferr := missionTakeFreight(ctx, deps, cand, held, hopsTo, fuelModel, out)
 	switch step {
 	case freightStepProceed:
 		return ferr
 	case freightStepStuck:
+		return nil
+	}
+	if cand == nil && freightChaseRemote(ctx, deps, strongholds, fuelModel, out) {
 		return nil
 	}
 	return missionDryPass(ctx, deps, out)

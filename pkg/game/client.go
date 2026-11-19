@@ -5251,7 +5251,7 @@ func (c *Client) storeRawJSON(resp protocol.Response) {
 					// Check for XP changes after processing xp_gained
 					c.checkXPChanges()
 				}
-			case "list", "get", "accept", "deliver", "return", "cancel", "profile", "track", "pay_debt", "quote", "post":
+			case "list", "list_all", "get", "accept", "deliver", "return", "cancel", "profile", "track", "pay_debt", "quote", "post":
 				// `facility list` also replies with action "list"; its
 				// facility arrays mark it, and the facility probe below keys it.
 				if isFacilityListPayload(resp.Payload) {

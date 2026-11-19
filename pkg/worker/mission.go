@@ -129,6 +129,11 @@ type missionRunState struct {
 	// any change (a promotion), giving the tagged log an authoritative
 	// per-worker tier without logging it every freight pass.
 	lastLoggedTier string
+	// remoteScanAt is when the remote freight boards were last read, and
+	// remoteChased when each origin station was last flown to for a run seen
+	// there. See freight_remote.go.
+	remoteScanAt time.Time
+	remoteChased map[string]time.Time
 }
 
 // smugglingSpent is the cumulative loss eaten buying smuggling XP. 0 on a nil
@@ -660,7 +665,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 		// (GetConnections + FindRoute) even when freightBest is nil, i.e. on
 		// every EnableFreight=false pass. missionTakeFreight only invokes the
 		// builder once cand is confirmed non-nil.
-		return missionFreightOrDry(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel, out)
+		return missionFreightOrDry(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel, strongholds, out)
 	}
 
 	// Distance map to every candidate destination.
@@ -956,7 +961,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 				// would waste the whole evaluation. Freight lost the ranking
 				// above against the PRE-gate mission net; now that the gate has
 				// emptied the set, it is the only thing left.
-				return missionFreightOrDry(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel, out)
+				return missionFreightOrDry(ctx, deps, freightBest, freightHeldStops, hopsTo, ensureFuelModel, strongholds, out)
 			}
 		}
 	}

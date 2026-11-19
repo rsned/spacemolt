@@ -81,6 +81,13 @@ type ShippingListing struct {
 	Contract ShipmentContract `json:"contract"`
 	Eligible bool             `json:"eligible"`
 	Reason   string           `json:"reason,omitempty"`
+	// v0.724.0: why this carrier cannot accept the run (shown with
+	// include_ineligible), and the run's timings counted from accept, which a
+	// posted contract's own *_tick fields do not carry yet.
+	IneligibleReason string `json:"ineligible_reason,omitempty"`
+	TargetTicks      int64  `json:"target_ticks,omitempty"`
+	DeadlineTicks    int64  `json:"deadline_ticks,omitempty"`
+	RecoveryTicks    int64  `json:"recovery_ticks,omitempty"`
 }
 
 // CarrierProfile is global carrier standing for an actor.
@@ -156,7 +163,8 @@ type ShipmentTrackingEvent struct {
 	SystemID     string         `json:"system_id,omitempty"`
 }
 
-// ShippingListResponse is action=list (the docked freight board).
+// ShippingListResponse is action=list (the docked freight board) and
+// action=list_all (every charted station's board, v0.724.0).
 type ShippingListResponse struct {
 	Action          string            `json:"action"`
 	Shipments       []ShippingListing `json:"shipments"`
