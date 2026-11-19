@@ -135,3 +135,34 @@ func TestReopenUnreachable(t *testing.T) {
 		t.Errorf("c = %q, want the hostile system left incomplete", s.Status)
 	}
 }
+
+// Better positions replace the ledger's for systems still to be flown to;
+// a finished system keeps the position it was explored at.
+func TestSetPositions(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "run.json")
+	now := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
+	in := []FrontierInput{{ID: "a", X: 400}, {ID: "b", X: 500}, {ID: "c", X: 600}}
+	if err := SaveFrontierRun(path, NewFrontierRun(in, nil, now)); err != nil {
+		t.Fatal(err)
+	}
+	if err := FinishSystem(path, "explorer-1", FrontierSystem{ID: "b", Status: FrontierDone}, now); err != nil {
+		t.Fatal(err)
+	}
+	n, err := SetPositions(path, map[string]Point{"a": {X: 44, Y: 4806}, "b": {X: 1, Y: 1}, "c": {X: 600, Y: 0}, "zzz": {X: 9, Y: 9}}, now)
+	if err != nil || n != 1 {
+		t.Fatalf("SetPositions = %d, %v, want 1 moved", n, err)
+	}
+	run, err := LoadFrontierRun(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a := run.Systems["a"]; a.X != 44 || a.Y != 4806 {
+		t.Errorf("a at (%v, %v), want (44, 4806)", a.X, a.Y)
+	}
+	if b := run.Systems["b"]; b.X != 500 {
+		t.Errorf("b at %v, want the finished system left at 500", b.X)
+	}
+	if run.Systems["zzz"] != nil {
+		t.Error("a system the ledger did not know was added")
+	}
+}

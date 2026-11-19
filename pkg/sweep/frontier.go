@@ -330,6 +330,24 @@ func ReopenUnreachable(path string, now time.Time, ids ...string) (reopened []st
 	return reopened, err
 }
 
+// SetPositions moves the unfinished systems named in pos to the positions
+// given, and returns how many moved. Finished systems and ids the ledger does
+// not know are left; a system's wedge and cluster do not change.
+func SetPositions(path string, pos map[string]Point, now time.Time) (moved int, err error) {
+	err = withFrontierRun(path, func(r *FrontierRun) (bool, error) {
+		for id, p := range pos {
+			s := r.Systems[id]
+			if s == nil || s.Status == FrontierDone || (s.X == p.X && s.Y == p.Y) {
+				continue
+			}
+			s.X, s.Y, s.UpdatedUTC = p.X, p.Y, now.UTC()
+			moved++
+		}
+		return moved > 0, nil
+	})
+	return moved, err
+}
+
 // nearestTodo picks, among the todo systems keep accepts, the one with the
 // smallest dist; ties go to the smaller id. Nil when there is none.
 func (r *FrontierRun) nearestTodo(keep func(*FrontierSystem) bool, dist func(*FrontierSystem) float64) *FrontierSystem {

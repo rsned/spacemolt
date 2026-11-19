@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -32,14 +33,15 @@ const defaultRoster = "explorer-1,explorer-2,explorer-5,explorer-6,explorer-8,ex
 func main() {
 	kbPath := flag.String("kb", "data/spacemolt-knowledge.db", "knowledge DB")
 	runPath := flag.String("run", "data/sweep/frontier-run.json", "frontier run ledger")
+	positions := flag.String("positions", "../kb/data/learned_positions.json", "positions: the KB site's learned positions file")
 	ships := flag.String("ships", defaultRoster, "assign: the ships, comma-separated")
 	reserves := flag.String("reserves", "", "assign: the ships among them with the longest range (they take the remotest directions)")
 	flag.Parse()
 	if flag.NArg() != 1 {
-		fmt.Fprintln(os.Stderr, "usage: frontier-run [flags] generate|status|assign|relics|retry") //nolint:errcheck
+		fmt.Fprintln(os.Stderr, "usage: frontier-run [flags] generate|status|assign|relics|retry|positions") //nolint:errcheck
 		os.Exit(2)
 	}
-	if err := run(flag.Arg(0), *kbPath, *runPath, split(*ships), split(*reserves)); err != nil {
+	if err := run(flag.Arg(0), *kbPath, *runPath, *positions, split(*ships), split(*reserves)); err != nil {
 		fmt.Fprintln(os.Stderr, "frontier-run:", err) //nolint:errcheck
 		os.Exit(1)
 	}
@@ -55,11 +57,45 @@ func split(csv string) []string {
 	return out
 }
 
-func run(cmd, kbPath, runPath string, ships, reserves []string) error {
+// fittedPositions reads the KB site's learned_positions.json and returns each
+// system's fitted position (from map screenshots), which is nearer the truth
+// than the drift-measured one the knowledge DB holds.
+func fittedPositions(path string) (map[string]sweep.Point, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("positions: %w", err)
+	}
+	var learned map[string]struct {
+		Sources map[string]sweep.Point `json:"sources"`
+	}
+	if err := json.Unmarshal(data, &learned); err != nil {
+		return nil, fmt.Errorf("positions %s: %w", path, err)
+	}
+	out := make(map[string]sweep.Point, len(learned))
+	for id, l := range learned {
+		if p, ok := l.Sources["fitted"]; ok {
+			out[id] = p
+		}
+	}
+	return out, nil
+}
+
+func run(cmd, kbPath, runPath, positionsPath string, ships, reserves []string) error {
 	ctx := context.Background()
 	switch cmd {
 	case "status":
 		return status(os.Stdout, runPath)
+	case "positions":
+		pos, err := fittedPositions(positionsPath)
+		if err != nil {
+			return err
+		}
+		n, err := sweep.SetPositions(runPath, pos, time.Now())
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%d fitted position(s) read from %s; %d unfinished system(s) moved\n", len(pos), positionsPath, n)
+		return nil
 	case "retry":
 		ids, err := sweep.ReopenUnreachable(runPath, time.Now())
 		if err != nil {
