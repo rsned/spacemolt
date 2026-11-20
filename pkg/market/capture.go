@@ -86,6 +86,9 @@ func CaptureFromClient(ctx context.Context, client game.GameClient, collector *C
 	if len(raw) == 0 {
 		return nil
 	}
+	if !ReplyIsLocal(raw, state.Player.DockedAtBase) {
+		return nil // another station's book (view_market base_id), not this one's
+	}
 
 	now := time.Now()
 	orders, err := parseViewMarket(raw, state.CurrentPOI, now)

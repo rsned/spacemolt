@@ -1156,6 +1156,9 @@ func CaptureMarket(ctx context.Context, client game.GameClient, kb knowledge.Bas
 	}
 	now := time.Now()
 	raw := client.GetRawJSON("market")
+	if !market.ReplyIsLocal(raw, state.Player.DockedAtBase) {
+		return // another station's book (view_market base_id), not this one's
+	}
 	buyOrders := parseStationBuyOrders(raw, state.CurrentPOI, state.CurrentSystem, now)
 	sellOrders := parseStationSellOrders(raw, state.CurrentPOI, state.CurrentSystem, now)
 	if len(buyOrders) == 0 && len(sellOrders) == 0 {
