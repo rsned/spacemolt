@@ -18,8 +18,10 @@ type factionPullFake struct {
 	withdrawn  map[string]int
 	deposited  map[string]int
 	pending    map[string]int // withdrawn but not yet landed in cargo (tick-deferred)
+	direct     map[string]int // deposit_items source=faction target=self (no cargo)
 	withdrawEr error
 	depositEr  error
+	directEr   error
 }
 
 func newFactionPullFake(free float64, raw string) *factionPullFake {
@@ -27,7 +29,7 @@ func newFactionPullFake(free float64, raw string) *factionPullFake {
 	if raw != "" {
 		fc.raw = map[string][]byte{"faction_storage": []byte(raw)}
 	}
-	f := &factionPullFake{fakeClient: fc, withdrawn: map[string]int{}, deposited: map[string]int{}, pending: map[string]int{}}
+	f := &factionPullFake{fakeClient: fc, withdrawn: map[string]int{}, deposited: map[string]int{}, pending: map[string]int{}, direct: map[string]int{}}
 	// The real server executes a withdraw on the next tick and the client's
 	// cargo cache only updates on an explicit GetCargo, so the fake lands the
 	// withdrawn units in state.Ship.Cargo on that refresh and not before.
@@ -75,36 +77,47 @@ func (f *factionPullFake) DepositItems(_ context.Context, id string, q float64) 
 	return nil
 }
 
+func (f *factionPullFake) DepositItemsPayload(_ context.Context, p map[string]any) error {
+	if f.directEr != nil {
+		return f.directEr
+	}
+	if p["source"] != "faction" || p["target"] != "self" {
+		return errors.New("unexpected deposit_items payload")
+	}
+	f.direct[p["item_id"].(string)] += p["quantity"].(int)
+	return nil
+}
+
 const factionReply = `{"base_id":"b1","items":[
  {"item_id":"pirate_moonshine","name":"Moonshine","quantity":72,"size":1},
  {"item_id":"water_ice","name":"Water Ice","quantity":1335,"size":1}]}`
 
-func TestFactionPullMovesAllowListedOnly(t *testing.T) {
+// The server moves faction storage straight to personal storage with
+// deposit_items source=faction target=self; the hold plays no part (operator
+// 2026-11-20: purified_water crawled 175 per pass through a 175-space hold).
+func TestFactionPullMovesAllowListedOnlyDirect(t *testing.T) {
 	fc := newFactionPullFake(150, factionReply)
 	var out bytes.Buffer
 	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "pirate_moonshine"}}, &out)
 	if err != nil || moved != 72 {
 		t.Fatalf("moved=%d err=%v, want 72 nil", moved, err)
 	}
-	if fc.withdrawn["pirate_moonshine"] != 72 || fc.deposited["pirate_moonshine"] != 72 {
-		t.Errorf("withdrawn=%v deposited=%v", fc.withdrawn, fc.deposited)
+	if fc.direct["pirate_moonshine"] != 72 || len(fc.withdrawn) != 0 {
+		t.Errorf("direct=%v withdrawn=%v, want a direct 72 and no cargo withdraw", fc.direct, fc.withdrawn)
 	}
-	if _, ok := fc.withdrawn["water_ice"]; ok {
-		t.Errorf("water_ice must not be touched: %v", fc.withdrawn)
+	if _, ok := fc.direct["water_ice"]; ok {
+		t.Errorf("water_ice must not be touched: %v", fc.direct)
 	}
 	if !strings.Contains(out.String(), "faction_pull: moved 72 pirate_moonshine faction->personal") {
 		t.Errorf("log %q", out.String())
 	}
 }
 
-func TestFactionPullBoundedByFreeHold(t *testing.T) {
-	fc := newFactionPullFake(50, factionReply)
-	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "pirate_moonshine"}}, &bytes.Buffer{})
-	if err != nil || moved != 50 {
-		t.Fatalf("moved=%d err=%v, want 50 nil", moved, err)
-	}
-	if fc.withdrawn["pirate_moonshine"] != 50 || fc.deposited["pirate_moonshine"] != 50 {
-		t.Errorf("withdrawn=%v deposited=%v", fc.withdrawn, fc.deposited)
+func TestFactionPullIgnoresHoldSize(t *testing.T) {
+	fc := newFactionPullFake(0, factionReply) // hold full
+	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "water_ice", Size: 2}}, &bytes.Buffer{})
+	if err != nil || moved != 1335 || fc.direct["water_ice"] != 1335 {
+		t.Fatalf("moved=%d err=%v direct=%v, want all 1335 regardless of hold and unit size", moved, err, fc.direct)
 	}
 }
 
@@ -112,23 +125,60 @@ func TestFactionPullSkipsWithoutAReading(t *testing.T) {
 	fc := newFactionPullFake(150, "")
 	var out bytes.Buffer
 	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "pirate_moonshine"}}, &out)
-	if err != nil || moved != 0 || len(fc.withdrawn) != 0 {
-		t.Fatalf("moved=%d err=%v withdrawn=%v", moved, err, fc.withdrawn)
+	if err != nil || moved != 0 || len(fc.direct) != 0 {
+		t.Fatalf("moved=%d err=%v direct=%v", moved, err, fc.direct)
 	}
 	if !strings.Contains(out.String(), "faction_pull: no faction storage reading; skipping") {
 		t.Errorf("log %q", out.String())
 	}
 }
 
-func TestFactionPullDepositFailureStops(t *testing.T) {
+func TestFactionPullTransferFailureStops(t *testing.T) {
 	fc := newFactionPullFake(150, factionReply)
-	fc.depositEr = errors.New("boom")
+	fc.directEr = errors.New("boom")
 	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "pirate_moonshine"}, {Item: "water_ice"}}, &bytes.Buffer{})
 	if err == nil || moved != 0 {
 		t.Fatalf("moved=%d err=%v, want 0 and error", moved, err)
 	}
-	if _, ok := fc.withdrawn["water_ice"]; ok {
-		t.Errorf("must stop after the failed deposit: %v", fc.withdrawn)
+}
+
+// Units an older cargo-routed pull left aboard are still deposited.
+func TestFactionPullDrainsStrandedCargo(t *testing.T) {
+	f := newFactionPullFake(150, factionReply)
+	f.addCargo("pirate_moonshine", 12)
+	f.state.Ship.CargoUsed += 12
+	moved, err := FactionPull(context.Background(), f, []FactionPullRule{{Item: "pirate_moonshine"}}, &bytes.Buffer{})
+	if err != nil || moved != 84 || f.deposited["pirate_moonshine"] != 12 || f.direct["pirate_moonshine"] != 72 {
+		t.Fatalf("moved=%d err=%v deposited=%v direct=%v, want 12 from cargo + 72 direct", moved, err, f.deposited, f.direct)
+	}
+}
+
+func TestFactionPullDrainsStrandedCargoWhenFactionIsEmpty(t *testing.T) {
+	f := newFactionPullFake(150, `{"base_id":"b1","items":[]}`)
+	f.addCargo("pirate_moonshine", 60)
+	f.state.Ship.CargoUsed += 60
+	moved, err := FactionPull(context.Background(), f, []FactionPullRule{{Item: "pirate_moonshine"}}, &bytes.Buffer{})
+	if err != nil || moved != 60 || f.deposited["pirate_moonshine"] != 60 || len(f.direct) != 0 {
+		t.Fatalf("moved=%d err=%v deposited=%v direct=%v", moved, err, f.deposited, f.direct)
+	}
+}
+
+// A keep floor leaves that much in faction storage: the goods the pull serves
+// are often also station upkeep or build stock, and the pull has no other way
+// to know.
+func TestFactionPullLeavesKeepInFactionStorage(t *testing.T) {
+	fc := newFactionPullFake(1000, `{"base_id":"b1","items":[{"item_id":"control_node","quantity":300}]}`)
+	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "control_node", Keep: 200}}, &bytes.Buffer{})
+	if err != nil || moved != 100 || fc.direct["control_node"] != 100 {
+		t.Fatalf("moved %d, direct %v; want 100 of the 300 held above a keep of 200", moved, fc.direct)
+	}
+}
+
+func TestFactionPullAtOrBelowKeepWithdrawsNothing(t *testing.T) {
+	fc := newFactionPullFake(1000, `{"base_id":"b1","items":[{"item_id":"control_node","quantity":200}]}`)
+	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "control_node", Keep: 200}}, &bytes.Buffer{})
+	if err != nil || moved != 0 || len(fc.direct) != 0 {
+		t.Fatalf("moved %d, direct %v; want nothing at the floor", moved, fc.direct)
 	}
 }
 
@@ -157,80 +207,6 @@ func TestParseFactionPullDedupes(t *testing.T) {
 	}
 }
 
-func TestFactionPullDepositsWhatLandedInCargo(t *testing.T) {
-	// Live 2026-10-24: the withdraw ack returns before the server moves the
-	// goods, so an immediate deposit failed "not found in cargo" every pass
-	// while each pass withdrew another 6 into cargo. The pull must wait a
-	// tick, refresh cargo, and deposit what is actually aboard — including
-	// units a previous pass left stranded.
-	f := newFactionPullFake(150, factionReply)
-	f.addCargo("pirate_moonshine", 12) // stranded by an earlier failed pass
-	f.state.Ship.CargoUsed += 12
-	var out bytes.Buffer
-	moved, err := FactionPull(context.Background(), f, []FactionPullRule{{Item: "pirate_moonshine"}}, &out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f.withdrawn["pirate_moonshine"] != 72 {
-		t.Fatalf("want withdraw 72, got %v", f.withdrawn)
-	}
-	if f.deposited["pirate_moonshine"] != 84 || moved != 84 {
-		t.Fatalf("want deposit 84 (72 landed + 12 stranded) and moved 84, got deposited %v moved %d", f.deposited, moved)
-	}
-	if !slices.Contains(f.calls, "get_cargo") {
-		t.Fatalf("want a cargo refresh between withdraw and deposit, calls %v", f.calls)
-	}
-	if cargoCount(f.state, "pirate_moonshine") != 0 {
-		t.Fatalf("cargo should be drained, got %d", cargoCount(f.state, "pirate_moonshine"))
-	}
-}
-
-func TestFactionPullDrainsStrandedCargoWhenFactionIsEmpty(t *testing.T) {
-	// Live 2026-10-24 14:30: the failed passes had moved every unit from
-	// faction storage into cargo; with faction quantity 0 the pull skipped
-	// the item and the 60 units sat in cargo forever. Allow-listed cargo
-	// must be deposited even when there is nothing left to withdraw.
-	f := newFactionPullFake(150, `{"base_id":"b1","items":[]}`)
-	f.addCargo("pirate_moonshine", 60)
-	f.state.Ship.CargoUsed += 60
-	var out bytes.Buffer
-	moved, err := FactionPull(context.Background(), f, []FactionPullRule{{Item: "pirate_moonshine"}}, &out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f.withdrawn["pirate_moonshine"] != 0 {
-		t.Fatalf("nothing to withdraw, got %v", f.withdrawn)
-	}
-	if f.deposited["pirate_moonshine"] != 60 || moved != 60 {
-		t.Fatalf("want deposit 60 from cargo, got deposited %v moved %d", f.deposited, moved)
-	}
-}
-
-// A keep floor leaves that much in faction storage: the goods the pull serves
-// are often also station upkeep or build stock, and the pull has no other way
-// to know.
-func TestFactionPullLeavesKeepInFactionStorage(t *testing.T) {
-	fc := newFactionPullFake(1000, `{"base_id":"b1","items":[{"item_id":"control_node","quantity":300}]}`)
-	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "control_node", Keep: 200}}, &bytes.Buffer{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if moved != 100 || fc.withdrawn["control_node"] != 100 {
-		t.Fatalf("moved %d, withdrew %d; want 100 of the 300 held above a keep of 200", moved, fc.withdrawn["control_node"])
-	}
-}
-
-func TestFactionPullAtOrBelowKeepWithdrawsNothing(t *testing.T) {
-	fc := newFactionPullFake(1000, `{"base_id":"b1","items":[{"item_id":"control_node","quantity":200}]}`)
-	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "control_node", Keep: 200}}, &bytes.Buffer{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if moved != 0 || fc.withdrawn["control_node"] != 0 {
-		t.Fatalf("moved %d, withdrew %d; want nothing at the floor", moved, fc.withdrawn["control_node"])
-	}
-}
-
 func TestParseFactionPullKeep(t *testing.T) {
 	got, err := ParseFactionPull("trade_authenticator:200, pirate_moonshine")
 	if err != nil {
@@ -244,19 +220,5 @@ func TestParseFactionPullKeep(t *testing.T) {
 		if _, err := ParseFactionPull(bad); err == nil {
 			t.Errorf("ParseFactionPull(%q) accepted", bad)
 		}
-	}
-}
-
-// Live 2026-11-15: lead_shielding is 2 cargo units each, so sizing the withdraw
-// by unit count asked for 175 units (350 space) in a 175-space hold and the
-// server refused every pass.
-func TestFactionPullSizesWithdrawByUnitSize(t *testing.T) {
-	fc := newFactionPullFake(50, factionReply)
-	moved, err := FactionPull(context.Background(), fc, []FactionPullRule{{Item: "pirate_moonshine", Size: 2}}, &bytes.Buffer{})
-	if err != nil || moved != 25 {
-		t.Fatalf("moved=%d err=%v, want 25 nil", moved, err)
-	}
-	if fc.withdrawn["pirate_moonshine"] != 25 {
-		t.Errorf("withdrawn=%v, want 25", fc.withdrawn)
 	}
 }

@@ -28,9 +28,10 @@ type FactionPullRule struct {
 // steps (which only read personal storage) can see it. A facility craft that
 // drew its inputs from faction storage delivers its output there.
 //
-// Per item: withdraw min(faction quantity above Keep, free hold) into cargo, then
-// deposit it to personal storage. The withdraw lands in cargo, so the hold bounds each
-// trip. moved counts units. A missing faction-storage reading moves nothing
+// Per item: move the faction quantity above Keep straight into personal storage
+// with deposit_items source=faction target=self (no cargo hop, so the hold does
+// not bound it). Units an older cargo-routed pull left aboard are deposited
+// first. moved counts units. A missing faction-storage reading moves nothing
 // and is not an error; only a context error or a failed withdraw/deposit is.
 func FactionPull(ctx context.Context, client game.GameClient, rules []FactionPullRule, out io.Writer) (moved int, err error) {
 	if len(rules) == 0 {
@@ -65,42 +66,23 @@ func FactionPull(ctx context.Context, client game.GameClient, rules []FactionPul
 			moved += aboard
 			_, _ = fmt.Fprintf(out, "faction_pull: moved %d stranded %s cargo->personal\n", aboard, item)
 		}
-		st := client.GetState()
-		if st == nil {
-			return moved, nil
-		}
-		free := int(st.Ship.CargoCapacity - st.Ship.CargoUsed)
-		if free <= 0 {
-			return moved, nil
-		}
-		perUnit := max(rule.Size, 1)
-		qty := min(held[item]-rule.Keep, int(float64(free)/perUnit))
+		qty := held[item] - rule.Keep
 		if qty <= 0 {
 			continue
 		}
-		if werr := client.FactionWithdrawItems(ctx, item, qty); werr != nil {
-			return moved, fmt.Errorf("faction withdraw %d %s: %w", qty, item, werr)
+		// One storage-to-storage call: no cargo hop, so the hold size plays no
+		// part (the cargo-routed pull crawled 175 per pass through a 175-space
+		// hold, 2026-11-20).
+		if terr := client.DepositItemsPayload(ctx, map[string]any{
+			"item_id": item, "quantity": qty, "source": "faction", "target": "self",
+		}); terr != nil {
+			return moved, fmt.Errorf("faction->personal %d %s: %w", qty, item, terr)
 		}
-		// The withdraw is tick-deferred: its ack returns before the server has
-		// moved the goods, and the client's cargo cache only updates on an
-		// explicit refresh (live 2026-10-24: an immediate deposit failed "not
-		// found in cargo" every pass while each pass withdrew another lot).
-		// Wait a tick, refresh, and deposit what is actually aboard — which
-		// also drains units an earlier pass left stranded in cargo.
+		moved += qty
+		_, _ = fmt.Fprintf(out, "faction_pull: moved %d %s faction->personal\n", qty, item)
+		// The transfer is tick-deferred; let it land so the next pass's faction
+		// reading does not count these units again.
 		settle(ctx, game.SleepTick)
-		if cerr := client.GetCargo(ctx); cerr != nil {
-			return moved, fmt.Errorf("refresh cargo after faction withdraw %s: %w", item, cerr)
-		}
-		aboard := cargoCount(client.GetState(), item)
-		if aboard <= 0 {
-			_, _ = fmt.Fprintf(out, "faction_pull: %s not in cargo yet after withdraw; retrying next pass\n", item)
-			return moved, nil
-		}
-		if derr := client.DepositItems(ctx, item, float64(aboard)); derr != nil {
-			return moved, fmt.Errorf("deposit %d %s (left in cargo): %w", aboard, item, derr)
-		}
-		moved += aboard
-		_, _ = fmt.Fprintf(out, "faction_pull: moved %d %s faction->personal\n", aboard, item)
 	}
 
 	return moved, nil

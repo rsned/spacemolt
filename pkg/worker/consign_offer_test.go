@@ -133,3 +133,16 @@ func TestHandoffOwed(t *testing.T) {
 		t.Fatalf("owed = %v, want ore=120 (70 left on a + 50 on b)", owed)
 	}
 }
+
+// A shopkept item lives in personal storage between the faction_pull that
+// fetched it and the ask that escrows it; a faction deposit sweep must not push
+// it straight back (purified_water at CJ, 2026-11-20).
+func TestDepositHeldIncludesShopkeptItems(t *testing.T) {
+	held := DepositHeld([]ConsignOffer{{Item: "lead_shielding"}}, []ShopRule{{Item: "purified_water", Start: 60, Floor: 60}})
+	if !held["lead_shielding"] || !held["purified_water"] || held["steel_plate"] {
+		t.Fatalf("DepositHeld = %v, want lead_shielding and purified_water only", held)
+	}
+	if DepositHeld(nil, nil) != nil {
+		t.Fatal("empty inputs should give nil")
+	}
+}

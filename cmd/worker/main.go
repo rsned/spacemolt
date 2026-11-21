@@ -506,7 +506,7 @@ func main() {
 				}
 			}
 			dispatch := worker.NewWorkerDispatch(wc, kb, mc, logOut)
-			dispatch.ConsignOffered = worker.ConsignOfferItems(consignOffers)
+			dispatch.ConsignOffered = worker.DepositHeld(consignOffers, shopRules)
 			dispatch.AgentID = *agentID
 			dispatch.Station = *station
 			dispatch.GiftTo = *giftTo

@@ -37,6 +37,22 @@ func ConsignOfferItems(offers []ConsignOffer) map[string]bool {
 	return out
 }
 
+// DepositHeld is the set of items a faction deposit (faction_deposit,
+// faction_deposit_all) must leave in personal storage: consign offers, and
+// shopkept items, which sit in storage between the faction_pull that fetched
+// them and the ask that escrows them. Without the shopkeep half, a half-hourly
+// sweep pushed pulled stock straight back to faction storage.
+func DepositHeld(offers []ConsignOffer, shop []ShopRule) map[string]bool {
+	held := ConsignOfferItems(offers)
+	for _, r := range shop {
+		if held == nil {
+			held = map[string]bool{}
+		}
+		held[r.Item] = true
+	}
+	return held
+}
+
 // ConsignStockStore is the slice of *market.Collector the report writes to.
 type ConsignStockStore interface {
 	UpsertConsignStock(ctx context.Context, s market.ConsignStock) error
