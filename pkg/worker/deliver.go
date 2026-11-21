@@ -128,7 +128,15 @@ func storageOnlyHas(err error) (int, bool) {
 	return n, convErr == nil
 }
 
-// Deliver moves ITEM xQTY from the worker's own storage at FROM to RECIPIENT
+// factionSourcePrefix marks a deliver FROM as the faction's storage there.
+const factionSourcePrefix = "faction:"
+
+// deliverFromCargo is the scheduled-command spelling of an empty FROM: the
+// goods are already in cargo, so Deliver skips the withdraw leg.
+const deliverFromCargo = "cargo"
+
+// Deliver moves ITEM xQTY from the worker's own storage at FROM ("faction:<base>"
+// for the faction's storage there) to RECIPIENT
 // at TO. recipient "self" (or the worker's own agent id) means deposit into
 // own storage at TO instead of gifting; recipient "faction" (RecipientFaction)
 // deposits into the faction's storage at TO, which is how goods reach a player
@@ -159,6 +167,12 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 	if err != nil {
 		return fmt.Errorf("deliver: %w", err)
 	}
+	// "faction:<base>" withdraws from the faction's storage at that base
+	// instead of the worker's own (needs manage_treasury).
+	fromFaction := false
+	if rest, ok := strings.CutPrefix(from, factionSourcePrefix); ok {
+		from, fromFaction = rest, true
+	}
 	var fromSys, fromPOI string
 	if from != "" {
 		fromSys, fromPOI, err = resolveBase(ctx, d.KB, from)
@@ -183,7 +197,7 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 				// progress.
 				short = true
 			} else {
-				carrying, short, cargoFull, err = d.deliverWithdraw(ctx, itemID, remaining-carrying, fromSys, fromPOI, from)
+				carrying, short, cargoFull, err = d.deliverWithdraw(ctx, itemID, remaining-carrying, fromSys, fromPOI, from, fromFaction)
 				if err != nil {
 					return err
 				}
@@ -245,9 +259,15 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 // nothing at all was withdrawn — whether that was because the cargo hold had
 // zero free space (cargoFull) rather than the source being out of stock, so
 // the caller can log an accurate reason.
-func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, want int, system, poi, baseLabel string) (carrying int, short bool, cargoFull bool, err error) {
+func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, want int, system, poi, baseLabel string, fromFaction bool) (carrying int, short bool, cargoFull bool, err error) {
 	if err := d.autopilotAndDock(ctx, system, poi); err != nil {
 		return 0, false, false, fmt.Errorf("deliver: travel to source %q: %w", baseLabel, err)
+	}
+	// Size the batch from a fresh hold reading: the cached capacity can be a
+	// previous ship's (switch_ship does not refresh it), which sent a 1,900
+	// Congregation out with 100 (live 2026-11-21).
+	if err := d.Client.GetCargo(ctx); err != nil {
+		return 0, false, false, fmt.Errorf("deliver: read cargo before withdraw %s at %s: %w", itemID, baseLabel, err)
 	}
 	before := cargoCount(d.Client.GetState(), itemID)
 	free := cargoFreeSpace(d.Client.GetState())
@@ -257,7 +277,11 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 	if want <= 0 {
 		return before, false, true, nil
 	}
-	werr := d.Client.WithdrawItems(ctx, itemID, float64(want))
+	withdraw := func(n int) error { return d.Client.WithdrawItems(ctx, itemID, float64(n)) }
+	if fromFaction {
+		withdraw = func(n int) error { return d.Client.FactionWithdrawItems(ctx, itemID, n) }
+	}
+	werr := withdraw(want)
 	if werr != nil && !isShortSupplyErr(werr) {
 		return 0, false, false, fmt.Errorf("deliver: withdraw %s at %s: %w", itemID, baseLabel, werr)
 	}
@@ -267,7 +291,7 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 	if have, ok := storageOnlyHas(werr); ok && have > 0 && have < want {
 		fmt.Fprintf(d.Out, "deliver: %s at %s holds %d of %d wanted — withdrawing that\n", itemID, baseLabel, have, want) //nolint:errcheck
 		want = have
-		werr = d.Client.WithdrawItems(ctx, itemID, float64(want))
+		werr = withdraw(want)
 		if werr != nil && !isShortSupplyErr(werr) {
 			return 0, false, false, fmt.Errorf("deliver: withdraw %s at %s: %w", itemID, baseLabel, werr)
 		}
@@ -277,6 +301,11 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 	// NOT update state.Ship.Cargo on its own — an explicit refresh is required
 	// before re-reading cargo below, or the short-source progress guard
 	// under-counts what was actually withdrawn.
+	if fromFaction {
+		// A faction withdraw is tick-deferred: refreshing cargo before it
+		// lands reads nothing and reports the source empty.
+		settle(ctx, game.SleepTick)
+	}
 	if cerr := d.Client.GetCargo(ctx); cerr != nil {
 		return 0, false, false, fmt.Errorf("deliver: refresh cargo after withdraw %s at %s: %w", itemID, baseLabel, cerr)
 	}

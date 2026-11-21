@@ -30,6 +30,7 @@ type deliverFakeClient struct {
 	*fakeClient
 	storageStock    map[string]float64 // item_id -> qty available at the source station
 	pendingWithdraw map[string]float64 // item_id -> withdrawn qty not yet visible in cargo
+	factionStock    map[string]float64 // faction storage at the source, for faction: sources
 	pendingDrain    map[string]float64 // item_id -> gifted/deposited qty not yet removed from cargo
 
 	depositCalls []depositCall
@@ -57,11 +58,29 @@ type deliverFakeClient struct {
 	// atomicWithdraw mirrors the live server: a withdraw larger than the
 	// stock moves nothing and answers "Storage only has N x item".
 	atomicWithdraw bool
+
+	// liveCapacity, when > 0, is the hold size the server reports on
+	// get_cargo; until then state.Ship.CargoCapacity may be stale (a hull
+	// switch leaves the old ship's capacity cached).
+	liveCapacity float64
 }
 
 type depositCall struct {
 	itemID   string
 	quantity float64
+}
+
+// FactionWithdrawItems draws from faction storage into cargo, landing on the
+// next GetCargo like a personal withdraw.
+func (f *deliverFakeClient) FactionWithdrawItems(_ context.Context, itemID string, quantity int) error {
+	f.calls = append(f.calls, fmt.Sprintf("faction_withdraw:%s:%d", itemID, quantity))
+	got := min(float64(quantity), f.factionStock[itemID])
+	f.factionStock[itemID] -= got
+	if f.pendingWithdraw == nil {
+		f.pendingWithdraw = map[string]float64{}
+	}
+	f.pendingWithdraw[itemID] += got
+	return nil
 }
 
 func (f *deliverFakeClient) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
@@ -100,6 +119,9 @@ func (f *deliverFakeClient) GetCargo(ctx context.Context) error {
 	f.calls = append(f.calls, "get_cargo")
 	if f.state == nil {
 		return nil
+	}
+	if f.liveCapacity > 0 {
+		f.state.Ship.CargoCapacity = f.liveCapacity
 	}
 	for itemID, qty := range f.pendingWithdraw {
 		if qty <= 0 {
@@ -831,5 +853,105 @@ func TestDeliverAlreadyDockedAtSourceStillDelivers(t *testing.T) {
 	}
 	if len(client.giftCalls) != 1 {
 		t.Fatalf("SendGift calls = %d, want 1 (%+v)", len(client.giftCalls), client.giftCalls)
+	}
+}
+
+// A "faction:" source withdraws from the faction's storage at FROM instead of
+// the worker's own: CJ's liquid_hydrogen to Beid's fuel combustor (2026-11-20,
+// Beid's bunker at 0/5000 with no hydrogen to burn).
+func TestDeliverFromFactionStorage(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	client := &deliverFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: 100}}},
+		storageStock: map[string]float64{},
+		factionStock: map[string]float64{"liquid_hydrogen": 500},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = t.TempDir()
+
+	if err := d.Deliver(context.Background(), "liquid_hydrogen", 150, "faction:from_base", "to_base", "faction"); err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	total := 0.0
+	for _, c := range client.factionDepositCalls {
+		total += c.quantity
+	}
+	if total != 150 {
+		t.Fatalf("faction deposits = %+v, want 150 liquid_hydrogen in total (two trips of a 100 hold)", client.factionDepositCalls)
+	}
+	for _, c := range client.calls {
+		if strings.HasPrefix(c, "withdraw:") {
+			t.Fatalf("personal storage withdraw on a faction source: %v", client.calls)
+		}
+	}
+	if client.factionStock["liquid_hydrogen"] != 350 {
+		t.Fatalf("faction stock left = %v, want 350", client.factionStock["liquid_hydrogen"])
+	}
+}
+
+// After a hull switch the cached capacity is the OLD ship's. Deliver must size
+// its first withdraw from a fresh get_cargo, not the stale cache, or a
+// 1,900-cargo Congregation leaves with the old hull's 100 (live 2026-11-21:
+// craftsman-5 carried 100 of 1,000 purified_water to Voss).
+func TestDeliverSizesWithdrawFromFreshCapacity(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	client := &deliverFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: 100}}},
+		storageStock: map[string]float64{},
+		factionStock: map[string]float64{"purified_water": 5000},
+		liveCapacity: 1900,
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-5"
+	d.AgentsDir = t.TempDir()
+
+	if err := d.Deliver(context.Background(), "purified_water", 1000, "faction:from_base", "to_base", "faction"); err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	var withdraws []string
+	for _, c := range client.calls {
+		if strings.HasPrefix(c, "faction_withdraw:") {
+			withdraws = append(withdraws, c)
+		}
+	}
+	if len(withdraws) != 1 || withdraws[0] != "faction_withdraw:purified_water:1000" {
+		t.Fatalf("faction withdraws = %v, want one withdraw of 1000 sized from the live 1900 hold", withdraws)
+	}
+	if len(client.factionDepositCalls) != 1 || client.factionDepositCalls[0].quantity != 1000 {
+		t.Fatalf("deposits = %+v, want a single trip of 1000", client.factionDepositCalls)
+	}
+}
+
+// A scheduled "deliver ITEM QTY cargo TO RECIPIENT" has no way to pass an
+// empty FROM (tasks split on spaces), so the literal "cargo" selects the
+// from-cargo mode: no withdraw, straight to TO. Live 2026-11-21: craftsman-5
+// broke off a 28-jump Nyx run holding the water and would otherwise fly back
+// to CJ to reload what it already carried.
+func TestDeliverCargoKeywordSkipsWithdraw(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+	client := &deliverFakeClient{
+		fakeClient: &fakeClient{state: &game.State{Ship: game.Ship{
+			CargoCapacity: 100,
+			Cargo:         []game.CargoItem{{ItemID: "raw_ore", Quantity: 6}},
+		}}},
+		storageStock: map[string]float64{"raw_ore": 50},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-2"
+	d.AgentsDir = agentsDir
+
+	if err := d.Run(context.Background(), []string{"deliver", "raw_ore", "6", "cargo", "to_base", "craftsman-3"}); err != nil {
+		t.Fatalf("deliver: %v", err)
+	}
+	for _, c := range client.calls {
+		if strings.HasPrefix(c, "withdraw:") || strings.HasPrefix(c, "faction_withdraw:") {
+			t.Fatalf("FROM cargo must not withdraw, got call %q", c)
+		}
+	}
+	if len(client.giftCalls) != 1 || client.giftCalls[0]["quantity"] != float64(6) {
+		t.Fatalf("gifts = %+v, want one gift of 6", client.giftCalls)
 	}
 }

@@ -105,7 +105,8 @@ type WorkerDispatch struct {
 	// role requests a consigned route's gift through it; nil leaves consigned
 	// routes unrunnable (they release before the hauler flies).
 	Handoff *handoff.Queue
-	// ConsignOffered is this agent's --consign-offer item set. Offers are read
+	// ConsignOffered is this agent's --consign-offer and --shopkeep item set
+	// (DepositHeld): items faction deposits leave in personal storage. Offers are read
 	// from personal storage, so the faction_deposit sweeps leave these alone.
 	ConsignOffered map[string]bool
 	// EnableFreight opts the missions role into the /shipping carrier path
@@ -299,7 +300,7 @@ var supported = map[string]bool{
 	"undock": true, "dock": true, "travel": true, "jump": true, "autopilot": true, "ensure_home": true,
 	"explore": true, "scan": true, "haul": true, "shuttle": true, "assist": true, "missions": true,
 	"hunt": true, "pathfinder_sweep": true, "frontier_explore": true, "collect_gifts": true,
-	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "deliver_tour": true, "buy_directed": true, "craft_node": true, "craft": true,
+	"mine": true, "mine_qty": true, "mine_qty_at": true, "pipeline_mine": true, "deliver": true, "deliver_tour": true, "buy_directed": true, "unlock_gifting": true, "craft_node": true, "craft": true,
 	"fit_drones": true, "fit_check": true, "refit_trip": true, "launch_drones": true,
 	"refuel": true, "repair": true, "deposit_all": true, "faction_deposit": true, "faction_deposit_all": true, "faction_restock": true, "faction_withdraw": true, "announce": true, "capture_craft_queue": true, "sell_all": true, "sell_ore": true, "craft_stock": true,
 	"view_market": true, "facilities": true, "kb_update": true,
@@ -437,6 +438,32 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			fmt.Fprintf(d.Out, "faction_deposit_all: moved %d item type(s) to faction storage\n", n) //nolint:errcheck
 		}
 		return err
+	case "switch_hull":
+		if len(args) < 1 {
+			return fmt.Errorf("switch_hull: want CLASS, got %v", args)
+		}
+		return d.SwitchHull(ctx, args[0])
+	case "release":
+		item, station, recipient, keep, err := parseReleaseArgs(args)
+		if err != nil {
+			return err
+		}
+		return d.Release(ctx, item, station, recipient, keep)
+	case "faction_accept_invite":
+		// Joins a faction from a scheduled task, so a running worker joins
+		// without a play_as login that would kick its session.
+		if len(args) < 1 {
+			return fmt.Errorf("faction_accept_invite: want FACTION_ID, got %v", args)
+		}
+		if err := d.Client.FactionAcceptInvite(ctx, args[0]); err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "already") {
+				fmt.Fprintf(d.Out, "faction_accept_invite: already a member: %v\n", err) //nolint:errcheck
+				return nil
+			}
+			return fmt.Errorf("faction_accept_invite %s: %w", args[0], err)
+		}
+		fmt.Fprintf(d.Out, "faction_accept_invite: joined %s\n", args[0]) //nolint:errcheck
+		return nil
 	case "faction_withdraw":
 		if len(args) < 2 {
 			return fmt.Errorf("faction_withdraw: want ITEM QTY, got %v", args)
@@ -591,7 +618,13 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		if err != nil || qty < 1 {
 			return fmt.Errorf("deliver: bad qty %q", args[1])
 		}
-		return d.Deliver(ctx, args[0], qty, args[2], args[3], args[4])
+		from := args[2]
+		if from == deliverFromCargo {
+			from = "" // goods already aboard: no withdraw, straight to TO
+		}
+		return d.Deliver(ctx, args[0], qty, from, args[3], args[4])
+	case "unlock_gifting":
+		return unlockGifting(ctx, d.Client, d.Out, settle)
 	case "buy_directed":
 		if len(args) < 5 {
 			return fmt.Errorf("buy_directed: want ITEM QTY STATION MAX_UNIT_PRICE RECIPIENT, got %v", args)
