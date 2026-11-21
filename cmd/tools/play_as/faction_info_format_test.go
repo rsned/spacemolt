@@ -23,12 +23,16 @@ func TestFormatFactionInfoEnhancements(t *testing.T) {
 		t.Fatal("formatter returned empty")
 	}
 
-	// 1. Member count shows count/limit.
-	if !strings.Contains(out, "Members: 2/50") {
-		t.Errorf("expected 'Members: 2/50' in header; got:\n%s", out)
+	// 1. members_limit is the page size of the returned list, not a faction
+	// capacity, so it is never shown as a count/limit pair.
+	if !strings.Contains(out, "Members: 2 |") {
+		t.Errorf("expected 'Members: 2 |' in header; got:\n%s", out)
 	}
-	if !strings.Contains(out, "Members (2/50):") {
-		t.Errorf("expected 'Members (2/50):' section header")
+	if strings.Contains(out, "2/50") {
+		t.Errorf("members_limit paired with member_count; got:\n%s", out)
+	}
+	if !strings.Contains(out, "Members (2):") {
+		t.Errorf("expected 'Members (2):' section header; got:\n%s", out)
 	}
 
 	// 2. Members grouped by role, priority desc (Leader before Officer).
@@ -141,5 +145,21 @@ func TestFormatFactionInfoPersonnel(t *testing.T) {
 	// Without the block (pre-0.572 reply) no Personnel section appears.
 	if out := formatFactionInfo([]byte(realFactionInfoPayload)); strings.Contains(out, "Personnel:") {
 		t.Errorf("Personnel section shown with no personnel block")
+	}
+}
+
+// A truncated member page says how many of the faction's members it lists.
+func TestFormatFactionInfoTruncatedMembers(t *testing.T) {
+	payload := strings.Replace(realFactionInfoPayload, `"member_count":2,"members":`, `"member_count":80,"members":`, 1)
+	payload = strings.Replace(payload, `"members_limit":50,`, `"members_limit":50,"members_truncated":true,`, 1)
+	out := formatFactionInfo([]byte(payload))
+	if !strings.Contains(out, "Members: 80 |") {
+		t.Errorf("header should show the faction's member_count 80; got:\n%s", out)
+	}
+	if strings.Contains(out, "80/50") {
+		t.Errorf("members_limit paired with member_count; got:\n%s", out)
+	}
+	if !strings.Contains(out, "Members (showing 3 of 80):") {
+		t.Errorf("expected 'Members (showing 3 of 80):' section header; got:\n%s", out)
 	}
 }

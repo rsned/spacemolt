@@ -6461,23 +6461,23 @@ func formatCreateFaction(raw []byte) string {
 // formatFactionInfo formats a faction_info response with colored names.
 func formatFactionInfo(raw []byte) string {
 	var resp struct {
-		ID             string `json:"id"`
-		Name           string `json:"name"`
-		Tag            string `json:"tag"`
-		Description    string `json:"description"`
-		Charter        string `json:"charter"`
-		LeaderUsername string `json:"leader_username"`
-		MemberCount    int    `json:"member_count"`
-		MembersLimit   int    `json:"members_limit"`
-		OwnedBases     int    `json:"owned_bases"`
-		Treasury       int    `json:"treasury"`
-		PrimaryColor   string `json:"primary_color"`
-		SecondaryColor string `json:"secondary_color"`
-		AtWar          bool   `json:"at_war"`
-		IsMember       bool   `json:"is_member"`
-		IsAlly         bool   `json:"is_ally"`
-		IsEnemy        bool   `json:"is_enemy"`
-		Members        []struct {
+		ID               string `json:"id"`
+		Name             string `json:"name"`
+		Tag              string `json:"tag"`
+		Description      string `json:"description"`
+		Charter          string `json:"charter"`
+		LeaderUsername   string `json:"leader_username"`
+		MemberCount      int    `json:"member_count"`
+		MembersTruncated bool   `json:"members_truncated"`
+		OwnedBases       int    `json:"owned_bases"`
+		Treasury         int    `json:"treasury"`
+		PrimaryColor     string `json:"primary_color"`
+		SecondaryColor   string `json:"secondary_color"`
+		AtWar            bool   `json:"at_war"`
+		IsMember         bool   `json:"is_member"`
+		IsAlly           bool   `json:"is_ally"`
+		IsEnemy          bool   `json:"is_enemy"`
+		Members          []struct {
 			Username string `json:"username"`
 			Role     string `json:"role"`
 			IsOnline bool   `json:"is_online"`
@@ -6549,11 +6549,7 @@ func formatFactionInfo(raw []byte) string {
 	colorTag := colorizeHex("["+resp.Tag+"]", resp.PrimaryColor, resp.SecondaryColor)
 	fmt.Fprintf(&b, "%s %s\n", colorName, colorTag)
 	fmt.Fprintf(&b, "ID: %s\n", resp.ID)
-	memberStr := fmt.Sprintf("%d", resp.MemberCount)
-	if resp.MembersLimit > 0 {
-		memberStr = fmt.Sprintf("%d/%d", resp.MemberCount, resp.MembersLimit)
-	}
-	fmt.Fprintf(&b, "Leader: %s | Members: %s | Bases: %d\n", resp.LeaderUsername, memberStr, resp.OwnedBases)
+	fmt.Fprintf(&b, "Leader: %s | Members: %d | Bases: %d\n", resp.LeaderUsername, resp.MemberCount, resp.OwnedBases)
 
 	if resp.IsMember && resp.Treasury > 0 {
 		fmt.Fprintf(&b, "Treasury: %d credits\n", resp.Treasury)
@@ -6626,9 +6622,11 @@ func formatFactionInfo(raw []byte) string {
 			return strings.Compare(a, c)
 		})
 
+		// members_limit is the page size of the members list, not a faction
+		// capacity; a truncated page says how much of the roster it shows.
 		memberHdr := fmt.Sprintf("%d", resp.MemberCount)
-		if resp.MembersLimit > 0 {
-			memberHdr = fmt.Sprintf("%d/%d", resp.MemberCount, resp.MembersLimit)
+		if resp.MembersTruncated || len(resp.Members) < resp.MemberCount {
+			memberHdr = fmt.Sprintf("showing %d of %d", len(resp.Members), resp.MemberCount)
 		}
 		fmt.Fprintf(&b, "\nMembers (%s):\n", memberHdr)
 		for _, role := range roleOrder {
