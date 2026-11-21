@@ -1,0 +1,220 @@
+// Package reload resolves which fitted weapons need ammunition and which cargo
+// stack feeds each one. It is shared by play_as (the `reload` command) and the
+// worker fleet (hunters reloading between engagements).
+package reload
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+
+	"github.com/rsned/spacemolt/pkg/game"
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/knowledge"
+)
+
+// unwrapActionResult returns the inner "result" object of an action_result
+// frame, or raw unchanged when there is none.
+func unwrapActionResult(raw []byte) []byte {
+	var probe struct {
+		Result json.RawMessage `json:"result"`
+	}
+	if err := json.Unmarshal(raw, &probe); err != nil || len(probe.Result) == 0 {
+		return raw
+	}
+	return probe.Result
+}
+
+// Candidate is one ammo stack in cargo that fits a given weapon.
+type Candidate struct {
+	ItemID   string
+	Name     string
+	Quantity float64
+}
+
+// Entry is one fitted, ammo-using weapon and what can feed it.
+type Entry struct {
+	WeaponID     string // module INSTANCE id — what reload wants, not the type id
+	WeaponName   string
+	WeaponTypeID string
+	AmmoType     string
+	CurrentAmmo  int
+	MagazineSize int
+	LoadedAmmoID string
+	// Candidates are the fitting ammo stacks in cargo, best first.
+	Candidates []Candidate
+}
+
+// Empty reports a dry magazine — the weapon cannot fire at all.
+func (e Entry) Empty() bool { return e.CurrentAmmo <= 0 }
+
+// Full reports a magazine with no room, which reload would refuse.
+func (e Entry) Full() bool {
+	return e.MagazineSize > 0 && e.CurrentAmmo >= e.MagazineSize
+}
+
+// Lookup resolves an item id to its display name and ammo type. An empty
+// ammoType means the item is not ammunition. Backed by the knowledge base's
+// item catalog; injected so the resolver stays pure.
+type Lookup func(itemID string) (name, ammoType string)
+
+// BuildPlan pairs each ammo-using fitted weapon with the ammo in cargo
+// that fits it. Energy weapons (no ammo type) and non-weapon modules are
+// skipped: they never need reloading.
+func BuildPlan(modules []serverapi.ShipModule, cargo []serverapi.CargoItem, lookup Lookup) []Entry {
+	var plan []Entry
+
+	for _, m := range modules {
+		if m.Type != "" && m.Type != "weapon" {
+			continue
+		}
+		ammoType := m.AmmoType
+		if ammoType == "" && lookup != nil && m.TypeID != "" {
+			// The live get_ship shape carries ammo_type, but we have no
+			// capture proving the server always populates it; the catalog
+			// knows it from the module's type id either way.
+			_, ammoType = lookup(m.TypeID)
+		}
+		if ammoType == "" {
+			continue
+		}
+
+		entry := Entry{
+			WeaponID:     m.ID,
+			WeaponName:   m.Name,
+			WeaponTypeID: m.TypeID,
+			AmmoType:     ammoType,
+			CurrentAmmo:  m.CurrentAmmo,
+			MagazineSize: m.MagazineSize,
+			LoadedAmmoID: m.LoadedAmmoID,
+		}
+
+		for _, c := range cargo {
+			if c.Quantity <= 0 || lookup == nil {
+				continue
+			}
+			name, at := lookup(c.ItemID)
+			if at != ammoType {
+				continue
+			}
+			if name == "" {
+				name = c.Name
+			}
+			entry.Candidates = append(entry.Candidates, Candidate{
+				ItemID: c.ItemID, Name: name, Quantity: c.Quantity,
+			})
+		}
+
+		// Rank the ammo already in the magazine first: reloading a partial
+		// magazine with a different type throws the remaining rounds away
+		// (ReloadResponse.rounds_discarded). Then most-stocked, then id, so
+		// the command we print does not change between calls.
+		loaded := entry.LoadedAmmoID
+		sort.SliceStable(entry.Candidates, func(i, j int) bool {
+			a, b := entry.Candidates[i], entry.Candidates[j]
+			if (a.ItemID == loaded) != (b.ItemID == loaded) {
+				return a.ItemID == loaded
+			}
+			if a.Quantity != b.Quantity {
+				return a.Quantity > b.Quantity
+			}
+			return a.ItemID < b.ItemID
+		})
+
+		plan = append(plan, entry)
+	}
+
+	return plan
+}
+
+// Target is one resolved reload: the pair of ids the command needs.
+type Target struct {
+	WeaponID   string
+	WeaponName string
+	AmmoItemID string
+	AmmoName   string
+}
+
+// Targets picks the weapons `reload all` should act on: dry magazines
+// with ammo aboard to fill them. A partial magazine is left alone — topping it
+// up costs a tick mid-fight and risks discarding the loaded rounds — and a dry
+// weapon with no matching cargo cannot be helped.
+func Targets(plan []Entry) []Target {
+	var targets []Target
+	for _, e := range plan {
+		if !e.Empty() || len(e.Candidates) == 0 {
+			continue
+		}
+		targets = append(targets, Target{
+			WeaponID:   e.WeaponID,
+			WeaponName: e.WeaponName,
+			AmmoItemID: e.Candidates[0].ItemID,
+			AmmoName:   e.Candidates[0].Name,
+		})
+	}
+	return targets
+}
+
+// formatReloadPlan renders the plan as the answer to a bare `reload`: every
+
+// KBLookup resolves item ids against the knowledge base's item catalog,
+// which holds both halves of the pairing: an ammo item's own ammo type
+// (CatalogItem.Ammo) and a weapon module's required one
+// (CatalogItem.Module.Weapon). Results are memoised — a plan looks up every
+// cargo stack against every weapon.
+func KBLookup(ctx context.Context, kb knowledge.Base) Lookup {
+	type entry struct{ name, ammoType string }
+	cache := map[string]entry{}
+
+	return func(itemID string) (string, string) {
+		if kb == nil || itemID == "" {
+			return "", ""
+		}
+		if e, ok := cache[itemID]; ok {
+			return e.name, e.ammoType
+		}
+		e := entry{}
+		if item, err := kb.GetItem(ctx, itemID); err == nil && item != nil {
+			e.name = item.Name
+			switch {
+			case item.Ammo != nil:
+				e.ammoType = item.Ammo.AmmoType
+			case item.Module != nil && item.Module.Weapon != nil:
+				e.ammoType = item.Module.Weapon.AmmoType
+			}
+		}
+		cache[itemID] = e
+		return e.name, e.ammoType
+	}
+}
+
+// Fetch refreshes get_ship and resolves its weapons against cargo.
+func Fetch(ctx context.Context, client game.GameClient, kb knowledge.Base) ([]Entry, error) {
+	if err := client.GetShip(ctx); err != nil {
+		return nil, fmt.Errorf("get_ship: %w", err)
+	}
+	raw := client.GetRawJSON("ship")
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("get_ship returned nothing")
+	}
+	var resp serverapi.GetShipResponse
+	if err := json.Unmarshal(unwrapActionResult(raw), &resp); err != nil {
+		return nil, fmt.Errorf("parse get_ship: %w", err)
+	}
+
+	// Cargo comes from the same reply's ship block, so the magazine state and
+	// the ammo count are from one moment rather than two.
+	cargo := resp.Ship.Cargo
+	if len(cargo) == 0 {
+		// get_ship omitted the cargo block; fall back to the client's own
+		// copy, which carries only ids and quantities.
+		if st := client.GetState(); st != nil {
+			for _, c := range st.Ship.Cargo {
+				cargo = append(cargo, serverapi.CargoItem{ItemID: c.ItemID, Quantity: c.Quantity})
+			}
+		}
+	}
+
+	return BuildPlan(resp.Modules, cargo, KBLookup(ctx, kb)), nil
+}

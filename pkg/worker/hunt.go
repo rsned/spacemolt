@@ -552,6 +552,14 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		// wall-clock and nothing else.
 		huntWaitForShields(ctx, deps, out, who, st)
 
+		// Never open a fight that cannot be won: fill the magazines first,
+		// and with nothing to fill them from, end the pass.
+		if !huntReload(ctx, deps, out, who) {
+			fmt.Fprintf(out, "hunt[%s]: no weapon can fire; %s held for next pass (needs ammo)\n", who, job.boardID) //nolint:errcheck
+			publishActivity(deps.SetActivity, "Hunt · out of ammo")
+			return nil
+		}
+
 		c, idx := huntPickQuarry(quarry)
 		if idx < 0 {
 			fmt.Fprintf(out, "hunt: no huntable creatures remain (%d/%d killed); %s held for next pass\n", kills, target, job.boardID) //nolint:errcheck
@@ -892,13 +900,22 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 	for range huntMaxGrounds {
 		var poi string
 		var err error
+		// Grounds the server has disowned are never candidates, but they are
+		// not "tried" either: the sweep's own accounting counts only grounds
+		// the ship actually reached.
+		skip := slices.Concat(tried, huntGone.list())
 		switch {
 		case job.home:
-			poi, err = huntTravelToHomeGround(ctx, deps, out, tried)
+			poi, err = huntTravelToHomeGround(ctx, deps, out, skip)
 		case job.need != nil:
-			poi, err = huntTravelToNeedGround(ctx, deps, out, *job.need, tried)
+			poi, err = huntTravelToNeedGround(ctx, deps, out, *job.need, skip)
 		default:
-			poi, err = huntTravelToWildlifePOI(ctx, deps, out, job.required, tried, wildlifeOnly)
+			poi, err = huntTravelToWildlifePOI(ctx, deps, out, job.required, skip, wildlifeOnly)
+		}
+		if gone := huntGoneGround(err); gone != "" {
+			huntGone.add(gone)
+			fmt.Fprintf(out, "hunt[%s]: ground %s no longer exists (Unknown destination) — a stale KB row; skipping it from now on, trying another ground\n", who, gone) //nolint:errcheck
+			continue
 		}
 		if err != nil {
 			if huntEscapeBattle(ctx, deps, out, who, "on the way to a ground", err) {
