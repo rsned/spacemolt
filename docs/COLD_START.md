@@ -6,8 +6,8 @@ Last proven end-to-end: **2026-08-14**, recovering from a workstation crash (~75
 seven fleets, 144 workers up, 0 restarts, all on one commit. The Checkpoints numbers come from
 that run; the step-5 prune incident numbers are from the 2026-07-30 run that hit it.
 
-The fleet set as of 2026-11-02 (eleven overminds): **mb / assist / hunt / shuttle / banker / craft /
-unlock / mission-learn / mining / crft-mining / haul**, plus the `fleet-watch` monitor (step 7).
+The fleet set as of 2026-11-21 (twelve overminds): **mb / assist / hunt / shuttle / banker / craft /
+unlock / mission-learn / mining / crft-mining / route / haul**, plus the `fleet-watch` monitor (step 7).
 Only `idle` and the old `mission` fleet are retired. **Shuttle is NOT retired:** johnny_cab went
 through the pirate-reputation unlock in August to reach more stations, then returned to the
 shuttle fleet to haul passengers.
@@ -52,7 +52,7 @@ in-flight work (jumps, freight, transits) to have been interrupted mid-action.
 relaunch silently dies without this.
 
 ```bash
-rm -f data/overmind/{haul,mb,assist,hunt,shuttle,banker,unlock,craft,mission-learn,mining,crft-mining}.sock
+rm -f data/overmind/{haul,mb,assist,hunt,shuttle,banker,unlock,craft,mission-learn,mining,crft-mining,route}.sock
 ```
 
 **d. Check the rescue queue.**
@@ -348,6 +348,25 @@ setsid nohup ./bin/overmind --socket data/overmind/crft-mining.sock \
   --assets-db-path data/assets.db >> data/overmind/crft-mining-overmind.log 2>&1 < /dev/null &
 ```
 
+### 3g. Route (30) — the trucker-100..129 station haulers
+
+`route` carries the ten CRFT trucker accounts (in-game names `u_mother_trucker_1NN`). Each one is
+pinned to one explicit station route. The routes live in each trucker's `schedule.json`, as
+hourly or daily `deliver ... <station> <CJ base> faction` tasks; the fleet yaml marks them
+`role: idle`. Owners at the far stations hand stock to the truckers with ten_minutely
+`release` tasks in their own schedules, so bring this fleet up after mb and crft-mining.
+Since 2026-11-21 the truckers fly Congregations (1,900 cargo) from the CJ faction garage.
+Design: `docs/superpowers/specs/2026-11-20-route-fleet-stock-to-cj-design.md`.
+
+```bash
+setsid nohup ./bin/overmind --socket data/overmind/route.sock \
+  --fleet data/overmind/route-fleet.yaml \
+  --worker-bin bin/worker --market-db-path data/market.db \
+  --status-file data/overmind/route-status.json \
+  --history-file data/overmind/route-history.jsonl \
+  --assets-db-path data/assets.db >> data/overmind/route-overmind.log 2>&1 < /dev/null &
+```
+
 ---
 
 ## 4. Haul — last, and gated
@@ -514,8 +533,8 @@ read-only if you want to inspect it first.
 `fleet-watch` alerts when a fleet's log goes silent or disconnects go unmatched by reconnects.
 **It fixes its watch list at startup from the overminds running at that moment**, so start it
 only after every fleet — haul included — is up. Started early, it silently never watches the
-fleets launched after it. Confirm the banner lists all eleven:
-`watching fleets: assist, banker, craft, crft-mining, haul, hunt, mb, mining, mission-learn, shuttle, unlock`.
+fleets launched after it. Confirm the banner lists all twelve:
+`watching fleets: assist, banker, craft, crft-mining, haul, hunt, mb, mining, mission-learn, route, shuttle, unlock`.
 
 ```bash
 setsid nohup ./bin/fleet-watch --interval 60s --stale 3m \
@@ -552,6 +571,7 @@ Healthy full system, 2026-08-14:
 | assist | 5 | all should be home-docked with full tanks |
 | hunt | 5 | |
 | unlock | 25 | roster 46 − the 21 secondment-held haul agents |
+| route | 30 | added 2026-11-21 (100–109 routed haulers; 110–129 pirate-unlocking), so not part of the 2026-08-14 total |
 | **total** | **~144** | **restarts=0, one shared `overmind_commit`** |
 
 Data-layer health (2026-08-14 scale, 54-bot mb fleet):
