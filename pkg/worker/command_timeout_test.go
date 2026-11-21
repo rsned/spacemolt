@@ -179,3 +179,29 @@ func TestDispatchDoesNotReportAHealthyCommand(t *testing.T) {
 		t.Fatalf("OnCommandTimeout fired %d time(s) with no timeout, want 0", fired)
 	}
 }
+
+// deliver flies a whole multi-jump route (out to the source, back to the
+// destination) inside one dispatch, so the per-command ceiling is the wrong
+// bound for it: on 2026-11-20 every 32-jump CJ supply run (explorer-3 platinum
+// 205x since 10-30, trader-9 silicon 140x, trader-7 trade_crystal 85x) died at
+// jump 30/32 to the 30-minute cap, went home, and started over the next hour.
+// Its individual requests keep their own Submit timeouts.
+func TestDispatchDoesNotCapDeliver(t *testing.T) {
+	slow := runnerFunc(func(ctx context.Context, _ []string) error {
+		select {
+		case <-time.After(200 * time.Millisecond):
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})
+	deps := StandingDeps{Runner: slow, CommandTimeout: 20 * time.Millisecond}
+	if err := deps.dispatch(context.Background(),
+		[]string{"deliver", "silicon_ore", "1900", "src", "dst", "miningbot_0000"}); err != nil {
+		t.Fatalf("deliver was cut off: %v", err)
+	}
+	// Everything else is still bounded.
+	if err := deps.dispatch(context.Background(), []string{"refuel"}); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("refuel: got %v, want context.DeadlineExceeded", err)
+	}
+}

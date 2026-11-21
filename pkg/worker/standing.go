@@ -470,6 +470,12 @@ func (deps StandingDeps) now() time.Time {
 	return deps.NowFn()
 }
 
+// uncappedCommands run without the per-command CommandTimeout. deliver flies a
+// whole route (source and back) in one dispatch, and a 32-jump CJ supply run
+// outlasts 30 minutes every time; capped, it died at jump 30/32 hourly for
+// weeks (2026-11-20). Its individual requests keep their Submit timeouts.
+var uncappedCommands = map[string]bool{"deliver": true}
+
 // dispatch resolves tokens against live state, then runs them.
 func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
 	var st *game.State
@@ -509,7 +515,7 @@ func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
 	// direct caller (tests) opted out.
 	parent := ctx
 	started := deps.now()
-	if deps.CommandTimeout > 0 {
+	if deps.CommandTimeout > 0 && (len(resolved) == 0 || !uncappedCommands[resolved[0]]) {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, deps.CommandTimeout)
 		defer cancel()
