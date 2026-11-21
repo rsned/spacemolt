@@ -4275,6 +4275,7 @@ func (c *Client) parseErrorStateLocked(payload map[string]any) (block time.Durat
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	gate = c.gate
+	c.clearBattleOnRefusalLocked(payload)
 
 	// Store the last error for diagnostics
 	c.lastErrorMu.Lock()
@@ -4337,9 +4338,42 @@ func parseIPBlockSeconds(msg string) int {
 }
 
 // parseErrorAction extracts state changes from action_error messages
+// battleRefusalMarkers are the server's ways of saying this ship is in no
+// battle, lower-cased. An in_battle refusal ("... while in a battle") matches
+// none of them.
+var battleRefusalMarkers = []string{
+	"not in a battle",
+	"not in battle",
+	"no active battle",
+	"disengaged from battle",
+}
+
+// clearBattleOnRefusalLocked drops the cached participation flags when an
+// error frame says the ship is in no battle. A fight we leave by disengaging
+// sends us no battle_ended, so without this the flag set by battle_started
+// outlives the fight and every consumer keeps acting on a battle that is over.
+// Caller holds c.mu.
+func (c *Client) clearBattleOnRefusalLocked(payload map[string]any) {
+	code, _ := payload["code"].(string)
+	msg, _ := payload["message"].(string)
+	msg = strings.ToLower(msg)
+	refused := code == "not_in_battle"
+	for _, m := range battleRefusalMarkers {
+		refused = refused || strings.Contains(msg, m)
+	}
+	if !refused {
+		return
+	}
+	c.state.InBattle = false
+	if c.state.BattleState != nil {
+		c.state.BattleState.IsParticipant = false
+	}
+}
+
 func (c *Client) parseErrorAction(payload map[string]any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.clearBattleOnRefusalLocked(payload)
 
 	// Store the last error for diagnostics
 	c.lastErrorMu.Lock()
