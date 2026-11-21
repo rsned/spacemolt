@@ -225,3 +225,65 @@ func TestLoadGalaxyToleratesMissingPOIsTable(t *testing.T) {
 		t.Fatalf("want ok+empty, got %v %v", pois, ok)
 	}
 }
+
+// A sparse systems row (name and position only, as a partial map import
+// leaves it) has NULL in every nullable column. On 2026-11-20 124 such rows
+// with a NULL empire took the whole :8091 dashboard down with "scan system:
+// converting NULL to string is unsupported" — the same failure
+// pkg/knowledge fixed on 2026-10-12. One sparse row must not hide the galaxy.
+func TestLoadGalaxyToleratesNullSystemColumns(t *testing.T) {
+	p := fixtureKB(t)
+	db, err := sql.Open(sqliteDriver, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(`INSERT INTO systems
+		(id, name, position_x, position_y, police_level, empire, is_stronghold)
+		VALUES ('cold_shoulder','Cold Shoulder',-4496.7,6474.5,NULL,NULL,NULL)`); err != nil {
+		t.Fatal(err)
+	}
+	_ = db.Close()
+
+	g, err := LoadGalaxy(context.Background(), p)
+	if err != nil {
+		t.Fatalf("LoadGalaxy: %v", err)
+	}
+	if len(g.Systems) != 4 {
+		t.Fatalf("want 4 systems, got %d", len(g.Systems))
+	}
+	for _, s := range g.Systems {
+		if s.ID != "cold_shoulder" {
+			continue
+		}
+		if s.Empire != "" || s.Police != 0 || s.Stronghold {
+			t.Fatalf("sparse row: want zero values, got empire=%q police=%v stronghold=%v",
+				s.Empire, s.Police, s.Stronghold)
+		}
+		return
+	}
+	t.Fatal("cold_shoulder missing from galaxy")
+}
+
+// A system with no lanes must serialize "connections": [] — never null. The
+// galaxy map iterates system.connections unguarded, so one null crashed the
+// whole :8091 page ("D.connections is not iterable") once the sparse,
+// lane-less frontier rows started loading on 2026-11-20.
+func TestLoadGalaxyLanelessSystemHasEmptyConnections(t *testing.T) {
+	g, err := LoadGalaxy(context.Background(), fixtureKB(t))
+	if err != nil {
+		t.Fatalf("LoadGalaxy: %v", err)
+	}
+	b, err := json.Marshal(g.Systems)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []map[string]any
+	if err = json.Unmarshal(b, &out); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range out {
+		if _, ok := s["connections"].([]any); !ok {
+			t.Errorf("system %v: connections = %v, want a JSON array", s["id"], s["connections"])
+		}
+	}
+}

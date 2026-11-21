@@ -79,12 +79,17 @@ func StorageRates(snaps []StorageSnapshot, flows []StorageFlow, covered map[stri
 		if days <= 0 {
 			continue
 		}
+		home := mainBase(last)
 		net := map[BaseItem]float64{}
 		for _, f := range flows {
 			if f.PlayerID != pid || !f.At.After(first.At) || f.At.After(last.At) {
 				continue
 			}
-			net[BaseItem{f.BaseID, f.ItemID}] += f.Out
+			base := f.BaseID
+			if base == "" {
+				base = home
+			}
+			net[BaseItem{base, f.ItemID}] += f.Out
 		}
 		keys := map[BaseItem]bool{}
 		for k := range first.Items {
@@ -119,12 +124,38 @@ func StorageRates(snaps []StorageSnapshot, flows []StorageFlow, covered map[stri
 	return out
 }
 
+// mainBase is the station where the snapshot holds the most units: where a
+// station-bound agent lives. Flows whose event names no station land there.
+func mainBase(s StorageSnapshot) string {
+	total := map[string]float64{}
+	for k, q := range s.Items {
+		total[k.BaseID] += q
+	}
+	best := ""
+	for b, q := range total {
+		if best == "" || q > total[best] || (q == total[best] && b < best) {
+			best = b
+		}
+	}
+
+	return best
+}
+
 // FlowsFromEvent turns one action-log event into storage flows:
 //   - trading.exchange_fill: seller = out of storage, buyer = into it, at base_id.
+//     (A fill of the agent's OWN sell order moves nothing: the units left
+//     storage when the order was created. LoadStorageFlows drops those.)
+//   - trading.sell_order_created: the whole order leaves storage into escrow.
+//   - trading.order_cancelled: the unsold remainder returns to storage.
+//     (Only true of sell orders; LoadStorageFlows drops the others.)
+//   - trading.gift_sent with source "storage": out of storage.
 //   - crafting.completed with storage "station": runs x recipe inputs out,
 //     runs x outputs in, at the base named by the facility id's last segment.
 //
-// Anything else (and any payload it cannot read) yields nothing.
+// An event that names no station (order created, gift, a facility id that is a
+// bare id) yields flows with an empty BaseID; StorageRates books those at the
+// agent's main base. Anything else (and any payload it cannot read) yields
+// nothing.
 func FlowsFromEvent(playerID string, at time.Time, eventType, dataJSON string, recipes map[string]RecipeIO) []StorageFlow {
 	var d map[string]string
 	if err := json.Unmarshal([]byte(dataJSON), &d); err != nil {
@@ -148,6 +179,24 @@ func FlowsFromEvent(playerID string, at time.Time, eventType, dataJSON string, r
 			return nil
 		}
 		return []StorageFlow{{PlayerID: playerID, BaseID: d["base_id"], ItemID: d["item_id"], At: at, Out: q}}
+	case "trading.sell_order_created":
+		q := num("quantity")
+		if q == 0 || d["item_id"] == "" {
+			return nil
+		}
+		return []StorageFlow{{PlayerID: playerID, ItemID: d["item_id"], At: at, Out: q}}
+	case "trading.order_cancelled":
+		q := num("quantity_remaining")
+		if q == 0 || d["item_id"] == "" {
+			return nil
+		}
+		return []StorageFlow{{PlayerID: playerID, BaseID: d["base_id"], ItemID: d["item_id"], At: at, Out: -q}}
+	case "trading.gift_sent":
+		q := num("quantity")
+		if d["source"] != "storage" || q == 0 || d["item_id"] == "" {
+			return nil
+		}
+		return []StorageFlow{{PlayerID: playerID, ItemID: d["item_id"], At: at, Out: q}}
 	case "crafting.completed":
 		if d["storage"] != "station" {
 			return nil
@@ -155,8 +204,11 @@ func FlowsFromEvent(playerID string, at time.Time, eventType, dataJSON string, r
 		r, ok := recipes[d["recipe_id"]]
 		runs := num("runs")
 		fac := d["facility_id"]
-		base := fac[strings.LastIndex(fac, ":")+1:]
-		if !ok || runs == 0 || base == "" {
+		base := ""
+		if i := strings.LastIndex(fac, ":"); i >= 0 {
+			base = fac[i+1:]
+		}
+		if !ok || runs == 0 || fac == "" {
 			return nil
 		}
 		var out []StorageFlow
@@ -225,14 +277,22 @@ func (s *Store) loadPlayerHistory(ctx context.Context, pid, since string) ([]Sto
 
 // LoadStorageFlows reads the action-log events for the given players since
 // `since` and converts them with FlowsFromEvent. It also returns each
-// player's action-log capture time (the coverage limit for StorageRates).
+// player's action-log coverage limit for StorageRates: the capture time, or
+// the newest stored event while the cursor is still catching up.
 func (s *Store) LoadStorageFlows(ctx context.Context, since time.Time, playerIDs []string, recipes map[string]RecipeIO) ([]StorageFlow, map[string]time.Time, error) {
 	var flows []StorageFlow
 	covered := map[string]time.Time{}
 	for _, pid := range playerIDs {
+		// A cursor that has not caught up is still paging through old events:
+		// the log is only known up to the newest event stored, not up to the
+		// capture time. (marketbot_010 on 2026-11-18: captured that day, newest
+		// event 11-06, so twelve days of crafts read as "no mining".)
 		var ts string
-		err := s.db.QueryRowContext(ctx,
-			`SELECT captured_at FROM action_log_cursor WHERE player_id = ?`, pid).Scan(&ts)
+		err := s.db.QueryRowContext(ctx, `
+			SELECT CASE WHEN c.caught_up = 0
+			            THEN COALESCE((SELECT MAX(e.created_at) FROM action_log_events e WHERE e.player_id = c.player_id), '')
+			            ELSE c.captured_at END
+			  FROM action_log_cursor c WHERE c.player_id = ?`, pid).Scan(&ts)
 		switch {
 		case err == sql.ErrNoRows:
 			covered[pid] = time.Time{} // no action log at all: nothing is covered
@@ -241,10 +301,15 @@ func (s *Store) LoadStorageFlows(ctx context.Context, since time.Time, playerIDs
 		default:
 			covered[pid] = parseCapturedAt(ts)
 		}
+		ownSell, err := s.ownSellOrders(ctx, pid)
+		if err != nil {
+			return nil, nil, err
+		}
 		rows, err := s.db.QueryContext(ctx, `
 			SELECT event_type, created_at, data_json FROM action_log_events
 			 WHERE player_id = ? AND created_at >= ?
-			   AND event_type IN ('trading.exchange_fill', 'crafting.completed')`, pid, rfc3339(since))
+			   AND event_type IN ('trading.exchange_fill', 'crafting.completed',
+			       'trading.sell_order_created', 'trading.order_cancelled', 'trading.gift_sent')`, pid, rfc3339(since))
 		if err != nil {
 			return nil, nil, fmt.Errorf("assets: load flows %s: %w", pid, err)
 		}
@@ -254,7 +319,16 @@ func (s *Store) LoadStorageFlows(ctx context.Context, since time.Time, playerIDs
 				_ = rows.Close()
 				return nil, nil, fmt.Errorf("assets: scan flow %s: %w", pid, serr)
 			}
-			flows = append(flows, FlowsFromEvent(pid, parseCapturedAt(created), typ, data, recipes)...)
+			if !movesStorage(typ, data, ownSell) {
+				continue
+			}
+			fs := FlowsFromEvent(pid, parseCapturedAt(created), typ, data, recipes)
+			if typ == "trading.sell_order_created" {
+				for i := range fs {
+					fs[i].BaseID = ownSell[eventOrderID(data)]
+				}
+			}
+			flows = append(flows, fs...)
 		}
 		err = rows.Err()
 		_ = rows.Close()
@@ -264,6 +338,67 @@ func (s *Store) LoadStorageFlows(ctx context.Context, since time.Time, playerIDs
 	}
 
 	return flows, covered, nil
+}
+
+// eventOrderID is the order_id of a trading event payload ("" if none).
+func eventOrderID(dataJSON string) string {
+	var d struct {
+		OrderID string `json:"order_id"`
+	}
+	_ = json.Unmarshal([]byte(dataJSON), &d)
+
+	return d.OrderID
+}
+
+// movesStorage reports whether a trading event changed station storage, given
+// the agent's own sell orders: a seller fill of an own order did not (the
+// units were escrowed at creation), and a cancel returns units only for a
+// sell order.
+func movesStorage(eventType, dataJSON string, ownSell map[string]string) bool {
+	_, own := ownSell[eventOrderID(dataJSON)]
+	switch eventType {
+	case "trading.exchange_fill":
+		var d struct {
+			Role string `json:"role"`
+		}
+		_ = json.Unmarshal([]byte(dataJSON), &d)
+		return d.Role != "seller" || !own
+	case "trading.order_cancelled":
+		return own
+	}
+
+	return true
+}
+
+// ownSellOrders maps every sell order the player ever created (any age: an
+// old order still fills) to the station it sits at, read from its fills or
+// its cancel; "" when the log never named the station.
+func (s *Store) ownSellOrders(ctx context.Context, pid string) (map[string]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT json_extract(c.data_json, '$.order_id'),
+		       COALESCE((SELECT json_extract(f.data_json, '$.base_id') FROM action_log_events f
+		                  WHERE f.player_id = c.player_id
+		                    AND f.event_type IN ('trading.exchange_fill', 'trading.order_cancelled')
+		                    AND json_extract(f.data_json, '$.order_id') = json_extract(c.data_json, '$.order_id')
+		                  LIMIT 1), '')
+		  FROM action_log_events c
+		 WHERE c.player_id = ? AND c.event_type = 'trading.sell_order_created'`, pid)
+	if err != nil {
+		return nil, fmt.Errorf("assets: own sell orders %s: %w", pid, err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := map[string]string{}
+	for rows.Next() {
+		var id, base sql.NullString
+		if err := rows.Scan(&id, &base); err != nil {
+			return nil, fmt.Errorf("assets: scan sell order %s: %w", pid, err)
+		}
+		if id.Valid && id.String != "" {
+			out[id.String] = base.String
+		}
+	}
+
+	return out, rows.Err()
 }
 
 // PlayersByAgentPrefix maps player id -> agent id for every known agent whose

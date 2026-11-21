@@ -9350,7 +9350,18 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_post_mission":
-		return fmt.Errorf("faction_post_mission requires complex payload; use the generic passthrough or MCP directly")
+		// The payload nests objectives and rewards, which the flag parser
+		// cannot express, so it is read whole from a JSON file.
+		if len(parts) != 2 || !strings.HasPrefix(parts[1], "@") {
+			return fmt.Errorf("usage: faction_post_mission @payload.json (a JSON object: title, description, type, objectives, rewards, ...)")
+		}
+		payload, err := readMissionPayload(strings.TrimPrefix(parts[1], "@"))
+		if err != nil {
+			return err
+		}
+		return simpleCommand(client, func(ctx context.Context) error {
+			return client.RawCommand(ctx, "faction_post_mission", payload)
+		}, ctx, 2*time.Second, cmd, format)
 
 	case "faction_list_missions":
 		return simpleCommand(client, client.FactionListMissions, ctx, 2*time.Second, cmd, format)
@@ -12142,4 +12153,26 @@ func battlePayload(parts []string) (map[string]any, error) {
 // stdin at EOF), which ends the session.
 func inputEnded(err error) bool {
 	return errors.Is(err, io.EOF)
+}
+
+// readMissionPayload loads a faction_post_mission payload: a JSON object that
+// must at least name a title and one objective, so a wrong file is refused
+// before it costs a mutation.
+func readMissionPayload(path string) (map[string]any, error) {
+	raw, err := os.ReadFile(path) // #nosec G304 -- operator-supplied path
+	if err != nil {
+		return nil, fmt.Errorf("faction_post_mission: read %s: %w", path, err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, fmt.Errorf("faction_post_mission: %s is not a JSON object: %w", path, err)
+	}
+	if t, _ := payload["title"].(string); t == "" {
+		return nil, fmt.Errorf("faction_post_mission: %s has no title", path)
+	}
+	if objs, _ := payload["objectives"].([]any); len(objs) == 0 {
+		return nil, fmt.Errorf("faction_post_mission: %s has no objectives", path)
+	}
+
+	return payload, nil
 }

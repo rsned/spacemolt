@@ -151,3 +151,74 @@ func TestStorageHistoryEvery(t *testing.T) {
 		}
 	}
 }
+
+// A sell order escrows its units when it is created, a storage gift leaves at
+// once, and a station craft at a bare facility id names no station: all three
+// yield flows with no base, which StorageRates books at the agent's main base.
+func TestFlowsFromEventWithoutABase(t *testing.T) {
+	recipes := map[string]RecipeIO{"refine_steel": {
+		Inputs: map[string]float64{"iron_ore": 5}, Outputs: map[string]float64{"steel_plate": 2}}}
+	order := FlowsFromEvent("p1", rateT0, "trading.sell_order_created",
+		`{"item_id":"iron_ore","order_id":"o1","price":"1","quantity":"25000"}`, recipes)
+	if len(order) != 1 || order[0].Out != 25000 || order[0].BaseID != "" {
+		t.Errorf("sell order created: got %+v", order)
+	}
+	cancel := FlowsFromEvent("p1", rateT0, "trading.order_cancelled",
+		`{"base_id":"b","item_id":"iron_ore","order_id":"o1","quantity_remaining":"101"}`, recipes)
+	if len(cancel) != 1 || cancel[0].Out != -101 || cancel[0].BaseID != "b" {
+		t.Errorf("order cancelled: got %+v", cancel)
+	}
+	gift := FlowsFromEvent("p1", rateT0, "trading.gift_sent",
+		`{"item_id":"carbon_ore","quantity":"1900","source":"storage"}`, recipes)
+	if len(gift) != 1 || gift[0].Out != 1900 || gift[0].BaseID != "" {
+		t.Errorf("storage gift: got %+v", gift)
+	}
+	if got := FlowsFromEvent("p1", rateT0, "trading.gift_sent",
+		`{"item_id":"carbon_ore","quantity":"1900","source":"cargo"}`, recipes); len(got) != 0 {
+		t.Errorf("cargo gift must not touch storage, got %+v", got)
+	}
+	craft := FlowsFromEvent("p1", rateT0, "crafting.completed",
+		`{"facility_id":"5ea501c1f44023d5742086dddc0703bd","recipe_id":"refine_steel","runs":"250","storage":"station"}`, recipes)
+	if len(craft) != 2 || craft[0].BaseID != "" || craft[1].BaseID != "" {
+		t.Errorf("bare facility craft: got %+v", craft)
+	}
+
+	snaps := []StorageSnapshot{
+		{PlayerID: "p1", At: rateT0, Items: map[BaseItem]float64{
+			{"kael", "iron_ore"}: 70000, {"frontier", "iron_ore"}: 72}},
+		{PlayerID: "p1", At: rateT0.Add(12 * time.Hour), Items: map[BaseItem]float64{
+			{"kael", "iron_ore"}: 50000, {"frontier", "iron_ore"}: 72}},
+	}
+	order[0].At = rateT0.Add(time.Hour)
+	for _, r := range StorageRates(snaps, order, nil) {
+		want := 0.0
+		if r.BaseID == "kael" {
+			want = 10000 // (-20000 + 25000) in 12h
+		}
+		if r.PerDay != want {
+			t.Errorf("%s: want %v/day, got %v", r.BaseID, want, r.PerDay)
+		}
+	}
+}
+
+// A fill of the agent's own sell order moved nothing (the units were escrowed
+// at creation), and only a sell order's cancel returns units.
+func TestMovesStorage(t *testing.T) {
+	own := map[string]string{"o1": "b"}
+	for _, tc := range []struct {
+		typ, data string
+		want      bool
+	}{
+		{"trading.exchange_fill", `{"order_id":"o1","role":"seller"}`, false},
+		{"trading.exchange_fill", `{"order_id":"theirs","role":"seller"}`, true},
+		{"trading.exchange_fill", `{"order_id":"o1","role":"buyer"}`, true},
+		{"trading.order_cancelled", `{"order_id":"o1"}`, true},
+		{"trading.order_cancelled", `{"order_id":"a-buy-order"}`, false},
+		{"trading.sell_order_created", `{"order_id":"o1"}`, true},
+		{"crafting.completed", `{}`, true},
+	} {
+		if got := movesStorage(tc.typ, tc.data, own); got != tc.want {
+			t.Errorf("%s %s: want %v, got %v", tc.typ, tc.data, tc.want, got)
+		}
+	}
+}

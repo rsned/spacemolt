@@ -75,8 +75,11 @@ func LoadGalaxy(ctx context.Context, dbPath string) (*Galaxy, error) {
 	}
 	defer db.Close() //nolint:errcheck
 
+	// Sparse rows from partial map imports leave the nullable columns NULL;
+	// one such row must not fail the whole load.
 	rows, err := db.QueryContext(ctx, `SELECT id, name, position_x, position_y,
-		police_level, empire, is_stronghold, last_visited_tick FROM systems`)
+		COALESCE(police_level,0), COALESCE(empire,''), COALESCE(is_stronghold,0),
+		last_visited_tick FROM systems`)
 	if err != nil {
 		return nil, fmt.Errorf("query systems: %w", err)
 	}
@@ -89,7 +92,9 @@ func LoadGalaxy(ctx context.Context, dbPath string) (*Galaxy, error) {
 	}
 	idx := map[string]int{}
 	for rows.Next() {
-		var n SystemNode
+		// Non-nil so a lane-less system serializes [] rather than null; the
+		// galaxy map iterates connections unguarded.
+		n := SystemNode{Connections: []string{}}
 		if err = rows.Scan(&n.ID, &n.Name, &n.X, &n.Y, &n.Police, &n.Empire,
 			&n.Stronghold, &n.LastVisited); err != nil {
 			return nil, fmt.Errorf("scan system: %w", err)

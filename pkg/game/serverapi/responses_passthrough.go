@@ -26,12 +26,22 @@ type FactionGaragesResponse struct {
 
 // FactionGarage is one station's garage in a faction_garages response.
 type FactionGarage struct {
-	BaseID     string   `json:"base_id"`
-	BaseName   string   `json:"base_name"`
-	SystemName string   `json:"system_name"`
-	Capacity   int      `json:"capacity"`
-	Used       int      `json:"used"`
-	Ships      []string `json:"ships,omitempty"`
+	BaseID     string       `json:"base_id"`
+	BaseName   string       `json:"base_name"`
+	SystemName string       `json:"system_name"`
+	Capacity   int          `json:"capacity"`
+	Used       int          `json:"used"`
+	Ships      []GarageShip `json:"ships,omitempty"`
+}
+
+// GarageShip is one stored hull (live reply 2026-11-21: objects, not ids).
+type GarageShip struct {
+	ShipID        string `json:"ship_id"`
+	ClassID       string `json:"class_id"`
+	ClassName     string `json:"class_name"`
+	DepositorID   string `json:"depositor_id"`
+	DepositorName string `json:"depositor_name"`
+	DepositedTick int64  `json:"deposited_tick"`
 }
 
 // HuntResponse is returned by hunt. Hunting resolves on a later tick, so the
