@@ -284,7 +284,9 @@ type HuntDeps struct {
 	Sellers func(ctx context.Context, itemID string, minQty float64) ([]market.ItemSeller, error)
 	// ReportSortie reports a closed sortie's result (nil -> not reported).
 	ReportSortie func(result string)
-	// Version and Commit identify the worker build in decision records.
+	// Version and Commit identify the worker build. Decision records carry
+	// Commit as worker_commit; their game_version is the server's version
+	// only, never Version.
 	Version, Commit string
 }
 
@@ -534,13 +536,19 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 
 	// The sortie starts here, in memory only, so the provision decision
 	// carries its id. Nothing leaves the dock unable to fire: unarmed, the
-	// sortie ends blocked_unarmed where it stands.
+	// hunter flies to rearm at the nearer of its depot and a known seller
+	// (the in-memory sortie is dropped, never closed), or, docked there
+	// already or with nowhere known, the sortie ends blocked_unarmed where it
+	// stands.
 	reserve := 0
 	if job.need != nil {
 		reserve = job.need.Quantity - held
 	}
 	sortie = huntNewSortie(deps, job)
 	if !huntProvision(ctx, deps, out, who, job, sortie, reserve) {
+		if huntRearmElsewhere(ctx, deps, out, who) {
+			return nil
+		}
 		publishActivity(deps.SetActivity, "Hunt · unarmed")
 		huntCloseSortie(ctx, deps, out, sortie, job, huntdecide.ResultBlockedUnarmed)
 		return nil
@@ -696,7 +704,7 @@ grounds:
 				huntSaveSortie(deps, out, s)
 			}
 			if !armed {
-				fmt.Fprintf(out, "hunt[%s]: no weapon can fire; %s held for next pass (needs ammo)\n", who, job.boardID) //nolint:errcheck
+				fmt.Fprintf(out, "hunt[%s]: no weapon can fire; returning to rearm\n", who) //nolint:errcheck
 				publishActivity(deps.SetActivity, "Hunt · out of ammo")
 				huntHeadHome(ctx, deps, out, who, s, huntOptRearm)
 				return
@@ -771,12 +779,18 @@ grounds:
 			return
 		}
 		// Step 8 for a need: fly the parts to the target base and complete.
-		// The delivery leg is part of the sortie, which closes completed once
-		// the ship is docked (here, or on the next pass).
-		huntSortiePending(deps, out, s, huntdecide.ResultCompleted)
-		huntDeliverNeed(ctx, deps, out, who, job)
+		// The delivery leg is part of the sortie. It closes completed only
+		// when the delivery completed, interrupted otherwise, once the ship
+		// is docked (here, or on the next pass). Pending is interrupted
+		// until the delivery says otherwise.
+		huntSortiePending(deps, out, s, huntdecide.ResultInterrupted)
+		result := huntdecide.ResultInterrupted
+		if huntDeliverNeed(ctx, deps, out, who, job) {
+			result = huntdecide.ResultCompleted
+			huntSortiePending(deps, out, s, result)
+		}
 		if st := deps.Client.GetState(); st != nil && st.Doc {
-			huntCloseSortie(ctx, deps, out, s, job, huntdecide.ResultCompleted)
+			huntCloseSortie(ctx, deps, out, s, job, result)
 		}
 		return
 	}
@@ -1061,12 +1075,18 @@ func huntBoardJob(ctx context.Context, deps HuntDeps, out io.Writer, who string,
 // remaining allowance, at most huntMaxGrounds). reached lists every ground
 // the ship reached, in order, with whether it held quarry; on ok the last one
 // is the ground it settled on.
-func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, wildlifeOnly bool, skip []string, limit int) (quarry []serverapi.NearbyCreature, reached []huntdecide.GroundVisit, ok bool) {
+//
+// end says why a search with ok=false stopped (huntSearchEnd); it is only
+// for labelling the sortie and changes nothing the search does.
+func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, wildlifeOnly bool, skip []string, limit int) (quarry []serverapi.NearbyCreature, reached []huntdecide.GroundVisit, ok bool, end huntSearchEnd) {
 	tried := slices.Clone(skip)
 	var here []string // grounds reached by this call
 	// Creature work leaves any ground a predator (or a creature of unknown
 	// role) is at; predatorAt is that ground while the ship is still on it.
 	predatorAt := ""
+	// A sweep cut short by a failed leg (not by running out of grounds) is
+	// not exhausted, though it still ends the way a sweep does.
+	exhausted := true
 	for range min(huntMaxGrounds, limit) {
 		var poi string
 		var err error
@@ -1089,16 +1109,20 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		}
 		if err != nil {
 			if huntEscapeBattle(ctx, deps, out, who, "on the way to a ground", err) {
-				return nil, reached, false
+				return nil, reached, false, huntSearchFailed
 			}
 			if len(here) > 0 {
+				exhausted = huntNoGroundErr(err)
 				break // the sweep ran out of grounds; report it as a sweep
 			}
 			fmt.Fprintf(out, "hunt: reaching a wildlife POI: %v; %s held for next pass\n", err, job.boardID) //nolint:errcheck
 			if errors.Is(err, errHuntNoNeedGround) {
 				huntNeedSearchFailed(deps, out, who, job)
 			}
-			return nil, reached, false
+			if huntNoGroundErr(err) {
+				return nil, reached, false, huntSearchExhausted
+			}
+			return nil, reached, false, huntSearchFailed
 		}
 		tried = append(tried, poi)
 		here = append(here, poi)
@@ -1106,7 +1130,7 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 
 		q, predator, rok := huntReadGround(ctx, deps, out, who, job, wildlifeOnly, poi)
 		if !rok {
-			return nil, reached, false
+			return nil, reached, false, huntSearchFailed
 		}
 		if predator {
 			predatorAt = poi
@@ -1115,13 +1139,59 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		predatorAt = ""
 		if len(q) > 0 {
 			reached[len(reached)-1].Quarry = true
-			return q, reached, true
+			return q, reached, true, huntSearchFound
 		}
 	}
 	fmt.Fprintf(out, "hunt: no quarry found across %d ground(s) %v; %s held for next pass\n", len(here), here, job.boardID) //nolint:errcheck
 	huntNeedSearchFailed(deps, out, who, job)
-	huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
-	return nil, reached, false
+	left := huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
+	switch {
+	case exhausted:
+		return nil, reached, false, huntSearchExhausted
+	case left:
+		return nil, reached, false, huntSearchHeadedIn
+	}
+	return nil, reached, false, huntSearchFailed
+}
+
+// huntSearchEnd is why huntFindQuarry stopped.
+type huntSearchEnd int
+
+const (
+	// huntSearchFound: quarry found (ok=true).
+	huntSearchFound huntSearchEnd = iota
+	// huntSearchExhausted: out of grounds, or the limit reached, with
+	// nothing found: the sortie's no_quarry.
+	huntSearchExhausted
+	// huntSearchFailed: a read, a leg or an ambush cut the search short;
+	// nothing was learned about the grounds.
+	huntSearchFailed
+	// huntSearchHeadedIn: cut short as huntSearchFailed, and the ship then
+	// left a predator ground for a station.
+	huntSearchHeadedIn
+)
+
+// errHuntNoGround marks a travel error meaning no candidate ground is left
+// to fly to, as opposed to a leg that failed on the way.
+var errHuntNoGround = errors.New("no hunting ground left")
+
+// huntNoGroundError is a no-ground travel error carrying its own message;
+// errors.Is matches it to errHuntNoGround.
+type huntNoGroundError struct{ msg string }
+
+func (e huntNoGroundError) Error() string { return e.msg }
+
+func (e huntNoGroundError) Is(target error) bool { return target == errHuntNoGround }
+
+// huntNoGround formats a no-ground travel error.
+func huntNoGround(format string, a ...any) error {
+	return huntNoGroundError{msg: fmt.Sprintf(format, a...)}
+}
+
+// huntNoGroundErr reports whether a travel error means no ground is left
+// (including a Station Need's errHuntNoNeedGround).
+func huntNoGroundErr(err error) bool {
+	return errors.Is(err, errHuntNoGround) || errors.Is(err, errHuntNoNeedGround)
 }
 
 // huntReadGround reads the ground the ship stands at, poi, and returns the
@@ -1200,17 +1270,19 @@ func huntPredatorPresent(creatures []serverapi.NearbyCreature) (serverapi.Nearby
 
 // huntLeavePredatorGround moves a ship that is still standing on a predator
 // ground (the sweep found nowhere else to go) to the nearest station, rather
-// than leaving it parked there until the next pass.
-func huntLeavePredatorGround(ctx context.Context, deps HuntDeps, out io.Writer, who, predatorAt string) {
+// than leaving it parked there until the next pass. left reports that it
+// headed for a station (whether or not the leg succeeded).
+func huntLeavePredatorGround(ctx context.Context, deps HuntDeps, out io.Writer, who, predatorAt string) (left bool) {
 	st := deps.Client.GetState()
 	if predatorAt == "" || st == nil || st.CurrentPOI != predatorAt {
-		return
+		return false
 	}
 	fmt.Fprintf(out, "hunt[%s]: leaving predator ground %s for the nearest station\n", who, predatorAt) //nolint:errcheck
 	if err := huntRecoverToStation(ctx, deps, out, st.System.ID); err != nil {
 		fmt.Fprintf(out, "hunt[%s]: leaving %s failed: %v\n", who, predatorAt, err) //nolint:errcheck
 		huntEscapeBattle(ctx, deps, out, who, "leaving a predator ground", err)
 	}
+	return true
 }
 
 // huntObjectiveTarget returns the first kill_creature objective's target id and
@@ -1955,7 +2027,7 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 		// only where that species lives, under the rules for that ground.
 		destSystem, destPOI, why = huntFindGround(ctx, deps.KB, current, poiType, exclude, policed)
 		if destPOI == "" {
-			return "", fmt.Errorf("no %s reachable from %s that suits %s", poiType, current, required)
+			return "", huntNoGround("no %s reachable from %s that suits %s", poiType, current, required)
 		}
 	} else {
 		// Unscoped: any wildlife POI will do, nearest and least-worked first,
@@ -1975,7 +2047,7 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 		}
 	}
 	if destPOI == "" {
-		return "", fmt.Errorf("no known wildlife POI reachable from %s", current)
+		return "", huntNoGround("no known wildlife POI reachable from %s", current)
 	}
 	if state.CurrentPOI == destPOI && !state.Doc {
 		return destPOI, nil // already parked on the quarry's doorstep

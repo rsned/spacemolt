@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -199,9 +200,40 @@ func huntGoRearm(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 		return nil
 	}
 	fmt.Fprintf(out, "hunt[%s]: out of ammo; going to rearm at %s/%s (%s)\n", who, sys, poi, strings.TrimSpace(why)) //nolint:errcheck
+	return huntRearmLeg(ctx, deps, out, sys, poi)
+}
+
+// huntRearmLeg is the flight of huntGoRearm once the destination is chosen:
+// policed routes only, then dock.
+func huntRearmLeg(ctx context.Context, deps HuntDeps, out io.Writer, sys, poi string) error {
 	publishActivity(deps.SetActivity, "Hunt · going to rearm")
 	if err := huntFlyTo(ctx, deps, out, sys == huntHomeSystem, sys, poi); err != nil {
 		return fmt.Errorf("rearm leg to %s: %w", poi, err)
 	}
 	return nil
+}
+
+// huntRearmElsewhere runs when dock-side provisioning left the ship unarmed.
+// When huntRearmDestination names a station other than the one the ship is
+// docked at (station ids compared as huntAtStation does, base id or POI id),
+// it flies there and returns true: the caller drops its in-memory sortie and
+// ends the pass. false (no destination known, or already docked at it) means
+// the hunter is blocked unarmed where it stands; nothing was flown, so this
+// never loops.
+func huntRearmElsewhere(ctx context.Context, deps HuntDeps, out io.Writer, who string) bool {
+	st := deps.Client.GetState()
+	if st == nil {
+		return false
+	}
+	from := cmp.Or(st.System.ID, st.CurrentSystem)
+	sys, poi, why, ok := huntRearmDestination(ctx, deps, from, huntRearmAmmoItems(ctx, deps.KB, huntReadLoadout(ctx, deps)))
+	if !ok || huntAtStation(ctx, deps.KB, st, poi) {
+		return false
+	}
+	fmt.Fprintf(out, "hunt[%s]: unarmed at %s; going to rearm at %s/%s (%s)\n", who, st.CurrentPOI, sys, poi, strings.TrimSpace(why)) //nolint:errcheck
+	if err := huntRearmLeg(ctx, deps, out, sys, poi); err != nil {
+		fmt.Fprintf(out, "hunt[%s]: going to rearm: %v; the next pass recovers to a station\n", who, err) //nolint:errcheck
+		huntEscapeBattle(ctx, deps, out, who, "going to rearm", err)
+	}
+	return true
 }

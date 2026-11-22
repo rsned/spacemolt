@@ -558,6 +558,13 @@ func TestHuntForcedDryReturnMakesNoDecision(t *testing.T) {
 			}
 		}
 		e.pass(t)
+		out := e.out.String()
+		if want := "hunt[pirate-6]: no weapon can fire; returning to rearm"; !strings.Contains(out, want) {
+			t.Errorf("output lacks %q:\n%s", want, out)
+		}
+		if strings.Contains(out, "(needs ammo)") {
+			t.Errorf("the line must not claim the mission is held for next pass:\n%s", out)
+		}
 		assertForcedDry(t, e, 0)
 	})
 	t.Run("after a fight", func(t *testing.T) {
@@ -614,6 +621,93 @@ func TestHuntBlockedUnarmedNeverLeavesDock(t *testing.T) {
 		t.Errorf("activity = %v, want last Hunt · unarmed", e.activity)
 	}
 }
+
+// An unarmed hunter docked away from its depot does not end blocked_unarmed
+// where it stands: it drops the in-memory sortie and flies to rearm. Docked at
+// the depot on the next pass and still unarmed, it ends blocked_unarmed and
+// does not fly again.
+func TestHuntUnarmedAwayFromHomeGoesToRearm(t *testing.T) {
+	e := newSortieEnv(t, huntFakeOpts{
+		board:    []boardMission{{id: sortieMission, difficulty: 1, quantity: 1}},
+		startPOI: "far_station",
+	}, cannon(0))
+	ctx := context.Background()
+	_ = e.deps.KB.RememberPOI(ctx, knowledge.POI{ID: "far_station", SystemID: "test_system", Type: "station"})
+	_ = e.deps.KB.RememberBase(ctx, knowledge.SpaceBase{ID: "far_base", POIID: "far_station", PublicAccess: true})
+	e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+
+	e.pass(t)
+	if len(e.reports) != 0 {
+		t.Errorf("ReportSortie = %v, want nothing: the sortie is dropped, not closed", e.reports)
+	}
+	if n := len(e.ofType(t, "sortie_end")) + len(e.ofType(t, "sortie_start")); n != 0 {
+		t.Errorf("want no sortie_start/sortie_end records, got %d", n)
+	}
+	if e.fileExists() {
+		t.Error("a dropped sortie must leave no sortie file")
+	}
+	home := e.indexOf("travel:haven_station")
+	if home < 0 || e.countCall("dock") != 1 || e.indexOf("dock") < home {
+		t.Fatalf("must fly to the home depot and dock, calls %v\n%s", e.calls(), e.out)
+	}
+	if e.fake.state.CurrentPOI != "haven_station" || !e.fake.state.Doc {
+		t.Errorf("want docked at haven_station, at %q docked=%v", e.fake.state.CurrentPOI, e.fake.state.Doc)
+	}
+	want := "hunt[pirate-6]: unarmed at far_station; going to rearm at test_system/haven_station (home depot, 0 jump(s))"
+	if !strings.Contains(e.out.String(), want) {
+		t.Errorf("output lacks %q:\n%s", want, e.out)
+	}
+	if n := len(e.activity); n == 0 || e.activity[n-1] != "Hunt · going to rearm" {
+		t.Errorf("activity = %v, want last Hunt · going to rearm", e.activity)
+	}
+	if e.fake.huntCalls != 0 {
+		t.Errorf("an unarmed hunter must not engage, calls %v", e.calls())
+	}
+
+	// Docked at the depot, still nothing to load: blocked_unarmed, no flight.
+	travelled := len(e.travelled())
+	e.pass(t)
+	if !slices.Equal(e.reports, []string{huntdecide.ResultBlockedUnarmed}) {
+		t.Errorf("ReportSortie = %v, want [blocked_unarmed] at the depot\n%s", e.reports, e.out)
+	}
+	if len(e.travelled()) != travelled {
+		t.Errorf("at the depot it must not fly again, travel %v", e.travelled())
+	}
+}
+
+// A nearby read that fails out at a ground is not a finding about the
+// grounds: the sortie is not labelled no_quarry.
+func TestHuntSortieReadErrorIsNotNoQuarry(t *testing.T) {
+	t.Run("from the dock", func(t *testing.T) {
+		e := sortieMissionEnv(t, 1, provLasers(1))
+		e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+		e.deps.Client = &nearbyFailClient{sortieFake: e.fake}
+		e.pass(t)
+		if !slices.Contains(e.calls(), "travel:"+sortieGround1) {
+			t.Fatalf("the test needs the ship to reach a ground, calls %v\n%s", e.calls(), e.out)
+		}
+		if s := e.loadFile(t); s.PendingResult == huntdecide.ResultNoQuarry {
+			t.Errorf("pending = %q: a read error is not no_quarry\n%s", s.PendingResult, e.out)
+		}
+		if len(e.reports) != 0 {
+			t.Errorf("nothing closes out at a ground, got %v", e.reports)
+		}
+	})
+	t.Run("resumed at its ground", func(t *testing.T) {
+		e := resumeEnv(t, 1, huntFakeOpts{}, huntdecide.GroundVisit{POI: sortieGround1, Quarry: true})
+		e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+		e.deps.Client = &nearbyFailClient{sortieFake: e.fake}
+		e.pass(t)
+		if s := e.loadFile(t); s.PendingResult == huntdecide.ResultNoQuarry {
+			t.Errorf("pending = %q: a read error is not no_quarry\n%s", s.PendingResult, e.out)
+		}
+	})
+}
+
+// nearbyFailClient fails every get_nearby.
+type nearbyFailClient struct{ *sortieFake }
+
+func (c *nearbyFailClient) GetNearby(context.Context) error { return errors.New("nearby timeout") }
 
 func TestHuntSortieGroundCap(t *testing.T) {
 	e := newSortieEnv(t, huntFakeOpts{

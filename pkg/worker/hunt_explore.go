@@ -32,7 +32,8 @@ func ParseHuntExplore(spec string) (map[huntdecide.Kind]float64, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%q: bad epsilon: %w", part, err)
 		}
-		if eps < 0 || eps > 1 {
+		// Written so NaN fails too: every comparison with NaN is false.
+		if !(eps >= 0 && eps <= 1) {
 			return nil, fmt.Errorf("%q: epsilon %v outside [0, 1]", part, eps)
 		}
 		out[kind] = eps

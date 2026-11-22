@@ -39,8 +39,9 @@ func huntDecisionState(ctx context.Context, deps HuntDeps, job huntJob, s *huntd
 		JumpsToHome:    -1,
 		Weapons:        []huntdecide.Weapon{},
 		Ammo:           []huntdecide.Ammo{},
-		GameVersion:    deps.Version,
-		WorkerCommit:   deps.Commit,
+		// GameVersion is the server's version only (set below; empty while
+		// unknown). The worker's own build is WorkerCommit.
+		WorkerCommit: deps.Commit,
 	}
 	if st != nil {
 		out.ShipClass = st.Ship.ClassID
@@ -59,9 +60,7 @@ func huntDecisionState(ctx context.Context, deps HuntDeps, job huntJob, s *huntd
 			out.PoliceLevel = st.System.PoliceLevel
 		}
 		out.Tick = st.CurrentTick
-		if st.ServerVersion != "" {
-			out.GameVersion = st.ServerVersion
-		}
+		out.GameVersion = st.ServerVersion
 	}
 
 	out.Weapons, out.Ammo = huntDecisionWeapons(ctx, deps.KB, lo)

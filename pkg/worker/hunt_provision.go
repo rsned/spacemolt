@@ -101,13 +101,17 @@ func huntProvisionOptions(lo reload.Loadout, freeHold, reserve int) []huntdecide
 	return opts
 }
 
-// huntLoadoutArmed reports whether a weapon can fire: an ammo-free one is
-// fitted, or an ammo-fed one holds rounds.
+// huntLoadoutArmed reports whether the ship can fire, by huntCanFire's rule:
+// an ammo-free weapon is fitted, or an ammo-fed one holds rounds, or fitting
+// ammo for one is aboard (its Candidates are the fitting stacks in cargo). A
+// dry magazine with ammo aboard is loaded by the reload gate at the ground.
 func huntLoadoutArmed(lo reload.Loadout) bool {
 	if len(lo.Free) > 0 {
 		return true
 	}
-	return slices.ContainsFunc(lo.Plan, func(e reload.Entry) bool { return e.CurrentAmmo > 0 })
+	return slices.ContainsFunc(lo.Plan, func(e reload.Entry) bool {
+		return e.CurrentAmmo > 0 || slices.ContainsFunc(e.Candidates, func(c reload.Candidate) bool { return c.Quantity > 0 })
+	})
 }
 
 // huntProvision runs docked, with a job in hand, before the hunter leaves. It
@@ -151,7 +155,9 @@ func huntProvision(ctx context.Context, deps HuntDeps, out io.Writer, who string
 		rec.reloads = reloads
 	}
 
-	// Load what is aboard, then read the ship again to see whether it can fire.
+	// Load what is aboard, then read the ship again to see whether it can fire:
+	// loaded rounds, or fitting ammo aboard should the dock-side reload have
+	// been refused (huntLoadoutArmed).
 	armed = huntReload(ctx, deps, out, who)
 	if after, ferr := reload.FetchLoadout(ctx, deps.Client, deps.KB); ferr == nil {
 		armed = huntLoadoutArmed(after)

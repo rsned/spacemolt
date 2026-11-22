@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/huntdecide"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 )
 
@@ -413,6 +415,52 @@ func TestHuntDeliveryStopsAtQuantityAndDelivers(t *testing.T) {
 	if slices.Contains(f.calls[lastLoot:], "travel:haven_station") {
 		t.Error("delivered to the accepting station, not the mission's target base")
 	}
+}
+
+// A need's sortie closes completed only when the delivery completed; a
+// delivery that fails closes it interrupted.
+func TestHuntNeedSortieClosesOnDeliveryOutcome(t *testing.T) {
+	t.Run("delivered", func(t *testing.T) {
+		f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{cargoCapacity: 16, creatures: huntGrazers("c1", "c2", "c3", "c4", "c5")})
+		var log strings.Builder
+		deps := huntNeedDeps(f, huntNeedKBFixture(t), &log)
+		var reports []string
+		deps.ReportSortie = func(r string) { reports = append(reports, r) }
+		if err := Hunt(context.Background(), deps); err != nil {
+			t.Fatalf("Hunt: %v", err)
+		}
+		if !called(f.huntFake, "complete:hex-caustic") {
+			t.Fatalf("delivery must complete; calls %v\n%s", f.calls, log.String())
+		}
+		if !slices.Equal(reports, []string{huntdecide.ResultCompleted}) {
+			t.Errorf("ReportSortie = %v, want [completed]\n%s", reports, log.String())
+		}
+	})
+	t.Run("delivery failed", func(t *testing.T) {
+		f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{cargoCapacity: 16, creatures: huntGrazers("c1", "c2", "c3", "c4", "c5")})
+		var log strings.Builder
+		deps := huntNeedDeps(f, huntNeedKBFixture(t), &log)
+		deps.Client = &completeFailNeedClient{huntNeedFake: f}
+		var reports []string
+		deps.ReportSortie = func(r string) { reports = append(reports, r) }
+		if err := Hunt(context.Background(), deps); err != nil {
+			t.Fatalf("Hunt: %v", err)
+		}
+		if !called(f.huntFake, "complete_failed:hex-caustic") {
+			t.Fatalf("the test needs the completion to be tried and fail; calls %v\n%s", f.calls, log.String())
+		}
+		if !slices.Equal(reports, []string{huntdecide.ResultInterrupted}) {
+			t.Errorf("ReportSortie = %v, want [interrupted]\n%s", reports, log.String())
+		}
+	})
+}
+
+// completeFailNeedClient refuses every mission completion.
+type completeFailNeedClient struct{ *huntNeedFake }
+
+func (c *completeFailNeedClient) CompleteMission(_ context.Context, id string) error {
+	c.calls = append(c.calls, "complete_failed:"+id)
+	return errors.New("mission not ready")
 }
 
 func TestHuntDeliveryMissionPartWinsHoldSpace(t *testing.T) {

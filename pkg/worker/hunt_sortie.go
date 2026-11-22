@@ -217,15 +217,16 @@ func huntResumeStayAt(s *huntdecide.Sortie, currentPOI string) string {
 // huntMaxSortieGrounds across the sortie. stayAt, when set, is the ground the
 // ship already stands at (huntResumeStayAt): it is read first and hunted
 // again if quarry is still there, without counting as a new ground. Each
-// ground reached is added to s.Grounds and the file saved. ok=false sets
-// PendingResult no_quarry: the cap is reached or no ground with quarry was
-// found.
+// ground reached is added to s.Grounds and the file saved. ok=false ends the
+// pass. PendingResult is no_quarry only when the cap is reached or the search
+// ran out of grounds with nothing found; a search cut short (a read error, a
+// failed leg, an ambush) leaves it empty, or interrupted when the ship then
+// heads for a station.
 func huntSortieGround(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, s *huntdecide.Sortie, wildlifeOnly bool, stayAt string) ([]serverapi.NearbyCreature, bool) {
 	predatorAt := ""
 	if stayAt != "" {
 		quarry, predator, ok := huntReadGround(ctx, deps, out, who, job, wildlifeOnly, stayAt)
 		if !ok {
-			huntSortiePending(deps, out, s, huntdecide.ResultNoQuarry)
 			return nil, false
 		}
 		if len(quarry) > 0 {
@@ -244,17 +245,23 @@ func huntSortieGround(ctx context.Context, deps HuntDeps, out io.Writer, who str
 		huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
 		return nil, false
 	}
-	quarry, reached, ok := huntFindQuarry(ctx, deps, out, who, job, wildlifeOnly, s.Visited(), remaining)
+	quarry, reached, ok, end := huntFindQuarry(ctx, deps, out, who, job, wildlifeOnly, s.Visited(), remaining)
 	if len(reached) > 0 {
 		s.Grounds = append(s.Grounds, reached...)
 		huntSaveSortie(deps, out, s)
 	}
-	if !ok {
+	if ok {
+		return quarry, true
+	}
+	if end == huntSearchExhausted {
 		huntSortiePending(deps, out, s, huntdecide.ResultNoQuarry)
 		huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
 		return nil, false
 	}
-	return quarry, true
+	if huntLeavePredatorGround(ctx, deps, out, who, predatorAt) || end == huntSearchHeadedIn {
+		huntSortiePending(deps, out, s, huntdecide.ResultInterrupted)
+	}
+	return nil, false
 }
 
 // huntReturnOptions are the options of a return decision: continue only when

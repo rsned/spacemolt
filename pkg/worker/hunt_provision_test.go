@@ -27,7 +27,10 @@ type huntProvisionFake struct {
 	storage  map[string]int
 	listings []game.MarketListing
 	shipErr  error
-	calls    []string
+	// reloadErr, when set, refuses every reload (the server refusing it while
+	// docked, say) and loads nothing.
+	reloadErr error
+	calls     []string
 }
 
 func (p *huntProvisionFake) GetShip(context.Context) error { return p.shipErr }
@@ -91,6 +94,9 @@ func (p *huntProvisionFake) Buy(_ context.Context, id string, qty float64) error
 
 func (p *huntProvisionFake) Reload(_ context.Context, weapon, ammo string) error {
 	p.calls = append(p.calls, "reload:"+weapon+"<-"+ammo)
+	if p.reloadErr != nil {
+		return p.reloadErr
+	}
 	if p.cargo[ammo] <= 0 {
 		return errors.New("no ammo")
 	}
@@ -360,6 +366,30 @@ func TestHuntProvisionBlockedUnarmed(t *testing.T) {
 	}
 	if e.outcomeData(t)["armed"] != false {
 		t.Errorf("outcome armed = %v", e.outcomeData(t)["armed"])
+	}
+}
+
+// A refused dock-side reload leaves the magazines dry, but fitting ammo is now
+// aboard: the ship is armed (the reload gate at the ground loads it), exactly
+// as huntCanFire judges it.
+func TestHuntProvisionArmedByAmmoAboardWhenReloadRefused(t *testing.T) {
+	e := newProvEnv(t, provCannons(3))
+	e.fake.storage["standard_rounds_box"] = 50
+	e.fake.reloadErr = errors.New("cannot reload while docked")
+	if !e.run(0) {
+		t.Fatalf("fitting ammo aboard must count as armed\n%s", e.out)
+	}
+	if len(e.fake.called("reload:")) == 0 {
+		t.Fatalf("the test needs the dock-side reload to be tried and refused, calls %v", e.fake.calls)
+	}
+	if e.fake.cargo["standard_rounds_box"] <= 0 {
+		t.Errorf("boxes aboard = %d, want the withdrawn boxes", e.fake.cargo["standard_rounds_box"])
+	}
+	if strings.Contains(e.out.String(), "BLOCKED UNARMED") {
+		t.Errorf("must not block with ammo aboard:\n%s", e.out)
+	}
+	if e.outcomeData(t)["armed"] != true {
+		t.Errorf("outcome armed = %v, want true", e.outcomeData(t)["armed"])
 	}
 }
 

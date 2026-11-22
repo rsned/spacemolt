@@ -237,7 +237,7 @@ func TestParseHuntExplore(t *testing.T) {
 	if len(got) != 2 || got[huntdecide.KindProvision] != 0.15 || got[huntdecide.KindReturn] != 0.05 {
 		t.Errorf("valid spec = %v", got)
 	}
-	for _, bad := range []string{"ground=0.1", "return", "return=2", "return=-0.1", "return=x"} {
+	for _, bad := range []string{"ground=0.1", "return", "return=2", "return=-0.1", "return=x", "return=NaN", "return=Inf", "provision=-Inf"} {
 		if _, err := ParseHuntExplore(bad); err == nil {
 			t.Errorf("ParseHuntExplore(%q) must fail", bad)
 		}

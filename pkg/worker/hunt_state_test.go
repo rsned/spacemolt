@@ -50,7 +50,9 @@ func TestHuntDecisionStateProjectsShipAmmoAndSortie(t *testing.T) {
 
 	s := huntDecisionState(context.Background(), deps, job, sortie, lo)
 
-	if s.AgentID != "pirate-6" || s.GameVersion == "" || s.WorkerCommit != "abc123" {
+	// The server version is unknown in this fixture, so game_version is empty:
+	// the worker's own version never stands in for it.
+	if s.AgentID != "pirate-6" || s.GameVersion != "" || s.WorkerCommit != "abc123" {
 		t.Errorf("identity fields wrong: %+v", s)
 	}
 	if len(s.Weapons) != 2 {
@@ -138,5 +140,19 @@ func TestHuntDecisionStateHasNoPassword(t *testing.T) {
 	}
 	if strings.Contains(string(b), "assword") || strings.Contains(string(b), "hunter2-secret-value") {
 		t.Errorf("decision state leaks the password: %s", b)
+	}
+}
+
+// game_version is the server's version only; the worker's build rides in
+// worker_commit and never fills an unknown server version.
+func TestHuntDecisionStateGameVersionIsServerOnly(t *testing.T) {
+	deps, f := huntStateFixture(t)
+	deps.Version = "v9.9.9-worker"
+	if got := huntDecisionState(context.Background(), deps, huntJob{}, nil, reload.Loadout{}).GameVersion; got != "" {
+		t.Errorf("unknown server version: game_version = %q, want empty", got)
+	}
+	f.state.ServerVersion = "v0.700"
+	if got := huntDecisionState(context.Background(), deps, huntJob{}, nil, reload.Loadout{}).GameVersion; got != "v0.700" {
+		t.Errorf("game_version = %q, want the server's v0.700", got)
 	}
 }

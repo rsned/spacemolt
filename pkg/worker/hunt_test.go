@@ -1174,7 +1174,7 @@ func TestHuntWildlifeOnlyDefaultsOnWhenUnset(t *testing.T) {
 	})
 	var log strings.Builder
 	deps := HuntDeps{
-		Client: c, KB: huntKB(), Out: &log, AgentID: "pirate-6",
+		Client: c, KB: huntKB(), Out: &log, AgentID: "pirate-6", AgentsDir: c.agentsDir,
 		MaxDifficulty: 1, // NOTE: WildlifeOnly deliberately not set.
 		sleep:         func(context.Context, time.Duration) error { return nil },
 		tickSleep:     time.Nanosecond,

@@ -481,5 +481,5 @@ func huntTravelToHomeGround(ctx context.Context, deps HuntDeps, out io.Writer, e
 			return poi, nil
 		}
 	}
-	return "", fmt.Errorf("no wildlife POI known on the home grounds")
+	return "", huntNoGround("no wildlife POI known on the home grounds")
 }

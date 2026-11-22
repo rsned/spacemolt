@@ -561,17 +561,20 @@ func huntNeedQuarry(creatures []serverapi.NearbyCreature, species []string, out 
 // The delivery leg is flown only on a repaired hull (huntRepairAtHull): parts
 // gathered at a damaged hull wait aboard, the next pass docks and repairs
 // first (huntRepairAtDock), resumes the need, and delivers from there.
-func huntDeliverNeed(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob) {
+//
+// delivered reports whether the mission was completed; the behaviour is the
+// same either way, the caller only labels its sortie with it.
+func huntDeliverNeed(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob) (delivered bool) {
 	need := job.need
 	if err := deps.Client.GetStatus(ctx); err != nil {
 		fmt.Fprintf(out, "hunt: get_status before delivering %s: %v; held for next pass\n", job.boardID, err) //nolint:errcheck
-		return
+		return false
 	}
 	st := deps.Client.GetState()
 	if frac, repaired := huntHullRepaired(st); !repaired {
 		fmt.Fprintf(out, "hunt[%s]: %s parts aboard but hull %.0f%% below %.0f%%; delivery waits for repair, held for next pass\n", //nolint:errcheck
 			who, job.boardID, frac*100, huntRepairAtHull*100)
-		return
+		return false
 	}
 	// Station ids are dual-named (POI id != base id at every capital): the
 	// mission names the base, the ship's position is the station POI. Resolve
@@ -588,26 +591,27 @@ func huntDeliverNeed(ctx context.Context, deps HuntDeps, out io.Writer, who stri
 		if st.Doc {
 			if err := deps.Client.Undock(ctx); err != nil {
 				fmt.Fprintf(out, "hunt: undock to deliver %s: %v; held for next pass\n", job.boardID, err) //nolint:errcheck
-				return
+				return false
 			}
 		}
 		fmt.Fprintf(out, "hunt[%s]: delivering %d %s to %s/%s\n", who, need.Quantity, need.ItemID, need.SystemID, targetPOI) //nolint:errcheck
 		if err := huntFlyPoliced(ctx, deps, out, false, need.SystemID, targetPOI); err != nil {
 			fmt.Fprintf(out, "hunt: transit to %s: %v; %s held for next pass\n", targetPOI, err, job.boardID) //nolint:errcheck
 			huntEscapeBattle(ctx, deps, out, who, "on the delivery leg", err)
-			return
+			return false
 		}
 		if err := dockIdempotent(ctx, deps.Client); err != nil {
 			fmt.Fprintf(out, "hunt: dock at %s: %v; %s held for next pass\n", targetPOI, err, job.boardID) //nolint:errcheck
 			huntEscapeBattle(ctx, deps, out, who, "docking to deliver", err)
-			return
+			return false
 		}
 	}
 	if err := deps.Client.CompleteMission(ctx, job.activeID); err != nil {
 		fmt.Fprintf(out, "hunt: complete %s failed: %v; held for next pass\n", job.activeID, err) //nolint:errcheck
-		return
+		return false
 	}
 	fmt.Fprintf(out, "hunt[%s]: delivered %s (%s) at %s\n", who, job.boardID, huntJobName(job), need.TargetBaseID) //nolint:errcheck
+	return true
 }
 
 // huntNeedActivityLabel is the status-page line for a need job.
