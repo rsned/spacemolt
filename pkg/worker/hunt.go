@@ -396,19 +396,37 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	}
 
 	// A sortie still open out at a ground, not yet heading home, carries on
-	// where it left off: no dock, no board. Its job is rebuilt through the
-	// resume gates; a job no longer held ends it as interrupted, and the
-	// station recovery below brings the ship in to close it.
+	// where it left off: no dock, no board. First a hard hull gate: below
+	// huntReturnRepairHull (or unknown) it ends returned_damaged and the
+	// station recovery below brings the ship in to close it. Then its job is
+	// rebuilt through the resume gates; a job no longer held ends it as
+	// interrupted the same way, and unreadable held missions hold the pass.
 	sortie := huntLoadSortie(deps, out)
 	if sortie != nil && !state.Doc && sortie.PendingResult == "" {
-		if job, ok := huntResumeSortieJob(ctx, deps, out, who, sortie, wildlifeOnly); ok {
-			fmt.Fprintf(out, "hunt[%s]: resuming sortie %s out at %s (%d ground(s) so far)\n", //nolint:errcheck
-				who, sortie.ID, nonEmpty(state.CurrentPOI, state.System.ID), len(sortie.Grounds))
-			wildlifeOnly = huntStartJob(&deps, job, wildlifeOnly)
-			huntWorkSortie(ctx, deps, out, who, job, sortie, fleeAtHull, wildlifeOnly)
+		if err := deps.Client.GetStatus(ctx); err != nil {
+			fmt.Fprintf(out, "hunt[%s]: get_status before resuming sortie %s: %v; held for next pass\n", who, sortie.ID, err) //nolint:errcheck
 			return nil
 		}
-		huntSortiePending(deps, out, sortie, huntdecide.ResultInterrupted)
+		if frac, ok := huntResumeHullOK(deps.Client.GetState()); !ok {
+			fmt.Fprintf(out, "hunt[%s]: sortie %s found out with hull %.0f%%, below %.0f%%; heading in damaged\n", //nolint:errcheck
+				who, sortie.ID, frac*100, huntReturnRepairHull*100)
+			huntSortiePending(deps, out, sortie, huntdecide.ResultReturnedDamaged)
+		} else {
+			job, res := huntResumeSortieJob(ctx, deps, out, who, sortie, wildlifeOnly)
+			switch res {
+			case huntResumeHold:
+				return nil
+			case huntResumeGo:
+				fmt.Fprintf(out, "hunt[%s]: resuming sortie %s out at %s (%d ground(s) so far)\n", //nolint:errcheck
+					who, sortie.ID, nonEmpty(state.CurrentPOI, state.System.ID), len(sortie.Grounds))
+				wildlifeOnly = huntStartJob(&deps, job, wildlifeOnly)
+				stayAt := huntResumeStayAt(sortie, state.CurrentPOI)
+				huntWorkSortie(ctx, deps, out, who, job, sortie, fleeAtHull, wildlifeOnly, stayAt)
+				return nil
+			case huntResumeGone:
+				huntSortiePending(deps, out, sortie, huntdecide.ResultInterrupted)
+			}
+		}
 	}
 
 	needRecovery := state.CurrentPOI == ""
@@ -537,7 +555,7 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	}
 
 	sortie = huntOpenSortie(ctx, deps, out, job, huntReadLoadout(ctx, deps), sortie)
-	huntWorkSortie(ctx, deps, out, who, job, sortie, fleeAtHull, wildlifeOnly)
+	huntWorkSortie(ctx, deps, out, who, job, sortie, fleeAtHull, wildlifeOnly, "")
 	return nil
 }
 
@@ -567,8 +585,9 @@ func huntStartJob(deps *HuntDeps, job huntJob, wildlifeOnly bool) bool {
 // cap ends the pass, the return decision or a forced return sends it home, or
 // a hard gate ends the pass. Each exit leaves the sortie closed, or saved with
 // what the next pass needs: a PendingResult to close with once docked, or none
-// to carry on from the ground.
-func huntWorkSortie(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, s *huntdecide.Sortie, fleeAtHull float64, wildlifeOnly bool) {
+// to carry on from the ground. stayAt is the ground a resumed sortie stands at
+// and re-reads first (huntResumeStayAt); "" from the dock.
+func huntWorkSortie(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, s *huntdecide.Sortie, fleeAtHull float64, wildlifeOnly bool, stayAt string) {
 	// Whatever ends the pass — the objective met, the cap, a flee, an error —
 	// report what the server counted, once. Deferred rather than repeated at
 	// each exit because the exits that matter most for this signal are the
@@ -594,7 +613,8 @@ grounds:
 		// Steps 4-5: travel out to a hunting ground and read what is there. The
 		// board is at a station and the quarry is not; without this leg the pass
 		// reads "no creatures at this POI" at a station forever.
-		quarry, ok := huntSortieGround(ctx, deps, out, who, job, s, wildlifeOnly)
+		quarry, ok := huntSortieGround(ctx, deps, out, who, job, s, wildlifeOnly, stayAt)
+		stayAt = "" // only the first ground of a resumed pass
 		if !ok {
 			return
 		}
@@ -896,18 +916,26 @@ func huntSelectJob(ctx context.Context, deps HuntDeps, out io.Writer, who string
 //     cap would recreate the exact deadlock this function exists to break. The
 //     resume line names the difficulty so an over-cap resume is visible.
 func huntResumeJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, wildlifeOnly bool) (huntJob, bool) {
+	job, ok, _ := huntResumeJobRead(ctx, deps, out, who, wildlifeOnly)
+	return job, ok
+}
+
+// huntResumeJobRead is huntResumeJob that also reports whether the held
+// missions were read at all: read=false means get_active_missions failed or
+// did not parse, so nothing is known about what is held.
+func huntResumeJobRead(ctx context.Context, deps HuntDeps, out io.Writer, who string, wildlifeOnly bool) (job huntJob, ok, read bool) {
 	if err := deps.Client.GetActiveMissions(ctx); err != nil {
 		fmt.Fprintf(out, "hunt: get_active_missions: %v; cannot resume this pass\n", err) //nolint:errcheck
-		return huntJob{}, false
+		return huntJob{}, false, false
 	}
 	raw := deps.Client.GetRawJSON("active_missions")
 	if len(raw) == 0 {
-		return huntJob{}, false
+		return huntJob{}, false, true
 	}
 	var resp serverapi.GetActiveMissionsResponse
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		fmt.Fprintf(out, "hunt: parse active missions: %v; cannot resume this pass\n", err) //nolint:errcheck
-		return huntJob{}, false
+		return huntJob{}, false, false
 	}
 	active := make([]string, 0, len(resp.Missions))
 	for _, m := range resp.Missions {
@@ -920,7 +948,7 @@ func huntResumeJob(ctx context.Context, deps HuntDeps, out io.Writer, who string
 			// Not a kill mission; a held Station Need is rebuilt and
 			// re-admitted, anything else is not ours.
 			if job, ok := huntResumeNeed(ctx, deps, out, who, m); ok {
-				return job, true
+				return job, true, true
 			}
 			continue
 		}
@@ -945,9 +973,9 @@ func huntResumeJob(ctx context.Context, deps HuntDeps, out io.Writer, who string
 		return huntJob{
 			boardID: boardID, activeID: m.MissionID, title: m.Title,
 			target: target, baseline: o.Current, required: required, resumed: true,
-		}, true
+		}, true, true
 	}
-	return huntJob{}, false
+	return huntJob{}, false, true
 }
 
 // huntReadBoard reads and parses the station's mission board, once per pass:
@@ -1038,7 +1066,6 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 	var here []string // grounds reached by this call
 	// Creature work leaves any ground a predator (or a creature of unknown
 	// role) is at; predatorAt is that ground while the ship is still on it.
-	guarded := job.home || job.need != nil || wildlifeOnly
 	predatorAt := ""
 	for range min(huntMaxGrounds, limit) {
 		var poi string
@@ -1077,69 +1104,87 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		here = append(here, poi)
 		reached = append(reached, huntdecide.GroundVisit{POI: poi})
 
-		// Reads the ground, and re-reads it if the arrival race returned an
-		// empty list -- see huntNearbyCreatures. Without that, a populated
-		// belt reads as barren and the sweep below walks away from it.
-		nearby, err := huntNearbyCreatures(ctx, deps, out, poi)
-		if err != nil {
-			fmt.Fprintf(out, "hunt: %v\n", err) //nolint:errcheck
-			huntEscapeBattle(ctx, deps, out, who, "reading the ground", err)
+		q, predator, rok := huntReadGround(ctx, deps, out, who, job, wildlifeOnly, poi)
+		if !rok {
 			return nil, reached, false
 		}
-		// Once per arrival, before the admissibility gate: a species we will not
-		// hunt is still one the field guide wants scanned.
-		huntScanUnknown(ctx, deps, out, nearby.Creatures)
-
-		// Spec: "If a predator is present when the hunter arrives at a ground,
-		// it leaves that ground." Not just "never engages it": hunting the
-		// grazers beside a predator keeps the ship in its reach for a whole
-		// pass. Treated like an empty ground -- tried, and the sweep moves on.
-		if guarded {
-			if p, found := huntPredatorPresent(nearby.Creatures); found {
-				fmt.Fprintf(out, "hunt[%s]: PREDATOR PRESENT at %s: %s (%s) role %q is not huntable wildlife; leaving this ground\n", //nolint:errcheck
-					who, poi, p.CreatureID, p.Species, p.Role)
-				predatorAt = poi
-				continue
-			}
+		if predator {
+			predatorAt = poi
+			continue
 		}
 		predatorAt = ""
-
-		switch {
-		case job.home:
-			// Any grazer or scavenger: the role check is the no-predator rule.
-			quarry = huntAdmissibleQuarry(nearby.Creatures, true, "", out)
-		case job.need != nil:
-			quarry = huntNeedQuarry(nearby.Creatures, job.need.Species, out)
-		default:
-			quarry = huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out)
-		}
-		if len(quarry) > 0 {
+		if len(q) > 0 {
 			reached[len(reached)-1].Quarry = true
-			return quarry, reached, true
-		}
-		// Standing in the wrong place is its own outcome, and the one an
-		// operator can act on: the mission is fine, the fleet is simply not
-		// where its quarry lives. Say it distinctly, naming the species wanted
-		// and what was actually there, and engage nothing — killing the
-		// two-thirds of a grazer herd that does not count costs hull and ticks
-		// and earns nothing.
-		switch {
-		case len(nearby.Creatures) == 0:
-			fmt.Fprintf(out, "hunt: no creatures at %s; trying another ground\n", poi) //nolint:errcheck
-		case job.need != nil:
-			fmt.Fprintf(out, "hunt[%s]: WRONG POI: %s needs %s and %s holds %s; no engagement attempted\n", //nolint:errcheck
-				who, job.boardID, strings.Join(job.need.Species, "/"), poi, huntSpeciesSeen(nearby.Creatures))
-		case job.required != "":
-			fmt.Fprintf(out, "hunt[%s]: WRONG POI: %s needs %q and %s holds %s; no engagement attempted\n", //nolint:errcheck
-				who, job.boardID, job.required, poi, huntSpeciesSeen(nearby.Creatures))
-		default:
-			fmt.Fprintf(out, "hunt: nothing huntable among %d creature(s) at %s\n", len(nearby.Creatures), poi) //nolint:errcheck
+			return q, reached, true
 		}
 	}
 	fmt.Fprintf(out, "hunt: no quarry found across %d ground(s) %v; %s held for next pass\n", len(here), here, job.boardID) //nolint:errcheck
 	huntNeedSearchFailed(deps, out, who, job)
 	huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
 	return nil, reached, false
+}
+
+// huntReadGround reads the ground the ship stands at, poi, and returns the
+// quarry this job may engage there. predator: creature work must leave this
+// ground (huntPredatorPresent). ok=false: the read failed (logged, and any
+// battle escaped); the pass ends. An empty or wrong ground is logged.
+func huntReadGround(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, wildlifeOnly bool, poi string) (quarry []serverapi.NearbyCreature, predator, ok bool) {
+	// Reads the ground, and re-reads it if the arrival race returned an
+	// empty list -- see huntNearbyCreatures. Without that, a populated
+	// belt reads as barren and the sweep below walks away from it.
+	nearby, err := huntNearbyCreatures(ctx, deps, out, poi)
+	if err != nil {
+		fmt.Fprintf(out, "hunt: %v\n", err) //nolint:errcheck
+		huntEscapeBattle(ctx, deps, out, who, "reading the ground", err)
+		return nil, false, false
+	}
+	// Once per arrival, before the admissibility gate: a species we will not
+	// hunt is still one the field guide wants scanned.
+	huntScanUnknown(ctx, deps, out, nearby.Creatures)
+
+	// Spec: "If a predator is present when the hunter arrives at a ground,
+	// it leaves that ground." Not just "never engages it": hunting the
+	// grazers beside a predator keeps the ship in its reach for a whole
+	// pass. Treated like an empty ground -- tried, and the sweep moves on.
+	if job.home || job.need != nil || wildlifeOnly {
+		if p, found := huntPredatorPresent(nearby.Creatures); found {
+			fmt.Fprintf(out, "hunt[%s]: PREDATOR PRESENT at %s: %s (%s) role %q is not huntable wildlife; leaving this ground\n", //nolint:errcheck
+				who, poi, p.CreatureID, p.Species, p.Role)
+			return nil, true, true
+		}
+	}
+
+	switch {
+	case job.home:
+		// Any grazer or scavenger: the role check is the no-predator rule.
+		quarry = huntAdmissibleQuarry(nearby.Creatures, true, "", out)
+	case job.need != nil:
+		quarry = huntNeedQuarry(nearby.Creatures, job.need.Species, out)
+	default:
+		quarry = huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out)
+	}
+	if len(quarry) > 0 {
+		return quarry, false, true
+	}
+	// Standing in the wrong place is its own outcome, and the one an
+	// operator can act on: the mission is fine, the fleet is simply not
+	// where its quarry lives. Say it distinctly, naming the species wanted
+	// and what was actually there, and engage nothing — killing the
+	// two-thirds of a grazer herd that does not count costs hull and ticks
+	// and earns nothing.
+	switch {
+	case len(nearby.Creatures) == 0:
+		fmt.Fprintf(out, "hunt: no creatures at %s; trying another ground\n", poi) //nolint:errcheck
+	case job.need != nil:
+		fmt.Fprintf(out, "hunt[%s]: WRONG POI: %s needs %s and %s holds %s; no engagement attempted\n", //nolint:errcheck
+			who, job.boardID, strings.Join(job.need.Species, "/"), poi, huntSpeciesSeen(nearby.Creatures))
+	case job.required != "":
+		fmt.Fprintf(out, "hunt[%s]: WRONG POI: %s needs %q and %s holds %s; no engagement attempted\n", //nolint:errcheck
+			who, job.boardID, job.required, poi, huntSpeciesSeen(nearby.Creatures))
+	default:
+		fmt.Fprintf(out, "hunt: nothing huntable among %d creature(s) at %s\n", len(nearby.Creatures), poi) //nolint:errcheck
+	}
+	return nil, false, true
 }
 
 // huntPredatorPresent returns the first creature whose role is not quarry

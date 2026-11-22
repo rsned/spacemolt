@@ -32,8 +32,17 @@ const (
 type sortieFake struct {
 	*huntProvisionFake
 	grounds  map[string][]huntCreature
-	drain    int
-	onTravel func(poi string)
+	drain     int
+	onTravel  func(poi string)
+	activeErr error // get_active_missions fails with it
+}
+
+func (f *sortieFake) GetActiveMissions(ctx context.Context) error {
+	if f.activeErr != nil {
+		f.huntFake.calls = append(f.huntFake.calls, "get_active_missions_failed")
+		return f.activeErr
+	}
+	return f.huntFake.GetActiveMissions(ctx)
 }
 
 func (f *sortieFake) GetRawJSON(key string) []byte {
@@ -379,7 +388,8 @@ func TestHuntResumesOpenSortieUndocked(t *testing.T) {
 	}
 	seeded := &huntdecide.Sortie{
 		ID: "pirate-6-20261121T100000Z", Seq: 1, JobKind: "mission", JobID: "hex-" + sortieMission,
-		Grounds: []huntdecide.GroundVisit{{POI: sortieGround1, Quarry: true}},
+		// The ground it stands at ran dry last pass: it is not re-read.
+		Grounds: []huntdecide.GroundVisit{{POI: sortieGround1, Quarry: false}},
 	}
 	e.seed(t, seeded)
 	e.pass(t)
@@ -779,4 +789,147 @@ func TestHuntAlwaysReturnsNil(t *testing.T) {
 			}
 		})
 	}
+}
+
+// resumeEnv is a hunter out at sortieGround1, undocked, holding a kill mission
+// for quantity grazers, with an open sortie whose grounds are seeded.
+func resumeEnv(t *testing.T, quantity int, opts huntFakeOpts, grounds ...huntdecide.GroundVisit) *sortieEnv {
+	t.Helper()
+	opts.board = []boardMission{{id: sortieMission, difficulty: 1, quantity: quantity}}
+	opts.activeMissions = []serverapi.ActiveMission{heldMission(sortieMission, 0, quantity, 1)}
+	opts.heldAtStart = true
+	opts.startPOI = sortieGround1
+	opts.unsetDocked = true
+	e := newSortieEnv(t, opts, provLasers(1))
+	e.seed(t, &huntdecide.Sortie{
+		ID: "pirate-6-resumed", Seq: 1, JobKind: "mission", JobID: "hex-" + sortieMission, Grounds: grounds,
+	})
+	return e
+}
+
+func (e *sortieEnv) travelled() []string {
+	var out []string
+	for _, c := range e.calls() {
+		if strings.HasPrefix(c, "travel:") {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func TestHuntResumedSortieChecksHullFirst(t *testing.T) {
+	e := resumeEnv(t, 2, huntFakeOpts{shipHullFrac: 0.4}, huntdecide.GroundVisit{POI: sortieGround1, Quarry: true})
+	e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1"), sortieGround2: huntGrazers("g2")}
+
+	e.pass(t)
+	if e.fake.huntCalls != 0 {
+		t.Errorf("a 40%% hull must not engage, calls %v", e.calls())
+	}
+	if got := e.travelled(); !slices.Equal(got, []string{"travel:haven_station"}) {
+		t.Errorf("travel = %v, want only the recovery to haven_station\n%s", got, e.out)
+	}
+	if e.countCall("dock") != 1 {
+		t.Errorf("must dock at the station, calls %v", e.calls())
+	}
+	if s := e.loadFile(t); s.PendingResult != huntdecide.ResultReturnedDamaged || len(s.Grounds) != 1 {
+		t.Errorf("sortie = %+v, want pending returned_damaged, grounds unchanged", s)
+	}
+	if decs := e.returnDecisions(t); len(decs) != 0 {
+		t.Errorf("the hull gate is not a decision, got %v", decs)
+	}
+
+	e.pass(t)
+	ends := e.ofType(t, "sortie_end")
+	if len(ends) == 0 || ends[0]["sortie_id"] != "pirate-6-resumed" || ends[0]["result"] != huntdecide.ResultReturnedDamaged {
+		t.Errorf("sortie_end = %v, want pirate-6-resumed returned_damaged", ends)
+	}
+	if len(e.reports) == 0 || e.reports[0] != huntdecide.ResultReturnedDamaged {
+		t.Errorf("ReportSortie = %v", e.reports)
+	}
+}
+
+func TestHuntResumedSortieStaysAtProductiveGround(t *testing.T) {
+	t.Run("quarry still there", func(t *testing.T) {
+		e := resumeEnv(t, 1, huntFakeOpts{}, huntdecide.GroundVisit{POI: sortieGround1, Quarry: true})
+		e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1"), sortieGround2: huntGrazers("g2")}
+		e.pass(t)
+
+		if !slices.Contains(e.calls(), "hunt:g1") {
+			t.Fatalf("must hunt on at the ground it stands at, calls %v\n%s", e.calls(), e.out)
+		}
+		if got := e.travelled(); len(got) != 0 {
+			t.Errorf("no travel expected, got %v", got)
+		}
+		ends := e.ofType(t, "sortie_end")
+		if len(ends) != 1 || ends[0]["result"] != huntdecide.ResultCompleted {
+			t.Fatalf("sortie_end = %v", ends)
+		}
+		if g, _ := sortieState(t, ends[0])["grounds"].([]any); len(g) != 1 {
+			t.Errorf("grounds = %v, want the one ground counted once", g)
+		}
+	})
+	t.Run("now empty", func(t *testing.T) {
+		e := resumeEnv(t, 1, huntFakeOpts{}, huntdecide.GroundVisit{POI: sortieGround1, Quarry: true})
+		e.fake.grounds = map[string][]huntCreature{sortieGround2: huntGrazers("g2")}
+		e.pass(t)
+
+		if got := e.travelled(); !slices.Equal(got, []string{"travel:" + sortieGround2}) {
+			t.Errorf("travel = %v, want straight on to ground 2\n%s", got, e.out)
+		}
+		ends := e.ofType(t, "sortie_end")
+		if len(ends) != 1 {
+			t.Fatalf("sortie_end = %v", ends)
+		}
+		if g, _ := sortieState(t, ends[0])["grounds"].([]any); len(g) != 2 {
+			t.Errorf("grounds = %v, want ground 1 once and ground 2", g)
+		}
+	})
+}
+
+func TestHuntResumedSortieHoldsOnReadErrors(t *testing.T) {
+	assertHeld := func(t *testing.T, e *sortieEnv) {
+		t.Helper()
+		if e.fake.huntCalls != 0 || len(e.travelled()) != 0 || e.countCall("dock")+e.countCall("dock_refused") != 0 {
+			t.Errorf("a read error must hold the pass where it is, calls %v", e.calls())
+		}
+		s := e.loadFile(t)
+		if s.ID != "pirate-6-resumed" || s.PendingResult != "" || s.Seq != 1 || len(s.Grounds) != 1 {
+			t.Errorf("sortie changed: %+v", s)
+		}
+		if len(e.reports) != 0 || len(e.records(t)) != 0 {
+			t.Errorf("nothing closes on a read error: reports %v, records %v", e.reports, e.records(t))
+		}
+	}
+	t.Run("held missions unreadable", func(t *testing.T) {
+		e := resumeEnv(t, 1, huntFakeOpts{}, huntdecide.GroundVisit{POI: sortieGround1, Quarry: true})
+		e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+		e.fake.activeErr = errors.New("timeout")
+		e.pass(t)
+		assertHeld(t, e)
+		if !slices.Contains(e.calls(), "get_active_missions_failed") {
+			t.Errorf("the held missions were never asked for, calls %v", e.calls())
+		}
+	})
+	t.Run("status unreadable", func(t *testing.T) {
+		e := resumeEnv(t, 1, huntFakeOpts{}, huntdecide.GroundVisit{POI: sortieGround1, Quarry: true})
+		e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+		e.deps.Client = &statusFailClient{sortieFake: e.fake, failFrom: 2}
+		e.pass(t)
+		assertHeld(t, e)
+	})
+}
+
+// statusFailClient fails get_status from its failFrom-th call on (the first,
+// at pass start, succeeds).
+type statusFailClient struct {
+	*sortieFake
+	failFrom, n int
+}
+
+func (c *statusFailClient) GetStatus(ctx context.Context) error {
+	c.n++
+	if c.n >= c.failFrom {
+		return errors.New("status timeout")
+	}
+	return c.sortieFake.GetStatus(ctx)
 }

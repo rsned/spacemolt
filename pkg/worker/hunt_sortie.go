@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/huntdecide"
 	"github.com/rsned/spacemolt/pkg/reload"
@@ -153,37 +154,94 @@ func huntSortieJobStub(s *huntdecide.Sortie) huntJob {
 	return huntJob{boardID: s.JobID, activeID: s.JobID}
 }
 
+// huntResume is what a sortie found open out at a ground does this pass.
+type huntResume int
+
+const (
+	// huntResumeGo: the job is rebuilt; carry on with the sortie.
+	huntResumeGo huntResume = iota
+	// huntResumeHold: the held missions could not be read; hold the pass and
+	// leave the sortie as it is.
+	huntResumeHold
+	// huntResumeGone: the job is no longer held (expired, completed
+	// elsewhere); the sortie ends interrupted.
+	huntResumeGone
+)
+
 // huntResumeSortieJob rebuilds the job of a sortie found open out at a
 // ground: home from the file, a mission or need from the held missions
-// (huntResumeJob, so every resume gate applies again). ok=false when the job
-// is no longer held.
-func huntResumeSortieJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, s *huntdecide.Sortie, wildlifeOnly bool) (huntJob, bool) {
+// (huntResumeJobRead, so every resume gate applies again).
+func huntResumeSortieJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, s *huntdecide.Sortie, wildlifeOnly bool) (huntJob, huntResume) {
 	if s.JobKind == "home" {
-		return huntSortieJobStub(s), true
+		return huntSortieJobStub(s), huntResumeGo
 	}
-	job, ok := huntResumeJob(ctx, deps, out, who, wildlifeOnly)
+	job, ok, read := huntResumeJobRead(ctx, deps, out, who, wildlifeOnly)
+	if !read {
+		fmt.Fprintf(out, "hunt[%s]: sortie %s: held missions unreadable; held for next pass\n", who, s.ID) //nolint:errcheck
+		return huntJob{}, huntResumeHold
+	}
 	if !ok {
 		fmt.Fprintf(out, "hunt[%s]: sortie %s: %s %s is no longer held\n", who, s.ID, s.JobKind, s.JobID) //nolint:errcheck
-		return huntJob{}, false
+		return huntJob{}, huntResumeGone
 	}
 	kind, id := huntJobKind(job)
 	if kind != s.JobKind || (s.JobID != id && s.JobID != job.activeID && s.JobID != job.boardID) {
 		fmt.Fprintf(out, "hunt[%s]: sortie %s was for %s %s, but the held job is %s %s\n", who, s.ID, s.JobKind, s.JobID, kind, id) //nolint:errcheck
-		return huntJob{}, false
+		return huntJob{}, huntResumeGone
 	}
-	return job, true
+	return job, huntResumeGo
+}
+
+// huntResumeHullOK is the hard hull gate in front of a resumed sortie's
+// first leg: the hull must be known and at or above huntReturnRepairHull.
+// frac is the hull fraction, 0 when unknown.
+func huntResumeHullOK(st *game.State) (frac float64, ok bool) {
+	if st == nil || st.Ship.MaxHull <= 0 {
+		return 0, false
+	}
+	frac = st.Ship.Hull / st.Ship.MaxHull
+	return frac, frac >= huntReturnRepairHull
+}
+
+// huntResumeStayAt is the ground a resumed sortie re-reads before moving on:
+// the one the ship stands at, when it is the sortie's last ground and held
+// quarry there. "" otherwise.
+func huntResumeStayAt(s *huntdecide.Sortie, currentPOI string) string {
+	if n := len(s.Grounds); n > 0 && currentPOI != "" && s.Grounds[n-1].POI == currentPOI && s.Grounds[n-1].Quarry {
+		return currentPOI
+	}
+	return ""
 }
 
 // huntSortieGround takes the sortie to its next ground with quarry, within
-// huntMaxSortieGrounds across the sortie. Each ground reached is added to
-// s.Grounds and the file saved. ok=false sets PendingResult no_quarry: the cap
-// is reached or no ground with quarry was found.
-func huntSortieGround(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, s *huntdecide.Sortie, wildlifeOnly bool) ([]serverapi.NearbyCreature, bool) {
+// huntMaxSortieGrounds across the sortie. stayAt, when set, is the ground the
+// ship already stands at (huntResumeStayAt): it is read first and hunted
+// again if quarry is still there, without counting as a new ground. Each
+// ground reached is added to s.Grounds and the file saved. ok=false sets
+// PendingResult no_quarry: the cap is reached or no ground with quarry was
+// found.
+func huntSortieGround(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, s *huntdecide.Sortie, wildlifeOnly bool, stayAt string) ([]serverapi.NearbyCreature, bool) {
+	predatorAt := ""
+	if stayAt != "" {
+		quarry, predator, ok := huntReadGround(ctx, deps, out, who, job, wildlifeOnly, stayAt)
+		if !ok {
+			huntSortiePending(deps, out, s, huntdecide.ResultNoQuarry)
+			return nil, false
+		}
+		if len(quarry) > 0 {
+			fmt.Fprintf(out, "hunt[%s]: sortie %s: quarry still at %s; hunting on here\n", who, s.ID, stayAt) //nolint:errcheck
+			return quarry, true
+		}
+		if predator {
+			predatorAt = stayAt
+		}
+	}
 	remaining := huntMaxSortieGrounds - len(s.Grounds)
 	if remaining <= 0 {
 		fmt.Fprintf(out, "hunt[%s]: sortie %s has visited %d ground(s), the most one sortie may; %s held for next pass\n", //nolint:errcheck
 			who, s.ID, len(s.Grounds), job.boardID)
 		huntSortiePending(deps, out, s, huntdecide.ResultNoQuarry)
+		huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
 		return nil, false
 	}
 	quarry, reached, ok := huntFindQuarry(ctx, deps, out, who, job, wildlifeOnly, s.Visited(), remaining)
@@ -193,6 +251,7 @@ func huntSortieGround(ctx context.Context, deps HuntDeps, out io.Writer, who str
 	}
 	if !ok {
 		huntSortiePending(deps, out, s, huntdecide.ResultNoQuarry)
+		huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
 		return nil, false
 	}
 	return quarry, true
