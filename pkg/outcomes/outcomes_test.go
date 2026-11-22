@@ -89,3 +89,35 @@ func TestReasonOneLineAndCapped(t *testing.T) {
 		t.Error("Reason(nil) should be empty")
 	}
 }
+
+func TestRecordStatusKeepsReasonOnOK(t *testing.T) {
+	dir := t.TempDir()
+	New(dir).RecordStatus("behaviour:hunt_sortie", "hunt", StatusOK, "no_quarry", t0)
+
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := got["behaviour:hunt_sortie"]
+	if o.Status != StatusOK || o.Reason != "no_quarry" || o.Command != "hunt" || !o.At.Equal(t0) {
+		t.Errorf("outcome = %+v", o)
+	}
+}
+
+func TestRecordStatusCapsReason(t *testing.T) {
+	dir := t.TempDir()
+	New(dir).RecordStatus("k", "c", StatusFailed, strings.Repeat("é", reasonMax+50), t0)
+
+	got, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := utf8.RuneCountInString(got["k"].Reason); n != reasonMax {
+		t.Errorf("reason runes = %d, want %d", n, reasonMax)
+	}
+}
+
+func TestRecordStatusNilLogIsNoop(t *testing.T) {
+	var l *Log
+	l.RecordStatus("k", "c", StatusOK, "r", t0)
+}

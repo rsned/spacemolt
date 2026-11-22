@@ -206,6 +206,8 @@ data/overmind/**/*.lock
 
 # Hunt fleet per-agent chain records (runtime state)
 data/agents/*/hunt-chain.json
+data/agents/*/hunt-decisions/
+data/agents/*/hunt-sortie.json
 data/wildlife-growth/
 
 # Clerk API key and anything that looks like one (the real key lives in

@@ -58,13 +58,26 @@ func New(agentDir string) *Log {
 // an ok outcome. A failed write is dropped: a lost record costs one stale why
 // on the dashboard, and must never stop the worker that did the work.
 func (l *Log) Record(key, command string, err error, at time.Time) {
+	if err != nil {
+		l.RecordStatus(key, command, StatusFailed, Reason(err), at)
+
+		return
+	}
+	l.RecordStatus(key, command, StatusOK, "", at)
+}
+
+// RecordStatus stores an outcome with an explicit status and reason, replacing
+// any earlier one for key. Unlike Record it lets an ok outcome carry a reason
+// (for example a hunting sortie that ended with no quarry). The reason is
+// capped at reasonMax runes. Write failures are dropped, as in Record.
+func (l *Log) RecordStatus(key, command, status, reason string, at time.Time) {
 	if l == nil {
 		return
 	}
-	o := Outcome{Key: key, Command: command, Status: StatusOK, At: at.UTC()}
-	if err != nil {
-		o.Status, o.Reason = StatusFailed, Reason(err)
+	if r := []rune(reason); len(r) > reasonMax {
+		reason = string(r[:reasonMax])
 	}
+	o := Outcome{Key: key, Command: command, Status: status, Reason: reason, At: at.UTC()}
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
