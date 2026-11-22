@@ -1319,6 +1319,10 @@ type FacilityListResponse struct {
 	// factions' land in PublicFacilities. Ally use is fee-free, so these
 	// entries advertise throughput without a per-run rental fee.
 	AllyFacilities []map[string]any `json:"ally_facilities"`
+	// TenantFacilities lists, at the viewer's own faction station or outpost,
+	// every facility another player or faction owns there with the rent it
+	// pays us. Sent only to members with ManageBases.
+	TenantFacilities []TenantFacility `json:"tenant_facilities,omitempty"`
 	// Construction is the station-owned build queue: what is under
 	// construction and what the station manager plans next, with the
 	// materials still missing. The viewer's own and faction builds are not
@@ -1352,6 +1356,22 @@ type FacilityListResponse struct {
 	// marine-training pools (server v0.572.0), replenishing from supplied
 	// facilities each cycle. nil where personnel mechanics are off.
 	ServicePools *StationServicePools `json:"service_pools,omitempty"`
+}
+
+// TenantFacility is one facility a tenant owns at our station. Player-owned
+// tenants carry no faction fields (the owner fields are presumed to be
+// faction-only until a player tenant is seen live). MissedRentCycles is
+// omitted while the tenant is paid up.
+type TenantFacility struct {
+	FacilityID       string `json:"facility_id"`
+	Type             string `json:"type"`
+	Name             string `json:"name"`
+	FactionID        string `json:"faction_id,omitempty"`
+	FactionName      string `json:"faction_name,omitempty"`
+	FactionTag       string `json:"faction_tag,omitempty"`
+	Operational      bool   `json:"operational"`
+	RentPerCycle     int64  `json:"rent_per_cycle"`
+	MissedRentCycles int    `json:"missed_rent_cycles,omitempty"`
 }
 
 // StationPower is a station's power grid (openapi StationPowerStatus).

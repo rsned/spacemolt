@@ -1,6 +1,6 @@
 ---
 name: project-station-two-beid
-description: "CRFT station #2 in beid (founded 11-16, base b7ecd9b1…, POI 4650c48e…); lead craftsman-2; record set data/stations/beid; grid/dock/combustor active, workshop building 11-16, craftsman-2 resident"
+description: "CRFT station #2 in beid (founded 11-16, base b7ecd9b1…, POI 4650c48e…); lead craftsman-2; daily LH2 delivery feeds the combustor; marketbot_home2 drones live 11-20, spare bay+5 drones reserved for a 2nd host"
 metadata:
   node_type: memory
   type: project
@@ -41,3 +41,11 @@ haul gates strongholds per agent.
 station. Upkeep supplies stocked (sunspindle, purified water, scrubbers, focused crystal).
 
 Related: [[project_cloverfield_home_station]] [[reference_congregation_is_outerrim_exclusive]]
+
+**11-20:** Beid bunker hit 0/5000 (no liquid_hydrogen). craftsman-2 now runs a daily
+`deliver liquid_hydrogen 1000 faction:<CJ base> <beid base> faction` (new `faction:` source on
+deliver); its hourly `craft manufacture_fuel_basic 2000` burns it. marketbot_home2 already had
+bay+5 drones fitted but never deployed; fit_drones (resume) launched them on mine_asteroid_beid
+17:53. A SPARE advanced_drone_bay + 5 mining_drone (gifted from CJ faction storage) sit in
+marketbot_home2's personal storage at beid, reserved by the operator for a SECOND beid drone host on
+another beid mining site. Don't return them to CJ.

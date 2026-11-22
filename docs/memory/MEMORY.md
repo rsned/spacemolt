@@ -8,7 +8,9 @@
 - ⭐🔴 [CONTRABAND PIPELINE RESUME POINT 10-25](project_contraband_pipeline_resume.md) — plans 1+2+3 done & merged (main 06cd562b); moonshine line LIVE; dashboard on :8093; day-one metrics from /api/line/moonshine.json ~10-25 19:00
 - ⭐🟢✅ [Line dashboard :8093 v2 (11-01): lines DERIVED](reference_line_dashboard.md) — from schedules/fleets/KB/asks; line-overrides.yaml only; why from task-outcomes.json; grouped by station
 - ⭐🟢 [Cloverfield home station "Conjunction Junction" (founded 10-25)](project_cloverfield_home_station.md) — CRFT station, record set data/stations/cloverfield, --record-dir/station_snapshot/ledger, 1M floor/1M buy cap, approve every build; ships with 500k faction storage but 0 power/life support
-- ⭐🟢 [Station #2 in beid (founded 11-16)](project_station_two_beid.md) — lead craftsman-2; grid/dock/H2 combustor active; faction_workshop building (needed for ANY crafting); trucker-10..15 hauling
+- ⭐🟢 [Station #2 in beid (founded 11-16)](project_station_two_beid.md) — lead craftsman-2; LH2: miningbot_0000 gifts trucker-100 daily, trucker-100 hauls hourly; feeds combustor (bunker hit 0 on 11-20); marketbot_home2 drones live; spare bay+5 drones held at beid for a 2nd drone host
+- 🟡 [Route fleet trucker-100..109 (11-20)](project_route_fleet_truckers.md) — workers started before 11-21 00:21 lack switch_hull; restart first; route.sock overmind, in COLD_START.md §3g since 11-21; gift unlock done; next: station routes moving our stored stock (carbon first) to CJ
+- 🟡 [Purified water SM arbitrage (11-20)](project_purified_water_sm_arbitrage.md) — 10k @60 at CJ via miningbot_0000 faction_pull+shopkeep; haulers match stronghold SM bids; judge by haul_results; shopkeep one-ask/lot + deposit-sweep gotchas
 - [Status board](project_status_board.md) — **READ FIRST.** The ≤15 live items, dated and linked. Roll old ones to the archive; never grow it.
 - [Standing rules](feedback_standing_rules.md) — never `git add -A` with dirty data/*.json · haul `--stagger 10s` · unpushed? `git log origin/main..HEAD` · after memory edits: `make memory-sync` + commit docs/memory · NEVER edit an applied migration
 - ⭐🔴 [NO stronghold routing without pirate unlock](feedback_stronghold_routing_requires_pirate_unlock.md) — per-agent rule; strongholds are dead ends; 8 of 24 losses incl. assist-sol's tanker
@@ -77,3 +79,9 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [Drones mine radioactives (11-15)](reference_drones_mine_radioactive.md) — no special gear; but no-station rad mining = miningbots w/ rad_harvester + lead_lined_cargo from an outpost, flee on hostiles
 - [Faction intel → KB (11-15)](reference_faction_intel_tables.md) — faction_intel_* tables (mig 76), capture_intel twice_daily on craftsman-3; hazards merged into pois
 - [Intel Center L2 auto-sync (11-13)](reference_intel_center_autosync.md) — CJ intel auto-collects verified POI/system data from member reads; no ship sightings; sensor_dome not built
+- [Repair kits from cargo](reference_repair_kits_from_cargo.md) — repair works undocked, one kit per call (user-confirmed 11-18)
+- [Hand crafting is free](reference_hand_crafting_is_free.md) — no labor fee by hand; do not gate hand-craft tasks on credits (operator 11-19)
+- [Catalog ship stats include default modules](reference_catalog_ship_stats_include_default_modules.md) — Frankenhauler speed 2 is its default afterburner; bare hull speed 1 (operator 11-19)
+- 🔴 [attack re-issued mid-battle locks the action queue ~50 min (11-21)](reference_attack_mid_battle_locks_queue.md) — reload refused "pending (attack)"; no cancel; play_as now sends `battle target` in battle; never disconnect to clear
+- [Repeater weaponless EM rows = REFLECTION (11-21)](reference_repeater_reflection_damage.md) — damage sent back at the attacker; pane flat ≤15, spire % of incoming; exclude from repeater offense
+- 🔴 [Schedule periods = UTC calendar (11-21)](reference_schedule_periods_are_utc_calendar.md) — weekly re-fires at Sun 00:00 UTC (16:00 PT Sat); remove one-offs right after they land

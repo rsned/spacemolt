@@ -88,3 +88,46 @@ func TestFacilityListCoversLivePayload(t *testing.T) {
 		}
 	}
 }
+
+// tenant_facilities appears on `list` at the viewer's own faction station for
+// members with ManageBases: facilities other players/factions own there and
+// the rent each pays us. Captured live at Conjunction Junction 2026-11-22;
+// missed_rent_cycles is omitted when the tenant is paid up.
+const liveTenantFacilitiesFragment = `{
+  "action": "list",
+  "base_id": "c976fa7df53c87f9616165d7d411b41a",
+  "tenant_facilities": [
+    {"facility_id":"21876b5c31b146c36dc9cd7bccb42e0f","faction_id":"5b565d6303a0bea2eaf559129c1686f5",
+     "faction_name":"Data Bots","faction_tag":" DB ","missed_rent_cycles":3,"name":"Faction Lockbox",
+     "operational":true,"rent_per_cycle":10,"type":"faction_lockbox"},
+    {"facility_id":"d4408d03496f710c19ebb4890c20cbae","faction_id":"10f7b3f724fc29a7981dfb1dfdbf02f5",
+     "faction_name":"You Sexy Mother Truckers","faction_tag":"YSMT","name":"Faction Lockbox",
+     "operational":true,"rent_per_cycle":10,"type":"faction_lockbox"}
+  ]
+}`
+
+func TestFacilityListDecodesTenantFacilities(t *testing.T) {
+	t.Parallel()
+
+	var resp serverapi.FacilityListResponse
+	if err := json.Unmarshal([]byte(liveTenantFacilitiesFragment), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(resp.TenantFacilities) != 2 {
+		t.Fatalf("TenantFacilities len = %d, want 2", len(resp.TenantFacilities))
+	}
+	db := resp.TenantFacilities[0]
+	if db.FacilityID != "21876b5c31b146c36dc9cd7bccb42e0f" || db.Type != "faction_lockbox" || db.Name != "Faction Lockbox" {
+		t.Errorf("tenant[0] id/type/name = %q/%q/%q", db.FacilityID, db.Type, db.Name)
+	}
+	if db.FactionID != "5b565d6303a0bea2eaf559129c1686f5" || db.FactionName != "Data Bots" || db.FactionTag != " DB " {
+		t.Errorf("tenant[0] owner = %q/%q/%q", db.FactionID, db.FactionName, db.FactionTag)
+	}
+	if db.RentPerCycle != 10 || db.MissedRentCycles != 3 || !db.Operational {
+		t.Errorf("tenant[0] rent/missed/operational = %d/%d/%v, want 10/3/true",
+			db.RentPerCycle, db.MissedRentCycles, db.Operational)
+	}
+	if got := resp.TenantFacilities[1].MissedRentCycles; got != 0 {
+		t.Errorf("paid-up tenant MissedRentCycles = %d, want 0", got)
+	}
+}

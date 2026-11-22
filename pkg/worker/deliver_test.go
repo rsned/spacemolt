@@ -955,3 +955,36 @@ func TestDeliverCargoKeywordSkipsWithdraw(t *testing.T) {
 		t.Fatalf("gifts = %+v, want one gift of 6", client.giftCalls)
 	}
 }
+
+// Live 2026-11-22 (trucker-126): a disconnect mid-jump killed a deliver 19 jumps
+// into the leg to TO with a full hold of energy_crystal. The next hourly run saw
+// 1,900 aboard against 200,000 wanted and flew back to FROM to withdraw more --
+// into a hold with no room -- before ever reaching TO. A full hold of the item
+// must go to TO first; the withdraw leg comes after it is emptied.
+func TestDeliverFullHoldOfItemDeliversBeforeWithdrawing(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	client := &deliverFakeClient{
+		fakeClient: &fakeClient{state: &game.State{Ship: game.Ship{
+			CargoCapacity: 100,
+			CargoUsed:     100,
+			Cargo:         []game.CargoItem{{ItemID: "raw_ore", Quantity: 100}},
+		}}},
+		storageStock: map[string]float64{"raw_ore": 30},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "craftsman-2"
+
+	if err := d.Deliver(context.Background(), "raw_ore", 500, "from_base", "to_base", RecipientFaction); err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	first := ""
+	for _, c := range client.calls {
+		if strings.HasPrefix(c, "withdraw:") || strings.HasPrefix(c, "faction_deposit:") {
+			first = c
+			break
+		}
+	}
+	if first != "faction_deposit:raw_ore:100" {
+		t.Fatalf("first transfer = %q, want the 100 aboard deposited at TO before any withdraw (calls %v)", first, client.calls)
+	}
+}

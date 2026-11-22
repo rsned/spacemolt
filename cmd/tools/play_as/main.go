@@ -7445,7 +7445,7 @@ func executeCommandInner(client game.GameClient, ctx context.Context, parts []st
 			return fmt.Errorf("usage: attack <target-id>")
 		}
 		return simpleCommand(client, func(ctx context.Context) error {
-			return client.Attack(ctx, parts[1])
+			return attackOrRetarget(ctx, client, parts[1], os.Stdout)
 		}, ctx, 3*time.Second, cmd, format)
 
 	// hunt engages WILDLIFE, and it is a different command from attack: the

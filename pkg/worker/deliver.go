@@ -189,7 +189,10 @@ func (d *WorkerDispatch) Deliver(ctx context.Context, itemID string, qty int, fr
 	for remaining > 0 {
 		carrying := cargoCount(d.Client.GetState(), itemID)
 		short := false
-		if carrying < remaining {
+		// A hold already full with the item (a run cut off on the leg to TO)
+		// has no room to withdraw into: take it to TO first, then come back.
+		holdFull := carrying > 0 && cargoFreeSpace(d.Client.GetState()) == 0
+		if carrying < remaining && !holdFull {
 			var cargoFull bool
 			if from == "" {
 				// Nothing to withdraw from — cargo is already everything
