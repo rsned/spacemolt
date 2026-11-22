@@ -46,6 +46,12 @@ const (
 	SleepRetry        = 1 * time.Second  // Retry delay for failed operations
 	SleepScanInterval = 5 * time.Minute  // Delay between scan_for_distress cycles
 
+	// SleepServerRestartMaxWait caps how long anything waits on an announced
+	// server restart (server_restart_warning). The 2026-11-22 restart was back
+	// in about a minute; the cap stops a restart that never happens from
+	// holding workers forever.
+	SleepServerRestartMaxWait = 5 * time.Minute
+
 	// SleepSendTally is how often a worker logs its per-command send tally.
 	// Purely local accounting — it issues no game call — so the only cost is
 	// log volume: one line per agent per window, ~34 lines/min across a

@@ -84,4 +84,6 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [Catalog ship stats include default modules](reference_catalog_ship_stats_include_default_modules.md) — Frankenhauler speed 2 is its default afterburner; bare hull speed 1 (operator 11-19)
 - 🔴 [attack re-issued mid-battle locks the action queue ~50 min (11-21)](reference_attack_mid_battle_locks_queue.md) — reload refused "pending (attack)"; no cancel; play_as now sends `battle target` in battle; never disconnect to clear
 - [Repeater weaponless EM rows = REFLECTION (11-21)](reference_repeater_reflection_damage.md) — damage sent back at the attacker; pane flat ≤15, spire % of incoming; exclude from repeater offense
+- [Server restart pause (11-22)](reference_server_restart_pause.md) — restart warning pauses jumps until reconnect, autopilot resumes once; bin/worker rebuilt, uncommitted
+- 🟡 [Modulated laser chain (11-22)](project_modulated_laser_chain.md) — CJ=refined/components, Beid=modules/weapons; sinter+optics placed at CJ; all 3 placed 11-22; next: feeds (neodymium ore, glass) + daily CJ->Beid magnet/optic haul
 - 🔴 [Schedule periods = UTC calendar (11-21)](reference_schedule_periods_are_utc_calendar.md) — weekly re-fires at Sun 00:00 UTC (16:00 PT Sat); remove one-offs right after they land

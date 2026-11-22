@@ -2424,6 +2424,11 @@ type CraftJobEntry struct {
 	BaseName  string          `json:"base_name,omitempty"`
 	DeliverTo string          `json:"deliver_to,omitempty"`
 	Produces  []CraftProduces `json:"produces,omitempty"`
+	// PauseReason (v0.732.4) says why a job did not advance: not_docked,
+	// damaged, under_construction, rent_unpaid, no_faction_storage,
+	// storage_full, fuel_full, no_fuel_bunker, mint_cap, no_workers or
+	// owner_unavailable. Empty when the job is only waiting its turn.
+	PauseReason string `json:"pause_reason,omitempty"`
 }
 
 // CraftQueueListing is the response when listing queued craft jobs.

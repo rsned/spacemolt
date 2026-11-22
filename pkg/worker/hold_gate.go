@@ -52,3 +52,37 @@ func waitOutHold(ctx context.Context, out io.Writer, client stateReader) {
 func holdsMovement(tokens []string) bool {
 	return isMovement(tokens) || (len(tokens) > 0 && (tokens[0] == "autopilot" || tokens[0] == "ap"))
 }
+
+// restartWaitTicks bounds waitOutRestart in ticks: State.RestartPending lapses
+// after game.SleepServerRestartMaxWait, and this counts the same window in
+// waits so the loop ends even when the sleep is a test stand-in.
+const restartWaitTicks = int(game.SleepServerRestartMaxWait / game.SleepTick)
+
+// waitOutRestart blocks while an announced server restart is pending (a
+// server_restart_warning push, cleared by the reconnect after it), one tick at
+// a time, so a worker does not start a jump or travel into the restart: one
+// started there hangs for the full jump timeout and drops the route (live
+// 2026-11-22, v0.733.0). It returns once the restart is over, the cap lapses,
+// or ctx ends, and is a no-op when no restart is pending.
+func waitOutRestart(ctx context.Context, out io.Writer, client stateReader) {
+	if client == nil {
+		return
+	}
+	st := client.GetState()
+	if st == nil || !st.RestartPending(time.Now()) {
+		return
+	}
+	fmt.Fprintf(out, "⏸ server restart to v%s: pausing before the next jump/travel\n", st.ServerRestart.Target) //nolint:errcheck
+	start := time.Now()
+	for range restartWaitTicks {
+		settle(ctx, game.SleepTick)
+		if ctx.Err() != nil {
+			return
+		}
+		if s := client.GetState(); s == nil || !s.RestartPending(time.Now()) {
+			fmt.Fprintf(out, "⏸ server restart over after %s; resuming\n", time.Since(start).Round(time.Second)) //nolint:errcheck
+			return
+		}
+	}
+	fmt.Fprintf(out, "⏸ server restart still pending after %d ticks; resuming anyway\n", restartWaitTicks) //nolint:errcheck
+}

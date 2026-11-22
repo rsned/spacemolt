@@ -550,6 +550,12 @@ type State struct {
 	// while it is set. Nil when no hold is active.
 	ActiveHold *ActiveHold
 
+	// ServerRestart is the restart announced by the latest
+	// server_restart_warning push, nil when none is pending (a reconnect
+	// clears it). LastRestartAt keeps its time after the clear.
+	ServerRestart *ServerRestart
+	LastRestartAt time.Time
+
 	// Battle system (from get_battle_status / battle responses)
 	InBattle    bool
 	BattleState *BattleState
@@ -727,6 +733,8 @@ func (s *State) Clone() *State {
 		LastDamage:        s.LastDamage,
 		LastHazardDose:    s.LastHazardDose.clone(),
 		ActiveHold:        s.ActiveHold.clone(),
+		ServerRestart:     s.ServerRestart.clone(),
+		LastRestartAt:     s.LastRestartAt,
 		LastBattleID:      s.LastBattleID,
 		SkillXP:           copyStringFloatMap(s.SkillXP),
 		SkillNextLevelXP:  copyStringFloatMap(s.SkillNextLevelXP),

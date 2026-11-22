@@ -1114,6 +1114,10 @@ func (c *Client) Reconnect(ctx context.Context) error {
 
 	c.debugLogger.Printf("Reconnected and logged in successfully")
 
+	// A reconnect after a restart warning means the restart is over: release
+	// workers paused on it.
+	c.clearServerRestart()
+
 	// Drain any messages staged by replayPending during the prior close.
 	c.drainPendingReplay(ctx)
 
@@ -3032,14 +3036,19 @@ func (c *Client) handleResponse(resp protocol.Response) {
 		msg, _ := resp.Payload["message"].(string)
 		target, _ := resp.Payload["target_version"].(string)
 		secs, hasSecs := resp.Payload["seconds_until_restart"].(float64)
+		var line string
 		switch {
 		case msg != "":
-			c.debugLogger.Printf("🔄 SERVER RESTART WARNING: %s", msg)
+			line = msg
 		case hasSecs:
-			c.debugLogger.Printf("🔄 SERVER RESTART WARNING: restarting in %ds (target %s)", int(secs), target)
+			line = fmt.Sprintf("restarting in %ds (target %s)", int(secs), target)
 		default:
-			c.debugLogger.Printf("🔄 SERVER RESTART WARNING: %v", resp.Payload)
+			line = fmt.Sprintf("%v", resp.Payload)
 		}
+		// Operational, not debug: workers pause new jumps and travel until the
+		// restart is over (see State.RestartPending), so the log must say why.
+		c.logEvent("🔄 SERVER RESTART: " + line)
+		c.recordServerRestart(time.Duration(secs*float64(time.Second)), target)
 
 	case protocol.TypeScanDetected:
 		// Always surface scans on stderr (regardless of debug settings) with a

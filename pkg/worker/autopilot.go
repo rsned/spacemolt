@@ -128,6 +128,7 @@ func ensureRouteFuel(ctx context.Context, client game.GameClient, out io.Writer,
 		return fuelAvailable
 	}
 	if !state.IsDocked() {
+		waitOutRestart(ctx, out, client)
 		waitOutHold(ctx, out, client)
 		if err := client.Dock(ctx); err != nil {
 			fmt.Fprintf(out, "  Fuel low and not at a station to refuel (%v); continuing\n", err) //nolint:errcheck
@@ -229,6 +230,32 @@ func (d AutopilotDeps) fuelTimingFor(destStation string, fuelPerJump int) fuelTi
 // the final in-system Travel. Returns on FindRoute failure, a jump that fails
 // after fuel attempts, a jump interruption, or ctx cancellation.
 func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI string) error {
+	err := autopilotOnce(ctx, deps, targetSystem, targetPOI)
+	if err == nil || ctx.Err() != nil || deps.Client == nil {
+		return err
+	}
+	st := deps.Client.GetState()
+	if st == nil || !st.RestartRecent(time.Now()) {
+		return err
+	}
+	// A move broken by an announced server restart (live 2026-11-22: jumps
+	// started into the v0.733.0 restart timed out after 5m and dropped the
+	// route). Say so, wait the restart out, and resume once from wherever the
+	// ship is now; a second failure is returned as before.
+	out := deps.Out
+	if out == nil {
+		out = io.Discard
+	}
+	fmt.Fprintf(out, "⏸ route interrupted by server restart (%v); resuming from the ship's position\n", err) //nolint:errcheck
+	waitOutRestart(ctx, out, deps.Client)
+	if rerr := autopilotOnce(ctx, deps, targetSystem, targetPOI); rerr != nil {
+		return fmt.Errorf("resumed after server restart: %w", rerr)
+	}
+	return nil
+}
+
+// autopilotOnce is one Autopilot run with no restart resume.
+func autopilotOnce(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI string) error {
 	out := deps.Out
 	if out == nil {
 		out = io.Discard
@@ -435,6 +462,7 @@ func Autopilot(ctx context.Context, deps AutopilotDeps, targetSystem, targetPOI 
 			fmt.Fprintf(out, "   gate toll: jumping to %s through a jump gate (%s)\n", cmp.Or(step.Name, step.SystemID), gateFee(step)) //nolint:errcheck
 		}
 
+		waitOutRestart(ctx, out, client)
 		waitOutHold(ctx, out, client)
 		result, err := client.Jump(ctx, step.SystemID)
 		if err != nil {
@@ -504,6 +532,7 @@ func autopilotTravelToPOI(ctx context.Context, client game.GameClient, out io.Wr
 		return nil
 	}
 	fmt.Fprintf(out, "Traveling to POI: %s...\n", targetPOI) //nolint:errcheck
+	waitOutRestart(ctx, out, client)
 	waitOutHold(ctx, out, client)
 	result, err := client.Travel(ctx, targetPOI)
 	if err != nil && isInsufficientFuelErr(err) && refuelInPlace(ctx, client, out) {
@@ -560,6 +589,7 @@ func isInsufficientFuelErr(err error) bool {
 func refuelInPlace(ctx context.Context, client game.GameClient, out io.Writer) bool {
 	if state := client.GetState(); state != nil {
 		if !state.IsDocked() {
+			waitOutRestart(ctx, out, client)
 			waitOutHold(ctx, out, client)
 			if err := client.Dock(ctx); err != nil {
 				fmt.Fprintf(out, "  Fuel low and cannot dock to refuel (%v)\n", err) //nolint:errcheck

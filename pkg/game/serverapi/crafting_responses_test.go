@@ -150,3 +150,25 @@ func TestCraftQueueListing_FacilityScope(t *testing.T) {
 		t.Errorf("status/venue = %q/%q", j.Status, j.Venue)
 	}
 }
+
+// v0.732.4: the craft queue and facility job_list carry pause_reason on each
+// job that did not advance (storage_full, rent_unpaid, no_workers, ...). A
+// job that is only waiting its turn has none.
+func TestCraftJobEntryDecodesPauseReason(t *testing.T) {
+	const raw = `{"action":"job_list","jobs":[
+		{"job_id":"j1","recipe":"refine_steel","status":"queued","pause_reason":"storage_full"},
+		{"job_id":"j2","recipe":"refine_steel","status":"queued"}]}`
+	var got CraftQueueListing
+	if err := json.Unmarshal([]byte(raw), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(got.Jobs) != 2 {
+		t.Fatalf("jobs = %d, want 2", len(got.Jobs))
+	}
+	if got.Jobs[0].PauseReason != "storage_full" {
+		t.Errorf("PauseReason = %q, want storage_full", got.Jobs[0].PauseReason)
+	}
+	if got.Jobs[1].PauseReason != "" {
+		t.Errorf("waiting-its-turn job PauseReason = %q, want empty", got.Jobs[1].PauseReason)
+	}
+}

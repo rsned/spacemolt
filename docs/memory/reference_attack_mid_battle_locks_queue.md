@@ -19,3 +19,5 @@ The fix is in cmd/tools/play_as/attack_in_battle.go (`attackOrRetarget`). While 
 If it happens again: `battle stance flee`, which is a battle action and not a queued mutation. Report it to the server devs with the request id.
 
 Related: [[reference_battle_flee_gate]], [[reference_combat_damage_pipeline]]
+
+**2026-11-22 server devs confirmed (Bug Bot):** a re-issued `attack` mid-battle is queued until the fight ENDS and blocks every other action until then; it should behave like `battle action=target`. A fix is in progress. Until it ships, use `battle target`, which play_as already does (commit 946aacc4). Once the fix lands, the play_as workaround is harmless but no longer needed.
