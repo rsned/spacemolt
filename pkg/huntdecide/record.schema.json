@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spacemolt.local/schemas/huntdecide/record.schema.json",
+  "title": "Hunt decision log record",
+  "description": "One JSON line in hunt-decisions/<UTC date>.jsonl.",
+  "oneOf": [
+    { "$ref": "#/$defs/decision" },
+    { "$ref": "#/$defs/outcome" },
+    { "$ref": "#/$defs/sortie" }
+  ],
+  "$defs": {
+    "weapon": {
+      "type": "object",
+      "properties": {
+        "module_id": { "type": "string" },
+        "type_id": { "type": "string" },
+        "damage_type": { "type": "string" },
+        "reach": { "type": "integer" },
+        "cooldown": { "type": "integer" },
+        "ammo_type": { "type": "string" },
+        "magazine_size": { "type": "integer" },
+        "loaded": { "type": "integer" },
+        "loaded_ammo_id": { "type": "string" }
+      }
+    },
+    "ammo": {
+      "type": "object",
+      "properties": {
+        "ammo_type": { "type": "string" },
+        "item_id": { "type": "string" },
+        "aboard": { "type": "integer" }
+      }
+    },
+    "state": {
+      "type": "object",
+      "properties": {
+        "agent_id": { "type": "string" },
+        "ship_class": { "type": "string" },
+        "hull": { "type": "number" },
+        "max_hull": { "type": "number" },
+        "shield": { "type": "number" },
+        "max_shield": { "type": "number" },
+        "fuel": { "type": "number" },
+        "max_fuel": { "type": "number" },
+        "free_hold": { "type": "integer" },
+        "credits": { "type": "number" },
+        "system": { "type": "string" },
+        "poi": { "type": "string" },
+        "docked": { "type": "boolean" },
+        "police_level": { "type": "integer" },
+        "jumps_to_station": { "type": "integer" },
+        "jumps_to_home": { "type": "integer" },
+        "weapons": { "type": ["array", "null"], "items": { "$ref": "#/$defs/weapon" } },
+        "ammo": { "type": ["array", "null"], "items": { "$ref": "#/$defs/ammo" } },
+        "job": {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string" },
+            "id": { "type": "string" },
+            "species": { "type": "string" },
+            "target": { "type": "integer" },
+            "done": { "type": "integer" }
+          }
+        },
+        "sortie": {
+          "type": "object",
+          "properties": {
+            "ticks_out": { "type": "integer" },
+            "grounds": {
+              "type": ["array", "null"],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "poi": { "type": "string" },
+                  "quarry": { "type": "boolean" }
+                }
+              }
+            },
+            "fights": { "type": "integer" },
+            "kills": { "type": "integer" },
+            "reloads_spent": { "type": "integer" }
+          }
+        },
+        "tick": { "type": "integer" },
+        "game_version": { "type": "string" },
+        "worker_commit": { "type": "string" }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "required": ["type", "at", "kind", "sortie_id", "seq", "state", "options", "option_id", "rule_option_id", "source"],
+      "properties": {
+        "type": { "const": "decision" },
+        "at": { "type": "string", "format": "date-time" },
+        "kind": { "enum": ["provision", "return"] },
+        "sortie_id": { "type": "string" },
+        "seq": { "type": "integer" },
+        "state": { "$ref": "#/$defs/state" },
+        "options": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string" },
+              "features": { "type": ["object", "null"] },
+              "no_explore": { "type": "boolean" }
+            }
+          }
+        },
+        "option_id": { "type": "string" },
+        "rule_option_id": { "type": "string" },
+        "source": { "enum": ["rule", "explore"] },
+        "epsilon": { "type": "number" },
+        "reason": { "type": "string" }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "required": ["type", "at", "sortie_id", "seq", "phase"],
+      "properties": {
+        "type": { "const": "outcome" },
+        "at": { "type": "string", "format": "date-time" },
+        "sortie_id": { "type": "string" },
+        "seq": { "type": "integer", "description": "Decision it answers; 0 = none." },
+        "phase": { "type": "string", "description": "Phase 1 writes only \"provision\"." },
+        "data": { "type": ["object", "null"] }
+      }
+    },
+    "sortie": {
+      "type": "object",
+      "required": ["type", "at", "sortie_id", "state"],
+      "properties": {
+        "type": { "enum": ["sortie_start", "sortie_end"] },
+        "at": { "type": "string", "format": "date-time" },
+        "sortie_id": { "type": "string" },
+        "state": { "$ref": "#/$defs/state" },
+        "result": { "type": "string", "description": "sortie_end only." }
+      }
+    }
+  }
+}
