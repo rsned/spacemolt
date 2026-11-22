@@ -23,15 +23,15 @@ import (
 const (
 	// huntDefaultAmmoCreditCap is the most credits one provisioning may spend
 	// on ammunition when HuntDeps.AmmoCreditCap is zero.
-	huntDefaultAmmoCreditCap = 5000.0 //nolint:unused // consumed by the provisioning and hunt-loop tasks
+	huntDefaultAmmoCreditCap = 5000.0
 	// huntCreditFloor is never spent on ammunition: it is for fuel and repair.
-	huntCreditFloor = 1000.0 //nolint:unused // consumed by the provisioning and hunt-loop tasks
+	huntCreditFloor = 1000.0
 	// huntProvisionDefault is the reloads provisioned per ammo-fed weapon.
 	huntProvisionDefault = 2
 	// huntLootReserve is the hold units provisioning leaves free for loot.
-	huntLootReserve = 10 //nolint:unused // consumed by the provisioning and hunt-loop tasks
+	huntLootReserve = 10
 	// huntDepotLowSorties is the depot stock, in sorties, below which it counts as low.
-	huntDepotLowSorties = 2 //nolint:unused // consumed by the provisioning and hunt-loop tasks
+	huntDepotLowSorties = 2
 	// huntReturnRepairHull is the hull fraction below which a return decision repairs.
 	huntReturnRepairHull = 0.5
 	// huntMaxSortieGrounds caps the grounds visited in one sortie.
