@@ -13,9 +13,33 @@ import (
 	"github.com/rsned/spacemolt/pkg/galaxy"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/huntdecide"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/spar"
 )
+
+// Decision-seam tuning (see hunt_rules.go and hunt_state.go).
+const (
+	// huntDefaultAmmoCreditCap is the most credits one provisioning may spend
+	// on ammunition when HuntDeps.AmmoCreditCap is zero.
+	huntDefaultAmmoCreditCap = 5000.0 //nolint:unused // consumed by the provisioning and hunt-loop tasks
+	// huntCreditFloor is never spent on ammunition: it is for fuel and repair.
+	huntCreditFloor = 1000.0 //nolint:unused // consumed by the provisioning and hunt-loop tasks
+	// huntProvisionDefault is the reloads provisioned per ammo-fed weapon.
+	huntProvisionDefault = 2
+	// huntLootReserve is the hold units provisioning leaves free for loot.
+	huntLootReserve = 10 //nolint:unused // consumed by the provisioning and hunt-loop tasks
+	// huntDepotLowSorties is the depot stock, in sorties, below which it counts as low.
+	huntDepotLowSorties = 2 //nolint:unused // consumed by the provisioning and hunt-loop tasks
+	// huntReturnRepairHull is the hull fraction below which a return decision repairs.
+	huntReturnRepairHull = 0.5
+	// huntMaxSortieGrounds caps the grounds visited in one sortie.
+	huntMaxSortieGrounds = 8 //nolint:unused // consumed by the provisioning and hunt-loop tasks
+)
+
+// huntProvisionBuckets are the reloads-per-weapon amounts a provision decision may offer.
+var huntProvisionBuckets = []int{1, 2, 4}
 
 const (
 	// huntDefaultFleeHull is the hull fraction below which the pass gives up.
@@ -246,6 +270,21 @@ type HuntDeps struct {
 	// usernameFor resolves an agent id to its in-game username (nil ->
 	// UsernameFor under AgentsDir); a test seam.
 	usernameFor func(agentID string) (string, error)
+
+	// Decider answers the provision and return decisions (nil -> huntRules{}).
+	Decider huntdecide.Decider
+	// Decisions records each decision (nil -> no records).
+	Decisions *huntdecide.Log
+	// AmmoCreditCap is the most credits one provisioning may spend on ammo
+	// (0 -> huntDefaultAmmoCreditCap).
+	AmmoCreditCap float64
+	// Sellers lists market sellers of an item with at least minQty
+	// (nil -> no market destinations).
+	Sellers func(ctx context.Context, itemID string, minQty float64) ([]market.ItemSeller, error)
+	// ReportSortie reports a closed sortie's result (nil -> not reported).
+	ReportSortie func(result string)
+	// Version and Commit identify the worker build in decision records.
+	Version, Commit string
 }
 
 // huntWildlifeOnly resolves the wildlife-only interlock: unset means on.

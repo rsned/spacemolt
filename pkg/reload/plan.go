@@ -63,7 +63,22 @@ type Lookup func(itemID string) (name, ammoType string)
 // that fits it. Energy weapons (no ammo type) and non-weapon modules are
 // skipped: they never need reloading.
 func BuildPlan(modules []serverapi.ShipModule, cargo []serverapi.CargoItem, lookup Lookup) []Entry {
-	var plan []Entry
+	return BuildLoadout(modules, cargo, lookup).Plan
+}
+
+// FreeWeapon is a fitted weapon module that takes no ammunition.
+type FreeWeapon struct{ ModuleID, TypeID string }
+
+// Loadout is every fitted weapon, split by whether it needs ammunition.
+type Loadout struct {
+	Plan []Entry      // ammo-fed weapons, as BuildPlan returns
+	Free []FreeWeapon // weapon modules with no ammo type
+}
+
+// BuildLoadout is BuildPlan plus the weapons BuildPlan skips: it returns the
+// ammo-fed plan and, separately, the weapon modules with no ammo type.
+func BuildLoadout(modules []serverapi.ShipModule, cargo []serverapi.CargoItem, lookup Lookup) Loadout {
+	var lo Loadout
 
 	for _, m := range modules {
 		if m.Type != "" && m.Type != "weapon" {
@@ -77,6 +92,7 @@ func BuildPlan(modules []serverapi.ShipModule, cargo []serverapi.CargoItem, look
 			_, ammoType = lookup(m.TypeID)
 		}
 		if ammoType == "" {
+			lo.Free = append(lo.Free, FreeWeapon{ModuleID: m.ID, TypeID: m.TypeID})
 			continue
 		}
 
@@ -122,10 +138,10 @@ func BuildPlan(modules []serverapi.ShipModule, cargo []serverapi.CargoItem, look
 			return a.ItemID < b.ItemID
 		})
 
-		plan = append(plan, entry)
+		lo.Plan = append(lo.Plan, entry)
 	}
 
-	return plan
+	return lo
 }
 
 // Target is one resolved reload: the pair of ids the command needs.
@@ -191,16 +207,26 @@ func KBLookup(ctx context.Context, kb knowledge.Base) Lookup {
 
 // Fetch refreshes get_ship and resolves its weapons against cargo.
 func Fetch(ctx context.Context, client game.GameClient, kb knowledge.Base) ([]Entry, error) {
+	lo, err := FetchLoadout(ctx, client, kb)
+	if err != nil {
+		return nil, err
+	}
+	return lo.Plan, nil
+}
+
+// FetchLoadout refreshes get_ship and resolves its weapons against cargo,
+// returning both the ammo-fed plan and the ammo-free weapons.
+func FetchLoadout(ctx context.Context, client game.GameClient, kb knowledge.Base) (Loadout, error) {
 	if err := client.GetShip(ctx); err != nil {
-		return nil, fmt.Errorf("get_ship: %w", err)
+		return Loadout{}, fmt.Errorf("get_ship: %w", err)
 	}
 	raw := client.GetRawJSON("ship")
 	if len(raw) == 0 {
-		return nil, fmt.Errorf("get_ship returned nothing")
+		return Loadout{}, fmt.Errorf("get_ship returned nothing")
 	}
 	var resp serverapi.GetShipResponse
 	if err := json.Unmarshal(unwrapActionResult(raw), &resp); err != nil {
-		return nil, fmt.Errorf("parse get_ship: %w", err)
+		return Loadout{}, fmt.Errorf("parse get_ship: %w", err)
 	}
 
 	// Cargo comes from the same reply's ship block, so the magazine state and
@@ -216,5 +242,5 @@ func Fetch(ctx context.Context, client game.GameClient, kb knowledge.Base) ([]En
 		}
 	}
 
-	return BuildPlan(resp.Modules, cargo, KBLookup(ctx, kb)), nil
+	return BuildLoadout(resp.Modules, cargo, KBLookup(ctx, kb)), nil
 }
