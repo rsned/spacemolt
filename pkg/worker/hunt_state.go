@@ -185,16 +185,22 @@ func huntDecisionJumps(ctx context.Context, deps HuntDeps, from string) (toStati
 	return jumps(stationSys), jumps(homeSys)
 }
 
+// huntStationPOI maps a station id that may be a base id to its POI id; an id
+// the KB has no base for is returned as is (it may already be a POI id).
+func huntStationPOI(ctx context.Context, kb knowledge.Base, station string) string {
+	if base, err := kb.GetBase(ctx, station); err == nil && base != nil && base.POIID != "" {
+		return base.POIID
+	}
+	return station
+}
+
 // huntHomeStationSystem resolves the home station (a base id or a POI id) to
 // the system that holds its POI; empty when it is unset or unknown.
 func huntHomeStationSystem(ctx context.Context, kb knowledge.Base, station string, systems []knowledge.System) string {
 	if station == "" {
 		return ""
 	}
-	poiID := station
-	if base, err := kb.GetBase(ctx, station); err == nil && base != nil && base.POIID != "" {
-		poiID = base.POIID
-	}
+	poiID := huntStationPOI(ctx, kb, station)
 	for _, sys := range systems {
 		pois, err := kb.GetPOIs(ctx, sys.ID)
 		if err != nil {
