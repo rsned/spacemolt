@@ -373,6 +373,38 @@ func TestHuntProvisionMixedLoadoutArmedByLaser(t *testing.T) {
 	}
 }
 
+func TestHuntProvisionFallsBackWhenLoadedItemUnavailable(t *testing.T) {
+	mods := provCannons(3)
+	for i := range mods {
+		mods[i].LoadedAmmoID = "armor_piercing_rounds_box"
+	}
+	e := newProvEnv(t, mods)
+	e.fake.storage["standard_rounds_box"] = 50
+	if !e.run(0) {
+		t.Fatalf("a stocked depot must keep the ship armed\n%s", e.out)
+	}
+	eqCalls(t, "withdraws", e.fake.called("withdraw:"), []string{"withdraw:standard_rounds_box:6"})
+	if strings.Contains(e.out.String(), "BLOCKED UNARMED") {
+		t.Errorf("must not block:\n%s", e.out)
+	}
+}
+
+func TestHuntProvisionBlockedHoldFullWording(t *testing.T) {
+	e := newProvEnv(t, provCannons(3))
+	e.fake.state.Ship.CargoCapacity, e.fake.state.Ship.CargoUsed = 10, 0
+	e.fake.storage["standard_rounds_box"] = 50
+	if e.run(0) {
+		t.Fatalf("dry ship with no room must not be armed\n%s", e.out)
+	}
+	want := "BLOCKED UNARMED at haven_station: no weapon can fire and the hold has no room for ammo (free 10, reserved 0)"
+	if !strings.Contains(e.out.String(), want) {
+		t.Errorf("output lacks %q:\n%s", want, e.out)
+	}
+	if strings.Contains(e.out.String(), "in storage or on the market") {
+		t.Errorf("must not claim a missing supply:\n%s", e.out)
+	}
+}
+
 func TestHuntProvisionDepotLowLineOnlyAtHome(t *testing.T) {
 	e := newProvEnv(t, provCannons(3))
 	e.fake.storage["standard_rounds_box"] = 14

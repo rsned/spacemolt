@@ -53,20 +53,31 @@ func huntAmmoNeeds(lo reload.Loadout, reloads int, storage map[string]int, looku
 			have += n
 		}
 		item := loaded[at]
-		if item == "" && lookup != nil {
-			best := 0
-			for id, n := range storage {
-				if _, t := lookup(id); t != at || n <= 0 {
-					continue
-				}
-				if n > best || (n == best && id < item) {
-					item, best = id, n
-				}
-			}
+		if item == "" {
+			item = huntBestStoredAmmo(storage, at, lookup)
 		}
 		needs = append(needs, huntAmmoNeed{AmmoType: at, ItemID: item, Missing: max(0, weapons[at]*reloads-have)})
 	}
 	return needs
+}
+
+// huntBestStoredAmmo is the item of ammoType with most in storage (ties by
+// id); empty when storage holds none or lookup is nil. A loaded item is only
+// preferred over it while something here can supply it; see huntProvisionStock.
+func huntBestStoredAmmo(storage map[string]int, ammoType string, lookup reload.Lookup) string {
+	if lookup == nil {
+		return ""
+	}
+	item, best := "", 0
+	for id, n := range storage {
+		if _, t := lookup(id); t != ammoType || n <= 0 {
+			continue
+		}
+		if n > best || (n == best && id < item) {
+			item, best = id, n
+		}
+	}
+	return item
 }
 
 // huntProvisionOptions offers each reloads-per-weapon bucket whose extra cargo
@@ -127,7 +138,8 @@ func huntProvision(ctx context.Context, deps HuntDeps, out io.Writer, who string
 	}
 
 	var rec *huntProvisionRecord
-	if opts := huntProvisionOptions(lo, freeHold, reserve); len(opts) > 0 {
+	opts := huntProvisionOptions(lo, freeHold, reserve)
+	if len(opts) > 0 {
 		seq := s.NextSeq()
 		choice := huntDecider(deps).Decide(ctx, huntdecide.Decision{
 			Kind: huntdecide.KindProvision, SortieID: s.ID, Seq: seq,
@@ -161,7 +173,10 @@ func huntProvision(ctx context.Context, deps HuntDeps, out io.Writer, who string
 		}
 	}
 
-	if !armed {
+	if !armed && len(opts) == 0 {
+		fmt.Fprintf(out, "hunt[%s]: BLOCKED UNARMED at %s: no weapon can fire and the hold has no room for ammo (free %d, reserved %d)\n", //nolint:errcheck
+			who, station, freeHold, reserve)
+	} else if !armed {
 		types := make([]string, 0, len(lo.Plan))
 		for _, e := range lo.Plan {
 			if !slices.Contains(types, e.AmmoType) {
@@ -226,7 +241,18 @@ func huntProvisionStock(ctx context.Context, deps HuntDeps, out io.Writer, who s
 
 	needs := huntAmmoNeeds(lo, reloads, held, lookup)
 	var listings []game.MarketListing
-	marketRead := false
+	marketRead, marketOK := false, false
+	ensureMarket := func() bool {
+		if !marketRead {
+			marketRead = true
+			if merr := deps.Client.ViewMarket(ctx, map[string]any{}); merr != nil {
+				fmt.Fprintf(out, "hunt[%s]: view_market failed: %v\n", who, merr) //nolint:errcheck
+			} else {
+				listings, marketOK = deps.Client.GetMarketListings(), true
+			}
+		}
+		return marketOK
+	}
 	spent := 0.0
 	spendCap := deps.AmmoCreditCap
 	if spendCap <= 0 {
@@ -238,6 +264,13 @@ func huntProvisionStock(ctx context.Context, deps HuntDeps, out io.Writer, who s
 			continue
 		}
 		item, missing := need.ItemID, need.Missing
+		// The loaded item is preferred only while something here can supply
+		// it; otherwise another fitting item from storage, else the market's
+		// cheapest, keeps the hunter armed.
+		if item != "" && held[item] <= 0 && (!ensureMarket() || len(huntCheapestListings(listings, need, lookup)) == 0) {
+			item = huntBestStoredAmmo(held, need.AmmoType, lookup)
+			need.ItemID = item
+		}
 		if item != "" {
 			rec.wanted[item] = missing
 		}
@@ -261,12 +294,8 @@ func huntProvisionStock(ctx context.Context, deps HuntDeps, out io.Writer, who s
 			continue
 		}
 
-		if !marketRead {
-			if merr := deps.Client.ViewMarket(ctx, map[string]any{}); merr != nil {
-				fmt.Fprintf(out, "hunt[%s]: view_market failed: %v\n", who, merr) //nolint:errcheck
-				continue
-			}
-			listings, marketRead = deps.Client.GetMarketListings(), true
+		if !ensureMarket() {
+			continue
 		}
 		cheap := huntCheapestListings(listings, need, lookup)
 		if len(cheap) == 0 {
