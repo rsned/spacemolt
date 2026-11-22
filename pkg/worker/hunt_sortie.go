@@ -220,13 +220,14 @@ func huntResumeStayAt(s *huntdecide.Sortie, currentPOI string) string {
 // ground reached is added to s.Grounds and the file saved. ok=false ends the
 // pass. PendingResult is no_quarry only when the cap is reached or the search
 // ran out of grounds with nothing found; a search cut short (a read error, a
-// failed leg, an ambush) leaves it empty, or interrupted when the ship then
-// heads for a station.
+// failed leg, an ambush) sets interrupted. Either way the next pass does not
+// resume: it recovers to a station and closes the sortie there.
 func huntSortieGround(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob, s *huntdecide.Sortie, wildlifeOnly bool, stayAt string) ([]serverapi.NearbyCreature, bool) {
 	predatorAt := ""
 	if stayAt != "" {
 		quarry, predator, ok := huntReadGround(ctx, deps, out, who, job, wildlifeOnly, stayAt)
 		if !ok {
+			huntSortiePending(deps, out, s, huntdecide.ResultInterrupted)
 			return nil, false
 		}
 		if len(quarry) > 0 {
@@ -253,14 +254,12 @@ func huntSortieGround(ctx context.Context, deps HuntDeps, out io.Writer, who str
 	if ok {
 		return quarry, true
 	}
+	result := huntdecide.ResultInterrupted
 	if end == huntSearchExhausted {
-		huntSortiePending(deps, out, s, huntdecide.ResultNoQuarry)
-		huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
-		return nil, false
+		result = huntdecide.ResultNoQuarry
 	}
-	if huntLeavePredatorGround(ctx, deps, out, who, predatorAt) || end == huntSearchHeadedIn {
-		huntSortiePending(deps, out, s, huntdecide.ResultInterrupted)
-	}
+	huntSortiePending(deps, out, s, result)
+	huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
 	return nil, false
 }
 

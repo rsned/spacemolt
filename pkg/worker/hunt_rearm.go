@@ -25,16 +25,24 @@ type huntRearmCandidate struct {
 // selling one of ammoItems. Nearest by policed jumps wins; home wins a tie.
 // With no candidate reachable it returns home. ok=false only when home is unknown too.
 func huntRearmDestination(ctx context.Context, deps HuntDeps, fromSystem string, ammoItems []string) (systemID, poiID, why string, ok bool) {
+	systemID, poiID, why, _, ok = huntRearmRoute(ctx, deps, fromSystem, ammoItems)
+	return systemID, poiID, why, ok
+}
+
+// huntRearmRoute is huntRearmDestination plus reachable: whether a policed
+// route to the destination is known. It is false only for the home depot
+// returned with no route known.
+func huntRearmRoute(ctx context.Context, deps HuntDeps, fromSystem string, ammoItems []string) (systemID, poiID, why string, reachable, ok bool) {
 	if deps.KB == nil || fromSystem == "" {
-		return "", "", "", false
+		return "", "", "", false, false
 	}
 	systems, err := deps.KB.GetSystems(ctx)
 	if err != nil {
-		return "", "", "", false
+		return "", "", "", false, false
 	}
 	conns, err := deps.KB.GetConnections(ctx)
 	if err != nil {
-		return "", "", "", false
+		return "", "", "", false, false
 	}
 	homeSys := huntHomeStationSystem(ctx, deps.KB, deps.HomeStation, systems)
 	homePOI := ""
@@ -79,16 +87,16 @@ func huntRearmDestination(ctx context.Context, deps HuntDeps, fromSystem string,
 	switch {
 	case best.jumps >= 0 && (homeJumps < 0 || best.jumps < homeJumps):
 		if homeJumps < 0 {
-			return best.system, best.poi, fmt.Sprintf("%s, %d jump(s); home depot unreachable", best.why, best.jumps), true
+			return best.system, best.poi, fmt.Sprintf("%s, %d jump(s); home depot unreachable", best.why, best.jumps), true, true
 		}
-		return best.system, best.poi, fmt.Sprintf("%s, %d jump(s), nearer than the home depot at %d", best.why, best.jumps, homeJumps), true
+		return best.system, best.poi, fmt.Sprintf("%s, %d jump(s), nearer than the home depot at %d", best.why, best.jumps, homeJumps), true, true
 	case homeSys != "":
 		if homeJumps < 0 {
-			return homeSys, homePOI, "home depot (no policed route known)", true
+			return homeSys, homePOI, "home depot (no policed route known)", false, true
 		}
-		return homeSys, homePOI, fmt.Sprintf("home depot, %d jump(s)", homeJumps), true
+		return homeSys, homePOI, fmt.Sprintf("home depot, %d jump(s)", homeJumps), true, true
 	}
-	return "", "", "", false
+	return "", "", "", false, false
 }
 
 // huntRearmSellerStations lists the policed, dockable stations the seller
@@ -217,17 +225,17 @@ func huntRearmLeg(ctx context.Context, deps HuntDeps, out io.Writer, sys, poi st
 // When huntRearmDestination names a station other than the one the ship is
 // docked at (station ids compared as huntAtStation does, base id or POI id),
 // it flies there and returns true: the caller drops its in-memory sortie and
-// ends the pass. false (no destination known, or already docked at it) means
-// the hunter is blocked unarmed where it stands; nothing was flown, so this
-// never loops.
+// ends the pass. false (no destination known, no policed route to it known,
+// or already docked at it) means the hunter is blocked unarmed where it
+// stands; nothing was flown, not even an undock, so this never loops.
 func huntRearmElsewhere(ctx context.Context, deps HuntDeps, out io.Writer, who string) bool {
 	st := deps.Client.GetState()
 	if st == nil {
 		return false
 	}
 	from := cmp.Or(st.System.ID, st.CurrentSystem)
-	sys, poi, why, ok := huntRearmDestination(ctx, deps, from, huntRearmAmmoItems(ctx, deps.KB, huntReadLoadout(ctx, deps)))
-	if !ok || huntAtStation(ctx, deps.KB, st, poi) {
+	sys, poi, why, reachable, ok := huntRearmRoute(ctx, deps, from, huntRearmAmmoItems(ctx, deps.KB, huntReadLoadout(ctx, deps)))
+	if !ok || !reachable || huntAtStation(ctx, deps.KB, st, poi) {
 		return false
 	}
 	fmt.Fprintf(out, "hunt[%s]: unarmed at %s; going to rearm at %s/%s (%s)\n", who, st.CurrentPOI, sys, poi, strings.TrimSpace(why)) //nolint:errcheck

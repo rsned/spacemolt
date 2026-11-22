@@ -1144,12 +1144,9 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 	}
 	fmt.Fprintf(out, "hunt: no quarry found across %d ground(s) %v; %s held for next pass\n", len(here), here, job.boardID) //nolint:errcheck
 	huntNeedSearchFailed(deps, out, who, job)
-	left := huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
-	switch {
-	case exhausted:
+	huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
+	if exhausted {
 		return nil, reached, false, huntSearchExhausted
-	case left:
-		return nil, reached, false, huntSearchHeadedIn
 	}
 	return nil, reached, false, huntSearchFailed
 }
@@ -1166,9 +1163,6 @@ const (
 	// huntSearchFailed: a read, a leg or an ambush cut the search short;
 	// nothing was learned about the grounds.
 	huntSearchFailed
-	// huntSearchHeadedIn: cut short as huntSearchFailed, and the ship then
-	// left a predator ground for a station.
-	huntSearchHeadedIn
 )
 
 // errHuntNoGround marks a travel error meaning no candidate ground is left
@@ -1270,19 +1264,17 @@ func huntPredatorPresent(creatures []serverapi.NearbyCreature) (serverapi.Nearby
 
 // huntLeavePredatorGround moves a ship that is still standing on a predator
 // ground (the sweep found nowhere else to go) to the nearest station, rather
-// than leaving it parked there until the next pass. left reports that it
-// headed for a station (whether or not the leg succeeded).
-func huntLeavePredatorGround(ctx context.Context, deps HuntDeps, out io.Writer, who, predatorAt string) (left bool) {
+// than leaving it parked there until the next pass.
+func huntLeavePredatorGround(ctx context.Context, deps HuntDeps, out io.Writer, who, predatorAt string) {
 	st := deps.Client.GetState()
 	if predatorAt == "" || st == nil || st.CurrentPOI != predatorAt {
-		return false
+		return
 	}
 	fmt.Fprintf(out, "hunt[%s]: leaving predator ground %s for the nearest station\n", who, predatorAt) //nolint:errcheck
 	if err := huntRecoverToStation(ctx, deps, out, st.System.ID); err != nil {
 		fmt.Fprintf(out, "hunt[%s]: leaving %s failed: %v\n", who, predatorAt, err) //nolint:errcheck
 		huntEscapeBattle(ctx, deps, out, who, "leaving a predator ground", err)
 	}
-	return true
 }
 
 // huntObjectiveTarget returns the first kill_creature objective's target id and

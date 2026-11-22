@@ -675,8 +675,35 @@ func TestHuntUnarmedAwayFromHomeGoesToRearm(t *testing.T) {
 	}
 }
 
+// Home known but no policed route to it: the hunter must not undock for a
+// leg that cannot be flown. It closes blocked_unarmed at the dock.
+func TestHuntUnarmedWithUnreachableDepotBlocksAtDock(t *testing.T) {
+	e := newSortieEnv(t, huntFakeOpts{
+		board:    []boardMission{{id: sortieMission, difficulty: 1, quantity: 1}},
+		startPOI: "islet_station",
+	}, cannon(0))
+	ctx := context.Background()
+	// islet has no connections at all: no policed route to test_system.
+	_ = e.deps.KB.RememberSystem(ctx, knowledge.System{ID: "islet", Name: "Islet", PoliceLevel: 55, LastVisitedTick: 1})
+	_ = e.deps.KB.RememberPOI(ctx, knowledge.POI{ID: "islet_station", SystemID: "islet", Type: "station"})
+	_ = e.deps.KB.RememberBase(ctx, knowledge.SpaceBase{ID: "islet_base", POIID: "islet_station", PublicAccess: true})
+	e.fake.state.System.ID = "islet"
+	e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+
+	e.pass(t)
+	if slices.Contains(e.calls(), "undock") || len(e.travelled()) != 0 {
+		t.Errorf("must not undock or travel toward an unreachable depot, calls %v\n%s", e.calls(), e.out)
+	}
+	if !slices.Equal(e.reports, []string{huntdecide.ResultBlockedUnarmed}) {
+		t.Errorf("ReportSortie = %v, want [blocked_unarmed]\n%s", e.reports, e.out)
+	}
+	if strings.Contains(e.out.String(), "going to rearm") {
+		t.Errorf("must not claim to go to rearm:\n%s", e.out)
+	}
+}
+
 // A nearby read that fails out at a ground is not a finding about the
-// grounds: the sortie is not labelled no_quarry.
+// grounds: the sortie is not labelled no_quarry, it ends interrupted.
 func TestHuntSortieReadErrorIsNotNoQuarry(t *testing.T) {
 	t.Run("from the dock", func(t *testing.T) {
 		e := sortieMissionEnv(t, 1, provLasers(1))
@@ -686,8 +713,8 @@ func TestHuntSortieReadErrorIsNotNoQuarry(t *testing.T) {
 		if !slices.Contains(e.calls(), "travel:"+sortieGround1) {
 			t.Fatalf("the test needs the ship to reach a ground, calls %v\n%s", e.calls(), e.out)
 		}
-		if s := e.loadFile(t); s.PendingResult == huntdecide.ResultNoQuarry {
-			t.Errorf("pending = %q: a read error is not no_quarry\n%s", s.PendingResult, e.out)
+		if s := e.loadFile(t); s.PendingResult != huntdecide.ResultInterrupted {
+			t.Errorf("pending = %q, want interrupted\n%s", s.PendingResult, e.out)
 		}
 		if len(e.reports) != 0 {
 			t.Errorf("nothing closes out at a ground, got %v", e.reports)
@@ -698,16 +725,88 @@ func TestHuntSortieReadErrorIsNotNoQuarry(t *testing.T) {
 		e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
 		e.deps.Client = &nearbyFailClient{sortieFake: e.fake}
 		e.pass(t)
-		if s := e.loadFile(t); s.PendingResult == huntdecide.ResultNoQuarry {
-			t.Errorf("pending = %q: a read error is not no_quarry\n%s", s.PendingResult, e.out)
+		if s := e.loadFile(t); s.PendingResult != huntdecide.ResultInterrupted {
+			t.Errorf("pending = %q, want interrupted\n%s", s.PendingResult, e.out)
 		}
 	})
 }
 
-// nearbyFailClient fails every get_nearby.
-type nearbyFailClient struct{ *sortieFake }
+// After a resumed re-read fails, the next pass does not read the ground
+// again: it recovers to a station, and the docked pass closes the sortie
+// interrupted, reported once.
+func TestHuntResumedReadErrorRecoversAndClosesInterrupted(t *testing.T) {
+	e := resumeEnv(t, 1, huntFakeOpts{}, huntdecide.GroundVisit{POI: sortieGround1, Quarry: true})
+	e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+	nf := &nearbyFailClient{sortieFake: e.fake}
+	e.deps.Client = nf
+	e.pass(t)
+	if nf.reads != 1 {
+		t.Fatalf("pass 1 must read the ground once, read %d\n%s", nf.reads, e.out)
+	}
 
-func (c *nearbyFailClient) GetNearby(context.Context) error { return errors.New("nearby timeout") }
+	e.pass(t)
+	if nf.reads != 1 {
+		t.Errorf("pass 2 re-read the ground (%d reads in all); it must recover instead\n%s", nf.reads, e.out)
+	}
+	if !slices.Contains(e.calls(), "travel:haven_station") || e.countCall("dock") != 1 {
+		t.Fatalf("pass 2 must recover to haven_station and dock, calls %v\n%s", e.calls(), e.out)
+	}
+	if len(e.reports) != 0 {
+		t.Errorf("nothing closes before the docked pass, got %v", e.reports)
+	}
+
+	e.pass(t)
+	if len(e.reports) == 0 || e.reports[0] != huntdecide.ResultInterrupted {
+		t.Fatalf("ReportSortie = %v, want interrupted first\n%s", e.reports, e.out)
+	}
+	ends := e.ofType(t, "sortie_end")
+	if len(ends) == 0 || ends[0]["sortie_id"] != "pirate-6-resumed" || ends[0]["result"] != huntdecide.ResultInterrupted {
+		t.Errorf("sortie_end = %v, want pirate-6-resumed interrupted", ends)
+	}
+	if n := slices.Index(e.reports, huntdecide.ResultInterrupted); n != 0 || len(e.reports) != 1 {
+		t.Errorf("ReportSortie = %v, want exactly one call", e.reports)
+	}
+}
+
+// A leg that fails before any ground is reached ends the sortie interrupted.
+func TestHuntSortieFailedLegIsInterrupted(t *testing.T) {
+	e := sortieMissionEnv(t, 1, provLasers(1))
+	e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+	e.deps.Client = &travelFailClient{sortieFake: e.fake}
+	e.pass(t)
+	if e.fake.state.CurrentPOI == sortieGround1 {
+		t.Fatalf("the test needs the leg to fail, calls %v\n%s", e.calls(), e.out)
+	}
+	s := e.loadFile(t)
+	if s.PendingResult != huntdecide.ResultInterrupted || len(s.Grounds) != 0 {
+		t.Errorf("sortie = %+v, want pending interrupted and no ground\n%s", s, e.out)
+	}
+	if len(e.reports) != 0 {
+		t.Errorf("nothing closes out of the dock, got %v", e.reports)
+	}
+}
+
+// nearbyFailClient fails every get_nearby and counts them.
+type nearbyFailClient struct {
+	*sortieFake
+	reads int
+}
+
+func (c *nearbyFailClient) GetNearby(context.Context) error {
+	c.reads++
+	return errors.New("nearby timeout")
+}
+
+// travelFailClient fails every travel to anywhere but haven_station.
+type travelFailClient struct{ *sortieFake }
+
+func (c *travelFailClient) Travel(ctx context.Context, poi string) (*game.TravelResult, error) {
+	if poi != "haven_station" {
+		c.huntFake.calls = append(c.huntFake.calls, "travel_failed:"+poi)
+		return nil, errors.New("autopilot: route blocked")
+	}
+	return c.sortieFake.Travel(ctx, poi)
+}
 
 func TestHuntSortieGroundCap(t *testing.T) {
 	e := newSortieEnv(t, huntFakeOpts{
