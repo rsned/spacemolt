@@ -1,22 +1,33 @@
 # Wildlife-hunt fleet — the wildlife-cull pool (pkg/worker/hunt.go).
 #
-# NOT LAUNCHED. This file is inert until an operator points an overmind at it;
-# no running worker reads it. Launching is a deliberate act, and it has a
-# pre-flight (below) that this file cannot perform.
+# This file is read by an overmind started with it as its fleet config. Launch
+# it as a deliberate act, and run the pre-flight (below) first.
 #
-# Two agents to start, per the rollout: hunting is the first standing behavior
-# in this repo that deliberately takes fire, and the gates that keep it survivable
-# (difficulty cap 1, wildlife-only) are only as good as the first fleet that runs
-# under them. Grow the pool after a pass has been watched end to end.
+# Hunting is the first standing behavior in this repo that deliberately takes
+# fire, and the gates that keep it survivable (difficulty cap 1, wildlife-only)
+# are only as good as the first fleet that runs under them. Grow the pool after
+# a pass has been watched end to end.
 #
 # The gates are NOT configurable here on purpose: they are constants in
 # pkg/worker/hunt_gate.go so that raising the fleet's risk posture is a code
 # change with a review, not a yaml edit.
 #
-# `station` is recorded for the operator and the fleet dashboard — the hunt role
-# does not read it. A hunt pass docks wherever it already is to reach a mission
-# board, travels to the quarry's own POI type, and stays out there; it never
-# returns to a pinned home.
+# `station` is the hunter's ammo depot and its rearm destination: the hunter
+# keeps its ammo in its own storage there, provisions from it before a sortie
+# and returns to it to rearm. A hunt pass docks wherever it already is to reach
+# a mission board, travels to the quarry's own POI type, and stays out for the
+# whole sortie.
+#
+# Optional agent fields, both left unset in this file (defaults apply):
+#   hunt_ammo_cap  most credits one sortie may spend on ammunition from the
+#                  market. Default 5000. A hunter never spends below a small
+#                  credit floor kept for fuel and repair.
+#   hunt_explore   exploration rates for the hunt decisions, comma-separated
+#                  kind=epsilon with kind provision or return and epsilon 0 to
+#                  1, for example "provision=0.15,return=0.05". Default empty,
+#                  which means the rules decide every time.
+# Decision records are written to data/agents/<agent>/hunt-decisions/. See
+# docs/ops/hunt-refit-and-depot.md.
 #
 # PRE-FLIGHT, by hand, before this fleet is launched:
 #   1. Refuel pirate-6 — its active Drillship was last seen at 0/130 and cannot
@@ -31,7 +42,7 @@
 #   4. Canary first_hunt_belt_grazers by hand through play_as before letting the
 #      fleet run unattended.
 #   5. Launch with --assets-db-path data/assets.db and --stagger 10s.
-# GROWN TO FIVE 2026-08-10. The two-agent start above was a risk posture for a
+# GROWN TO FIVE 2026-08-10. The original two-agent start was a risk posture for a
 # behaviour that had never run unattended, not a capability limit. Since then all
 # five were canaried by hand through the full loop — accept, travel, engage,
 # close, kill, complete — and every one finished First Hunt: Belt-Grazers at

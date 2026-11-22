@@ -13,11 +13,13 @@ import (
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/assets"
+	"github.com/rsned/spacemolt/pkg/buildinfo"
 	"github.com/rsned/spacemolt/pkg/creditreq"
 	"github.com/rsned/spacemolt/pkg/explore"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/handoff"
+	"github.com/rsned/spacemolt/pkg/huntdecide"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
 	"github.com/rsned/spacemolt/pkg/outcomes"
@@ -51,6 +53,11 @@ type WorkerDispatch struct {
 	AgentID         string // claim owner for opportunity-claiming roles (e.g. hauler)
 	Station         string // home base id: pins the assist and missionrunner roles
 	GiftTo          string // hunt: collector agent id banked parts are gifted to (empty = bank only)
+	// HuntAmmoCap is the most credits a hunt sortie spends on ammunition
+	// (0 -> huntDefaultAmmoCreditCap). HuntExplore is the per-kind exploration
+	// rate of the hunt decisions; nil or empty leaves every kind at 0.
+	HuntAmmoCap float64
+	HuntExplore map[huntdecide.Kind]float64
 	Role            string // --role; fit_drones keeps the harvester a role depends on
 	// TourRecipientSystem is a test seam for deliver_tour's location check.
 	// Nil reads the fleet status files.
@@ -573,8 +580,35 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		// them here would put the policy in two files that can drift, and the
 		// unsafe value of the interlock is precisely the one a copied-and-
 		// edited call site would produce.
+		// With no agent id there is no directory to record under; a nil Log
+		// drops records rather than writing into the working directory.
+		var huntLog *huntdecide.Log
+		if dir := huntAgentDir(HuntDeps{AgentID: d.AgentID, AgentsDir: d.AgentsDir}); dir != "" {
+			huntLog = huntdecide.NewLog(dir)
+		}
+		var sellers func(ctx context.Context, itemID string, minQty float64) ([]market.ItemSeller, error)
+		if d.Market != nil {
+			sellers = d.Market.FindItemSellers
+		}
+		bi := buildinfo.Get()
 		return Hunt(ctx, HuntDeps{
 			Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID,
+			Decider: huntdecide.Recorder{
+				Inner: huntdecide.Explorer{Inner: huntRules{}, Epsilon: d.HuntExplore},
+				Log:   huntLog,
+			},
+			Decisions:     huntLog,
+			AmmoCreditCap: d.HuntAmmoCap,
+			Sellers:       sellers,
+			Version:       bi.Version,
+			Commit:        bi.Commit,
+			ReportSortie: func(result string) {
+				status := outcomes.StatusOK
+				if huntdecide.ResultFailed(result) {
+					status = outcomes.StatusFailed
+				}
+				d.Outcomes.RecordStatus("behaviour:hunt_sortie", "hunt", status, result, time.Now())
+			},
 			// Per-agent chain records (hunt_chain.go) live under the same
 			// tree as the credential files, so the worker's --agents-dir
 			// governs both; empty resolves to DefaultAgentsDir.

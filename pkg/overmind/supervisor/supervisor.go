@@ -124,6 +124,12 @@ func SpawnWith(cfg SpawnConfig) SpawnFunc {
 		if spec.GiftTo != "" {
 			args = append(args, "--gift-to", spec.GiftTo)
 		}
+		if spec.HuntAmmoCap > 0 {
+			args = append(args, "--hunt-ammo-cap", strconv.FormatFloat(spec.HuntAmmoCap, 'f', -1, 64))
+		}
+		if spec.HuntExplore != "" {
+			args = append(args, "--hunt-explore", spec.HuntExplore)
+		}
 		if spec.Pipeline != "" {
 			args = append(args, "--pipeline", spec.Pipeline)
 		}

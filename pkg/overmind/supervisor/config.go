@@ -82,6 +82,12 @@ type WorkerSpec struct {
 	// gifts its banked creature parts to at its base station. Empty keeps
 	// the hunter banking only.
 	GiftTo string `yaml:"gift_to,omitempty"`
+	// HuntAmmoCap forwards --hunt-ammo-cap: the most credits a hunter spends
+	// on ammunition per sortie. Zero keeps the worker default (5000).
+	HuntAmmoCap float64 `yaml:"hunt_ammo_cap,omitempty"`
+	// HuntExplore forwards --hunt-explore: comma-separated kind=epsilon
+	// exploration rates for the hunt decisions. Empty leaves exploration off.
+	HuntExplore string `yaml:"hunt_explore,omitempty"`
 	// Pipeline forwards --pipeline "item,system,poi,to,recipient": the pinned
 	// mine-and-hand-off route of a pipeline_miner worker.
 	Pipeline string `yaml:"pipeline,omitempty"`

@@ -99,6 +99,8 @@ func main() {
 	freightMaxPackages := flag.Int("freight-max-packages", 1, "Max concurrent freight contracts for the missions role (sub-project C multi-package trips; 1 = single-contract v1 behavior)")
 	consignSpec := flag.String("consign", "", "Standing consignment rules, comma-separated item:recipient:min[:keep] — hand allow-listed goods from this station's personal storage to a named hauler on each idle pass (e.g. adamantite_ore:salvager-2:50). Explicit allow-list only: gifting is irreversible.")
 	giftTo := flag.String("gift-to", "", "Collector hauler agent id (hunt role): banked creature parts are gifted to it at the home station (empty = bank only)")
+	huntAmmoCap := flag.Float64("hunt-ammo-cap", 5000, "Most credits a hunter spends on ammunition per sortie (hunt role)")
+	huntExploreSpec := flag.String("hunt-explore", "", "Hunt decision exploration rates, comma-separated kind=epsilon with kind provision or return, epsilon 0 to 1 (e.g. provision=0.15,return=0.05). Empty leaves exploration off.")
 	pipelineSpec := flag.String("pipeline", "", "Pinned pipeline route item,system,poi,to,recipient — the pipeline_miner role mines item at poi in system and hands the whole item line plus any other line the trip grew (never energy_crystal or fuel_cell) to recipient at to on each idle pass.")
 	consignOfferSpec := flag.String("consign-offer", "", "Consignment offers, comma-separated item[:keep] — advertise allow-listed goods in this station's personal storage to the hauler fleet as consigned routes; the claiming hauler is gifted them via the handoff queue (needs --handoff-queue). Explicit allow-list only: gifting is irreversible.")
 	factionPullSpec := flag.String("faction-pull", "", "Items, comma-separated item[:keep] — each idle pass, move these from faction storage, leaving keep units there, into personal storage (bounded by free hold) so consign/shopkeep can see them. Explicit ids only; energy_crystal is refused.")
@@ -155,6 +157,15 @@ func main() {
 	// logOut carries the decision stream (freight/haul/mission/etc.) through the
 	// prefixed logger so every reasoning line is attributable to this agent.
 	logOut := &logLineWriter{l: logger}
+
+	// A bad --hunt-explore is a startup error. The overmind log does not carry
+	// worker stderr, so it goes to the worker log as well.
+	huntExplore, huntExploreErr := worker.ParseHuntExplore(*huntExploreSpec)
+	if huntExploreErr != nil {
+		logger.Printf("--hunt-explore: %v", huntExploreErr)
+		fmt.Fprintf(os.Stderr, "--hunt-explore: %v\n", huntExploreErr)
+		os.Exit(1)
+	}
 
 	// Resolve DB path.
 	resolvedDB := *dbPath
@@ -510,6 +521,8 @@ func main() {
 			dispatch.AgentID = *agentID
 			dispatch.Station = *station
 			dispatch.GiftTo = *giftTo
+			dispatch.HuntAmmoCap = *huntAmmoCap
+			dispatch.HuntExplore = huntExplore
 			dispatch.Role = *role
 			dispatch.Assets = assetStore
 			dispatch.CreditQueue = creditQueue

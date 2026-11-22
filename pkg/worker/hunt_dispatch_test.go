@@ -2,6 +2,8 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/huntdecide"
+	"github.com/rsned/spacemolt/pkg/outcomes"
 	"github.com/rsned/spacemolt/pkg/overmind/supervisor"
 )
 
@@ -218,5 +222,118 @@ func TestHuntFleetYAMLParses(t *testing.T) {
 	}
 	if roles["hunt"].Idle != "hunt" {
 		t.Errorf("hunt role idle = %q, want hunt", roles["hunt"].Idle)
+	}
+}
+
+func TestParseHuntExplore(t *testing.T) {
+	got, err := ParseHuntExplore("")
+	if err != nil || len(got) != 0 {
+		t.Fatalf("empty spec = %v, %v; want empty map, nil", got, err)
+	}
+	got, err = ParseHuntExplore("provision=0.15,return=0.05")
+	if err != nil {
+		t.Fatalf("valid spec: %v", err)
+	}
+	if len(got) != 2 || got[huntdecide.KindProvision] != 0.15 || got[huntdecide.KindReturn] != 0.05 {
+		t.Errorf("valid spec = %v", got)
+	}
+	for _, bad := range []string{"ground=0.1", "return", "return=2", "return=-0.1", "return=x"} {
+		if _, err := ParseHuntExplore(bad); err == nil {
+			t.Errorf("ParseHuntExplore(%q) must fail", bad)
+		}
+	}
+}
+
+// huntDispatchFor builds a dispatch around a sortie environment's fake, KB and
+// agent directory, so Run("hunt") drives the same pass the sortie tests do.
+func huntDispatchFor(e *sortieEnv) *WorkerDispatch {
+	d := NewWorkerDispatch(e.fake, e.deps.KB, nil, e.out)
+	d.AgentID = e.deps.AgentID
+	d.AgentsDir = e.deps.AgentsDir
+	d.Station = "haven_station"
+	d.Outcomes = outcomes.New(e.dir)
+	return d
+}
+
+func TestHuntDispatchWiresRecorderAndDefaults(t *testing.T) {
+	e := sortieMissionEnv(t, 1, cannon(0))
+	e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+	d := huntDispatchFor(e)
+	if err := d.Run(context.Background(), []string{"hunt"}); err != nil {
+		t.Fatalf("Run hunt: %v", err)
+	}
+	files, _ := filepath.Glob(filepath.Join(e.dir, "hunt-decisions", "*.jsonl"))
+	if len(files) != 1 {
+		t.Fatalf("decision files = %v, want one under %s/hunt-decisions\n%s", files, e.dir, e.out)
+	}
+	raw, err := os.ReadFile(files[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sawDecision bool
+	for line := range strings.SplitSeq(strings.TrimSpace(string(raw)), "\n") {
+		var rec map[string]any
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			t.Fatalf("bad record %q: %v", line, err)
+		}
+		if rec["type"] == "decision" {
+			sawDecision = true
+			if rec["source"] != "rule" {
+				t.Errorf("decision source = %v, want rule", rec["source"])
+			}
+		}
+	}
+	if !sawDecision {
+		t.Errorf("no decision record written:\n%s", raw)
+	}
+}
+
+func TestHuntDispatchReportsSortieOutcome(t *testing.T) {
+	const key = "behaviour:hunt_sortie"
+	e := sortieMissionEnv(t, 1, cannon(0))
+	e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+	d := huntDispatchFor(e)
+	if err := d.Run(context.Background(), []string{"hunt"}); err != nil {
+		t.Fatalf("Run hunt: %v", err)
+	}
+	got, err := outcomes.Load(e.dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := got[key]
+	if o.Status != outcomes.StatusFailed || o.Reason != huntdecide.ResultBlockedUnarmed || o.Command != "hunt" {
+		t.Errorf("blocked outcome = %+v", o)
+	}
+
+	// A sortie that has already visited the ground cap ends no_quarry once the
+	// hunter is docked again.
+	e = newSortieEnv(t, huntFakeOpts{
+		board:          []boardMission{{id: sortieMission, difficulty: 1, quantity: 5}},
+		activeMissions: []serverapi.ActiveMission{heldMission(sortieMission, 0, 5, 1)},
+		heldAtStart:    true,
+		startPOI:       "old_ground_6",
+		unsetDocked:    true,
+	}, provLasers(1))
+	// No creatures anywhere: the dispatch has no zero-delay tick seam, so the
+	// pass must never reach a fight.
+	e.fake.grounds = map[string][]huntCreature{}
+	s := &huntdecide.Sortie{ID: "pirate-6-capped", JobKind: "mission", JobID: "hex-" + sortieMission}
+	for i := range huntMaxSortieGrounds - 1 {
+		s.Grounds = append(s.Grounds, huntdecide.GroundVisit{POI: fmt.Sprintf("old_ground_%d", i+1)})
+	}
+	e.seed(t, s)
+	d = huntDispatchFor(e)
+	for range 3 {
+		if err = d.Run(context.Background(), []string{"hunt"}); err != nil {
+			t.Fatalf("Run hunt: %v", err)
+		}
+	}
+	got, err = outcomes.Load(e.dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o = got[key]
+	if o.Status != outcomes.StatusOK || o.Reason != huntdecide.ResultNoQuarry {
+		t.Errorf("no_quarry outcome = %+v\n%s", o, e.out)
 	}
 }
