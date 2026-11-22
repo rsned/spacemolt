@@ -29,6 +29,11 @@ func huntReload(ctx context.Context, deps HuntDeps, out io.Writer, who string) (
 		fmt.Fprintf(out, "hunt[%s]: reload check skipped: %v\n", who, err) //nolint:errcheck
 		return true
 	}
+	return huntReloadPlan(ctx, deps, out, who, plan)
+}
+
+// huntReloadPlan is huntReload on a plan already read.
+func huntReloadPlan(ctx context.Context, deps HuntDeps, out io.Writer, who string, plan []reload.Entry) (armed bool) {
 	if len(plan) == 0 {
 		return true // energy weapons only: nothing to reload
 	}
