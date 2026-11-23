@@ -67,6 +67,47 @@ func TestHuntHeldNeedWidensItsRadiusOnFailedSearches(t *testing.T) {
 		t.Fatalf("a held need never widened its search to an 8-jump ground; log:\n%s", log.String())
 	}
 	if called(f.huntFake, "abandon") {
-		t.Errorf("a held need must never be abandoned; calls %v", f.calls)
+		t.Errorf("a need that found its ground within the patience must not be abandoned; calls %v", f.calls)
+	}
+}
+
+// A held need with no ground anywhere is abandoned after huntNeedAbandonAfter
+// dry searches, and remembered so the board entry is not taken straight back.
+// Observed live 2026-11-22: pirate-5 and pirate-10 each sat on such a need,
+// which blocks every other job until it expires.
+func TestHuntAbandonsAHeldNeedAfterDrySearches(t *testing.T) {
+	ctx := context.Background()
+	kb := huntNeedKBFixture(t)
+	kb.sightings = nil
+	held := huntCausticActive(2)
+	f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{
+		heldAtStart:    true,
+		activeMissions: []serverapi.ActiveMission{held},
+	})
+	var log strings.Builder
+	deps := huntNeedDeps(f, kb, &log)
+	for pass := range huntNeedAbandonAfter {
+		if called(f.huntFake, "abandon") {
+			t.Fatalf("abandoned after only %d dry search(es); log:\n%s", pass, log.String())
+		}
+		f.state.CurrentPOI, f.state.Doc = "haven_station", true
+		deps.unarmedGate = nil
+		if err := Hunt(ctx, deps); err != nil {
+			t.Fatalf("pass %d: %v", pass, err)
+		}
+	}
+	if !called(f.huntFake, "abandon:"+held.MissionID) {
+		t.Fatalf("no abandon after %d dry searches; calls %v\n%s", huntNeedAbandonAfter, f.calls, log.String())
+	}
+	board := held.TemplateID
+	if board == "" {
+		board = held.MissionID
+	}
+	r := huntLoadRoam(deps, &log)
+	if !huntNeedGaveUp(r, board, huntNow(deps)) {
+		t.Errorf("the abandoned need %q must be remembered; roam %+v", board, r)
+	}
+	if huntNeedGaveUp(r, board, huntNow(deps).Add(huntNeedGaveUpFor+time.Minute)) {
+		t.Errorf("the memory must lapse after %s", huntNeedGaveUpFor)
 	}
 }

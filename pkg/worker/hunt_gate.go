@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
+	"unicode"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 )
@@ -88,19 +90,59 @@ var huntMissionSpecies = map[string]string{
 // eligible wildlife rather than refusing everything, which is the right
 // behaviour for a wildlife mission nobody has curated yet.
 //
-// The server's own objective target_id wins over the curated table whenever it
-// is populated: the table is a stopgap for missions that omit it, not a
-// competing opinion.
-func huntRequiredSpecies(e serverapi.MissionBoardEntry) (species, source string) {
+// The server's own objective target_id wins over everything whenever it is
+// populated. Next comes the objective's own text: a creature name the guide
+// knows (speciesByName, keyed as kb.SpeciesByDisplayName keys them) found in a
+// kill_creature objective's description. The curated table is last, a stopgap
+// for a mission whose text names nothing the guide knows: the server re-themed
+// cracking_the_shell from Slag-Tortoises to "Hunt 3 Pressblisters at an ice
+// field" and the table sent pirate-5 after tortoises for a night (2026-11-23).
+func huntRequiredSpecies(e serverapi.MissionBoardEntry, speciesByName map[string]string) (species, source string) {
 	for _, o := range e.Objectives {
 		if o.Type == objectiveKillCreature && o.TargetID != "" {
 			return o.TargetID, "objective target_id"
+		}
+	}
+	for _, o := range e.Objectives {
+		if o.Type != objectiveKillCreature {
+			continue
+		}
+		if s, ok := huntSpeciesInText(o.Description, speciesByName); ok {
+			return s, "objective text"
 		}
 	}
 	if s, ok := huntMissionSpecies[e.MissionID]; ok {
 		return s, "curated mission table"
 	}
 	return "", "unscoped"
+}
+
+// huntSpeciesInText finds the one known creature named in text, singular or
+// plural, hyphenated or spaced ("Hunt 3 Slag-Tortoises at an asteroid belt").
+// The longest name wins, so "Molt Leviathan" beats a bare "Leviathan". ok is
+// false when no known name appears, or two different species tie.
+func huntSpeciesInText(text string, speciesByName map[string]string) (species string, ok bool) {
+	flat := " " + strings.Join(strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	}), " ") + " "
+	best := 0
+	for name, sp := range speciesByName {
+		key := strings.Join(strings.FieldsFunc(name, func(r rune) bool {
+			return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+		}), " ")
+		if key == "" || len(key) < best {
+			continue
+		}
+		if !strings.Contains(flat, " "+key+" ") && !strings.Contains(flat, " "+key+"s ") {
+			continue
+		}
+		if len(key) == best && sp != species {
+			ok = false
+			continue
+		}
+		species, best, ok = sp, len(key), true
+	}
+	return species, ok
 }
 
 // huntEarnedContinuations returns the missions this agent has EARNED the right
@@ -242,4 +284,24 @@ func huntKillQuantity(e serverapi.MissionBoardEntry) int {
 	}
 
 	return total
+}
+
+// huntLawlessAgents are the hunters allowed into Lawless space: for them the
+// policed-only rule on grounds, routes, boards, rearm and repair stations is
+// off. A code list on purpose, like the other gates here. Only agents holding
+// the pirate unlock belong on it: a Lawless route can end at a stronghold.
+//
+// TRIAL 2026-11-23: pirate-5 alone, to see what Lawless hunting costs.
+var huntLawlessAgents = map[string]bool{
+	"pirate-5": true,
+}
+
+// huntPoliceFloor is the lowest systems.police_level deps' hunter may enter:
+// huntPolicedMinLevel, or 0 (everything the KB knows) for a Lawless-cleared
+// agent.
+func huntPoliceFloor(deps HuntDeps) int {
+	if huntLawlessAgents[deps.AgentID] {
+		return 0
+	}
+	return huntPolicedMinLevel
 }

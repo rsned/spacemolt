@@ -77,14 +77,15 @@ func huntUsername(deps HuntDeps, agentID string) (string, error) {
 	return UsernameFor(deps.AgentsDir, agentID)
 }
 
-// huntBankSurplus banks spare creature parts when the hunter is docked at its
-// HomeStation, or at Conjunction Junction: every cargo item except the
+// huntBankSurplus banks spare creature parts wherever the hunter is docked:
+// every cargo item except the
 // reserved consumables and up to keep[item] units of the active need goes to
 // personal storage. When the bankable parts in storage there total at least
 // huntGiftBatch, each is gifted from storage -- at CJ to haulDumpRecipient, at
 // the base to the GiftTo collector (empty GiftTo banks only).
 //
-// Anywhere else it does nothing: a hunter never flies to base just to bank.
+// At any other station the parts are stored and nothing is gifted. A hunter
+// never flies anywhere just to bank.
 // Every refused deposit or gift is reported and the rest still go; the joined
 // error is for the caller to log, never to stop the pass on.
 func huntBankSurplus(ctx context.Context, deps HuntDeps, out io.Writer, keep map[string]int) error {
@@ -92,13 +93,21 @@ func huntBankSurplus(ctx context.Context, deps HuntDeps, out io.Writer, keep map
 		out = io.Discard
 	}
 	st := deps.Client.GetState()
-	atCJ := huntAtStation(ctx, deps.KB, st, haulDumpPOI)
-	if !atCJ && (deps.HomeStation == "" || !huntAtStation(ctx, deps.KB, st, deps.HomeStation)) {
+	if st == nil || !st.Doc {
 		return nil
 	}
+	atCJ := huntAtStation(ctx, deps.KB, st, haulDumpPOI)
+	// Away from the base and CJ the parts are only stored (operator,
+	// 2026-11-23, "for now"): the base is out of reach of most hunters and a
+	// hold full of loot leaves no room for ammunition. Nothing collects them
+	// from there yet.
+	storeOnly := !atCJ && (deps.HomeStation == "" || !huntAtStation(ctx, deps.KB, st, deps.HomeStation))
 	where := deps.HomeStation
-	if atCJ {
+	switch {
+	case atCJ:
 		where = haulDumpSystem
+	case storeOnly:
+		where = st.CurrentPOI
 	}
 
 	// Cached cargo can lag the server (an accept_mission grant carries no
@@ -121,6 +130,10 @@ func huntBankSurplus(ctx context.Context, deps HuntDeps, out io.Writer, keep map
 			}
 			fmt.Fprintf(out, "hunt: banked %d %s at %s\n", qty, c.ItemID, where) //nolint:errcheck
 		}
+	}
+
+	if storeOnly {
+		return errors.Join(failed...)
 	}
 
 	if err := deps.Client.ViewStorage(ctx); err != nil {

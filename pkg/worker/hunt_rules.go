@@ -94,7 +94,7 @@ func rulesProvision(d huntdecide.Decision) huntdecide.Choice {
 }
 
 // rulesReturn: repair below huntReturnRepairHull, else rearm without a
-// reserve, else continue; each only when offered.
+// reserve once the magazines run low, else continue; each only when offered.
 func rulesReturn(d huntdecide.Decision) huntdecide.Choice {
 	s := d.State
 	if rulesOffered(d, huntOptRepair) && s.MaxHull > 0 && s.Hull/s.MaxHull < huntReturnRepairHull {
@@ -103,8 +103,8 @@ func rulesReturn(d huntdecide.Decision) huntdecide.Choice {
 			Reason:   fmt.Sprintf("hull %.0f/%.0f is below %.0f%%", s.Hull, s.MaxHull, huntReturnRepairHull*100),
 		}
 	}
-	if rulesOffered(d, huntOptRearm) && !huntHasReserve(s) {
-		return huntdecide.Choice{OptionID: huntOptRearm, Reason: "no reserve ammunition aboard"}
+	if rulesOffered(d, huntOptRearm) && !huntHasReserve(s) && huntMagazinesLow(s) {
+		return huntdecide.Choice{OptionID: huntOptRearm, Reason: "no reserve ammunition aboard and no magazine at half or better"}
 	}
 	if rulesOffered(d, huntOptContinue) {
 		return huntdecide.Choice{OptionID: huntOptContinue, Reason: "hull and ammunition adequate"}
@@ -134,6 +134,29 @@ func huntCanFire(s huntdecide.State) bool {
 		}
 	}
 	return false
+}
+
+// huntMagazinesLow reports whether no ammo-fed weapon still holds at least half
+// its magazine. A ship with a full magazine and no spare stack has plenty of
+// fight left: observed live 2026-11-22, pirate-5 went home "dry" with 647/650
+// in both autocannons. A weapon with no known magazine size counts as low only
+// when it is empty.
+func huntMagazinesLow(s huntdecide.State) bool {
+	for _, w := range s.Weapons {
+		if w.AmmoType == "" {
+			continue
+		}
+		if w.MagazineSize <= 0 {
+			if w.Loaded > 0 {
+				return false
+			}
+			continue
+		}
+		if w.Loaded*2 >= w.MagazineSize {
+			return false
+		}
+	}
+	return true
 }
 
 // huntHasReserve reports whether the ship has fire beyond what is loaded: an

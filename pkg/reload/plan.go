@@ -78,6 +78,17 @@ type Loadout struct {
 // BuildLoadout is BuildPlan plus the weapons BuildPlan skips: it returns the
 // ammo-fed plan and, separately, the weapon modules with no ammo type.
 func BuildLoadout(modules []serverapi.ShipModule, cargo []serverapi.CargoItem, lookup Lookup) Loadout {
+	return BuildLoadoutWith(modules, cargo, lookup, lookup)
+}
+
+// BuildLoadoutWith is BuildLoadout with the two questions asked of separate
+// lookups: ammo says which cargo items are ammunition, weapon says which ammo
+// type a fitted module takes when the wire omits it. They must not be one
+// catalog lookup that answers both: a spare weapon module in the hold then
+// reads as ammunition for its own kind (pirate-10 looped on reloading its
+// Railgun I with a railgun_i from cargo, 2026-11-23).
+func BuildLoadoutWith(modules []serverapi.ShipModule, cargo []serverapi.CargoItem, ammo, weapon Lookup) Loadout {
+	lookup := ammo
 	var lo Loadout
 
 	for _, m := range modules {
@@ -85,11 +96,11 @@ func BuildLoadout(modules []serverapi.ShipModule, cargo []serverapi.CargoItem, l
 			continue
 		}
 		ammoType := m.AmmoType
-		if ammoType == "" && lookup != nil && m.TypeID != "" {
+		if ammoType == "" && weapon != nil && m.TypeID != "" {
 			// The live get_ship shape carries ammo_type, but we have no
 			// capture proving the server always populates it; the catalog
 			// knows it from the module's type id either way.
-			_, ammoType = lookup(m.TypeID)
+			_, ammoType = weapon(m.TypeID)
 		}
 		if ammoType == "" {
 			lo.Free = append(lo.Free, FreeWeapon{ModuleID: m.ID, TypeID: m.TypeID})
@@ -174,12 +185,32 @@ func Targets(plan []Entry) []Target {
 
 // formatReloadPlan renders the plan as the answer to a bare `reload`: every
 
-// KBLookup resolves item ids against the knowledge base's item catalog,
-// which holds both halves of the pairing: an ammo item's own ammo type
-// (CatalogItem.Ammo) and a weapon module's required one
-// (CatalogItem.Module.Weapon). Results are memoised — a plan looks up every
-// cargo stack against every weapon.
+// KBLookup resolves AMMUNITION item ids against the knowledge base's item
+// catalog: the name and the ammo type of an ammo item, and an empty ammo type
+// for everything else, a weapon module included. Results are memoised -- a
+// plan looks up every cargo stack against every weapon.
 func KBLookup(ctx context.Context, kb knowledge.Base) Lookup {
+	return kbLookup(ctx, kb, func(item *knowledge.CatalogItem) string {
+		if item.Ammo != nil {
+			return item.Ammo.AmmoType
+		}
+		return ""
+	})
+}
+
+// KBWeaponLookup resolves a weapon module's type id to the ammo type it
+// takes (CatalogItem.Module.Weapon), empty for anything that is not an
+// ammo-fed weapon.
+func KBWeaponLookup(ctx context.Context, kb knowledge.Base) Lookup {
+	return kbLookup(ctx, kb, func(item *knowledge.CatalogItem) string {
+		if item.Module != nil && item.Module.Weapon != nil {
+			return item.Module.Weapon.AmmoType
+		}
+		return ""
+	})
+}
+
+func kbLookup(ctx context.Context, kb knowledge.Base, ammoType func(*knowledge.CatalogItem) string) Lookup {
 	type entry struct{ name, ammoType string }
 	cache := map[string]entry{}
 
@@ -193,12 +224,7 @@ func KBLookup(ctx context.Context, kb knowledge.Base) Lookup {
 		e := entry{}
 		if item, err := kb.GetItem(ctx, itemID); err == nil && item != nil {
 			e.name = item.Name
-			switch {
-			case item.Ammo != nil:
-				e.ammoType = item.Ammo.AmmoType
-			case item.Module != nil && item.Module.Weapon != nil:
-				e.ammoType = item.Module.Weapon.AmmoType
-			}
+			e.ammoType = ammoType(item)
 		}
 		cache[itemID] = e
 		return e.name, e.ammoType
@@ -242,5 +268,5 @@ func FetchLoadout(ctx context.Context, client game.GameClient, kb knowledge.Base
 		}
 	}
 
-	return BuildLoadout(resp.Modules, cargo, KBLookup(ctx, kb)), nil
+	return BuildLoadoutWith(resp.Modules, cargo, KBLookup(ctx, kb), KBWeaponLookup(ctx, kb)), nil
 }

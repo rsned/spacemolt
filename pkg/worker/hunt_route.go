@@ -18,10 +18,10 @@ import (
 // policed. With homeWaiver, b may also be huntHomeSystem -- the final hop INTO
 // cloverfield, never through it (its own jumps out are dropped unless it is
 // src). Unknown systems count as unpoliced.
-func huntPolicedGraph(conns []knowledge.Connection, systems []knowledge.System, src string, homeWaiver bool) navigation.JumpGraph {
+func huntPolicedGraph(conns []knowledge.Connection, systems []knowledge.System, src string, homeWaiver bool, floor int) navigation.JumpGraph {
 	policed := make(map[string]bool, len(systems))
 	for _, s := range systems {
-		if s.PoliceLevel >= huntPolicedMinLevel {
+		if s.PoliceLevel >= floor {
 			policed[s.ID] = true
 		}
 	}
@@ -57,7 +57,7 @@ func huntAutopilot(ctx context.Context, deps HuntDeps, out io.Writer, home bool)
 	}
 	ap.ExtraAvoid = make(map[string]string)
 	for _, s := range systems {
-		if s.ID == "" || s.PoliceLevel >= huntPolicedMinLevel || (home && huntHomeLawlessWaiver(s.ID)) {
+		if s.ID == "" || s.PoliceLevel >= huntPoliceFloor(deps) || (home && huntHomeLawlessWaiver(s.ID)) {
 			continue
 		}
 		ap.ExtraAvoid[s.ID] = "Lawless: hunters fly empire-policed routes only"

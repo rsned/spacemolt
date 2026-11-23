@@ -4,7 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/huntdecide"
+	"github.com/rsned/spacemolt/pkg/reload"
 )
 
 func testOptions(ids ...string) []huntdecide.Option {
@@ -62,9 +64,43 @@ func TestHuntRulesReturnRepairBelowHalfHull(t *testing.T) {
 }
 
 func TestHuntRulesReturnRearmWithoutReserve(t *testing.T) {
-	s := huntdecide.State{Hull: 220, MaxHull: 220, Weapons: []huntdecide.Weapon{rulesAutocannon}}
+	low := rulesAutocannon
+	low.MagazineSize, low.Loaded = 650, 40
+	s := huntdecide.State{Hull: 220, MaxHull: 220, Weapons: []huntdecide.Weapon{low}}
 	if c := testReturnChoice(s, huntOptContinue, huntOptRearm, huntOptRepair); c.OptionID != huntOptRearm {
 		t.Errorf("OptionID = %q, want rearm", c.OptionID)
+	}
+}
+
+// Observed live 2026-11-22: pirate-5 flew home to rearm with 647/650 in both
+// autocannons because it carried no spare box. A dry railgun beside them does
+// not change that.
+func TestHuntRulesReturnContinuesOnFullMagazinesWithoutReserve(t *testing.T) {
+	full := huntdecide.Weapon{ModuleID: "m1", TypeID: "autocannon_ii", AmmoType: "autocannon", MagazineSize: 650, Loaded: 647}
+	dryRail := huntdecide.Weapon{ModuleID: "m3", TypeID: "railgun_i", AmmoType: "railgun", MagazineSize: 5}
+	s := huntdecide.State{Hull: 220, MaxHull: 220, Weapons: []huntdecide.Weapon{full, full, dryRail}}
+	if c := testReturnChoice(s, huntOptContinue, huntOptRearm, huntOptRepair); c.OptionID != huntOptContinue {
+		t.Errorf("OptionID = %q, want continue", c.OptionID)
+	}
+}
+
+func TestHuntWorthReloading(t *testing.T) {
+	box := []reload.Candidate{{ItemID: "standard_rounds_box", Quantity: 2}}
+	for _, tc := range []struct {
+		name string
+		e    reload.Entry
+		want bool
+	}{
+		{"dry", reload.Entry{MagazineSize: 650, Candidates: box}, true},
+		{"nearly full", reload.Entry{MagazineSize: 650, CurrentAmmo: 648, LoadedAmmoID: "standard_rounds_box", Candidates: box}, false},
+		{"below half", reload.Entry{MagazineSize: 5, CurrentAmmo: 2, LoadedAmmoID: "standard_rounds_box", Candidates: box}, true},
+		{"below half, other ammo loaded", reload.Entry{MagazineSize: 5, CurrentAmmo: 2, LoadedAmmoID: "other", Candidates: box}, false},
+		{"full", reload.Entry{MagazineSize: 5, CurrentAmmo: 5, LoadedAmmoID: "standard_rounds_box", Candidates: box}, false},
+		{"dry, nothing aboard", reload.Entry{MagazineSize: 5}, false},
+	} {
+		if got := huntWorthReloading(tc.e); got != tc.want {
+			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
+		}
 	}
 }
 
@@ -92,7 +128,9 @@ func TestHuntRulesEnergyOnlyNeverRearms(t *testing.T) {
 }
 
 func TestHuntRulesReturnPicksOnlyOfferedOptions(t *testing.T) {
-	dry := huntdecide.State{Hull: 50, MaxHull: 220, Weapons: []huntdecide.Weapon{rulesAutocannon}}
+	low := rulesAutocannon
+	low.MagazineSize, low.Loaded = 650, 40
+	dry := huntdecide.State{Hull: 50, MaxHull: 220, Weapons: []huntdecide.Weapon{low}}
 	if c := testReturnChoice(dry, huntOptContinue, huntOptRearm); c.OptionID != huntOptRearm {
 		t.Errorf("no repair offered, dry: OptionID = %q, want rearm", c.OptionID)
 	}
@@ -129,5 +167,31 @@ func TestHuntCanFireAndReserve(t *testing.T) {
 func TestHuntDeciderDefault(t *testing.T) {
 	if _, ok := huntDecider(HuntDeps{}).(huntRules); !ok {
 		t.Error("nil Decider should resolve to huntRules")
+	}
+}
+
+// The objective's own wording names the quarry and outranks the curated table.
+func TestHuntRequiredSpeciesReadsTheObjectiveText(t *testing.T) {
+	t.Parallel()
+	names := map[string]string{"pressblister": "pressblister", "slag-tortoise": "slag_tortoise", "leviathan": "leviathan", "molt leviathan": "molt_leviathan"}
+	entry := func(desc string) serverapi.MissionBoardEntry {
+		return serverapi.MissionBoardEntry{
+			MissionID:  "cracking_the_shell",
+			Objectives: []serverapi.MissionObjective{{Type: objectiveKillCreature, Description: desc}},
+		}
+	}
+	for desc, want := range map[string][2]string{
+		"Hunt 3 Pressblisters at an ice field":      {"pressblister", "objective text"},
+		"Hunt 3 Slag-Tortoises at an asteroid belt": {"slag_tortoise", "objective text"},
+		"Slay a Molt Leviathan":                     {"molt_leviathan", "objective text"},
+		"Hunt 3 things somewhere":                   {"slag_tortoise", "curated mission table"},
+	} {
+		got, src := huntRequiredSpecies(entry(desc), names)
+		if got != want[0] || src != want[1] {
+			t.Errorf("%q: species %q (%s), want %q (%s)", desc, got, src, want[0], want[1])
+		}
+	}
+	if got, src := huntRequiredSpecies(entry("Hunt 3 Pressblisters at an ice field"), nil); got != "slag_tortoise" || src != "curated mission table" {
+		t.Errorf("no guide: species %q (%s), want the curated fallback", got, src)
 	}
 }

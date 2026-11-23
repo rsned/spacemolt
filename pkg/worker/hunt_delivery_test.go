@@ -284,7 +284,7 @@ func huntGround(t *testing.T, kb *huntNeedFakeKB) (string, string) {
 	t.Helper()
 	need := huntNeed{ItemID: "caustic_sac", Species: []string{"belt_grazer"}}
 	hops := map[string]int{"pollux": 1, "levy": 2, "test_system": 0}
-	sys, poi, why := huntNeedGround(context.Background(), kb, kb, need, func(s string) int { return hops[s] }, huntNearbyJumps, nil, huntNeedTestNow)
+	sys, poi, why := huntNeedGround(context.Background(), kb, kb, need, func(s string) int { return hops[s] }, huntNearbyJumps, nil, huntNeedTestNow, huntPolicedMinLevel)
 	return sys + "/" + poi, why
 }
 
@@ -593,16 +593,16 @@ func TestHuntGroundRadiusBoundsTheChoice(t *testing.T) {
 	need := huntNeed{ItemID: "caustic_sac", Species: []string{"belt_grazer"}}
 	hops := func(s string) int { return map[string]int{"pollux": 3, "faraway": 20}[s] }
 
-	_, poi, why := huntNeedGround(ctx, kb, kb, need, hops, 6, nil, huntNeedTestNow)
+	_, poi, why := huntNeedGround(ctx, kb, kb, need, hops, 6, nil, huntNeedTestNow, huntPolicedMinLevel)
 	if poi != "pollux_outer_belt" {
 		t.Fatalf("radius 6: got %q (%s), want the near unlooked pollux_outer_belt, not the 20-jump sighted one", poi, why)
 	}
 	// Re-pick after excluding the near ground: nothing within the radius.
-	if _, poi, _ := huntNeedGround(ctx, kb, kb, need, hops, 6, []string{"pollux_outer_belt"}, huntNeedTestNow); poi != "" {
+	if _, poi, _ := huntNeedGround(ctx, kb, kb, need, hops, 6, []string{"pollux_outer_belt"}, huntNeedTestNow, huntPolicedMinLevel); poi != "" {
 		t.Fatalf("re-pick after exclude returned %q, beyond the radius", poi)
 	}
 	// With a radius that reaches it, the fresher far ground wins on class.
-	if _, poi, _ := huntNeedGround(ctx, kb, kb, need, hops, 24, nil, huntNeedTestNow); poi != "faraway_belt" {
+	if _, poi, _ := huntNeedGround(ctx, kb, kb, need, hops, 24, nil, huntNeedTestNow, huntPolicedMinLevel); poi != "faraway_belt" {
 		t.Fatalf("radius 24: got %q, want faraway_belt", poi)
 	}
 }
@@ -676,5 +676,23 @@ func TestHuntDeliveryWaitsForRepair(t *testing.T) {
 	}
 	if !called(f.huntFake, "travel:levy_base") || !called(f.huntFake, "complete:hex-caustic") {
 		t.Fatalf("repaired pass must deliver; calls %v\nlog:\n%s", f.calls, log.String())
+	}
+}
+
+// A kill mission's ground comes from the fleet's wildlife reports when one
+// names the quarry in reach, and from nowhere when none does.
+func TestHuntSightedGroundUsesReportedSightings(t *testing.T) {
+	t.Parallel()
+	kb := huntGroundKB(t)
+	ctx := context.Background()
+	_, poi, why := huntSightedGround(ctx, kb, "test_system", "belt_grazer", nil, huntNeedTestNow, huntPolicedMinLevel)
+	if poi != "pollux_outer_belt" || !strings.Contains(why, "belt_grazer reported here") {
+		t.Fatalf("ground = %q (%s), want pollux_outer_belt from a report", poi, why)
+	}
+	if _, poi, _ := huntSightedGround(ctx, kb, "test_system", "belt_grazer", []string{"pollux_outer_belt"}, huntNeedTestNow, huntPolicedMinLevel); poi != "" {
+		t.Errorf("excluded ground still chosen: %q", poi)
+	}
+	if _, poi, _ := huntSightedGround(ctx, kb, "test_system", "slag_tortoise", nil, huntNeedTestNow, huntPolicedMinLevel); poi != "" {
+		t.Errorf("unreported species got ground %q", poi)
 	}
 }

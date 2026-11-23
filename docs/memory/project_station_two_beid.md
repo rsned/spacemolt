@@ -49,3 +49,5 @@ bay+5 drones fitted but never deployed; fit_drones (resume) launched them on min
 17:53. A SPARE advanced_drone_bay + 5 mining_drone (gifted from CJ faction storage) sit in
 marketbot_home2's personal storage at beid, reserved by the operator for a SECOND beid drone host on
 another beid mining site. Don't return them to CJ.
+
+**11-23 pipeline fixes (operator OK):** Beid LH2 raised: miningbot_0000 daily gift to trucker-100 now 10000 (id 68, was 1000 id 64); trucker-100 hourly hauls 1900 (id 7). CJ nitrogen: 398k nitrogen_ice sat at CJ, the limiter was the DAILY 300 craft -> now hourly `craft_stock process_nitrogen_ice liquid_nitrogen 2000 prefer_own` (id 69). CJ hydrogen: marketbot_home held 53k hydrogen_gas in personal storage at CJ -> ten_minutely `release hydrogen_gas <CJ> miningbot_0000 2000` (gifted 53,776 at 13:00). Neodymium ore at sable_port belongs to marketbot_barnard_44 (22.9k) -> release to craftsman-2; fighter-2 releases reinforced_glass at grand_exchange to craftsman-2. Unused: marketbot_011 50k neodymium_ore at base d1f995a1, salvager-1 2k glass (pre-release binary). Schedule backups *.bak.1123pipe.

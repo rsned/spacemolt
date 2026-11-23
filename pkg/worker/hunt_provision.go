@@ -153,6 +153,12 @@ func huntProvision(ctx context.Context, deps HuntDeps, out io.Writer, who string
 		rec = huntProvisionStock(ctx, deps, out, who, lo, reloads)
 		rec.seq = seq
 		rec.reloads = reloads
+	} else {
+		// Said out loud because it is otherwise invisible: the sortie leaves on
+		// whatever is loaded. Observed live 2026-11-22, pirate-5 left with a
+		// dry railgun and no spares because loot filled the hold.
+		fmt.Fprintf(out, "hunt[%s]: no ammunition provisioned at %s: no room in the hold (free %d, %d reserved for the job, %d for loot)\n", //nolint:errcheck
+			who, station, freeHold, reserve, huntLootReserve)
 	}
 
 	// Load what is aboard, then read the ship again to see whether it can fire:

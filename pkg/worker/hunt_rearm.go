@@ -49,7 +49,7 @@ func huntRearmRoute(ctx context.Context, deps HuntDeps, fromSystem string, ammoI
 	if homeSys != "" {
 		homePOI = huntStationPOI(ctx, deps.KB, deps.HomeStation)
 	}
-	graph := huntPolicedGraph(conns, systems, fromSystem, homeSys == huntHomeSystem)
+	graph := huntPolicedGraph(conns, systems, fromSystem, homeSys == huntHomeSystem, huntPoliceFloor(deps))
 
 	var cands []huntRearmCandidate
 	if deps.Sellers != nil {
@@ -107,7 +107,7 @@ func huntRearmRoute(ctx context.Context, deps HuntDeps, fromSystem string, ammoI
 func huntRearmSellerStations(ctx context.Context, deps HuntDeps, systems []knowledge.System, ammoItems []string) []huntRearmCandidate {
 	policed := make(map[string]bool, len(systems))
 	for _, s := range systems {
-		policed[s.ID] = s.PoliceLevel >= huntPolicedMinLevel
+		policed[s.ID] = s.PoliceLevel >= huntPoliceFloor(deps)
 	}
 	var out []huntRearmCandidate
 	seen := map[string]bool{}

@@ -158,10 +158,10 @@ func huntDecisionJumps(ctx context.Context, deps HuntDeps, from string) (toStati
 		return -1, -1
 	}
 	homeSys := huntHomeStationSystem(ctx, deps.KB, deps.HomeStation, systems)
-	graph := huntPolicedGraph(conns, systems, from, homeSys == huntHomeSystem)
+	graph := huntPolicedGraph(conns, systems, from, homeSys == huntHomeSystem, huntPoliceFloor(deps))
 
 	var targets []string
-	stationSys, _ := huntNearestRepairStation(ctx, deps.KB, from, "")
+	stationSys, _ := huntNearestRepairStation(ctx, deps.KB, from, "", huntPoliceFloor(deps))
 	if stationSys != "" {
 		targets = append(targets, stationSys)
 	}

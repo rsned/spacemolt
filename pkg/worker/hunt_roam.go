@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/navigation"
@@ -36,11 +37,19 @@ const huntRoamFile = "hunt_roam.json"
 // pass whose ground search for that need finds nothing, so a held need whose
 // ground is depleted widens its search instead of retrying radius 6 until it
 // expires. Entries for missions no longer active are pruned.
+//
+// NeedFails is per held Station Need (active mission id): how many of its own
+// ground searches have found nothing since it was accepted. At
+// huntNeedAbandonAfter the need is abandoned. NeedGaveUp is per board mission
+// id: when (UTC, RFC 3339) this hunter abandoned it, so it is not taken again
+// for huntNeedGaveUpFor.
 type huntRoam struct {
-	DryPasses  int            `json:"dry_passes"`
-	Visited    []string       `json:"visited,omitempty"`
-	NeedDry    map[string]int `json:"need_dry,omitempty"`
-	UpdatedUTC string         `json:"updated_utc,omitempty"`
+	DryPasses  int               `json:"dry_passes"`
+	Visited    []string          `json:"visited,omitempty"`
+	NeedDry    map[string]int    `json:"need_dry,omitempty"`
+	NeedFails  map[string]int    `json:"need_fails,omitempty"`
+	NeedGaveUp map[string]string `json:"need_gave_up,omitempty"`
+	UpdatedUTC string            `json:"updated_utc,omitempty"`
 }
 
 // huntRoamPath is <agentsDir>/<agentID>/hunt_roam.json, agentsDir defaulting
@@ -194,10 +203,10 @@ func huntNearestUnvisited(graph navigation.JumpGraph, current string, candidates
 
 // huntNearbyEmpireStations lists the empire-policed systems within
 // huntNearbyJumps of current that hold an empire (mission-board) station.
-func huntNearbyEmpireStations(ctx context.Context, kb knowledge.Base, graph navigation.JumpGraph, current string, systems []knowledge.System) []string {
+func huntNearbyEmpireStations(ctx context.Context, kb knowledge.Base, graph navigation.JumpGraph, current string, systems []knowledge.System, floor int) []string {
 	policed := make([]string, 0, len(systems))
 	for _, s := range systems {
-		if s.ID != "" && s.ID != current && s.PoliceLevel >= huntPolicedMinLevel {
+		if s.ID != "" && s.ID != current && s.PoliceLevel >= floor {
 			policed = append(policed, s.ID)
 		}
 	}
@@ -246,7 +255,7 @@ func huntRoamFoundJob(deps HuntDeps, out io.Writer) {
 		return
 	}
 	// Held needs keep their own radius.
-	huntSaveRoam(deps, out, huntRoam{NeedDry: r.NeedDry})
+	huntSaveRoam(deps, out, huntRoam{NeedDry: r.NeedDry, NeedFails: r.NeedFails, NeedGaveUp: r.NeedGaveUp})
 }
 
 // huntNeedDry is the dry count held need activeID searches at (0 when none
@@ -285,14 +294,25 @@ func huntPruneNeedDry(deps HuntDeps, out io.Writer, active []string) {
 			pruned = true
 		}
 	}
+	for id := range r.NeedFails {
+		if !slices.Contains(active, id) {
+			delete(r.NeedFails, id)
+			pruned = true
+		}
+	}
 	if pruned {
 		huntSaveRoam(deps, out, r)
 	}
 }
 
 // huntNeedSearchFailed widens a need's own ground radius after a pass whose
-// ground search for it came up empty. Nothing is abandoned.
-func huntNeedSearchFailed(deps HuntDeps, out io.Writer, who string, job huntJob) {
+// ground search for it came up empty, and abandons the need once
+// huntNeedAbandonAfter of its searches have failed: a held need blocks every
+// other job, and a hunter holding one with no ground does nothing until it
+// expires. Observed live 2026-11-22, pirate-5 and pirate-10 both parked this
+// way. Only Station Needs are abandoned; kill missions can be chain missions
+// and are still held (see huntFindQuarry).
+func huntNeedSearchFailed(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob) {
 	if job.need == nil {
 		return
 	}
@@ -300,6 +320,55 @@ func huntNeedSearchFailed(deps HuntDeps, out io.Writer, who string, job huntJob)
 	huntSetNeedDry(deps, out, job.activeID, dry)
 	fmt.Fprintf(out, "hunt[%s]: no ground for %s this pass; its search radius is now %d jump(s) (was %d)\n", //nolint:errcheck
 		who, job.boardID, huntNeedRadius(dry), job.need.Radius)
+
+	if deps.AgentID == "" || job.activeID == "" {
+		return
+	}
+	r := huntLoadRoam(deps, out)
+	if r.NeedFails == nil {
+		r.NeedFails = map[string]int{}
+	}
+	r.NeedFails[job.activeID]++
+	fails := r.NeedFails[job.activeID]
+	if fails < huntNeedAbandonAfter {
+		huntSaveRoam(deps, out, r)
+		return
+	}
+	if err := deps.Client.AbandonMission(ctx, job.activeID); err != nil {
+		fmt.Fprintf(out, "hunt[%s]: abandon %s after %d dry search(es) failed: %v; held for next pass\n", who, job.boardID, fails, err) //nolint:errcheck
+		huntSaveRoam(deps, out, r)
+		return
+	}
+	fmt.Fprintf(out, "hunt[%s]: ABANDONED need %s (%s) after %d dry search(es); not taking it again for %s\n", //nolint:errcheck
+		who, job.boardID, job.title, fails, huntNeedGaveUpFor)
+	delete(r.NeedFails, job.activeID)
+	delete(r.NeedDry, job.activeID)
+	if r.NeedGaveUp == nil {
+		r.NeedGaveUp = map[string]string{}
+	}
+	r.NeedGaveUp[job.boardID] = huntNow(deps).UTC().Format(time.RFC3339)
+	huntSaveRoam(deps, out, r)
+}
+
+// huntNeedSearchFound clears a held need's failed-search count when a ground
+// holds its quarry: only consecutive dry searches lead to abandoning it.
+func huntNeedSearchFound(deps HuntDeps, out io.Writer, job huntJob) {
+	if job.need == nil || deps.AgentID == "" || job.activeID == "" {
+		return
+	}
+	r := huntLoadRoam(deps, out)
+	if r.NeedFails[job.activeID] == 0 {
+		return
+	}
+	delete(r.NeedFails, job.activeID)
+	huntSaveRoam(deps, out, r)
+}
+
+// huntNeedGaveUp reports whether this hunter abandoned board need boardID
+// within huntNeedGaveUpFor of now.
+func huntNeedGaveUp(r huntRoam, boardID string, now time.Time) bool {
+	at, err := time.Parse(time.RFC3339, r.NeedGaveUp[boardID])
+	return err == nil && now.Sub(at) < huntNeedGaveUpFor
 }
 
 // huntRoamAfterDry makes this dry pass's one move. It marks the current system
@@ -341,11 +410,11 @@ func huntRoamAfterDry(ctx context.Context, deps HuntDeps, out io.Writer, who str
 	}
 	// Distances on the routes a hunter may fly: policed, plus the final hop
 	// into cloverfield for the home check (never through it).
-	graph := huntPolicedGraph(conns, systems, current, true)
+	graph := huntPolicedGraph(conns, systems, current, true, huntPoliceFloor(deps))
 
 	roam := huntLoadRoam(deps, out)
 	roam.Visited = huntAddVisited(roam.Visited, current)
-	stations := huntNearbyEmpireStations(ctx, deps.KB, graph, current, systems)
+	stations := huntNearbyEmpireStations(ctx, deps.KB, graph, current, systems, huntPoliceFloor(deps))
 	kind, target := huntNextMove(graph, current, stations, roam, systems)
 
 	switch kind {
@@ -454,7 +523,7 @@ func huntTravelToHomeGround(ctx context.Context, deps HuntDeps, out io.Writer, e
 		return "", fmt.Errorf("connections: %w", err)
 	}
 	// Home grounds are counted out from cloverfield over policed jumps.
-	graph := huntPolicedGraph(conns, systems, huntHomeSystem, true)
+	graph := huntPolicedGraph(conns, systems, huntHomeSystem, true, huntPolicedMinLevel)
 	for _, sys := range huntHomeGrounds(graph, systems) {
 		skip := slices.Clone(exclude)
 		for {

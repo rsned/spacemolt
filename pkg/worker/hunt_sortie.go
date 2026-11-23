@@ -351,7 +351,7 @@ func huntGoRepair(ctx context.Context, deps HuntDeps, out io.Writer, who string)
 		return errors.New("no position or knowledge base to find a repair station")
 	}
 	from := cmp.Or(st.System.ID, st.CurrentSystem)
-	sys, poi := huntNearestRepairStation(ctx, deps.KB, from, "")
+	sys, poi := huntNearestRepairStation(ctx, deps.KB, from, "", huntPoliceFloor(deps))
 	if poi == "" {
 		return fmt.Errorf("no repair station known within %d jump(s) of %s", huntRepairSearchJumps, from)
 	}

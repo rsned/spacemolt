@@ -595,3 +595,93 @@ func TestSQLiteKB_Catalog_ConcurrentAccess(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// The detail rows StoreItems writes (module, weapon, ammo) must come back from
+// GetItem and GetItems: the reload plan and the hunt provisioning pair ammo
+// with weapons through them.
+func TestSQLiteKB_GetItem_ModuleWeaponAndAmmoDetail(t *testing.T) {
+	t.Parallel()
+	kb := newTestSQLiteKB(t)
+	defer func() { _ = kb.Close() }()
+	ctx := context.Background()
+
+	reach, mag := 2, 650
+	items := []CatalogItem{
+		{ID: "autocannon_ii", Name: "Autocannon II", Category: "module", Module: &ItemModule{
+			Type: "weapon", TypeID: "autocannon_ii", Slot: "weapon", CPUUsage: 4, PowerUsage: 6,
+			Weapon: &ItemWeapon{Damage: 18, DamageType: "kinetic", Reach: &reach, Cooldown: 1, AmmoType: "autocannon", MagazineSize: &mag},
+		}},
+		{ID: "pulse_laser_i", Name: "Pulse Laser I", Category: "module", Module: &ItemModule{
+			Type: "weapon", TypeID: "pulse_laser_i", Slot: "weapon",
+			Weapon: &ItemWeapon{Damage: 10, DamageType: "energy", Cooldown: 1},
+		}},
+		{ID: "standard_rounds_box", Name: "Standard Rounds", Category: "ammo", Ammo: &ItemAmmo{
+			AmmoType: "autocannon", Modifiers: map[string]any{"damage_mod": 0.5},
+		}},
+		{ID: "iron_ore", Name: "Iron Ore", Category: "ore"},
+	}
+	if err := kb.StoreItems(ctx, items); err != nil {
+		t.Fatalf("StoreItems failed: %v", err)
+	}
+
+	check := func(t *testing.T, got map[string]CatalogItem) {
+		t.Helper()
+		ac := got["autocannon_ii"]
+		if ac.Module == nil || ac.Module.Weapon == nil {
+			t.Fatalf("autocannon_ii: module/weapon detail missing: %+v", ac.Module)
+		}
+		if ac.Module.Type != "weapon" || ac.Module.Slot != "weapon" || ac.Module.CPUUsage != 4 || ac.Module.PowerUsage != 6 {
+			t.Errorf("autocannon_ii module = %+v", *ac.Module)
+		}
+		w := ac.Module.Weapon
+		if w.Damage != 18 || w.DamageType != "kinetic" || w.Cooldown != 1 || w.AmmoType != "autocannon" {
+			t.Errorf("autocannon_ii weapon = %+v", *w)
+		}
+		if w.Reach == nil || *w.Reach != 2 || w.MagazineSize == nil || *w.MagazineSize != 650 || w.Range != nil {
+			t.Errorf("autocannon_ii reach/magazine/range = %v/%v/%v", w.Reach, w.MagazineSize, w.Range)
+		}
+		pl := got["pulse_laser_i"]
+		if pl.Module == nil || pl.Module.Weapon == nil || pl.Module.Weapon.AmmoType != "" || pl.Module.Weapon.MagazineSize != nil {
+			t.Errorf("pulse_laser_i weapon = %+v", pl.Module)
+		}
+		am := got["standard_rounds_box"]
+		if am.Ammo == nil || am.Ammo.AmmoType != "autocannon" || am.Ammo.Modifiers["damage_mod"] != 0.5 {
+			t.Errorf("standard_rounds_box ammo = %+v", am.Ammo)
+		}
+		if am.Module != nil {
+			t.Errorf("standard_rounds_box has a module: %+v", am.Module)
+		}
+		if ore := got["iron_ore"]; ore.Module != nil || ore.Ammo != nil {
+			t.Errorf("iron_ore carries detail: %+v", ore)
+		}
+	}
+
+	t.Run("GetItem", func(t *testing.T) {
+		got := map[string]CatalogItem{}
+		for _, it := range items {
+			item, err := kb.GetItem(ctx, it.ID)
+			if err != nil || item == nil {
+				t.Fatalf("GetItem(%s) = %v, %v", it.ID, item, err)
+			}
+			got[it.ID] = *item
+		}
+		check(t, got)
+	})
+	t.Run("GetItems", func(t *testing.T) {
+		all, err := kb.GetItems(ctx)
+		if err != nil {
+			t.Fatalf("GetItems failed: %v", err)
+		}
+		got := map[string]CatalogItem{}
+		for _, it := range all {
+			got[it.ID] = it
+		}
+		check(t, got)
+	})
+	t.Run("GetItemsByCategory", func(t *testing.T) {
+		ammo, err := kb.GetItemsByCategory(ctx, "ammo")
+		if err != nil || len(ammo) != 1 || ammo[0].Ammo == nil || ammo[0].Ammo.AmmoType != "autocannon" {
+			t.Fatalf("GetItemsByCategory(ammo) = %+v, %v", ammo, err)
+		}
+	})
+}

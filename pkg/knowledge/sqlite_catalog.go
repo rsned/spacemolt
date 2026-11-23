@@ -195,7 +195,114 @@ func (kb *SQLiteKB) GetItem(ctx context.Context, itemID string) (*CatalogItem, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to query item: %w", err)
 	}
-	return &item, nil
+	one := []CatalogItem{item}
+	if err := kb.loadItemDetails(ctx, one, itemID); err != nil {
+		return nil, err
+	}
+	return &one[0], nil
+}
+
+// loadItemDetails fills in, on items, the detail rows storeItemDetails wrote:
+// the module row with its weapon block, and the ammo row. The reload plan and
+// the hunt provisioning pair ammunition with weapons through exactly these
+// (CatalogItem.Ammo.AmmoType, CatalogItem.Module.Weapon). The defense,
+// utility, mining and consumable-effect rows are stored but NOT read back
+// here; nothing reads them through the KB yet. A non-empty itemID limits the
+// three reads to that item; empty reads the whole (small) tables once.
+func (kb *SQLiteKB) loadItemDetails(ctx context.Context, items []CatalogItem, itemID string) error {
+	if len(items) == 0 {
+		return nil
+	}
+	where, args := "", []any(nil)
+	if itemID != "" {
+		where, args = " WHERE item_id = ?", []any{itemID}
+	}
+	byID := make(map[string]*CatalogItem, len(items))
+	for i := range items {
+		byID[items[i].ID] = &items[i]
+	}
+	// scan runs query and hands each row to fn; a row for an item not in items
+	// is skipped by fn itself.
+	scan := func(query string, fn func(rows *sql.Rows) error) error {
+		rows, err := kb.db.QueryContext(ctx, query+where, args...)
+		if err != nil {
+			return fmt.Errorf("failed to query item details: %w", err)
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			if err := fn(rows); err != nil {
+				return fmt.Errorf("failed to scan item details: %w", err)
+			}
+		}
+		return rows.Err()
+	}
+
+	if err := scan(`SELECT item_id, COALESCE(type, ''), COALESCE(type_id, ''), COALESCE(slot, ''),
+			COALESCE(cpu_usage, 0), COALESCE(power_usage, 0), COALESCE(hidden, 0), COALESCE(special, '')
+		FROM item_modules`, func(rows *sql.Rows) error {
+		var id string
+		var m ItemModule
+		if err := rows.Scan(&id, &m.Type, &m.TypeID, &m.Slot, &m.CPUUsage, &m.PowerUsage, &m.Hidden, &m.Special); err != nil {
+			return err
+		}
+		if it := byID[id]; it != nil {
+			it.Module = &m
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := scan(`SELECT item_id, COALESCE(damage, 0), COALESCE(damage_type, ''), range, reach,
+			COALESCE(cooldown, 0), COALESCE(ammo_type, ''), magazine_size, armor_bypass_bonus, shield_bypass_bonus
+		FROM item_weapons`, func(rows *sql.Rows) error {
+		var id string
+		var w ItemWeapon
+		var rng, reach, mag sql.NullInt64
+		var armor, shield sql.NullFloat64
+		if err := rows.Scan(&id, &w.Damage, &w.DamageType, &rng, &reach, &w.Cooldown, &w.AmmoType, &mag, &armor, &shield); err != nil {
+			return err
+		}
+		w.Range, w.Reach, w.MagazineSize = nullIntPtr(rng), nullIntPtr(reach), nullIntPtr(mag)
+		if armor.Valid {
+			w.ArmorBypassBonus = &armor.Float64
+		}
+		if shield.Valid {
+			w.ShieldBypassBonus = &shield.Float64
+		}
+		// A weapon row hangs off its module row; one without it is orphaned.
+		if it := byID[id]; it != nil && it.Module != nil {
+			it.Module.Weapon = &w
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return scan(`SELECT item_id, COALESCE(ammo_type, ''), COALESCE(modifiers, '') FROM item_ammo`, func(rows *sql.Rows) error {
+		var id, mods string
+		var a ItemAmmo
+		if err := rows.Scan(&id, &a.AmmoType, &mods); err != nil {
+			return err
+		}
+		if mods != "" {
+			// Unparseable modifiers leave the map nil; the ammo type still pairs.
+			_ = json.Unmarshal([]byte(mods), &a.Modifiers)
+		}
+		if it := byID[id]; it != nil {
+			it.Ammo = &a
+		}
+		return nil
+	})
+}
+
+// nullIntPtr turns a nullable integer column into the *int the catalog uses.
+func nullIntPtr(n sql.NullInt64) *int {
+	if !n.Valid {
+		return nil
+	}
+	v := int(n.Int64)
+	return &v
 }
 
 // GetItems retrieves all catalog items.
@@ -224,7 +331,16 @@ func (kb *SQLiteKB) queryItems(ctx context.Context, query string, args ...any) (
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Close before the detail reads: the worker's pool is small and a held
+	// cursor would pin a connection across them.
+	_ = rows.Close()
+	if err := kb.loadItemDetails(ctx, items, ""); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 // StoreShipClasses stores or replaces all ship classes in the catalog. Classes the

@@ -11,6 +11,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/navigation"
 )
 
 // Autopilot's per-route ExtraAvoid works like the operator's avoid list: a
@@ -224,7 +225,7 @@ func TestHuntJumpsFromCountsPolicedHops(t *testing.T) {
 	sys("d", 55, "a", "e")
 	sys("e", 55, "d", "c")
 	sys("island", 80, "lawless")
-	hops := huntJumpsFrom(ctx, kb, "a")
+	hops := huntJumpsFrom(ctx, kb, "a", huntPolicedMinLevel)
 	if hops == nil {
 		t.Fatal("no hop counter")
 	}
@@ -233,5 +234,27 @@ func TestHuntJumpsFromCountsPolicedHops(t *testing.T) {
 	}
 	if got := hops("island"); got >= 0 {
 		t.Errorf("hops(island) = %d, want unreachable (only via Lawless)", got)
+	}
+}
+
+// A Lawless-cleared hunter's floor is 0, which opens Lawless systems on the
+// jump graph; every other hunter keeps the policed floor.
+func TestHuntPoliceFloorOpensLawlessForClearedAgents(t *testing.T) {
+	if got := huntPoliceFloor(HuntDeps{AgentID: "pirate-6"}); got != huntPolicedMinLevel {
+		t.Fatalf("uncleared floor = %d, want %d", got, huntPolicedMinLevel)
+	}
+	floor := huntPoliceFloor(HuntDeps{AgentID: "pirate-5"})
+	if floor != 0 {
+		t.Fatalf("cleared floor = %d, want 0", floor)
+	}
+	systems := []knowledge.System{{ID: "a", PoliceLevel: 55}, {ID: "wild", PoliceLevel: 0}, {ID: "b", PoliceLevel: 55}}
+	conns := []knowledge.Connection{{FromSystem: "a", ToSystem: "wild"}, {FromSystem: "wild", ToSystem: "b"}}
+	closed := navigation.BFSJumps(huntPolicedGraph(conns, systems, "a", false, huntPolicedMinLevel), "a", []string{"b"})
+	if d, ok := closed["b"]; ok && d < navigation.RouteInf {
+		t.Fatalf("policed graph reaches b through Lawless space (%d)", d)
+	}
+	open := navigation.BFSJumps(huntPolicedGraph(conns, systems, "a", false, floor), "a", []string{"b"})
+	if open["b"] != 2 {
+		t.Fatalf("cleared graph: b at %d jumps, want 2", open["b"])
 	}
 }

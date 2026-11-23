@@ -32,6 +32,22 @@ func huntReload(ctx context.Context, deps HuntDeps, out io.Writer, who string) (
 	return huntReloadPlan(ctx, deps, out, who, plan)
 }
 
+// huntWorthReloading reports whether e should be reloaded now. A dry magazine
+// takes the best fitting stack. A partial one is topped up only with the ammo
+// already loaded, and only once it is below half: one reload spends a whole
+// ammo item whatever the magazine still holds. Observed live 2026-11-22,
+// pirate-5 spent both spare boxes topping two autocannons up from 648/650 and
+// then flew home to rearm.
+func huntWorthReloading(e reload.Entry) bool {
+	if e.Full() || len(e.Candidates) == 0 {
+		return false
+	}
+	if e.Empty() {
+		return true
+	}
+	return e.Candidates[0].ItemID == e.LoadedAmmoID && e.CurrentAmmo*2 < e.MagazineSize
+}
+
 // huntReloadPlan is huntReload on a plan already read.
 func huntReloadPlan(ctx context.Context, deps HuntDeps, out io.Writer, who string, plan []reload.Entry) (armed bool) {
 	if len(plan) == 0 {
@@ -40,7 +56,7 @@ func huntReloadPlan(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 	loaded := 0
 	for _, e := range plan {
 		rounds := e.CurrentAmmo
-		if !e.Full() && len(e.Candidates) > 0 && (e.Empty() || e.Candidates[0].ItemID == e.LoadedAmmoID) {
+		if huntWorthReloading(e) {
 			ammo := e.Candidates[0]
 			if rerr := deps.Client.Reload(ctx, e.WeaponID, ammo.ItemID); rerr != nil {
 				fmt.Fprintf(out, "hunt[%s]: reload %s with %s failed: %v\n", who, e.WeaponName, ammo.ItemID, rerr) //nolint:errcheck

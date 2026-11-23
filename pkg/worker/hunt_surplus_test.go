@@ -182,14 +182,14 @@ func TestHuntBankSurplusGiftsAtBatch(t *testing.T) {
 			t.Errorf("deposits %v gifts %v, want one deposit and no gift", f.deposits, f.gifts)
 		}
 	})
-	t.Run("away from base does nothing", func(t *testing.T) {
+	t.Run("away from base stores and never gifts", func(t *testing.T) {
 		t.Parallel()
 		f := &bankFake{state: bankDockedAt("elsewhere", map[string]float64{"drifter_hide": 80})}
 		if err := huntBankSurplus(context.Background(), bankDeps(t, f), nil, nil); err != nil {
 			t.Fatalf("huntBankSurplus: %v", err)
 		}
-		if len(f.deposits) != 0 || len(f.gifts) != 0 {
-			t.Errorf("deposits %v gifts %v, want nothing away from the home station", f.deposits, f.gifts)
+		if len(f.deposits) != 1 || len(f.gifts) != 0 {
+			t.Errorf("deposits %v gifts %v, want one deposit and no gift away from the home station", f.deposits, f.gifts)
 		}
 	})
 }

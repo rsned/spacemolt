@@ -458,9 +458,25 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 	// counting rounds locally. The pass runs on its own goroutine holding
 	// execMu, because the push callback that triggers it runs inside the
 	// router's dispatch path and must not issue commands.
+	var autoReloadIdle string
 	autoReload := newAutoReloader(func(ctx context.Context) error {
 		execMu.Lock()
 		defer execMu.Unlock()
+		// A dry weapon with no ammo aboard is announced by the server every
+		// tick it fails to fire. There is nothing to reload, so say so once
+		// and stay quiet until the answer changes.
+		plan, perr := fetchReloadPlan(ctx, client)
+		if perr != nil {
+			return perr
+		}
+		if len(reloadAllTargets(plan)) == 0 {
+			if note := autoReloadIdleNote(plan); note != autoReloadIdle {
+				autoReloadIdle = note
+				fmt.Printf("\r%s⟳ out of ammo — %s; auto-reload is idle until matching ammo is aboard%s\n", ansiYellow, note, ansiReset)
+			}
+			return nil
+		}
+		autoReloadIdle = ""
 		fmt.Printf("\r%s⟳ out of ammo — reloading%s\n", ansiYellow, ansiReset)
 		return reloadAll(ctx, client, format)
 	})

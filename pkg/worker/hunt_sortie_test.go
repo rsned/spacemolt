@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -31,7 +32,7 @@ const (
 // from every magazine, and a dock only lands at the station.
 type sortieFake struct {
 	*huntProvisionFake
-	grounds  map[string][]huntCreature
+	grounds   map[string][]huntCreature
 	drain     int
 	onTravel  func(poi string)
 	activeErr error // get_active_missions fails with it
@@ -1125,4 +1126,116 @@ func (c *statusFailClient) GetStatus(ctx context.Context) error {
 		return errors.New("status timeout")
 	}
 	return c.sortieFake.GetStatus(ctx)
+}
+
+// A hunter blocked unarmed at a dock does not retry every pass: until
+// game.SleepMissionBoardPoll has gone by it stays idle, with no second
+// sortie record and no further commands. Seen live 2026-11-22: pirate-5 wrote
+// 145 blocked_unarmed sorties in 30 minutes.
+func TestHuntBlockedUnarmedBacksOff(t *testing.T) {
+	e := sortieMissionEnv(t, 1, cannon(0))
+	e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+	now := time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
+	e.deps.NowFn = func() time.Time { return now }
+	e.deps.unarmedGate = &huntUnarmedGate{}
+
+	e.pass(t)
+	if !slices.Equal(e.reports, []string{huntdecide.ResultBlockedUnarmed}) {
+		t.Fatalf("ReportSortie = %v, want [blocked_unarmed]\n%s", e.reports, e.out)
+	}
+	calls := len(e.calls())
+
+	now = now.Add(game.SleepMissionBoardPoll - time.Second)
+	e.pass(t)
+	if len(e.reports) != 1 || len(e.ofType(t, "sortie_end")) != 1 {
+		t.Errorf("inside the backoff: reports %v, sortie_end %d; want one of each\n%s", e.reports, len(e.ofType(t, "sortie_end")), e.out)
+	}
+	if got := e.calls()[calls:]; slices.ContainsFunc(got, func(c string) bool {
+		return strings.HasPrefix(c, "view_storage") || strings.HasPrefix(c, "view_market") || strings.HasPrefix(c, "get_active_missions")
+	}) {
+		t.Errorf("inside the backoff the pass must not re-read storage, market or missions; calls %v", got)
+	}
+	if want := "still unarmed"; !strings.Contains(e.out.String(), want) {
+		t.Errorf("output lacks %q:\n%s", want, e.out)
+	}
+
+	now = now.Add(2 * time.Second)
+	e.pass(t)
+	if len(e.reports) != 2 {
+		t.Errorf("after the backoff the hunter provisions again: reports %v\n%s", e.reports, e.out)
+	}
+}
+
+func TestHuntUnarmedGate(t *testing.T) {
+	t0 := time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
+	var nilGate *huntUnarmedGate
+	nilGate.block("a", t0)
+	nilGate.blockNoGround("a", t0)
+	if hold, _ := nilGate.held("a", t0); hold {
+		t.Error("a nil gate never holds")
+	}
+	g := &huntUnarmedGate{}
+	if hold, _ := g.held("a", t0); hold {
+		t.Error("an unused gate never holds")
+	}
+	g.block("a", t0)
+	if hold, noGround := g.held("a", t0.Add(time.Minute)); !hold || noGround {
+		t.Error("blocked at a one minute ago: held")
+	}
+	if hold, _ := g.held("b", t0.Add(time.Minute)); hold {
+		t.Error("a different station is not held")
+	}
+	if hold, _ := g.held("a", t0.Add(game.SleepMissionBoardPoll)); hold {
+		t.Error("the hold ends after SleepMissionBoardPoll")
+	}
+	g.block("a", t0)
+	g.clear()
+	if hold, _ := g.held("a", t0); hold {
+		t.Error("clear lifts the hold")
+	}
+	g.blockNoGround("a", t0)
+	if hold, noGround := g.held("a", t0); !hold || !noGround {
+		t.Error("blockNoGround holds and says why")
+	}
+}
+
+// A hunter whose job has no ground known does not open and close an empty
+// sortie every pass. Seen live 2026-11-22: pirate-10, docked, wrote one empty
+// no_quarry sortie every 11 seconds.
+func TestHuntNoGroundKnownBacksOff(t *testing.T) {
+	e := sortieMissionEnv(t, 1, cannon(12))
+	now := time.Date(2026, 11, 22, 12, 0, 0, 0, time.UTC)
+	e.deps.NowFn = func() time.Time { return now }
+	e.deps.unarmedGate = &huntUnarmedGate{}
+	// A map with the station and nothing to hunt at.
+	kb := knowledge.NewMemoryKB()
+	ctx := context.Background()
+	_ = kb.RememberSystem(ctx, knowledge.System{ID: "test_system", Name: "Test", PoliceLevel: 55, LastVisitedTick: 1})
+	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "haven_station", SystemID: "test_system", Type: "station"})
+	_ = kb.RememberBase(ctx, knowledge.SpaceBase{
+		ID: "haven_station", POIID: "haven_station", PublicAccess: true, Services: map[string]bool{"repair": true},
+	})
+	e.deps.KB = kb
+
+	e.pass(t) // opens the sortie, finds no ground
+	e.pass(t) // closes it at the dock
+	if n := len(e.ofType(t, "sortie_end")); n != 1 {
+		t.Fatalf("sortie_end = %d after two passes, want 1\n%s", n, e.out)
+	}
+	starts := len(e.ofType(t, "sortie_start"))
+	for range 3 {
+		now = now.Add(time.Minute)
+		e.pass(t)
+	}
+	if got := len(e.ofType(t, "sortie_start")); got != starts {
+		t.Errorf("inside the backoff sortie_start went %d -> %d\n%s", starts, got, e.out)
+	}
+	if want := "no ground known"; !strings.Contains(e.out.String(), want) {
+		t.Errorf("output lacks %q:\n%s", want, e.out)
+	}
+	now = now.Add(game.SleepMissionBoardPoll)
+	e.pass(t)
+	if got := len(e.ofType(t, "sortie_start")); got != starts+1 {
+		t.Errorf("after the backoff a sortie starts again: %d -> %d\n%s", starts, got, e.out)
+	}
 }

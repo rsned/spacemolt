@@ -7,6 +7,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
 	"github.com/rsned/spacemolt/pkg/knowledge"
+	"github.com/rsned/spacemolt/pkg/reload"
 )
 
 // ammoCatalog is the test stand-in for the knowledge-base lookup. The pairings
@@ -221,8 +222,13 @@ func TestKBAmmoLookup(t *testing.T) {
 		t.Errorf("ammo item: got %q/%q", name, at)
 	}
 	name, at = lookup("missile_launcher_ii")
-	if name != "Missile Launcher II" || at != "missile" {
-		t.Errorf("weapon module: got %q/%q", name, at)
+	// A weapon module is not ammunition: a spare one in the hold must never
+	// be offered as a reload for the fitted weapon of its kind.
+	if name != "Missile Launcher II" || at != "" {
+		t.Errorf("weapon module: got %q/%q, want no ammo type", name, at)
+	}
+	if _, at = reload.KBWeaponLookup(ctx, kb)("missile_launcher_ii"); at != "missile" {
+		t.Errorf("weapon lookup: got %q, want missile", at)
 	}
 	if _, at = lookup("iron_ore"); at != "" {
 		t.Errorf("ore is not ammo, got %q", at)
@@ -238,5 +244,18 @@ func TestKBAmmoLookupNilBase(t *testing.T) {
 	lookup := kbAmmoLookup(context.Background(), nil)
 	if name, at := lookup("standard_guided_missiles"); name != "" || at != "" {
 		t.Errorf("want empty, got %q/%q", name, at)
+	}
+}
+
+func TestAutoReloadIdleNoteNamesDryWeaponsWithoutAmmo(t *testing.T) {
+	plan := []reloadPlanEntry{
+		{WeaponName: "Autocannon II", AmmoType: "autocannon", CurrentAmmo: 316, MagazineSize: 650},
+		{WeaponName: "Railgun I", AmmoType: "railgun", MagazineSize: 5},
+	}
+	if got, want := autoReloadIdleNote(plan), "Railgun I has no railgun ammo in cargo"; got != want {
+		t.Errorf("note = %q, want %q", got, want)
+	}
+	if got := autoReloadIdleNote(plan[:1]); got != "nothing to reload" {
+		t.Errorf("note = %q, want nothing to reload", got)
 	}
 }

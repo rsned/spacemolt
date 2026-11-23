@@ -13,6 +13,7 @@ import (
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
+	"github.com/rsned/spacemolt/pkg/huntdecide"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/spar"
 )
@@ -875,8 +876,10 @@ func TestHuntAdvancesUntilInWeaponReach(t *testing.T) {
 	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
 		t.Fatalf("Hunt: %v", err)
 	}
-	if got := countAction(c, "advance"); got != wantAdvances {
-		t.Errorf("advances = %d (%v), want %d — one per unit of zone_distance above max_weapon_reach",
+	// At least that many: once in reach it keeps closing toward the engaged
+	// zone while the fight lasts.
+	if got := countAction(c, "advance"); got < wantAdvances {
+		t.Errorf("advances = %d (%v), want at least %d — one per unit of zone_distance above max_weapon_reach",
 			got, c.battleActions, wantAdvances)
 	}
 	if !called(c, "battle:target:c1") {
@@ -1815,7 +1818,7 @@ func TestHuntBeltRuleClausesAreEachLoadBearing(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			kb := beltRuleKB(t, tc.police, tc.station, tc.resource)
-			_, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false)
+			_, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false, false)
 			if poi != tc.want {
 				t.Fatalf("chose %q (%s), want %q", poi, why, tc.want)
 			}
@@ -1828,16 +1831,16 @@ func TestHuntBeltRuleClausesAreEachLoadBearing(t *testing.T) {
 func TestHuntBeltRuleDoesNotRelaxToLawless(t *testing.T) {
 	ctx := context.Background()
 	kb := beltRuleKB(t, 0, false, huntBeltResource)
-	if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false); poi != "" {
+	if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false, false); poi != "" {
 		t.Fatalf("chose %q (%s) in a lawless system; a hunt there risks a hull that cannot be replaced", poi, why)
 	}
 	// A nebula hunt is different: nowhere policed must not mean nowhere at all.
 	_ = kb.RememberPOI(ctx, knowledge.POI{ID: "candidate_nebula", SystemID: "candidate", Type: "nebula"})
-	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula", nil, false); poi != "candidate_nebula" {
+	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula", nil, false, false); poi != "candidate_nebula" {
 		t.Errorf("a non-belt ground must relax to unpoliced rather than strand the pass, chose %q", poi)
 	}
 	// ...except for creature work, whose grounds are empire-policed only.
-	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula", nil, true); poi != "" {
+	if _, poi, _ := huntFindGround(ctx, kb, "test_system", "nebula", nil, true, false); poi != "" {
 		t.Errorf("policedOnly relaxed to an unpoliced nebula %q", poi)
 	}
 }
@@ -1851,7 +1854,7 @@ func TestHuntBeltRulePrefersTheFullerBelt(t *testing.T) {
 		Resources: []game.POIResource{{ResourceID: huntBeltResource, Richness: 32, Remaining: 100000}},
 	})
 	for i := range 25 {
-		if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false); poi != "candidate_richer" {
+		if _, poi, why := huntFindGround(ctx, kb, "test_system", huntPOITypeBelt, nil, false, false); poi != "candidate_richer" {
 			t.Fatalf("draw %d: chose %q (%s), want candidate_richer — 100,000 iron beats 30,000", i, poi, why)
 		}
 	}
@@ -1875,7 +1878,7 @@ func TestHuntFliesToTheGroundItsSpeciesLivesOn(t *testing.T) {
 		if !ok {
 			t.Fatalf("%s has no ground mapped", species)
 		}
-		if _, poi, why := huntFindGround(ctx, kb, "test_system", poiType, nil, false); poi != want {
+		if _, poi, why := huntFindGround(ctx, kb, "test_system", poiType, nil, false, false); poi != want {
 			t.Errorf("%s: chose %q (%s), want %q", species, poi, why, want)
 		}
 	}
@@ -2177,14 +2180,14 @@ func huntDecideN(t *testing.T, p *huntPolicy, n int, mutate func(tick int, r *se
 }
 
 // max_weapon_reach is read from the wire, never assumed to be the captured 3.
-// A fit that reaches 8 is already in range at distance 6 and must not advance;
-// one that reaches 1 must keep closing.
+// A fit that reaches 8 is already in range at distance 6; one that reaches 1
+// must keep closing.
 func TestHuntPolicyReadsWeaponReachFromTheWire(t *testing.T) {
 	longReach := huntView(t, func(r *serverapi.GetBattleStatusResponse) {
 		r.CombatState.MaxWeaponReach = 8 // zone_distance stays at the captured 6
 	})
-	if act := (&huntPolicy{}).Decide(longReach); act.BattleAction == "advance" {
-		t.Errorf("reach 8 vs distance 6 is in range: got advance, want target/fire")
+	if got := huntRangeStatus(longReach, 0); got != huntRangeIn {
+		t.Errorf("reach 8 vs distance 6: range status %v, want in range", got)
 	}
 	shortReach := huntView(t, func(r *serverapi.GetBattleStatusResponse) {
 		r.CombatState.MaxWeaponReach = 1
@@ -2363,5 +2366,143 @@ func TestHuntSweepsToAnotherGroundWhenTheSpeciesIsAbsent(t *testing.T) {
 	}
 	if !strings.Contains(log.String(), "no quarry found across") {
 		t.Errorf("must say the sweep came up empty, got:\n%s", log.String())
+	}
+}
+
+// A dry long gun must not set the range. Observed live 2026-11-22: pirate-5
+// held at its railgun's reach 5 with the railgun empty and two loaded
+// autocannons (reach 2) that never fired.
+func TestHuntPolicyClosesToTheShortestFiringReach(t *testing.T) {
+	v := spar.View{
+		Self:        game.BattleParticipant{ZoneDistance: 4, HullPct: 100, Stance: huntStanceFire, TargetID: "c1"},
+		Enemies:     []game.BattleParticipant{{PlayerID: "c1", HullPct: 100}},
+		CombatState: &game.CombatState{MaxWeaponReach: 5, CanEscape: true},
+	}
+	if got := (&huntPolicy{fleeAtHull: 0.3, reach: 2}).Decide(v); got.BattleAction != "advance" {
+		t.Fatalf("distance 4, firing reach 2: got %+v, want advance", got)
+	}
+	// In range it still closes, all the way to the engaged zone: a bolting
+	// quarry is out of short reach at once from distance 2.
+	v.Self.ZoneDistance = 2
+	if got := (&huntPolicy{fleeAtHull: 0.3, reach: 2}).Decide(v); got.BattleAction != "advance" {
+		t.Fatalf("distance 2, firing reach 2: got %+v, want advance to the engaged zone", got)
+	}
+	v.Self.ZoneDistance = 1
+	if got := (&huntPolicy{fleeAtHull: 0.3, reach: 2}).Decide(v); got.BattleAction == "advance" {
+		t.Fatalf("engaged zone: got %+v, want no advance", got)
+	}
+}
+
+func TestHuntShortestFiringReach(t *testing.T) {
+	cases := []struct {
+		name    string
+		weapons []huntdecide.Weapon
+		want    int
+	}{
+		{"dry long gun ignored", []huntdecide.Weapon{
+			{Reach: 5, AmmoType: "railgun", Loaded: 0}, {Reach: 2, AmmoType: "autocannon", Loaded: 650}}, 2},
+		{"all loaded: shortest", []huntdecide.Weapon{
+			{Reach: 5, AmmoType: "railgun", Loaded: 5}, {Reach: 2, AmmoType: "autocannon", Loaded: 650}}, 2},
+		{"ammo-free counts", []huntdecide.Weapon{{Reach: 3}}, 3},
+		{"unknown reach skipped", []huntdecide.Weapon{{Reach: 0}, {Reach: 4, AmmoType: "x", Loaded: 1}}, 4},
+		{"nothing can fire", []huntdecide.Weapon{{Reach: 5, AmmoType: "railgun"}}, 0},
+	}
+	for _, c := range cases {
+		if got := huntShortestFiringReach(c.weapons); got != c.want {
+			t.Errorf("%s: got %d, want %d", c.name, got, c.want)
+		}
+	}
+}
+
+func TestHuntNoActiveBattleIsNotAnError(t *testing.T) {
+	if !huntNoActiveBattle(errors.New("get_battle_status: No active battle. Use attack to engage a target.")) {
+		t.Fatal("the finished-fight reply must read as no active battle")
+	}
+	if huntNoActiveBattle(errors.New("battle advance: timeout")) || huntNoActiveBattle(nil) {
+		t.Fatal("other errors and nil are not a finished fight")
+	}
+}
+
+// A held kill mission whose objective is already met is handed in, not
+// skipped. Observed live 2026-11-22: pirate-5's last kills landed on a pass
+// that ended in a return to rearm, and the 3/3 mission then sat unclaimed
+// while every later pass read the board as if it held nothing.
+func TestHuntHandsInAHeldMissionWithAMetObjective(t *testing.T) {
+	done := heldMission("first_hunt_belt_grazers", 3, 3, 1)
+	done.Objectives[0].Completed = true
+	c := newHuntFake(t, huntFakeOpts{
+		activeMissions: []serverapi.ActiveMission{done},
+		heldAtStart:    true,
+	})
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntDeps(c, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if !called(c, "complete:hex-first_hunt_belt_grazers") {
+		t.Fatalf("a met objective must be completed, calls: %v\n%s", c.calls, log.String())
+	}
+	if c.huntCalls != 0 {
+		t.Errorf("a finished mission must not be hunted again, calls: %v", c.calls)
+	}
+}
+
+// DepositItemsPayload: a hunter stores spare parts at any dock, so the fake
+// accepts the deposit and moves nothing.
+func (f *huntFake) DepositItemsPayload(context.Context, map[string]any) error { return nil }
+
+// A quarry that has turned to flee is chased every tick, even when the last
+// advance did not shorten the range; a standing one is not.
+func TestHuntPolicyChasesAFleeingQuarry(t *testing.T) {
+	v := spar.View{
+		Self:        game.BattleParticipant{ZoneDistance: 2, HullPct: 100, Stance: huntStanceFire, TargetID: "c1"},
+		Enemies:     []game.BattleParticipant{{PlayerID: "c1", HullPct: 20}},
+		CombatState: &game.CombatState{MaxWeaponReach: 2, CanEscape: true},
+	}
+	p := &huntPolicy{fleeAtHull: 0.3, reach: 2}
+	if got := p.Decide(v); got.BattleAction != "advance" {
+		t.Fatalf("first tick at distance 2: got %+v, want advance", got)
+	}
+	if got := p.Decide(v); got.BattleAction == "advance" {
+		t.Fatalf("advance changed nothing and the quarry stands: got %+v, want no advance", got)
+	}
+	v.Enemies[0].Stance = "flee"
+	if got := p.Decide(v); got.BattleAction != "advance" {
+		t.Fatalf("quarry fleeing at distance 2: got %+v, want advance", got)
+	}
+}
+
+// Between engagements a kit in the hold is spent when a whole kit's worth of
+// hull is missing, and left alone otherwise or when docked.
+func TestHuntPatchHullUsesRepairKits(t *testing.T) {
+	setup := func(hull float64, kits float64, docked bool) (*huntFake, HuntDeps) {
+		c := newHuntFake(t, huntFakeOpts{})
+		c.state.Doc = docked
+		c.state.InBattle = false
+		c.state.Ship.MaxHull = 220
+		c.state.Ship.Hull = hull
+		c.state.Ship.Cargo = nil
+		if kits > 0 {
+			c.state.Ship.Cargo = []game.CargoItem{{ItemID: huntKitItem, Quantity: kits}}
+		}
+		return c, huntDeps(c, io.Discard)
+	}
+	c, deps := setup(150, 2, false)
+	huntPatchHull(context.Background(), deps, io.Discard, "t")
+	if !called(c, "repair") {
+		t.Errorf("70 hull missing with kits aboard: no repair issued, calls %v", c.calls)
+	}
+	for name, tc := range map[string]struct {
+		hull, kits float64
+		docked     bool
+	}{
+		"under a kit's worth missing": {190, 2, false},
+		"no kits":                     {100, 0, false},
+		"docked":                      {100, 2, true},
+	} {
+		c, deps := setup(tc.hull, tc.kits, tc.docked)
+		huntPatchHull(context.Background(), deps, io.Discard, "t")
+		if called(c, "repair") {
+			t.Errorf("%s: repair issued, calls %v", name, c.calls)
+		}
 	}
 }

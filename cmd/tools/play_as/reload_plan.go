@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/rsned/spacemolt/pkg/game"
@@ -136,4 +137,25 @@ func reloadAll(ctx context.Context, client game.GameClient, format outputFormat)
 		return fmt.Errorf("%d of %d reloads failed", failed, len(targets))
 	}
 	return nil
+}
+
+// autoReloadIdleNote names the empty weapons auto-reload can do nothing for,
+// e.g. "Railgun I has no railgun ammo in cargo". It is also the key that
+// decides whether the idle notice is worth printing again.
+func autoReloadIdleNote(plan []reloadPlanEntry) string {
+	var dry []string
+	for _, e := range plan {
+		if !e.Empty() || len(e.Candidates) > 0 {
+			continue
+		}
+		name := e.WeaponName
+		if name == "" {
+			name = e.WeaponTypeID
+		}
+		dry = append(dry, fmt.Sprintf("%s has no %s ammo in cargo", name, e.AmmoType))
+	}
+	if len(dry) == 0 {
+		return "nothing to reload"
+	}
+	return strings.Join(dry, ", ")
 }

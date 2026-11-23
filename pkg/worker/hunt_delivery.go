@@ -29,6 +29,12 @@ const (
 	// reads a board and often flies), so this is far shorter than the haul
 	// fleet's HaulDesertPatience, which counts ~11s passes.
 	huntNeedDryPatience = 2
+	// huntNeedAbandonAfter is how many of a held Station Need's own ground
+	// searches may come up empty before the hunter abandons it (operator
+	// decision 2026-11-23). huntNeedGaveUpFor is how long the hunter then
+	// leaves that board entry alone.
+	huntNeedAbandonAfter = 3
+	huntNeedGaveUpFor    = 24 * time.Hour
 	// huntDepletedLooks and huntDepletedFor define a hunted-out ground: its
 	// last huntDepletedLooks looks all found none of the species, all within
 	// huntDepletedFor. Empty looks older than that expire, so a ground that
@@ -184,7 +190,7 @@ var huntGroundClassNames = [...]string{"recently sighted", "never looked at", "s
 // within radius jumps. Grounds beyond the radius are dropped BEFORE ranking, so
 // a far one can never hide a near one. Best class first (huntClassifyGround),
 // then fewest jumps. hops returns a negative number for an unreachable system.
-func huntNeedGround(ctx context.Context, kb knowledge.Base, nk huntNeedKB, need huntNeed, hops func(systemID string) int, radius int, exclude []string, now time.Time) (systemID, poiID, why string) {
+func huntNeedGround(ctx context.Context, kb knowledge.Base, nk huntNeedKB, need huntNeed, hops func(systemID string) int, radius int, exclude []string, now time.Time, floor int) (systemID, poiID, why string) {
 	type cand struct {
 		system, poi string
 		sightings   []knowledge.WildlifeSighting
@@ -222,7 +228,7 @@ func huntNeedGround(ctx context.Context, kb knowledge.Base, nk huntNeedKB, need 
 		c := byPOI[id]
 		ok, seen := policed[c.system]
 		if !seen {
-			ok = huntPolicedSystem(ctx, kb, c.system)
+			ok = huntPolicedSystem(ctx, kb, c.system, floor)
 			policed[c.system] = ok
 		}
 		if !ok || huntPOIHazardous(ctx, kb, c.system, c.poi) {
@@ -251,11 +257,37 @@ func huntNeedGround(ctx context.Context, kb knowledge.Base, nk huntNeedKB, need 
 	return bestSys, bestPOI, fmt.Sprintf("policed ground, %s, %d jump(s)", huntGroundClassNames[bestClass], bestHops)
 }
 
+// huntSightedRadius is how far a kill mission flies to a ground where its
+// quarry has been reported.
+const huntSightedRadius = 12
+
+// huntSightedGround is the best ground for a kill mission's named species
+// from the fleet's shared wildlife reports: every hunter records what it sees
+// at each POI (huntCaptureWildlife), and this reads those reports back with
+// huntNeedGround's rules (recent sightings first, then fewest jumps; hunted
+// out, hazardous and excluded grounds dropped) within huntSightedRadius of
+// from. Empty when species is empty or nothing is reported in reach.
+func huntSightedGround(ctx context.Context, kb knowledge.Base, from, species string, exclude []string, now time.Time, floor int) (systemID, poiID, why string) {
+	nk, ok := kb.(huntNeedKB)
+	if !ok || species == "" {
+		return "", "", ""
+	}
+	jumps := huntJumpsFrom(ctx, kb, from, floor)
+	if jumps == nil {
+		return "", "", ""
+	}
+	sys, poi, class := huntNeedGround(ctx, kb, nk, huntNeed{Species: []string{species}}, jumps, huntSightedRadius, exclude, now, floor)
+	if poi == "" {
+		return "", "", ""
+	}
+	return sys, poi, fmt.Sprintf("%s reported here: %s", species, class)
+}
+
 // huntPolicedSystem reports whether the KB knows systemID as empire-policed
 // (huntPolicedMinLevel). An unknown system is not.
-func huntPolicedSystem(ctx context.Context, kb knowledge.Base, systemID string) bool {
+func huntPolicedSystem(ctx context.Context, kb knowledge.Base, systemID string, floor int) bool {
 	sys, err := kb.GetSystem(ctx, systemID)
-	return err == nil && sys != nil && sys.PoliceLevel >= huntPolicedMinLevel
+	return err == nil && sys != nil && sys.PoliceLevel >= floor
 }
 
 // huntPOIHazardous reports whether the KB knows poiID as a hazard severe
@@ -273,7 +305,7 @@ func huntPOIHazardous(ctx context.Context, kb knowledge.Base, systemID, poiID st
 // (huntPolicedGraph: the routes a hunter may actually fly), or nil when the
 // KB map cannot be read. A system reachable only through Lawless space is
 // unreachable (-1).
-func huntJumpsFrom(ctx context.Context, kb knowledge.Base, from string) func(string) int {
+func huntJumpsFrom(ctx context.Context, kb knowledge.Base, from string, floor int) func(string) int {
 	systems, err := kb.GetSystems(ctx)
 	if err != nil {
 		return nil
@@ -282,7 +314,7 @@ func huntJumpsFrom(ctx context.Context, kb knowledge.Base, from string) func(str
 	if err != nil {
 		return nil
 	}
-	graph := huntPolicedGraph(conns, systems, from, false)
+	graph := huntPolicedGraph(conns, systems, from, false, floor)
 	ids := make([]string, 0, len(systems))
 	for _, s := range systems {
 		ids = append(ids, s.ID)
@@ -368,7 +400,7 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 		fmt.Fprintf(out, "hunt[%s]: %v; no Station Needs this pass\n", who, err) //nolint:errcheck
 		return huntJob{}, false, false
 	}
-	jumps := huntJumpsFrom(ctx, deps.KB, st.System.ID)
+	jumps := huntJumpsFrom(ctx, deps.KB, st.System.ID, huntPoliceFloor(deps))
 	if jumps == nil {
 		fmt.Fprintf(out, "hunt[%s]: galaxy graph unavailable; no Station Needs this pass\n", who) //nolint:errcheck
 		return huntJob{}, false, false
@@ -387,6 +419,10 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 			}
 			continue
 		}
+		if huntNeedGaveUp(roam, e.MissionID, huntNow(deps)) {
+			fmt.Fprintf(out, "hunt: skip need %s (%s): abandoned after dry searches within the last %s\n", e.MissionID, e.Title, huntNeedGaveUpFor) //nolint:errcheck
+			continue
+		}
 		if admit, reason := huntAdmissibleNeed(n, e.Difficulty, lk.roleOf); !admit {
 			fmt.Fprintf(out, "hunt: skip need %s (%s): %s\n", e.MissionID, e.Title, reason) //nolint:errcheck
 			continue
@@ -395,7 +431,7 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 			fmt.Fprintf(out, "hunt: skip need %s (%s): no delivery base named\n", e.MissionID, e.Title) //nolint:errcheck
 			continue
 		}
-		if !huntPolicedSystem(ctx, deps.KB, n.SystemID) {
+		if !huntPolicedSystem(ctx, deps.KB, n.SystemID, huntPoliceFloor(deps)) {
 			fmt.Fprintf(out, "hunt: skip need %s (%s): delivery system %s is not empire-policed\n", e.MissionID, e.Title, n.SystemID) //nolint:errcheck
 			continue
 		}
@@ -405,7 +441,7 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 		}
 		n.MissionID = e.MissionID
 		n.Radius = radius
-		n.GroundSystem, n.GroundPOI, _ = huntNeedGround(ctx, deps.KB, nk, n, jumps, radius, nil, huntNow(deps))
+		n.GroundSystem, n.GroundPOI, _ = huntNeedGround(ctx, deps.KB, nk, n, jumps, radius, nil, huntNow(deps), huntPoliceFloor(deps))
 		if n.GroundPOI == "" {
 			fmt.Fprintf(out, "hunt: skip need %s (%s): no policed ground within %d jump(s) where %s is sighted\n", e.MissionID, e.Title, radius, strings.Join(n.Species, "/")) //nolint:errcheck
 			continue
@@ -481,7 +517,7 @@ func huntResumeNeed(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 	}
 	// The accept-time guard, re-checked: policing can change, and a held
 	// need must not be delivered into Lawless space.
-	if !huntPolicedSystem(ctx, deps.KB, n.SystemID) {
+	if !huntPolicedSystem(ctx, deps.KB, n.SystemID, huntPoliceFloor(deps)) {
 		fmt.Fprintf(out, "hunt[%s]: holding need %s (%s), not resuming: delivery system %s is not empire-policed\n", who, m.MissionID, m.Title, n.SystemID) //nolint:errcheck
 		return huntJob{}, false
 	}
@@ -510,7 +546,7 @@ func huntTravelToNeedGround(ctx context.Context, deps HuntDeps, out io.Writer, n
 	if state == nil {
 		return "", fmt.Errorf("no cached state")
 	}
-	jumps := huntJumpsFrom(ctx, deps.KB, state.System.ID)
+	jumps := huntJumpsFrom(ctx, deps.KB, state.System.ID, huntPoliceFloor(deps))
 	if jumps == nil {
 		return "", fmt.Errorf("galaxy graph unavailable")
 	}
@@ -518,7 +554,7 @@ func huntTravelToNeedGround(ctx context.Context, deps HuntDeps, out io.Writer, n
 	if radius <= 0 {
 		radius = huntNearbyJumps
 	}
-	sys, poi, why := huntNeedGround(ctx, deps.KB, nk, need, jumps, radius, exclude, huntNow(deps))
+	sys, poi, why := huntNeedGround(ctx, deps.KB, nk, need, jumps, radius, exclude, huntNow(deps), huntPoliceFloor(deps))
 	if poi == "" {
 		return "", fmt.Errorf("%w within %d jump(s) where %s is sighted", errHuntNoNeedGround, radius, strings.Join(need.Species, "/"))
 	}

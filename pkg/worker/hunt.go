@@ -17,6 +17,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/huntdecide"
 	"github.com/rsned/spacemolt/pkg/knowledge"
 	"github.com/rsned/spacemolt/pkg/market"
+	"github.com/rsned/spacemolt/pkg/reload"
 	"github.com/rsned/spacemolt/pkg/spar"
 )
 
@@ -120,6 +121,9 @@ const (
 	// the shield stops rising, so a ship that cannot regenerate does not sit
 	// here.
 	huntShieldWaitTicks = 20
+	// huntMaxPursuits is how many times in a row the pass goes straight back
+	// for one quarry that left the fight alive.
+	huntMaxPursuits = 2
 
 	// huntStanceFlee / huntStanceFire are the battle stances this pass uses.
 	huntStanceFlee = "flee"
@@ -192,6 +196,7 @@ var huntWildlifePOITypes = []string{huntPOITypeBelt, "gas_cloud", "ice_field", "
 var huntSpeciesPOIType = map[string]string{
 	"belt_grazer":   huntPOITypeBelt,
 	"slag_tortoise": huntPOITypeBelt,
+	"pressblister":  "ice_field",
 	"rime_grazer":   "ice_field",
 	"sift_ray":      "nebula",
 }
@@ -256,6 +261,10 @@ type HuntDeps struct {
 	// per worker process; nil means "always poll", which is what every caller
 	// that does not thread one through gets.
 	boardGate *huntBoardGate
+	// unarmedGate holds a hunter that ended blocked_unarmed at a dock from
+	// provisioning again every pass. One instance per worker process; nil
+	// never holds.
+	unarmedGate *huntUnarmedGate
 	// CaptureAttacks files the wildlife attacks of one finished battle (wired
 	// in dispatch to WorkerDispatch.CaptureWildlifeAttacks). Called after every
 	// engagement whatever its outcome; nil in tests = skip.
@@ -454,7 +463,15 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// Docked with a sortie still open: it ends here, with the result it was
 	// heading home with, or interrupted.
 	if sortie != nil {
-		huntCloseSortie(ctx, deps, out, sortie, huntSortieJobStub(sortie), cmp.Or(sortie.PendingResult, huntdecide.ResultInterrupted))
+		result := cmp.Or(sortie.PendingResult, huntdecide.ResultInterrupted)
+		huntCloseSortie(ctx, deps, out, sortie, huntSortieJobStub(sortie), result)
+		// It never left: the search knew no ground. Hold here rather than
+		// open and close the same empty sortie every pass.
+		if result == huntdecide.ResultNoQuarry && len(sortie.Grounds) == 0 {
+			if st := deps.Client.GetState(); st != nil {
+				deps.unarmedGate.blockNoGround(st.CurrentPOI, huntNow(deps))
+			}
+		}
 		sortie = nil
 	}
 
@@ -468,6 +485,21 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	station := ""
 	if st := deps.Client.GetState(); st != nil {
 		station = st.CurrentPOI
+	}
+
+	// Blocked unarmed here a moment ago: nothing this pass can do changes
+	// that, so do not read the board, storage and market again or write
+	// another blocked sortie -- see huntUnarmedGate.
+	if hold, noGround := deps.unarmedGate.held(station, huntNow(deps)); hold {
+		if noGround {
+			fmt.Fprintf(out, "hunt[%s]: no ground known from %s last sortie; not starting another for up to %v\n", //nolint:errcheck
+				who, station, game.SleepMissionBoardPoll)
+			return nil
+		}
+		fmt.Fprintf(out, "hunt[%s]: still unarmed at %s; not provisioning again for up to %v\n", //nolint:errcheck
+			who, station, game.SleepMissionBoardPoll)
+		publishActivity(deps.SetActivity, "Hunt · unarmed")
+		return nil
 	}
 
 	// Skip the three mission queries when the previous pass already answered
@@ -551,8 +583,10 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		}
 		publishActivity(deps.SetActivity, "Hunt · unarmed")
 		huntCloseSortie(ctx, deps, out, sortie, job, huntdecide.ResultBlockedUnarmed)
+		deps.unarmedGate.block(station, huntNow(deps))
 		return nil
 	}
+	deps.unarmedGate.clear()
 
 	// Creature work never flies out to a ground on a hull below the repair
 	// bar: the dock repair above is best-effort, so gate on the hull itself.
@@ -631,6 +665,10 @@ grounds:
 		// the hold's count of the part for a need), the engagement cap is hit,
 		// or the hull drops below the flee threshold. A pool that runs out
 		// sends the sortie on to its next ground.
+		// pursue is a quarry that left its last fight alive, to be engaged
+		// again at once; pursuits counts those per creature.
+		var pursue *serverapi.NearbyCreature
+		pursuits := map[string]int{}
 		for (job.need != nil || job.home || kills < target) && attempts < huntMaxEngagements {
 			// The between-engagement hull gate. It reads a value that only
 			// get_status refreshes: parseBattleStatusData populates BattleState
@@ -641,6 +679,8 @@ grounds:
 				fmt.Fprintf(out, "hunt: get_status before engagement: %v; held for next pass\n", err) //nolint:errcheck
 				return
 			}
+			// Patch the hull from kits aboard before the hull gates judge it.
+			huntPatchHull(ctx, deps, out, who)
 			st := deps.Client.GetState()
 			// A need's progress is the hold, re-read before every engagement.
 			if job.need != nil {
@@ -694,7 +734,11 @@ grounds:
 			// Shields absorb first and grow back; hull does neither. Waiting here
 			// is what keeps the whole engagement budget spendable — it costs
 			// wall-clock and nothing else.
-			huntWaitForShields(ctx, deps, out, who, st)
+			// Not while a wounded quarry is waiting, though: it heals faster
+			// than the shields do.
+			if pursue == nil {
+				huntWaitForShields(ctx, deps, out, who, st)
+			}
 
 			// Never open a fight that cannot be won: fill the magazines first,
 			// and with nothing to fill them from, go home to rearm.
@@ -710,16 +754,23 @@ grounds:
 				return
 			}
 
-			c, idx := huntPickQuarry(quarry)
-			if idx < 0 {
-				fmt.Fprintf(out, "hunt: no huntable creatures remain (%d/%d killed); %s moves on to another ground\n", kills, target, job.boardID) //nolint:errcheck
-				continue grounds
+			var c serverapi.NearbyCreature
+			if pursue != nil {
+				c, pursue = *pursue, nil
+			} else {
+				var idx int
+				c, idx = huntPickQuarry(quarry)
+				if idx < 0 {
+					fmt.Fprintf(out, "hunt: no huntable creatures remain (%d/%d killed); %s moves on to another ground\n", kills, target, job.boardID) //nolint:errcheck
+					continue grounds
+				}
+				quarry = slices.Delete(quarry, idx, idx+1)
 			}
-			quarry = slices.Delete(quarry, idx, idx+1)
 
 			// LastBattleID is never cleared, so a fight that learns no id of its own
 			// would re-capture the previous one; remember what was there before.
 			idBefore := huntBattleID(deps)
+			reach := huntFiringReach(ctx, deps)
 			if err := deps.Client.Hunt(ctx, c.CreatureID); err != nil {
 				fmt.Fprintf(out, "hunt: engage %s failed: %v\n", c.CreatureID, err) //nolint:errcheck
 				attempts++
@@ -728,7 +779,7 @@ grounds:
 			attempts++
 			s.Fights++
 
-			outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID, wildlifeOnly || job.need != nil)
+			outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID, wildlifeOnly || job.need != nil, reach)
 			huntCaptureAttacks(ctx, deps, out, idBefore)
 
 			// The carcass is the kill receipt: a wreck whose victim_id is the
@@ -743,6 +794,18 @@ grounds:
 					fmt.Fprintf(out, "hunt[%s]: %s down (%d/%d)\n", who, c.CreatureID, kills, target) //nolint:errcheck
 				} else {
 					fmt.Fprintf(out, "hunt: no carcass for %s; not counting a kill\n", c.CreatureID) //nolint:errcheck
+					// A battle that resolved with no carcass is a quarry that
+					// bolted. It stays at the POI, wounded, and heals: go
+					// straight back for it. Seen live 2026-11-23: a
+					// Pilot-Whale fled at 10% hull, sat at 37/220, and died
+					// two ticks into the next engagement.
+					if outcome == huntResolved && pursuits[c.CreatureID] < huntMaxPursuits {
+						pursuits[c.CreatureID]++
+						again := c
+						pursue = &again
+						fmt.Fprintf(out, "hunt[%s]: %s left the fight; re-engaging it before it heals (%d/%d)\n", //nolint:errcheck
+							who, c.CreatureID, pursuits[c.CreatureID], huntMaxPursuits)
+					}
 				}
 			}
 			huntSaveSortie(deps, out, s)
@@ -966,12 +1029,17 @@ func huntResumeJobRead(ctx context.Context, deps HuntDeps, out io.Writer, who st
 			}
 			continue
 		}
-		if o.Completed {
-			continue
-		}
 		boardID := m.TemplateID
 		if boardID == "" {
 			boardID = m.MissionID
+		}
+		if o.Completed {
+			// The objective was met but the mission never handed in: the pass
+			// that made the last kill ended first (a return to rearm, a
+			// restart). Nothing else ever completes it, and it holds a mission
+			// slot until it does. Observed live 2026-11-22 on pirate-5.
+			huntHandInCompleted(ctx, deps, out, who, huntJob{boardID: boardID, activeID: m.MissionID, title: m.Title})
+			continue
 		}
 		if wildlifeOnly && !huntWildlifeMissions[boardID] {
 			fmt.Fprintf(out, "hunt: not resuming %s (%s): not a wildlife mission and wildlife-only is set\n", boardID, m.Title) //nolint:errcheck
@@ -981,15 +1049,71 @@ func huntResumeJobRead(ctx context.Context, deps HuntDeps, out io.Writer, who st
 		if target <= 0 {
 			target = 1
 		}
-		required, source := huntRequiredSpecies(serverapi.MissionBoardEntry{MissionID: boardID, Title: m.Title})
+		required, source := huntRequiredSpecies(serverapi.MissionBoardEntry{
+			MissionID: boardID, Title: m.Title,
+			Objectives: []serverapi.MissionObjective{{Type: objectiveKillCreature, Description: o.Description}},
+		}, huntSpeciesNames(ctx, deps))
 		fmt.Fprintf(out, "hunt[%s]: resuming %s (%s) at %d/%d kill(s), difficulty %d, species %q (%s)\n", //nolint:errcheck
 			who, boardID, m.Title, o.Current, target, m.Difficulty, required, source)
+		// The server's own wording, every resume: the objective text can be
+		// narrower than the curated species table (operator, 2026-11-23).
+		fmt.Fprintf(out, "hunt[%s]: %s says: objective %q; mission %q; raw %s\n", //nolint:errcheck
+			who, boardID, o.Description, m.Description, huntRawMission(deps.Client.GetRawJSON("active_missions"), m.MissionID))
 		return huntJob{
 			boardID: boardID, activeID: m.MissionID, title: m.Title,
 			target: target, baseline: o.Current, required: required, resumed: true,
 		}, true, true
 	}
 	return huntJob{}, false, true
+}
+
+// huntSpeciesNames is the guide's display-name index, or nil when the
+// knowledge base has none: the objective text then names nothing.
+func huntSpeciesNames(ctx context.Context, deps HuntDeps) map[string]string {
+	nk, ok := deps.KB.(huntNeedKB)
+	if !ok {
+		return nil
+	}
+	byName, err := nk.SpeciesByDisplayName(ctx)
+	if err != nil {
+		return nil
+	}
+	return byName
+}
+
+// huntRawMission is the active_missions frame's own JSON for missionID, so a
+// field the client does not model still reaches the log. Empty when absent.
+func huntRawMission(raw []byte, missionID string) string {
+	var frame struct {
+		Missions []json.RawMessage `json:"missions"`
+	}
+	if json.Unmarshal(raw, &frame) != nil {
+		return ""
+	}
+	for _, m := range frame.Missions {
+		var id struct {
+			MissionID string `json:"mission_id"`
+		}
+		if json.Unmarshal(m, &id) == nil && id.MissionID == missionID {
+			return string(m)
+		}
+	}
+	return ""
+}
+
+// huntHandInCompleted completes a held kill mission whose objective is already
+// met, and records its chain continuation exactly as the in-pass completion
+// does.
+func huntHandInCompleted(ctx context.Context, deps HuntDeps, out io.Writer, who string, job huntJob) {
+	fmt.Fprintf(out, "hunt[%s]: %s (%s) objective already met; completing\n", who, job.boardID, job.title) //nolint:errcheck
+	if err := deps.Client.CompleteMission(ctx, job.activeID); err != nil {
+		fmt.Fprintf(out, "hunt: complete %s failed: %v; held for next pass\n", job.activeID, err) //nolint:errcheck
+		return
+	}
+	if err := deps.sleep(ctx, game.SleepTick); err != nil {
+		return
+	}
+	huntRecordChainNext(deps, out, job)
 }
 
 // huntReadBoard reads and parses the station's mission board, once per pass:
@@ -1042,7 +1166,7 @@ func huntBoardJob(ctx context.Context, deps HuntDeps, out io.Writer, who string,
 		return huntJob{}, false
 	}
 	target := huntKillQuantity(*chosen)
-	required, source := huntRequiredSpecies(*chosen)
+	required, source := huntRequiredSpecies(*chosen, huntSpeciesNames(ctx, deps))
 	_, targetDesc := huntObjectiveTarget(*chosen)
 	fmt.Fprintf(out, "hunt[%s]: accepted %s (%s) at %s; target %d kill(s), species %q (%s), desc=%q\n", //nolint:errcheck
 		who, chosen.MissionID, chosen.Title, rfc(huntNow(deps)), target, required, source, targetDesc)
@@ -1100,7 +1224,7 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		case job.need != nil:
 			poi, err = huntTravelToNeedGround(ctx, deps, out, *job.need, skip)
 		default:
-			poi, err = huntTravelToWildlifePOI(ctx, deps, out, job.required, skip, wildlifeOnly)
+			poi, err = huntTravelToWildlifePOI(ctx, deps, out, job.required, skip, wildlifeOnly && !huntLawlessAgents[deps.AgentID])
 		}
 		if gone := huntGoneGround(err); gone != "" {
 			huntGone.add(gone)
@@ -1117,7 +1241,7 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 			}
 			fmt.Fprintf(out, "hunt: reaching a wildlife POI: %v; %s held for next pass\n", err, job.boardID) //nolint:errcheck
 			if errors.Is(err, errHuntNoNeedGround) {
-				huntNeedSearchFailed(deps, out, who, job)
+				huntNeedSearchFailed(ctx, deps, out, who, job)
 			}
 			if huntNoGroundErr(err) {
 				return nil, reached, false, huntSearchExhausted
@@ -1139,11 +1263,12 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		predatorAt = ""
 		if len(q) > 0 {
 			reached[len(reached)-1].Quarry = true
+			huntNeedSearchFound(deps, out, job)
 			return q, reached, true, huntSearchFound
 		}
 	}
 	fmt.Fprintf(out, "hunt: no quarry found across %d ground(s) %v; %s held for next pass\n", len(here), here, job.boardID) //nolint:errcheck
-	huntNeedSearchFailed(deps, out, who, job)
+	huntNeedSearchFailed(ctx, deps, out, who, job)
 	huntLeavePredatorGround(ctx, deps, out, who, predatorAt)
 	if exhausted {
 		return nil, reached, false, huntSearchExhausted
@@ -1658,9 +1783,30 @@ type huntPolicy struct {
 	bestDistSet  bool
 	lowEnemyHull int
 	stallTicks   int
+	// reach is the shortest reach among the weapons that could fire when the
+	// fight opened (huntFiringReach); 0 means unknown, and the range is then
+	// judged on the server's max_weapon_reach alone. The server's figure is
+	// the LONGEST fitted weapon, loaded or not: observed live 2026-11-22,
+	// pirate-5 held at its railgun's reach 5 with the railgun dry and two
+	// full autocannons (reach 2) that never fired a round.
+	reach int
+	// closeFrom is the zone_distance the last advance was issued from.
+	closeFrom int
 }
 
 func (p *huntPolicy) Name() string { return "hunt" }
+
+// huntQuarryFleeing reports whether any enemy in the fight has taken the flee
+// stance. It shows one tick after the creature turns, by which time it has
+// already retreated a zone.
+func huntQuarryFleeing(v spar.View) bool {
+	for _, e := range v.Enemies {
+		if strings.EqualFold(e.Stance, huntStanceFlee) {
+			return true
+		}
+	}
+	return false
+}
 
 func (p *huntPolicy) Decide(v spar.View) spar.Action {
 	p.ticks++
@@ -1741,7 +1887,7 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 	// busy indefinitely with neither side dying.
 	dist := v.Self.ZoneDistance
 	enemyHull := huntLowestEnemyHull(v)
-	rng := huntRangeStatus(v)
+	rng := huntRangeStatus(v, p.reach)
 	closedThisTick := false
 	if dist > 0 && (!p.bestDistSet || dist < p.bestDist) {
 		p.bestDist, p.bestDistSet, closedThisTick = dist, true, true
@@ -1777,6 +1923,7 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 	// "in range" on absent data guarantees an engagement that can never land a
 	// shot, and combat_state has exactly one capture behind it.
 	if rng == huntRangeOut || (rng == huntRangeUnknown && (closedThisTick || !p.bestDistSet)) {
+		p.closeFrom = dist
 		return spar.Action{Kind: spar.ActionBattle, BattleAction: "advance"}
 	}
 	if v.Self.TargetID == "" && len(v.Enemies) > 0 && v.Enemies[0].PlayerID != "" {
@@ -1784,6 +1931,19 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 	}
 	if v.Self.Stance != huntStanceFire {
 		return spar.Action{Kind: spar.ActionBattle, BattleAction: "stance", Payload: map[string]any{"stance": huntStanceFire}}
+	}
+	// In range and firing: keep closing to the engaged zone (distance 1).
+	// An advance does not cost the tick's shots, and the four exported
+	// Pilot-Whale fights (2026-11-23) all went the same way from distance 2:
+	// 69% to hit against 84% at distance 1, and when the whale bolted below a
+	// quarter hull it was out of autocannon reach at once and gone in two
+	// ticks. From the engaged zone a manual fight got two more volleys in.
+	// Advancing also pulls a retreating quarry back with us.
+	// Not when the last advance from this distance changed nothing, unless
+	// the quarry is running: then holding the gap is the point.
+	if dist > 1 && (dist != p.closeFrom || huntQuarryFleeing(v)) {
+		p.closeFrom = dist
+		return spar.Action{Kind: spar.ActionBattle, BattleAction: "advance"}
 	}
 	return spar.Action{Kind: spar.ActionNoop}
 }
@@ -1804,20 +1964,58 @@ const (
 	huntRangeUnknown                       // the reply did not say
 )
 
-func huntRangeStatus(v spar.View) huntRangeState {
+// firingReach, when positive, is the shortest reach among the weapons that can
+// actually fire. It overrides a longer wire figure: max_weapon_reach counts a
+// dry long gun, and holding at that range leaves every loaded shorter gun out
+// of the fight.
+func huntRangeStatus(v spar.View, firingReach int) huntRangeState {
 	dist := v.Self.ZoneDistance
 	if dist <= 0 {
 		// No distance reported: nothing to steer on, so let the server
 		// arbitrate an out-of-range shot rather than advancing blind.
 		return huntRangeIn
 	}
-	if v.CombatState == nil || v.CombatState.MaxWeaponReach <= 0 {
+	reach := 0
+	if v.CombatState != nil {
+		reach = v.CombatState.MaxWeaponReach
+	}
+	if firingReach > 0 && (reach <= 0 || firingReach < reach) {
+		reach = firingReach
+	}
+	if reach <= 0 {
 		return huntRangeUnknown
 	}
-	if dist <= v.CombatState.MaxWeaponReach {
+	if dist <= reach {
 		return huntRangeIn
 	}
 	return huntRangeOut
+}
+
+// huntFiringReach is the shortest catalog reach among the fitted weapons that
+// can fire right now: ammo-free weapons and ammo-fed ones with rounds loaded.
+// Closing to it brings every loaded gun to bear. 0 when the ship or the
+// catalog cannot say, which leaves the range to the server's figure.
+func huntFiringReach(ctx context.Context, deps HuntDeps) int {
+	lo, err := reload.FetchLoadout(ctx, deps.Client, deps.KB)
+	if err != nil {
+		return 0
+	}
+	weapons, _ := huntDecisionWeapons(ctx, deps.KB, lo)
+	return huntShortestFiringReach(weapons)
+}
+
+// huntShortestFiringReach is huntFiringReach on weapons already read.
+func huntShortestFiringReach(weapons []huntdecide.Weapon) int {
+	reach := 0
+	for _, w := range weapons {
+		if w.Reach <= 0 || (w.AmmoType != "" && w.Loaded <= 0) {
+			continue
+		}
+		if reach == 0 || w.Reach < reach {
+			reach = w.Reach
+		}
+	}
+	return reach
 }
 
 // breakOff records why the fight is being abandoned and starts the disengage.
@@ -1863,7 +2061,15 @@ func huntLowestEnemyHull(v spar.View) int {
 //
 // creature turns on the trend break-off for creature fights (huntWornDown);
 // bounty and other combat fights pass false and keep today's policy.
-func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull float64, creatureID string, creature bool) (huntOutcome, int) {
+//
+// reach is the shortest reach among the weapons that can fire (huntFiringReach;
+// 0 = unknown).
+//
+// A status poll answered "No active battle" means the fight is over, not that
+// a command failed: the server drops the battle the tick the quarry dies or an
+// escape lands, and the next poll finds none. Observed live 2026-11-22: every
+// kill ended its pass as a "battle error".
+func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull float64, creatureID string, creature bool, reach int) (huntOutcome, int) {
 	selfID := ""
 	if st := deps.Client.GetState(); st != nil {
 		selfID = st.Player.ID
@@ -1872,8 +2078,8 @@ func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull flo
 		fmt.Fprintf(out, "hunt: own player id unknown; cannot drive the fight vs %s\n", creatureID) //nolint:errcheck
 		return huntBattleError, 0
 	}
-	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: huntWildlifeOnly(deps), creature: creature}
-	if err := spar.RunPolicyLoop(ctx, deps.Client, selfID, p, deps.tickSleep); err != nil {
+	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: huntWildlifeOnly(deps), creature: creature, reach: reach}
+	if err := spar.RunPolicyLoop(ctx, deps.Client, selfID, p, deps.tickSleep); err != nil && !huntNoActiveBattle(err) {
 		fmt.Fprintf(out, "hunt: fight vs %s ended on error after %d tick(s): %v\n", creatureID, p.ticks, err) //nolint:errcheck
 		return huntBattleError, p.ticks
 	}
@@ -1882,6 +2088,12 @@ func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull flo
 		return p.outcome, p.ticks
 	}
 	return huntResolved, p.ticks
+}
+
+// huntNoActiveBattle reports whether err is the server saying there is no
+// battle to poll, which is how a finished fight reads one tick later.
+func huntNoActiveBattle(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "no active battle")
 }
 
 // huntLootCarcass looks for the carcass of the creature just engaged and
@@ -2014,10 +2226,14 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 	current := state.System.ID
 
 	var destSystem, destPOI, why string
-	if poiType, scoped := huntSpeciesPOIType[required]; scoped {
+	if sys, poi, reason := huntSightedGround(ctx, deps.KB, current, required, exclude, huntNow(deps), huntPoliceFloor(deps)); poi != "" {
+		// Another hunter (or this one) reported the quarry here: go where it
+		// was seen before guessing from the ground rules.
+		destSystem, destPOI, why = sys, poi, reason
+	} else if poiType, scoped := huntSpeciesPOIType[required]; scoped {
 		// The mission names its quarry, so the ground is determined: search
 		// only where that species lives, under the rules for that ground.
-		destSystem, destPOI, why = huntFindGround(ctx, deps.KB, current, poiType, exclude, policed)
+		destSystem, destPOI, why = huntFindGround(ctx, deps.KB, current, poiType, exclude, policed, huntLawlessAgents[deps.AgentID])
 		if destPOI == "" {
 			return "", huntNoGround("no %s reachable from %s that suits %s", poiType, current, required)
 		}
@@ -2025,12 +2241,12 @@ func huntTravelToWildlifePOI(ctx context.Context, deps HuntDeps, out io.Writer, 
 		// Unscoped: any wildlife POI will do, nearest and least-worked first,
 		// and the system we are already in is free.
 		destSystem = current
-		if !policed || huntPolicedSystem(ctx, deps.KB, current) {
+		if !policed || huntPolicedSystem(ctx, deps.KB, current, huntPolicedMinLevel) {
 			destPOI, why = huntLocalWildlifePOI(ctx, deps.KB, current, exclude)
 		}
 		if destPOI == "" {
 			for _, t := range huntWildlifePOITypes {
-				sys, poi, reason := huntFindGround(ctx, deps.KB, current, t, exclude, policed)
+				sys, poi, reason := huntFindGround(ctx, deps.KB, current, t, exclude, policed, huntLawlessAgents[deps.AgentID])
 				if poi != "" {
 					destSystem, destPOI, why = sys, poi, reason
 					break
@@ -2174,12 +2390,12 @@ func huntGroundIn(ctx context.Context, kb knowledge.Base, systemID, poiType stri
 	if !found {
 		return "", "", false
 	}
-	if belt {
-		return best.ID, fmt.Sprintf("policed station-less %s, %.0f iron left", poiType, bestRemaining), true
-	}
 	policed := "policed"
 	if !requirePoliced {
 		policed = "unpoliced"
+	}
+	if belt {
+		return best.ID, fmt.Sprintf("%s station-less %s, %.0f iron left", policed, poiType, bestRemaining), true
 	}
 	return best.ID, fmt.Sprintf("%s %s", policed, poiType), true
 }
@@ -2208,8 +2424,10 @@ func huntResourceTotals(p knowledge.POI) (remaining, richness float64) {
 // The policed requirement is relaxed on a second pass for non-belt grounds, so
 // a nebula hunt is not left with nowhere to go. It is NEVER relaxed for belts:
 // there, policed and station-less are the rule itself -- and never when
-// policedOnly (creature work: empire-policed grounds only).
-func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string, exclude []string, policedOnly bool) (systemID, poiID, why string) {
+// policedOnly (creature work: empire-policed grounds only). lawlessBelts is the
+// Lawless-cleared hunter's exception (huntLawlessAgents): its belts get the
+// relaxed second pass too, still station-less and iron-bearing.
+func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string, exclude []string, policedOnly, lawlessBelts bool) (systemID, poiID, why string) {
 	graph := &galaxy.GalaxyGraph{}
 	if err := graph.BuildFromDB(ctx, kb); err != nil {
 		return "", "", ""
@@ -2245,7 +2463,7 @@ func huntFindGround(ctx context.Context, kb knowledge.Base, from, poiType string
 				}
 			}
 		}
-		if poiType == huntPOITypeBelt || policedOnly {
+		if (poiType == huntPOITypeBelt && !lawlessBelts) || policedOnly {
 			break
 		}
 	}

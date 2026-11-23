@@ -58,7 +58,7 @@ type WorkerDispatch struct {
 	// rate of the hunt decisions; nil or empty leaves every kind at 0.
 	HuntAmmoCap float64
 	HuntExplore map[huntdecide.Kind]float64
-	Role            string // --role; fit_drones keeps the harvester a role depends on
+	Role        string // --role; fit_drones keeps the harvester a role depends on
 	// TourRecipientSystem is a test seam for deliver_tour's location check.
 	// Nil reads the fleet status files.
 	TourRecipientSystem func(agent string) (string, error)
@@ -155,6 +155,10 @@ type WorkerDispatch struct {
 	// treasury, so the backoff survives between command passes -- a per-pass
 	// instance would reset every time and suppress nothing.
 	huntBoard *huntBoardGate
+	// huntUnarmed holds a hunter that ended a sortie blocked_unarmed from
+	// provisioning again on every pass. Held here for the same reason as
+	// huntBoard.
+	huntUnarmed *huntUnarmedGate
 	// mission carries cross-pass mission-runner memory (dry-pass streak +
 	// reposition cursor), the shuttleState pattern.
 	mission *missionRunState
@@ -288,6 +292,7 @@ func NewWorkerDispatch(client game.GameClient, kb knowledge.Base, mc *market.Col
 		treasury:       &treasuryRescue{},
 		desert:         &haulDesert{},
 		huntBoard:      &huntBoardGate{},
+		huntUnarmed:    &huntUnarmedGate{},
 		shuttle:        &shuttleState{},
 		mission:        &missionRunState{},
 		craftPollSleep: craftPollSleepFunc,
@@ -615,6 +620,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 			AgentsDir:   d.AgentsDir,
 			SetActivity: d.setActivity,
 			boardGate:   d.huntBoard,
+			unarmedGate: d.huntUnarmed,
 			CaptureAttacks: func(ctx context.Context, battleID string) error {
 				return d.CaptureWildlifeAttacks(ctx, []string{battleID})
 			},

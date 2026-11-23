@@ -77,7 +77,7 @@ func huntReadyToLeave(ctx context.Context, deps HuntDeps, out io.Writer, who str
 			who, frac*100, huntRepairAtHull*100, st.CurrentPOI)
 		return false
 	}
-	sys, poi := huntNearestRepairStation(ctx, deps.KB, st.System.ID, st.CurrentPOI)
+	sys, poi := huntNearestRepairStation(ctx, deps.KB, st.System.ID, st.CurrentPOI, huntPoliceFloor(deps))
 	if poi == "" {
 		fmt.Fprintf(out, "hunt[%s]: hull %.0f%% below %.0f%%, no repair at %s and no repair station known within %d jump(s); held for repair\n", //nolint:errcheck
 			who, frac*100, huntRepairAtHull*100, st.CurrentPOI, huntRepairSearchJumps)
@@ -106,7 +106,7 @@ func huntBaseRepairs(ctx context.Context, kb knowledge.Base, poiID string) bool 
 // huntNearestRepairStation is the nearest public, non-outpost station the KB
 // knows offers repair, within huntRepairSearchJumps of from, other than
 // exceptPOI. Empty when there is none.
-func huntNearestRepairStation(ctx context.Context, kb knowledge.Base, from, exceptPOI string) (systemID, poiID string) {
+func huntNearestRepairStation(ctx context.Context, kb knowledge.Base, from, exceptPOI string, floor int) (systemID, poiID string) {
 	systems, err := kb.GetSystems(ctx)
 	if err != nil {
 		return "", ""
@@ -115,7 +115,7 @@ func huntNearestRepairStation(ctx context.Context, kb knowledge.Base, from, exce
 	if err != nil {
 		return "", ""
 	}
-	graph := huntPolicedGraph(conns, systems, from, false)
+	graph := huntPolicedGraph(conns, systems, from, false, floor)
 	ids := make([]string, 0, len(systems))
 	for _, s := range systems {
 		ids = append(ids, s.ID)
@@ -146,4 +146,61 @@ func huntNearestRepairStation(ctx context.Context, kb knowledge.Base, from, exce
 		}
 	}
 	return "", ""
+}
+
+// Repair kits: `repair` away from a station spends one repair_kit from cargo
+// and restores huntKitHull hull (operator, 2026-11-23). huntMaxKitsPerStop
+// bounds how many one stop between engagements may spend.
+const (
+	huntKitItem        = "repair_kit"
+	huntKitHull        = 50
+	huntMaxKitsPerStop = 4
+)
+
+// huntKitsAboard counts the repair kits in st's hold.
+func huntKitsAboard(st *game.State) int {
+	n := 0
+	if st != nil {
+		for _, c := range st.Ship.Cargo {
+			if c.ItemID == huntKitItem {
+				n += int(c.Quantity)
+			}
+		}
+	}
+	return n
+}
+
+// huntPatchHull spends repair kits from the hold between engagements, one per
+// tick, while a whole kit's worth of hull is missing: a small hull loses real
+// hull to a long fight once its shields are gone, and a kit in the field is
+// cheaper than breaking the sortie off to find a repair dock. It does nothing
+// docked (the dock repairs), in a battle, or with no kit aboard, and stops at
+// the first kit that does not raise the hull.
+func huntPatchHull(ctx context.Context, deps HuntDeps, out io.Writer, who string) {
+	st := deps.Client.GetState()
+	if st == nil || st.Doc || st.InBattle || st.Ship.MaxHull <= 0 {
+		return
+	}
+	kits := min(huntKitsAboard(st), huntMaxKitsPerStop)
+	for ; kits > 0; kits-- {
+		before := st.Ship.Hull
+		if st.Ship.MaxHull-before < huntKitHull {
+			return
+		}
+		if err := deps.Client.Repair(ctx); err != nil {
+			fmt.Fprintf(out, "hunt[%s]: repair kit: %v; hunting on the hull we have\n", who, err) //nolint:errcheck
+			return
+		}
+		if err := deps.sleep(ctx, game.SleepTick); err != nil {
+			return
+		}
+		if err := deps.Client.GetStatus(ctx); err != nil {
+			return
+		}
+		st = deps.Client.GetState()
+		if st == nil || st.Ship.Hull <= before {
+			return
+		}
+		fmt.Fprintf(out, "hunt[%s]: used a repair kit: hull %.0f -> %.0f of %.0f\n", who, before, st.Ship.Hull, st.Ship.MaxHull) //nolint:errcheck
+	}
 }

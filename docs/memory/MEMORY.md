@@ -91,3 +91,4 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - 🔴 [Schedule periods = UTC calendar (11-21)](reference_schedule_periods_are_utc_calendar.md) — weekly re-fires at Sun 00:00 UTC (16:00 PT Sat); remove one-offs right after they land
 - [reload replaces the whole magazine (11-22)](reference_reload_replaces_whole_magazine.md) — one ammo item per reload, loaded rounds lost; reload only when empty/below half; max_weapon_reach counts dry guns
 - [Take an agent out for play_as (11-23)](reference_take_agent_out_for_play_as.md) — overrides removed-set + SIGHUP; SIGSTOP gets replaced in ~90s, play_as alone collides with the live worker
+- [Wildlife loot drops vary (11-23)](reference_wildlife_loot_drops_vary.md) — quantities differ per kill; count the part in the hold, never kills
