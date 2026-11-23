@@ -1,0 +1,18 @@
+// marketbot_007 at bd20_2457: retargeted 2026-11-22 off a POI whose main output sits at the
+// 100k personal-storage cap (v0.732.4). Mines bd20_2457_ice_fields, deposits at the host
+// station POI 9e0b4dbad76ae607e5ca994d8dd7363e.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("9e0b4dbad76ae607e5ca994d8dd7363e")
+    DEPOSIT
+  ELSE
+    MOVE "9e0b4dbad76ae607e5ca994d8dd7363e"
+  END
+ELSE
+  IF at("bd20_2457_ice_fields")
+    MINE
+  ELSE
+    MOVE "bd20_2457_ice_fields"
+  END
+END

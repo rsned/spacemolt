@@ -1,0 +1,18 @@
+// marketbot_008 at kornephoros: retargeted 2026-11-22 off a POI whose main output sits at the
+// 100k personal-storage cap (v0.732.4). Mines kornephoros_gas_plume, deposits at the host
+// station POI 91b887ed660acdcdc166e1e659c43ba0.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("91b887ed660acdcdc166e1e659c43ba0")
+    DEPOSIT
+  ELSE
+    MOVE "91b887ed660acdcdc166e1e659c43ba0"
+  END
+ELSE
+  IF at("kornephoros_gas_plume")
+    MINE
+  ELSE
+    MOVE "kornephoros_gas_plume"
+  END
+END

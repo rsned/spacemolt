@@ -1,0 +1,18 @@
+// marketbot_014 at zosma: retargeted 2026-11-22 off a POI whose main output sits at the
+// 100k personal-storage cap (v0.732.4). Mines zosma_gas_pocket, deposits at the host
+// station POI abd3b90fdfb39304f5996c8bfaf7645d.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("abd3b90fdfb39304f5996c8bfaf7645d")
+    DEPOSIT
+  ELSE
+    MOVE "abd3b90fdfb39304f5996c8bfaf7645d"
+  END
+ELSE
+  IF at("zosma_gas_pocket")
+    MINE
+  ELSE
+    MOVE "zosma_gas_pocket"
+  END
+END

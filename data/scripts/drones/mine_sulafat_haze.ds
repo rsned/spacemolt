@@ -1,0 +1,18 @@
+// marketbot_sulafat at sulafat: retargeted 2026-11-22 off a POI whose main output sits at the
+// 100k personal-storage cap (v0.732.4). Mines sulafat_haze, deposits at the host
+// station POI 07bf78755682cf3e8ef049f3fa560049.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("07bf78755682cf3e8ef049f3fa560049")
+    DEPOSIT
+  ELSE
+    MOVE "07bf78755682cf3e8ef049f3fa560049"
+  END
+ELSE
+  IF at("sulafat_haze")
+    MINE
+  ELSE
+    MOVE "sulafat_haze"
+  END
+END

@@ -1,0 +1,18 @@
+// marketbot_002 at arneb: retargeted 2026-11-22 off a POI whose main output sits at the
+// 100k personal-storage cap (v0.732.4). Mines arneb_gas_pocket, deposits at the host
+// station POI a356fc2c1744c0425cf6cf47f48def92.
+IF traveling()
+  WAIT
+ELSE IF cargo_full()
+  IF at("a356fc2c1744c0425cf6cf47f48def92")
+    DEPOSIT
+  ELSE
+    MOVE "a356fc2c1744c0425cf6cf47f48def92"
+  END
+ELSE
+  IF at("arneb_gas_pocket")
+    MINE
+  ELSE
+    MOVE "arneb_gas_pocket"
+  END
+END
