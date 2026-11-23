@@ -947,14 +947,20 @@ func freightLoadUnconfirmed(ctx context.Context, deps MissionDeps, c *serverapi.
 // freightDeliverDueHere delivers every held contract whose destination is
 // baseID. Per contract this is the v1 runTrip deliver+record sequence; a
 // deliver failure leaves that contract in flight (failed++) and the loop
-// continues with the rest.
-func freightDeliverDueHere(ctx context.Context, deps MissionDeps, baseID string, out io.Writer) (delivered, failed int) {
+// continues with the rest. A deliver refused because the package is not in
+// the active ship is not retryable from here, so that contract is handed back
+// in stranded for the caller to recover from its origin instead.
+func freightDeliverDueHere(ctx context.Context, deps MissionDeps, baseID string, out io.Writer) (delivered, failed int, stranded []*serverapi.ShipmentContract) {
 	for _, c := range deps.State.heldFreightAll() {
 		if c.DestinationBaseID != baseID {
 			continue
 		}
 		if err := deps.Client.ShippingDeliver(ctx, c.ID); err != nil {
 			fmt.Fprintf(out, "freight: deliver %s: %v\n", c.ID, err) //nolint:errcheck
+			if freightIsPackageNotPresent(err) {
+				stranded = append(stranded, c)
+				continue
+			}
 			failed++
 			continue
 		}
@@ -980,7 +986,78 @@ func freightDeliverDueHere(ctx context.Context, deps MissionDeps, baseID string,
 		deps.State.removeHeldFreight(c.ID)
 		delivered++
 	}
-	return delivered, failed
+	return delivered, failed, stranded
+}
+
+// freightIsPackageNotPresent reports the server's deliver/return refusal for a
+// sealed package that is not in the active ship.
+func freightIsPackageNotPresent(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "package_not_present")
+}
+
+// freightLoadStrandedAtOrigin loads any held package still sitting in storage
+// at the station the ship is docked at, before the chain flies anywhere.
+//
+// Live 2026-11-22 (engineer-1): the post-accept withdraw collided with another
+// pending action, the fallback return failed the same way, and the pass
+// parked. The next pass resumed the held contract and flew 17 jumps with the
+// package still in origin storage. A held contract whose origin is HERE and
+// whose package is not aboard is exactly that state.
+//
+// Cargo is refreshed first and the check is skipped when the refresh fails: a
+// stale empty hold would send a withdraw for a package that is already
+// aboard, and that failed withdraw returns a healthy contract.
+func freightLoadStrandedAtOrigin(ctx context.Context, deps MissionDeps, out io.Writer) freightStep {
+	st := deps.Client.GetState()
+	if st == nil || !st.IsDocked() || st.Player.DockedAtBase == "" {
+		return freightStepProceed
+	}
+	here := st.Player.DockedAtBase
+	var due []*serverapi.ShipmentContract
+	for _, c := range deps.State.heldFreightAll() {
+		if c.OriginBaseID == here && c.PackageID != "" && cargoCount(st, freightPackageItemID(c.PackageID)) < 1 {
+			due = append(due, c)
+		}
+	}
+	if len(due) == 0 {
+		return freightStepProceed
+	}
+	if err := deps.Client.GetCargo(ctx); err != nil {
+		fmt.Fprintf(out, "freight: cargo refresh before origin load check: %v; not loading blind\n", err) //nolint:errcheck
+		return freightStepProceed
+	}
+	for _, c := range due {
+		if cargoCount(deps.Client.GetState(), freightPackageItemID(c.PackageID)) >= 1 {
+			continue
+		}
+		fmt.Fprintf(out, "freight: package for %s is still in storage at its origin; loading it before flying\n", c.ID) //nolint:errcheck
+		if freightLoadPackage(ctx, deps, c, nil, out) == freightStepStuck {
+			return freightStepStuck
+		}
+	}
+	return freightStepProceed
+}
+
+// freightRecoverStranded handles a deliver refused with package_not_present:
+// the ship reached the destination without the package. Retrying the deliver
+// can never succeed (engineer-1 tried 860 times), so fly to the origin, where
+// a package that never loaded is still in storage, and load it there. If it
+// is not there either, freightLoadPackage returns the contract at its origin.
+func freightRecoverStranded(ctx context.Context, deps MissionDeps, nav func(context.Context, string) error, c *serverapi.ShipmentContract, out io.Writer) freightStep {
+	if c.OriginBaseID == "" || nav == nil {
+		fmt.Fprintf(out, "freight: %s package not aboard and no origin to recover it from; leaving in flight\n", c.ID) //nolint:errcheck
+		return freightStepProceed
+	}
+	fmt.Fprintf(out, "freight: %s package not aboard at its destination; flying to origin %s to load it\n", c.ID, c.OriginBaseID) //nolint:errcheck
+	if err := nav(ctx, c.OriginBaseID); err != nil {
+		fmt.Fprintf(out, "freight: navigate to origin %s: %v; leaving %s in flight\n", c.OriginBaseID, err, c.ID) //nolint:errcheck
+		return freightStepProceed
+	}
+	if err := freightSettleDock(ctx, deps, out); err != nil {
+		fmt.Fprintf(out, "freight: dock settle at origin %s: %v; leaving %s in flight\n", c.OriginBaseID, err, c.ID) //nolint:errcheck
+		return freightStepProceed
+	}
+	return freightLoadPackage(ctx, deps, c, nil, out)
 }
 
 // freightChainRun is the sub-project C dock-pass loop: deliver what is due
@@ -1005,7 +1082,14 @@ func freightChainRun(ctx context.Context, deps MissionDeps, nav func(ctx context
 	// could not reach. They stay held and get flown; they must never be
 	// nominated for return again this pass.
 	undischargeable := map[string]bool{}
+	// Contracts already flown back to their origin after a package_not_present
+	// this pass. One recovery per contract per pass: a second refusal means
+	// the package is somewhere the origin cannot supply it from.
+	recovered := map[string]bool{}
 	for leg := 0; leg < freightChainMaxLegs; leg++ {
+		if freightLoadStrandedAtOrigin(ctx, deps, out) == freightStepStuck {
+			return freightStepStuck, nil
+		}
 		stops := freightChainStops(ctx, deps, hopsTo, out)
 		if len(stops) == 0 {
 			return freightStepProceed, nil
@@ -1078,7 +1162,26 @@ func freightChainRun(ctx context.Context, deps MissionDeps, nav func(ctx context
 			attempted[target] = true
 			continue
 		}
-		_, failed := freightDeliverDueHere(ctx, deps, target, out)
+		_, failed, stranded := freightDeliverDueHere(ctx, deps, target, out)
+		for _, c := range stranded {
+			if recovered[c.ID] {
+				// Already recovered once this pass and still not aboard.
+				attempted[target] = true
+				continue
+			}
+			recovered[c.ID] = true
+			if freightRecoverStranded(ctx, deps, nav, c, out) == freightStepStuck {
+				return freightStepStuck, nil
+			}
+			if freightHeldByID(deps, c.ID) != nil && cargoCount(deps.Client.GetState(), freightPackageItemID(c.PackageID)) < 1 {
+				// Recovery could not load it; do not fly back empty this pass.
+				attempted[target] = true
+			}
+		}
+		if len(stranded) > 0 && failed == 0 {
+			// Re-price from wherever recovery left the ship.
+			continue
+		}
 		if failed > 0 {
 			// Headroom cannot be trusted mid-failure: no refill at this dock
 			// (spec, Error handling). Try the next destination instead.
