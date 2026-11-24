@@ -53,9 +53,14 @@ type Options struct {
 	// ClearMinArrivals is how many arrivals a system needs before a system
 	// with no counting inspection is called Clear rather than Unknown.
 	ClearMinArrivals int
-	// ClearAfterArrivals ages a Monitored system out: this many arrivals
-	// after its last inspection with none since makes it Clear.
+	// ClearAfterArrivals and ClearAfterQuiet age a Monitored system out:
+	// it turns Clear only when BOTH this many arrivals have followed its
+	// last inspection AND that inspection is at least ClearAfterQuiet old.
+	// Arrivals alone are not enough: customs does not inspect every transit
+	// ship, so the_rampart (64 inspections, last 6h earlier) saw 25 clean
+	// arrivals since its last one on 2026-11-23.
 	ClearAfterArrivals int
+	ClearAfterQuiet    time.Duration
 	// EmpireOf names a system's empire when no inspection carried one. nil
 	// leaves those blank.
 	EmpireOf func(systemID string) string
@@ -63,7 +68,7 @@ type Options struct {
 
 // DefaultOptions are the operator-approved defaults (spec 2026-11-23).
 func DefaultOptions() Options {
-	return Options{Window: 14 * 24 * time.Hour, ClearMinArrivals: 10, ClearAfterArrivals: 20}
+	return Options{Window: 14 * 24 * time.Hour, ClearMinArrivals: 10, ClearAfterArrivals: 20, ClearAfterQuiet: 72 * time.Hour}
 }
 
 type event struct {
@@ -78,7 +83,7 @@ func Build(ctx context.Context, db *sql.DB, now time.Time, o Options) (map[strin
 	cutoff := now.Add(-o.Window).UTC().Format(time.RFC3339)
 	rows, err := db.QueryContext(ctx, `SELECT event_type, created_at, data_json FROM action_log_events
 		WHERE event_type IN ('navigation.jumped','combat.customs_inspection','combat.customs_seizure')
-		  AND created_at >= ? ORDER BY created_at`, cutoff)
+		  AND created_at >= ? ORDER BY created_at, event_id`, cutoff)
 	if err != nil {
 		return nil, fmt.Errorf("customs: query action log: %w", err)
 	}
@@ -157,7 +162,7 @@ func Build(ctx context.Context, db *sql.DB, now time.Time, o Options) (map[strin
 			s.Empire = o.EmpireOf(sys)
 		}
 		switch {
-		case s.Inspections > 0 && s.ArrivalsSince < o.ClearAfterArrivals:
+		case s.Inspections > 0 && (s.ArrivalsSince < o.ClearAfterArrivals || now.Sub(s.LastInspection) < o.ClearAfterQuiet):
 			s.Class = Monitored
 		case s.Arrivals >= o.ClearMinArrivals:
 			s.Class = Clear

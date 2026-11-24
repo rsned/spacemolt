@@ -31,17 +31,28 @@ var ErrNoCustomsFreeRoute = fmt.Errorf("%w: no customs-free route", ErrRouteThro
 
 // contrabandAboard lists the KB-category "contraband" items in cargo as
 // "id xN". A nil kb finds none.
-func contrabandAboard(ctx context.Context, kb knowledge.Base, cargo []game.CargoItem) []string {
+func contrabandAboard(ctx context.Context, kb knowledge.Base, cargo []game.CargoItem, w io.Writer) []string {
 	if kb == nil {
 		return nil
 	}
 	var out []string
+	var lookupErr error
+	defer func() {
+		if lookupErr != nil && w != nil {
+			fmt.Fprintf(w, "   customs: item lookup failed, treating unknown items as clean: %v\n", lookupErr) //nolint:errcheck
+		}
+	}()
 	for _, c := range cargo {
 		if c.Quantity <= 0 {
 			continue
 		}
 		it, err := kb.GetItem(ctx, c.ItemID)
-		if err != nil || it == nil || it.Category != "contraband" {
+		if err != nil {
+			// Surface it: a failed lookup routes the item as clean.
+			lookupErr = err
+			continue
+		}
+		if it == nil || it.Category != "contraband" {
 			continue
 		}
 		out = append(out, fmt.Sprintf("%s x%g", c.ItemID, c.Quantity))
@@ -75,7 +86,7 @@ func customsAvoid(ctx context.Context, deps AutopilotDeps, client game.GameClien
 	if st == nil {
 		return nil
 	}
-	items := contrabandAboard(ctx, deps.KB, st.Ship.Cargo)
+	items := contrabandAboard(ctx, deps.KB, st.Ship.Cargo, out)
 	if len(items) == 0 {
 		return nil
 	}
@@ -102,6 +113,13 @@ type customsAlert struct {
 	Monitored []string  `json:"monitored"`
 }
 
+// customsAlertEpisodeGap separates blocked episodes: hourly retries stay
+// inside it, a block after the route reopened falls outside it.
+const customsAlertEpisodeGap = 2 * time.Hour
+
+// customsAlertReportWindow is how far back the report lists blocks.
+const customsAlertReportWindow = 24 * time.Hour
+
 type customsAlertsFile struct {
 	Alerts map[string]customsAlert `json:"alerts"`
 }
@@ -122,6 +140,12 @@ func recordCustomsAlert(path, agent, dest string, monitored []string, now time.T
 	}
 	key := agent + "|" + dest
 	a, seen := f.Alerts[key]
+	// Hourly retries keep LastSeen fresh; a gap longer than
+	// customsAlertEpisodeGap means the route reopened and this is a new
+	// block the operator must see in full.
+	if seen && now.Sub(a.LastSeen) > customsAlertEpisodeGap {
+		seen = false
+	}
 	if !seen {
 		a = customsAlert{Agent: agent, Dest: dest, FirstSeen: now}
 	}
@@ -132,8 +156,14 @@ func recordCustomsAlert(path, agent, dest string, monitored []string, now time.T
 	if err != nil {
 		return true
 	}
-	tmp := filepath.Join(filepath.Dir(path), "."+filepath.Base(path)+".tmp")
-	if os.WriteFile(tmp, data, 0o644) != nil || os.Rename(tmp, path) != nil {
+	// Unique temp name: several worker processes may write at once.
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+"-*")
+	if err != nil {
+		return true
+	}
+	defer os.Remove(tmp.Name()) //nolint:errcheck // no-op after rename
+	_, werr := tmp.Write(data)
+	if cerr := tmp.Close(); werr != nil || cerr != nil || os.Rename(tmp.Name(), path) != nil {
 		return true
 	}
 	return !seen
@@ -173,6 +203,9 @@ func CustomsAlertLines(path string) []string {
 	alerts := slices.SortedFunc(maps.Values(f.Alerts), func(a, b customsAlert) int { return b.LastSeen.Compare(a.LastSeen) })
 	lines := make([]string, 0, len(alerts))
 	for _, a := range alerts {
+		if time.Since(a.LastSeen) > customsAlertReportWindow {
+			continue // resolved long ago
+		}
 		lines = append(lines, fmt.Sprintf("  %-22s -> %-20s x%-3d last %s  monitored on every path: %s",
 			a.Agent, a.Dest, a.Count, a.LastSeen.Format("01-02 15:04"), strings.Join(a.Monitored, ",")))
 	}

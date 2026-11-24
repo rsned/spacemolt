@@ -136,3 +136,35 @@ func TestBuildEmpireFallsBackToEmpireOf(t *testing.T) {
 		t.Fatalf("timberline = %+v, want clear solarian", s)
 	}
 }
+
+// Live 2026-11-23: the_rampart (64 inspections, last 6h ago) had 25 clean
+// arrivals since its last inspection, because customs does not inspect every
+// transit ship. Arrivals alone must not clear a system inspected this recently.
+func TestBuildRecentInspectionStaysMonitoredDespiteArrivals(t *testing.T) {
+	db := testDB(t)
+	last := testNow.Add(-6 * time.Hour)
+	inspect(t, db, "the_rampart", "crimson", last)
+	for i := range 25 {
+		arrive(t, db, "the_rampart", last.Add(time.Duration(i+1)*time.Minute))
+	}
+	if s := build(t, db)["the_rampart"]; s.Class != Monitored {
+		t.Fatalf("the_rampart = %+v, want monitored: inspected 6h ago", s)
+	}
+}
+
+// An inspection logged in the same second as the jump in must still count
+// that arrival as BEFORE the inspection.
+func TestBuildSameSecondArrivalPrecedesInspection(t *testing.T) {
+	db := testDB(t)
+	at := testNow.Add(-time.Hour)
+	// Stored out of order (as captures from two cursors can be): the
+	// server's event ids, not the row order, say the jump came first.
+	nextEventID = 1000
+	inspect(t, db, "furud", "solarian", at)
+	nextEventID = 10
+	arrive(t, db, "furud", at)
+	nextEventID = 2000
+	if s := build(t, db)["furud"]; s.ArrivalsSince != 0 {
+		t.Fatalf("furud = %+v, want 0 arrivals since the same-second inspection", s)
+	}
+}

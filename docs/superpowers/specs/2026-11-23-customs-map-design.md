@@ -47,7 +47,7 @@ Customs positions were tracked by hand in memory notes, and that went wrong at l
   - `Build(db, now, window, overrides) Map` reads `action_log_events` and returns one row per system: `{system_id, empire, arrivals, inspections, seizures, seized_items, last_inspection, class}`.
   - **arrivals** = `navigation.jumped` rows whose `to_system` is the system, within the window.
 - **Classes:**
-  - **monitored**: at least 1 `combat.customs_inspection` in the window, or forced on by an override. Ageing: a system is no longer monitored once it has `ClearAfterArrivals` (default 20) clean arrivals after its last inspection. Stale positions then clear without anyone editing a file, including cutters that v0.734.1 may have moved.
+  - **monitored**: at least 1 `combat.customs_inspection` in the window, or forced on by an override. Ageing: a system is no longer monitored once BOTH `ClearAfterArrivals` (default 20) arrivals have followed its last inspection AND that inspection is at least `ClearAfterQuiet` (default 72h) old. Final review showed that arrivals alone cleared the_rampart: it had 25 clean transit arrivals within 6h of an inspection, because customs does not inspect every ship. Stale positions still clear without anyone editing a file.
   - **observed clear**: arrivals ≥ `ClearMinArrivals` (default 10) and no inspection that still counts. A system that aged out of monitored is observed clear.
   - **unknown**: everything else.
 - **Evidence that the system is the right unit (checked 2026-11-23):** pass-through ships are inspected. Traders, explorers and shuttles were inspected at grumium, the_levy and gold_run, often at the POI where they arrived, and most left the system within 10 minutes. These are not only miners working a belt.

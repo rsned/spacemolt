@@ -169,3 +169,29 @@ func TestMissingCustomsMapNoKBCalls(t *testing.T) {
 		t.Errorf("jumps = %v, want the server route with no customs map", got)
 	}
 }
+
+// A block that recurs after the route reopened is a new episode: the
+// operator must see the full line again, not the repeat line.
+func TestCustomsAlertIsNewAgainAfterQuietGap(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "alerts.json")
+	t0 := time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
+	if !recordCustomsAlert(path, "a", "x", nil, t0) {
+		t.Fatal("first alert must be new")
+	}
+	if recordCustomsAlert(path, "a", "x", nil, t0.Add(time.Hour)) {
+		t.Fatal("hourly retry must be a repeat")
+	}
+	if !recordCustomsAlert(path, "a", "x", nil, t0.Add(5*time.Hour)) {
+		t.Fatal("a block after a 4h gap must be new again")
+	}
+}
+
+func TestCustomsAlertLinesShowOnlyRecent(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "alerts.json")
+	recordCustomsAlert(path, "old", "x", nil, time.Now().Add(-48*time.Hour))
+	recordCustomsAlert(path, "new", "y", nil, time.Now())
+	lines := CustomsAlertLines(path)
+	if len(lines) != 1 || !strings.Contains(lines[0], "new") {
+		t.Fatalf("lines = %v, want only the recent alert", lines)
+	}
+}
