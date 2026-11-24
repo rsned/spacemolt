@@ -114,6 +114,31 @@ func isShortSupplyErr(err error) bool {
 // the stock actually held: "Storage only has 1222 x pirate_moonshine".
 var storageOnlyHasRE = regexp.MustCompile(`only has (\d+) x `)
 
+// cargoFullNeedRE matches the server's oversized-withdraw refusal for a bulky
+// item, which names the space wanted and the space free: "Not enough cargo
+// space. Need 5700 but only 1900 available" (quantum_fragments are 3 per unit).
+var cargoFullNeedRE = regexp.MustCompile(`Need (\d+) but only (\d+) available`)
+
+// unitsThatFit returns how many units of a want-unit withdraw fit the hold, if
+// err is a cargo-space refusal naming the space needed and free. The per-unit
+// size is need/want rounded up, so the answer never overfills the hold.
+func unitsThatFit(err error, want int) (int, bool) {
+	if err == nil || want <= 0 {
+		return 0, false
+	}
+	m := cargoFullNeedRE.FindStringSubmatch(err.Error())
+	if m == nil {
+		return 0, false
+	}
+	need, nerr := strconv.Atoi(m[1])
+	free, ferr := strconv.Atoi(m[2])
+	if nerr != nil || ferr != nil || need <= free {
+		return 0, false
+	}
+	size := (need + want - 1) / want
+	return free / size, true
+}
+
 // storageOnlyHas returns the stock a short-withdraw refusal names, if err is
 // one.
 func storageOnlyHas(err error) (int, bool) {
@@ -287,6 +312,20 @@ func (d *WorkerDispatch) deliverWithdraw(ctx context.Context, itemID string, wan
 	werr := withdraw(want)
 	if werr != nil && !isShortSupplyErr(werr) {
 		return 0, false, false, fmt.Errorf("deliver: withdraw %s at %s: %w", itemID, baseLabel, werr)
+	}
+	// free counts cargo space, not units: a bulky item (quantum_fragments
+	// take 3 each) overfills it and the server refuses the whole withdraw,
+	// naming the space needed. Retry for the units that fit.
+	if fit, ok := unitsThatFit(werr, want); ok {
+		if fit <= 0 {
+			return before, false, true, nil
+		}
+		fmt.Fprintf(d.Out, "deliver: %s is bulky; %d units fit the hold (asked %d) — withdrawing that\n", itemID, fit, want) //nolint:errcheck
+		want = fit
+		werr = withdraw(want)
+		if werr != nil && !isShortSupplyErr(werr) {
+			return 0, false, false, fmt.Errorf("deliver: withdraw %s at %s: %w", itemID, baseLabel, werr)
+		}
 	}
 	// The server refuses an oversized withdraw outright and names the stock
 	// ("Storage only has 1222 x pirate_moonshine"); take that much instead

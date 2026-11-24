@@ -63,6 +63,12 @@ type deliverFakeClient struct {
 	// get_cargo; until then state.Ship.CargoCapacity may be stale (a hull
 	// switch leaves the old ship's capacity cached).
 	liveCapacity float64
+
+	// itemSize, when set for an item, is its cargo footprint per unit: a
+	// withdraw whose units x size exceed the free hold moves nothing and
+	// answers like the live server ("cargo_full: ... Need 5700 but only 1900
+	// available").
+	itemSize map[string]int
 }
 
 type depositCall struct {
@@ -86,6 +92,13 @@ func (f *deliverFakeClient) FactionWithdrawItems(_ context.Context, itemID strin
 func (f *deliverFakeClient) WithdrawItems(ctx context.Context, itemID string, quantity float64) error {
 	f.calls = append(f.calls, fmt.Sprintf("withdraw:%s:%.0f", itemID, quantity))
 	avail := f.storageStock[itemID]
+	if size := f.itemSize[itemID]; size > 0 && f.state != nil {
+		need := int(quantity) * size
+		free := int(f.state.Ship.CargoCapacity - f.state.Ship.CargoUsed)
+		if need > free {
+			return fmt.Errorf("cargo_full: Not enough cargo space. Need %d but only %d available. Use 'deposit_items' or 'jettison' to free space.", need, free)
+		}
+	}
 	if f.atomicWithdraw && quantity > avail {
 		return fmt.Errorf("insufficient_storage: Storage only has %.0f x %s. Use 'view_storage' to check.", avail, itemID)
 	}
@@ -419,6 +432,44 @@ func TestDeliverAtomicShortWithdrawTakesWhatIsThere(t *testing.T) {
 		t.Fatalf("gift quantity = %v, want 1222", got)
 	}
 	if got := client.storageStock["pirate_moonshine"]; got != 0 {
+		t.Fatalf("source storage left = %v, want 0", got)
+	}
+}
+
+// TestDeliverBulkyItemWithdrawFitsTheHold: quantum_fragments take 3 cargo
+// space per unit, so a 1,900-unit withdraw into an empty 1,900 hold is
+// refused outright ("Need 5700 but only 1900 available") and moves nothing.
+// Live 2026-11-23: four Congregations delivered 0 of ~30k each, every hour.
+// Deliver must size the withdraw from the refusal and move what fits.
+func TestDeliverBulkyItemWithdrawFitsTheHold(t *testing.T) {
+	kb := newDeliverTestKB(t)
+	agentsDir := t.TempDir()
+	writeDeliverCreds(t, agentsDir, "craftsman-3", "Artisan 'Ace' Anderson")
+
+	client := &deliverFakeClient{
+		fakeClient:   &fakeClient{state: &game.State{Ship: game.Ship{CargoCapacity: 1900}}},
+		storageStock: map[string]float64{"quantum_fragments": 1000},
+		itemSize:     map[string]int{"quantum_fragments": 3},
+	}
+	d := NewWorkerDispatch(client, kb, nil, io.Discard)
+	d.AgentID = "trucker-126"
+	d.AgentsDir = agentsDir
+
+	if err := d.Deliver(context.Background(), "quantum_fragments", 1000, "from_base", "to_base", "craftsman-3"); err != nil {
+		t.Fatalf("Deliver: %v", err)
+	}
+	var gifted float64
+	for _, g := range client.giftCalls {
+		q, _ := g["quantity"].(float64)
+		if q*3 > 1900 {
+			t.Fatalf("gift of %v units exceeds the hold (%v)", q, client.giftCalls)
+		}
+		gifted += q
+	}
+	if gifted != 1000 {
+		t.Fatalf("gifted %v, want 1000 (%+v)", gifted, client.giftCalls)
+	}
+	if got := client.storageStock["quantum_fragments"]; got != 0 {
 		t.Fatalf("source storage left = %v, want 0", got)
 	}
 }
