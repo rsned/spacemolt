@@ -31,6 +31,7 @@ func main() {
 	kbPath := flag.String("kb", "data/spacemolt-knowledge.db", "knowledge base (system empires)")
 	mapPath := flag.String("map", customs.DefaultMapPath, "customs map file")
 	overridesPath := flag.String("overrides", customs.DefaultOverridesPath, "operator overrides file")
+	alertsPath := flag.String("alerts", worker.DefaultCustomsAlertsPath, "blocked contraband run alerts")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: customs-map [flags] build|report\n") //nolint:errcheck
 		flag.PrintDefaults()
@@ -41,6 +42,9 @@ func main() {
 		build(*assetsPath, *kbPath, *mapPath, *overridesPath)
 	case "report":
 		report(*mapPath)
+		if lines := worker.CustomsAlertLines(*alertsPath); len(lines) > 0 {
+			fmt.Printf("\nBLOCKED CONTRABAND RUNS (no customs-free route)\n%s\n", strings.Join(lines, "\n"))
+		}
 	default:
 		flag.Usage()
 		os.Exit(2)

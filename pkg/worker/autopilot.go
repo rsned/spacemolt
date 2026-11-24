@@ -194,6 +194,14 @@ type AutopilotDeps struct {
 	// destination, the trip is refused. The hunt fleet passes every Lawless
 	// system here (empire-policed routes only). nil adds nothing.
 	ExtraAvoid map[string]string
+	// CustomsMapPath is the customs map (customs.DefaultMapPath when empty).
+	// When the hold carries contraband, every monitored system in it joins
+	// the avoid list for this route, except the route's endpoints. A missing
+	// map changes nothing; clean ships never read the KB for it.
+	CustomsMapPath string
+	// CustomsAlertsPath records contraband runs with no customs-free route
+	// (DefaultCustomsAlertsPath when empty).
+	CustomsAlertsPath string
 }
 
 // fuelTimingFor resolves the endpoint fuel prices for a route into a refuel-timing
@@ -320,6 +328,19 @@ func autopilotOnce(ctx context.Context, deps AutopilotDeps, targetSystem, target
 		}
 		avoid = merged
 	}
+	// Customs: a hold with contraband also stays out of every system the
+	// customs map has seen inspect (pkg/customs). Clean ships skip this.
+	customsSet := customsAvoid(ctx, deps, client, origin, route[len(route)-1].SystemID, out)
+	if len(customsSet) > 0 {
+		merged := make(map[string]string, len(avoid)+len(customsSet))
+		maps.Copy(merged, avoid)
+		for id, why := range customsSet {
+			if _, operator := merged[id]; !operator {
+				merged[id] = why
+			}
+		}
+		avoid = merged
+	}
 	if len(avoid) > 0 {
 		if hits := avoidedOnRoute(route, avoid); len(hits) > 0 {
 			dest := route[len(route)-1]
@@ -338,6 +359,9 @@ func autopilotOnce(ctx context.Context, deps AutopilotDeps, targetSystem, target
 					why = derr.Error()
 				}
 				fmt.Fprintf(out, "   NOT DEPARTING: route enters avoided %s (%s)\n", strings.Join(hits, ", "), why) //nolint:errcheck
+				if customsHits := avoidedOnRoute(route, customsSet); len(customsHits) > 0 {
+					return customsBlocked(deps, client, cmp.Or(dest.Name, dest.SystemID), customsHits, out)
+				}
 				return fmt.Errorf("%w: route to %s enters %s (%s)", ErrRouteThroughAvoided, targetSystem, strings.Join(hits, ", "), why)
 			}
 			fmt.Fprintf(out, "   AVOIDING %s: detour of %d jump(s) instead of %d\n", strings.Join(hits, ", "), len(detour), len(route)) //nolint:errcheck
