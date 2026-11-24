@@ -212,13 +212,20 @@ func TestHuntFleetYAMLParses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadRoles: %v", err)
 	}
+	// Members are seconded to other roles for a while (idle for a hull buy,
+	// unlock for the pirate chain), so only require that the fleet still
+	// hunts at all and that every role it names exists.
+	hunters := 0
 	for _, s := range specs {
-		if s.Role != "hunt" {
-			t.Errorf("%s: role = %q, want hunt", s.AgentID, s.Role)
+		if s.Role == "hunt" {
+			hunters++
 		}
 		if _, ok := roles[s.Role]; !ok {
 			t.Errorf("%s: role %q is not defined in roles.yaml", s.AgentID, s.Role)
 		}
+	}
+	if hunters == 0 {
+		t.Error("hunt fleet has no member with role hunt")
 	}
 	if roles["hunt"].Idle != "hunt" {
 		t.Errorf("hunt role idle = %q, want hunt", roles["hunt"].Idle)
