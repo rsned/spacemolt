@@ -706,6 +706,14 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	exploreEnabled := missionCategoryEnabled(deps, missionTypeExploration)
 	deliveryEnabled := missionCategoryEnabled(deps, missionTypeDelivery)
 	smugglingEnabled := missionCategoryEnabled(deps, missionTypeSmuggling)
+	// Contraband couriers are measured on the map Autopilot will actually fly
+	// with contraband aboard: no transit through customs-monitored or avoided
+	// systems. Without this the runner accepted couriers it could never
+	// depart on (pirate-7/9 to Ironhearth, 2026-11-24).
+	var smugDist map[string]int
+	if smugglingEnabled {
+		smugDist = contrabandDist(graph, current, targets, contrabandBlocked("", ""))
+	}
 	// One pairwise distance table covers every exploration entry on the board.
 	var explorePair func(a, b string) int
 	if exploreEnabled {
@@ -780,6 +788,13 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			c, reason = buildExploreCandidate(e, current, explorePair, fuelCostFor, jumpTicks)
 		case e.Type == missionTypeSmuggling && smugglingEnabled:
 			_, _, destSystem, _ := deliverShape(e, true)
+			if d, ok := dist[destSystem]; ok && d < navigation.RouteInf && smugDist[destSystem] >= navigation.RouteInf {
+				why := fmt.Sprintf("no route to %s that stays out of customs-monitored and avoided systems", destSystem)
+				if deps.State.shouldLogSkip(e.MissionID, why) {
+					fmt.Fprintf(out, "missions: skip %s (%s): %s\n", e.MissionID, e.Title, why) //nolint:errcheck
+				}
+				continue
+			}
 			// A sub-L3 agent is buying XP, which the empire still pays in
 			// full, so it prices smuggling at face value and is bounded by
 			// missionSmugglingXPBudget instead. At L3+ there is nothing left
@@ -788,7 +803,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 			if smugglingBuyingXP(deps.Client.GetState()) {
 				smugRatio = 1
 			}
-			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, true, smugglingCohort[destSystem],
+			c, reason = buildMissionCandidate(e, smugDist, refAsk, fuelCostFor, true, smugglingCohort[destSystem],
 				effectiveMissionFloor(true, deps.State.smugglingSpent(), missionSmugglingXPBudget), jumpTicks, smugRatio)
 		case e.Type == missionTypeDelivery && deliveryEnabled:
 			c, reason = buildMissionCandidate(e, dist, refAsk, fuelCostFor, false, 1, missionMinNet, jumpTicks, payoutRatio)
