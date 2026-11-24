@@ -1,6 +1,6 @@
 ---
 name: reference_gift_unlock_and_officer_storage_split
-description: "send_gift needs 1,000 EARNED credits (gift_not_unlocked); gifts to an officer land in its own storage and a craft uses ONE storage, so collection points need faction_deposit sweeps"
+description: "send_gift needs 1,000 EARNED credits (gift_not_unlocked); player-station marketbots cannot self-unlock (no mission board): sell to a visiting hauler; gifts to an officer land in its own storage and a craft uses ONE storage, so collection points need faction_deposit sweeps"
 metadata:
   node_type: memory
   type: reference
@@ -18,6 +18,16 @@ no sellable stock. (Selling also works: 6 rhodium_ore at Ironhearth, 190 each, u
 marketbot_015 on 10-30.)
 New accounts (marketbot_021-033 etc.) will hit this before any consign rule works. Consign now
 logs refused gifts (06b8dcd2); before that it dropped them silently.
+
+**Marketbots at PLAYER stations can't self-unlock (operator, 2026-11-23):** player stations have
+no mission board, or don't offer `market_participation_buying`, so the hourly `unlock_gifting`
+verb never works there. It logs "no mission board" or misleadingly "not offered here and not
+active — already completed" (seen for ~30 marketbots). Two ways out:
+1. Fly the bot to an EMPIRE station that has a mission board and run the recipe there.
+2. If the local station has a market, a visiting hauler buys from the bot: the bot posts
+   `create_sell_order <item> 1000 2` and the hauler `buy <item> 1000` = 2,000 earned. NPC bids are
+   usually absent there (`sell` answered "No buyers"). Done 11-23: marketbot_018 (Winterhold)
+   via trucker-109. A gift-locked `release` fails `gift_not_unlocked` every 10 min.
 
 **Officer collection points:** a gift to miningbot_0000 at Conjunction Junction lands in its
 PERSONAL storage, and a craft takes all inputs from one storage (own OR faction), so split inputs
