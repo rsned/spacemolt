@@ -82,6 +82,14 @@ func customsAvoid(ctx context.Context, deps AutopilotDeps, client game.GameClien
 	if len(monitored) == 0 {
 		return nil
 	}
+	// Read the hold fresh: a courier mission's cargo arrives at accept_mission
+	// and the cached hold does not show it until the next cargo read, so a
+	// route planned right after accepting saw an empty hold and flew pirate-7
+	// through the Mimosa cordon (2026-11-23). A failed read falls back to the
+	// cached hold.
+	if err := client.GetCargo(ctx); err != nil {
+		fmt.Fprintf(out, "   customs: cargo refresh failed, using cached hold: %v\n", err) //nolint:errcheck
+	}
 	st := client.GetState()
 	if st == nil {
 		return nil

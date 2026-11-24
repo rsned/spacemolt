@@ -82,6 +82,24 @@ func TestContrabandDetoursAroundMonitoredSystem(t *testing.T) {
 	}
 }
 
+// A courier mission puts its contraband in the hold at accept_mission, but the
+// cached State.Ship.Cargo only changes on the next cargo read. pirate-7 routed
+// through Mimosa on that stale empty hold (2026-11-23 20:53) and lost the
+// cargo to the Northern Cordon; the customs check must read the hold fresh.
+func TestContrabandAcceptedJustNowStillDetours(t *testing.T) {
+	f := cargoFake()
+	f.onGetCargo = func() {
+		f.state.Ship.Cargo = []game.CargoItem{{ItemID: "void_dust", Quantity: 5}}
+	}
+	r := customsDeps(t, f, true, writeCustomsMap(t, "izar"))
+	if err := Autopilot(context.Background(), r.deps, "rigel", ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := jumps(f.calls); !slices.Equal(got, []string{"tidewater", "vega", "rigel"}) {
+		t.Errorf("jumps = %v, want the detour around monitored izar", got)
+	}
+}
+
 func TestCleanCargoIgnoresCustomsMap(t *testing.T) {
 	f := cargoFake("iron_ore")
 	r := customsDeps(t, f, true, writeCustomsMap(t, "izar"))
