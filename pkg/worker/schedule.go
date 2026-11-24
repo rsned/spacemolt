@@ -107,6 +107,7 @@ const maxWidePhase = time.Hour
 // snapshots comparable -- that burst is wanted.
 var widePhaseCommands = map[string]bool{
 	"capture_action_log":         true,
+	"customs_map":                true,
 	"capture_base":               true,
 	"capture_cargo":              true,
 	"capture_citizenship":        true,

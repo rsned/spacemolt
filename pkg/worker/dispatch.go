@@ -15,6 +15,7 @@ import (
 	"github.com/rsned/spacemolt/pkg/assets"
 	"github.com/rsned/spacemolt/pkg/buildinfo"
 	"github.com/rsned/spacemolt/pkg/creditreq"
+	"github.com/rsned/spacemolt/pkg/customs"
 	"github.com/rsned/spacemolt/pkg/explore"
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -318,7 +319,7 @@ var supported = map[string]bool{
 	"view_market": true, "facilities": true, "kb_update": true,
 	"update_market": true, "capture_fuel": true, "capture_profile": true,
 	"capture_storage": true, "capture_faction": true, "capture_cargo": true,
-	"capture_action_log": true, "capture_wildlife_attacks": true, "capture_tax": true,
+	"capture_action_log": true, "capture_wildlife_attacks": true, "capture_tax": true, "customs_map": true,
 	"capture_citizenship": true, "capture_base": true, "pay_credit_requests": true,
 	"capture_facilities": true, "capture_station_passengers": true, "capture_intel": true,
 	"get_status": true, "get_system": true, "get_cargo": true,
@@ -954,6 +955,18 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 		// when it died.
 		_, err := assets.CaptureActionLog(ctx, d.Client, d.Assets, d.AgentID, time.Now())
 		return err
+	case "customs_map":
+		// Rebuilds data/overmind/customs-monitored.json from the captured
+		// action log; contraband routes read it on every autopilot call.
+		if d.Assets == nil {
+			return nil
+		}
+		m, err := RefreshCustomsMap(ctx, d.Assets.DB(), d.KB, customs.DefaultMapPath, customs.DefaultOverridesPath, time.Now())
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(d.Out, customsMapSummary(m)) //nolint:errcheck
+		return nil
 	case "capture_tax":
 		// Reads the NEXT levy a week ahead. An unpayable levy turns into an
 		// empire debt that detains the agent and then skims its income, so the
