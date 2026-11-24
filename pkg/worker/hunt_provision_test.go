@@ -174,7 +174,7 @@ func newProvEnv(t *testing.T, modules []serverapi.ShipModule) *provEnv {
 }
 
 func (e *provEnv) run(reserve int) bool {
-	return huntProvision(context.Background(), e.deps, e.out, "pirate-6", e.job, e.s, reserve)
+	return huntProvision(context.Background(), e.deps, e.out, "pirate-policed", e.job, e.s, reserve)
 }
 
 func (e *provEnv) records(t *testing.T) []map[string]any {

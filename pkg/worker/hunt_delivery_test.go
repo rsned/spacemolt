@@ -237,7 +237,7 @@ func TestHuntNeedRadiusWidensWhenDry(t *testing.T) {
 		t.Fatalf("radius with no dry passes = %d, want %d", r, huntNearbyJumps)
 	}
 	for range 2 {
-		if _, ok, _ := huntNeedJob(context.Background(), deps, &log, "pirate-6", serverapi.GetMissionsResponse{}); ok {
+		if _, ok, _ := huntNeedJob(context.Background(), deps, &log, "pirate-policed", serverapi.GetMissionsResponse{}); ok {
 			t.Fatal("an empty board must not produce a job")
 		}
 	}

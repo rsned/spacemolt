@@ -76,7 +76,7 @@ func TestHuntReload(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			w := tc.fake
 			deps, log := huntReloadDeps(t, &w)
-			armed := huntReload(context.Background(), deps, log, "pirate-6")
+			armed := huntReload(context.Background(), deps, log, "pirate-policed")
 			if armed != tc.wantArmed {
 				t.Errorf("armed = %v, want %v\n%s", armed, tc.wantArmed, log)
 			}

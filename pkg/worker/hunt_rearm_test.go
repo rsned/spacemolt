@@ -140,7 +140,7 @@ func TestHuntGoRearmAsksForCatalogAmmoWhenNoneLoaded(t *testing.T) {
 	f.route = []game.RouteStep{{SystemID: "here"}}
 
 	lo := reload.Loadout{Plan: []reload.Entry{{WeaponID: "w1", WeaponTypeID: "autocannon_ii", AmmoType: "autocannon"}}}
-	if err := huntGoRearm(ctx, deps, io.Discard, "pirate-6", lo); err != nil {
+	if err := huntGoRearm(ctx, deps, io.Discard, "pirate-policed", lo); err != nil {
 		t.Fatalf("huntGoRearm: %v", err)
 	}
 	slices.Sort(asked)
@@ -156,7 +156,7 @@ func TestHuntGoRearmNoDestinationErrors(t *testing.T) {
 	f := newHuntFake(t, huntFakeOpts{cargoCapacity: 100})
 	deps := huntDeps(f, io.Discard)
 	deps.HomeStation = ""
-	err := huntGoRearm(context.Background(), deps, io.Discard, "pirate-6", reload.Loadout{})
+	err := huntGoRearm(context.Background(), deps, io.Discard, "pirate-policed", reload.Loadout{})
 	if err == nil || !strings.Contains(err.Error(), "rearm") {
 		t.Fatalf("err = %v, want a rearm destination error", err)
 	}

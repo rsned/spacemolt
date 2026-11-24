@@ -295,6 +295,8 @@ func huntKillQuantity(e serverapi.MissionBoardEntry) int {
 // policed boards were dry for every other hunter).
 var huntLawlessAgents = map[string]bool{
 	"pirate-5":  true,
+	"pirate-6":  true, // unlock confirmed 2026-11-24
+	"pirate-10": true, // unlock confirmed 2026-11-24
 	"pirate-13": true,
 }
 

@@ -49,17 +49,17 @@ func TestDispatchHuntReachesTheExecutor(t *testing.T) {
 	// AgentsDir the dispatch handed down. A well-formed file is silent, and a
 	// silent success cannot tell a forwarded directory from a defaulted one.
 	agentsDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(agentsDir, "pirate-6"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(agentsDir, "pirate-policed"), 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	chainPath := filepath.Join(agentsDir, "pirate-6", huntChainFile)
+	chainPath := filepath.Join(agentsDir, "pirate-policed", huntChainFile)
 	if err := os.WriteFile(chainPath, []byte("{not json"), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
 
 	var log strings.Builder
 	d := NewWorkerDispatch(c, nil, nil, &log)
-	d.AgentID = "pirate-6"
+	d.AgentID = "pirate-policed"
 	d.AgentsDir = agentsDir
 	var sink atomic.Pointer[string]
 	d.SetActivitySink(&sink)
@@ -74,7 +74,7 @@ func TestDispatchHuntReachesTheExecutor(t *testing.T) {
 		t.Fatalf("dispatch must run the hunt executor against its own client, got:\n%s", log.String())
 	}
 	// AgentID reached the executor: the resume line is prefixed with it.
-	if !strings.Contains(log.String(), "pirate-6") {
+	if !strings.Contains(log.String(), "pirate-policed") {
 		t.Errorf("dispatch must pass its AgentID to Hunt, got:\n%s", log.String())
 	}
 	// AgentsDir reached the executor: the chain read names the temp path.
@@ -102,7 +102,7 @@ func TestDispatchHuntKeepsTheWildlifeInterlockOn(t *testing.T) {
 
 	var log strings.Builder
 	d := NewWorkerDispatch(c, nil, nil, &log)
-	d.AgentID = "pirate-6"
+	d.AgentID = "pirate-policed"
 	d.AgentsDir = t.TempDir()
 	var sink atomic.Pointer[string]
 	d.SetActivitySink(&sink)

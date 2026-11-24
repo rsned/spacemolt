@@ -370,7 +370,7 @@ func (f *huntFake) GetActiveMissions(ctx context.Context) error {
 // the worker's system so the station->belt leg can run for real.
 func huntDeps(c *huntFake, out io.Writer) HuntDeps {
 	return HuntDeps{
-		Client: c, KB: huntKB(), Out: out, AgentID: "pirate-6", AgentsDir: c.agentsDir,
+		Client: c, KB: huntKB(), Out: out, AgentID: "pirate-policed", AgentsDir: c.agentsDir,
 		MaxDifficulty: 1, WildlifeOnly: huntBool(true),
 		sleep:     func(context.Context, time.Duration) error { return nil },
 		tickSleep: time.Nanosecond,
@@ -1177,7 +1177,7 @@ func TestHuntWildlifeOnlyDefaultsOnWhenUnset(t *testing.T) {
 	})
 	var log strings.Builder
 	deps := HuntDeps{
-		Client: c, KB: huntKB(), Out: &log, AgentID: "pirate-6", AgentsDir: c.agentsDir,
+		Client: c, KB: huntKB(), Out: &log, AgentID: "pirate-policed", AgentsDir: c.agentsDir,
 		MaxDifficulty: 1, // NOTE: WildlifeOnly deliberately not set.
 		sleep:         func(context.Context, time.Duration) error { return nil },
 		tickSleep:     time.Nanosecond,

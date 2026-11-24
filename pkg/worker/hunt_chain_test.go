@@ -16,7 +16,7 @@ import (
 // A missing file is reported as an empty set, which is what the gate sees.
 func chainRecordFor(t *testing.T, c *huntFake) map[string]huntChainRecord {
 	t.Helper()
-	recs, err := loadHuntChain(huntChainPath(c.agentsDir, "pirate-6"))
+	recs, err := loadHuntChain(huntChainPath(c.agentsDir, "pirate-policed"))
 	if err != nil {
 		t.Fatalf("load chain record: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestHuntSaysSoWhenTheCompletionReplyNeverLands(t *testing.T) {
 // a truncated or hand-edited file must not be able to forge one.
 func TestHuntChainRecordNeedsACompletionMarker(t *testing.T) {
 	dir := t.TempDir()
-	path := huntChainPath(dir, "pirate-6")
+	path := huntChainPath(dir, "pirate-policed")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestHuntChainRecordNeedsACompletionMarker(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 	var log strings.Builder
-	earned := huntRecordedContinuations(HuntDeps{AgentID: "pirate-6", AgentsDir: dir}, &log)
+	earned := huntRecordedContinuations(HuntDeps{AgentID: "pirate-policed", AgentsDir: dir}, &log)
 	if len(earned) != 0 {
 		t.Errorf("a record with no completed_at must not be credited, got %v", earned)
 	}
@@ -233,14 +233,14 @@ func TestHuntChainRecordNeedsACompletionMarker(t *testing.T) {
 // complete record means the plain difficulty cap applies.
 func TestHuntRecordedContinuationsFailClosed(t *testing.T) {
 	t.Run("no file", func(t *testing.T) {
-		earned := huntRecordedContinuations(HuntDeps{AgentID: "pirate-6", AgentsDir: t.TempDir()}, io.Discard)
+		earned := huntRecordedContinuations(HuntDeps{AgentID: "pirate-policed", AgentsDir: t.TempDir()}, io.Discard)
 		if len(earned) != 0 {
 			t.Errorf("a fresh agent has earned nothing, got %v", earned)
 		}
 	})
 	t.Run("corrupt file", func(t *testing.T) {
 		dir := t.TempDir()
-		path := huntChainPath(dir, "pirate-6")
+		path := huntChainPath(dir, "pirate-policed")
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatalf("mkdir: %v", err)
 		}
@@ -248,7 +248,7 @@ func TestHuntRecordedContinuationsFailClosed(t *testing.T) {
 			t.Fatalf("write: %v", err)
 		}
 		var log strings.Builder
-		earned := huntRecordedContinuations(HuntDeps{AgentID: "pirate-6", AgentsDir: dir}, &log)
+		earned := huntRecordedContinuations(HuntDeps{AgentID: "pirate-policed", AgentsDir: dir}, &log)
 		if len(earned) != 0 {
 			t.Errorf("an unreadable record earns nothing, got %v", earned)
 		}
@@ -303,7 +303,7 @@ func TestHuntRecordChainNextNeedsAnAgentID(t *testing.T) {
 // than two steps long.
 func TestHuntChainRecordAccumulates(t *testing.T) {
 	dir := t.TempDir()
-	path := huntChainPath(dir, "pirate-6")
+	path := huntChainPath(dir, "pirate-policed")
 	// An unrelated continuation earned earlier — a DIFFERENT key, so a writer
 	// that rebuilt the file from scratch each time would be caught.
 	if err := saveHuntChain(path, map[string]huntChainRecord{

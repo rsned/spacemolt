@@ -560,7 +560,7 @@ func TestHuntForcedDryReturnMakesNoDecision(t *testing.T) {
 		}
 		e.pass(t)
 		out := e.out.String()
-		if want := "hunt[pirate-6]: no weapon can fire; returning to rearm"; !strings.Contains(out, want) {
+		if want := "hunt[pirate-policed]: no weapon can fire; returning to rearm"; !strings.Contains(out, want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}
 		if strings.Contains(out, "(needs ammo)") {
@@ -654,7 +654,7 @@ func TestHuntUnarmedAwayFromHomeGoesToRearm(t *testing.T) {
 	if e.fake.state.CurrentPOI != "haven_station" || !e.fake.state.Doc {
 		t.Errorf("want docked at haven_station, at %q docked=%v", e.fake.state.CurrentPOI, e.fake.state.Doc)
 	}
-	want := "hunt[pirate-6]: unarmed at far_station; going to rearm at test_system/haven_station (home depot, 0 jump(s))"
+	want := "hunt[pirate-policed]: unarmed at far_station; going to rearm at test_system/haven_station (home depot, 0 jump(s))"
 	if !strings.Contains(e.out.String(), want) {
 		t.Errorf("output lacks %q:\n%s", want, e.out)
 	}

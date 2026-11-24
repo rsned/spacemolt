@@ -1124,6 +1124,25 @@ func huntHandInCompleted(ctx context.Context, deps HuntDeps, out io.Writer, who 
 	huntRecordChainNext(deps, out, job)
 }
 
+// huntAvoidedGround returns the POI a "transit to <poi>: ..." error could not
+// reach because the route enters an avoided system, "" otherwise.
+func huntAvoidedGround(err error) string {
+	if err == nil || !errors.Is(err, ErrRouteThroughAvoided) {
+		return ""
+	}
+	const marker = "transit to "
+	msg := err.Error()
+	i := strings.Index(msg, marker)
+	if i < 0 {
+		return ""
+	}
+	rest := msg[i+len(marker):]
+	if end := strings.IndexAny(rest, ": "); end >= 0 {
+		rest = rest[:end]
+	}
+	return rest
+}
+
 // huntCargoUsed is the hold space in use per the last state read, 0 unknown.
 func huntCargoUsed(deps HuntDeps) int {
 	st := deps.Client.GetState()
@@ -1259,6 +1278,14 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		if gone := huntGoneGround(err); gone != "" {
 			huntGone.add(gone)
 			fmt.Fprintf(out, "hunt[%s]: ground %s no longer exists (Unknown destination) — a stale KB row; skipping it from now on, trying another ground\n", who, gone) //nolint:errcheck
+			continue
+		}
+		// A ground behind the avoid list cannot be reached this run. Held for
+		// the next pass it was simply chosen again: pirate-13 undocked for
+		// hr_8832 every 30 seconds for over three hours on 2026-11-24.
+		if barred := huntAvoidedGround(err); barred != "" {
+			huntGone.add(barred)
+			fmt.Fprintf(out, "hunt[%s]: ground %s is behind the avoid list; skipping it from now on, trying another ground\n", who, barred) //nolint:errcheck
 			continue
 		}
 		if err != nil {

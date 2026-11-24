@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -203,5 +204,15 @@ func TestHuntNoMissionServicesIsADryBoard(t *testing.T) {
 	}
 	if huntNoMissionServices(errors.New("rate limited")) || huntNoMissionServices(nil) {
 		t.Fatal("other errors are failed reads, not dry boards")
+	}
+}
+
+func TestHuntAvoidedGroundNamesTheBarredPOI(t *testing.T) {
+	err := fmt.Errorf("transit to %s: %w", "hr_8832_gas_pocket", fmt.Errorf("%w: destination HR 8832", ErrRouteThroughAvoided))
+	if got := huntAvoidedGround(err); got != "hr_8832_gas_pocket" {
+		t.Fatalf("huntAvoidedGround = %q, want hr_8832_gas_pocket", got)
+	}
+	if got := huntAvoidedGround(errors.New("transit to x: rate limited")); got != "" {
+		t.Fatalf("other transit errors must not bar a ground, got %q", got)
 	}
 }

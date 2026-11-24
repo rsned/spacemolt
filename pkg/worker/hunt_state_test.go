@@ -52,7 +52,7 @@ func TestHuntDecisionStateProjectsShipAmmoAndSortie(t *testing.T) {
 
 	// The server version is unknown in this fixture, so game_version is empty:
 	// the worker's own version never stands in for it.
-	if s.AgentID != "pirate-6" || s.GameVersion != "" || s.WorkerCommit != "abc123" {
+	if s.AgentID != "pirate-policed" || s.GameVersion != "" || s.WorkerCommit != "abc123" {
 		t.Errorf("identity fields wrong: %+v", s)
 	}
 	if len(s.Weapons) != 2 {
@@ -133,7 +133,7 @@ func TestHuntJobKind(t *testing.T) {
 
 func TestHuntDecisionStateHasNoPassword(t *testing.T) {
 	deps, _ := huntStateFixture(t)
-	s := huntDecisionState(context.Background(), deps, huntJob{}, huntdecide.NewSortie("pirate-6", time.Unix(0, 0)), reload.Loadout{})
+	s := huntDecisionState(context.Background(), deps, huntJob{}, huntdecide.NewSortie("pirate-policed", time.Unix(0, 0)), reload.Loadout{})
 	b, err := json.Marshal(s)
 	if err != nil {
 		t.Fatal(err)

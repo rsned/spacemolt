@@ -240,7 +240,7 @@ func TestHuntJumpsFromCountsPolicedHops(t *testing.T) {
 // A Lawless-cleared hunter's floor is 0, which opens Lawless systems on the
 // jump graph; every other hunter keeps the policed floor.
 func TestHuntPoliceFloorOpensLawlessForClearedAgents(t *testing.T) {
-	if got := huntPoliceFloor(HuntDeps{AgentID: "pirate-6"}); got != huntPolicedMinLevel {
+	if got := huntPoliceFloor(HuntDeps{AgentID: "pirate-policed"}); got != huntPolicedMinLevel {
 		t.Fatalf("uncleared floor = %d, want %d", got, huntPolicedMinLevel)
 	}
 	floor := huntPoliceFloor(HuntDeps{AgentID: "pirate-5"})
