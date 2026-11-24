@@ -56,9 +56,9 @@
 # the operator.
 workers:
   - { agent_id: pirate-6, role: hunt, station: frontier_station }   # pirate unlock done 2026-11-24
-  - { agent_id: pirate-7, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery] }   # 2026-11-23 pirate unlock (operator); restore role hunt, station frontier_station once pirate baseline = 10
-  - { agent_id: pirate-8, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery] }   # 2026-11-23 pirate unlock (operator); restore role hunt, station frontier_station once pirate baseline = 10
-  - { agent_id: pirate-9, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling, delivery] }   # 2026-11-23 pirate unlock (operator); restore role hunt, station frontier_station once pirate baseline = 10
+  - { agent_id: pirate-7, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling] }   # 2026-11-23 pirate unlock (operator); restore role hunt, station frontier_station once pirate baseline = 10
+  - { agent_id: pirate-8, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling] }   # 2026-11-23 pirate unlock (operator); restore role hunt, station frontier_station once pirate baseline = 10
+  - { agent_id: pirate-9, role: unlock, station: treasure_cache_trading_post, mission_categories: [smuggling] }   # 2026-11-23 pirate unlock (operator); restore role hunt, station frontier_station once pirate baseline = 10
   - { agent_id: pirate-10, role: hunt, station: frontier_station }   # pirate unlock done 2026-11-24
 
   # UNLOCK GRADUATES 2026-09-09 — pirate-1/5/13 banked the pirate unlock and were
