@@ -291,9 +291,11 @@ func huntKillQuantity(e serverapi.MissionBoardEntry) int {
 // off. A code list on purpose, like the other gates here. Only agents holding
 // the pirate unlock belong on it: a Lawless route can end at a stronghold.
 //
-// TRIAL 2026-11-23: pirate-5 alone, to see what Lawless hunting costs.
+// TRIAL 2026-11-23: pirate-5 first, then pirate-13 (both hold the unlock; the
+// policed boards were dry for every other hunter).
 var huntLawlessAgents = map[string]bool{
-	"pirate-5": true,
+	"pirate-5":  true,
+	"pirate-13": true,
 }
 
 // huntPoliceFloor is the lowest systems.police_level deps' hunter may enter:

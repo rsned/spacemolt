@@ -532,7 +532,15 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	if ok && job.need != nil {
 		keep = map[string]int{job.need.ItemID: job.need.Quantity}
 	}
+	usedBefore := huntCargoUsed(deps)
 	huntBankAtDock(ctx, deps, out, who, keep)
+	// A full hold hides needs ("needs 2 free hold, have 1"): pirate-10 called
+	// War Citadel dry on 2026-11-23, banked 38 units and left. When banking
+	// freed space on a pass that found nothing, choose again before roaming.
+	if !ok && usedBefore > 0 && deps.Client.GetStatus(ctx) == nil && huntCargoUsed(deps) < usedBefore {
+		fmt.Fprintf(out, "hunt[%s]: banking freed hold space; reading the board again\n", who) //nolint:errcheck
+		job, ok, dry = huntSelectJob(ctx, deps, out, who, maxDifficulty, wildlifeOnly, earned)
+	}
 	if ok {
 		// Found work, so the agent is not idle -- keep reading every pass, or
 		// huntResumeJob would stop finding the mission it is holding.
@@ -1116,11 +1124,33 @@ func huntHandInCompleted(ctx context.Context, deps HuntDeps, out io.Writer, who 
 	huntRecordChainNext(deps, out, job)
 }
 
+// huntCargoUsed is the hold space in use per the last state read, 0 unknown.
+func huntCargoUsed(deps HuntDeps) int {
+	st := deps.Client.GetState()
+	if st == nil {
+		return 0
+	}
+	return int(st.Ship.CargoUsed)
+}
+
+// huntNoMissionServices reports whether a get_missions error is the server
+// saying this base has no mission board at all.
+func huntNoMissionServices(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "does not offer mission services")
+}
+
 // huntReadBoard reads and parses the station's mission board, once per pass:
 // the kill-mission and Station Need stages both choose from it.
 func huntReadBoard(ctx context.Context, deps HuntDeps, out io.Writer) (serverapi.GetMissionsResponse, bool) {
 	var board serverapi.GetMissionsResponse
 	if err := deps.Client.GetMissions(ctx); err != nil {
+		// A base with no mission services (a pirate hive) is a dry board, not
+		// a failed read: reporting it unread parked pirate-5 at Hive Sulafat
+		// for eight hours on 2026-11-23, because only a dry board roams.
+		if huntNoMissionServices(err) {
+			fmt.Fprintf(out, "hunt: no mission board here (%v); treating it as dry\n", err) //nolint:errcheck
+			return board, true
+		}
 		fmt.Fprintf(out, "hunt: get_missions: %v\n", err) //nolint:errcheck
 		return board, false
 	}

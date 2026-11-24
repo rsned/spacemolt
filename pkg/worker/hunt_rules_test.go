@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -193,5 +194,14 @@ func TestHuntRequiredSpeciesReadsTheObjectiveText(t *testing.T) {
 	}
 	if got, src := huntRequiredSpecies(entry("Hunt 3 Pressblisters at an ice field"), nil); got != "slag_tortoise" || src != "curated mission table" {
 		t.Errorf("no guide: species %q (%s), want the curated fallback", got, src)
+	}
+}
+
+func TestHuntNoMissionServicesIsADryBoard(t *testing.T) {
+	if !huntNoMissionServices(errors.New("Hive Sulafat does not offer mission services. Try a larger base or station.")) {
+		t.Fatal("a base without mission services must read as a dry board")
+	}
+	if huntNoMissionServices(errors.New("rate limited")) || huntNoMissionServices(nil) {
+		t.Fatal("other errors are failed reads, not dry boards")
 	}
 }
