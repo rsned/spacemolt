@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -329,45 +330,53 @@ func autopilotOnce(ctx context.Context, deps AutopilotDeps, targetSystem, target
 		avoid = merged
 	}
 	// Customs: a hold with contraband also stays out of every system the
-	// customs map has seen inspect (pkg/customs). Clean ships skip this.
+	// customs map has seen inspect (pkg/customs), except on an outbound exit:
+	// customs scans ships entering an empire, not ships leaving it. Clean
+	// ships skip this.
 	customsSet := customsAvoid(ctx, deps, client, origin, route[len(route)-1].SystemID, out)
+	var gate contrabandGate
+	var customsHits []string
 	if len(customsSet) > 0 {
-		merged := make(map[string]string, len(avoid)+len(customsSet))
-		maps.Copy(merged, avoid)
-		for id, why := range customsSet {
-			if _, operator := merged[id]; !operator {
-				merged[id] = why
-			}
+		gate = contrabandGate{customs: customsSet, empire: systemEmpires(ctx, deps.KB)}
+		customsHits = customsEntriesOnRoute(origin, route, gate)
+		if exits := len(avoidedOnRoute(route[:len(route)-1], customsSet)) - len(customsHits); exits > 0 {
+			fmt.Fprintf(out, "   customs: %d monitored system(s) on the route are outbound exits (leaving the empire); not scanned\n", exits) //nolint:errcheck
 		}
-		avoid = merged
 	}
-	if len(avoid) > 0 {
-		if hits := avoidedOnRoute(route, avoid); len(hits) > 0 {
-			dest := route[len(route)-1]
-			if stepAvoided(dest, avoid) {
-				fmt.Fprintf(out, "   NOT DEPARTING: destination %s is on the avoid list\n", cmp.Or(dest.Name, dest.SystemID)) //nolint:errcheck
-				return fmt.Errorf("%w: destination %s", ErrRouteThroughAvoided, cmp.Or(dest.Name, dest.SystemID))
-			}
-			blocked := maps.Clone(strongholdRefs)
-			for sys := range deps.PassageTo {
-				delete(blocked, sys)
-			}
-			detour, derr := avoidDetour(ctx, deps.KB, origin, dest.SystemID, avoid, blocked)
-			if derr != nil || len(detour) == 0 {
-				why := "no route around it"
-				if derr != nil {
-					why = derr.Error()
-				}
-				fmt.Fprintf(out, "   NOT DEPARTING: route enters avoided %s (%s)\n", strings.Join(hits, ", "), why) //nolint:errcheck
-				if customsHits := avoidedOnRoute(route, customsSet); len(customsHits) > 0 {
-					return customsBlocked(deps, client, cmp.Or(dest.Name, dest.SystemID), customsHits, out)
-				}
-				return fmt.Errorf("%w: route to %s enters %s (%s)", ErrRouteThroughAvoided, targetSystem, strings.Join(hits, ", "), why)
-			}
-			fmt.Fprintf(out, "   AVOIDING %s: detour of %d jump(s) instead of %d\n", strings.Join(hits, ", "), len(detour), len(route)) //nolint:errcheck
-			route = detour
-			detoured = true
+	hits := avoidedOnRoute(route, avoid)
+	if len(hits)+len(customsHits) > 0 {
+		dest := route[len(route)-1]
+		if stepAvoided(dest, avoid) {
+			fmt.Fprintf(out, "   NOT DEPARTING: destination %s is on the avoid list\n", cmp.Or(dest.Name, dest.SystemID)) //nolint:errcheck
+			return fmt.Errorf("%w: destination %s", ErrRouteThroughAvoided, cmp.Or(dest.Name, dest.SystemID))
 		}
+		blocked := maps.Clone(strongholdRefs)
+		for sys := range deps.PassageTo {
+			delete(blocked, sys)
+		}
+		var detour []game.RouteStep
+		var derr error
+		if len(customsSet) > 0 {
+			gate.noTransit = avoid
+			detour, derr = contrabandDetour(ctx, deps.KB, origin, dest.SystemID, gate, blocked)
+		} else {
+			detour, derr = avoidDetour(ctx, deps.KB, origin, dest.SystemID, avoid, blocked)
+		}
+		all := append(slices.Clone(hits), customsHits...)
+		if derr != nil || len(detour) == 0 {
+			why := "no route around it"
+			if derr != nil {
+				why = derr.Error()
+			}
+			fmt.Fprintf(out, "   NOT DEPARTING: route enters avoided %s (%s)\n", strings.Join(all, ", "), why) //nolint:errcheck
+			if len(customsHits) > 0 {
+				return customsBlocked(deps, client, cmp.Or(dest.Name, dest.SystemID), customsHits, out)
+			}
+			return fmt.Errorf("%w: route to %s enters %s (%s)", ErrRouteThroughAvoided, targetSystem, strings.Join(hits, ", "), why)
+		}
+		fmt.Fprintf(out, "   AVOIDING %s: detour of %d jump(s) instead of %d\n", strings.Join(all, ", "), len(detour), len(route)) //nolint:errcheck
+		route = detour
+		detoured = true
 	}
 
 	fuelPerJump, estimatedFuel, fuelAvailable := parseFuelEstimates(client)

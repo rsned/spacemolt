@@ -712,7 +712,7 @@ func Missions(ctx context.Context, deps MissionDeps) error {
 	// depart on (pirate-7/9 to Ironhearth, 2026-11-24).
 	var smugDist map[string]int
 	if smugglingEnabled {
-		smugDist = contrabandDist(graph, current, targets, contrabandBlocked("", ""))
+		smugDist = contrabandDist(graph, current, targets, contrabandGateFor(ctx, deps.KB, "", ""))
 	}
 	// One pairwise distance table covers every exploration entry on the board.
 	var explorePair func(a, b string) int

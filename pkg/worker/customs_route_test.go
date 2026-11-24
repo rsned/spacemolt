@@ -213,3 +213,54 @@ func TestCustomsAlertLinesShowOnlyRecent(t *testing.T) {
 		t.Fatalf("lines = %v, want only the recent alert", lines)
 	}
 }
+
+// empireKB is avoidKB with an empire on each named system.
+func empireKB(detour bool, empires map[string]string) itemKB {
+	kb := avoidKB(false, detour)
+	for i := range kb.systems {
+		kb.systems[i].Empire = empires[kb.systems[i].ID]
+	}
+	return itemKB{fakeKB: kb, categories: testCategories}
+}
+
+// Customs scans ships entering an empire, not ships leaving it (operator,
+// 2026-11-24). pirate-7/8/9 sat an hour at Treasure Cache (Nebula) holding
+// An Introduction cargo because Alhena's only road runs Treasure Cache ->
+// Pollux (Nebula, monitored) -> Sadalmelik (unaligned): an outbound exit.
+func TestContrabandOutboundExitFliesThroughMonitored(t *testing.T) {
+	f := cargoFake("void_dust")
+	r := customsDeps(t, f, false, writeCustomsMap(t, "izar"))
+	r.deps.KB = empireKB(false, map[string]string{"sol": "nebula", "tidewater": "nebula", "izar": "nebula"})
+	if err := Autopilot(context.Background(), r.deps, "rigel", ""); err != nil {
+		t.Fatalf("outbound exit refused: %v\n%s", err, r.out.String())
+	}
+	if got := jumps(f.calls); !slices.Equal(got, []string{"tidewater", "izar", "rigel"}) {
+		t.Errorf("jumps = %v, want straight out through izar", got)
+	}
+}
+
+func TestContrabandInboundMonitoredStillDetours(t *testing.T) {
+	f := cargoFake("void_dust")
+	r := customsDeps(t, f, true, writeCustomsMap(t, "izar"))
+	// tidewater is outside nebula: arriving at izar from it is an entry.
+	r.deps.KB = empireKB(true, map[string]string{"izar": "nebula"})
+	if err := Autopilot(context.Background(), r.deps, "rigel", ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := jumps(f.calls); !slices.Equal(got, []string{"tidewater", "vega", "rigel"}) {
+		t.Errorf("jumps = %v, want the detour: entering nebula at izar is scanned", got)
+	}
+}
+
+func TestContrabandInternalMonitoredTransitStillDetours(t *testing.T) {
+	f := cargoFake("void_dust")
+	r := customsDeps(t, f, true, writeCustomsMap(t, "izar"))
+	// in and out of izar without leaving nebula: not an exit.
+	r.deps.KB = empireKB(true, map[string]string{"tidewater": "nebula", "izar": "nebula", "rigel": "nebula"})
+	if err := Autopilot(context.Background(), r.deps, "rigel", ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := jumps(f.calls); !slices.Equal(got, []string{"tidewater", "vega", "rigel"}) {
+		t.Errorf("jumps = %v, want the detour: internal transit is not an exit", got)
+	}
+}
