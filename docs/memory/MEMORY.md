@@ -92,3 +92,4 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [reload replaces the whole magazine (11-22)](reference_reload_replaces_whole_magazine.md) — one ammo item per reload, loaded rounds lost; reload only when empty/below half; max_weapon_reach counts dry guns
 - [Take an agent out for play_as (11-23)](reference_take_agent_out_for_play_as.md) — overrides removed-set + SIGHUP; SIGSTOP gets replaced in ~90s, play_as alone collides with the live worker
 - [Wildlife loot drops vary (11-23)](reference_wildlife_loot_drops_vary.md) — quantities differ per kill; count the part in the hold, never kills
+- [Customs: outbound exits not scanned (11-24)](reference_customs_outbound_exit_not_scanned.md) — contraband may cross a monitored system only leaving its empire; commit 79e28ecb; pirate-6..10 all unlocked 11-24
