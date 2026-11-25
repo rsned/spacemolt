@@ -454,21 +454,27 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 		execMu.Lock()
 	}
 
-	// Auto-reload answers the server's out_of_ammo notification rather than
-	// counting rounds locally. The pass runs on its own goroutine holding
+	// Auto-reload answers the server's out_of_ammo notification, and checks
+	// for empty magazines once per battle tick (see auto_reload.go), rather
+	// than counting rounds locally. The pass runs on its own goroutine holding
 	// execMu, because the push callback that triggers it runs inside the
 	// router's dispatch path and must not issue commands.
 	var autoReloadIdle string
 	autoReload := newAutoReloader(func(ctx context.Context) error {
 		execMu.Lock()
 		defer execMu.Unlock()
-		// A dry weapon with no ammo aboard is announced by the server every
-		// tick it fails to fire. There is nothing to reload, so say so once
-		// and stay quiet until the answer changes.
 		plan, perr := fetchReloadPlan(ctx, client)
 		if perr != nil {
 			return perr
 		}
+		// Most per-tick checks find every magazine loaded: stay silent.
+		if !slices.ContainsFunc(plan, func(e reloadPlanEntry) bool { return e.Empty() }) {
+			autoReloadIdle = ""
+			return nil
+		}
+		// A dry weapon with no ammo aboard keeps triggering checks. There is
+		// nothing to reload, so say so once and stay quiet until the answer
+		// changes.
 		if len(reloadAllTargets(plan)) == 0 {
 			if note := autoReloadIdleNote(plan); note != autoReloadIdle {
 				autoReloadIdle = note
@@ -477,7 +483,7 @@ func runREPL(client game.GameClient, ctx context.Context, cfg PlayAsConfig, agen
 			return nil
 		}
 		autoReloadIdle = ""
-		fmt.Printf("\r%s⟳ out of ammo — reloading%s\n", ansiYellow, ansiReset)
+		fmt.Printf("\r%s⟳ empty magazine — reloading%s\n", ansiYellow, ansiReset)
 		return reloadAll(ctx, client, format)
 	})
 	autoReload.SetEnabled(true)
@@ -11009,6 +11015,7 @@ func executeLogicalCommand(client game.GameClient, ctx context.Context, cmd stri
 						fmt.Printf("🔁 Repeating { %s } %d time(s)...\n", preview, count)
 					}
 					runStatement := func(tokens []string) error {
+						yieldExec() // let auto-reload in between statements
 						return executeCommand(client, ctx, tokens, format)
 					}
 					resultErr = worker.ExecuteLoop(ctx, os.Stdout, count, force, stmts, 0, runStatement)
@@ -11085,6 +11092,10 @@ func runLoopSingle(client game.GameClient, ctx context.Context, parts []string, 
 	// implementation means one place for those rules to live.
 	stmts := []worker.Statement{{Raw: loopCmd, Tokens: loopParts}}
 	runStatement := func(tokens []string) error {
+		// A loop holds the command lock for its whole run; yield between
+		// iterations so auto-reload can answer an empty magazine mid-loop
+		// (e.g. `loop 40 battle advance`).
+		yieldExec()
 		return executeCommand(client, ctx, tokens, format)
 	}
 

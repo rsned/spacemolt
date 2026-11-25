@@ -104,3 +104,61 @@ func waitFor(t *testing.T, cond func() bool) {
 	}
 	t.Fatal("condition not met within 2s")
 }
+
+// The server only sends out_of_ammo when the whole volley is refused. A rack
+// where one gun is dry and the others still fire never gets one, so the
+// battle frames themselves must ring the bell: once per battle tick while
+// fighting, plus at the start and end of a battle.
+func TestAutoReloaderChecksEachBattleTick(t *testing.T) {
+	var calls int32
+	ar := newAutoReloader(func(context.Context) error {
+		atomic.AddInt32(&calls, 1)
+		return nil
+	})
+	ar.SetEnabled(true)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go ar.Run(ctx)
+
+	update := func(tick float64) protocol.Response {
+		return protocol.Response{Type: protocol.TypeBattleUpdate, Payload: map[string]any{"battle_id": "b", "tick": tick}}
+	}
+	ar.Notify(protocol.Response{Type: protocol.TypeBattleStarted, Payload: map[string]any{"battle_id": "b"}})
+	waitFor(t, func() bool { return atomic.LoadInt32(&calls) == 1 })
+
+	ar.Notify(update(100))
+	waitFor(t, func() bool { return atomic.LoadInt32(&calls) == 2 })
+
+	// A second snapshot of the same tick, and per-hit damage frames, are
+	// not new ticks.
+	ar.Notify(update(100))
+	ar.Notify(protocol.Response{Type: protocol.TypeBattleDamage, Payload: map[string]any{"tick": float64(100)}})
+	time.Sleep(50 * time.Millisecond)
+	if got := atomic.LoadInt32(&calls); got != 2 {
+		t.Fatalf("repeat of tick 100 must not check again, got %d checks", got)
+	}
+
+	ar.Notify(update(101))
+	waitFor(t, func() bool { return atomic.LoadInt32(&calls) == 3 })
+
+	ar.Notify(protocol.Response{Type: protocol.TypeBattleEnded, Payload: map[string]any{"battle_id": "b"}})
+	waitFor(t, func() bool { return atomic.LoadInt32(&calls) == 4 })
+}
+
+func TestAutoReloaderBattleFramesIgnoredWhenDisabled(t *testing.T) {
+	var calls int32
+	ar := newAutoReloader(func(context.Context) error {
+		atomic.AddInt32(&calls, 1)
+		return nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go ar.Run(ctx)
+
+	ar.Notify(protocol.Response{Type: protocol.TypeBattleUpdate, Payload: map[string]any{"tick": float64(7)}})
+	time.Sleep(50 * time.Millisecond)
+	if got := atomic.LoadInt32(&calls); got != 0 {
+		t.Errorf("disabled auto-reload must not check, got %d", got)
+	}
+}
