@@ -296,6 +296,9 @@ func huntKillQuantity(e serverapi.MissionBoardEntry) int {
 var huntLawlessAgents = map[string]bool{
 	"pirate-5":  true,
 	"pirate-6":  true, // unlock confirmed 2026-11-24
+	"pirate-7":  true, // unlock confirmed 2026-11-24
+	"pirate-8":  true, // unlock confirmed 2026-11-24
+	"pirate-9":  true, // unlock confirmed 2026-11-24
 	"pirate-10": true, // unlock confirmed 2026-11-24
 	"pirate-13": true,
 }
