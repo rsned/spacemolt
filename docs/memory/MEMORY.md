@@ -93,3 +93,4 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [Take an agent out for play_as (11-23)](reference_take_agent_out_for_play_as.md) — overrides removed-set + SIGHUP; SIGSTOP gets replaced in ~90s, play_as alone collides with the live worker
 - [Wildlife loot drops vary (11-23)](reference_wildlife_loot_drops_vary.md) — quantities differ per kill; count the part in the hold, never kills
 - [Customs: outbound exits not scanned (11-24)](reference_customs_outbound_exit_not_scanned.md) — contraband may cross a monitored system only leaving its empire; commit 79e28ecb; pirate-6..10 all unlocked 11-24
+- [Reactive Armor Hardener = +25% ALL types incl. energy (11-24)](reference_reactive_armor_hardener_all_types.md) — typed bucket, multiplies with adaptive; KB blank; frontier Harmonic fit
