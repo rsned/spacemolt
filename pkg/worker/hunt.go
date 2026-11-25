@@ -396,6 +396,10 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 		fmt.Fprintln(out, "hunt: current position unknown; skipping") //nolint:errcheck
 		return nil
 	}
+	// A docked hunter with an empty tank and no way to fill it stays put.
+	if huntStrandedAtDock(ctx, deps, out, who) {
+		return nil
+	}
 	// Fights the hunter did not start open at flee. The hunt role is exempt
 	// from the standing battle gate, so this and huntEscapeBattle are what
 	// get it out of an ambush; its own engagements open at fire regardless.
@@ -1127,20 +1131,7 @@ func huntHandInCompleted(ctx context.Context, deps HuntDeps, out io.Writer, who 
 // huntAvoidedGround returns the POI a "transit to <poi>: ..." error could not
 // reach because the route enters an avoided system, "" otherwise.
 func huntAvoidedGround(err error) string {
-	if err == nil || !errors.Is(err, ErrRouteThroughAvoided) {
-		return ""
-	}
-	const marker = "transit to "
-	msg := err.Error()
-	i := strings.Index(msg, marker)
-	if i < 0 {
-		return ""
-	}
-	rest := msg[i+len(marker):]
-	if end := strings.IndexAny(rest, ": "); end >= 0 {
-		rest = rest[:end]
-	}
-	return rest
+	return huntLegRefused(err, ErrRouteThroughAvoided)
 }
 
 // huntCargoUsed is the hold space in use per the last state read, 0 unknown.
@@ -1286,6 +1277,13 @@ func huntFindQuarry(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 		if barred := huntAvoidedGround(err); barred != "" {
 			huntGone.add(barred)
 			fmt.Fprintf(out, "hunt[%s]: ground %s is behind the avoid list; skipping it from now on, trying another ground\n", who, barred) //nolint:errcheck
+			continue
+		}
+		// A ground the tank cannot reach and get back from is passed over for
+		// this sweep only: fuel range depends on where the ship is.
+		if far := huntLegRefused(err, errHuntOutOfFuelRange); far != "" {
+			tried = append(tried, far)
+			fmt.Fprintf(out, "hunt[%s]: %v; trying another ground\n", who, err) //nolint:errcheck
 			continue
 		}
 		if err != nil {
@@ -2617,6 +2615,19 @@ func huntRecoverToStation(ctx context.Context, deps HuntDeps, out io.Writer, cur
 	galGraph := &galaxy.GalaxyGraph{}
 	if err := galGraph.BuildFromDB(ctx, deps.KB); err != nil {
 		return fmt.Errorf("build galaxy graph: %w", err)
+	}
+	// An empire station with a pump first: "any station" has docked hunters
+	// at a hive with no board (Hive Sulafat) and a mobile base with no fuel
+	// (Civitas), each with a real station nearby.
+	if fsys, fpoi, hops, ok := huntNearestFuelStation(ctx, deps.KB, current); ok {
+		fmt.Fprintf(out, "hunt: relocating to %s/%s (%d jump(s))\n", fsys, fpoi, hops) //nolint:errcheck
+		if err := Autopilot(ctx, AutopilotDeps{Client: deps.Client, Out: out, KB: deps.KB}, fsys, fpoi); err != nil {
+			return fmt.Errorf("relocation transit: %w", err)
+		}
+		if err := deps.Client.Dock(ctx); err != nil {
+			return fmt.Errorf("dock at %s: %w", fpoi, err)
+		}
+		return nil
 	}
 	near, err := galaxy.FindNearestByPOIType(ctx, deps.KB, galGraph, current, "station", 1)
 	if err != nil {

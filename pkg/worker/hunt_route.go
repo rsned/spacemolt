@@ -72,5 +72,8 @@ func huntFlyPoliced(ctx context.Context, deps HuntDeps, out io.Writer, home bool
 	if err != nil {
 		return err
 	}
+	if err := huntFuelGate(ctx, deps, out, ap, systemID, poiID); err != nil {
+		return err
+	}
 	return Autopilot(ctx, ap, systemID, poiID)
 }
