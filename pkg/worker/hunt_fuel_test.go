@@ -116,3 +116,20 @@ func TestHuntLegRefusedNamesThePOI(t *testing.T) {
 		t.Fatalf("a different refusal must not match, got %q", got)
 	}
 }
+
+func TestHuntNeedPaysWantsRewardOverFuelByTheMargin(t *testing.T) {
+	t.Parallel()
+	// pirate-9's Nitrogen Bladder of 2026-11-25: 1,288 cr, grounds far out.
+	if huntNeedPays(1288, 20*huntFuelPerJumpDefault*huntFuelCreditsPerUnit) {
+		t.Error("1,288 cr must not clear 20 jumps of fuel")
+	}
+	if !huntNeedPays(8395, 20*huntFuelPerJumpDefault*huntFuelCreditsPerUnit) {
+		t.Error("8,395 cr clears 20 jumps of fuel")
+	}
+	if !huntNeedPays(150, 100) || huntNeedPays(149, 100) {
+		t.Error("the floor is exactly huntNeedRewardMargin times the fuel")
+	}
+	if !huntNeedPays(1, 0) {
+		t.Error("a need at the ground and the base costs no fuel and always pays")
+	}
+}

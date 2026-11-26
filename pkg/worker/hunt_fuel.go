@@ -33,6 +33,14 @@ const (
 	// huntFuelStrandedJumps: a docked hunter holding less than this many
 	// jumps of fuel, and unable to buy more, stays docked.
 	huntFuelStrandedJumps = 2
+	// huntFuelCreditsPerUnit prices a unit of fuel when weighing a need. The
+	// fleet paid 11.6 on average on 2026-11-25 (7 at Ramen's Rest, 13 at Node
+	// Beta, 16 to 19 at Solarian stations).
+	huntFuelCreditsPerUnit = 13
+	// huntNeedRewardMargin is how far a need's reward must clear the fuel for
+	// its trip (operator decision 2026-11-25). That day fuel took 72% of
+	// hunter income and 27 of 94 needs paid less than they cost.
+	huntNeedRewardMargin = 1.5
 )
 
 // errHuntOutOfFuelRange marks a destination the tank cannot reach and return
@@ -45,6 +53,17 @@ func huntFuelPerJump(deps HuntDeps) int {
 		return per
 	}
 	return huntFuelPerJumpDefault
+}
+
+// huntNeedFuelCost prices the fuel for one trip of jumps jumps.
+func huntNeedFuelCost(deps HuntDeps, jumps int) int {
+	return jumps * huntFuelPerJump(deps) * huntFuelCreditsPerUnit
+}
+
+// huntNeedPays reports whether reward clears fuelCost by
+// huntNeedRewardMargin.
+func huntNeedPays(reward, fuelCost int) bool {
+	return float64(reward) >= huntNeedRewardMargin*float64(fuelCost)
 }
 
 // huntFuelStation reports whether poiID is a pump a hunter can count on: a

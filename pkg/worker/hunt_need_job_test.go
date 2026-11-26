@@ -150,3 +150,23 @@ func TestHuntDeliveryResolvesTheBaseToItsPOI(t *testing.T) {
 		t.Fatalf("want travel to levy_poi then complete; calls %v\n%s", g.calls, log.String())
 	}
 }
+
+// A need whose reward does not clear the fuel for its trip is skipped
+// (2026-11-25: 27 of 94 needs paid less than they cost).
+func TestHuntNeedJobSkipsWhatDoesNotPayForItsFuel(t *testing.T) {
+	kb := huntNeedKBFixture(t)
+	f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{creatures: huntGrazers("c1")})
+	e := huntCausticNeed(2)
+	e.Rewards.Credits = 20
+	f.raw["missions"] = boardJSON(t, e)
+	var log strings.Builder
+	if err := Hunt(context.Background(), huntNeedDeps(f, kb, &log)); err != nil {
+		t.Fatalf("Hunt: %v", err)
+	}
+	if called(f.huntFake, "accept:") {
+		t.Fatalf("accepted a need paying less than its fuel; calls %v\n%s", f.calls, log.String())
+	}
+	if !strings.Contains(log.String(), "does not clear 1.5x") {
+		t.Errorf("the skip must be logged, got:\n%s", log.String())
+	}
+}

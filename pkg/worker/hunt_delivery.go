@@ -446,6 +446,15 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 			fmt.Fprintf(out, "hunt: skip need %s (%s): no policed ground within %d jump(s) where %s is sighted\n", e.MissionID, e.Title, radius, strings.Join(n.Species, "/")) //nolint:errcheck
 			continue
 		}
+		// One trip: out to the ground and on to the delivery base, both
+		// counted from here as huntPickNeed counts them.
+		if jg, jt := jumps(n.GroundSystem), jumps(n.SystemID); jg >= 0 && jt >= 0 {
+			if cost := huntNeedFuelCost(deps, jg+jt); !huntNeedPays(n.Reward, cost) {
+				fmt.Fprintf(out, "hunt: skip need %s (%s): %d cr does not clear %.1fx the ~%d cr of fuel for %d jump(s)\n", //nolint:errcheck
+					e.MissionID, e.Title, n.Reward, huntNeedRewardMargin, cost, jg+jt)
+				continue
+			}
+		}
 		needs = append(needs, n)
 		entries[e.MissionID] = e
 	}
