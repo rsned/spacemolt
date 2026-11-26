@@ -50,6 +50,10 @@ type WorkerSpec struct {
 	// Spec: docs/superpowers/specs/2026-11-18-frontier-full-explore-design.md
 	FrontierWedge string `yaml:"frontier_wedge,omitempty"`
 	FrontierRun   string `yaml:"frontier_run,omitempty"`
+	// ExploreStaleDays is the explorer role's revisit age in days; 0 keeps
+	// the 1-day default. 7 sweeps the galaxy about weekly.
+	// Spec: docs/superpowers/specs/2026-11-26-explorer-weekly-sweep-design.md
+	ExploreStaleDays int `yaml:"explore_stale_days,omitempty"`
 	// Consign forwards --consign, a standing instruction to hand named items
 	// from this station's personal storage to a named hauler as part of the
 	// ordinary idle pass -- no manual control and no interrupted routine.

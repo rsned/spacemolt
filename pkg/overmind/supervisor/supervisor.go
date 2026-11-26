@@ -106,6 +106,9 @@ func SpawnWith(cfg SpawnConfig) SpawnFunc {
 		if spec.FrontierRun != "" {
 			args = append(args, "--frontier-run", spec.FrontierRun)
 		}
+		if spec.ExploreStaleDays > 0 {
+			args = append(args, "--explore-stale-days", strconv.Itoa(spec.ExploreStaleDays))
+		}
 		if spec.DisableFreightBootstrap {
 			args = append(args, "--freight-bootstrap=false")
 		}

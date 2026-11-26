@@ -891,3 +891,39 @@ func (f *fakeClient) SendGift(_ context.Context, p map[string]any) error {
 	f.calls = append(f.calls, fmt.Sprintf("gift:%v:%v:%v:%v", p["recipient"], p["item_id"], p["quantity"], p["source"]))
 	return nil
 }
+
+// A visited system two days old is stale at the 1-day default but fresh when
+// the fleet sets explore_stale_days: 7 (weekly sweep, 2026-11-26).
+func TestDispatchExploreStaleDaysWidensFreshWindow(t *testing.T) {
+	const now = int64(100_000)
+	run := func(days int) []string {
+		f := &fakeClient{
+			state: &game.State{
+				CurrentSystem: "A",
+				System:        game.SystemData{ID: "a", Name: "A"},
+				Fuel:          100, MaxFuel: 100,
+				CurrentTick: now,
+			},
+			route: []game.RouteStep{{SystemID: "a", Name: "A"}, {SystemID: "b", Name: "B"}},
+		}
+		kb := &fakeKB{
+			systems: []knowledge.System{
+				{ID: "a", LastVisitedTick: 5, LastUpdatedTick: now},
+				{ID: "b", LastVisitedTick: 5, LastUpdatedTick: now - 2*DefaultExploreStaleTicks},
+			},
+			conns: undirected([2]string{"a", "b"}),
+		}
+		d := NewWorkerDispatch(f, kb, nil, io.Discard)
+		d.ExploreStaleDays = days
+		if err := d.Run(context.Background(), []string{"explore"}); err != nil {
+			t.Fatalf("Run explore (days=%d): %v", days, err)
+		}
+		return f.calls
+	}
+	if calls := run(0); !slices.Contains(calls, "find_route:b") {
+		t.Errorf("default 1-day window: want find_route:b, got %v", calls)
+	}
+	if calls := run(7); slices.Contains(calls, "find_route:b") {
+		t.Errorf("7-day window: b is fresh, want no route, got %v", calls)
+	}
+}

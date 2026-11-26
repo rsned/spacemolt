@@ -93,6 +93,7 @@ func main() {
 	sweepMode := flag.String("sweep-mode", "", "pathfinder_sweep: \"void\" flies the interior void sweep instead of a ring lap")
 	sweepVoidRun := flag.String("sweep-void-run", "data/sweep/void-run.json", "pathfinder_sweep void mode: shared zone ledger")
 	sweepStage := flag.String("sweep-stage", "", "pathfinder_sweep: optional pre-lap route refuel,launch,target (system ids)")
+	exploreStaleDays := flag.Int("explore-stale-days", 0, "explore: revisit a system once it is this many days old (0 = 1 day)")
 	frontierWedge := flag.String("frontier-wedge", "", "frontier_explore: compass direction to work (E, NE, N, NW, W, SW, S, SE)")
 	frontierRun := flag.String("frontier-run", worker.DefaultFrontierRun, "frontier_explore: shared frontier ledger")
 	sweepLaunchCost := flag.Float64("sweep-launch-cost", 0, "pathfinder_sweep: estimated fuel per pathfinder launch (the first launch measures it)")
@@ -544,6 +545,7 @@ func main() {
 			dispatch.SweepStage = *sweepStage
 			dispatch.SweepMode, dispatch.SweepVoidRun = *sweepMode, *sweepVoidRun
 			dispatch.FrontierWedge, dispatch.FrontierRun = *frontierWedge, *frontierRun
+			dispatch.ExploreStaleDays = *exploreStaleDays
 			if *role == "pathfinder_sweep" || *role == "frontier_explore" {
 				if closeMbox := wireSweepMbox(client, dispatch, *agentID, logger); closeMbox != nil {
 					defer closeMbox()

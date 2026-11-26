@@ -91,6 +91,9 @@ type WorkerDispatch struct {
 	// DefaultFrontierRun. Launch cost comes from SweepLaunchCost.
 	FrontierWedge string
 	FrontierRun   string
+	// ExploreStaleDays is the explore step's revisit age in days; 0 (or
+	// negative) keeps DefaultExploreStaleTicks (1 day).
+	ExploreStaleDays int
 	// frontierTour and frontierCharted are test seams for the frontier
 	// role's per-system exploration and its charted-ground check.
 	frontierTour    func(ctx context.Context) (explore.Result, error)
@@ -531,7 +534,8 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 	case "frontier_explore":
 		return d.FrontierExplore(ctx)
 	case "explore":
-		return Explore(ctx, ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID, Market: d.Market})
+		return Explore(ctx, ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID, Market: d.Market,
+			StaleTicks: int64(max(d.ExploreStaleDays, 0)) * DefaultExploreStaleTicks})
 	case "haul":
 		if d.Market == nil {
 			fmt.Fprintln(d.Out, "haul: market collector not configured (use --market-db-path)") //nolint:errcheck

@@ -79,3 +79,26 @@ func TestFrontierFlagsPassedThrough(t *testing.T) {
 		t.Errorf("args %v must not contain frontier flags", cmd.Args)
 	}
 }
+
+// explore_stale_days reaches the explorer worker; unset adds nothing.
+func TestExploreStaleDaysPassedThrough(t *testing.T) {
+	spawn := DefaultSpawn("true", "", "")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd, err := spawn(ctx, WorkerSpec{AgentID: "explorer-7", ExploreStaleDays: 7}, "/tmp/does-not-matter.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = cmd.Wait()
+	if !hasArgPair(cmd.Args, "--explore-stale-days", "7") {
+		t.Errorf("args %v missing --explore-stale-days 7", cmd.Args)
+	}
+	cmd, err = spawn(ctx, WorkerSpec{AgentID: "plain"}, "/tmp/does-not-matter.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = cmd.Wait()
+	if hasArg(cmd.Args, "--explore-stale-days") {
+		t.Errorf("args %v must not contain --explore-stale-days", cmd.Args)
+	}
+}
