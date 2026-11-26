@@ -95,3 +95,4 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [Customs: outbound exits not scanned (11-24)](reference_customs_outbound_exit_not_scanned.md) — contraband may cross a monitored system only leaving its empire; commit 79e28ecb; pirate-6..10 all unlocked 11-24
 - [Reactive Armor Hardener = +25% ALL types incl. energy (11-24)](reference_reactive_armor_hardener_all_types.md) — typed bucket, multiplies with adaptive; KB blank; frontier Harmonic fit
 - [Hunt training data cutoff (11-24)](project_hunt_training_data_cutoff.md) — train only on hunt-decisions records at/after 2026-11-24 16:27 PT; older ones are pre-fix, kept not deleted
+- [Wildlife respawn + bloom (11-25)](reference_wildlife_respawn_bloom.md) — regrowth follows belt depletion; survey_system with survey_scanner reports bloom; hunter empty-look timer is a 1h guess

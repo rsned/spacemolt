@@ -307,14 +307,20 @@ func TestHuntGroundSkipsDepletedPOI(t *testing.T) {
 		t.Fatalf("the same looks 7h old must expire: got %s (%s)", got, why)
 	}
 
-	// One empty look is not enough to call a ground hunted out.
-	kb.coverage = []knowledge.WildlifeCoverage{empty(time.Hour)}
+	// One empty look keeps hunters off for huntEmptyLookFor, no longer.
+	kb.coverage = []knowledge.WildlifeCoverage{empty(30 * time.Minute)}
+	if got, why := huntGround(t, kb); got != "/" {
+		t.Fatalf("a single empty look 30m ago: got ground %s (%s), want none", got, why)
+	}
+	kb.coverage = []knowledge.WildlifeCoverage{empty(2 * time.Hour)}
 	if got, _ := huntGround(t, kb); got != "pollux/pollux_outer_belt" {
-		t.Fatalf("a single empty look must not deplete: got %s", got)
+		t.Fatalf("a single empty look 2h old must not deplete: got %s", got)
 	}
 
 	// Looks that saw other creatures but not the species still count as empty.
-	other := empty(time.Hour)
+	// (The newest is older than huntEmptyLookFor, so only the two-look rule
+	// is in play here.)
+	other := empty(90 * time.Minute)
 	other.CreaturesSeen, other.GameTick = 5, 900
 	other2 := empty(2 * time.Hour)
 	other2.CreaturesSeen, other2.GameTick = 3, 800

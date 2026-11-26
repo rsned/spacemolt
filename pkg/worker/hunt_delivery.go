@@ -41,6 +41,12 @@ const (
 	// has regenerated comes back into play.
 	huntDepletedLooks = 2
 	huntDepletedFor   = 6 * time.Hour
+	// huntEmptyLookFor: one look that found none of the species keeps every
+	// hunter off the ground this long, so a second hunter does not fly out to
+	// make the second empty look itself (operator decision 2026-11-25; an
+	// hour is a first guess, to be tuned). Regrowth follows the belt: a
+	// mined-out belt has nothing for wildlife to grow from.
+	huntEmptyLookFor = time.Hour
 	// huntLookMatchWindow pairs a coverage row with the sightings the same
 	// get_nearby wrote, when no game tick is available to pair them exactly.
 	huntLookMatchWindow = time.Minute
@@ -158,6 +164,11 @@ func huntLookFoundSpecies(look knowledge.WildlifeCoverage, sightings []knowledge
 // huntClassifyGround classes one POI from its newest looks (newest first) and
 // the sightings of the wanted species at it.
 func huntClassifyGround(looks []knowledge.WildlifeCoverage, sightings []knowledge.WildlifeSighting, now time.Time) huntGroundClass {
+	if len(looks) > 0 {
+		if t, ok := huntParseUTC(looks[0].ObservedUTC); ok && now.Sub(t) <= huntEmptyLookFor && !huntLookFoundSpecies(looks[0], sightings) {
+			return huntGroundDepleted
+		}
+	}
 	if len(looks) >= huntDepletedLooks {
 		depleted := true
 		for _, l := range looks[:huntDepletedLooks] {
@@ -441,9 +452,11 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 		}
 		n.MissionID = e.MissionID
 		n.Radius = radius
-		n.GroundSystem, n.GroundPOI, _ = huntNeedGround(ctx, deps.KB, nk, n, jumps, radius, nil, huntNow(deps), huntPoliceFloor(deps))
+		// A ground another hunter is working is not a ground for a new need.
+		claimed := huntClaimedPOIs(deps, n.Species)
+		n.GroundSystem, n.GroundPOI, _ = huntNeedGround(ctx, deps.KB, nk, n, jumps, radius, claimed, huntNow(deps), huntPoliceFloor(deps))
 		if n.GroundPOI == "" {
-			fmt.Fprintf(out, "hunt: skip need %s (%s): no policed ground within %d jump(s) where %s is sighted\n", e.MissionID, e.Title, radius, strings.Join(n.Species, "/")) //nolint:errcheck
+			fmt.Fprintf(out, "hunt: skip need %s (%s): no policed ground within %d jump(s) where %s is sighted (%d claimed by other hunters)\n", e.MissionID, e.Title, radius, strings.Join(n.Species, "/"), len(claimed)) //nolint:errcheck
 			continue
 		}
 		// One trip: out to the ground and on to the delivery base, both
@@ -472,6 +485,7 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 	}
 	// The need keeps the radius it was taken at; failed searches widen it.
 	huntSetNeedDry(deps, out, activeID, roam.DryPasses)
+	huntClaimGround(deps, out, chosen.GroundSystem, chosen.GroundPOI, chosen.Species)
 	fmt.Fprintf(out, "hunt[%s]: accepted need %s (%s): %d %s from %s at %s/%s for %s, %d cr\n", //nolint:errcheck
 		who, e.MissionID, e.Title, chosen.Quantity, chosen.ItemID, strings.Join(chosen.Species, "/"),
 		chosen.GroundSystem, chosen.GroundPOI, chosen.TargetBaseID, chosen.Reward)
@@ -563,10 +577,19 @@ func huntTravelToNeedGround(ctx context.Context, deps HuntDeps, out io.Writer, n
 	if radius <= 0 {
 		radius = huntNearbyJumps
 	}
-	sys, poi, why := huntNeedGround(ctx, deps.KB, nk, need, jumps, radius, exclude, huntNow(deps), huntPoliceFloor(deps))
+	// Grounds other hunters are working come last: a held need shares one
+	// only when it has no other, so a claim never strands a need.
+	claimed := huntClaimedPOIs(deps, need.Species)
+	sys, poi, why := huntNeedGround(ctx, deps.KB, nk, need, jumps, radius, slices.Concat(exclude, claimed), huntNow(deps), huntPoliceFloor(deps))
+	if poi == "" && len(claimed) > 0 {
+		if sys, poi, why = huntNeedGround(ctx, deps.KB, nk, need, jumps, radius, exclude, huntNow(deps), huntPoliceFloor(deps)); poi != "" {
+			fmt.Fprintf(out, "hunt: every other ground for %s is out; sharing %s with the hunter that claimed it\n", need.ItemID, poi) //nolint:errcheck
+		}
+	}
 	if poi == "" {
 		return "", fmt.Errorf("%w within %d jump(s) where %s is sighted", errHuntNoNeedGround, radius, strings.Join(need.Species, "/"))
 	}
+	huntClaimGround(deps, out, sys, poi, need.Species)
 	if state.CurrentPOI == poi && !state.Doc {
 		return poi, nil
 	}

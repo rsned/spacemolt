@@ -123,6 +123,7 @@ func huntCloseSortie(ctx context.Context, deps HuntDeps, out io.Writer, s *huntd
 	if s == nil {
 		return
 	}
+	huntReleaseClaim(deps)
 	if dir := huntAgentDir(deps); dir != "" {
 		huntSortieRecord(ctx, deps, out, "sortie_end", s, job, huntReadLoadout(ctx, deps), result)
 		if err := huntdecide.ClearSortie(dir); err != nil {
