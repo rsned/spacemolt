@@ -28,15 +28,31 @@ workers:
   # Workers adopt a changed sweep_ring on the rejoin after their next landing.
   # Rings by range: the Survey Vessel (fewest launches
   # per tank) takes the shortest lap, the Reserves (4,000-fuel tanks) the longest.
-  - { agent_id: explorer-7, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 7200, sweep_start_deg: 148, sweep_launch_cost: 45, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Survey Vessel
-  - { agent_id: explorer-2, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 7350, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
+  - { agent_id: explorer-7, role: explorer, station: "", explore_stale_days: 7 }  # 2026-11-26 weekly galaxy sweep (no pathfinder; drive moved to fighter-5). Spec docs/superpowers/specs/2026-11-26-explorer-weekly-sweep-design.md
+  # was: { agent_id: explorer-7, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-16 void sweep finished: home to CJ to plan next steps (operator)
+  # was: - { agent_id: explorer-7, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 7200, sweep_start_deg: 148, sweep_launch_cost: 45, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Survey Vessel
+  - { agent_id: explorer-2, role: frontier_explore, station: "", frontier_wedge: S }  # 2026-11-18 frontier full-explore: pathfinder + 2 survey scanners, 10 kits, 20 fuel cells
+  # was: { agent_id: explorer-2, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-16 void sweep finished: home to CJ to plan next steps (operator)
+  # was: - { agent_id: explorer-2, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 7350, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
   # HELD 2026-11-15 (void rollout): - { agent_id: explorer-4, role: pathfinder_sweep, station: "", sweep_ring: 7500, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  - { agent_id: explorer-5, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 7650, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  - { agent_id: explorer-6, role: pathfinder_sweep, station: "", sweep_ring: 7800, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  - { agent_id: explorer-8, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-16 void sweep finished: home to CJ to plan next steps (operator)
+  - { agent_id: explorer-5, role: frontier_explore, station: "", frontier_wedge: SE }  # 2026-11-18 frontier full-explore: pathfinder + 2 survey scanners, 10 kits, 20 fuel cells
+  # was: { agent_id: explorer-5, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-18 GSA-towed; home to CJ to fit survey scanners (operator)
+  # was: - { agent_id: explorer-5, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 7650, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
+  - { agent_id: explorer-6, role: frontier_explore, station: "", frontier_wedge: SW }  # 2026-11-18 frontier full-explore: pathfinder + 2 survey scanners, 10 kits, 20 fuel cells
+  # was: { agent_id: explorer-6, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-18 GSA-towed; home to CJ to fit survey scanners (operator)
+  # was: - { agent_id: explorer-6, role: pathfinder_sweep, station: "", sweep_ring: 7800, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
+  - { agent_id: explorer-8, role: frontier_explore, station: "", frontier_wedge: N }  # 2026-11-18 frontier full-explore: pathfinder + 2 survey scanners, 10 kits, 20 fuel cells
+  # was: { agent_id: explorer-8, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-16 void sweep finished: home to CJ to plan next steps (operator)
   # was: - { agent_id: explorer-8, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 7950, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  - { agent_id: explorer-12, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-16 void sweep finished: home to CJ to plan next steps (operator)
+  - { agent_id: explorer-12, role: frontier_explore, station: "", frontier_wedge: NE }  # 2026-11-18 frontier full-explore: pathfinder + 2 survey scanners, 10 kits, 20 fuel cells
+  # was: { agent_id: explorer-12, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-16 void sweep finished: home to CJ to plan next steps (operator)
   # was: - { agent_id: explorer-12, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 8100, sweep_start_deg: 148, sweep_launch_cost: 23, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Compendium
-  - { agent_id: explorer-1, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 8250, sweep_start_deg: 148, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
-  - { agent_id: explorer-9, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 8400, sweep_start_deg: 148, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
-  - { agent_id: explorer-11, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 8550, sweep_start_deg: 148, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
+  - { agent_id: explorer-1, role: frontier_explore, station: "", frontier_wedge: E }  # 2026-11-18 frontier full-explore: pathfinder + 2 survey scanners, 10 kits, 20 fuel cells
+  # was: { agent_id: explorer-1, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-16 void sweep finished: home to CJ to plan next steps (operator)
+  # was: - { agent_id: explorer-1, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 8250, sweep_start_deg: 148, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
+  - { agent_id: explorer-9, role: frontier_explore, station: "", frontier_wedge: NW }  # 2026-11-18 frontier full-explore: pathfinder + 2 survey scanners, 10 kits, 20 fuel cells
+  # was: { agent_id: explorer-9, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-16 void sweep finished: home to CJ to plan next steps (operator)
+  # was: - { agent_id: explorer-9, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 8400, sweep_start_deg: 148, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
+  - { agent_id: explorer-11, role: frontier_explore, station: "", frontier_wedge: W }  # 2026-11-18 frontier full-explore: pathfinder + 2 survey scanners, 10 kits, 20 fuel cells
+  # was: { agent_id: explorer-11, role: resident, station: 862e07fa76571d0a76cab3cbaf4046e7 }  # 2026-11-16 void sweep finished: home to CJ to plan next steps (operator)
+  # was: - { agent_id: explorer-11, role: pathfinder_sweep, station: "", sweep_mode: void, sweep_ring: 8550, sweep_start_deg: 148, sweep_launch_cost: 41, sweep_stage: "node_beta,gsc_0049,ash_pearl" }  # Reserve
