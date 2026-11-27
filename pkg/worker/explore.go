@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game"
 	"github.com/rsned/spacemolt/pkg/knowledge"
@@ -31,7 +32,12 @@ const (
 // (2) known-but-unvisited systems (LastVisitedTick == 0), then (3) stale known
 // systems (nowTick-LastUpdatedTick > staleTicks). ok is false when nothing
 // within reach is worth visiting, in which case target is "".
-func NextExploreTarget(ctx context.Context, kb knowledge.Base, currentSystem string, staleTicks, nowTick int64) (string, bool, error) {
+//
+// avoid (lower-case system id -> reason, as loadAvoidSystems returns) is
+// neither a target nor a way through: Autopilot refuses both, and a picker
+// that offers one re-picks it every pass until the overmind quarantines the
+// ship (explorer-7 and HR 8832, 2026-11-26).
+func NextExploreTarget(ctx context.Context, kb knowledge.Base, currentSystem string, staleTicks, nowTick int64, avoid map[string]string) (string, bool, error) {
 	conns, err := kb.GetConnections(ctx)
 	if err != nil {
 		return "", false, fmt.Errorf("explore: get connections: %w", err)
@@ -42,6 +48,9 @@ func NextExploreTarget(ctx context.Context, kb knowledge.Base, currentSystem str
 	}
 
 	graph := navigation.JumpGraphFromConnections(conns)
+	if len(avoid) > 0 {
+		graph = withoutAvoided(graph, currentSystem, avoid)
+	}
 
 	// Node universe: current system, every graph endpoint, every known system.
 	nodeSet := map[string]bool{currentSystem: true}
@@ -71,6 +80,9 @@ func NextExploreTarget(ctx context.Context, kb knowledge.Base, currentSystem str
 		if id == currentSystem {
 			continue
 		}
+		if _, avoided := avoid[strings.ToLower(id)]; avoided {
+			continue
+		}
 		d, ok := dist[id]
 		if !ok || d >= navigation.RouteInf {
 			continue // unreachable
@@ -97,6 +109,23 @@ func NextExploreTarget(ctx context.Context, kb knowledge.Base, currentSystem str
 	return bestID, true, nil
 }
 
+// withoutAvoided drops every edge into or out of an avoided system, except
+// out of from: the ship may already sit in one and must be able to leave.
+func withoutAvoided(graph navigation.JumpGraph, from string, avoid map[string]string) navigation.JumpGraph {
+	out := make(navigation.JumpGraph, len(graph))
+	for sys, tos := range graph {
+		if _, avoided := avoid[strings.ToLower(sys)]; avoided && sys != from {
+			continue
+		}
+		for _, to := range tos {
+			if _, avoided := avoid[strings.ToLower(to)]; !avoided {
+				out[sys] = append(out[sys], to)
+			}
+		}
+	}
+	return out
+}
+
 // outranks reports whether (class,d,id) beats the current best: lower class
 // first, then smaller jump distance, then smaller system id (deterministic).
 func outranks(class exploreClass, d int, id string, bClass exploreClass, bDist int, bID string) bool {
@@ -119,6 +148,8 @@ type ExploreDeps struct {
 	// Market receives the market snapshot of every station the tour docks at;
 	// nil skips the market.db write (the KB capture still runs).
 	Market *market.Collector
+	// AvoidSystemsPath is the avoid list (DefaultAvoidSystemsPath when empty).
+	AvoidSystemsPath string
 }
 
 // Explore performs one exploration step: resolve the current system, choose the
@@ -155,7 +186,7 @@ func Explore(ctx context.Context, deps ExploreDeps) error {
 	if handled, err := exploreFuelStop(ctx, deps, out, currentID); handled || err != nil {
 		return err
 	}
-	target, ok, err := NextExploreTarget(ctx, deps.KB, currentID, stale, state.CurrentTick)
+	target, ok, err := NextExploreTarget(ctx, deps.KB, currentID, stale, state.CurrentTick, loadAvoidSystems(deps.AvoidSystemsPath))
 	if err != nil {
 		return err
 	}

@@ -72,7 +72,7 @@ func TestNextExploreTargetFrontierBeatsUnvisited(t *testing.T) {
 		},
 		conns: undirected([2]string{"a", "b"}, [2]string{"a", "c"}),
 	}
-	target, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 100)
+	target, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 100, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestNextExploreTargetNearestUnvisited(t *testing.T) {
 		},
 		conns: undirected([2]string{"a", "b"}, [2]string{"b", "c"}),
 	}
-	target, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 100)
+	target, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 100, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestNextExploreTargetStaleWhenNoUnvisited(t *testing.T) {
 		},
 		conns: undirected([2]string{"a", "b"}, [2]string{"a", "c"}),
 	}
-	target, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 9_999)
+	target, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 9_999, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestNextExploreTargetNoneWhenAllFresh(t *testing.T) {
 		},
 		conns: undirected([2]string{"a", "b"}),
 	}
-	_, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 9_999)
+	_, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 9_999, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -146,7 +146,7 @@ func TestNextExploreTargetUnreachableExcluded(t *testing.T) {
 		},
 		conns: undirected([2]string{"a", "b"}, [2]string{"c", "d"}),
 	}
-	_, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 200)
+	_, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 200, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestNextExploreTargetExpandsOverCalls(t *testing.T) {
 		conns: undirected([2]string{"a", "b"}, [2]string{"b", "c"}),
 	}
 
-	target, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 100)
+	target, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 100, nil)
 	if err != nil {
 		t.Fatalf("call 1 err: %v", err)
 	}
@@ -177,11 +177,35 @@ func TestNextExploreTargetExpandsOverCalls(t *testing.T) {
 	// Simulate visiting b: it becomes a known, freshly-updated system.
 	kb.systems = append(kb.systems, knowledge.System{ID: "b", LastVisitedTick: 100, LastUpdatedTick: 100})
 
-	target, ok, err = NextExploreTarget(context.Background(), kb, "b", DefaultExploreStaleTicks, 100)
+	target, ok, err = NextExploreTarget(context.Background(), kb, "b", DefaultExploreStaleTicks, 100, nil)
 	if err != nil {
 		t.Fatalf("call 2 err: %v", err)
 	}
 	if !ok || target != "c" {
 		t.Fatalf("call 2: want next frontier c (no oscillation back to a), got target=%q ok=%v", target, ok)
+	}
+}
+
+// TestNextExploreTargetSkipsAvoided: explorer-7 (2026-11-26) re-picked HR 8832,
+// on the avoid list, every pass; Autopilot refused it each time and the
+// overmind quarantined the ship. An avoided system is neither a target nor a
+// way through: b (avoided, 1 jump) and d (frontier behind b) are passed over
+// for c (unvisited, 1 jump).
+func TestNextExploreTargetSkipsAvoided(t *testing.T) {
+	kb := &fakeKB{
+		systems: []knowledge.System{
+			{ID: "a", LastVisitedTick: 10, LastUpdatedTick: 100},
+			{ID: "b", LastVisitedTick: 0},
+			{ID: "c", LastVisitedTick: 0},
+		},
+		conns: undirected([2]string{"a", "b"}, [2]string{"b", "d"}, [2]string{"a", "c"}),
+	}
+	avoid := map[string]string{"b": "leviathan"}
+	target, ok, err := NextExploreTarget(context.Background(), kb, "a", DefaultExploreStaleTicks, 100, avoid)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if !ok || target != "c" {
+		t.Fatalf("want c (b avoided, d only through b), got target=%q ok=%v", target, ok)
 	}
 }

@@ -534,7 +534,7 @@ func (d *WorkerDispatch) Run(ctx context.Context, tokens []string) error {
 	case "frontier_explore":
 		return d.FrontierExplore(ctx)
 	case "explore":
-		return Explore(ctx, ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID, Market: d.Market,
+		return Explore(ctx, ExploreDeps{Client: d.Client, KB: d.KB, Out: d.Out, AgentID: d.AgentID, Market: d.Market, AvoidSystemsPath: d.AvoidSystemsPath,
 			StaleTicks: int64(max(d.ExploreStaleDays, 0)) * DefaultExploreStaleTicks})
 	case "haul":
 		if d.Market == nil {

@@ -90,7 +90,7 @@ func (d *WorkerDispatch) sweepInSystem(ctx context.Context, s *sweep.State, path
 		if st != nil {
 			tick = st.CurrentTick
 		}
-		target, ok, err := NextExploreTarget(ctx, d.KB, sysID, sweepExploreStale, tick)
+		target, ok, err := NextExploreTarget(ctx, d.KB, sysID, sweepExploreStale, tick, loadAvoidSystems(d.AvoidSystemsPath))
 		if err != nil {
 			return err
 		}
