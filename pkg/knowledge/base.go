@@ -164,6 +164,16 @@ type ShipListing struct {
 	ListedAt     string
 }
 
+// StationShipListing is one captured listing with the station it is at.
+type StationShipListing struct {
+	ShipListing
+	SystemID    string
+	SystemName  string
+	StationID   string
+	StationName string
+	CapturedAt  time.Time
+}
+
 // ShipListings represents captured ship listings at a station
 type ShipListings struct {
 	SystemID    string

@@ -1657,3 +1657,43 @@ func (kb *SQLiteKB) GetXPSummary(ctx context.Context) ([]XPSummaryRow, error) {
 	}
 	return summary, nil
 }
+
+// SearchShipListings returns every captured listing whose class id or ship
+// name contains query, case-insensitively; spaces in query also match the
+// underscores in class ids ("war wagon" finds war_wagon). Only the latest
+// snapshot per station is stored, so these are the current listings as of
+// each station's last capture.
+func (kb *SQLiteKB) SearchShipListings(ctx context.Context, query string) ([]StationShipListing, error) {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return nil, nil
+	}
+	rows, err := kb.db.QueryContext(ctx, `
+		SELECT system_id, system_name, station_id, station_name, captured_at,
+			listing_id, ship_id, class_id, ship_name, category, tier, scale,
+			hull, max_hull, shield, modules_count, price, seller, listed_at
+		FROM ship_listings
+		WHERE instr(lower(class_id), ?) > 0 OR instr(lower(ship_name), ?) > 0
+		ORDER BY price`, strings.ReplaceAll(q, " ", "_"), q)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search ship listings: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []StationShipListing
+	for rows.Next() {
+		var l StationShipListing
+		var captured string
+		if err := rows.Scan(&l.SystemID, &l.SystemName, &l.StationID, &l.StationName, &captured,
+			&l.ListingID, &l.ShipID, &l.ClassID, &l.ShipName, &l.Category, &l.Tier, &l.Scale,
+			&l.Hull, &l.MaxHull, &l.Shield, &l.ModulesCount, &l.Price, &l.Seller, &l.ListedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan ship listing: %w", err)
+		}
+		l.CapturedAt, _ = time.Parse(time.RFC3339, captured)
+		out = append(out, l)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating ship listings: %w", err)
+	}
+	return out, nil
+}

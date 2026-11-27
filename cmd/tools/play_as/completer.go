@@ -13,7 +13,7 @@ import (
 var metaCommands = []string{
 	"show_fitting", "fitting", "loot_all", "fill_cargo",
 	"help", "exit", "quit", "set_format", "set_debug", "set_events", "set_autoreload", "loop", "mbox", "nearest",
-	"update_market", "find_item", "show_system", "pf_route", "where_facility", "build",
+	"update_market", "find_item", "find_ship", "show_system", "pf_route", "where_facility", "build",
 	"dispatch", "plan_status", "plan_pause", "plan_resume", "plan_cancel", "plan_retry",
 }
 

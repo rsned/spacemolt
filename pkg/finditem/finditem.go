@@ -82,6 +82,22 @@ func Find(ctx context.Context, col *market.Collector, kb knowledge.Base, itemID 
 // system, or returns nil when distances cannot be computed. The returned map
 // is keyed by the seller's SystemID exactly as stored in the market DB.
 func jumpDistances(ctx context.Context, kb knowledge.Base, fromSystem string, sellers []market.ItemSeller) map[string]int {
+	systems := make([]string, 0, len(sellers))
+	for _, s := range sellers {
+		systems = append(systems, s.SystemID)
+	}
+	return JumpsTo(ctx, kb, fromSystem, systems)
+}
+
+// JumpsTo computes BFS jump counts from fromSystem to each of systems over
+// the KB's lane graph, or returns nil when distances cannot be computed (no
+// KB, no origin, no connections). The map is keyed by each entry of systems
+// exactly as given; unreachable systems map to navigation.RouteInf.
+//
+// Some capturers store a system's display name ("Sol", "Trader's Rest")
+// instead of its id ("sol", "traders_rest"); names are resolved to ids via
+// the KB so those still rank by distance.
+func JumpsTo(ctx context.Context, kb knowledge.Base, fromSystem string, systems []string) map[string]int {
 	if kb == nil || fromSystem == "" {
 		return nil
 	}
@@ -91,13 +107,9 @@ func jumpDistances(ctx context.Context, kb knowledge.Base, fromSystem string, se
 	}
 	graph := navigation.JumpGraphFromConnections(conns)
 
-	// Some market.db station rows store the system's display name ("Sol",
-	// "Trader's Rest") instead of its id ("sol", "traders_rest"), depending
-	// on which capturer wrote them. Resolve names to ids via the KB so those
-	// stations still rank by distance.
 	nameToID := make(map[string]string)
-	if systems, sysErr := kb.GetSystems(ctx); sysErr == nil {
-		for _, s := range systems {
+	if known, sysErr := kb.GetSystems(ctx); sysErr == nil {
+		for _, s := range known {
 			if s.Name != "" {
 				nameToID[s.Name] = s.ID
 			}
@@ -113,26 +125,26 @@ func jumpDistances(ctx context.Context, kb knowledge.Base, fromSystem string, se
 		return sysID
 	}
 
-	seen := make(map[string]bool, len(sellers))
-	targets := make([]string, 0, len(sellers))
-	for _, s := range sellers {
-		if s.SystemID == "" {
+	seen := make(map[string]bool, len(systems))
+	targets := make([]string, 0, len(systems))
+	for _, sys := range systems {
+		if sys == "" {
 			continue
 		}
-		if canonical := resolve(s.SystemID); !seen[canonical] {
+		if canonical := resolve(sys); !seen[canonical] {
 			seen[canonical] = true
 			targets = append(targets, canonical)
 		}
 	}
 	dist := navigation.BFSJumps(graph, resolve(fromSystem), targets)
 
-	out := make(map[string]int, len(sellers))
-	for _, s := range sellers {
-		if s.SystemID == "" {
+	out := make(map[string]int, len(systems))
+	for _, sys := range systems {
+		if sys == "" {
 			continue
 		}
-		if d, ok := dist[resolve(s.SystemID)]; ok {
-			out[s.SystemID] = d
+		if d, ok := dist[resolve(sys)]; ok {
+			out[sys] = d
 		}
 	}
 	return out
