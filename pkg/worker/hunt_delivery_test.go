@@ -585,7 +585,8 @@ func TestHuntGroundRadiusBoundsTheChoice(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	kb := huntGroundKB(t) // pollux_outer_belt: sighted 10h ago, never looked at
-	// A far ground with a fresh sighting, which outranks the near one by class.
+	// A far ground where the newest look saw the species, which outranks the
+	// near, never-looked-at one by class.
 	if err := kb.RememberSystem(ctx, knowledge.System{ID: "faraway", Name: "Faraway", PoliceLevel: 80, LastVisitedTick: 1}); err != nil {
 		t.Fatal(err)
 	}
@@ -595,6 +596,9 @@ func TestHuntGroundRadiusBoundsTheChoice(t *testing.T) {
 	kb.sightings = append(kb.sightings, knowledge.WildlifeSighting{
 		Species: "belt_grazer", SystemID: "faraway", POIID: "faraway_belt",
 		Source: knowledge.WildlifeSourceNearby, ObservedUTC: huntAgo(time.Hour),
+	})
+	kb.coverage = append(kb.coverage, knowledge.WildlifeCoverage{
+		SystemID: "faraway", POIID: "faraway_belt", CreaturesSeen: 3, ObservedUTC: huntAgo(time.Hour),
 	})
 	need := huntNeed{ItemID: "caustic_sac", Species: []string{"belt_grazer"}}
 	hops := func(s string) int { return map[string]int{"pollux": 3, "faraway": 20}[s] }
@@ -623,6 +627,9 @@ func TestHuntTravelToNeedGroundKeepsTheJobRadius(t *testing.T) {
 	kb.sightings = append(kb.sightings, knowledge.WildlifeSighting{
 		Species: "belt_grazer", SystemID: "levy", POIID: "levy_ice",
 		Source: knowledge.WildlifeSourceNearby, ObservedUTC: huntAgo(time.Hour),
+	})
+	kb.coverage = append(kb.coverage, knowledge.WildlifeCoverage{
+		SystemID: "levy", POIID: "levy_ice", CreaturesSeen: 3, ObservedUTC: huntAgo(time.Hour),
 	})
 	f := newHuntNeedFake(t, "gauntlet", huntFakeOpts{})
 	var log strings.Builder

@@ -210,6 +210,47 @@ func huntResumeSortieJob(ctx context.Context, deps HuntDeps, out io.Writer, who 
 	return job, huntResumeGo
 }
 
+// huntMaxDeliveryResumes is how many passes may carry on one cut-short
+// delivery before the ship goes to a station instead: a leg that keeps
+// failing must not hold a hunter in open space.
+const huntMaxDeliveryResumes = 3
+
+// huntResumeDelivery carries on a need's delivery leg that the last pass left
+// unfinished: the sortie is pending interrupted, the need is still held, the
+// hull is fit to deliver and the hold has everything the need asks for. It
+// reports whether it took the pass. Anything else (parts short, need gone,
+// missions unreadable, hull damaged, huntMaxDeliveryResumes spent) is left to
+// the ordinary path, which brings the ship in to a station.
+func huntResumeDelivery(ctx context.Context, deps HuntDeps, out io.Writer, who string, s *huntdecide.Sortie, wildlifeOnly bool) bool {
+	if s.PendingResult != huntdecide.ResultInterrupted || s.JobKind != "need" || s.DeliveryResumes >= huntMaxDeliveryResumes {
+		return false
+	}
+	if _, repaired := huntHullRepaired(deps.Client.GetState()); !repaired {
+		return false
+	}
+	job, res := huntResumeSortieJob(ctx, deps, out, who, s, wildlifeOnly)
+	if res != huntResumeGo || job.need == nil {
+		return false
+	}
+	if held := huntReadHeld(ctx, deps, out, *job.need); held < job.need.Quantity {
+		return false
+	}
+	fmt.Fprintf(out, "hunt[%s]: sortie %s: delivery of %d %s was cut short; carrying on from here\n", //nolint:errcheck
+		who, s.ID, job.need.Quantity, job.need.ItemID)
+	huntStartJob(&deps, job, wildlifeOnly)
+	s.DeliveryResumes++
+	huntSaveSortie(deps, out, s)
+	result := huntdecide.ResultInterrupted
+	if huntDeliverNeed(ctx, deps, out, who, job) {
+		result = huntdecide.ResultCompleted
+		huntSortiePending(deps, out, s, result)
+	}
+	if st := deps.Client.GetState(); st != nil && st.Doc {
+		huntCloseSortie(ctx, deps, out, s, job, result)
+	}
+	return true
+}
+
 // huntResumeHullOK is the hard hull gate in front of a resumed sortie's
 // first leg: the hull must be known and at or above huntReturnRepairHull.
 // frac is the hull fraction, 0 when unknown.

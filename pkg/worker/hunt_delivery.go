@@ -114,16 +114,27 @@ func huntPickNeed(needs []huntNeed, jumpsTo func(systemID string) int, radius in
 type huntGroundClass int
 
 const (
-	// huntGroundSighted: one of the species was seen here within
-	// huntDepletedFor. The best bet.
+	// huntGroundSighted: the newest look at the POI saw one of the species,
+	// within huntSightedFor. The best bet.
 	huntGroundSighted huntGroundClass = iota
 	// huntGroundUnlooked: never looked at (no coverage rows). Worth one look.
 	huntGroundUnlooked
-	// huntGroundStale: looked at, but neither recently sighted nor depleted.
+	// huntGroundStale: the newest look found none of the species, or the
+	// sighting is older than huntSightedFor. A last resort for a held need;
+	// never a reason to take one.
 	huntGroundStale
 	// huntGroundDepleted: hunted out for now; skipped.
 	huntGroundDepleted
 )
+
+// huntSightedFor is how long a sighting at the newest look keeps a ground
+// "sighted". What matters is the newest look, not its age: across 5,700 looks
+// (2026-11-22 to 11-27) a species seen at the last look was still there 83 to
+// 93% of the time at every age out to two days, and one missing at the last
+// look was there 14% of the time within the hour and 25 to 36% from then on.
+// The old rule (any sighting within 6 hours, whatever later looks found) sent
+// hunters to 438 "sighted before" grounds for an 11% hit rate.
+const huntSightedFor = 72 * time.Hour
 
 // huntParseUTC reads an RFC3339 timestamp; ok is false for an empty or bad one.
 func huntParseUTC(s string) (time.Time, bool) {
@@ -182,18 +193,16 @@ func huntClassifyGround(looks []knowledge.WildlifeCoverage, sightings []knowledg
 			return huntGroundDepleted
 		}
 	}
-	for _, s := range sightings {
-		if t, ok := huntParseUTC(s.ObservedUTC); ok && now.Sub(t) <= huntDepletedFor {
-			return huntGroundSighted
-		}
-	}
 	if len(looks) == 0 {
 		return huntGroundUnlooked
+	}
+	if t, ok := huntParseUTC(looks[0].ObservedUTC); ok && now.Sub(t) <= huntSightedFor && huntLookFoundSpecies(looks[0], sightings) {
+		return huntGroundSighted
 	}
 	return huntGroundStale
 }
 
-var huntGroundClassNames = [...]string{"recently sighted", "never looked at", "sighted before", "hunted out"}
+var huntGroundClassNames = [...]string{"seen at the last look", "never looked at", "not seen at the last look", "hunted out"}
 
 // huntNeedGround picks the hunting ground for a need: a POI where one of
 // need.Species has been sighted, in an empire-policed system (never relaxed
@@ -202,6 +211,13 @@ var huntGroundClassNames = [...]string{"recently sighted", "never looked at", "s
 // a far one can never hide a near one. Best class first (huntClassifyGround),
 // then fewest jumps. hops returns a negative number for an unreachable system.
 func huntNeedGround(ctx context.Context, kb knowledge.Base, nk huntNeedKB, need huntNeed, hops func(systemID string) int, radius int, exclude []string, now time.Time, floor int) (systemID, poiID, why string) {
+	return huntNeedGroundUpTo(ctx, kb, nk, need, hops, radius, exclude, now, floor, huntGroundStale)
+}
+
+// huntNeedGroundUpTo is huntNeedGround over grounds of class worst or better.
+// Taking a need asks for huntGroundUnlooked: a ground whose newest look found
+// none of the species is no reason to accept one.
+func huntNeedGroundUpTo(ctx context.Context, kb knowledge.Base, nk huntNeedKB, need huntNeed, hops func(systemID string) int, radius int, exclude []string, now time.Time, floor int, worst huntGroundClass) (systemID, poiID, why string) {
 	type cand struct {
 		system, poi string
 		sightings   []knowledge.WildlifeSighting
@@ -254,7 +270,7 @@ func huntNeedGround(ctx context.Context, kb knowledge.Base, nk huntNeedKB, need 
 			looks = nil
 		}
 		class := huntClassifyGround(looks, c.sightings, now)
-		if class == huntGroundDepleted {
+		if class == huntGroundDepleted || class > worst {
 			continue
 		}
 		if found && (class > bestClass || (class == bestClass && h >= bestHops)) {
@@ -459,9 +475,9 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 		n.Radius = radius
 		// A ground another hunter is working is not a ground for a new need.
 		claimed := huntClaimedPOIs(deps, n.Species)
-		n.GroundSystem, n.GroundPOI, _ = huntNeedGround(ctx, deps.KB, nk, n, jumps, radius, claimed, huntNow(deps), huntPoliceFloor(deps))
+		n.GroundSystem, n.GroundPOI, _ = huntNeedGroundUpTo(ctx, deps.KB, nk, n, jumps, radius, claimed, huntNow(deps), huntPoliceFloor(deps), huntGroundUnlooked)
 		if n.GroundPOI == "" {
-			fmt.Fprintf(out, "hunt: skip need %s (%s): no policed ground within %d jump(s) where %s is sighted (%d claimed by other hunters)\n", e.MissionID, e.Title, radius, strings.Join(n.Species, "/"), len(claimed)) //nolint:errcheck
+			fmt.Fprintf(out, "hunt: skip need %s (%s): no policed ground within %d jump(s) where %s was seen at the last look (%d claimed by other hunters)\n", e.MissionID, e.Title, radius, strings.Join(n.Species, "/"), len(claimed)) //nolint:errcheck
 			continue
 		}
 		// One trip: out to the ground and on to the delivery base, both

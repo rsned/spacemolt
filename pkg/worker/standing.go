@@ -476,6 +476,29 @@ func (deps StandingDeps) now() time.Time {
 // weeks (2026-11-20). Its individual requests keep their Submit timeouts.
 var uncappedCommands = map[string]bool{"deliver": true}
 
+// commandTimeoutScale stretches CommandTimeout for a command whose one
+// dispatch is a whole trip but which should still have a ceiling. A hunt pass
+// flies out, fights and delivers: with grounds 8 to 16 jumps away and a
+// delivery leg on top it outlasts 30 minutes, and from 2026-11-25 to 11-27
+// the cap cut 65 legs mid-jump. Each was held for the next pass, which found
+// the ship in transit and diverted to a station before carrying on (371
+// detours, about 1,250 jumps).
+var commandTimeoutScale = map[string]int{"hunt": 4}
+
+// commandTimeout is the ceiling for one dispatch of resolved, 0 for none.
+func (deps StandingDeps) commandTimeout(resolved []string) time.Duration {
+	if deps.CommandTimeout <= 0 || len(resolved) == 0 {
+		return deps.CommandTimeout
+	}
+	if uncappedCommands[resolved[0]] {
+		return 0
+	}
+	if scale := commandTimeoutScale[resolved[0]]; scale > 1 {
+		return deps.CommandTimeout * time.Duration(scale)
+	}
+	return deps.CommandTimeout
+}
+
 // dispatch resolves tokens against live state, then runs them.
 func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
 	var st *game.State
@@ -515,9 +538,9 @@ func (deps StandingDeps) dispatch(ctx context.Context, tokens []string) error {
 	// direct caller (tests) opted out.
 	parent := ctx
 	started := deps.now()
-	if deps.CommandTimeout > 0 && (len(resolved) == 0 || !uncappedCommands[resolved[0]]) {
+	if limit := deps.commandTimeout(resolved); limit > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, deps.CommandTimeout)
+		ctx, cancel = context.WithTimeout(ctx, limit)
 		defer cancel()
 	}
 	err = deps.Runner.Run(ctx, resolved)

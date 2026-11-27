@@ -59,6 +59,8 @@ type Sortie struct {
 	ShipClass string `json:"ship_class,omitempty"`
 	// LastEngaged is the species of the creature most recently engaged.
 	LastEngaged string `json:"last_engaged,omitempty"`
+	// DeliveryResumes counts passes that carried on a cut-short delivery leg.
+	DeliveryResumes int `json:"delivery_resumes,omitempty"`
 	// PendingResult is set when heading home: the result to close with on docking.
 	PendingResult string `json:"pending_result"`
 }

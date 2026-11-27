@@ -417,6 +417,12 @@ func Hunt(ctx context.Context, deps HuntDeps) error {
 	// rebuilt through the resume gates; a job no longer held ends it as
 	// interrupted the same way, and unreadable held missions hold the pass.
 	sortie := huntLoadSortie(deps, out)
+	// A delivery cut short (a jump the server never answered) carries on from
+	// where the ship is. Without this the pass below flies to the nearest
+	// station first, closes the sortie there, and only then sets out again.
+	if sortie != nil && !state.Doc && huntResumeDelivery(ctx, deps, out, who, sortie, wildlifeOnly) {
+		return nil
+	}
 	if sortie != nil && !state.Doc && sortie.PendingResult == "" {
 		if err := deps.Client.GetStatus(ctx); err != nil {
 			fmt.Fprintf(out, "hunt[%s]: get_status before resuming sortie %s: %v; held for next pass\n", who, sortie.ID, err) //nolint:errcheck
