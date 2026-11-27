@@ -54,6 +54,11 @@ type Sortie struct {
 	Fights       int           `json:"fights"`
 	Kills        int           `json:"kills"`
 	ReloadsSpent int           `json:"reloads_spent"`
+	// ShipClass is the hull the sortie left in. A sortie that closes in
+	// another hull lost its ship.
+	ShipClass string `json:"ship_class,omitempty"`
+	// LastEngaged is the species of the creature most recently engaged.
+	LastEngaged string `json:"last_engaged,omitempty"`
 	// PendingResult is set when heading home: the result to close with on docking.
 	PendingResult string `json:"pending_result"`
 }

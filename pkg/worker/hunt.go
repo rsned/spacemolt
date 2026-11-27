@@ -767,11 +767,15 @@ grounds:
 			}
 
 			var c serverapi.NearbyCreature
+			fight := huntTargetFight{pursuit: pursue != nil}
 			if pursue != nil {
 				c, pursue = *pursue, nil
 			} else {
 				var idx int
-				c, idx = huntPickQuarry(quarry)
+				idx, fight.seq = huntTargetDecision(ctx, deps, out, job, s, quarry)
+				if idx >= 0 {
+					c = quarry[idx]
+				}
 				if idx < 0 {
 					fmt.Fprintf(out, "hunt: no huntable creatures remain (%d/%d killed); %s moves on to another ground\n", kills, target, job.boardID) //nolint:errcheck
 					continue grounds
@@ -790,8 +794,15 @@ grounds:
 			}
 			attempts++
 			s.Fights++
+			s.LastEngaged = c.Species
 
-			outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID, wildlifeOnly || job.need != nil, reach)
+			fight.creature = c
+			if before := deps.Client.GetState(); before != nil {
+				fight.hullBefore, fight.maxHull = before.Ship.Hull, before.Ship.MaxHull
+				fight.shieldBefore, fight.shipBefore = before.Ship.Shield, before.Ship.ClassID
+			}
+			outcome, fightTicks := huntFight(ctx, deps, out, fleeAtHull, c.CreatureID, c.Role, wildlifeOnly || job.need != nil, reach)
+			fight.outcome, fight.ticks = outcome, fightTicks
 			huntCaptureAttacks(ctx, deps, out, idBefore)
 
 			// The carcass is the kill receipt: a wreck whose victim_id is the
@@ -803,6 +814,7 @@ grounds:
 				if huntLootCarcass(ctx, deps, out, c, fightTicks, job.need) {
 					kills++
 					s.Kills++
+					fight.killed = true
 					fmt.Fprintf(out, "hunt[%s]: %s down (%d/%d)\n", who, c.CreatureID, kills, target) //nolint:errcheck
 				} else {
 					fmt.Fprintf(out, "hunt: no carcass for %s; not counting a kill\n", c.CreatureID) //nolint:errcheck
@@ -820,6 +832,10 @@ grounds:
 					}
 				}
 			}
+			if after := deps.Client.GetState(); after != nil {
+				fight.hullAfter, fight.shipAfter = after.Ship.Hull, after.Ship.ClassID
+			}
+			huntTargetOutcome(deps, s, fight)
 			huntSaveSortie(deps, out, s)
 			// Fleeing ends the pass by design. A battle command that errored ends
 			// it too: the worker may still be a participant in an unresolved
@@ -1386,12 +1402,14 @@ func huntReadGround(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 	// hunt is still one the field guide wants scanned.
 	huntScanUnknown(ctx, deps, out, nearby.Creatures)
 
+	th := huntLoadThreat(ctx, deps)
+
 	// Spec: "If a predator is present when the hunter arrives at a ground,
 	// it leaves that ground." Not just "never engages it": hunting the
 	// grazers beside a predator keeps the ship in its reach for a whole
 	// pass. Treated like an empty ground -- tried, and the sweep moves on.
 	if job.home || job.need != nil || wildlifeOnly {
-		if p, found := huntPredatorPresent(nearby.Creatures); found {
+		if p, found := huntPredatorPresent(nearby.Creatures, th); found {
 			fmt.Fprintf(out, "hunt[%s]: PREDATOR PRESENT at %s: %s (%s) role %q is not huntable wildlife; leaving this ground\n", //nolint:errcheck
 				who, poi, p.CreatureID, p.Species, p.Role)
 			return nil, true, true
@@ -1401,11 +1419,11 @@ func huntReadGround(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 	switch {
 	case job.home:
 		// Any grazer or scavenger: the role check is the no-predator rule.
-		quarry = huntAdmissibleQuarry(nearby.Creatures, true, "", out)
+		quarry = huntAdmissibleQuarry(nearby.Creatures, true, "", th, out)
 	case job.need != nil:
-		quarry = huntNeedQuarry(nearby.Creatures, job.need.Species, out)
+		quarry = huntNeedQuarry(nearby.Creatures, job.need.Species, th, out)
 	default:
-		quarry = huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, out)
+		quarry = huntAdmissibleQuarry(nearby.Creatures, wildlifeOnly, job.required, th, out)
 	}
 	if len(quarry) > 0 {
 		return quarry, false, true
@@ -1432,10 +1450,11 @@ func huntReadGround(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 }
 
 // huntPredatorPresent returns the first creature whose role is not quarry
-// (huntQuarryRoles): a predator, or a role that is unknown or missing.
-func huntPredatorPresent(creatures []serverapi.NearbyCreature) (serverapi.NearbyCreature, bool) {
+// for this hunter (huntThreat.quarryRole): a predator it cannot beat, or a
+// role that is unknown or missing.
+func huntPredatorPresent(creatures []serverapi.NearbyCreature, th huntThreat) (serverapi.NearbyCreature, bool) {
 	for _, c := range creatures {
-		if !huntQuarryRoles[c.Role] {
+		if !th.quarryRole(c.Role, c.Species, c.MaxHull) {
 			return c, true
 		}
 	}
@@ -1610,14 +1629,17 @@ func huntReportObjectiveProgress(ctx context.Context, deps HuntDeps, out io.Writ
 // engages two wrong targets for every right one — each costing hull, ticks and
 // an attempts slot, and earning nothing. required is empty for a mission
 // nobody has scoped, and then this rule does not apply at all.
-func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly bool, required string, out io.Writer) []serverapi.NearbyCreature {
+func huntAdmissibleQuarry(creatures []serverapi.NearbyCreature, wildlifeOnly bool, required string, th huntThreat, out io.Writer) []serverapi.NearbyCreature {
 	keep := make([]serverapi.NearbyCreature, 0, len(creatures))
 	for _, c := range creatures {
+		tough, why := th.tooTough(c.Species, c.MaxHull)
 		switch {
 		case c.InCombat:
 			fmt.Fprintf(out, "hunt: skip %s (%s): already in combat\n", c.CreatureID, c.Species) //nolint:errcheck
-		case wildlifeOnly && !huntQuarryRoles[c.Role]:
+		case wildlifeOnly && !th.quarryRole(c.Role, c.Species, c.MaxHull):
 			fmt.Fprintf(out, "hunt: skip %s (%s): role %q is not huntable wildlife\n", c.CreatureID, c.Species, c.Role) //nolint:errcheck
+		case tough:
+			fmt.Fprintf(out, "hunt: skip %s (%s): too tough to hunt: %s\n", c.CreatureID, c.Species, why) //nolint:errcheck
 		case required != "" && c.Species != required && c.CreatureID != required:
 			fmt.Fprintf(out, "hunt: skip %s: species %q does not count for this mission, which needs %q\n", c.CreatureID, c.Species, required) //nolint:errcheck
 		default:
@@ -1817,6 +1839,9 @@ func huntPickQuarry(creatures []serverapi.NearbyCreature) (serverapi.NearbyCreat
 type huntPolicy struct {
 	fleeAtHull   float64
 	wildlifeOnly bool
+	// targetRole is the role of the creature engaged: "predator" when the
+	// danger score cleared one as quarry.
+	targetRole string
 	// creature turns on the trend break-off (huntWornDown) on top of the
 	// fleeAtHull floor. Bounty and other combat fights leave it false and keep
 	// the single-threshold policy.
@@ -1899,9 +1924,15 @@ func (p *huntPolicy) Decide(v spar.View) spar.Action {
 	// is the first (huntAdmissibleQuarry); a battle participant carries the
 	// same classifier as ship_name, so anything that got past the filter — or
 	// wandered in — is caught here before a shot is exchanged.
+	// A predator the score cleared as the target is the one exception: one
+	// predator in the fight is that target, a second is not.
 	if p.wildlifeOnly {
+		predators := 0
 		for _, e := range v.Enemies {
-			if e.IsNPC && e.ShipName != "" && !huntQuarryRoles[e.ShipName] {
+			if !e.IsNPC || e.ShipName == "" || huntQuarryRoles[e.ShipName] {
+				continue
+			}
+			if predators++; p.targetRole != huntPredatorRole || e.ShipName != huntPredatorRole || predators > 1 {
 				return p.breakOff(huntFled, fmt.Sprintf("%s is a %s, not huntable wildlife", e.Username, e.ShipName))
 			}
 		}
@@ -2124,7 +2155,7 @@ func huntLowestEnemyHull(v spar.View) int {
 // a command failed: the server drops the battle the tick the quarry dies or an
 // escape lands, and the next poll finds none. Observed live 2026-11-22: every
 // kill ended its pass as a "battle error".
-func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull float64, creatureID string, creature bool, reach int) (huntOutcome, int) {
+func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull float64, creatureID, targetRole string, creature bool, reach int) (huntOutcome, int) {
 	selfID := ""
 	if st := deps.Client.GetState(); st != nil {
 		selfID = st.Player.ID
@@ -2133,7 +2164,7 @@ func huntFight(ctx context.Context, deps HuntDeps, out io.Writer, fleeAtHull flo
 		fmt.Fprintf(out, "hunt: own player id unknown; cannot drive the fight vs %s\n", creatureID) //nolint:errcheck
 		return huntBattleError, 0
 	}
-	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: huntWildlifeOnly(deps), creature: creature, reach: reach}
+	p := &huntPolicy{fleeAtHull: fleeAtHull, wildlifeOnly: huntWildlifeOnly(deps), creature: creature, reach: reach, targetRole: targetRole}
 	if err := spar.RunPolicyLoop(ctx, deps.Client, selfID, p, deps.tickSleep); err != nil && !huntNoActiveBattle(err) {
 		fmt.Fprintf(out, "hunt: fight vs %s ended on error after %d tick(s): %v\n", creatureID, p.ticks, err) //nolint:errcheck
 		return huntBattleError, p.ticks

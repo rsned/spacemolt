@@ -96,3 +96,4 @@ Not in a hub? `grep -ril '<keyword>' .` in this directory — every file's `desc
 - [Reactive Armor Hardener = +25% ALL types incl. energy (11-24)](reference_reactive_armor_hardener_all_types.md) — typed bucket, multiplies with adaptive; KB blank; frontier Harmonic fit
 - [Hunt training data cutoff (11-24)](project_hunt_training_data_cutoff.md) — train only on hunt-decisions records at/after 2026-11-24 16:27 PT; older ones are pre-fix, kept not deleted
 - [Wildlife respawn + bloom (11-25)](reference_wildlife_respawn_bloom.md) — regrowth follows belt depletion; survey_system with survey_scanner reports bloom; hunter empty-look timer is a 1h guess
+- 🔴 [Cloudwhale is too tough to hunt (11-27)](reference_cloudwhale_too_tough_to_hunt.md) — killed pirate-7; quarry and predators gated on a per-hunter danger score (35%), hunt_threat.go; target decisions now captured, job not

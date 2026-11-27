@@ -98,6 +98,7 @@ func huntNewSortie(deps HuntDeps, job huntJob) *huntdecide.Sortie {
 	s.JobKind, s.JobID = huntJobKind(job)
 	if st := deps.Client.GetState(); st != nil {
 		s.StartTick = st.CurrentTick
+		s.ShipClass = st.Ship.ClassID
 	}
 	return s
 }
@@ -124,6 +125,7 @@ func huntCloseSortie(ctx context.Context, deps HuntDeps, out io.Writer, s *huntd
 		return
 	}
 	huntReleaseClaim(deps)
+	result = huntSortieLostShip(deps, out, s, result)
 	if dir := huntAgentDir(deps); dir != "" {
 		huntSortieRecord(ctx, deps, out, "sortie_end", s, job, huntReadLoadout(ctx, deps), result)
 		if err := huntdecide.ClearSortie(dir); err != nil {
@@ -135,6 +137,21 @@ func huntCloseSortie(ctx context.Context, deps HuntDeps, out io.Writer, s *huntd
 	if deps.ReportSortie != nil {
 		deps.ReportSortie(result)
 	}
+}
+
+// huntSortieLostShip returns ResultDestroyed in place of result when the
+// sortie closes in a different hull from the one it left in. On 2026-11-26
+// pirate-7 attacked a cloudwhale (3,501 hull, 80 a hit) for a Lumen Oil need,
+// died fleeing, respawned in a cobble, and the sortie closed
+// returned_damaged: the one result the flee had set.
+func huntSortieLostShip(deps HuntDeps, out io.Writer, s *huntdecide.Sortie, result string) string {
+	st := deps.Client.GetState()
+	if s.ShipClass == "" || st == nil || st.Ship.ClassID == "" || st.Ship.ClassID == s.ShipClass {
+		return result
+	}
+	fmt.Fprintf(out, "hunt[%s]: SHIP DESTROYED on sortie %s: left in a %s, closing in a %s (last engaged: %s)\n", //nolint:errcheck
+		huntWho(deps), s.ID, s.ShipClass, st.Ship.ClassID, cmp.Or(s.LastEngaged, "nothing"))
+	return huntdecide.ResultDestroyed
 }
 
 // huntSortiePending records the result a sortie closes with once docked.

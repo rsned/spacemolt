@@ -71,18 +71,18 @@ func TestHuntParseNeedRefusesUnknownSource(t *testing.T) {
 func TestHuntAdmissibleNeedRefusesPredator(t *testing.T) {
 	n := huntNeed{Species: []string{"frost_moth", "razor_wyrm"}}
 	roles := map[string]string{"frost_moth": "grazer", "razor_wyrm": "predator"}
-	ok, reason := huntAdmissibleNeed(n, 1, func(s string) string { return roles[s] })
+	ok, reason := huntAdmissibleNeed(n, 1, func(s string) string { return roles[s] }, nil, huntThreat{})
 	if ok || !strings.Contains(reason, "razor_wyrm") {
 		t.Errorf("ok=%v reason=%q, want refusal naming razor_wyrm", ok, reason)
 	}
-	ok, _ = huntAdmissibleNeed(huntNeed{Species: []string{"frost_moth"}}, 1, func(s string) string { return roles[s] })
+	ok, _ = huntAdmissibleNeed(huntNeed{Species: []string{"frost_moth"}}, 1, func(s string) string { return roles[s] }, nil, huntThreat{})
 	if !ok {
 		t.Error("grazer should be admissible")
 	}
 }
 
 func TestHuntAdmissibleNeedRefusesUnknownRole(t *testing.T) {
-	ok, reason := huntAdmissibleNeed(huntNeed{Species: []string{"mystery"}}, 1, func(string) string { return "" })
+	ok, reason := huntAdmissibleNeed(huntNeed{Species: []string{"mystery"}}, 1, func(string) string { return "" }, nil, huntThreat{})
 	if ok || !strings.Contains(reason, "mystery") {
 		t.Errorf("ok=%v reason=%q", ok, reason)
 	}
@@ -91,10 +91,10 @@ func TestHuntAdmissibleNeedRefusesUnknownRole(t *testing.T) {
 func TestHuntAdmissibleNeedCapsDifficultyAt2(t *testing.T) {
 	n := huntNeed{Species: []string{"frost_moth"}}
 	grazer := func(string) string { return "grazer" }
-	if ok, _ := huntAdmissibleNeed(n, 2, grazer); !ok {
+	if ok, _ := huntAdmissibleNeed(n, 2, grazer, nil, huntThreat{}); !ok {
 		t.Error("difficulty 2 should pass")
 	}
-	if ok, _ := huntAdmissibleNeed(n, 3, grazer); ok {
+	if ok, _ := huntAdmissibleNeed(n, 3, grazer, nil, huntThreat{}); ok {
 		t.Error("difficulty 3 should be refused")
 	}
 }
@@ -108,7 +108,7 @@ func TestHuntParseNeedKeepsEveryNameDespiteParens(t *testing.T) {
 		t.Fatalf("need = %+v ok=%v", n, ok)
 	}
 	roles := map[string]string{"belt_grazer": "grazer", "crusher_mantis": "predator"}
-	if adm, reason := huntAdmissibleNeed(n, 1, func(s string) string { return roles[s] }); adm {
+	if adm, reason := huntAdmissibleNeed(n, 1, func(s string) string { return roles[s] }, nil, huntThreat{}); adm {
 		t.Errorf("predator on the line must be refused, reason=%q", reason)
 	}
 }

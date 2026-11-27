@@ -345,6 +345,7 @@ type huntNeedLookups struct {
 	byName  map[string]string
 	dropsOf func(itemID string) []string
 	roleOf  func(species string) string
+	hullOf  func(species string) int
 }
 
 func huntLoadNeedLookups(ctx context.Context, nk huntNeedKB) (huntNeedLookups, error) {
@@ -357,8 +358,10 @@ func huntLoadNeedLookups(ctx context.Context, nk huntNeedKB) (huntNeedLookups, e
 		return huntNeedLookups{}, fmt.Errorf("field guide: %w", err)
 	}
 	roles := make(map[string]string, len(guide))
+	hulls := make(map[string]int, len(guide))
 	for _, s := range guide {
 		roles[s.Species] = s.Role
+		hulls[s.Species] = s.MaxHull
 	}
 	return huntNeedLookups{
 		byName: byName,
@@ -370,6 +373,7 @@ func huntLoadNeedLookups(ctx context.Context, nk huntNeedKB) (huntNeedLookups, e
 			return sp
 		},
 		roleOf: func(species string) string { return roles[species] },
+		hullOf: func(species string) int { return hulls[species] },
 	}, nil
 }
 
@@ -419,6 +423,7 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 	roam := huntLoadRoam(deps, out)
 	radius := huntNeedRadius(roam.DryPasses)
 	free := int(st.Ship.CargoCapacity - st.Ship.CargoUsed)
+	th := huntLoadThreat(ctx, deps)
 
 	var needs []huntNeed
 	entries := map[string]serverapi.MissionBoardEntry{}
@@ -434,7 +439,7 @@ func huntNeedJob(ctx context.Context, deps HuntDeps, out io.Writer, who string, 
 			fmt.Fprintf(out, "hunt: skip need %s (%s): abandoned after dry searches within the last %s\n", e.MissionID, e.Title, huntNeedGaveUpFor) //nolint:errcheck
 			continue
 		}
-		if admit, reason := huntAdmissibleNeed(n, e.Difficulty, lk.roleOf); !admit {
+		if admit, reason := huntAdmissibleNeed(n, e.Difficulty, lk.roleOf, lk.hullOf, th); !admit {
 			fmt.Fprintf(out, "hunt: skip need %s (%s): %s\n", e.MissionID, e.Title, reason) //nolint:errcheck
 			continue
 		}
@@ -526,7 +531,7 @@ func huntResumeNeed(ctx context.Context, deps HuntDeps, out io.Writer, who strin
 	if !ok {
 		return huntJob{}, false // not a creature need
 	}
-	if admit, reason := huntAdmissibleNeed(n, m.Difficulty, lk.roleOf); !admit {
+	if admit, reason := huntAdmissibleNeed(n, m.Difficulty, lk.roleOf, lk.hullOf, huntLoadThreat(ctx, deps)); !admit {
 		fmt.Fprintf(out, "hunt[%s]: holding need %s (%s), not resuming: %s\n", who, m.MissionID, m.Title, reason) //nolint:errcheck
 		return huntJob{}, false
 	}
@@ -609,8 +614,8 @@ func huntTravelToNeedGround(ctx context.Context, deps HuntDeps, out io.Writer, n
 // the role check forced on (huntAdmissibleQuarry, wildlife-only), then only
 // the need's own species. Nothing else at the ground is quarry, whatever it
 // drops.
-func huntNeedQuarry(creatures []serverapi.NearbyCreature, species []string, out io.Writer) []serverapi.NearbyCreature {
-	admitted := huntAdmissibleQuarry(creatures, true, "", out)
+func huntNeedQuarry(creatures []serverapi.NearbyCreature, species []string, th huntThreat, out io.Writer) []serverapi.NearbyCreature {
+	admitted := huntAdmissibleQuarry(creatures, true, "", th, out)
 	keep := admitted[:0]
 	for _, c := range admitted {
 		if slices.Contains(species, c.Species) {

@@ -3,6 +3,7 @@ package worker
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/rsned/spacemolt/pkg/game/serverapi"
@@ -120,19 +121,40 @@ func huntContains(s []string, v string) bool {
 	return false
 }
 
-// huntAdmissibleNeed decides whether a need may be hunted. It refuses
-// difficulty above huntNeedMaxDifficulty and any species whose role is not in
-// huntQuarryRoles: the no-predator rule, where an unknown role is refused too.
-func huntAdmissibleNeed(n huntNeed, difficulty int, roleOf func(species string) string) (bool, string) {
+// huntAdmissibleNeed decides whether a need may be hunted by this hunter. It
+// refuses difficulty above huntNeedMaxDifficulty, a need none of whose
+// sources the hunter can take (huntThreat.tooTough, on the species' largest
+// recorded hull), and any species whose role is not quarry for it: an
+// unknown role, or a predator the danger score does not clear. hullOf may be
+// nil.
+func huntAdmissibleNeed(n huntNeed, difficulty int, roleOf func(species string) string, hullOf func(species string) int, th huntThreat) (bool, string) {
 	if difficulty > huntNeedMaxDifficulty {
 		return false, fmt.Sprintf("difficulty %d exceeds %d", difficulty, huntNeedMaxDifficulty)
 	}
 	if len(n.Species) == 0 {
 		return false, "no source species"
 	}
+	hull := func(sp string) int {
+		if hullOf == nil {
+			return 0
+		}
+		return hullOf(sp)
+	}
+	// A need with any source the hunter can take stays; the tough ones are
+	// refused creature by creature at the ground (huntAdmissibleQuarry).
+	why := ""
+	if !slices.ContainsFunc(n.Species, func(sp string) bool {
+		tough, reason := th.tooTough(sp, hull(sp))
+		if tough {
+			why = reason
+		}
+		return !tough
+	}) {
+		return false, fmt.Sprintf("species %s is too tough to hunt: %s", strings.Join(n.Species, "/"), why)
+	}
 	for _, sp := range n.Species {
 		role := roleOf(sp)
-		if !huntQuarryRoles[role] {
+		if !th.quarryRole(role, sp, hull(sp)) {
 			if role == "" {
 				role = "unknown"
 			}

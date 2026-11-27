@@ -13,6 +13,9 @@ const (
 	KindProvision Kind = "provision"
 	// KindReturn is the decision of whether to return from a sortie.
 	KindReturn Kind = "return"
+	// KindTarget is the decision of which creature at a ground to engage.
+	// Every creature there is an option; the ones refused carry why.
+	KindTarget Kind = "target"
 )
 
 // Weapon describes one weapon module aboard.
@@ -57,6 +60,9 @@ type SortieSoFar struct {
 	Fights       int           `json:"fights"`
 	Kills        int           `json:"kills"`
 	ReloadsSpent int           `json:"reloads_spent"`
+	// LastEngaged is the species of the creature most recently engaged; on a
+	// destroyed sortie, what the ship was fighting when it was lost.
+	LastEngaged string `json:"last_engaged,omitempty"`
 }
 
 // State is the snapshot of the world and ship at a decision point.

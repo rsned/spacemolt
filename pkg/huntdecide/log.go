@@ -30,7 +30,7 @@ type OutcomeRecord struct {
 	At       time.Time      `json:"at"`
 	SortieID string         `json:"sortie_id"`
 	Seq      int            `json:"seq"`   // decision it answers; 0 = none
-	Phase    string         `json:"phase"` // phase 1 writes only "provision"
+	Phase    string         `json:"phase"` // "provision" or "target"
 	Data     map[string]any `json:"data"`
 }
 

@@ -1239,3 +1239,40 @@ func TestHuntNoGroundKnownBacksOff(t *testing.T) {
 		t.Errorf("after the backoff a sortie starts again: %d -> %d\n%s", starts, got, e.out)
 	}
 }
+
+// Each engagement leaves a target decision, with the creature chosen among
+// its options, and an outcome answering it by seq.
+func TestHuntRecordsATargetDecisionAndItsOutcome(t *testing.T) {
+	e := sortieMissionEnv(t, 1, provLasers(1))
+	e.fake.grounds = map[string][]huntCreature{sortieGround1: huntGrazers("g1")}
+	e.pass(t)
+
+	var dec, outc map[string]any
+	for _, r := range e.records(t) {
+		switch {
+		case r["type"] == "decision" && r["kind"] == string(huntdecide.KindTarget):
+			dec = r
+		case r["type"] == "outcome" && r["phase"] == string(huntdecide.KindTarget):
+			outc = r
+		}
+	}
+	if dec == nil || outc == nil {
+		t.Fatalf("want a target decision and its outcome, got %v / %v\n%s", dec, outc, e.out)
+	}
+	opts, _ := dec["options"].([]any)
+	if len(opts) == 0 || dec["option_id"] == "" {
+		t.Fatalf("target decision has no options or no pick: %v", dec)
+	}
+	first, _ := opts[0].(map[string]any)
+	feat, _ := first["features"].(map[string]any)
+	if feat["admissible"] != true || feat["max_hull"] == nil || feat["species"] == nil {
+		t.Errorf("option features = %v, want admissible with species and max_hull", feat)
+	}
+	data, _ := outc["data"].(map[string]any)
+	if outc["seq"] != dec["seq"] || data["creature_id"] != dec["option_id"] {
+		t.Errorf("outcome %v does not answer decision seq %v pick %v", outc, dec["seq"], dec["option_id"])
+	}
+	if data["killed"] != true || data["result"] != "resolved" || data["ship_lost"] != false {
+		t.Errorf("outcome data = %v, want a kill, resolved, ship kept", data)
+	}
+}

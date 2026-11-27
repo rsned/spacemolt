@@ -35,6 +35,8 @@ func (huntRules) Decide(_ context.Context, d huntdecide.Decision) huntdecide.Cho
 		return rulesProvision(d)
 	case huntdecide.KindReturn:
 		return rulesReturn(d)
+	case huntdecide.KindTarget:
+		return rulesTarget(d)
 	}
 	if len(d.Options) > 0 {
 		return huntdecide.Choice{OptionID: d.Options[0].ID, Reason: "unknown decision kind; first option"}

@@ -72,6 +72,7 @@ func huntDecisionState(ctx context.Context, deps HuntDeps, job huntJob, s *huntd
 			Fights:       s.Fights,
 			Kills:        s.Kills,
 			ReloadsSpent: s.ReloadsSpent,
+			LastEngaged:  s.LastEngaged,
 		}
 	}
 	if out.Sortie.Grounds == nil {
